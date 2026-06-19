@@ -16,12 +16,14 @@ from factori.schemas import (
     Candidate,
     ClaimTable,
     DraftSkeleton,
+    FinalAuditReport,
     FinalNucleus,
     LedgerSummary,
     ManuscriptChecklist,
     ManuscriptPlan,
     PaperSkeleton,
     RedTeamReport,
+    ReleaseGateDecision,
     ReproducibilityManifest,
     ResearchObject,
     ScoreVector,
@@ -803,4 +805,75 @@ def render_paper_skeleton_markdown(*, paper_skeleton: PaperSkeleton) -> str:
             "- The ledger remains the source of truth for provenance.",
         ]
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_final_audit_report_markdown(*, audit_report: FinalAuditReport) -> str:
+    """Render a deterministic final audit report."""
+    lines = [
+        "# Final Audit Report",
+        "",
+        "Deterministic internal-consistency audit only; this does not certify scientific validity.",
+        "",
+        f"Run: `{audit_report.run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Audit checks: {len(audit_report.checks)}",
+        f"- Passes: {audit_report.passes_count}",
+        f"- Warnings: {audit_report.warnings_count}",
+        f"- Failures: {audit_report.failures_count}",
+        f"- Blocking failures: {audit_report.blocking_failures_count}",
+        "",
+        "## Checks",
+        "",
+        "| Check | Category | Status | Severity | Message |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for check in audit_report.checks:
+        lines.append(
+            f"| {check.check_id} | {check.category.value} | {check.status.value} | "
+            f"{check.severity.value} | {check.message} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            "- Paper skeletons, Markdown, LaTeX, and research-object reports are "
+            "presentation artifacts.",
+            "- The audit validates deterministic consistency only.",
+            "- The immutable ledger remains the source of truth.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_release_gate_decision_markdown(*, decision: ReleaseGateDecision) -> str:
+    """Render a deterministic release gate decision."""
+    lines = [
+        "# Release Gate Decision",
+        "",
+        "Deterministic release gate only; this is not a scientific-validity certificate.",
+        "",
+        f"Run: `{decision.run_id}`",
+        "",
+        f"- Status: {decision.status.value}",
+        f"- Ready for polished prose: {str(decision.ready_for_polished_prose).lower()}",
+        f"- Ready for LaTeX export: {str(decision.ready_for_latex_export).lower()}",
+        f"- Ready for external review: {str(decision.ready_for_external_review).lower()}",
+        f"- Audit checks: {decision.audit_checks}",
+        "",
+        "## Blocking Reasons",
+        "",
+    ]
+    if decision.blocking_reasons:
+        lines.extend(f"- {reason}" for reason in decision.blocking_reasons)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    if decision.warnings:
+        lines.extend(f"- {warning}" for warning in decision.warnings)
+    else:
+        lines.append("- none")
     return "\n".join(lines) + "\n"

@@ -12,6 +12,7 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
+from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
@@ -410,6 +411,34 @@ def assemble_paper_skeleton_command(
         f"{str(result.assembly_report.ready_for_polished_prose).lower()}"
     )
     typer.echo(f"paper_skeleton={result.paper_markdown_artifact.path}")
+
+
+@app.command("final-audit")
+def final_audit_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run deterministic final audit and release gate."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_final_audit(run_id=run_id, store=store, ledger=ledger)
+    except FinalAuditError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    report = result.audit_report
+    decision = result.release_gate_decision
+    typer.echo(f"audit_checks={len(report.checks)}")
+    typer.echo(f"passes={report.passes_count}")
+    typer.echo(f"warnings={report.warnings_count}")
+    typer.echo(f"failures={report.failures_count}")
+    typer.echo(f"blocking_failures={report.blocking_failures_count}")
+    typer.echo(f"release_status={decision.status.value}")
+    typer.echo(f"ready_for_polished_prose={str(decision.ready_for_polished_prose).lower()}")
+    typer.echo(f"ready_for_latex_export={str(decision.ready_for_latex_export).lower()}")
+    typer.echo(f"ready_for_external_review={str(decision.ready_for_external_review).lower()}")
+    typer.echo(f"final_audit_report={result.audit_markdown_artifact.path}")
+    typer.echo(f"release_gate_decision={result.release_markdown_artifact.path}")
 
 
 @app.command("questioner-check")

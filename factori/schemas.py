@@ -156,6 +156,50 @@ class ControllerActionType(StrEnum):
     PAPER_ASSEMBLY_STARTED = "PaperAssemblyStarted"
     PAPER_SKELETON_WRITTEN = "PaperSkeletonWritten"
     PAPER_ASSEMBLY_REPORT_WRITTEN = "PaperAssemblyReportWritten"
+    FINAL_AUDIT_STARTED = "FinalAuditStarted"
+    FINAL_AUDIT_REPORT_WRITTEN = "FinalAuditReportWritten"
+    RELEASE_GATE_DECIDED = "ReleaseGateDecided"
+
+
+class ReleaseGateStatus(StrEnum):
+    """Final deterministic release gate statuses."""
+
+    RELEASE_READY = "ReleaseReady"
+    RELEASE_BLOCKED = "ReleaseBlocked"
+    RELEASE_READY_WITH_WARNINGS = "ReleaseReadyWithWarnings"
+
+
+class AuditCategory(StrEnum):
+    """Final audit check categories."""
+
+    LEDGER_INTEGRITY = "LedgerIntegrity"
+    ARTIFACT_INTEGRITY = "ArtifactIntegrity"
+    EVIDENCE_BOUNDARY = "EvidenceBoundary"
+    CLAIM_LABEL_PRESERVATION = "ClaimLabelPreservation"
+    SYNTHETIC_DATA_BOUNDARY = "SyntheticDataBoundary"
+    BLOCKED_CLAIM_HANDLING = "BlockedClaimHandling"
+    PROVENANCE_COMPLETENESS = "ProvenanceCompleteness"
+    RESEARCH_OBJECT_COMPLETENESS = "ResearchObjectCompleteness"
+    PAPER_SKELETON_CONSISTENCY = "PaperSkeletonConsistency"
+    REPRODUCIBILITY_READINESS = "ReproducibilityReadiness"
+    HUMAN_ESCALATION_POLICY = "HumanEscalationPolicy"
+
+
+class AuditCheckStatus(StrEnum):
+    """Per-check audit statuses."""
+
+    PASS = "Pass"
+    WARNING = "Warning"
+    FAIL = "Fail"
+    NOT_APPLICABLE = "NotApplicable"
+
+
+class AuditSeverity(StrEnum):
+    """Audit finding severities."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    BLOCKING = "Blocking"
 
 
 class BranchVerificationType(StrEnum):
@@ -910,6 +954,58 @@ class PaperSkeleton(StrictModel):
     provenance_refs: dict[str, ArtifactRef]
     fake: bool = True
     is_verification_evidence: bool = False
+
+
+class AuditFinding(StrictModel):
+    """One deterministic final audit finding."""
+
+    check_id: str = Field(min_length=1)
+    category: AuditCategory
+    status: AuditCheckStatus
+    severity: AuditSeverity
+    message: str = Field(min_length=1)
+    artifact_refs: list[ArtifactRef] = Field(default_factory=list)
+    commit_refs: list[str] = Field(default_factory=list)
+
+
+class AuditCheck(StrictModel):
+    """One deterministic final audit check."""
+
+    check_id: str = Field(min_length=1)
+    category: AuditCategory
+    status: AuditCheckStatus
+    severity: AuditSeverity
+    message: str = Field(min_length=1)
+    artifact_refs: list[ArtifactRef] = Field(default_factory=list)
+    commit_refs: list[str] = Field(default_factory=list)
+
+
+class FinalAuditReport(StrictModel):
+    """Deterministic internal consistency audit, not a validity certificate."""
+
+    run_id: str = Field(min_length=1)
+    checks: list[AuditCheck]
+    findings: list[AuditFinding] = Field(default_factory=list)
+    passes_count: int = Field(ge=0)
+    warnings_count: int = Field(ge=0)
+    failures_count: int = Field(ge=0)
+    blocking_failures_count: int = Field(ge=0)
+    certifies_scientific_validity: bool = False
+    fake: bool = True
+
+
+class ReleaseGateDecision(StrictModel):
+    """Deterministic release gate decision from a final audit report."""
+
+    run_id: str = Field(min_length=1)
+    status: ReleaseGateStatus
+    ready_for_polished_prose: bool
+    ready_for_latex_export: bool
+    ready_for_external_review: bool
+    blocking_reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    audit_checks: int = Field(ge=0)
+    certifies_scientific_validity: bool = False
 
 
 class ScoreVector(StrictModel):

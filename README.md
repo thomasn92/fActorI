@@ -20,6 +20,7 @@ Implemented so far:
 - deterministic draft skeleton and manuscript checklist generation;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
+- deterministic final audit and release gate;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -55,6 +56,7 @@ uv run factori plan-manuscript --run-id demo
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
+uv run factori final-audit --run-id demo
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
