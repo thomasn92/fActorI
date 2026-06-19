@@ -20,6 +20,7 @@ from factori.schemas import (
     LedgerSummary,
     ManuscriptChecklist,
     ManuscriptPlan,
+    PaperSkeleton,
     RedTeamReport,
     ReproducibilityManifest,
     ResearchObject,
@@ -746,4 +747,60 @@ def render_research_object_markdown(
         lines.extend(f"- {warning}" for warning in reproducibility_manifest.warnings)
     else:
         lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_paper_skeleton_markdown(*, paper_skeleton: PaperSkeleton) -> str:
+    """Render the deterministic assembled paper skeleton."""
+    lines = [
+        f"# {paper_skeleton.title}",
+        "",
+        "Deterministic paper skeleton only; this is not polished prose or verification evidence.",
+        "",
+    ]
+    for section in paper_skeleton.sections:
+        lines.extend([f"## {section.title}", "", f"Purpose: {section.purpose}", ""])
+        if section.title == "Abstract":
+            lines.extend([paper_skeleton.abstract_scaffold, ""])
+        if section.claim_placeholders:
+            lines.append("Claim placeholders:")
+            for placeholder in section.claim_placeholders:
+                evidence = (
+                    ", ".join(placeholder.evidence_artifact_ids)
+                    if placeholder.evidence_artifact_ids
+                    else "none"
+                )
+                lines.append(
+                    f"- claim_id={placeholder.claim_id}; "
+                    f"label={placeholder.claim_label.value}; "
+                    f"candidate_id={placeholder.candidate_id}; "
+                    f"evidence_artifact_ids={evidence}; "
+                    f"allowed_section={placeholder.allowed_section}"
+                )
+            lines.append("")
+        else:
+            lines.extend(["Claim placeholders: none", ""])
+        if section.warnings:
+            lines.append("Warnings:")
+            lines.extend(f"- {warning}" for warning in section.warnings)
+            lines.append("")
+
+    for appendix in paper_skeleton.appendices:
+        lines.extend([f"# {appendix.title}", ""])
+        lines.extend(f"- {line}" for line in appendix.content_lines)
+        lines.append("")
+
+    lines.extend(
+        [
+            "# Assembly Invariants",
+            "",
+            "- No new scientific claims are introduced.",
+            "- Claim labels are copied from the claim table.",
+            "- Synthetic evidence remains synthetic-only.",
+            "- Conjectures remain conjectures.",
+            "- Negative results remain negative or boundary-labeled.",
+            "- LaTeX and Markdown artifacts are presentation artifacts, not verification evidence.",
+            "- The ledger remains the source of truth for provenance.",
+        ]
+    )
     return "\n".join(lines) + "\n"

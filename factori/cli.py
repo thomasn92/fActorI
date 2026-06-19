@@ -12,6 +12,7 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
+from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.questioner import route_questions_to_action, routed_action, select_questions
@@ -385,6 +386,30 @@ def package_research_object_command(
     typer.echo(f"branch_outcomes={len(result.branch_outcomes)}")
     typer.echo(f"reproducible={str(result.reproducibility_manifest.reproducible).lower()}")
     typer.echo(f"research_object={result.manifest.research_object_markdown.path}")
+
+
+@app.command("assemble-paper-skeleton")
+def assemble_paper_skeleton_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Assemble deterministic paper-shaped Markdown and JSON skeleton artifacts."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_paper_assembly(run_id=run_id, store=store, ledger=ledger)
+    except PaperAssemblyError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"sections={result.assembly_report.sections_count}")
+    typer.echo(f"claims_included={result.assembly_report.claims_included}")
+    typer.echo(f"claims_blocked={result.assembly_report.claims_blocked}")
+    typer.echo(f"evidence_links={result.assembly_report.evidence_links_count}")
+    typer.echo(
+        "ready_for_polished_prose="
+        f"{str(result.assembly_report.ready_for_polished_prose).lower()}"
+    )
+    typer.echo(f"paper_skeleton={result.paper_markdown_artifact.path}")
 
 
 @app.command("questioner-check")

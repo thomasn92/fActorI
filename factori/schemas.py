@@ -153,6 +153,9 @@ class ControllerActionType(StrEnum):
     BRANCH_OUTCOMES_WRITTEN = "BranchOutcomesWritten"
     REPRODUCIBILITY_MANIFEST_WRITTEN = "ReproducibilityManifestWritten"
     RESEARCH_OBJECT_WRITTEN = "ResearchObjectWritten"
+    PAPER_ASSEMBLY_STARTED = "PaperAssemblyStarted"
+    PAPER_SKELETON_WRITTEN = "PaperSkeletonWritten"
+    PAPER_ASSEMBLY_REPORT_WRITTEN = "PaperAssemblyReportWritten"
 
 
 class BranchVerificationType(StrEnum):
@@ -860,6 +863,53 @@ class DraftSkeleton(StrictModel):
     blocked_claim_warnings: list[str] = Field(default_factory=list)
     checklist: ManuscriptChecklist | None = None
     fake: bool = True
+
+
+class PaperSection(StrictModel):
+    """One section in the deterministic assembled paper skeleton."""
+
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
+    claim_placeholders: list[DraftClaimPlaceholder] = Field(default_factory=list)
+    evidence_artifact_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class PaperAppendix(StrictModel):
+    """One appendix in the deterministic assembled paper skeleton."""
+
+    appendix_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    content_lines: list[str]
+    claim_ids: list[str] = Field(default_factory=list)
+    artifact_ref_ids: list[str] = Field(default_factory=list)
+
+
+class PaperAssemblyReport(StrictModel):
+    """Readiness report for deterministic paper assembly."""
+
+    sections_count: int = Field(ge=0)
+    claims_included: int = Field(ge=0)
+    claims_blocked: int = Field(ge=0)
+    evidence_links_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    ready_for_polished_prose: bool
+
+
+class PaperSkeleton(StrictModel):
+    """Paper-shaped deterministic scaffold. This is not verification evidence."""
+
+    paper_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    abstract_scaffold: str = Field(min_length=1)
+    sections: list[PaperSection]
+    appendices: list[PaperAppendix]
+    claim_placeholders: list[DraftClaimPlaceholder]
+    provenance_refs: dict[str, ArtifactRef]
+    fake: bool = True
+    is_verification_evidence: bool = False
 
 
 class ScoreVector(StrictModel):
