@@ -16,6 +16,7 @@ Implemented so far:
 - deterministic Stage B-to-C red-team filtering and Stage C candidate selection;
 - deterministic fake Stage C verification labeling and evidence-boundary checks;
 - deterministic Abstract Synthesis skeleton and final nucleus selection;
+- deterministic manuscript planning skeleton with claim/evidence tables;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -47,6 +48,7 @@ uv run factori run-stage-b --run-id demo
 uv run factori select-stage-c --run-id demo
 uv run factori run-stage-c --run-id demo
 uv run factori synthesize-abstract --run-id demo
+uv run factori plan-manuscript --run-id demo
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo

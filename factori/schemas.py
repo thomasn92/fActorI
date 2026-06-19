@@ -137,6 +137,11 @@ class ControllerActionType(StrEnum):
     ABSTRACTION_REPORT_WRITTEN = "AbstractionReportWritten"
     FINAL_NUCLEUS_SELECTED = "FinalNucleusSelected"
     ABSTRACT_SYNTHESIS_REPORT_WRITTEN = "AbstractSynthesisReportWritten"
+    MANUSCRIPT_PLANNING_STARTED = "ManuscriptPlanningStarted"
+    CLAIM_TABLE_BUILT = "ClaimTableBuilt"
+    BLOCKED_CLAIMS_IDENTIFIED = "BlockedClaimsIdentified"
+    MANUSCRIPT_PLAN_BUILT = "ManuscriptPlanBuilt"
+    MANUSCRIPT_PLAN_REPORT_WRITTEN = "ManuscriptPlanReportWritten"
 
 
 class BranchVerificationType(StrEnum):
@@ -597,6 +602,72 @@ class FinalNucleus(StrictModel):
     evidence_artifacts: list[ArtifactRef] = Field(default_factory=list)
     reason: str = Field(min_length=1)
     synthesis_label: str = "AbstractSynthesis"
+
+
+class ClaimEvidenceLink(StrictModel):
+    """One deterministic claim-to-evidence link."""
+
+    claim_id: str = Field(min_length=1)
+    artifact_id: str = Field(min_length=1)
+    artifact_type: ArtifactType
+    evidence_role: str | None = None
+    supports_label: bool
+
+
+class Claim(StrictModel):
+    """One labeled manuscript claim candidate."""
+
+    claim_id: str = Field(min_length=1)
+    claim_text: str = Field(min_length=1)
+    claim_label: VerificationLabel
+    candidate_id: str = Field(min_length=1)
+    evidence_artifact_ids: list[str] = Field(default_factory=list)
+    evidence_types: list[str] = Field(default_factory=list)
+    allowed_in_main_text: bool
+    allowed_section: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class BlockedClaim(StrictModel):
+    """A claim blocked or downgraded by manuscript planning."""
+
+    claim_id: str = Field(min_length=1)
+    candidate_id: str = Field(min_length=1)
+    claim_text: str = Field(min_length=1)
+    claim_label: VerificationLabel
+    blocked_reason: str = Field(min_length=1)
+    downgraded_to: VerificationLabel | None = None
+    suggested_section: str | None = None
+
+
+class ClaimTable(StrictModel):
+    """Deterministic claim/evidence table."""
+
+    final_nucleus_id: str = Field(min_length=1)
+    claims: list[Claim]
+    evidence_links: list[ClaimEvidenceLink] = Field(default_factory=list)
+
+
+class ManuscriptSectionPlan(StrictModel):
+    """Section-level manuscript plan."""
+
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    bullets: list[str]
+    allowed_claim_ids: list[str] = Field(default_factory=list)
+
+
+class ManuscriptPlan(StrictModel):
+    """Structured manuscript planning artifact, not a full paper."""
+
+    plan_id: str = Field(min_length=1)
+    final_nucleus_id: str = Field(min_length=1)
+    nucleus_type: FinalNucleusType
+    title: str = Field(min_length=1)
+    sections: list[ManuscriptSectionPlan]
+    allowed_claim_ids: list[str]
+    blocked_claim_ids: list[str]
+    fake: bool = True
 
 
 class ScoreVector(StrictModel):

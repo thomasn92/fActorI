@@ -12,6 +12,7 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
 from factori.ledger import LedgerError, ResearchLedger
+from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.questioner import route_questions_to_action, routed_action, select_questions
 from factori.retrieval import compute_retrieval_adequacy
 from factori.schemas import (
@@ -313,6 +314,29 @@ def synthesize_abstract_command(
     typer.echo(f"final_nucleus_type={result.final_nucleus.nucleus_type.value}")
     typer.echo(f"final_nucleus_id={result.final_nucleus.id}")
     typer.echo(f"abstract_synthesis_report={result.report_artifact.path}")
+
+
+@app.command("plan-manuscript")
+def plan_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Build deterministic manuscript planning artifacts."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_manuscript_planning(run_id=run_id, store=store, ledger=ledger)
+    except ManuscriptPlanError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    claims_allowed = len(result.manuscript_plan.allowed_claim_ids)
+    claims_blocked = len(result.blocked_claims)
+    typer.echo(f"final_nucleus_type={result.final_nucleus.nucleus_type.value}")
+    typer.echo(f"claims_total={len(result.claim_table.claims)}")
+    typer.echo(f"claims_allowed={claims_allowed}")
+    typer.echo(f"claims_blocked={claims_blocked}")
+    typer.echo(f"manuscript_plan={result.markdown_artifact.path}")
+    typer.echo(f"claim_table={result.claim_table_artifact.path}")
 
 
 @app.command("questioner-check")

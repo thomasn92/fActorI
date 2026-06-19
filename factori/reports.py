@@ -9,9 +9,12 @@ from factori.schemas import (
     AbstractionAttackReport,
     AbstractionReport,
     BaselineReport,
+    BlockedClaim,
     BridgeReport,
     Candidate,
+    ClaimTable,
     FinalNucleus,
+    ManuscriptPlan,
     RedTeamReport,
     ScoreVector,
     StageCRedTeamSelectionReport,
@@ -397,6 +400,81 @@ def render_abstract_synthesis_report(
             "- Branch verification labels remain attached to their original branch claims.",
             "- Synthetic evidence remains synthetic-only evidence.",
             "- Negative results are boundary cases, not positive evidence.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_manuscript_plan_report(
+    *,
+    run_id: str,
+    final_nucleus: FinalNucleus,
+    claim_table: ClaimTable,
+    blocked_claims: list[BlockedClaim],
+    manuscript_plan: ManuscriptPlan,
+) -> str:
+    """Render the deterministic manuscript planning report."""
+    allowed_claims = [
+        claim for claim in claim_table.claims if claim.claim_id in manuscript_plan.allowed_claim_ids
+    ]
+    lines = [
+        "# Manuscript Plan",
+        "",
+        "Deterministic MVP planning only; this is not a full manuscript or LaTeX paper.",
+        "",
+        f"Run: `{run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Final nucleus type: {final_nucleus.nucleus_type.value}",
+        f"- Final nucleus id: {final_nucleus.id}",
+        f"- Claims total: {len(claim_table.claims)}",
+        f"- Claims allowed: {len(allowed_claims)}",
+        f"- Claims blocked: {len(blocked_claims)}",
+        "",
+        "## Section Plan",
+        "",
+        "| Section | Allowed Claims |",
+        "| --- | --- |",
+    ]
+    for section in manuscript_plan.sections:
+        allowed = ", ".join(section.allowed_claim_ids) if section.allowed_claim_ids else "none"
+        lines.append(f"| {section.title} | {allowed} |")
+
+    lines.extend(
+        [
+            "",
+            "## Claim Evidence Table",
+            "",
+            "| Claim | Label | Candidate | Section | Evidence Types | Main Text |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for claim in claim_table.claims:
+        evidence = ", ".join(claim.evidence_types) if claim.evidence_types else "none"
+        lines.append(
+            f"| {claim.claim_id} | {claim.claim_label.value} | {claim.candidate_id} | "
+            f"{claim.allowed_section} | {evidence} | "
+            f"{'yes' if claim.allowed_in_main_text else 'no'} |"
+        )
+
+    lines.extend(["", "## Blocked Or Downgraded Claims", ""])
+    if blocked_claims:
+        lines.extend(
+            f"- {claim.claim_id}: {claim.blocked_reason}" for claim in blocked_claims
+        )
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Planning Invariants",
+            "",
+            "- Synthetic evidence remains synthetic-only.",
+            "- Conjectures are not promoted to theorems.",
+            "- Negative results remain negative or boundary findings.",
+            "- Unsupported claims are excluded from the manuscript body.",
+            "- Presentation artifacts are not verification evidence.",
         ]
     )
     return "\n".join(lines) + "\n"
