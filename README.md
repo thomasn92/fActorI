@@ -14,11 +14,12 @@ Implemented so far:
 - deterministic Strategic Questioner, Autonomy Contract, stagnation, retrieval adequacy, and
   runtime summary skeletons;
 - deterministic Stage B-to-C red-team filtering and Stage C candidate selection;
+- deterministic fake Stage C verification labeling and evidence-boundary checks;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
 Not implemented yet: LangGraph orchestration, Lean integration, real model calls, real literature
-retrieval, experiments, Docker, FastAPI, or a frontend.
+retrieval, real experiments, Docker, FastAPI, abstract synthesis, or a frontend.
 
 ## Install
 
@@ -42,6 +43,7 @@ uv run factori write-artifact --run-id demo --artifact-id report-001 --kind repo
 uv run factori run-stage-a --run-id demo --domain "human geography"
 uv run factori run-stage-b --run-id demo
 uv run factori select-stage-c --run-id demo
+uv run factori run-stage-c --run-id demo
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo

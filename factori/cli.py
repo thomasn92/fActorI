@@ -22,10 +22,12 @@ from factori.schemas import (
     LiteratureState,
     ScoreVector,
     StagnationEvent,
+    VerificationLabel,
     VerificationState,
 )
 from factori.stage_a import constraint_from_inputs, run_stage_a
 from factori.stage_b import StageBError, run_stage_b
+from factori.stage_c import StageCError, run_stage_c
 from factori.stage_c_selection import StageCSelectionError, run_stage_c_selection
 from factori.stagnation import compute_stagnation, forced_stagnation_action
 
@@ -259,6 +261,36 @@ def select_stage_c_command(
     typer.echo(f"budget_deferred={len(result.budget_deferred)}")
     typer.echo(f"stage_c_ready={len(result.selected_candidates)}")
     typer.echo(f"stage_c_selection_report={result.report_artifact.path}")
+
+
+@app.command("run-stage-c")
+def run_stage_c_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run deterministic fake Stage C verification."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_stage_c(run_id=run_id, store=store, ledger=ledger)
+    except StageCError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    labels = [record.label for record in result.verification_records.values()]
+    typer.echo(f"stage_c_ready={len(result.stage_c_ready_candidates)}")
+    typer.echo(f"fake_proof_runs={len(result.proof_results)}")
+    typer.echo(f"fake_synthetic_experiments={len(result.experiment_results)}")
+    typer.echo(f"lean_verified={labels.count(VerificationLabel.LEAN_VERIFIED)}")
+    typer.echo(
+        "synthetic_experiment_verified="
+        f"{labels.count(VerificationLabel.SYNTHETIC_EXPERIMENT_VERIFIED)}"
+    )
+    typer.echo(f"negative_results={labels.count(VerificationLabel.NEGATIVE_RESULT)}")
+    typer.echo(f"conjectures={labels.count(VerificationLabel.CONJECTURE)}")
+    typer.echo(f"limitations={labels.count(VerificationLabel.LIMITATION)}")
+    typer.echo(f"unsupported={labels.count(VerificationLabel.UNSUPPORTED)}")
+    typer.echo(f"stage_c_report={result.report_artifact.path}")
 
 
 @app.command("questioner-check")

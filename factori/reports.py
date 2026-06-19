@@ -11,7 +11,9 @@ from factori.schemas import (
     RedTeamReport,
     ScoreVector,
     StageCRedTeamSelectionReport,
+    StageCVerificationRecord,
     UncertaintyEstimate,
+    VerificationLabel,
 )
 from factori.scoring import cost_aware_score
 
@@ -245,6 +247,62 @@ def render_stage_c_selection_report(
             "- Retrieval adequacy: rho_adequacy >= tau_adequacy",
             "- Conservative lower bound: S_lower >= tau_S",
             "- MVP data gate: NoData or SyntheticOnly",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_stage_c_verification_report(
+    *,
+    run_id: str,
+    stage_c_ready: list[Candidate],
+    verification_records: dict[str, StageCVerificationRecord],
+    proof_results: dict[str, object],
+    experiment_results: dict[str, object],
+) -> str:
+    """Render the deterministic fake Stage C verification report."""
+    labels = [record.label for record in verification_records.values()]
+    lines = [
+        "# Stage C Verification Report",
+        "",
+        "Deterministic MVP validation only; this is not real Lean or real experiment evidence.",
+        "",
+        f"Run: `{run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Stage C ready candidates: {len(stage_c_ready)}",
+        f"- Fake proof runs: {len(proof_results)}",
+        f"- Fake synthetic experiments: {len(experiment_results)}",
+        f"- LeanVerified: {labels.count(VerificationLabel.LEAN_VERIFIED)}",
+        f"- SyntheticExperimentVerified: "
+        f"{labels.count(VerificationLabel.SYNTHETIC_EXPERIMENT_VERIFIED)}",
+        f"- NegativeResult: {labels.count(VerificationLabel.NEGATIVE_RESULT)}",
+        f"- Conjecture: {labels.count(VerificationLabel.CONJECTURE)}",
+        f"- Limitation: {labels.count(VerificationLabel.LIMITATION)}",
+        f"- Unsupported: {labels.count(VerificationLabel.UNSUPPORTED)}",
+        "",
+        "## Verification Decisions",
+        "",
+        "| Candidate | Branch Type | Label | Status | Evidence Artifacts |",
+        "| --- | --- | --- | --- | ---: |",
+    ]
+    for candidate in stage_c_ready:
+        record = verification_records[candidate.id]
+        lines.append(
+            f"| {candidate.id} | {record.branch_type.value} | {record.label.value} | "
+            f"{record.status.value} | {len(record.evidence_artifacts)} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Evidence Boundary",
+            "",
+            "- LeanVerified requires a linked fake proof artifact under `lean/`.",
+            "- SyntheticExperimentVerified requires a linked fake synthetic experiment artifact.",
+            "- RealDataExperimentVerified is never produced in the MVP.",
+            "- LaTeX and Markdown presentation artifacts are not verification evidence.",
         ]
     )
     return "\n".join(lines) + "\n"

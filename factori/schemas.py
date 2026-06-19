@@ -125,6 +125,21 @@ class ControllerActionType(StrEnum):
     STAGE_C_SELECTION_DECIDED = "StageCSelectionDecided"
     STAGE_C_BUDGET_SELECTED = "StageCBudgetSelected"
     STAGE_C_SELECTION_REPORT_WRITTEN = "StageCSelectionReportWritten"
+    STAGE_C_VERIFICATION_STARTED = "StageCVerificationStarted"
+    STAGE_C_PROOF_VALIDATED = "StageCProofValidated"
+    STAGE_C_SYNTHETIC_EXPERIMENT_RUN = "StageCSyntheticExperimentRun"
+    STAGE_C_NO_DATA_VALIDATED = "StageCNoDataValidated"
+    STAGE_C_VERIFICATION_DECIDED = "StageCVerificationDecided"
+    STAGE_C_VERIFICATION_REPORT_WRITTEN = "StageCVerificationReportWritten"
+
+
+class BranchVerificationType(StrEnum):
+    """Deterministic Stage C verification branch types."""
+
+    MATHEMATICAL = "Mathematical"
+    SYNTHETIC_EMPIRICAL = "SyntheticEmpirical"
+    NO_DATA_METHODOLOGICAL = "NoDataMethodological"
+    UNSUPPORTED = "Unsupported"
 
 
 class ReviewerRecommendation(StrEnum):
@@ -396,6 +411,39 @@ class BudgetSelectionReport(StrictModel):
     cost_aware_scores: dict[str, float]
 
 
+class FakeProofResult(StrictModel):
+    """Deterministic fake proof validation result."""
+
+    candidate_id: str = Field(min_length=1)
+    proof_attempt_id: str = Field(min_length=1)
+    lean_exit_code_fake: int = Field(ge=0)
+    forbidden_tokens_present: bool
+    proof_score: float = Field(ge=0.0, le=1.0)
+    label: VerificationLabel
+    evidence_artifact_type: ArtifactType
+    reason: str = Field(min_length=1)
+
+
+class FakeExperimentResult(StrictModel):
+    """Deterministic fake synthetic experiment result."""
+
+    candidate_id: str = Field(min_length=1)
+    experiment_id: str = Field(min_length=1)
+    generator_name: str = Field(min_length=1)
+    generator_parameters: dict[str, Any]
+    seed: int
+    metric_name: str = Field(min_length=1)
+    metric_value: float
+    baseline_value: float
+    delta: float
+    predeclared_delta: float
+    lcb_95: float
+    ablation_passed: bool
+    baseline_strong: bool
+    label: VerificationLabel
+    reason: str = Field(min_length=1)
+
+
 class ConstraintSet(StrictModel):
     """User constraints over the candidate search space."""
 
@@ -456,6 +504,20 @@ class ArtifactRef(StrictModel):
             raise SchemaError("presentation artifacts are not verification evidence")
         if self.producing_commit_hash is None:
             raise SchemaError("evidence artifacts require a producing commit hash")
+
+
+class StageCVerificationRecord(StrictModel):
+    """One deterministic Stage C verification decision."""
+
+    candidate_id: str = Field(min_length=1)
+    branch_type: BranchVerificationType
+    label: VerificationLabel
+    status: BranchStatus
+    evidence_artifacts: list[ArtifactRef] = Field(default_factory=list)
+    proof_result: FakeProofResult | None = None
+    experiment_result: FakeExperimentResult | None = None
+    reason: str = Field(min_length=1)
+    fake: bool = True
 
 
 class ScoreVector(StrictModel):
