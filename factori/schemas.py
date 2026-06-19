@@ -88,6 +88,16 @@ class ControllerActionType(StrEnum):
     WRITE_ARTIFACT = "WriteArtifact"
     VALIDATE_RUN = "ValidateRun"
     CONTROLLER_ACTION = "ControllerAction"
+    STAGE_A_STARTED = "StageAStarted"
+    STAGE0_OPPORTUNITY_DISCOVERY = "Stage0OpportunityDiscovery"
+    STAGE0_SKIPPED = "Stage0Skipped"
+    STAGE_A_DATA_GATE_DEFERRED = "StageADataGateDeferred"
+    STAGE_A_CANDIDATE_GENERATED = "StageACandidateGenerated"
+    STAGE_A_SCORE_COMPUTED = "StageAScoreComputed"
+    STAGE_A_DUPLICATE_PRUNED = "StageADuplicatePruned"
+    STAGE_A_GATE_PRUNED = "StageAGatePruned"
+    STAGE_A_SURVIVORS_SELECTED = "StageASurvivorsSelected"
+    STAGE_A_REPORT_WRITTEN = "StageAReportWritten"
 
 
 class ConstraintSet(StrictModel):

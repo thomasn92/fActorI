@@ -18,6 +18,7 @@ from factori.schemas import (
     ControllerActionType,
     DataRequirement,
 )
+from factori.stage_a import constraint_from_inputs, run_stage_a
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -34,22 +35,29 @@ def _latest_parent(ledger: ResearchLedger, run_id: str) -> str | None:
     return ledger.latest_commit_hash(run_id)
 
 
+def _ensure_run_initialized(root: Path, run_id: str) -> None:
+    store = ArtifactStore(root)
+    store.init_run(run_id)
+    ledger = _ledger(root, run_id)
+    if ledger.latest_commit_hash(run_id) is None:
+        ledger.append_commit(
+            run_id=run_id,
+            action_type=ControllerActionType.INIT_RUN,
+            payload={"run_id": run_id},
+            timestamp="1970-01-01T00:00:00.000000Z",
+        )
+
+
 @app.command("init-run")
 def init_run(
     run_id: Annotated[str, typer.Option("--run-id")] = DEFAULT_RUN_ID,
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
 ) -> None:
     """Initialize a local run directory and root ledger commit."""
-    store = ArtifactStore(root)
-    store.init_run(run_id)
-    ledger = _ledger(root, run_id)
-    if ledger.latest_commit_hash(run_id) is None:
-        commit = ledger.append_commit(
-            run_id=run_id,
-            action_type=ControllerActionType.INIT_RUN,
-            payload={"run_id": run_id},
-            timestamp="1970-01-01T00:00:00.000000Z",
-        )
+    previous_head = _ledger(root, run_id).latest_commit_hash(run_id)
+    _ensure_run_initialized(root, run_id)
+    if previous_head is None:
+        commit = _ledger(root, run_id).list_commits(run_id)[0]
         typer.echo(f"initialized {run_id} {commit.commit_hash}")
     else:
         typer.echo(f"initialized {run_id}")
@@ -172,6 +180,30 @@ def validate_run(
     except LedgerError as exc:
         raise typer.Exit(code=1) from exc
     typer.echo(f"valid {run_id}")
+
+
+@app.command("run-stage-a")
+def run_stage_a_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    domain: Annotated[str, typer.Option("--domain")],
+    method: Annotated[str | None, typer.Option("--method")] = None,
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run deterministic fake Stage 0 and Stage A."""
+    _ensure_run_initialized(root, run_id)
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    result = run_stage_a(
+        run_id=run_id,
+        constraints=constraint_from_inputs(domain=domain, method=method),
+        store=store,
+        ledger=ledger,
+    )
+    typer.echo(f"generated_candidates={len(result.generated_candidates)}")
+    typer.echo(f"deferred_by_data_gate={len(result.deferred_candidates)}")
+    typer.echo(f"pruned_duplicates={len(result.duplicate_decisions)}")
+    typer.echo(f"passing_stage_a={len(result.survivors)}")
+    typer.echo(f"stage_a_report={result.report_artifact.path}")
 
 
 def main() -> None:
