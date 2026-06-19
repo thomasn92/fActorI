@@ -8,16 +8,21 @@ from factori.final_selection import StageCResultItem
 from factori.schemas import (
     AbstractionAttackReport,
     AbstractionReport,
+    ArtifactManifest,
     BaselineReport,
     BlockedClaim,
+    BranchOutcomeSummary,
     BridgeReport,
     Candidate,
     ClaimTable,
     DraftSkeleton,
     FinalNucleus,
+    LedgerSummary,
     ManuscriptChecklist,
     ManuscriptPlan,
     RedTeamReport,
+    ReproducibilityManifest,
+    ResearchObject,
     ScoreVector,
     StageCRedTeamSelectionReport,
     StageCVerificationRecord,
@@ -577,4 +582,168 @@ def render_manuscript_checklist_markdown(
         lines.append(
             f"| {item.category.value} | {status} | {item.description} | {item.reason} |"
         )
+    return "\n".join(lines) + "\n"
+
+
+def render_research_object_markdown(
+    *,
+    research_object: ResearchObject,
+    artifact_manifest: ArtifactManifest,
+    ledger_summary: LedgerSummary,
+    branch_outcomes: list[BranchOutcomeSummary],
+    reproducibility_manifest: ReproducibilityManifest,
+) -> str:
+    """Render the deterministic research object audit report."""
+    evidence_artifacts = [
+        artifact for artifact in artifact_manifest.artifacts if artifact.is_evidence
+    ]
+    presentation_artifacts = [
+        artifact for artifact in artifact_manifest.artifacts if artifact.is_presentation
+    ]
+    verification_outcomes = [
+        outcome for outcome in branch_outcomes if outcome.verification_label is not None
+    ]
+    blocked_outcomes = [
+        outcome for outcome in branch_outcomes if outcome.outcome == "BlockedClaim"
+    ]
+    failed_or_deferred = [
+        outcome
+        for outcome in branch_outcomes
+        if outcome.outcome
+        in {
+            "PrunedDuplicate",
+            "RejectedRedTeam",
+            "PrunedUncertain",
+            "InsufficientRetrievalAdequacy",
+            "DeferredRealDataCandidate",
+            "RequiresRealData",
+            "StagnationStop",
+            "BudgetDeferred",
+        }
+    ]
+    lines = [
+        "# fActorI Research Object",
+        "",
+        "Deterministic MVP package only; the immutable ledger remains the source of truth.",
+        "",
+        f"Run: `{research_object.run_id}`",
+        "",
+        "## Final Nucleus",
+        "",
+        f"- Type: {research_object.final_nucleus.nucleus_type.value}",
+        f"- ID: {research_object.final_nucleus.id}",
+        "- Supporting candidates: "
+        + (
+            ", ".join(research_object.final_nucleus.supporting_candidate_ids)
+            if research_object.final_nucleus.supporting_candidate_ids
+            else "none"
+        ),
+        f"- Reason: {research_object.final_nucleus.reason}",
+        "",
+        "## Manuscript Plan",
+        "",
+        f"- Plan artifact: `{research_object.manuscript_plan_ref.path}`",
+        f"- Draft skeleton: `{research_object.draft_skeleton_ref.path}`",
+        f"- Claim table: `{research_object.claim_table_ref.path}`",
+        f"- Checklist: `{research_object.checklist_ref.path}`",
+        "",
+        "## Claim/Evidence Summary",
+        "",
+        f"- Evidence artifacts: {artifact_manifest.evidence_artifact_count}",
+        f"- Presentation artifacts: {artifact_manifest.presentation_artifact_count}",
+        f"- Blocked claims: {len(blocked_outcomes)}",
+        "",
+        "## Verification Labels",
+        "",
+    ]
+    if verification_outcomes:
+        for outcome in verification_outcomes:
+            lines.append(
+                f"- {outcome.candidate_id}: {outcome.verification_label.value}"
+            )
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "## Blocked Claims", ""])
+    if blocked_outcomes:
+        lines.extend(
+            f"- {outcome.candidate_id}: {outcome.reason}" for outcome in blocked_outcomes
+        )
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "## Failed, Deferred, and Pruned Branches", ""])
+    if failed_or_deferred:
+        lines.extend(
+            f"- {outcome.candidate_id}: {outcome.outcome} ({outcome.reason})"
+            for outcome in failed_or_deferred
+        )
+    else:
+        lines.append("- none")
+
+    lines.extend(
+        [
+            "",
+            "## Evidence Artifacts",
+            "",
+            "| Artifact | Type | Path | Producing Commit |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    if evidence_artifacts:
+        for artifact in evidence_artifacts:
+            lines.append(
+                f"| {artifact.artifact_id} | {artifact.artifact_type.value} | "
+                f"`{artifact.path}` | {artifact.producing_commit_hash or 'missing'} |"
+            )
+    else:
+        lines.append("| none |  |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Presentation Artifacts",
+            "",
+            "| Artifact | Type | Path |",
+            "| --- | --- | --- |",
+        ]
+    )
+    if presentation_artifacts:
+        for artifact in presentation_artifacts:
+            lines.append(
+                f"| {artifact.artifact_id} | {artifact.artifact_type.value} | "
+                f"`{artifact.path}` |"
+            )
+    else:
+        lines.append("| none |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Ledger Summary",
+            "",
+            f"- Commits: {ledger_summary.commit_count}",
+            f"- Root commit: {ledger_summary.root_commit_hash or 'missing'}",
+            f"- Latest commit: {ledger_summary.latest_commit_hash or 'missing'}",
+            f"- Candidates: {ledger_summary.candidate_count}",
+            f"- Artifacts: {ledger_summary.artifact_count}",
+            "",
+            "## Reproducibility Status",
+            "",
+            f"- Reproducible: {str(reproducibility_manifest.reproducible).lower()}",
+            "- Blocking issues: "
+            + (
+                ", ".join(reproducibility_manifest.blocking_issues)
+                if reproducibility_manifest.blocking_issues
+                else "none"
+            ),
+            "",
+            "## Warnings",
+            "",
+        ]
+    )
+    if reproducibility_manifest.warnings:
+        lines.extend(f"- {warning}" for warning in reproducibility_manifest.warnings)
+    else:
+        lines.append("- none")
     return "\n".join(lines) + "\n"

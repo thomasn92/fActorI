@@ -15,6 +15,7 @@ from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_genera
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.questioner import route_questions_to_action, routed_action, select_questions
+from factori.research_object import ResearchObjectError, build_research_object
 from factori.retrieval import compute_retrieval_adequacy
 from factori.schemas import (
     ArtifactType,
@@ -359,6 +360,31 @@ def build_draft_skeleton_command(
     typer.echo(f"checklist_failures={result.checklist.failures_count}")
     typer.echo(f"draft_skeleton={result.draft_markdown_artifact.path}")
     typer.echo(f"manuscript_checklist={result.checklist_markdown_artifact.path}")
+
+
+@app.command("package-research-object")
+def package_research_object_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Package deterministic pipeline outputs into a local research object."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = build_research_object(run_id=run_id, store=store, ledger=ledger)
+    except ResearchObjectError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"commits={result.ledger_summary.commit_count}")
+    typer.echo(f"artifacts={len(result.artifact_manifest.artifacts)}")
+    typer.echo(f"evidence_artifacts={result.artifact_manifest.evidence_artifact_count}")
+    typer.echo(
+        f"presentation_artifacts={result.artifact_manifest.presentation_artifact_count}"
+    )
+    typer.echo(f"branch_outcomes={len(result.branch_outcomes)}")
+    typer.echo(f"reproducible={str(result.reproducibility_manifest.reproducible).lower()}")
+    typer.echo(f"research_object={result.manifest.research_object_markdown.path}")
 
 
 @app.command("questioner-check")

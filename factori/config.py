@@ -14,6 +14,7 @@ RUN_SUBDIRECTORIES = (
     "experiments",
     "logs",
     "latex",
+    "research_object",
 )
 DEFAULT_ROOT = Path(".")
 DEFAULT_RUN_ID = "run-0001"

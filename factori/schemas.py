@@ -147,6 +147,12 @@ class ControllerActionType(StrEnum):
     MANUSCRIPT_CHECKLIST_BUILT = "ManuscriptChecklistBuilt"
     DRAFT_SKELETON_REPORT_WRITTEN = "DraftSkeletonReportWritten"
     MANUSCRIPT_CHECKLIST_REPORT_WRITTEN = "ManuscriptChecklistReportWritten"
+    RESEARCH_OBJECT_PACKAGING_STARTED = "ResearchObjectPackagingStarted"
+    ARTIFACT_MANIFEST_WRITTEN = "ArtifactManifestWritten"
+    LEDGER_SUMMARY_WRITTEN = "LedgerSummaryWritten"
+    BRANCH_OUTCOMES_WRITTEN = "BranchOutcomesWritten"
+    REPRODUCIBILITY_MANIFEST_WRITTEN = "ReproducibilityManifestWritten"
+    RESEARCH_OBJECT_WRITTEN = "ResearchObjectWritten"
 
 
 class BranchVerificationType(StrEnum):
@@ -541,6 +547,116 @@ class ArtifactRef(StrictModel):
             raise SchemaError("presentation artifacts are not verification evidence")
         if self.producing_commit_hash is None:
             raise SchemaError("evidence artifacts require a producing commit hash")
+
+
+class ArtifactManifestEntry(StrictModel):
+    """One artifact entry in the research object manifest."""
+
+    artifact_id: str = Field(min_length=1)
+    artifact_type: ArtifactType
+    path: str = Field(min_length=1)
+    content_hash: str | None = None
+    producing_commit_hash: str | None = None
+    is_evidence: bool
+    is_presentation: bool
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ArtifactManifest(StrictModel):
+    """Derived manifest of run artifacts. The ledger remains authoritative."""
+
+    run_id: str = Field(min_length=1)
+    artifacts: list[ArtifactManifestEntry]
+    evidence_artifact_count: int = Field(ge=0)
+    presentation_artifact_count: int = Field(ge=0)
+    source_of_truth: str = "ledger"
+
+
+class LedgerSummary(StrictModel):
+    """Derived ledger summary. This is not provenance."""
+
+    run_id: str = Field(min_length=1)
+    commit_count: int = Field(ge=0)
+    root_commit_hash: str | None = None
+    latest_commit_hash: str | None = None
+    action_type_counts: dict[str, int]
+    candidate_count: int = Field(ge=0)
+    artifact_count: int = Field(ge=0)
+    verification_decision_count: int = Field(ge=0)
+    human_tail_escalation_count: int = Field(ge=0)
+    source_of_truth: str = "ledger"
+
+
+class BranchOutcomeSummary(StrictModel):
+    """Derived branch outcome summary."""
+
+    candidate_id: str = Field(min_length=1)
+    outcome: str = Field(min_length=1)
+    status: BranchStatus | None = None
+    verification_label: VerificationLabel | None = None
+    action_type: ControllerActionType
+    reason: str = Field(min_length=1)
+
+
+class ReproducibilityManifest(StrictModel):
+    """Deterministic reproducibility checks for a packaged run."""
+
+    run_id: str = Field(min_length=1)
+    ledger_exists: bool
+    root_commit_exists: bool
+    latest_commit_exists: bool
+    all_artifacts_have_hashes: bool
+    all_evidence_artifacts_have_producing_commits: bool
+    claim_table_exists: bool
+    draft_skeleton_exists: bool
+    manuscript_plan_exists: bool
+    final_nucleus_exists: bool
+    blocked_claims_list_exists: bool
+    environment_metadata_present: bool
+    reproducible: bool
+    blocking_issues: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ResearchObjectManifest(StrictModel):
+    """References to research object package files."""
+
+    research_object_json: ArtifactRef
+    research_object_markdown: ArtifactRef
+    artifact_manifest: ArtifactRef
+    ledger_summary: ArtifactRef
+    branch_outcomes: ArtifactRef
+    reproducibility_manifest: ArtifactRef
+
+
+class ResearchObject(StrictModel):
+    """Packaged deterministic research object summary."""
+
+    run_id: str = Field(min_length=1)
+    final_nucleus: FinalNucleus
+    manuscript_plan_ref: ArtifactRef
+    draft_skeleton_ref: ArtifactRef
+    claim_table_ref: ArtifactRef
+    blocked_claims_ref: ArtifactRef
+    checklist_ref: ArtifactRef
+    stage_reports: dict[str, ArtifactRef]
+    artifact_manifest_ref: ArtifactRef | None = None
+    ledger_summary_ref: ArtifactRef | None = None
+    branch_outcomes_ref: ArtifactRef | None = None
+    reproducibility_manifest_ref: ArtifactRef | None = None
+    created_at: str = Field(min_length=1)
+
+
+class PackagedOutput(StrictModel):
+    """Complete packaged output returned by the packaging step."""
+
+    run_id: str = Field(min_length=1)
+    research_object: ResearchObject
+    manifest: ResearchObjectManifest
+    artifact_manifest: ArtifactManifest
+    ledger_summary: LedgerSummary
+    branch_outcomes: list[BranchOutcomeSummary]
+    reproducibility_manifest: ReproducibilityManifest
 
 
 class StageCVerificationRecord(StrictModel):

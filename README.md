@@ -18,6 +18,7 @@ Implemented so far:
 - deterministic Abstract Synthesis skeleton and final nucleus selection;
 - deterministic manuscript planning skeleton with claim/evidence tables;
 - deterministic draft skeleton and manuscript checklist generation;
+- deterministic research object packaging and audit manifests;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -51,6 +52,7 @@ uv run factori run-stage-c --run-id demo
 uv run factori synthesize-abstract --run-id demo
 uv run factori plan-manuscript --run-id demo
 uv run factori build-draft-skeleton --run-id demo
+uv run factori package-research-object --run-id demo
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
