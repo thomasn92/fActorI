@@ -25,6 +25,7 @@ from factori.schemas import (
     VerificationState,
 )
 from factori.stage_a import constraint_from_inputs, run_stage_a
+from factori.stage_b import StageBError, run_stage_b
 from factori.stagnation import compute_stagnation, forced_stagnation_action
 
 app = typer.Typer(no_args_is_help=True)
@@ -211,6 +212,29 @@ def run_stage_a_command(
     typer.echo(f"pruned_duplicates={len(result.duplicate_decisions)}")
     typer.echo(f"passing_stage_a={len(result.survivors)}")
     typer.echo(f"stage_a_report={result.report_artifact.path}")
+
+
+@app.command("run-stage-b")
+def run_stage_b_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run deterministic fake Stage B structural validation."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_stage_b(run_id=run_id, store=store, ledger=ledger)
+    except StageBError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"stage_a_survivors={len(result.stage_a_survivors)}")
+    typer.echo(f"stage_b_children={len(result.children)}")
+    typer.echo(f"rejected_bridge={len(result.rejected_bridge)}")
+    typer.echo(f"rejected_review={len(result.rejected_review)}")
+    typer.echo(f"rejected_baseline={len(result.rejected_baseline)}")
+    typer.echo(f"insufficient_retrieval={len(result.insufficient_retrieval)}")
+    typer.echo(f"passing_stage_b={len(result.survivors)}")
+    typer.echo(f"stage_b_report={result.report_artifact.path}")
 
 
 @app.command("questioner-check")

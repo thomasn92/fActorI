@@ -62,6 +62,8 @@ class BranchStatus(StrEnum):
     STOP_FAILURE = "StopFailure"
     STOP_SUCCESS = "StopSuccess"
     NEEDS_HUMAN_TAIL_ESCALATION = "NeedsHumanTailEscalation"
+    FALSE_BRIDGE = "FalseBridge"
+    TRIVIAL_THEOREM_CANDIDATE = "TrivialTheoremCandidate"
 
 
 class ArtifactType(StrEnum):
@@ -101,6 +103,51 @@ class ControllerActionType(StrEnum):
     QUESTIONER_CHECK = "QuestionerCheck"
     RETRIEVAL_ADEQUACY_DEMO = "RetrievalAdequacyDemo"
     STAGNATION_DEMO = "StagnationDemo"
+    STAGE_B_STARTED = "StageBStarted"
+    STAGE_B_CHILD_GENERATED = "StageBChildGenerated"
+    STAGE_B_REVIEWERS_RUN = "StageBReviewersRun"
+    STAGE_B_DISAGREEMENT_RESOLVED = "StageBDisagreementResolved"
+    STAGE_B_BRIDGE_CHECKED = "StageBBridgeChecked"
+    STAGE_B_BRIDGE_REPAIRED = "StageBBridgeRepaired"
+    STAGE_B_BASELINE_CHECKED = "StageBBaselineChecked"
+    STAGE_B_REDTEAM_CHECKED = "StageBRedteamChecked"
+    STAGE_B_QUESTIONER_ROUTED = "StageBQuestionerRouted"
+    STAGE_B_SCORE_COMPUTED = "StageBScoreComputed"
+    STAGE_B_GATE_PRUNED = "StageBGatePruned"
+    STAGE_B_SURVIVORS_SELECTED = "StageBSurvivorsSelected"
+    STAGE_B_REPORT_WRITTEN = "StageBReportWritten"
+
+
+class ReviewerRecommendation(StrEnum):
+    """Deterministic fake reviewer recommendation labels."""
+
+    ACCEPT = "Accept"
+    WEAK_ACCEPT = "WeakAccept"
+    REVISE = "Revise"
+    WEAK_REJECT = "WeakReject"
+    REJECT = "Reject"
+
+
+class ReviewerDisagreementType(StrEnum):
+    """Reviewer disagreement resolver labels."""
+
+    NOVEL_CONTROVERSY = "NovelControversy"
+    AMBIGUOUS_CLAIM = "AmbiguousClaim"
+    REVIEWER_ERROR = "ReviewerError"
+    FATAL_CONFUSION = "FatalConfusion"
+    LOW_DISAGREEMENT = "LowDisagreement"
+
+
+class BridgeRepairAction(StrEnum):
+    """Allowed deterministic bridge repair actions."""
+
+    DEFINE_OBJECTS = "DefineObjects"
+    CHANGE_METRIC = "ChangeMetric"
+    ADD_BASELINE = "AddBaseline"
+    ADD_SYNTHETIC_DATA = "AddSyntheticData"
+    NARROW_CLAIM = "NarrowClaim"
+    REPLACE_METHOD = "ReplaceMethod"
+    REJECT_BRIDGE = "RejectBridge"
 
 
 class QuestionCategory(StrEnum):
@@ -211,6 +258,85 @@ class RuntimeSummary(StrictModel):
     short_summary: str = Field(min_length=1)
     is_provenance: bool = False
     source_of_truth: str = "ledger"
+
+
+class StageBReviewerReport(StrictModel):
+    """One deterministic fake Stage B reviewer report."""
+
+    reviewer_id: str = Field(min_length=1)
+    candidate_id: str = Field(min_length=1)
+    novelty_score: float = Field(ge=0.0, le=1.0)
+    feasibility_score: float = Field(ge=0.0, le=1.0)
+    verifiability_score: float = Field(ge=0.0, le=1.0)
+    clarity_score: float = Field(ge=0.0, le=1.0)
+    significance_score: float = Field(ge=0.0, le=1.0)
+    objections: list[str] = Field(default_factory=list)
+    recommendation: ReviewerRecommendation
+
+    def aggregate_score(self) -> float:
+        """Mean reviewer score used for deterministic disagreement."""
+        return (
+            self.novelty_score
+            + self.feasibility_score
+            + self.verifiability_score
+            + self.clarity_score
+            + self.significance_score
+        ) / 5.0
+
+
+class ReviewerPanelResult(StrictModel):
+    """Reviewer panel output and disagreement resolution."""
+
+    candidate_id: str = Field(min_length=1)
+    reports: list[StageBReviewerReport]
+    aggregate_scores: list[float]
+    disagreement: float = Field(ge=0.0)
+    disagreement_type: ReviewerDisagreementType
+    excluded_reviewer_id: str | None = None
+    resolved_aggregate_score: float = Field(ge=0.0, le=1.0)
+    preserved: bool = False
+    rejected: bool = False
+
+
+class BridgeReport(StrictModel):
+    """Deterministic bridge validation report."""
+
+    candidate_id: str = Field(min_length=1)
+    map_score: float = Field(ge=0.0, le=1.0)
+    transfer_score: float = Field(ge=0.0, le=1.0)
+    baseline_score: float = Field(ge=0.0, le=1.0)
+    data_score: float = Field(ge=0.0, le=1.0)
+    falsify_score: float = Field(ge=0.0, le=1.0)
+    nondecorative_score: float = Field(ge=0.0, le=1.0)
+    survival_score: float = Field(ge=0.0, le=1.0)
+    survives: bool
+    repair_attempted: bool = False
+    repair_action: BridgeRepairAction | None = None
+    final_status: BranchStatus = BranchStatus.ACTIVE
+
+
+class BaselineReport(StrictModel):
+    """Deterministic baseline validation report."""
+
+    candidate_id: str = Field(min_length=1)
+    baseline_strength: float = Field(ge=0.0, le=1.0)
+    candidate_score_advantage: float = Field(ge=-1.0, le=1.0)
+    baseline_valid: bool
+    repairable: bool
+    routed_action: ControllerDecisionAction
+
+
+class RedTeamReport(StrictModel):
+    """Deterministic Stage B red-team report."""
+
+    candidate_id: str = Field(min_length=1)
+    retrieval_certificate: RetrievalAdequacyCertificate
+    novelty_risk: float = Field(ge=0.0, le=1.0)
+    triviality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    triviality_passed: bool = True
+    redteam_rejection: bool = False
+    stage_c_ready: bool = False
+    status: BranchStatus = BranchStatus.ACTIVE
 
 
 class ConstraintSet(StrictModel):
@@ -359,6 +485,8 @@ class Candidate(StrictModel):
     """Minimal candidate branch representation."""
 
     id: str = Field(min_length=1)
+    parent_candidate_id: str | None = None
+    variant_type: str | None = None
     constraints: ConstraintSet = Field(default_factory=ConstraintSet)
     domain: str | None = None
     primitives: list[str] = Field(default_factory=list)

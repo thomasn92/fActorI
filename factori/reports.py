@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from factori.dedup import DuplicateDecision
-from factori.schemas import Candidate, ScoreVector
+from factori.schemas import BaselineReport, BridgeReport, Candidate, RedTeamReport, ScoreVector
 from factori.scoring import cost_aware_score
 
 
@@ -96,4 +96,69 @@ def render_stage_a_report(
     else:
         lines.append("- none")
 
+    return "\n".join(lines) + "\n"
+
+
+def render_stage_b_report(
+    *,
+    run_id: str,
+    stage_a_survivors: list[Candidate],
+    children: list[Candidate],
+    bridge_reports: dict[str, BridgeReport],
+    baseline_reports: dict[str, BaselineReport],
+    redteam_reports: dict[str, RedTeamReport],
+    rejected_review: list[Candidate],
+    gate_pruned: list[Candidate],
+    survivors: list[Candidate],
+    scores: dict[str, ScoreVector],
+) -> str:
+    """Render the ranked deterministic Stage B report."""
+    rejected_bridge = [
+        candidate
+        for candidate in children
+        if candidate.id in bridge_reports and not bridge_reports[candidate.id].survives
+    ]
+    rejected_baseline = [
+        candidate
+        for candidate in children
+        if candidate.id in baseline_reports and not baseline_reports[candidate.id].baseline_valid
+    ]
+    insufficient_retrieval = [
+        candidate
+        for candidate in children
+        if candidate.id in redteam_reports and not redteam_reports[candidate.id].stage_c_ready
+    ]
+    lines = [
+        "# Stage B Report",
+        "",
+        f"Run: `{run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Stage A survivors: {len(stage_a_survivors)}",
+        f"- Stage B children: {len(children)}",
+        f"- Rejected by bridge: {len(rejected_bridge)}",
+        f"- Rejected by review: {len(rejected_review)}",
+        f"- Rejected by baseline: {len(rejected_baseline)}",
+        f"- Insufficient retrieval: {len(insufficient_retrieval)}",
+        f"- Pruned by Stage B gate: {len(gate_pruned)}",
+        f"- Passing Stage B: {len(survivors)}",
+        "",
+        "## Ranked Stage B Survivors",
+        "",
+        "| Rank | Candidate | Parent | Variant | Score |",
+        "| ---: | --- | --- | --- | ---: |",
+    ]
+    for rank, candidate in enumerate(survivors, start=1):
+        score = scores[candidate.id]
+        lines.append(
+            f"| {rank} | {candidate.id} | {candidate.parent_candidate_id or ''} | "
+            f"{candidate.variant_type or ''} | {cost_aware_score(candidate, score):.3f} |"
+        )
+
+    lines.extend(["", "## Gate Pruned", ""])
+    if gate_pruned:
+        lines.extend(f"- {candidate.id}: {candidate.status.value}" for candidate in gate_pruned)
+    else:
+        lines.append("- none")
     return "\n".join(lines) + "\n"

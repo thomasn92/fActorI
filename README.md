@@ -35,6 +35,7 @@ uv run factori init-run --run-id demo
 uv run factori add-candidate --run-id demo --candidate-id candidate-001
 uv run factori write-artifact --run-id demo --artifact-id report-001 --kind report --format markdown
 uv run factori run-stage-a --run-id demo --domain "human geography"
+uv run factori run-stage-b --run-id demo
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
