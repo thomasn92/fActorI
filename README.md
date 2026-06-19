@@ -22,6 +22,7 @@ Implemented so far:
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
 - deterministic export-preparation contracts and plans;
+- read-only deterministic replay verification for completed runs;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -59,6 +60,8 @@ uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
 uv run factori final-audit --run-id demo
 uv run factori prepare-export --run-id demo
+uv run factori replay-verify --run-id demo
+uv run factori replay-verify --run-id demo --write-report
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo

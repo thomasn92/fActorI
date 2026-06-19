@@ -176,6 +176,14 @@ class ReleaseGateStatus(StrEnum):
     RELEASE_READY_WITH_WARNINGS = "ReleaseReadyWithWarnings"
 
 
+class ReplayStatus(StrEnum):
+    """Read-only replay verification statuses."""
+
+    REPLAY_VERIFIED = "ReplayVerified"
+    REPLAY_VERIFIED_WITH_WARNINGS = "ReplayVerifiedWithWarnings"
+    REPLAY_FAILED = "ReplayFailed"
+
+
 class AuditCategory(StrEnum):
     """Final audit check categories."""
 
@@ -1117,6 +1125,74 @@ class ExportBundleManifest(StrictModel):
     contains_final_latex: bool = False
     contains_polished_prose: bool = False
     is_verification_evidence: bool = False
+
+
+class ReplayFinding(StrictModel):
+    """One read-only replay finding."""
+
+    check_id: str = Field(min_length=1)
+    category: AuditCategory
+    status: AuditCheckStatus
+    severity: AuditSeverity
+    message: str = Field(min_length=1)
+    expected: str | None = None
+    observed: str | None = None
+    artifact_refs: list[ArtifactRef] = Field(default_factory=list)
+    commit_refs: list[str] = Field(default_factory=list)
+
+
+class ReplayCheck(StrictModel):
+    """One deterministic replay verification check."""
+
+    check_id: str = Field(min_length=1)
+    category: AuditCategory
+    status: AuditCheckStatus
+    severity: AuditSeverity
+    message: str = Field(min_length=1)
+    expected: str | None = None
+    observed: str | None = None
+    artifact_refs: list[ArtifactRef] = Field(default_factory=list)
+    commit_refs: list[str] = Field(default_factory=list)
+
+
+class ReplayVerificationReport(StrictModel):
+    """Read-only deterministic replay report. This is not provenance."""
+
+    run_id: str = Field(min_length=1)
+    checks: list[ReplayCheck]
+    findings: list[ReplayFinding] = Field(default_factory=list)
+    replay_status: ReplayStatus
+    ledger_commits_checked: int = Field(ge=0)
+    artifacts_checked: int = Field(ge=0)
+    hashes_verified: int = Field(ge=0)
+    evidence_artifacts_checked: int = Field(ge=0)
+    presentation_artifacts_checked: int = Field(ge=0)
+    stage_outputs_checked: int = Field(ge=0)
+    warnings_count: int = Field(ge=0)
+    blocking_failures_count: int = Field(ge=0)
+    ledger_mutated: bool
+    artifact_manifest_mutated: bool
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+    certifies_scientific_validity: bool = False
+
+
+class RunVerificationSummary(StrictModel):
+    """Compact summary of a read-only replay verification."""
+
+    run_id: str = Field(min_length=1)
+    ledger_commits_checked: int = Field(ge=0)
+    artifacts_checked: int = Field(ge=0)
+    hashes_verified: int = Field(ge=0)
+    evidence_artifacts_checked: int = Field(ge=0)
+    presentation_artifacts_checked: int = Field(ge=0)
+    stage_outputs_checked: int = Field(ge=0)
+    warnings: int = Field(ge=0)
+    blocking_failures: int = Field(ge=0)
+    replay_status: ReplayStatus
+    ledger_mutated: bool
+    artifact_manifest_mutated: bool
 
 
 class ScoreVector(StrictModel):

@@ -35,7 +35,10 @@ def build_artifact_manifest(run_id: str, artifact_store: ArtifactStore) -> Artif
             continue
         if ".meta.json" in path.name or path.as_posix().endswith(".meta.json"):
             continue
-        if "research_object" in path.relative_to(run_path).parts:
+        relative_parts = path.relative_to(run_path).parts
+        if "research_object" in relative_parts:
+            continue
+        if "replay" in relative_parts:
             continue
         entries.append(_entry_for_path(artifact_store, run_id, path))
 

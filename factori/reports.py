@@ -25,6 +25,7 @@ from factori.schemas import (
     PaperSkeleton,
     RedTeamReport,
     ReleaseGateDecision,
+    ReplayVerificationReport,
     ReproducibilityManifest,
     ResearchObject,
     ScoreVector,
@@ -919,6 +920,57 @@ def render_export_readiness_report_markdown(
             "- Export plans are not verification evidence.",
             "- Markdown and LaTeX-related files remain presentation artifacts.",
             "- Future exporters must preserve claim labels and evidence links.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_replay_verification_report_markdown(
+    *,
+    replay_report: ReplayVerificationReport,
+) -> str:
+    """Render a read-only deterministic replay report."""
+    lines = [
+        "# Replay Verification Report",
+        "",
+        "Read-only deterministic replay only; this is not provenance or scientific validation.",
+        "",
+        f"Run: `{replay_report.run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Replay status: {replay_report.replay_status.value}",
+        f"- Ledger commits checked: {replay_report.ledger_commits_checked}",
+        f"- Artifacts checked: {replay_report.artifacts_checked}",
+        f"- Hashes verified: {replay_report.hashes_verified}",
+        f"- Evidence artifacts checked: {replay_report.evidence_artifacts_checked}",
+        f"- Presentation artifacts checked: {replay_report.presentation_artifacts_checked}",
+        f"- Stage outputs checked: {replay_report.stage_outputs_checked}",
+        f"- Warnings: {replay_report.warnings_count}",
+        f"- Blocking failures: {replay_report.blocking_failures_count}",
+        f"- Ledger mutated: {str(replay_report.ledger_mutated).lower()}",
+        f"- Artifact manifest mutated: "
+        f"{str(replay_report.artifact_manifest_mutated).lower()}",
+        "",
+        "## Checks",
+        "",
+        "| Check | Category | Status | Severity | Message |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for check in replay_report.checks:
+        lines.append(
+            f"| {check.check_id} | {check.category.value} | {check.status.value} | "
+            f"{check.severity.value} | {check.message} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Replay Boundary",
+            "",
+            "- Replay reports are not provenance.",
+            "- Replay reports are not verification evidence.",
+            "- Replay reports are not ledgered.",
+            "- The immutable ledger remains the source of truth.",
         ]
     )
     return "\n".join(lines) + "\n"

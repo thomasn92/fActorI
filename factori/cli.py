@@ -18,6 +18,12 @@ from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.questioner import route_questions_to_action, routed_action, select_questions
+from factori.replay import (
+    ReplayVerificationError,
+    replay_verify_run,
+    summarize_replay_verification,
+    write_replay_report,
+)
 from factori.research_object import ResearchObjectError, build_research_object
 from factori.retrieval import compute_retrieval_adequacy
 from factori.schemas import (
@@ -472,6 +478,36 @@ def prepare_export_command(
         f"{str(result.readiness_report.ready_for_external_review).lower()}"
     )
     typer.echo(f"export_readiness_report={result.readiness_markdown_artifact.path}")
+
+
+@app.command("replay-verify")
+def replay_verify_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+) -> None:
+    """Replay-verify a completed deterministic run without mutating provenance."""
+    try:
+        report = replay_verify_run(run_id=run_id, root=root)
+    except ReplayVerificationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if write_report:
+        write_replay_report(run_id=run_id, report=report, root=root)
+    summary = summarize_replay_verification(report)
+    typer.echo(f"run_id={summary.run_id}")
+    typer.echo(f"ledger_commits_checked={summary.ledger_commits_checked}")
+    typer.echo(f"artifacts_checked={summary.artifacts_checked}")
+    typer.echo(f"hashes_verified={summary.hashes_verified}")
+    typer.echo(f"evidence_artifacts_checked={summary.evidence_artifacts_checked}")
+    typer.echo(f"presentation_artifacts_checked={summary.presentation_artifacts_checked}")
+    typer.echo(f"warnings={summary.warnings}")
+    typer.echo(f"blocking_failures={summary.blocking_failures}")
+    typer.echo(f"ledger_mutated={str(summary.ledger_mutated).lower()}")
+    typer.echo(
+        f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}"
+    )
+    typer.echo(f"replay_status={summary.replay_status.value}")
 
 
 @app.command("questioner-check")
