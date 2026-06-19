@@ -11,14 +11,21 @@ import typer
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
 from factori.ledger import LedgerError, ResearchLedger
+from factori.questioner import route_questions_to_action, routed_action, select_questions
+from factori.retrieval import compute_retrieval_adequacy
 from factori.schemas import (
     ArtifactType,
     Candidate,
     ConstraintSet,
     ControllerActionType,
     DataRequirement,
+    LiteratureState,
+    ScoreVector,
+    StagnationEvent,
+    VerificationState,
 )
 from factori.stage_a import constraint_from_inputs, run_stage_a
+from factori.stagnation import compute_stagnation, forced_stagnation_action
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -204,6 +211,103 @@ def run_stage_a_command(
     typer.echo(f"pruned_duplicates={len(result.duplicate_decisions)}")
     typer.echo(f"passing_stage_a={len(result.survivors)}")
     typer.echo(f"stage_a_report={result.report_artifact.path}")
+
+
+@app.command("questioner-check")
+def questioner_check(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    candidate_id: Annotated[str, typer.Option("--candidate-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run a deterministic Strategic Questioner check and ledger it."""
+    _ensure_run_initialized(root, run_id)
+    ledger = _ledger(root, run_id)
+    candidate = Candidate(
+        id=candidate_id,
+        domain="demo-domain",
+        method="demo-method",
+        question="Should the deterministic control layer continue?",
+        data_requirement=DataRequirement.SYNTHETIC_ONLY,
+    )
+    score = ScoreVector(
+        novelty=0.52,
+        feasibility=0.62,
+        verifiability=0.58,
+        reviewer=0.60,
+        difficulty=0.52,
+        diversity=0.50,
+        uncertainty=0.10,
+    )
+    literature_state = LiteratureState(
+        semantic=0.62,
+        keyword=0.60,
+        citation=0.55,
+        diversity=0.58,
+        adversarial=0.50,
+        novelty_risk=0.30,
+    )
+    verification_state = VerificationState()
+    questions = select_questions(
+        "stage_b",
+        candidate,
+        score,
+        literature_state,
+        verification_state,
+        triggers={"weak_data", "weak_baseline"},
+    )
+    action = route_questions_to_action(
+        questions,
+        candidate,
+        score,
+        literature_state,
+        verification_state,
+    )
+    commit = ledger.append_commit(
+        run_id=run_id,
+        candidate_id=candidate_id,
+        parent_hash=ledger.latest_commit_hash(run_id),
+        action_type=ControllerActionType.QUESTIONER_CHECK,
+        payload={
+            "controller_action": action.model_dump(mode="json"),
+            "routed_action": routed_action(action).value,
+        },
+    )
+    typer.echo(f"questions={len(questions)}")
+    typer.echo(f"routed_action={routed_action(action).value}")
+    typer.echo(f"commit_hash={commit.commit_hash}")
+
+
+@app.command("retrieval-adequacy-demo")
+def retrieval_adequacy_demo() -> None:
+    """Print a deterministic retrieval adequacy certificate."""
+    certificate = compute_retrieval_adequacy(
+        LiteratureState(
+            semantic=0.70,
+            keyword=0.74,
+            citation=0.66,
+            diversity=0.62,
+            adversarial=0.58,
+            novelty_risk=0.25,
+        )
+    )
+    typer.echo(json.dumps(certificate.model_dump(mode="json"), sort_keys=True))
+
+
+@app.command("stagnation-demo")
+def stagnation_demo() -> None:
+    """Print a deterministic stagnation decision."""
+    state = compute_stagnation(
+        [
+            StagnationEvent(action="Refine", score=0.50),
+            StagnationEvent(action="Repair", score=0.505),
+            StagnationEvent(action="Repair", score=0.507),
+            StagnationEvent(action="Repair", score=0.508),
+        ],
+        epsilon_score=0.01,
+        window=4,
+    )
+    typer.echo(json.dumps(state.model_dump(mode="json"), sort_keys=True))
+    typer.echo(f"forced_action={forced_stagnation_action(state).value}")
 
 
 def main() -> None:

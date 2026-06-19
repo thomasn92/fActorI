@@ -98,6 +98,119 @@ class ControllerActionType(StrEnum):
     STAGE_A_GATE_PRUNED = "StageAGatePruned"
     STAGE_A_SURVIVORS_SELECTED = "StageASurvivorsSelected"
     STAGE_A_REPORT_WRITTEN = "StageAReportWritten"
+    QUESTIONER_CHECK = "QuestionerCheck"
+    RETRIEVAL_ADEQUACY_DEMO = "RetrievalAdequacyDemo"
+    STAGNATION_DEMO = "StagnationDemo"
+
+
+class QuestionCategory(StrEnum):
+    """Strategic Questioner categories from the control-layer specification."""
+
+    MICRO_CHECK = "MicroCheck"
+    CLARITY = "Clarity"
+    NOVELTY = "Novelty"
+    EVIDENCE_SUFFICIENCY = "EvidenceSufficiency"
+    SIMPLICITY = "Simplicity"
+    DATA_SUFFICIENCY = "DataSufficiency"
+    BASELINE_STRENGTH = "BaselineStrength"
+    REPAIR_SUFFICIENCY = "RepairSufficiency"
+    LITERATURE_ADEQUACY = "LiteratureAdequacy"
+    VERIFICATION_READINESS = "VerificationReadiness"
+    ABSTRACTION = "Abstraction"
+    STOPPING = "Stopping"
+
+
+class ControllerDecisionAction(StrEnum):
+    """Allowed deterministic control actions."""
+
+    CONTINUE = "Continue"
+    SIMPLIFY = "Simplify"
+    NARROW_SCOPE = "NarrowScope"
+    INCREASE_RETRIEVAL_ADEQUACY = "IncreaseRetrievalAdequacy"
+    ADD_SYNTHETIC_DATA = "AddSyntheticData"
+    STRENGTHEN_BASELINE = "StrengthenBaseline"
+    RUN_ABLATION = "RunAblation"
+    DOWNGRADE_CLAIM = "DowngradeClaim"
+    CONVERT_TO_NEGATIVE_RESULT = "ConvertToNegativeResult"
+    ATTEMPT_ABSTRACTION = "AttemptAbstraction"
+    STOP_FAILURE = "StopFailure"
+    STOP_SUCCESS = "StopSuccess"
+    ASK_HUMAN = "AskHuman"
+
+
+class Question(StrictModel):
+    """A selected deterministic diagnostic question."""
+
+    id: str = Field(min_length=1)
+    category: QuestionCategory
+    prompt: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+
+
+class AutonomyContext(StrictModel):
+    """Inputs to the autonomy contract."""
+
+    candidate_id: str | None = None
+    decision_uncertainty: float = Field(default=0.0, ge=0.0, le=1.0)
+    action_risk: float = Field(default=0.0, ge=0.0, le=1.0)
+    extra_budget_required: bool = False
+    irreversible_decision: bool = False
+    external_access_required: bool = False
+    user_preference_needed: bool = False
+    candidate_value: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class StagnationEvent(StrictModel):
+    """One compact event used to compute the global stagnation index."""
+
+    action: str = Field(min_length=1)
+    score: float | None = Field(default=None, ge=0.0, le=1.0)
+    verification_label: VerificationLabel = VerificationLabel.UNSUPPORTED
+    status: BranchStatus = BranchStatus.ACTIVE
+
+
+class StagnationState(StrictModel):
+    """Deterministic global stagnation index result."""
+
+    candidate_id: str | None = None
+    stagnation_count: int = Field(ge=0)
+    stagnant: bool
+    forced_actions: list[ControllerDecisionAction] = Field(default_factory=list)
+    high_value: bool = False
+    high_uncertainty: bool = False
+    can_ask_human: bool = False
+
+
+class RetrievalAdequacyCertificate(StrictModel):
+    """Skeleton retrieval adequacy certificate."""
+
+    semantic: float = Field(ge=0.0, le=1.0)
+    keyword: float = Field(ge=0.0, le=1.0)
+    citation: float = Field(ge=0.0, le=1.0)
+    diversity: float = Field(ge=0.0, le=1.0)
+    adversarial: float = Field(ge=0.0, le=1.0)
+    weights: dict[str, float]
+    rho_adequacy: float = Field(ge=0.0, le=1.0)
+    tau_adequacy: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    status: BranchStatus
+    fake: bool = True
+
+
+class RuntimeSummary(StrictModel):
+    """Compressed runtime context. This is explicitly not provenance."""
+
+    candidate_id: str | None = None
+    action_count: int = Field(ge=0)
+    last_action: str | None = None
+    failed_repair_count: int = Field(ge=0)
+    last_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    best_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    verification_label: VerificationLabel = VerificationLabel.UNSUPPORTED
+    status: BranchStatus = BranchStatus.ACTIVE
+    short_summary: str = Field(min_length=1)
+    is_provenance: bool = False
+    source_of_truth: str = "ledger"
 
 
 class ConstraintSet(StrictModel):
