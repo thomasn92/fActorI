@@ -142,6 +142,11 @@ class ControllerActionType(StrEnum):
     BLOCKED_CLAIMS_IDENTIFIED = "BlockedClaimsIdentified"
     MANUSCRIPT_PLAN_BUILT = "ManuscriptPlanBuilt"
     MANUSCRIPT_PLAN_REPORT_WRITTEN = "ManuscriptPlanReportWritten"
+    DRAFT_SKELETON_STARTED = "DraftSkeletonStarted"
+    DRAFT_SKELETON_BUILT = "DraftSkeletonBuilt"
+    MANUSCRIPT_CHECKLIST_BUILT = "ManuscriptChecklistBuilt"
+    DRAFT_SKELETON_REPORT_WRITTEN = "DraftSkeletonReportWritten"
+    MANUSCRIPT_CHECKLIST_REPORT_WRITTEN = "ManuscriptChecklistReportWritten"
 
 
 class BranchVerificationType(StrEnum):
@@ -158,6 +163,20 @@ class FinalNucleusType(StrEnum):
 
     ABSTRACT_NUCLEUS = "AbstractNucleus"
     BRANCH_NUCLEUS = "BranchNucleus"
+
+
+class ChecklistCategory(StrEnum):
+    """Draft/manuscript checklist categories."""
+
+    EVIDENCE_BOUNDARY = "EvidenceBoundary"
+    CLAIM_LABELS = "ClaimLabels"
+    SYNTHETIC_DATA_BOUNDARY = "SyntheticDataBoundary"
+    BLOCKED_CLAIMS = "BlockedClaims"
+    SECTION_COMPLETENESS = "SectionCompleteness"
+    REPRODUCIBILITY = "Reproducibility"
+    LEDGER_LINKS = "LedgerLinks"
+    ARTIFACT_HASHES = "ArtifactHashes"
+    FINAL_SYNTHESIS_READINESS = "FinalSynthesisReadiness"
 
 
 class ReviewerRecommendation(StrEnum):
@@ -667,6 +686,63 @@ class ManuscriptPlan(StrictModel):
     sections: list[ManuscriptSectionPlan]
     allowed_claim_ids: list[str]
     blocked_claim_ids: list[str]
+    fake: bool = True
+
+
+class ChecklistItem(StrictModel):
+    """One deterministic manuscript checklist item."""
+
+    id: str = Field(min_length=1)
+    category: ChecklistCategory
+    description: str = Field(min_length=1)
+    passed: bool
+    reason: str = Field(min_length=1)
+
+
+class ManuscriptChecklist(StrictModel):
+    """Deterministic manuscript readiness checklist."""
+
+    checklist_id: str = Field(min_length=1)
+    items: list[ChecklistItem]
+    failures_count: int = Field(ge=0)
+    fake: bool = True
+
+
+class DraftSection(StrictModel):
+    """Section scaffold for the draft skeleton."""
+
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    section_purpose: str = Field(min_length=1)
+    allowed_claim_ids: list[str] = Field(default_factory=list)
+    required_evidence_ids: list[str] = Field(default_factory=list)
+    paragraph_placeholders: list[str]
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DraftClaimPlaceholder(StrictModel):
+    """Label-preserving placeholder for one allowed claim."""
+
+    claim_id: str = Field(min_length=1)
+    candidate_id: str = Field(min_length=1)
+    claim_label: VerificationLabel
+    placeholder_text: str = Field(min_length=1)
+    evidence_artifact_ids: list[str] = Field(default_factory=list)
+    allowed_section: str = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class DraftSkeleton(StrictModel):
+    """Structured deterministic draft scaffold, not polished prose."""
+
+    skeleton_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    abstract_stub: str = Field(min_length=1)
+    section_stubs: list[DraftSection]
+    claim_placeholders: list[DraftClaimPlaceholder]
+    evidence_links: list[ClaimEvidenceLink] = Field(default_factory=list)
+    blocked_claim_warnings: list[str] = Field(default_factory=list)
+    checklist: ManuscriptChecklist | None = None
     fake: bool = True
 
 

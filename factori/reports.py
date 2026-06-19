@@ -13,7 +13,9 @@ from factori.schemas import (
     BridgeReport,
     Candidate,
     ClaimTable,
+    DraftSkeleton,
     FinalNucleus,
+    ManuscriptChecklist,
     ManuscriptPlan,
     RedTeamReport,
     ScoreVector,
@@ -477,4 +479,102 @@ def render_manuscript_plan_report(
             "- Presentation artifacts are not verification evidence.",
         ]
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_draft_skeleton_markdown(
+    *,
+    run_id: str,
+    draft_skeleton: DraftSkeleton,
+    claim_table: ClaimTable,
+    blocked_claims: list[BlockedClaim],
+) -> str:
+    """Render a deterministic draft skeleton Markdown scaffold."""
+    del claim_table
+    lines = [
+        "# Title Stub",
+        "",
+        draft_skeleton.title,
+        "",
+        "## Abstract Stub",
+        "",
+        draft_skeleton.abstract_stub,
+        "",
+    ]
+    for section in draft_skeleton.section_stubs:
+        if section.section_title == "Title":
+            continue
+        lines.extend(
+            [
+                f"## {section.section_title}",
+                "",
+                f"Purpose: {section.section_purpose}",
+                "",
+                "Allowed claims: "
+                + (", ".join(section.allowed_claim_ids) if section.allowed_claim_ids else "none"),
+                "",
+            ]
+        )
+        for placeholder in section.paragraph_placeholders:
+            lines.extend([placeholder, ""])
+        if section.warnings:
+            lines.append("Warnings:")
+            lines.extend(f"- {warning}" for warning in section.warnings)
+            lines.append("")
+
+    lines.extend(
+        [
+            "## Claim/Evidence Checklist",
+            "",
+        ]
+    )
+    if draft_skeleton.checklist is None:
+        lines.append("- checklist not generated")
+    else:
+        for item in draft_skeleton.checklist.items:
+            status = "PASS" if item.passed else "FAIL"
+            lines.append(f"- [{status}] {item.category.value}: {item.description}")
+    lines.extend(["", "## Blocked Claims", ""])
+    if blocked_claims:
+        lines.extend(
+            f"- {blocked.claim_id}: {blocked.blocked_reason}" for blocked in blocked_claims
+        )
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Draft Invariants",
+            "",
+            f"- Run: `{run_id}`",
+            "- This is a scaffold, not polished prose.",
+            "- This is not a final LaTeX paper.",
+            "- Claim labels are copied from the claim table.",
+            "- Draft artifacts are not verification evidence.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_manuscript_checklist_markdown(
+    *,
+    run_id: str,
+    checklist: ManuscriptChecklist,
+) -> str:
+    """Render the deterministic manuscript checklist."""
+    lines = [
+        "# Manuscript Checklist",
+        "",
+        f"Run: `{run_id}`",
+        "",
+        f"Failures: {checklist.failures_count}",
+        "",
+        "| Category | Status | Item | Reason |",
+        "| --- | --- | --- | --- |",
+    ]
+    for item in checklist.items:
+        status = "PASS" if item.passed else "FAIL"
+        lines.append(
+            f"| {item.category.value} | {status} | {item.description} | {item.reason} |"
+        )
     return "\n".join(lines) + "\n"

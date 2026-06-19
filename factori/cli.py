@@ -11,6 +11,7 @@ import typer
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
+from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.questioner import route_questions_to_action, routed_action, select_questions
@@ -337,6 +338,27 @@ def plan_manuscript_command(
     typer.echo(f"claims_blocked={claims_blocked}")
     typer.echo(f"manuscript_plan={result.markdown_artifact.path}")
     typer.echo(f"claim_table={result.claim_table_artifact.path}")
+
+
+@app.command("build-draft-skeleton")
+def build_draft_skeleton_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Build deterministic draft skeleton and checklist artifacts."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_draft_skeleton_generation(run_id=run_id, store=store, ledger=ledger)
+    except DraftSkeletonError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"sections={len(result.draft_skeleton.section_stubs)}")
+    typer.echo(f"claim_placeholders={len(result.draft_skeleton.claim_placeholders)}")
+    typer.echo(f"checklist_items={len(result.checklist.items)}")
+    typer.echo(f"checklist_failures={result.checklist.failures_count}")
+    typer.echo(f"draft_skeleton={result.draft_markdown_artifact.path}")
+    typer.echo(f"manuscript_checklist={result.checklist_markdown_artifact.path}")
 
 
 @app.command("questioner-check")
