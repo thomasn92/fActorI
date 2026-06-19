@@ -1,14 +1,19 @@
 # fActorI
 
-This repository contains the Milestone 0-2 deterministic foundation for fActorI, based on
+This repository contains the deterministic MVP foundation for fActorI, based on
 `fActori_updated_data_regime.tex`.
 
-Implemented in this milestone:
+Implemented so far:
 
 - strict Pydantic schemas for core research entities;
 - a local SQLite append-only ledger with deterministic commit hashes;
 - a local filesystem artifact store under `runs/<run_id>/`;
 - a minimal Typer CLI;
+- deterministic fake Stage 0 opportunity discovery and Stage A candidate ranking;
+- deterministic fake Stage B structural validation;
+- deterministic Strategic Questioner, Autonomy Contract, stagnation, retrieval adequacy, and
+  runtime summary skeletons;
+- deterministic Stage B-to-C red-team filtering and Stage C candidate selection;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -36,6 +41,7 @@ uv run factori add-candidate --run-id demo --candidate-id candidate-001
 uv run factori write-artifact --run-id demo --artifact-id report-001 --kind report --format markdown
 uv run factori run-stage-a --run-id demo --domain "human geography"
 uv run factori run-stage-b --run-id demo
+uv run factori select-stage-c --run-id demo
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo

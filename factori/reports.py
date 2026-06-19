@@ -2,8 +2,17 @@
 
 from __future__ import annotations
 
+from factori.budget import stage_c_cost_aware_score
 from factori.dedup import DuplicateDecision
-from factori.schemas import BaselineReport, BridgeReport, Candidate, RedTeamReport, ScoreVector
+from factori.schemas import (
+    BaselineReport,
+    BridgeReport,
+    Candidate,
+    RedTeamReport,
+    ScoreVector,
+    StageCRedTeamSelectionReport,
+    UncertaintyEstimate,
+)
 from factori.scoring import cost_aware_score
 
 
@@ -161,4 +170,81 @@ def render_stage_b_report(
         lines.extend(f"- {candidate.id}: {candidate.status.value}" for candidate in gate_pruned)
     else:
         lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_stage_c_selection_report(
+    *,
+    run_id: str,
+    stage_b_survivors: list[Candidate],
+    selected_candidates: list[Candidate],
+    rejected_redteam: list[Candidate],
+    pruned_uncertain: list[Candidate],
+    insufficient_retrieval: list[Candidate],
+    deferred_data: list[Candidate],
+    budget_deferred: list[Candidate],
+    redteam_reports: dict[str, StageCRedTeamSelectionReport],
+    uncertainty_estimates: dict[str, UncertaintyEstimate],
+    scores: dict[str, ScoreVector],
+) -> str:
+    """Render the deterministic pre-Stage-C selection report."""
+    lines = [
+        "# Stage C Selection Report",
+        "",
+        f"Run: `{run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Stage B survivors: {len(stage_b_survivors)}",
+        f"- Rejected by red-team threshold: {len(rejected_redteam)}",
+        f"- Pruned as uncertain: {len(pruned_uncertain)}",
+        f"- Insufficient retrieval adequacy: {len(insufficient_retrieval)}",
+        f"- Deferred by data gate: {len(deferred_data)}",
+        f"- Deferred by budget: {len(budget_deferred)}",
+        f"- Stage C ready: {len(selected_candidates)}",
+        "",
+        "## Selected For Stage C",
+        "",
+        "| Rank | Candidate | Data | RT | S Lower | Cost-Aware Score |",
+        "| ---: | --- | --- | ---: | ---: | ---: |",
+    ]
+    if selected_candidates:
+        for rank, candidate in enumerate(selected_candidates, start=1):
+            redteam = redteam_reports[candidate.id]
+            uncertainty = uncertainty_estimates[candidate.id]
+            score = scores[candidate.id]
+            lines.append(
+                "| "
+                f"{rank} | {candidate.id} | {candidate.data_requirement.value} | "
+                f"{redteam.rt_total:.3f} | {uncertainty.s_lower:.3f} | "
+                f"{stage_c_cost_aware_score(candidate, score):.3f} |"
+            )
+    else:
+        lines.append("|  | none |  |  |  |  |")
+
+    lines.extend(["", "## Rejections And Deferrals", ""])
+    for heading, candidates in [
+        ("RejectedRedTeam", rejected_redteam),
+        ("PrunedUncertain", pruned_uncertain),
+        ("InsufficientRetrievalAdequacy", insufficient_retrieval),
+        ("DeferredData", deferred_data),
+        ("BudgetDeferred", budget_deferred),
+    ]:
+        lines.append(f"### {heading}")
+        if candidates:
+            lines.extend(f"- {candidate.id}: {candidate.status.value}" for candidate in candidates)
+        else:
+            lines.append("- none")
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Readiness Thresholds",
+            "",
+            "- Red-team aggregate: RT(c) >= 0.75",
+            "- Retrieval adequacy: rho_adequacy >= tau_adequacy",
+            "- Conservative lower bound: S_lower >= tau_S",
+            "- MVP data gate: NoData or SyntheticOnly",
+        ]
+    )
     return "\n".join(lines) + "\n"

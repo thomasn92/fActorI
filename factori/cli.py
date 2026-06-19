@@ -26,6 +26,7 @@ from factori.schemas import (
 )
 from factori.stage_a import constraint_from_inputs, run_stage_a
 from factori.stage_b import StageBError, run_stage_b
+from factori.stage_c_selection import StageCSelectionError, run_stage_c_selection
 from factori.stagnation import compute_stagnation, forced_stagnation_action
 
 app = typer.Typer(no_args_is_help=True)
@@ -235,6 +236,29 @@ def run_stage_b_command(
     typer.echo(f"insufficient_retrieval={len(result.insufficient_retrieval)}")
     typer.echo(f"passing_stage_b={len(result.survivors)}")
     typer.echo(f"stage_b_report={result.report_artifact.path}")
+
+
+@app.command("select-stage-c")
+def select_stage_c_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run deterministic Stage B-to-C filtering and Stage C candidate selection."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_stage_c_selection(run_id=run_id, store=store, ledger=ledger)
+    except StageCSelectionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"stage_b_survivors={len(result.stage_b_survivors)}")
+    typer.echo(f"rejected_redteam={len(result.rejected_redteam)}")
+    typer.echo(f"pruned_uncertain={len(result.pruned_uncertain)}")
+    typer.echo(f"insufficient_retrieval={len(result.insufficient_retrieval)}")
+    typer.echo(f"deferred_data={len(result.deferred_data)}")
+    typer.echo(f"budget_deferred={len(result.budget_deferred)}")
+    typer.echo(f"stage_c_ready={len(result.selected_candidates)}")
+    typer.echo(f"stage_c_selection_report={result.report_artifact.path}")
 
 
 @app.command("questioner-check")

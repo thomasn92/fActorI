@@ -64,6 +64,8 @@ class BranchStatus(StrEnum):
     NEEDS_HUMAN_TAIL_ESCALATION = "NeedsHumanTailEscalation"
     FALSE_BRIDGE = "FalseBridge"
     TRIVIAL_THEOREM_CANDIDATE = "TrivialTheoremCandidate"
+    STAGE_C_READY = "StageCReady"
+    BUDGET_DEFERRED = "BudgetDeferred"
 
 
 class ArtifactType(StrEnum):
@@ -116,6 +118,13 @@ class ControllerActionType(StrEnum):
     STAGE_B_GATE_PRUNED = "StageBGatePruned"
     STAGE_B_SURVIVORS_SELECTED = "StageBSurvivorsSelected"
     STAGE_B_REPORT_WRITTEN = "StageBReportWritten"
+    STAGE_C_SELECTION_STARTED = "StageCSelectionStarted"
+    STAGE_C_REDTEAM_AGGREGATED = "StageCRedteamAggregated"
+    STAGE_C_UNCERTAINTY_COMPUTED = "StageCUncertaintyComputed"
+    STAGE_C_SCORE_COMPUTED = "StageCScoreComputed"
+    STAGE_C_SELECTION_DECIDED = "StageCSelectionDecided"
+    STAGE_C_BUDGET_SELECTED = "StageCBudgetSelected"
+    STAGE_C_SELECTION_REPORT_WRITTEN = "StageCSelectionReportWritten"
 
 
 class ReviewerRecommendation(StrEnum):
@@ -337,6 +346,54 @@ class RedTeamReport(StrictModel):
     redteam_rejection: bool = False
     stage_c_ready: bool = False
     status: BranchStatus = BranchStatus.ACTIVE
+
+
+class NoveltyAttackResult(StrictModel):
+    """Deterministic novelty attack result for Stage C selection."""
+
+    candidate_id: str = Field(min_length=1)
+    rt_novelty: float = Field(ge=0.0, le=1.0)
+    novelty_risk: float = Field(ge=0.0, le=1.0)
+    near_duplicate_reason: str | None = None
+    passed: bool
+
+
+class UncertaintyEstimate(StrictModel):
+    """Deterministic score uncertainty estimate."""
+
+    candidate_id: str = Field(min_length=1)
+    s_hat: float = Field(ge=0.0, le=1.0)
+    u_s: float = Field(ge=0.0, le=1.0)
+    s_lower: float = Field(ge=0.0, le=1.0)
+    tau_s: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    components: dict[str, float]
+
+
+class StageCRedTeamSelectionReport(StrictModel):
+    """Aggregated pre-Stage-C red-team report."""
+
+    candidate_id: str = Field(min_length=1)
+    novelty: NoveltyAttackResult
+    rt_bridge: float = Field(ge=0.0, le=1.0)
+    rt_baseline: float = Field(ge=0.0, le=1.0)
+    rt_triviality: float = Field(ge=0.0, le=1.0)
+    rt_retrieval: float = Field(ge=0.0, le=1.0)
+    rt_total: float = Field(ge=0.0, le=1.0)
+    rt_threshold: float = Field(ge=0.0, le=1.0)
+    retrieval_certificate: RetrievalAdequacyCertificate
+    redteam_passed: bool
+    stage_c_ready: bool
+    status: BranchStatus
+
+
+class BudgetSelectionReport(StrictModel):
+    """Deterministic budget selector output."""
+
+    max_stage_c_candidates: int = Field(ge=0)
+    selected_candidate_ids: list[str]
+    budget_deferred_candidate_ids: list[str]
+    cost_aware_scores: dict[str, float]
 
 
 class ConstraintSet(StrictModel):
