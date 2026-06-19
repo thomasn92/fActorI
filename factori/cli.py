@@ -12,6 +12,7 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
+from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.ledger import LedgerError, ResearchLedger
@@ -439,6 +440,38 @@ def final_audit_command(
     typer.echo(f"ready_for_external_review={str(decision.ready_for_external_review).lower()}")
     typer.echo(f"final_audit_report={result.audit_markdown_artifact.path}")
     typer.echo(f"release_gate_decision={result.release_markdown_artifact.path}")
+
+
+@app.command("prepare-export")
+def prepare_export_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Prepare deterministic export contracts and maps."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = prepare_export(run_id=run_id, store=store, ledger=ledger)
+    except ExportPreparationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    allowed_claims = [claim for claim in result.claim_map if claim.export_allowed]
+    blocked_claims = [claim for claim in result.claim_map if not claim.export_allowed]
+    typer.echo(f"sections={len(result.section_map)}")
+    typer.echo(f"claims={len(result.claim_map)}")
+    typer.echo(f"export_allowed_claims={len(allowed_claims)}")
+    typer.echo(f"export_blocked_claims={len(blocked_claims)}")
+    typer.echo(
+        f"ready_for_polished_prose={str(result.readiness_report.ready_for_polished_prose).lower()}"
+    )
+    typer.echo(
+        f"ready_for_latex_export={str(result.readiness_report.ready_for_latex_export).lower()}"
+    )
+    typer.echo(
+        "ready_for_external_review="
+        f"{str(result.readiness_report.ready_for_external_review).lower()}"
+    )
+    typer.echo(f"export_readiness_report={result.readiness_markdown_artifact.path}")
 
 
 @app.command("questioner-check")

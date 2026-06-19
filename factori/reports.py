@@ -16,6 +16,7 @@ from factori.schemas import (
     Candidate,
     ClaimTable,
     DraftSkeleton,
+    ExportReadinessReport,
     FinalAuditReport,
     FinalNucleus,
     LedgerSummary,
@@ -876,4 +877,48 @@ def render_release_gate_decision_markdown(*, decision: ReleaseGateDecision) -> s
         lines.extend(f"- {warning}" for warning in decision.warnings)
     else:
         lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_export_readiness_report_markdown(
+    *,
+    readiness_report: ExportReadinessReport,
+) -> str:
+    """Render deterministic export-readiness report."""
+    lines = [
+        "# Export Readiness Report",
+        "",
+        "Deterministic export preparation only; no polished prose or LaTeX is generated.",
+        "",
+        f"Run: `{readiness_report.run_id}`",
+        "",
+        f"- Ready for polished prose: {str(readiness_report.ready_for_polished_prose).lower()}",
+        f"- Ready for LaTeX export: {str(readiness_report.ready_for_latex_export).lower()}",
+        f"- Ready for external review: {str(readiness_report.ready_for_external_review).lower()}",
+        f"- Export blocked: {str(readiness_report.export_blocked).lower()}",
+        f"- Export allowed claims: {readiness_report.export_allowed_claims}",
+        f"- Export blocked claims: {readiness_report.export_blocked_claims}",
+        "",
+        "## Blocking Reasons",
+        "",
+    ]
+    if readiness_report.blocking_reasons:
+        lines.extend(f"- {reason}" for reason in readiness_report.blocking_reasons)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    if readiness_report.warnings:
+        lines.extend(f"- {warning}" for warning in readiness_report.warnings)
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Export Boundary",
+            "",
+            "- Export plans are not verification evidence.",
+            "- Markdown and LaTeX-related files remain presentation artifacts.",
+            "- Future exporters must preserve claim labels and evidence links.",
+        ]
+    )
     return "\n".join(lines) + "\n"

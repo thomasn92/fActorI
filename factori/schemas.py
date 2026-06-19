@@ -159,6 +159,13 @@ class ControllerActionType(StrEnum):
     FINAL_AUDIT_STARTED = "FinalAuditStarted"
     FINAL_AUDIT_REPORT_WRITTEN = "FinalAuditReportWritten"
     RELEASE_GATE_DECIDED = "ReleaseGateDecided"
+    EXPORT_PREPARATION_STARTED = "ExportPreparationStarted"
+    PROSE_GENERATION_CONTRACT_WRITTEN = "ProseGenerationContractWritten"
+    LATEX_EXPORT_PLAN_WRITTEN = "LatexExportPlanWritten"
+    EXPORT_SECTION_MAP_WRITTEN = "ExportSectionMapWritten"
+    EXPORT_CLAIM_MAP_WRITTEN = "ExportClaimMapWritten"
+    EXPORT_READINESS_REPORT_WRITTEN = "ExportReadinessReportWritten"
+    EXPORT_BUNDLE_MANIFEST_WRITTEN = "ExportBundleManifestWritten"
 
 
 class ReleaseGateStatus(StrEnum):
@@ -1006,6 +1013,110 @@ class ReleaseGateDecision(StrictModel):
     warnings: list[str] = Field(default_factory=list)
     audit_checks: int = Field(ge=0)
     certifies_scientific_validity: bool = False
+
+
+class ExportEvidencePlaceholder(StrictModel):
+    """Placeholder for evidence/citation references in a future export."""
+
+    placeholder_id: str = Field(min_length=1)
+    artifact_id: str = Field(min_length=1)
+    artifact_type: ArtifactType
+    content_hash: str | None = None
+    producing_commit_hash: str | None = None
+    placeholder_text: str = Field(min_length=1)
+    is_verification_evidence: bool
+
+
+class ExportSectionMap(StrictModel):
+    """Deterministic section-to-source map for future export."""
+
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    source_plan_section_id: str | None = None
+    source_draft_section_id: str | None = None
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_artifact_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ExportClaimMap(StrictModel):
+    """Deterministic claim-to-evidence export map."""
+
+    claim_id: str = Field(min_length=1)
+    candidate_id: str = Field(min_length=1)
+    claim_label: VerificationLabel
+    evidence_artifact_ids: list[str] = Field(default_factory=list)
+    evidence_types: list[str] = Field(default_factory=list)
+    evidence_hashes: dict[str, str] = Field(default_factory=dict)
+    producing_commit_hashes: dict[str, str] = Field(default_factory=dict)
+    allowed_export_sections: list[str] = Field(default_factory=list)
+    export_allowed: bool
+    blocking_reason: str | None = None
+
+
+class ProseGenerationContract(StrictModel):
+    """Label-preserving contract for a future prose generator."""
+
+    run_id: str = Field(min_length=1)
+    allowed_sections: list[str]
+    allowed_claims: list[str]
+    blocked_claims: list[str]
+    claim_labels: dict[str, VerificationLabel]
+    claim_evidence_links: dict[str, list[str]]
+    style_constraints: list[str]
+    forbidden_transformations: list[str]
+    required_disclaimers: list[str]
+    ready_for_polished_prose: bool
+    is_verification_evidence: bool = False
+
+
+class LatexExportPlan(StrictModel):
+    """Plan for future LaTeX export. This is not LaTeX source."""
+
+    run_id: str = Field(min_length=1)
+    target_template_name: str = Field(min_length=1)
+    section_order: list[str]
+    section_ids: list[str]
+    claim_placeholder_ids: list[str]
+    evidence_placeholder_ids: list[str]
+    appendix_order: list[str]
+    bibliography_placeholder_policy: str = Field(min_length=1)
+    figure_placeholder_policy: str = Field(min_length=1)
+    table_placeholder_policy: str = Field(min_length=1)
+    forbidden_latex_commands: list[str]
+    latex_safety_warnings: list[str]
+    ready_for_latex_export: bool
+    is_verification_evidence: bool = False
+
+
+class ExportReadinessReport(StrictModel):
+    """Readiness report for deterministic export preparation."""
+
+    run_id: str = Field(min_length=1)
+    ready_for_polished_prose: bool
+    ready_for_latex_export: bool
+    ready_for_external_review: bool
+    export_blocked: bool
+    export_allowed_claims: int = Field(ge=0)
+    export_blocked_claims: int = Field(ge=0)
+    blocking_reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+
+
+class ExportBundleManifest(StrictModel):
+    """Manifest of deterministic export-preparation artifacts."""
+
+    run_id: str = Field(min_length=1)
+    prose_contract_ref: ArtifactRef
+    latex_plan_ref: ArtifactRef
+    section_map_ref: ArtifactRef
+    claim_map_ref: ArtifactRef
+    readiness_report_ref: ArtifactRef
+    export_artifact_refs: list[ArtifactRef]
+    contains_final_latex: bool = False
+    contains_polished_prose: bool = False
+    is_verification_evidence: bool = False
 
 
 class ScoreVector(StrictModel):
