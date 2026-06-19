@@ -131,6 +131,12 @@ class ControllerActionType(StrEnum):
     STAGE_C_NO_DATA_VALIDATED = "StageCNoDataValidated"
     STAGE_C_VERIFICATION_DECIDED = "StageCVerificationDecided"
     STAGE_C_VERIFICATION_REPORT_WRITTEN = "StageCVerificationReportWritten"
+    ABSTRACT_SYNTHESIS_STARTED = "AbstractSynthesisStarted"
+    ABSTRACT_MODEL_PROPOSED = "AbstractModelProposed"
+    ABSTRACTION_ATTACK_RUN = "AbstractionAttackRun"
+    ABSTRACTION_REPORT_WRITTEN = "AbstractionReportWritten"
+    FINAL_NUCLEUS_SELECTED = "FinalNucleusSelected"
+    ABSTRACT_SYNTHESIS_REPORT_WRITTEN = "AbstractSynthesisReportWritten"
 
 
 class BranchVerificationType(StrEnum):
@@ -140,6 +146,13 @@ class BranchVerificationType(StrEnum):
     SYNTHETIC_EMPIRICAL = "SyntheticEmpirical"
     NO_DATA_METHODOLOGICAL = "NoDataMethodological"
     UNSUPPORTED = "Unsupported"
+
+
+class FinalNucleusType(StrEnum):
+    """Final synthesis nucleus types."""
+
+    ABSTRACT_NUCLEUS = "AbstractNucleus"
+    BRANCH_NUCLEUS = "BranchNucleus"
 
 
 class ReviewerRecommendation(StrEnum):
@@ -518,6 +531,72 @@ class StageCVerificationRecord(StrictModel):
     experiment_result: FakeExperimentResult | None = None
     reason: str = Field(min_length=1)
     fake: bool = True
+
+
+class InstantiationMap(StrictModel):
+    """Deterministic map from an abstract model to a branch instance."""
+
+    id: str = Field(min_length=1)
+    abstract_model_id: str = Field(min_length=1)
+    candidate_id: str = Field(min_length=1)
+    coherent: bool
+    coherence_score: float = Field(ge=0.0, le=1.0)
+    role: str = Field(min_length=1)
+    branch_label: VerificationLabel
+    label_preserved: bool
+    reason: str = Field(min_length=1)
+
+
+class AbstractModel(StrictModel):
+    """Proposed abstract synthesis model."""
+
+    id: str = Field(min_length=1)
+    objects: list[str]
+    assumptions: list[str]
+    mechanism: str = Field(min_length=1)
+    claim_family: str = Field(min_length=1)
+    instantiation_maps: list[InstantiationMap] = Field(default_factory=list)
+    synthesis_label: str = "AbstractSynthesis"
+
+
+class AbstractionReport(StrictModel):
+    """Deterministic abstraction score report."""
+
+    abstract_model_id: str = Field(min_length=1)
+    model: AbstractModel
+    coverage: float = Field(ge=0.0, le=1.0)
+    coherence: float = Field(ge=0.0, le=1.0)
+    compression: float = Field(ge=0.0, le=1.0)
+    generativity: float = Field(ge=0.0, le=1.0)
+    verifiability: float = Field(ge=0.0, le=1.0)
+    total_score: float = Field(ge=0.0, le=1.0)
+    tau_a: float = Field(ge=0.0, le=1.0)
+    accepted_by_score: bool
+    branch_ids: list[str]
+
+
+class AbstractionAttackReport(StrictModel):
+    """Deterministic red-team attack against an abstract model."""
+
+    abstract_model_id: str = Field(min_length=1)
+    rt_abstract: float = Field(ge=0.0, le=1.0)
+    tau_abstract_redteam: float = Field(ge=0.0, le=1.0)
+    attack_passed: bool
+    failure_reasons: list[str] = Field(default_factory=list)
+
+
+class FinalNucleus(StrictModel):
+    """Selected final research nucleus before manuscript generation."""
+
+    id: str = Field(min_length=1)
+    nucleus_type: FinalNucleusType
+    abstract_model: AbstractModel | None = None
+    candidate_id: str | None = None
+    supporting_candidate_ids: list[str]
+    labels_by_candidate: dict[str, VerificationLabel]
+    evidence_artifacts: list[ArtifactRef] = Field(default_factory=list)
+    reason: str = Field(min_length=1)
+    synthesis_label: str = "AbstractSynthesis"
 
 
 class ScoreVector(StrictModel):

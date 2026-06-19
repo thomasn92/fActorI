@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 
+from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
 from factori.ledger import LedgerError, ResearchLedger
@@ -291,6 +292,27 @@ def run_stage_c_command(
     typer.echo(f"limitations={labels.count(VerificationLabel.LIMITATION)}")
     typer.echo(f"unsupported={labels.count(VerificationLabel.UNSUPPORTED)}")
     typer.echo(f"stage_c_report={result.report_artifact.path}")
+
+
+@app.command("synthesize-abstract")
+def synthesize_abstract_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Run deterministic abstract synthesis and final nucleus selection."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = run_abstract_synthesis(run_id=run_id, store=store, ledger=ledger)
+    except AbstractSynthesisError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"stage_c_results={len(result.stage_c_results)}")
+    typer.echo(f"abstract_models_proposed={len(result.abstract_models)}")
+    typer.echo(f"abstract_models_passed={len(result.passing_abstractions)}")
+    typer.echo(f"final_nucleus_type={result.final_nucleus.nucleus_type.value}")
+    typer.echo(f"final_nucleus_id={result.final_nucleus.id}")
+    typer.echo(f"abstract_synthesis_report={result.report_artifact.path}")
 
 
 @app.command("questioner-check")

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from factori.budget import stage_c_cost_aware_score
 from factori.dedup import DuplicateDecision
+from factori.final_selection import StageCResultItem
 from factori.schemas import (
+    AbstractionAttackReport,
+    AbstractionReport,
     BaselineReport,
     BridgeReport,
     Candidate,
+    FinalNucleus,
     RedTeamReport,
     ScoreVector,
     StageCRedTeamSelectionReport,
@@ -303,6 +307,96 @@ def render_stage_c_verification_report(
             "- SyntheticExperimentVerified requires a linked fake synthetic experiment artifact.",
             "- RealDataExperimentVerified is never produced in the MVP.",
             "- LaTeX and Markdown presentation artifacts are not verification evidence.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_abstract_synthesis_report(
+    *,
+    run_id: str,
+    stage_c_results: list[StageCResultItem],
+    abstraction_reports: list[AbstractionReport],
+    attack_reports: list[AbstractionAttackReport],
+    passing_abstractions: list[AbstractionReport],
+    final_nucleus: FinalNucleus,
+) -> str:
+    """Render the deterministic abstract synthesis report."""
+    attacks_by_id = {
+        attack.abstract_model_id: attack for attack in attack_reports
+    }
+    lines = [
+        "# Abstract Synthesis Report",
+        "",
+        "Deterministic MVP synthesis only; this is not a manuscript.",
+        "",
+        f"Run: `{run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Stage C results: {len(stage_c_results)}",
+        f"- Abstract models proposed: {len(abstraction_reports)}",
+        f"- Abstract models passed: {len(passing_abstractions)}",
+        f"- Final nucleus type: {final_nucleus.nucleus_type.value}",
+        f"- Final nucleus id: {final_nucleus.id}",
+        "",
+        "## Stage C Inputs",
+        "",
+        "| Candidate | Label | Evidence Artifacts |",
+        "| --- | --- | ---: |",
+    ]
+    for item in stage_c_results:
+        record = item.verification_record
+        lines.append(
+            f"| {item.candidate.id} | {record.label.value} | "
+            f"{len(record.evidence_artifacts)} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Proposed Abstractions",
+            "",
+            "| Model | A(G,B) | Coverage | Coherence | Compression | Generativity | "
+            "Verifiability | RT | Passed |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
+    if abstraction_reports:
+        for report in abstraction_reports:
+            attack = attacks_by_id.get(report.abstract_model_id)
+            rt_score = attack.rt_abstract if attack else 0.0
+            passed = (
+                report.accepted_by_score
+                and attack is not None
+                and attack.attack_passed
+            )
+            lines.append(
+                f"| {report.abstract_model_id} | {report.total_score:.3f} | "
+                f"{report.coverage:.3f} | {report.coherence:.3f} | "
+                f"{report.compression:.3f} | {report.generativity:.3f} | "
+                f"{report.verifiability:.3f} | {rt_score:.3f} | "
+                f"{'yes' if passed else 'no'} |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |  |  |  |  |")
+
+    lines.extend(
+        [
+            "",
+            "## Final Nucleus",
+            "",
+            f"- Type: {final_nucleus.nucleus_type.value}",
+            f"- ID: {final_nucleus.id}",
+            f"- Supporting candidates: {', '.join(final_nucleus.supporting_candidate_ids)}",
+            f"- Reason: {final_nucleus.reason}",
+            "",
+            "## Label Preservation",
+            "",
+            "- Abstract models are labeled AbstractSynthesis only.",
+            "- Branch verification labels remain attached to their original branch claims.",
+            "- Synthetic evidence remains synthetic-only evidence.",
+            "- Negative results are boundary cases, not positive evidence.",
         ]
     )
     return "\n".join(lines) + "\n"
