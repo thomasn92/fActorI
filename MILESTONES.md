@@ -18,9 +18,11 @@
 | 15 | Deterministic read-only replay verification from disk | `replay.py`, `run_verifier.py` | `replay-verify` | Read-only; optional replay reports are not ledgered or added to provenance |
 | 16 | Deterministic provenance diagnostics and explain-failure recommendations | `diagnostics.py`, `failure_explainer.py` | `diagnose-run` | Read-only; optional diagnostic reports are not ledgered or added to provenance |
 | 17 | Read-only cross-run comparison and deterministic regression diagnostics | `cross_run.py`, `regression_diagnostics.py` | `compare-runs` | Read-only; optional comparison reports are not ledgered or added to provenance |
+| 18 | Canonical deterministic one-command orchestration with stop/resume and optional read-only checks | `pipeline.py`, `run_all.py` | `run-all` | Existing mutating stages append normally; the pipeline report is hashed and ledgered; replay and diagnostics remain read-only |
+| 19 | Read-only checkpoint/status inspection and stricter resume prerequisite validation | `checkpoints.py`, `status.py` | `status`, `validate-resume` | Read-only; `run-all --start-at` uses validation before any resumed mutation |
 
 ## Current Boundary
 
-Milestones through 17 implement a deterministic scaffold. They do not implement real agents,
+Milestones through 19 implement a deterministic scaffold. They do not implement real agents,
 scientific retrieval, proof checking, experiments, polished prose, final LaTeX, or production
-orchestration.
+orchestration frameworks.

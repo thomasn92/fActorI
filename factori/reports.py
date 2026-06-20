@@ -25,6 +25,7 @@ from factori.schemas import (
     ManuscriptChecklist,
     ManuscriptPlan,
     PaperSkeleton,
+    PipelineRunReport,
     RedTeamReport,
     ReleaseGateDecision,
     ReplayVerificationReport,
@@ -1115,6 +1116,90 @@ def render_cross_run_comparison_markdown(
             "- Comparison reports are not verification evidence.",
             "- Comparison reports are not ledgered.",
             "- Each immutable ledger remains the source of truth for its run.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_pipeline_run_report_markdown(
+    *,
+    pipeline_report: PipelineRunReport,
+) -> str:
+    """Render the ledgered deterministic one-command pipeline report."""
+    lines = [
+        "# Deterministic Pipeline Run Report",
+        "",
+        "This report describes orchestration only; it is not verification evidence.",
+        "",
+        f"Run: `{pipeline_report.run_id}`",
+        f"Domain: `{pipeline_report.domain}`",
+        f"Method: `{pipeline_report.method or 'automatic deterministic discovery'}`",
+        "",
+        "## Summary",
+        "",
+        f"- Pipeline status: {pipeline_report.pipeline_status.value}",
+        f"- Failure policy: {pipeline_report.failure_policy.value}",
+        f"- Stages run: {len(pipeline_report.stage_results)}",
+        "- Blocking stage: "
+        + (
+            pipeline_report.blocking_stage.value
+            if pipeline_report.blocking_stage is not None
+            else "none"
+        ),
+        "- Release status: "
+        + (
+            pipeline_report.release_status.value
+            if pipeline_report.release_status is not None
+            else "not run"
+        ),
+        "- Replay status: "
+        + (
+            pipeline_report.replay_status.value
+            if pipeline_report.replay_status is not None
+            else "skipped"
+        ),
+        "- Diagnostic status: "
+        + (
+            pipeline_report.diagnostic_status.value
+            if pipeline_report.diagnostic_status is not None
+            else "skipped"
+        ),
+        "",
+        "## Stage Results",
+        "",
+        "| Stage | Status | Artifacts | Error |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for result in pipeline_report.stage_results:
+        lines.append(
+            f"| {result.stage_name.value} | {result.status.value} | "
+            f"{len(result.created_artifacts)} | {result.error_message or ''} |"
+        )
+
+    lines.extend(["", "## Final Outputs", ""])
+    if pipeline_report.final_outputs:
+        lines.extend(
+            f"- {name}: `{path}`"
+            for name, path in sorted(pipeline_report.final_outputs.items())
+        )
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "## Warnings", ""])
+    if pipeline_report.warnings:
+        lines.extend(f"- {warning}" for warning in pipeline_report.warnings)
+    else:
+        lines.append("- none")
+
+    lines.extend(
+        [
+            "",
+            "## Boundaries",
+            "",
+            "- Validators in this MVP are deterministic fakes, not scientific truth.",
+            "- Markdown, LaTeX, paper skeletons, and export plans are not evidence.",
+            "- Replay and diagnostics remain read-only and outside provenance.",
+            "- The append-only ledger remains the source of truth.",
         ]
     )
     return "\n".join(lines) + "\n"

@@ -33,6 +33,7 @@ from factori.replay import (
 )
 from factori.research_object import ResearchObjectError, build_research_object
 from factori.retrieval import compute_retrieval_adequacy
+from factori.run_all import PipelineRunError, run_deterministic_pipeline
 from factori.schemas import (
     ArtifactType,
     Candidate,
@@ -40,6 +41,10 @@ from factori.schemas import (
     ControllerActionType,
     DataRequirement,
     LiteratureState,
+    PipelineFailurePolicy,
+    PipelineRunConfig,
+    PipelineRunStatus,
+    PipelineStage,
     ScoreVector,
     StagnationEvent,
     VerificationLabel,
@@ -50,6 +55,7 @@ from factori.stage_b import StageBError, run_stage_b
 from factori.stage_c import StageCError, run_stage_c
 from factori.stage_c_selection import StageCSelectionError, run_stage_c_selection
 from factori.stagnation import compute_stagnation, forced_stagnation_action
+from factori.status import inspect_run_status, stage_status_detail, validate_resume_request
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -211,6 +217,157 @@ def validate_run(
     except LedgerError as exc:
         raise typer.Exit(code=1) from exc
     typer.echo(f"valid {run_id}")
+
+
+@app.command("status")
+def status_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    stage: Annotated[PipelineStage | None, typer.Option("--stage")] = None,
+) -> None:
+    """Inspect deterministic run checkpoints without mutating provenance."""
+    if stage is not None:
+        detail = stage_status_detail(run_id=run_id, stage_name=stage, root=root)
+        if json_output:
+            typer.echo(json.dumps(detail, sort_keys=True))
+            return
+        typer.echo(f"run_id={detail['run_id']}")
+        typer.echo(f"stage={detail['stage']}")
+        typer.echo(f"completed={str(detail['completed']).lower()}")
+        typer.echo(
+            "required_artifacts_present="
+            f"{len(detail['required_artifacts_present'])}"
+        )
+        typer.echo(
+            "required_artifacts_missing="
+            f"{len(detail['required_artifacts_missing'])}"
+        )
+        typer.echo(f"prerequisites={len(detail['prerequisites'])}")
+        return
+
+    report = inspect_run_status(run_id=run_id, root=root)
+    if json_output:
+        typer.echo(json.dumps(report.model_dump(mode="json"), sort_keys=True))
+        return
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"completeness_status={report.completeness_status.value}")
+    typer.echo(f"completed_stages={len(report.completed_stages)}")
+    typer.echo(f"missing_stages={len(report.missing_stages)}")
+    typer.echo(
+        "last_completed_stage="
+        + (
+            report.last_completed_stage.value
+            if report.last_completed_stage is not None
+            else "none"
+        )
+    )
+    typer.echo(
+        "next_recommended_stage="
+        + (
+            report.next_recommended_stage.stage_name.value
+            if report.next_recommended_stage.stage_name is not None
+            else "none"
+        )
+    )
+    typer.echo(f"ledger_commits={report.ledger_commit_count}")
+    typer.echo(f"blocking_issues={len(report.blocking_issues)}")
+    typer.echo(f"warnings={len(report.warnings)}")
+
+
+@app.command("validate-resume")
+def validate_resume_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    start_at: Annotated[PipelineStage, typer.Option("--start-at")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Validate a run-all resume point without executing it."""
+    report = validate_resume_request(run_id=run_id, start_at_stage=start_at, root=root)
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"start_at={report.start_at_stage.value}")
+    typer.echo(f"resume_status={report.resume_status.value}")
+    typer.echo(f"missing_prerequisites={len(report.missing_prerequisites)}")
+    typer.echo(f"warnings={len(report.warnings)}")
+    if report.resume_status.value == "ResumeBlocked":
+        raise typer.Exit(code=1)
+
+
+@app.command("run-all")
+def run_all_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    domain: Annotated[str, typer.Option("--domain")],
+    method: Annotated[str | None, typer.Option("--method")] = None,
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
+    start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
+    skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
+    run_diagnostics: Annotated[bool, typer.Option("--run-diagnostics")] = False,
+    write_replay_report: Annotated[
+        bool,
+        typer.Option("--write-replay-report"),
+    ] = False,
+    write_diagnostic_report: Annotated[
+        bool,
+        typer.Option("--write-diagnostic-report"),
+    ] = False,
+    fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
+) -> None:
+    """Run the deterministic MVP pipeline directly in one process."""
+    config = PipelineRunConfig(
+        run_id=run_id,
+        domain=domain,
+        method=method,
+        root=root,
+        stop_after=stop_after,
+        start_at=start_at,
+        skip_replay=skip_replay,
+        run_diagnostics=run_diagnostics,
+        write_replay_report=write_replay_report,
+        write_diagnostic_report=write_diagnostic_report,
+        failure_policy=(
+            PipelineFailurePolicy.FAIL_FAST
+            if fail_fast
+            else PipelineFailurePolicy.CONTINUE_SAFE
+        ),
+    )
+    try:
+        report = run_deterministic_pipeline(config)
+    except PipelineRunError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"domain={report.domain}")
+    typer.echo(f"stages_run={len(report.stage_results)}")
+    typer.echo(f"pipeline_status={report.pipeline_status.value}")
+    typer.echo(
+        "release_status="
+        + (report.release_status.value if report.release_status is not None else "not_run")
+    )
+    typer.echo(
+        "replay_status="
+        + (report.replay_status.value if report.replay_status is not None else "skipped")
+    )
+    typer.echo(
+        "diagnostic_status="
+        + (
+            report.diagnostic_status.value
+            if report.diagnostic_status is not None
+            else "skipped"
+        )
+    )
+    typer.echo(f"research_object={report.final_outputs.get('research_object', 'missing')}")
+    typer.echo(f"paper_skeleton={report.final_outputs.get('paper_skeleton', 'missing')}")
+    typer.echo(
+        "export_readiness_report="
+        f"{report.final_outputs.get('export_readiness_report', 'missing')}"
+    )
+    typer.echo(f"pipeline_report={report.pipeline_report_path}")
+    if report.pipeline_status in {
+        PipelineRunStatus.PIPELINE_BLOCKED,
+        PipelineRunStatus.PIPELINE_FAILED,
+    }:
+        raise typer.Exit(code=1)
 
 
 @app.command("run-stage-a")

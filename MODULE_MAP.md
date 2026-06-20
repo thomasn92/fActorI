@@ -12,6 +12,15 @@ All implementation modules are under `factori/`.
 - `hashing.py`: canonical JSON and SHA-256 helpers.
 - `cli.py`: Typer command surface for all implemented stages.
 
+## Pipeline Orchestration
+
+- `pipeline.py`: canonical stage order, start/stop validation, read-only stage classification,
+  and deterministic overall status derivation.
+- `run_all.py`: explicit direct orchestration of existing stages plus the hashed, ledgered pipeline
+  run report. Replay and diagnostics are checked for ledger immutability around their execution.
+- `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
+- `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
+
 ## Stage A
 
 - `stage0.py`: fake deterministic opportunity discovery.
@@ -75,5 +84,5 @@ All implementation modules are under `factori/`.
 ## Reports
 
 - `reports.py`: deterministic Markdown renderers for stage, package, audit, export, replay,
-  diagnostics, and cross-run comparison reports. These rendered reports are presentation
-  artifacts, not verification evidence.
+  diagnostics, cross-run comparison, and pipeline run reports. These rendered reports are
+  presentation artifacts, not verification evidence.

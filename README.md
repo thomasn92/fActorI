@@ -39,6 +39,8 @@ Implemented so far:
 - read-only deterministic replay verification for completed runs;
 - read-only deterministic provenance diagnostics and safe rerun recommendations;
 - read-only deterministic cross-run comparison and regression diagnostics;
+- canonical direct one-command deterministic pipeline orchestration;
+- read-only checkpoint/status inspection and stricter run-all resume validation;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -61,6 +63,20 @@ uv run ruff check .
 
 ## CLI
 
+Canonical full deterministic run:
+
+```bash
+uv run factori run-all --run-id demo --domain "human geography"
+```
+
+The runner supports `--method`, `--root`, `--stop-after`, `--start-at`, `--skip-replay`,
+`--run-diagnostics`, optional non-provenance replay/diagnostic report flags, and `--fail-fast`.
+Replay and diagnostics remain read-only within the orchestrated run. A repeated full run with the
+same run ID fails clearly; `--start-at` is validated against explicit checkpoint artifacts before
+any resumed stage runs.
+
+Individual stage and inspection commands:
+
 ```bash
 uv run factori init-run --run-id demo
 uv run factori add-candidate --run-id demo --candidate-id candidate-001
@@ -82,6 +98,10 @@ uv run factori diagnose-run --run-id demo
 uv run factori diagnose-run --run-id demo --write-report
 uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate
 uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate --write-report
+uv run factori status --run-id demo
+uv run factori status --run-id demo --stage run-stage-b
+uv run factori status --run-id demo --json
+uv run factori validate-resume --run-id demo --start-at plan-manuscript
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo

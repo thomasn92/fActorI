@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -166,6 +167,7 @@ class ControllerActionType(StrEnum):
     EXPORT_CLAIM_MAP_WRITTEN = "ExportClaimMapWritten"
     EXPORT_READINESS_REPORT_WRITTEN = "ExportReadinessReportWritten"
     EXPORT_BUNDLE_MANIFEST_WRITTEN = "ExportBundleManifestWritten"
+    PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 
 class ReleaseGateStatus(StrEnum):
@@ -254,6 +256,60 @@ class RegressionCategory(StrEnum):
     BRANCH_OUTCOME_CHANGE = "BranchOutcomeChange"
     BLOCKED_CLAIM_CHANGE = "BlockedClaimChange"
     UNKNOWN = "Unknown"
+
+
+class PipelineStage(StrEnum):
+    """Supported deterministic one-command pipeline stages."""
+
+    RUN_STAGE_A = "run-stage-a"
+    RUN_STAGE_B = "run-stage-b"
+    SELECT_STAGE_C = "select-stage-c"
+    RUN_STAGE_C = "run-stage-c"
+    SYNTHESIZE_ABSTRACT = "synthesize-abstract"
+    PLAN_MANUSCRIPT = "plan-manuscript"
+    BUILD_DRAFT_SKELETON = "build-draft-skeleton"
+    PACKAGE_RESEARCH_OBJECT = "package-research-object"
+    ASSEMBLE_PAPER_SKELETON = "assemble-paper-skeleton"
+    FINAL_AUDIT = "final-audit"
+    PREPARE_EXPORT = "prepare-export"
+    REPLAY_VERIFY = "replay-verify"
+    DIAGNOSE_RUN = "diagnose-run"
+
+
+class PipelineRunStatus(StrEnum):
+    """Overall and per-stage deterministic pipeline statuses."""
+
+    PIPELINE_SUCCEEDED = "PipelineSucceeded"
+    PIPELINE_SUCCEEDED_WITH_WARNINGS = "PipelineSucceededWithWarnings"
+    PIPELINE_BLOCKED = "PipelineBlocked"
+    PIPELINE_FAILED = "PipelineFailed"
+
+
+class PipelineFailurePolicy(StrEnum):
+    """Pipeline behavior after the first blocking or failed stage."""
+
+    CONTINUE_SAFE = "ContinueSafe"
+    FAIL_FAST = "FailFast"
+
+
+class RunCompletenessStatus(StrEnum):
+    """Disk-inspected deterministic run completeness status."""
+
+    NO_RUN_FOUND = "NoRunFound"
+    PARTIAL_RUN = "PartialRun"
+    READY_TO_RESUME = "ReadyToResume"
+    COMPLETE_RUN = "CompleteRun"
+    COMPLETE_WITH_WARNINGS = "CompleteWithWarnings"
+    BLOCKED_RUN = "BlockedRun"
+    INCONSISTENT_RUN = "InconsistentRun"
+
+
+class ResumeValidationStatus(StrEnum):
+    """Read-only validation status for a requested pipeline resume point."""
+
+    RESUME_ALLOWED = "ResumeAllowed"
+    RESUME_BLOCKED = "ResumeBlocked"
+    RESUME_ALLOWED_WITH_WARNINGS = "ResumeAllowedWithWarnings"
 
 
 class AuditCategory(StrEnum):
@@ -1398,6 +1454,136 @@ class RunComparisonSummary(StrictModel):
     candidate_replay_status: ReplayStatus | None = None
     ledger_mutated: bool
     artifact_manifest_mutated: bool
+
+
+class PipelineStageResult(StrictModel):
+    """One stage result in the deterministic one-command pipeline."""
+
+    stage_name: PipelineStage
+    started_at: str = Field(min_length=1)
+    finished_at: str = Field(min_length=1)
+    status: PipelineRunStatus
+    created_artifacts: list[str] = Field(default_factory=list)
+    summary: dict[str, Any] = Field(default_factory=dict)
+    error_message: str | None = None
+
+
+class PipelineRunConfig(StrictModel):
+    """Configuration for deterministic direct pipeline orchestration."""
+
+    run_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    method: str | None = None
+    root: Path = Path(".")
+    stop_after: PipelineStage | None = None
+    start_at: PipelineStage | None = None
+    skip_replay: bool = False
+    run_diagnostics: bool = False
+    write_replay_report: bool = False
+    write_diagnostic_report: bool = False
+    failure_policy: PipelineFailurePolicy = PipelineFailurePolicy.CONTINUE_SAFE
+
+
+class PipelineRunReport(StrictModel):
+    """Ledgered deterministic orchestration report. This is not verification evidence."""
+
+    run_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    method: str | None = None
+    stage_results: list[PipelineStageResult]
+    started_at: str = Field(min_length=1)
+    finished_at: str = Field(min_length=1)
+    pipeline_status: PipelineRunStatus
+    failure_policy: PipelineFailurePolicy
+    blocking_stage: PipelineStage | None = None
+    warnings: list[str] = Field(default_factory=list)
+    final_outputs: dict[str, str] = Field(default_factory=dict)
+    release_status: ReleaseGateStatus | None = None
+    replay_status: ReplayStatus | None = None
+    diagnostic_status: DiagnosticStatus | None = None
+    pipeline_report_path: str = Field(min_length=1)
+    fake: bool = True
+    is_verification_evidence: bool = False
+
+
+class StagePrerequisite(StrictModel):
+    """One explicit artifact or report prerequisite for a pipeline stage."""
+
+    stage_name: PipelineStage
+    required_prior_stage: PipelineStage | None = None
+    required_artifact_path_or_kind: str = Field(min_length=1)
+    required_report: str | None = None
+    blocking_if_missing: bool = True
+    message: str = Field(min_length=1)
+
+
+class StageCheckpoint(StrictModel):
+    """Read-only stage completion inspection derived from files on disk."""
+
+    stage_name: PipelineStage
+    completed: bool
+    required_artifacts_present: list[str] = Field(default_factory=list)
+    required_artifacts_missing: list[str] = Field(default_factory=list)
+    completion_evidence: list[str] = Field(default_factory=list)
+    optional: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
+class NextStageRecommendation(StrictModel):
+    """Deterministic next-stage suggestion from checkpoint inspection."""
+
+    stage_name: PipelineStage | None = None
+    command: str | None = None
+    reason: str = Field(min_length=1)
+
+
+class ResumeValidationReport(StrictModel):
+    """Read-only validation of whether a run can resume at a stage."""
+
+    run_id: str = Field(min_length=1)
+    start_at_stage: PipelineStage
+    resume_status: ResumeValidationStatus
+    prerequisites: list[StagePrerequisite]
+    missing_prerequisites: list[StagePrerequisite] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    blocking_issues: list[str] = Field(default_factory=list)
+    next_recommended_stage: NextStageRecommendation
+    run_exists: bool
+    ledger_exists: bool
+    ledger_commit_count: int = Field(ge=0)
+    read_only: bool = True
+    is_provenance: bool = False
+
+
+class RunStatusReport(StrictModel):
+    """Read-only run checkpoint report. The ledger remains provenance."""
+
+    run_id: str = Field(min_length=1)
+    run_exists: bool
+    completed_stages: list[PipelineStage]
+    missing_stages: list[PipelineStage]
+    next_recommended_stage: NextStageRecommendation
+    last_completed_stage: PipelineStage | None = None
+    required_artifacts_present: list[str] = Field(default_factory=list)
+    required_artifacts_missing: list[str] = Field(default_factory=list)
+    stage_checkpoints: list[StageCheckpoint] = Field(default_factory=list)
+    ledger_exists: bool
+    ledger_commit_count: int = Field(ge=0)
+    artifact_manifest_exists: bool
+    research_object_exists: bool
+    paper_skeleton_exists: bool
+    final_audit_exists: bool
+    export_preparation_exists: bool
+    replay_report_exists: bool
+    diagnostic_report_exists: bool
+    release_status: ReleaseGateStatus | None = None
+    replay_status: ReplayStatus | None = None
+    diagnostic_status: DiagnosticStatus | None = None
+    completeness_status: RunCompletenessStatus
+    warnings: list[str] = Field(default_factory=list)
+    blocking_issues: list[str] = Field(default_factory=list)
+    read_only: bool = True
+    is_provenance: bool = False
 
 
 class ScoreVector(StrictModel):

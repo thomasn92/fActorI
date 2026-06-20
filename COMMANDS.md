@@ -10,6 +10,32 @@ uv sync --dev
 
 ## Deterministic Pipeline
 
+Canonical one-command run:
+
+```bash
+uv run factori run-all --run-id demo --domain "human geography"
+```
+
+Common controls:
+
+```bash
+uv run factori run-all --run-id demo-a --domain "human geography" --method "optimal transport"
+uv run factori run-all --run-id demo-b --domain "human geography" --stop-after run-stage-c
+uv run factori run-all --run-id demo-b --domain "human geography" --start-at synthesize-abstract
+uv run factori run-all --run-id demo-c --domain "human geography" --skip-replay
+uv run factori run-all --run-id demo-d --domain "human geography" --run-diagnostics
+uv run factori run-all --run-id demo-e --domain "human geography" --run-diagnostics \
+  --write-replay-report --write-diagnostic-report
+uv run factori run-all --run-id demo-f --domain "human geography" --fail-fast
+```
+
+`run-all` calls existing stage functions directly. Its pipeline report is hashed and ledgered;
+replay and diagnostics remain read-only, and their optional reports remain outside provenance.
+When `--start-at` is used, `run-all` first validates the requested resume point against explicit
+checkpoint artifacts and blocks before mutation if prerequisites are missing.
+
+Equivalent individual commands:
+
 ```bash
 uv run factori run-stage-a --run-id demo --domain "human geography"
 uv run factori run-stage-b --run-id demo
@@ -28,6 +54,10 @@ uv run factori diagnose-run --run-id demo
 uv run factori diagnose-run --run-id demo --write-report
 uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate
 uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate --write-report
+uv run factori status --run-id demo
+uv run factori status --run-id demo --stage run-stage-b
+uv run factori status --run-id demo --json
+uv run factori validate-resume --run-id demo --start-at plan-manuscript
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
@@ -40,6 +70,9 @@ executes its recommended commands. With `--write-report`, it writes only non-pro
 `compare-runs` reads two completed runs and reports deterministic drift and regressions. With
 `--write-report`, it writes only non-provenance files under `runs/<candidate>/comparisons/` and
 does not append ledger commits or update either artifact manifest.
+
+`status` and `validate-resume` are read-only checkpoint inspection commands. They do not append
+ledger commits, update manifests, or write status reports.
 
 ## Foundation and Inspection
 
