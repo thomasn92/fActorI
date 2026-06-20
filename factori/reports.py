@@ -21,6 +21,7 @@ from factori.schemas import (
     ExportReadinessReport,
     FinalAuditReport,
     FinalNucleus,
+    HygieneRemediationPlan,
     LedgerSummary,
     ManuscriptChecklist,
     ManuscriptPlan,
@@ -1173,6 +1174,65 @@ def render_output_hygiene_report_markdown(
             "- Hygiene inspection does not delete, repair, rewrite, or rehash stored metadata.",
             "- Hygiene reports are not provenance or verification evidence.",
             "- Hygiene reports are not ledgered or included in normal artifact manifests.",
+            "- The append-only ledger remains the source of truth.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_hygiene_remediation_plan_markdown(
+    *,
+    remediation_plan: HygieneRemediationPlan,
+) -> str:
+    """Render a non-executing deterministic hygiene remediation plan."""
+    lines = [
+        "# Hygiene Remediation Plan",
+        "",
+        "Recommendations only; this plan does not execute cleanup, repair, deletion, or reruns.",
+        "",
+        f"Run: `{remediation_plan.run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Plan status: {remediation_plan.plan_status.value}",
+        f"- Source hygiene status: {remediation_plan.source_hygiene_status.value}",
+        f"- Actions: {len(remediation_plan.actions)}",
+        f"- Execution performed: {str(remediation_plan.execution_performed).lower()}",
+        f"- Ledger mutated: {str(remediation_plan.ledger_mutated).lower()}",
+        "- Artifact manifest mutated: "
+        f"{str(remediation_plan.artifact_manifest_mutated).lower()}",
+        "",
+        "## Recommended Actions",
+        "",
+        "| Kind | Risk | Status | Stage | Paths | Reason |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    if remediation_plan.actions:
+        for action in remediation_plan.actions:
+            stage = action.recommended_stage or "none"
+            paths = ", ".join(f"`{path}`" for path in action.paths) or "none"
+            lines.append(
+                f"| {action.kind.value} | {action.risk.value} | {action.status.value} | "
+                f"{stage} | {paths} | {action.reason} |"
+            )
+            if action.recommended_command:
+                lines.append(f"  Suggested command: `{action.recommended_command}`")
+    else:
+        lines.append("| NoActionNeeded | Low | NotRequired | none | none | Run is clean. |")
+    lines.extend(["", "## Warnings", ""])
+    if remediation_plan.warnings:
+        lines.extend(f"- {warning}" for warning in remediation_plan.warnings)
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Planning Boundary",
+            "",
+            "- No remediation action was executed.",
+            "- This plan does not delete, quarantine, restore, rerun, or rewrite anything.",
+            "- Remediation plans are not provenance or verification evidence.",
+            "- Remediation plans are not ledgered or included in normal artifact manifests.",
             "- The append-only ledger remains the source of truth.",
         ]
     )

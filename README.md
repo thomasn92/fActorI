@@ -43,6 +43,7 @@ Implemented so far:
 - read-only checkpoint/status inspection and stricter run-all resume validation;
 - read-only pipeline dry-run planning for run-all options and expected outputs;
 - read-only run output hygiene inspection for orphaned, stale, duplicate, or leaked files;
+- deterministic non-executing hygiene remediation plans with explicit risk levels and rerun advice;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -110,6 +111,9 @@ uv run factori plan-run --run-id demo --domain "human geography" --json
 uv run factori inspect-hygiene --run-id demo
 uv run factori inspect-hygiene --run-id demo --write-report
 uv run factori inspect-hygiene --run-id demo --json
+uv run factori plan-hygiene-remediation --run-id demo
+uv run factori plan-hygiene-remediation --run-id demo --write-report
+uv run factori plan-hygiene-remediation --run-id demo --json
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -123,3 +127,8 @@ experiment runners, Docker, servers, or UI code.
 `inspect-hygiene` is read-only. Its optional reports are written under
 `runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
 from normal artifact manifests. It never deletes, repairs, rewrites, or rehashes stored metadata.
+
+`plan-hygiene-remediation` maps hygiene findings to conservative recommendations and deterministic
+rerun commands when a producing stage is identifiable. It never executes cleanup, deletion,
+quarantine, restoration, manifest regeneration, or reruns. Optional plans remain under `hygiene/`
+and outside provenance.

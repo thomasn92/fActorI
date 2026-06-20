@@ -22,9 +22,10 @@
 | 19 | Read-only checkpoint/status inspection and stricter resume prerequisite validation | `checkpoints.py`, `status.py` | `status`, `validate-resume` | Read-only; `run-all --start-at` uses validation before any resumed mutation |
 | 20 | Read-only pipeline dry-run planning for run-all options, blockers, and expected outputs | `dry_run.py`, `pipeline_plan.py` | `run-all --dry-run`, `plan-run` | Read-only; dry-run plans are stdout/JSON only and are not ledgered |
 | 21 | Read-only run output hygiene inspection for manifest drift, orphaned/stale/duplicate files, and non-provenance leakage | `output_hygiene.py`, `run_files.py` | `inspect-hygiene` | Read-only; optional hygiene reports are outside provenance, evidence, manifests, and the ledger |
+| 22 | Deterministic non-executing hygiene remediation planning with risk levels and producing-stage recommendations | `hygiene_plan.py`, `remediation.py` | `plan-hygiene-remediation` | Read-only; recommendations are never executed and optional plans remain outside provenance and the ledger |
 
 ## Current Boundary
 
-Milestones through 21 implement a deterministic scaffold. They do not implement real agents,
+Milestones through 22 implement a deterministic scaffold. They do not implement real agents,
 scientific retrieval, proof checking, experiments, polished prose, final LaTeX, or production
 orchestration frameworks.

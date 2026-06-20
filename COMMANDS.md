@@ -68,6 +68,9 @@ uv run factori plan-run --run-id demo --domain "human geography" --json
 uv run factori inspect-hygiene --run-id demo
 uv run factori inspect-hygiene --run-id demo --write-report
 uv run factori inspect-hygiene --run-id demo --json
+uv run factori plan-hygiene-remediation --run-id demo
+uv run factori plan-hygiene-remediation --run-id demo --write-report
+uv run factori plan-hygiene-remediation --run-id demo --json
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
@@ -93,6 +96,11 @@ non-provenance report placement, duplicate outputs, stale sidecars/cache files, 
 contents. It never deletes or repairs files. With `--write-report`, it writes only marked
 non-provenance files under `runs/<run_id>/hygiene/`; that directory is excluded from normal
 artifact manifests and no ledger commit is created.
+
+`plan-hygiene-remediation` runs the read-only hygiene inspection and maps each finding to a
+conservative recommendation with an explicit risk and optional producing-stage rerun command. It
+does not execute any recommendation or rewrite a manifest. With `--write-report`, it writes only
+marked non-provenance plan files under `runs/<run_id>/hygiene/` and creates no ledger commit.
 
 ## Foundation and Inspection
 

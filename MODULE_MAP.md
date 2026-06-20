@@ -26,6 +26,10 @@ All implementation modules are under `factori/`.
   non-provenance boundary markers.
 - `output_hygiene.py`: deterministic manifest/file/hash hygiene checks and optional reports that
   remain outside provenance.
+- `remediation.py`: explicit finding-to-action mappings, risk classification, and deterministic
+  producing-stage inference without action execution.
+- `hygiene_plan.py`: read-only remediation-plan construction, summaries, and optional reports that
+  remain outside provenance.
 
 ## Stage A
 
@@ -90,5 +94,5 @@ All implementation modules are under `factori/`.
 ## Reports
 
 - `reports.py`: deterministic Markdown renderers for stage, package, audit, export, replay,
-  diagnostics, cross-run comparison, pipeline run, and output hygiene reports. These rendered
-  reports are presentation artifacts, not verification evidence.
+  diagnostics, cross-run comparison, pipeline run, output hygiene, and remediation-plan reports.
+  These rendered reports are presentation artifacts, not verification evidence.

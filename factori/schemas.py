@@ -348,6 +348,47 @@ class OutputHygieneCategory(StrEnum):
     UNKNOWN = "Unknown"
 
 
+class RemediationActionKind(StrEnum):
+    """Non-executing hygiene remediation recommendation kinds."""
+
+    INSPECT_MANUALLY = "InspectManually"
+    RERUN_PRODUCING_STAGE = "RerunProducingStage"
+    REGENERATE_MANIFEST = "RegenerateManifest"
+    QUARANTINE_UNMANIFESTED_FILE = "QuarantineUnmanifestedFile"
+    REMOVE_NON_PROVENANCE_REPORT = "RemoveNonProvenanceReport"
+    REMOVE_STALE_TEMP_FILE = "RemoveStaleTempFile"
+    RESTORE_MISSING_ARTIFACT = "RestoreMissingArtifact"
+    REJECT_RUN_AS_INCONSISTENT = "RejectRunAsInconsistent"
+    NO_ACTION_NEEDED = "NoActionNeeded"
+
+
+class RemediationRisk(StrEnum):
+    """Risk of a recommended remediation if a human later executes it."""
+
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+    UNSAFE = "Unsafe"
+
+
+class RemediationStatus(StrEnum):
+    """Action-level status for a recommendation that is never auto-executed."""
+
+    RECOMMENDED = "Recommended"
+    MANUAL_APPROVAL_REQUIRED = "ManualApprovalRequired"
+    UNSAFE_TO_EXECUTE = "UnsafeToExecute"
+    NOT_REQUIRED = "NotRequired"
+
+
+class RemediationPlanStatus(StrEnum):
+    """Overall status of a deterministic hygiene remediation plan."""
+
+    NO_REMEDIATION_NEEDED = "NoRemediationNeeded"
+    REMEDIATION_RECOMMENDED = "RemediationRecommended"
+    MANUAL_INSPECTION_REQUIRED = "ManualInspectionRequired"
+    RUN_INCONSISTENT = "RunInconsistent"
+
+
 class RunFileClassification(StrEnum):
     """Filesystem classification used by read-only run indexing."""
 
@@ -1790,6 +1831,41 @@ class OutputHygieneReport(StrictModel):
     blocking_findings_count: int = Field(ge=0)
     ledger_mutated: bool = False
     artifact_manifest_mutated: bool = False
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+    certifies_scientific_validity: bool = False
+
+
+class RemediationAction(StrictModel):
+    """One deterministic recommendation that this MVP never executes."""
+
+    action_id: str = Field(min_length=1)
+    finding_id: str | None = None
+    finding_category: OutputHygieneCategory | None = None
+    kind: RemediationActionKind
+    risk: RemediationRisk
+    status: RemediationStatus
+    reason: str = Field(min_length=1)
+    paths: list[str] = Field(default_factory=list)
+    recommended_stage: str | None = None
+    recommended_command: str | None = None
+    requires_human_review: bool = True
+    execution_performed: bool = False
+
+
+class HygieneRemediationPlan(StrictModel):
+    """Read-only, non-executing remediation plan derived from hygiene findings."""
+
+    run_id: str = Field(min_length=1)
+    source_hygiene_status: OutputHygieneStatus
+    plan_status: RemediationPlanStatus
+    actions: list[RemediationAction]
+    source_finding_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    ledger_mutated: bool = False
+    artifact_manifest_mutated: bool = False
+    execution_performed: bool = False
     not_provenance: bool = True
     not_evidence: bool = True
     not_ledgered: bool = True

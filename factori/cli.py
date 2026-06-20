@@ -22,6 +22,11 @@ from factori.dry_run import build_pipeline_dry_run_plan
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
+from factori.hygiene_plan import (
+    build_hygiene_remediation_plan,
+    summarize_hygiene_remediation_plan,
+    write_hygiene_remediation_plan,
+)
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.output_hygiene import (
@@ -834,6 +839,47 @@ def inspect_hygiene_command(
         typer.echo(
             f"finding={finding.severity.value}:{finding.category.value}:"
             f"{paths}:{finding.message}"
+        )
+
+
+@app.command("plan-hygiene-remediation")
+def plan_hygiene_remediation_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan hygiene remediation without executing cleanup, repair, or reruns."""
+    hygiene_report = inspect_output_hygiene(run_id=run_id, root=root)
+    plan = build_hygiene_remediation_plan(hygiene_report)
+    if write_report:
+        write_hygiene_remediation_plan(plan=plan, root=root)
+    if json_output:
+        typer.echo(json.dumps(plan.model_dump(mode="json"), sort_keys=True))
+        return
+    summary = summarize_hygiene_remediation_plan(plan)
+    for key in (
+        "run_id",
+        "plan_status",
+        "actions_total",
+        "low_risk_actions",
+        "medium_risk_actions",
+        "high_risk_actions",
+        "unsafe_actions",
+        "manual_inspection_actions",
+        "rerun_stage_actions",
+    ):
+        typer.echo(f"{key}={summary[key]}")
+    typer.echo(f"ledger_mutated={str(plan.ledger_mutated).lower()}")
+    typer.echo(
+        f"artifact_manifest_mutated={str(plan.artifact_manifest_mutated).lower()}"
+    )
+    for action in plan.actions:
+        paths = ",".join(action.paths) or "none"
+        stage = action.recommended_stage or "none"
+        typer.echo(
+            f"action={action.kind.value}:{action.risk.value}:{stage}:"
+            f"{paths}:{action.reason}"
         )
 
 
