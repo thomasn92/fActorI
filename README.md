@@ -3,6 +3,20 @@
 This repository contains the deterministic MVP foundation for fActorI, based on
 `fActori_updated_data_regime.tex`.
 
+## For coding agents
+
+Start with:
+
+1. [`AGENTS.md`](AGENTS.md)
+2. [`CONTEXT.md`](CONTEXT.md)
+3. [`ARCHITECTURE.md`](ARCHITECTURE.md)
+4. [`MILESTONES.md`](MILESTONES.md)
+5. [`MODULE_MAP.md`](MODULE_MAP.md)
+6. [`COMMANDS.md`](COMMANDS.md)
+
+The LaTeX specification is reference material only and should not be read in full unless required
+by the task.
+
 Implemented so far:
 
 - strict Pydantic schemas for core research entities;

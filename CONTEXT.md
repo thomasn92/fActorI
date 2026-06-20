@@ -1,0 +1,80 @@
+# Project Context
+
+## What fActorI Is
+
+fActorI is specified as a multi-fidelity, variance-driven agentic framework for scientific
+discovery. The broader design explores candidate research branches, allocates verification effort,
+tracks evidence and uncertainty, and converges on a research output with explicit provenance.
+
+This repository is not the real autonomous research system. It is a deterministic local MVP
+scaffold that exercises the intended contracts, state transitions, evidence boundaries, and output
+shape without calling external systems. Fake validators and template-driven logic simulate the
+pipeline so its internal invariants can be tested repeatably.
+
+## Implemented Flow
+
+```text
+Stage A candidate generation
+  -> Control layer
+  -> Stage B structural validation
+  -> Stage C selection
+  -> Stage C fake verification
+  -> Abstract synthesis
+  -> Manuscript planning
+  -> Draft skeleton
+  -> Research object packaging
+  -> Paper skeleton assembly
+  -> Final audit
+  -> Export preparation
+  -> Replay verification
+```
+
+The implementation uses strict Pydantic schemas, an append-only SQLite ledger, SHA-256 content
+hashes, a local filesystem artifact store, deterministic scoring and gates, Typer commands, pytest,
+and Ruff. Mutating stages record decisions and artifact references in the ledger. Replay reads the
+completed run from disk and checks consistency without changing provenance.
+
+## What the MVP Demonstrates
+
+- deterministic candidate generation, scoring, deduplication, gating, and ranking;
+- explicit MVP data-regime handling;
+- deterministic strategic-question routing and autonomy rules;
+- fake reviewer, bridge, baseline, red-team, proof, and synthetic-experiment checks;
+- conservative uncertainty, retrieval-adequacy, and budget gates;
+- verification-label and evidence-boundary enforcement;
+- deterministic abstraction, claim planning, draft scaffolding, and paper-shaped assembly;
+- research-object manifests, final consistency audit, release decisions, and export contracts;
+- independent read-only replay of ledger and artifact integrity from disk.
+
+These mechanisms guarantee only deterministic internal consistency, provenance, and label
+discipline. They do not establish novelty, correctness, scientific value, literature completeness,
+or external review readiness.
+
+## Out of Scope
+
+The following are intentionally not implemented:
+
+```text
+real LLM calls
+real retrieval
+real Lean
+real experiments
+real literature coverage
+polished prose generation
+final LaTeX generation
+external review readiness
+production orchestration
+```
+
+Presentation and planning artifacts are not verification evidence. Fake proof and experiment
+adapters remain deterministic test doubles and must not be presented as real scientific
+validation.
+
+## Source of Truth
+
+The append-only ledger is the provenance source of truth. Artifact manifests, ledger summaries,
+runtime summaries, audit reports, export plans, replay reports, and future diagnostics are derived
+views. They help inspect a run but cannot replace or rewrite ledger history.
+
+The full design reference remains `fActori_updated_data_regime.tex` at the repository root. Use it
+only when the compressed context and implementation do not answer a specification question.
