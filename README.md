@@ -38,6 +38,7 @@ Implemented so far:
 - deterministic export-preparation contracts and plans;
 - read-only deterministic replay verification for completed runs;
 - read-only deterministic provenance diagnostics and safe rerun recommendations;
+- read-only deterministic cross-run comparison and regression diagnostics;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -79,6 +80,8 @@ uv run factori replay-verify --run-id demo
 uv run factori replay-verify --run-id demo --write-report
 uv run factori diagnose-run --run-id demo
 uv run factori diagnose-run --run-id demo --write-report
+uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate
+uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate --write-report
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo

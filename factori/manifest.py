@@ -42,6 +42,8 @@ def build_artifact_manifest(run_id: str, artifact_store: ArtifactStore) -> Artif
             continue
         if "diagnostics" in relative_parts:
             continue
+        if "comparisons" in relative_parts:
+            continue
         entries.append(_entry_for_path(artifact_store, run_id, path))
 
     entries = sorted(entries, key=lambda entry: (entry.path, entry.artifact_id))

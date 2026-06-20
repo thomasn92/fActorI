@@ -26,6 +26,8 @@ uv run factori replay-verify --run-id demo
 uv run factori replay-verify --run-id demo --write-report
 uv run factori diagnose-run --run-id demo
 uv run factori diagnose-run --run-id demo --write-report
+uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate
+uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate --write-report
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
@@ -34,6 +36,10 @@ uv run factori diagnose-run --run-id demo --write-report
 `diagnose-run` explains available final-audit, release, export, and replay findings. It never
 executes its recommended commands. With `--write-report`, it writes only non-provenance files under
 `runs/demo/diagnostics/` and does not append ledger commits or update the artifact manifest.
+
+`compare-runs` reads two completed runs and reports deterministic drift and regressions. With
+`--write-report`, it writes only non-provenance files under `runs/<candidate>/comparisons/` and
+does not append ledger commits or update either artifact manifest.
 
 ## Foundation and Inspection
 

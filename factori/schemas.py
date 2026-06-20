@@ -219,6 +219,43 @@ class RootCauseCategory(StrEnum):
     UNKNOWN = "Unknown"
 
 
+class RegressionStatus(StrEnum):
+    """Overall deterministic cross-run regression status."""
+
+    NO_REGRESSION = "NoRegression"
+    REGRESSION_WARNINGS = "RegressionWarnings"
+    REGRESSION_DETECTED = "RegressionDetected"
+    COMPARISON_FAILED = "ComparisonFailed"
+
+
+class RegressionSeverity(StrEnum):
+    """Severity assigned to deterministic cross-run findings."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    BLOCKING = "Blocking"
+
+
+class RegressionCategory(StrEnum):
+    """Deterministic cross-run difference and regression categories."""
+
+    LEDGER_DRIFT = "LedgerDrift"
+    ARTIFACT_DRIFT = "ArtifactDrift"
+    HASH_DRIFT = "HashDrift"
+    MISSING_OUTPUT = "MissingOutput"
+    STAGE_COUNT_CHANGE = "StageCountChange"
+    CANDIDATE_COUNT_CHANGE = "CandidateCountChange"
+    CLAIM_LABEL_CHANGE = "ClaimLabelChange"
+    EVIDENCE_BOUNDARY_REGRESSION = "EvidenceBoundaryRegression"
+    RELEASE_STATUS_REGRESSION = "ReleaseStatusRegression"
+    EXPORT_READINESS_REGRESSION = "ExportReadinessRegression"
+    REPLAY_STATUS_REGRESSION = "ReplayStatusRegression"
+    DIAGNOSTIC_STATUS_REGRESSION = "DiagnosticStatusRegression"
+    BRANCH_OUTCOME_CHANGE = "BranchOutcomeChange"
+    BLOCKED_CLAIM_CHANGE = "BlockedClaimChange"
+    UNKNOWN = "Unknown"
+
+
 class AuditCategory(StrEnum):
     """Final audit check categories."""
 
@@ -1287,6 +1324,80 @@ class DiagnosticReport(StrictModel):
     not_evidence: bool = True
     not_ledgered: bool = True
     certifies_scientific_validity: bool = False
+
+
+class RunDifference(StrictModel):
+    """One deterministic field-level difference between two completed runs."""
+
+    difference_id: str = Field(min_length=1)
+    category: RegressionCategory
+    severity: RegressionSeverity
+    field: str = Field(min_length=1)
+    baseline_value: Any = None
+    candidate_value: Any = None
+    message: str = Field(min_length=1)
+    baseline_refs: list[str] = Field(default_factory=list)
+    candidate_refs: list[str] = Field(default_factory=list)
+    is_regression: bool = False
+    optional_output: bool = False
+
+
+class RegressionFinding(StrictModel):
+    """A deterministic regression derived from one or more run differences."""
+
+    finding_id: str = Field(min_length=1)
+    category: RegressionCategory
+    severity: RegressionSeverity
+    summary: str = Field(min_length=1)
+    difference_ids: list[str]
+    baseline_value: Any = None
+    candidate_value: Any = None
+
+
+class CrossRunComparisonReport(StrictModel):
+    """Read-only cross-run comparison. This is not provenance or scientific validation."""
+
+    baseline_run_id: str = Field(min_length=1)
+    candidate_run_id: str = Field(min_length=1)
+    differences: list[RunDifference]
+    regression_findings: list[RegressionFinding] = Field(default_factory=list)
+    regression_status: RegressionStatus
+    sources_loaded: dict[str, list[str]]
+    comparison_errors: list[str] = Field(default_factory=list)
+    baseline_release_status: ReleaseGateStatus | None = None
+    candidate_release_status: ReleaseGateStatus | None = None
+    baseline_replay_status: ReplayStatus | None = None
+    candidate_replay_status: ReplayStatus | None = None
+    baseline_diagnostic_status: DiagnosticStatus | None = None
+    candidate_diagnostic_status: DiagnosticStatus | None = None
+    baseline_ledger_mutated: bool = False
+    candidate_ledger_mutated: bool = False
+    baseline_artifact_manifest_mutated: bool = False
+    candidate_artifact_manifest_mutated: bool = False
+    ledger_mutated: bool = False
+    artifact_manifest_mutated: bool = False
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+    certifies_scientific_validity: bool = False
+
+
+class RunComparisonSummary(StrictModel):
+    """Compact deterministic summary of a cross-run comparison."""
+
+    baseline_run_id: str = Field(min_length=1)
+    candidate_run_id: str = Field(min_length=1)
+    differences_count: int = Field(ge=0)
+    blocking_regressions: int = Field(ge=0)
+    warning_regressions: int = Field(ge=0)
+    info_differences: int = Field(ge=0)
+    regression_status: RegressionStatus
+    baseline_release_status: ReleaseGateStatus | None = None
+    candidate_release_status: ReleaseGateStatus | None = None
+    baseline_replay_status: ReplayStatus | None = None
+    candidate_replay_status: ReplayStatus | None = None
+    ledger_mutated: bool
+    artifact_manifest_mutated: bool
 
 
 class ScoreVector(StrictModel):

@@ -15,6 +15,7 @@ from factori.schemas import (
     BridgeReport,
     Candidate,
     ClaimTable,
+    CrossRunComparisonReport,
     DiagnosticReport,
     DraftSkeleton,
     ExportReadinessReport,
@@ -1041,6 +1042,79 @@ def render_diagnostic_report_markdown(
             "- Diagnostic reports are not verification evidence.",
             "- Diagnostic reports are not ledgered.",
             "- The immutable ledger remains the source of truth.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_cross_run_comparison_markdown(
+    *,
+    comparison_report: CrossRunComparisonReport,
+) -> str:
+    """Render a read-only deterministic cross-run comparison report."""
+    blocking = sum(
+        finding.severity.value == "Blocking"
+        for finding in comparison_report.regression_findings
+    )
+    warnings = sum(
+        finding.severity.value == "Warning"
+        for finding in comparison_report.regression_findings
+    )
+    lines = [
+        "# Cross-Run Comparison Report",
+        "",
+        "Read-only deterministic comparison only; this is not provenance or scientific validation.",
+        "",
+        f"Baseline run: `{comparison_report.baseline_run_id}`",
+        f"Candidate run: `{comparison_report.candidate_run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Regression status: {comparison_report.regression_status.value}",
+        f"- Differences: {len(comparison_report.differences)}",
+        f"- Blocking regressions: {blocking}",
+        f"- Warning regressions: {warnings}",
+        f"- Ledger mutated: {str(comparison_report.ledger_mutated).lower()}",
+        "- Artifact manifest mutated: "
+        f"{str(comparison_report.artifact_manifest_mutated).lower()}",
+        "",
+        "## Differences",
+        "",
+        "| Field | Category | Severity | Baseline | Candidate |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    if comparison_report.differences:
+        for difference in comparison_report.differences:
+            lines.append(
+                f"| {difference.field} | {difference.category.value} | "
+                f"{difference.severity.value} | {difference.baseline_value} | "
+                f"{difference.candidate_value} |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |")
+    lines.extend(["", "## Regression Findings", ""])
+    if comparison_report.regression_findings:
+        lines.extend(
+            f"- [{finding.severity.value}] {finding.category.value}: {finding.summary}"
+            for finding in comparison_report.regression_findings
+        )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Comparison Errors", ""])
+    if comparison_report.comparison_errors:
+        lines.extend(f"- {error}" for error in comparison_report.comparison_errors)
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Comparison Boundary",
+            "",
+            "- Comparison does not repair or rerun either run.",
+            "- Comparison reports are not provenance.",
+            "- Comparison reports are not verification evidence.",
+            "- Comparison reports are not ledgered.",
+            "- Each immutable ledger remains the source of truth for its run.",
         ]
     )
     return "\n".join(lines) + "\n"

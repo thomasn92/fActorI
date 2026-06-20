@@ -11,6 +11,7 @@ import typer
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
+from factori.cross_run import CrossRunError, compare_runs, write_cross_run_report
 from factori.diagnostics import (
     DiagnosticError,
     build_diagnostic_report,
@@ -23,6 +24,7 @@ from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.questioner import route_questions_to_action, routed_action, select_questions
+from factori.regression_diagnostics import summarize_cross_run_comparison
 from factori.replay import (
     ReplayVerificationError,
     replay_verify_run,
@@ -538,6 +540,71 @@ def diagnose_run_command(
     typer.echo(f"ledger_mutated={str(report.ledger_mutated).lower()}")
     typer.echo(
         f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}"
+    )
+
+
+@app.command("compare-runs")
+def compare_runs_command(
+    baseline_run_id: Annotated[str, typer.Option("--baseline-run-id")],
+    candidate_run_id: Annotated[str, typer.Option("--candidate-run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+) -> None:
+    """Compare two completed deterministic runs without mutating either run."""
+    try:
+        report = compare_runs(
+            baseline_run_id=baseline_run_id,
+            candidate_run_id=candidate_run_id,
+            root=root,
+        )
+    except CrossRunError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if write_report:
+        write_cross_run_report(report=report, root=root)
+    summary = summarize_cross_run_comparison(report)
+    typer.echo(f"baseline_run_id={summary.baseline_run_id}")
+    typer.echo(f"candidate_run_id={summary.candidate_run_id}")
+    typer.echo(f"differences={summary.differences_count}")
+    typer.echo(f"blocking_regressions={summary.blocking_regressions}")
+    typer.echo(f"warning_regressions={summary.warning_regressions}")
+    typer.echo(f"info_differences={summary.info_differences}")
+    typer.echo(f"regression_status={summary.regression_status.value}")
+    typer.echo(
+        "baseline_release_status="
+        + (
+            summary.baseline_release_status.value
+            if summary.baseline_release_status is not None
+            else "missing"
+        )
+    )
+    typer.echo(
+        "candidate_release_status="
+        + (
+            summary.candidate_release_status.value
+            if summary.candidate_release_status is not None
+            else "missing"
+        )
+    )
+    typer.echo(
+        "baseline_replay_status="
+        + (
+            summary.baseline_replay_status.value
+            if summary.baseline_replay_status is not None
+            else "missing"
+        )
+    )
+    typer.echo(
+        "candidate_replay_status="
+        + (
+            summary.candidate_replay_status.value
+            if summary.candidate_replay_status is not None
+            else "missing"
+        )
+    )
+    typer.echo(f"ledger_mutated={str(summary.ledger_mutated).lower()}")
+    typer.echo(
+        f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}"
     )
 
 
