@@ -1,7 +1,8 @@
-"""Deterministic adapter registry with fake-only backend enforcement."""
+"""Adapter registry with deterministic fake defaults and gated real LLM support."""
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -22,6 +23,11 @@ from factori.adapters.fake import (
     FakeProofVerifier,
     FakeProseGenerator,
     FakeRetrievalClient,
+)
+from factori.adapters.llm_real import (
+    LLMTransport,
+    OpenAILLMClient,
+    OpenAIResponsesTransport,
 )
 
 
@@ -55,17 +61,43 @@ class AdapterRegistry:
 
 def get_adapter_registry(
     config: AdapterConfig | Mapping[str, Any] | None = None,
+    *,
+    llm_transport: LLMTransport | None = None,
+    environ: Mapping[str, str] | None = None,
 ) -> AdapterRegistry:
-    """Build the active adapter registry; only fake is available in this milestone."""
+    """Build fake adapters or an explicitly gated Stage A OpenAI LLM adapter."""
     loaded = load_adapter_config(config)
-    if loaded.adapter_backend != "fake":
+    if loaded.adapter_backend not in {"fake", "openai", "real_llm"}:
         raise AdapterConfigurationError(
             f"Adapter backend '{loaded.adapter_backend}' is not implemented. "
             "Only 'fake' is available in this milestone."
         )
+    llm: LLMClient = FakeLLMClient()
+    if loaded.adapter_backend in {"openai", "real_llm"}:
+        if not loaded.allow_external_calls:
+            raise AdapterConfigurationError(
+                "External calls are disabled. Set allow_external_calls=true to use real "
+                "LLM adapters."
+            )
+        environment = os.environ if environ is None else environ
+        configured_key = (
+            loaded.api_key.get_secret_value() if loaded.api_key is not None else None
+        )
+        api_key = configured_key or environment.get(loaded.api_key_env)
+        if not api_key:
+            raise AdapterConfigurationError(
+                "Real LLM adapter requested but no API key is configured."
+            )
+        llm = OpenAILLMClient(
+            api_key=api_key,
+            model=loaded.llm_model,
+            transport=llm_transport or OpenAIResponsesTransport(),
+            max_candidates=loaded.llm_max_candidates,
+            allow_external_calls=True,
+        )
     return AdapterRegistry(
         config=loaded,
-        llm=FakeLLMClient(),
+        llm=llm,
         retrieval=FakeRetrievalClient(),
         proof_verifier=FakeProofVerifier(),
         experiment_runner=FakeExperimentRunner(),

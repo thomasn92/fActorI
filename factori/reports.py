@@ -82,6 +82,7 @@ def render_stage_a_report(
     passing_candidates: list[Candidate],
     survivors: list[Candidate],
     scores: dict[str, ScoreVector],
+    adapter_metadata: dict[str, object] | None = None,
 ) -> str:
     """Render the ranked Stage A report."""
     lines = [
@@ -97,6 +98,9 @@ def render_stage_a_report(
         f"- Pruned by Stage A gate: {len(gate_pruned_candidates)}",
         f"- Passing Stage A gate: {len(passing_candidates)}",
         f"- Kept for Stage B: {len(survivors)}",
+        f"- Candidate adapter: {(adapter_metadata or {}).get('backend', 'fake')}",
+        f"- Candidate adapter model: {(adapter_metadata or {}).get('model', 'not_applicable')}",
+        "- Candidate proposals are not verification evidence.",
         "",
         "## Ranked Survivors",
         "",

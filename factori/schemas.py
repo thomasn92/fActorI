@@ -94,6 +94,7 @@ class ControllerActionType(StrEnum):
     VALIDATE_RUN = "ValidateRun"
     CONTROLLER_ACTION = "ControllerAction"
     STAGE_A_STARTED = "StageAStarted"
+    STAGE_A_LLM_CANDIDATES_PROPOSED = "StageALLMCandidatesProposed"
     STAGE0_OPPORTUNITY_DISCOVERY = "Stage0OpportunityDiscovery"
     STAGE0_SKIPPED = "Stage0Skipped"
     STAGE_A_DATA_GATE_DEFERRED = "StageADataGateDeferred"
@@ -875,6 +876,8 @@ class ArtifactRef(StrictModel):
         even when it is stored under reports.
         """
         suffix = self.path.rsplit(".", maxsplit=1)[-1].lower() if "." in self.path else ""
+        if self.metadata.get("is_verification_evidence") is False:
+            return False
         if self.type == ArtifactType.LATEX:
             return False
         if suffix in {"md", "markdown", "tex", "pdf"}:
@@ -1633,6 +1636,9 @@ class PipelineRunConfig(StrictModel):
     domain: str = ""
     method: str | None = None
     root: Path = Path(".")
+    adapter_backend: str = "fake"
+    allow_external_calls: bool = False
+    llm_model: str = "gpt-5-mini"
     stop_after: PipelineStage | None = None
     start_at: PipelineStage | None = None
     skip_replay: bool = False
@@ -2029,6 +2035,51 @@ class Candidate(StrictModel):
         """Raise if this candidate requires real data under the MVP policy."""
         if not self.is_mvp_admissible():
             raise SchemaError("PublicDownload and UserProvided candidates are deferred in the MVP")
+
+
+class LLMPromptContract(StrictModel):
+    """Deterministic Stage A prompt contract for candidate proposal only."""
+
+    domain: str = Field(min_length=1)
+    method: str | None = None
+    constraints: dict[str, Any]
+    data_regime_policy: list[DataRequirement]
+    mvp_data_gate: dict[str, list[DataRequirement]]
+    requested_output_schema: dict[str, Any]
+    forbidden_claims: list[str]
+    evidence_boundary_instructions: list[str]
+    max_candidates: int = Field(ge=1)
+    prompt_text: str = Field(min_length=1)
+
+
+class CandidateValidationResult(StrictModel):
+    """Safety result for one LLM-proposed candidate."""
+
+    candidate_id: str | None = None
+    valid: bool
+    deferred_by_mvp_data_gate: bool = False
+    reasons: list[str] = Field(default_factory=list)
+
+
+class LLMCandidateParseReport(StrictModel):
+    """Non-evidence parse summary for one structured LLM response."""
+
+    accepted_candidate_ids: list[str] = Field(default_factory=list)
+    rejected_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    max_candidates: int = Field(ge=1)
+    truncated: bool = False
+    fake: bool = False
+    is_verification_evidence: bool = False
+
+
+class LLMGenerationTrace(StrictModel):
+    """Sanitized request/response trace retained as non-evidence provenance context."""
+
+    request: dict[str, Any]
+    raw_response: Any
+    parse_report: LLMCandidateParseReport
+    fake: bool = False
+    is_verification_evidence: bool = False
 
 
 class ControllerAction(StrictModel):

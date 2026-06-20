@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from factori.abstract_synthesis import run_abstract_synthesis
+from factori.adapters.config import AdapterConfig
+from factori.adapters.registry import (
+    AdapterConfigurationError,
+    AdapterRegistry,
+    get_adapter_registry,
+)
 from factori.artifacts import ArtifactStore
 from factori.diagnostics import (
     build_diagnostic_report,
@@ -77,6 +83,19 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
     if PipelineStage.RUN_STAGE_A in stages and not config.domain.strip():
         raise PipelineRunError("domain is required when run-stage-a would run")
 
+    adapter_registry: AdapterRegistry | None = None
+    if PipelineStage.RUN_STAGE_A in stages:
+        try:
+            adapter_registry = get_adapter_registry(
+                AdapterConfig(
+                    adapter_backend=config.adapter_backend,
+                    allow_external_calls=config.allow_external_calls,
+                    llm_model=config.llm_model,
+                )
+            )
+        except AdapterConfigurationError as exc:
+            raise PipelineRunError(str(exc)) from exc
+
     store = ArtifactStore(config.root)
     ledger_path = store.run_path(config.run_id) / "ledger.sqlite"
     if config.start_at is None and ledger_path.is_file():
@@ -114,7 +133,7 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
         stage_started = utc_timestamp()
         commits_before = len(ledger.list_commits(config.run_id))
         try:
-            execution = _execute_stage(stage, config, store, ledger)
+            execution = _execute_stage(stage, config, store, ledger, adapter_registry)
             commits_after = len(ledger.list_commits(config.run_id))
             if stage_is_read_only(stage) and commits_after != commits_before:
                 raise PipelineRunError(
@@ -193,6 +212,7 @@ def _execute_stage(
     config: PipelineRunConfig,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    adapter_registry: AdapterRegistry | None,
 ) -> _StageExecution:
     run_id = config.run_id
     if stage == PipelineStage.RUN_STAGE_A:
@@ -201,8 +221,15 @@ def _execute_stage(
             constraints=constraint_from_inputs(config.domain, config.method),
             store=store,
             ledger=ledger,
+            llm_client=(
+                adapter_registry.llm
+                if adapter_registry is not None
+                and adapter_registry.config.adapter_backend != "fake"
+                else None
+            ),
         )
         artifacts = [*result.candidate_artifacts.values(), *result.score_artifacts.values()]
+        artifacts.extend(result.llm_artifacts.values())
         if result.stage0.report_artifact is not None:
             artifacts.append(result.stage0.report_artifact)
         artifacts.append(result.report_artifact)
@@ -210,6 +237,8 @@ def _execute_stage(
             artifacts,
             generated_candidates=len(result.generated_candidates),
             stage_a_survivors=len(result.survivors),
+            adapter_backend=result.adapter_metadata["backend"],
+            adapter_model=result.adapter_metadata.get("model"),
         )
     if stage == PipelineStage.RUN_STAGE_B:
         result = run_stage_b(run_id=run_id, store=store, ledger=ledger)

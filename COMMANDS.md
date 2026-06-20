@@ -75,6 +75,21 @@ uv run factori show-adapters
 uv run factori adapters
 ```
 
+The default adapter path is fake and makes no external calls. The only real adapter currently
+available is Stage A candidate proposal, and it requires all three opt-ins: backend, external-call
+permission, and an API key. The model is configurable because availability can vary by account:
+
+```bash
+OPENAI_API_KEY="<key>" uv run factori show-adapters \
+  --backend openai --allow-external-calls --llm-model gpt-5-mini
+OPENAI_API_KEY="<key>" uv run factori run-stage-a \
+  --run-id llm-demo --domain "human geography" --method "optimal transport" \
+  --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
+OPENAI_API_KEY="<key>" uv run factori run-all \
+  --run-id llm-pipeline --domain "human geography" --method "optimal transport" \
+  --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
+```
+
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
 `runs/demo/replay/` and does not append ledger commits or update the artifact manifest.
 
@@ -104,9 +119,9 @@ conservative recommendation with an explicit risk and optional producing-stage r
 does not execute any recommendation or rewrite a manifest. With `--write-report`, it writes only
 marked non-provenance plan files under `runs/<run_id>/hygiene/` and creates no ledger commit.
 
-`show-adapters` (alias `adapters`) prints the active fake-only adapter registry. The default is
-`adapter_backend=fake` and `allow_external_calls=false`. A non-fake `--backend` fails because no
-real adapter is implemented; this command does not make external calls or mutate a run.
+`show-adapters` (alias `adapters`) prints the active registry without invoking it. The default is
+`adapter_backend=fake` and `allow_external_calls=false`. The `openai` backend fails before any
+network call unless external calls are explicitly allowed and an API key is present.
 
 ## Foundation and Inspection
 
@@ -135,5 +150,5 @@ Commands for an already-created local environment:
 .venv/bin/ruff check .
 ```
 
-No command in the deterministic pipeline calls external APIs, real Lean, real experiments,
-Docker, a server, or a frontend.
+Default commands do not call external APIs, real Lean, real experiments, Docker, a server, or a
+frontend. Only the explicitly gated Stage A OpenAI command above may call an external API.

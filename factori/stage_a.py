@@ -45,6 +45,8 @@ class StageAResult:
     scores: dict[str, ScoreVector]
     candidate_artifacts: dict[str, ArtifactRef]
     score_artifacts: dict[str, ArtifactRef]
+    llm_artifacts: dict[str, ArtifactRef]
+    adapter_metadata: dict[str, object]
     report_artifact: ArtifactRef
     report_commit_hash: str
 
@@ -62,11 +64,22 @@ def generate_candidates(
     if llm_client is not None:
         candidates: list[Candidate] = []
         for constraint in seeded_constraints:
-            prompt = (
-                "Generate deterministic MVP candidate templates for "
-                f"domain={constraint.domain or 'general research'} "
-                f"method={constraint.method or 'baseline method'}."
-            )
+            if llm_client.is_fake:
+                prompt = (
+                    "Generate deterministic MVP candidate templates for "
+                    f"domain={constraint.domain or 'general research'} "
+                    f"method={constraint.method or 'baseline method'}."
+                )
+            else:
+                from factori.adapters.llm_prompts import build_stage_a_candidate_prompt
+
+                max_candidates = int(getattr(llm_client, "max_candidates", 4))
+                prompt = build_stage_a_candidate_prompt(
+                    constraint.domain or "general research",
+                    constraint.method,
+                    constraint,
+                    max_candidates,
+                ).prompt_text
             candidates.extend(llm_client.generate_candidates(prompt, constraint))
         return [Candidate.model_validate(candidate) for candidate in candidates]
 
@@ -115,6 +128,13 @@ def run_stage_a(
 
     stage0 = run_stage0(run_id=run_id, constraints=constraints, store=store, ledger=ledger)
     generated_candidates = generate_candidates(stage0.seeded_constraints, llm_client)
+    adapter_metadata = _adapter_metadata(llm_client)
+    llm_artifacts = _write_llm_trace_artifacts(
+        run_id=run_id,
+        llm_client=llm_client,
+        store=store,
+        ledger=ledger,
+    )
     gated_candidates = [
         _commit_data_gate(run_id, candidate, ledger)
         for candidate in generated_candidates
@@ -187,6 +207,7 @@ def run_stage_a(
         scores=scores,
         store=store,
         ledger=ledger,
+        adapter_metadata=adapter_metadata,
     )
 
     return StageAResult(
@@ -202,6 +223,8 @@ def run_stage_a(
         scores=scores,
         candidate_artifacts=candidate_artifacts,
         score_artifacts=score_artifacts,
+        llm_artifacts=llm_artifacts,
+        adapter_metadata=adapter_metadata,
         report_artifact=report_artifact,
         report_commit_hash=report_commit_hash,
     )
@@ -337,12 +360,18 @@ def _write_candidate_artifact(
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> ArtifactRef:
+    candidate_fake = bool(candidate.symbolic_state.get("fake", True))
     artifact = store.write_json(
         run_id=run_id,
         artifact_id=candidate.id,
         artifact_type=ArtifactType.CANDIDATE,
         data=candidate,
-        metadata={"stage": "stage_a", "fake": True},
+        metadata={
+            "stage": "stage_a",
+            "fake": candidate_fake,
+            "adapter_backend": candidate.symbolic_state.get("adapter_backend", "fake"),
+            "is_verification_evidence": False,
+        },
     )
     commit = ledger.append_commit(
         run_id=run_id,
@@ -464,6 +493,7 @@ def _write_stage_a_report(
     scores: dict[str, ScoreVector],
     store: ArtifactStore,
     ledger: ResearchLedger,
+    adapter_metadata: dict[str, object],
 ) -> tuple[ArtifactRef, str]:
     markdown = render_stage_a_report(
         run_id=run_id,
@@ -474,13 +504,19 @@ def _write_stage_a_report(
         passing_candidates=passing_candidates,
         survivors=survivors,
         scores=scores,
+        adapter_metadata=adapter_metadata,
     )
     artifact = store.write_markdown(
         run_id=run_id,
         artifact_id="stage-a-report",
         artifact_type=ArtifactType.REPORT,
         markdown=markdown,
-        metadata={"stage": "stage_a", "fake": True},
+        metadata={
+            "stage": "stage_a",
+            "fake": True,
+            "adapter": adapter_metadata,
+            "is_verification_evidence": False,
+        },
     )
     commit = ledger.append_commit(
         run_id=run_id,
@@ -492,10 +528,99 @@ def _write_stage_a_report(
             "duplicate_pruned_count": len(duplicate_decisions),
             "passing_stage_a_count": len(passing_candidates),
             "survivor_ids": [candidate.id for candidate in survivors],
+            "adapter": adapter_metadata,
         },
         artifact_refs=[artifact],
     )
     return store.link_artifact_to_commit(artifact, commit.commit_hash), commit.commit_hash
+
+
+def _adapter_metadata(llm_client: LLMClient | None) -> dict[str, object]:
+    if llm_client is None:
+        return {
+            "backend": "fake",
+            "class": "built_in_stage_a_templates",
+            "fake": True,
+            "external_calls_enabled": False,
+        }
+    metadata: dict[str, object] = {
+        "backend": llm_client.backend_name,
+        "class": type(llm_client).__name__,
+        "fake": llm_client.is_fake,
+        "external_calls_enabled": llm_client.external_calls_enabled,
+    }
+    model = getattr(llm_client, "model", None)
+    if isinstance(model, str):
+        metadata["model"] = model
+    return metadata
+
+
+def _write_llm_trace_artifacts(
+    *,
+    run_id: str,
+    llm_client: LLMClient | None,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> dict[str, ArtifactRef]:
+    if llm_client is None or llm_client.is_fake:
+        return {}
+    traces = list(getattr(llm_client, "generation_traces", []))
+    if not traces:
+        return {}
+    metadata = {
+        "stage": "stage_a",
+        "adapter_backend": llm_client.backend_name,
+        "adapter_model": getattr(llm_client, "model", None),
+        "fake": False,
+        "artifact_role": "llm_candidate_proposal_context",
+        "is_verification_evidence": False,
+    }
+    artifacts = {
+        "request": store.write_json(
+            run_id=run_id,
+            artifact_id="llm-stage-a-request",
+            artifact_type=ArtifactType.REPORT,
+            data={"requests": [trace.request for trace in traces]},
+            metadata=metadata,
+        ),
+        "response": store.write_json(
+            run_id=run_id,
+            artifact_id="llm-stage-a-response",
+            artifact_type=ArtifactType.REPORT,
+            data={"responses": [trace.raw_response for trace in traces]},
+            metadata=metadata,
+        ),
+        "parse_report": store.write_json(
+            run_id=run_id,
+            artifact_id="llm-stage-a-parse-report",
+            artifact_type=ArtifactType.REPORT,
+            data={"parse_reports": [trace.parse_report for trace in traces]},
+            metadata=metadata,
+        ),
+    }
+    commit = ledger.append_commit(
+        run_id=run_id,
+        parent_hash=ledger.latest_commit_hash(run_id),
+        action_type=ControllerActionType.STAGE_A_LLM_CANDIDATES_PROPOSED,
+        payload={
+            "adapter": _adapter_metadata(llm_client),
+            "request_count": len(traces),
+            "accepted_candidate_ids": sorted(
+                candidate_id
+                for trace in traces
+                for candidate_id in trace.parse_report.accepted_candidate_ids
+            ),
+            "rejected_candidate_count": sum(
+                len(trace.parse_report.rejected_candidates) for trace in traces
+            ),
+            "is_verification_evidence": False,
+        },
+        artifact_refs=list(artifacts.values()),
+    )
+    return {
+        key: store.link_artifact_to_commit(artifact, commit.commit_hash)
+        for key, artifact in artifacts.items()
+    }
 
 
 def _slug(value: str) -> str:

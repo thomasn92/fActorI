@@ -5,9 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 
-from factori.config import DEFAULT_ADAPTER_BACKEND, DEFAULT_ALLOW_EXTERNAL_CALLS
+from factori.config import (
+    DEFAULT_ADAPTER_BACKEND,
+    DEFAULT_ALLOW_EXTERNAL_CALLS,
+    DEFAULT_LLM_MODEL,
+    OPENAI_API_KEY_ENV,
+)
 from factori.schemas import StrictModel
 
 
@@ -16,6 +21,10 @@ class AdapterConfig(StrictModel):
 
     adapter_backend: str = Field(default=DEFAULT_ADAPTER_BACKEND, min_length=1)
     allow_external_calls: bool = DEFAULT_ALLOW_EXTERNAL_CALLS
+    llm_model: str = Field(default=DEFAULT_LLM_MODEL, min_length=1)
+    api_key: SecretStr | None = Field(default=None, repr=False)
+    api_key_env: str = Field(default=OPENAI_API_KEY_ENV, min_length=1)
+    llm_max_candidates: int = Field(default=4, ge=1, le=20)
 
     @field_validator("adapter_backend")
     @classmethod
@@ -23,6 +32,14 @@ class AdapterConfig(StrictModel):
         normalized = value.strip().lower()
         if not normalized:
             raise ValueError("adapter_backend must not be empty")
+        return normalized
+
+    @field_validator("llm_model", "api_key_env")
+    @classmethod
+    def strip_nonempty_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("adapter text configuration must not be empty")
         return normalized
 
 

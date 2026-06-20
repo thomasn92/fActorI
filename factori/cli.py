@@ -15,6 +15,7 @@ from factori.artifacts import ArtifactStore
 from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
+    DEFAULT_LLM_MODEL,
     DEFAULT_ROOT,
     DEFAULT_RUN_ID,
     LEDGER_FILENAME,
@@ -114,6 +115,7 @@ def show_adapters_command(
         bool,
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
 ) -> None:
     """Show the active adapter registry without calling any backend."""
     try:
@@ -121,6 +123,7 @@ def show_adapters_command(
             AdapterConfig(
                 adapter_backend=backend,
                 allow_external_calls=allow_external_calls,
+                llm_model=llm_model,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -131,6 +134,7 @@ def show_adapters_command(
         "allow_external_calls="
         f"{str(registry.config.allow_external_calls).lower()}"
     )
+    typer.echo(f"llm_model={registry.config.llm_model}")
     for name, class_name in registry.class_names().items():
         typer.echo(f"{name}={class_name}")
 
@@ -387,6 +391,15 @@ def run_all_command(
     domain: Annotated[str | None, typer.Option("--domain")] = None,
     method: Annotated[str | None, typer.Option("--method")] = None,
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    adapter_backend: Annotated[
+        str,
+        typer.Option("--adapter-backend"),
+    ] = DEFAULT_ADAPTER_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -409,6 +422,9 @@ def run_all_command(
         domain=domain or "",
         method=method,
         root=root,
+        adapter_backend=adapter_backend,
+        allow_external_calls=allow_external_calls,
+        llm_model=llm_model,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -471,6 +487,15 @@ def plan_run_command(
     domain: Annotated[str | None, typer.Option("--domain")] = None,
     method: Annotated[str | None, typer.Option("--method")] = None,
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    adapter_backend: Annotated[
+        str,
+        typer.Option("--adapter-backend"),
+    ] = DEFAULT_ADAPTER_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -492,6 +517,9 @@ def plan_run_command(
         domain=domain or "",
         method=method,
         root=root,
+        adapter_backend=adapter_backend,
+        allow_external_calls=allow_external_calls,
+        llm_model=llm_model,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -513,8 +541,28 @@ def run_stage_a_command(
     domain: Annotated[str, typer.Option("--domain")],
     method: Annotated[str | None, typer.Option("--method")] = None,
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    adapter_backend: Annotated[
+        str,
+        typer.Option("--adapter-backend"),
+    ] = DEFAULT_ADAPTER_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
 ) -> None:
-    """Run deterministic fake Stage 0 and Stage A."""
+    """Run Stage 0/A with fake defaults or an explicitly gated real LLM."""
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                adapter_backend=adapter_backend,
+                allow_external_calls=allow_external_calls,
+                llm_model=llm_model,
+            )
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     _ensure_run_initialized(root, run_id)
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
@@ -523,12 +571,14 @@ def run_stage_a_command(
         constraints=constraint_from_inputs(domain=domain, method=method),
         store=store,
         ledger=ledger,
+        llm_client=registry.llm if registry.config.adapter_backend != "fake" else None,
     )
     typer.echo(f"generated_candidates={len(result.generated_candidates)}")
     typer.echo(f"deferred_by_data_gate={len(result.deferred_candidates)}")
     typer.echo(f"pruned_duplicates={len(result.duplicate_decisions)}")
     typer.echo(f"passing_stage_a={len(result.survivors)}")
     typer.echo(f"stage_a_report={result.report_artifact.path}")
+    typer.echo(f"adapter_backend={result.adapter_metadata['backend']}")
 
 
 @app.command("run-stage-b")

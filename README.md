@@ -46,12 +46,14 @@ Implemented so far:
 - deterministic non-executing hygiene remediation plans with explicit risk levels and rerun advice;
 - explicit LLM, retrieval, proof, experiment, prose, and human-review adapter interfaces with
   deterministic fake defaults;
+- an explicitly gated OpenAI adapter for Stage A candidate proposal only, with strict local parsing
+  and ledgered non-evidence request/response traces;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
-Not implemented yet: LangGraph orchestration, Lean integration, real model calls, real literature
-retrieval, real experiments, Docker, FastAPI, full manuscript synthesis, LaTeX paper generation,
-or a frontend.
+Not implemented yet: LangGraph orchestration, real LLM reviewers/synthesis/writing, Lean
+integration, real literature retrieval, real experiments, Docker, FastAPI, full manuscript
+synthesis, LaTeX paper generation, or a frontend.
 
 ## Install
 
@@ -124,8 +126,9 @@ uv run factori show-ledger --run-id demo
 uv run factori validate-run --run-id demo
 ```
 
-All commands are local and deterministic. They do not call models, retrieval services, Lean,
-experiment runners, Docker, servers, or UI code.
+Default commands are local and deterministic. They do not call models, retrieval services, Lean,
+experiment runners, Docker, servers, or UI code. The gated Stage A OpenAI path described below is
+the sole exception and is never selected by default.
 
 `inspect-hygiene` is read-only. Its optional reports are written under
 `runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
@@ -138,10 +141,18 @@ and outside provenance.
 
 ## Adapter Interfaces
 
-The adapter registry currently exposes `LLMClient`, `RetrievalClient`, `ProofVerifier`,
-`ExperimentRunner`, `ProseGenerator`, and `HumanReviewClient`. The only available backend is
-`fake`; external calls default to disabled. Fake adapters use local deterministic templates and
-the existing fake validators. They do not call models, retrieval services, Lean, Docker,
-subprocesses, or real humans.
+The adapter registry exposes `LLMClient`, `RetrievalClient`, `ProofVerifier`, `ExperimentRunner`,
+`ProseGenerator`, and `HumanReviewClient`. It defaults to `fake` with external calls disabled. Fake
+adapters use local deterministic templates and validators. A provider-isolated `openai` backend is
+available only for Stage A candidate proposal and requires explicit external-call permission plus
+`OPENAI_API_KEY`. All other adapters remain fake.
 
-Any non-fake backend fails clearly because real adapters are not implemented in this milestone.
+LLM output is validated locally, then passes through the existing data gate, scoring, deduplication,
+artifact store, and ledger. Requests, raw responses, parse reports, and proposals are not
+verification evidence.
+
+```bash
+OPENAI_API_KEY="<key>" uv run factori run-stage-a \
+  --run-id llm-demo --domain "human geography" --method "optimal transport" \
+  --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
+```

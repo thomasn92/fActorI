@@ -27,14 +27,22 @@ producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
 The pipeline exposes small interfaces for future LLM, retrieval, proof, experiment, prose, and
 human-review backends. The active registry defaults to deterministic fake adapters and
-`allow_external_calls=false`. No real backend, API-key handling, network call, subprocess, Lean,
-Docker runner, or human-review service is implemented.
+`allow_external_calls=false`. One provider-isolated OpenAI adapter is available only for Stage A
+candidate proposal. It cannot be selected without the `openai` backend, explicit external-call
+permission, and an API key. All retrieval, proof, experiment, prose, and human-review adapters
+remain fake. No subprocess, Lean, Docker runner, or human-review service is implemented.
 
 Adapters return typed values to existing stages. Any adapter output that changes run state must
 still be validated, written through the artifact store, and committed through the append-only
 ledger by the owning stage. An adapter cannot bypass data gates, evidence boundaries, verification
 labels, or provenance rules. Fake proof and experiment adapters remain test doubles, not scientific
 validation.
+
+The real Stage A adapter uses a deterministic prompt contract and strict local parsing. Raw request,
+response, and parse-report artifacts are hashed and ledgered as non-evidence context. Accepted
+candidates still pass through Pydantic validation, the MVP data gate, deterministic scoring,
+deduplication, and the Stage A gate. LLM output can propose ideas only and cannot confer any
+verification label.
 
 ## Mutating and Read-Only Operations
 
@@ -102,6 +110,7 @@ The following never count as verification evidence:
 - export plans and prose contracts;
 - runtime summaries and manifests;
 - replay reports and diagnostics reports.
+- LLM requests, responses, parse reports, and candidate proposals.
 
 Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. They are not
 real Lean results or real scientific experiments.

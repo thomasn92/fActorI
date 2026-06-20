@@ -25,6 +25,10 @@ details that are not captured by the context files.
 - Adapter interfaces default to deterministic fake implementations. Do not enable or implement
   real adapters, external calls, credentials, network access, subprocesses, Docker, or Lean unless
   the user explicitly requests that backend and its safety gate.
+- A gated OpenAI adapter exists only for Stage A candidate proposal. It requires the explicit
+  `openai` backend, `allow_external_calls=true`, and an API key. Do not extend it to review,
+  retrieval, verification, experiments, synthesis, prose, or human approval unless explicitly
+  requested.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -42,6 +46,8 @@ details that are not captured by the context files.
 - Every mutating pipeline stage must create append-only ledger commits and content-hashed artifacts.
 - Adapter outputs that affect a run must pass through existing artifact and ledger mechanisms;
   adapters must not write around provenance or bypass evidence checks.
+- LLM prompts, raw responses, parse reports, and proposed candidates are provenance/context only;
+  they are not proof, experiment, literature, or human-review evidence.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

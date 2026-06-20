@@ -16,10 +16,16 @@ All implementation modules are under `factori/`.
 
 - `adapters/base.py`: small runtime-checkable protocols for LLM, retrieval, proof, experiment,
   prose, and human-review backends.
-- `adapters/config.py`: strict fake-default backend configuration with external calls disabled.
+- `adapters/config.py`: strict fake-default backend/model configuration with external calls
+  disabled and API keys excluded from reports.
 - `adapters/fake.py`: deterministic local implementations that delegate to current templates and
   fake validators without network, subprocess, Lean, Docker, or human access.
-- `adapters/registry.py`: explicit fake-only registry and clear rejection of unavailable backends.
+- `adapters/llm_prompts.py`: deterministic Stage A candidate prompt and structured-output contract.
+- `adapters/llm_safety.py`: strict parsing, candidate validation, label-inflation checks, and MVP
+  data-boundary enforcement for untrusted LLM output.
+- `adapters/llm_real.py`: provider-isolated OpenAI Responses transport and injected-transport
+  Stage A LLM client; no network call occurs unless explicitly enabled and invoked.
+- `adapters/registry.py`: fake-default registry and explicit gating for the Stage A OpenAI adapter.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -44,7 +50,8 @@ All implementation modules are under `factori/`.
 ## Stage A
 
 - `stage0.py`: fake deterministic opportunity discovery.
-- `stage_a.py`: Stage 0/A orchestration, data gate, candidate artifact flow, and ranking.
+- `stage_a.py`: Stage 0/A orchestration, optional gated LLM candidate proposal, trace provenance,
+  data gate, candidate artifact flow, scoring, deduplication, and ranking.
 - `scoring.py`: deterministic fake score vectors and cost-aware scoring.
 - `dedup.py`: deterministic candidate distance and duplicate decisions.
 
