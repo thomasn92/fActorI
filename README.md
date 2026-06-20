@@ -44,6 +44,8 @@ Implemented so far:
 - read-only pipeline dry-run planning for run-all options and expected outputs;
 - read-only run output hygiene inspection for orphaned, stale, duplicate, or leaked files;
 - deterministic non-executing hygiene remediation plans with explicit risk levels and rerun advice;
+- explicit LLM, retrieval, proof, experiment, prose, and human-review adapter interfaces with
+  deterministic fake defaults;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -114,6 +116,7 @@ uv run factori inspect-hygiene --run-id demo --json
 uv run factori plan-hygiene-remediation --run-id demo
 uv run factori plan-hygiene-remediation --run-id demo --write-report
 uv run factori plan-hygiene-remediation --run-id demo --json
+uv run factori show-adapters
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -132,3 +135,13 @@ from normal artifact manifests. It never deletes, repairs, rewrites, or rehashes
 rerun commands when a producing stage is identifiable. It never executes cleanup, deletion,
 quarantine, restoration, manifest regeneration, or reruns. Optional plans remain under `hygiene/`
 and outside provenance.
+
+## Adapter Interfaces
+
+The adapter registry currently exposes `LLMClient`, `RetrievalClient`, `ProofVerifier`,
+`ExperimentRunner`, `ProseGenerator`, and `HumanReviewClient`. The only available backend is
+`fake`; external calls default to disabled. Fake adapters use local deterministic templates and
+the existing fake validators. They do not call models, retrieval services, Lean, Docker,
+subprocesses, or real humans.
+
+Any non-fake backend fails clearly because real adapters are not implemented in this milestone.

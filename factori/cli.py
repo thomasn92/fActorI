@@ -9,8 +9,16 @@ from typing import Annotated
 import typer
 
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
+from factori.adapters.config import AdapterConfig
+from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.artifacts import ArtifactStore
-from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
+from factori.config import (
+    DEFAULT_ADAPTER_BACKEND,
+    DEFAULT_ALLOW_EXTERNAL_CALLS,
+    DEFAULT_ROOT,
+    DEFAULT_RUN_ID,
+    LEDGER_FILENAME,
+)
 from factori.cross_run import CrossRunError, compare_runs, write_cross_run_report
 from factori.diagnostics import (
     DiagnosticError,
@@ -96,6 +104,35 @@ def _ensure_run_initialized(root: Path, run_id: str) -> None:
             payload={"run_id": run_id},
             timestamp="1970-01-01T00:00:00.000000Z",
         )
+
+
+@app.command("adapters")
+@app.command("show-adapters")
+def show_adapters_command(
+    backend: Annotated[str, typer.Option("--backend")] = DEFAULT_ADAPTER_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+) -> None:
+    """Show the active adapter registry without calling any backend."""
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                adapter_backend=backend,
+                allow_external_calls=allow_external_calls,
+            )
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"adapter_backend={registry.config.adapter_backend}")
+    typer.echo(
+        "allow_external_calls="
+        f"{str(registry.config.allow_external_calls).lower()}"
+    )
+    for name, class_name in registry.class_names().items():
+        typer.echo(f"{name}={class_name}")
 
 
 @app.command("init-run")

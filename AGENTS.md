@@ -22,6 +22,9 @@ details that are not captured by the context files.
 - Do not add real Lean integration unless explicitly requested.
 - Do not add real Docker experiment execution unless explicitly requested.
 - Do not add FastAPI or a frontend unless explicitly requested.
+- Adapter interfaces default to deterministic fake implementations. Do not enable or implement
+  real adapters, external calls, credentials, network access, subprocesses, Docker, or Lean unless
+  the user explicitly requests that backend and its safety gate.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -37,6 +40,8 @@ details that are not captured by the context files.
 - `RealDataExperimentVerified` must not be produced by the current MVP.
 - Conjectures, negative results, limitations, and unsupported claims must retain their labels.
 - Every mutating pipeline stage must create append-only ledger commits and content-hashed artifacts.
+- Adapter outputs that affect a run must pass through existing artifact and ledger mechanisms;
+  adapters must not write around provenance or bypass evidence checks.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

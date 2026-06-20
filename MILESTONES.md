@@ -23,9 +23,11 @@
 | 20 | Read-only pipeline dry-run planning for run-all options, blockers, and expected outputs | `dry_run.py`, `pipeline_plan.py` | `run-all --dry-run`, `plan-run` | Read-only; dry-run plans are stdout/JSON only and are not ledgered |
 | 21 | Read-only run output hygiene inspection for manifest drift, orphaned/stale/duplicate files, and non-provenance leakage | `output_hygiene.py`, `run_files.py` | `inspect-hygiene` | Read-only; optional hygiene reports are outside provenance, evidence, manifests, and the ledger |
 | 22 | Deterministic non-executing hygiene remediation planning with risk levels and producing-stage recommendations | `hygiene_plan.py`, `remediation.py` | `plan-hygiene-remediation` | Read-only; recommendations are never executed and optional plans remain outside provenance and the ledger |
+| 23 | Explicit backend adapter interfaces with deterministic fake defaults and fake-only registry enforcement | `adapters/base.py`, `adapters/fake.py`, `adapters/registry.py`, `adapters/config.py` | `show-adapters`, `adapters` | Registry inspection is read-only; stage-owned adapter outputs continue through existing artifact and ledger paths |
 
 ## Current Boundary
 
-Milestones through 22 implement a deterministic scaffold. They do not implement real agents,
+Milestones through 23 implement a deterministic scaffold and its first backend interface seams.
+They do not implement real agents,
 scientific retrieval, proof checking, experiments, polished prose, final LaTeX, or production
 orchestration frameworks.

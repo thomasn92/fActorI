@@ -613,6 +613,50 @@ class RetrievalAdequacyCertificate(StrictModel):
     fake: bool = True
 
 
+class RetrievalResult(StrictModel):
+    """One deterministic retrieval adapter search result."""
+
+    source_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    snippet: str = Field(min_length=1)
+    score: float = Field(ge=0.0, le=1.0)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    fake: bool = True
+
+
+class RetrievedDocument(StrictModel):
+    """Document returned by a retrieval adapter."""
+
+    source_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    fake: bool = True
+
+
+class GeneratedSectionDraft(StrictModel):
+    """Deterministic placeholder from a prose adapter, never polished prose."""
+
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    claim_ids: list[str] = Field(default_factory=list)
+    polished: bool = False
+    fake: bool = True
+    is_verification_evidence: bool = False
+
+
+class HumanReviewDecision(StrictModel):
+    """Adapter response that explicitly records no real human review in the MVP."""
+
+    request_id: str = Field(min_length=1)
+    decision: str = Field(min_length=1)
+    approved: bool = False
+    reviewer_is_human: bool = False
+    reason: str = Field(min_length=1)
+    fake: bool = True
+
+
 class RuntimeSummary(StrictModel):
     """Compressed runtime context. This is explicitly not provenance."""
 
@@ -767,6 +811,7 @@ class FakeProofResult(StrictModel):
     label: VerificationLabel
     evidence_artifact_type: ArtifactType
     reason: str = Field(min_length=1)
+    fake: bool = True
 
 
 class FakeExperimentResult(StrictModel):
@@ -787,6 +832,7 @@ class FakeExperimentResult(StrictModel):
     baseline_strong: bool
     label: VerificationLabel
     reason: str = Field(min_length=1)
+    fake: bool = True
 
 
 class ConstraintSet(StrictModel):

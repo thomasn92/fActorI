@@ -12,6 +12,16 @@ All implementation modules are under `factori/`.
 - `hashing.py`: canonical JSON and SHA-256 helpers.
 - `cli.py`: Typer command surface for all implemented stages.
 
+## Adapters
+
+- `adapters/base.py`: small runtime-checkable protocols for LLM, retrieval, proof, experiment,
+  prose, and human-review backends.
+- `adapters/config.py`: strict fake-default backend configuration with external calls disabled.
+- `adapters/fake.py`: deterministic local implementations that delegate to current templates and
+  fake validators without network, subprocess, Lean, Docker, or human access.
+- `adapters/registry.py`: explicit fake-only registry and clear rejection of unavailable backends.
+- `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
+
 ## Pipeline Orchestration
 
 - `pipeline.py`: canonical stage order, start/stop validation, read-only stage classification,

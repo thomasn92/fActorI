@@ -23,6 +23,19 @@ Constraints
 The SQLite ledger is append-only. Artifact contents are SHA-256 hashed and linked to their
 producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
+## Adapter Boundary
+
+The pipeline exposes small interfaces for future LLM, retrieval, proof, experiment, prose, and
+human-review backends. The active registry defaults to deterministic fake adapters and
+`allow_external_calls=false`. No real backend, API-key handling, network call, subprocess, Lean,
+Docker runner, or human-review service is implemented.
+
+Adapters return typed values to existing stages. Any adapter output that changes run state must
+still be validated, written through the artifact store, and committed through the append-only
+ledger by the owning stage. An adapter cannot bypass data gates, evidence boundaries, verification
+labels, or provenance rules. Fake proof and experiment adapters remain test doubles, not scientific
+validation.
+
 ## Mutating and Read-Only Operations
 
 Pipeline stages from Stage A through export preparation mutate run state. Every such stage must

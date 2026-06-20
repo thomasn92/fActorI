@@ -71,6 +71,8 @@ uv run factori inspect-hygiene --run-id demo --json
 uv run factori plan-hygiene-remediation --run-id demo
 uv run factori plan-hygiene-remediation --run-id demo --write-report
 uv run factori plan-hygiene-remediation --run-id demo --json
+uv run factori show-adapters
+uv run factori adapters
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
@@ -101,6 +103,10 @@ artifact manifests and no ledger commit is created.
 conservative recommendation with an explicit risk and optional producing-stage rerun command. It
 does not execute any recommendation or rewrite a manifest. With `--write-report`, it writes only
 marked non-provenance plan files under `runs/<run_id>/hygiene/` and creates no ledger commit.
+
+`show-adapters` (alias `adapters`) prints the active fake-only adapter registry. The default is
+`adapter_backend=fake` and `allow_external_calls=false`. A non-fake `--backend` fails because no
+real adapter is implemented; this command does not make external calls or mutate a run.
 
 ## Foundation and Inspection
 

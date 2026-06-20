@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from factori.artifacts import ArtifactStore
 from factori.dedup import DedupResult, DuplicateDecision, deduplicate_candidates
@@ -21,6 +22,9 @@ from factori.schemas import (
 )
 from factori.scoring import cost_aware_score, passes_stage_a_gate, score_candidate, score_payload
 from factori.stage0 import Stage0Result, fake_primitives, run_stage0
+
+if TYPE_CHECKING:
+    from factori.adapters.base import LLMClient
 
 MAX_STAGE_A_SURVIVORS = 4
 
@@ -50,8 +54,22 @@ def constraint_from_inputs(domain: str, method: str | None = None) -> Constraint
     return ConstraintSet(domain=domain, method=method)
 
 
-def generate_candidates(seeded_constraints: list[ConstraintSet]) -> list[Candidate]:
+def generate_candidates(
+    seeded_constraints: list[ConstraintSet],
+    llm_client: LLMClient | None = None,
+) -> list[Candidate]:
     """Generate deterministic fake candidate branches from seeded constraints."""
+    if llm_client is not None:
+        candidates: list[Candidate] = []
+        for constraint in seeded_constraints:
+            prompt = (
+                "Generate deterministic MVP candidate templates for "
+                f"domain={constraint.domain or 'general research'} "
+                f"method={constraint.method or 'baseline method'}."
+            )
+            candidates.extend(llm_client.generate_candidates(prompt, constraint))
+        return [Candidate.model_validate(candidate) for candidate in candidates]
+
     candidates: list[Candidate] = []
     for constraint in seeded_constraints:
         domain = constraint.domain or "general research"
@@ -76,18 +94,27 @@ def run_stage_a(
     constraints: ConstraintSet,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    llm_client: LLMClient | None = None,
 ) -> StageAResult:
     """Execute deterministic fake Stage 0 and Stage A."""
     store.init_run(run_id)
+    started_payload = {"constraints": constraints.model_dump(mode="json")}
+    if llm_client is not None:
+        started_payload["llm_adapter"] = {
+            "backend": llm_client.backend_name,
+            "class": type(llm_client).__name__,
+            "fake": llm_client.is_fake,
+            "external_calls_enabled": llm_client.external_calls_enabled,
+        }
     ledger.append_commit(
         run_id=run_id,
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE_A_STARTED,
-        payload={"constraints": constraints.model_dump(mode="json")},
+        payload=started_payload,
     )
 
     stage0 = run_stage0(run_id=run_id, constraints=constraints, store=store, ledger=ledger)
-    generated_candidates = generate_candidates(stage0.seeded_constraints)
+    generated_candidates = generate_candidates(stage0.seeded_constraints, llm_client)
     gated_candidates = [
         _commit_data_gate(run_id, candidate, ledger)
         for candidate in generated_candidates

@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from factori.schemas import BranchStatus, LiteratureState, RetrievalAdequacyCertificate
+
+if TYPE_CHECKING:
+    from factori.adapters.base import RetrievalClient
+    from factori.schemas import RetrievalResult
 
 TAU_ADEQUACY = 0.80
 DEFAULT_RETRIEVAL_WEIGHTS = {
@@ -19,8 +25,19 @@ def compute_retrieval_adequacy(
     *,
     tau_adequacy: float = TAU_ADEQUACY,
     weights: dict[str, float] | None = None,
+    retrieval_client: RetrievalClient | None = None,
+    query: str = "",
+    results: list[RetrievalResult] | None = None,
 ) -> RetrievalAdequacyCertificate:
     """Compute a deterministic placeholder retrieval adequacy certificate."""
+    if retrieval_client is not None:
+        adapter_results = (
+            results
+            if results is not None
+            else retrieval_client.search(query, max(literature_state.k, 5))
+        )
+        return retrieval_client.build_adequacy_certificate(query, adapter_results)
+
     weights = weights or DEFAULT_RETRIEVAL_WEIGHTS
     rho_adequacy = round(
         weights["semantic"] * literature_state.semantic
