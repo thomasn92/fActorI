@@ -15,6 +15,7 @@ from factori.schemas import (
     BridgeReport,
     Candidate,
     ClaimTable,
+    DiagnosticReport,
     DraftSkeleton,
     ExportReadinessReport,
     FinalAuditReport,
@@ -970,6 +971,75 @@ def render_replay_verification_report_markdown(
             "- Replay reports are not provenance.",
             "- Replay reports are not verification evidence.",
             "- Replay reports are not ledgered.",
+            "- The immutable ledger remains the source of truth.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_diagnostic_report_markdown(
+    *,
+    diagnostic_report: DiagnosticReport,
+) -> str:
+    """Render a read-only deterministic provenance diagnostic report."""
+    lines = [
+        "# Provenance Diagnostic Report",
+        "",
+        "Read-only deterministic diagnosis only; this is not provenance or scientific validation.",
+        "",
+        f"Run: `{diagnostic_report.run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Diagnostic status: {diagnostic_report.diagnostic_status.value}",
+        f"- Root causes: {len(diagnostic_report.root_causes)}",
+        f"- Blocking causes: {diagnostic_report.blocking_causes_count}",
+        f"- Warning causes: {diagnostic_report.warning_causes_count}",
+        f"- Recommended steps: {len(diagnostic_report.recommended_steps)}",
+        f"- Ledger mutated: {str(diagnostic_report.ledger_mutated).lower()}",
+        "- Artifact manifest mutated: "
+        f"{str(diagnostic_report.artifact_manifest_mutated).lower()}",
+        "",
+        "## Root Causes",
+        "",
+        "| Category | Severity | Summary | Source |",
+        "| --- | --- | --- | --- |",
+    ]
+    if diagnostic_report.root_causes:
+        for cause in diagnostic_report.root_causes:
+            lines.append(
+                f"| {cause.category.value} | {cause.severity.value} | "
+                f"{cause.summary} | {cause.source} |"
+            )
+    else:
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Recommended Rerun Steps",
+            "",
+        ]
+    )
+    if diagnostic_report.recommended_steps:
+        for step in diagnostic_report.recommended_steps:
+            command = step.command or "manual inspection required"
+            lines.append(f"{step.order + 1}. `{command}` - {step.reason}")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    if diagnostic_report.warnings:
+        lines.extend(f"- {warning}" for warning in diagnostic_report.warnings)
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Diagnostic Boundary",
+            "",
+            "- Diagnostics does not repair or rerun any stage.",
+            "- Diagnostic reports are not provenance.",
+            "- Diagnostic reports are not verification evidence.",
+            "- Diagnostic reports are not ledgered.",
             "- The immutable ledger remains the source of truth.",
         ]
     )

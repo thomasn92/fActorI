@@ -24,10 +24,16 @@ uv run factori final-audit --run-id demo
 uv run factori prepare-export --run-id demo
 uv run factori replay-verify --run-id demo
 uv run factori replay-verify --run-id demo --write-report
+uv run factori diagnose-run --run-id demo
+uv run factori diagnose-run --run-id demo --write-report
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
 `runs/demo/replay/` and does not append ledger commits or update the artifact manifest.
+
+`diagnose-run` explains available final-audit, release, export, and replay findings. It never
+executes its recommended commands. With `--write-report`, it writes only non-provenance files under
+`runs/demo/diagnostics/` and does not append ledger commits or update the artifact manifest.
 
 ## Foundation and Inspection
 

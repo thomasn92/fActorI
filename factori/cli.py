@@ -11,6 +11,11 @@ import typer
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
 from factori.artifacts import ArtifactStore
 from factori.config import DEFAULT_ROOT, DEFAULT_RUN_ID, LEDGER_FILENAME
+from factori.diagnostics import (
+    DiagnosticError,
+    build_diagnostic_report,
+    write_diagnostic_report,
+)
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
@@ -508,6 +513,32 @@ def replay_verify_command(
         f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}"
     )
     typer.echo(f"replay_status={summary.replay_status.value}")
+
+
+@app.command("diagnose-run")
+def diagnose_run_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+) -> None:
+    """Explain deterministic audit, replay, and export failures without repairing them."""
+    try:
+        report = build_diagnostic_report(run_id=run_id, root=root)
+    except DiagnosticError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if write_report:
+        write_diagnostic_report(run_id=run_id, report=report, root=root)
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"diagnostic_status={report.diagnostic_status.value}")
+    typer.echo(f"root_causes={len(report.root_causes)}")
+    typer.echo(f"recommended_steps={len(report.recommended_steps)}")
+    typer.echo(f"blocking_causes={report.blocking_causes_count}")
+    typer.echo(f"warnings={report.warning_causes_count + len(report.warnings)}")
+    typer.echo(f"ledger_mutated={str(report.ledger_mutated).lower()}")
+    typer.echo(
+        f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}"
+    )
 
 
 @app.command("questioner-check")

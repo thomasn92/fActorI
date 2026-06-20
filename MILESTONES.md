@@ -16,9 +16,10 @@
 | 13 | Deterministic final audit and release gate | `final_audit.py`, `release_gate.py` | `final-audit` | Mutates ledger and writes hashed audit/release artifacts |
 | 14 | Deterministic prose contract, LaTeX plan, and export readiness | `export_plan.py`, `prose_contract.py`, `latex_plan.py` | `prepare-export` | Mutates ledger and writes hashed export-planning artifacts |
 | 15 | Deterministic read-only replay verification from disk | `replay.py`, `run_verifier.py` | `replay-verify` | Read-only; optional replay reports are not ledgered or added to provenance |
+| 16 | Deterministic provenance diagnostics and explain-failure recommendations | `diagnostics.py`, `failure_explainer.py` | `diagnose-run` | Read-only; optional diagnostic reports are not ledgered or added to provenance |
 
 ## Current Boundary
 
-Milestones through 15 implement a deterministic scaffold. They do not implement real agents,
+Milestones through 16 implement a deterministic scaffold. They do not implement real agents,
 scientific retrieval, proof checking, experiments, polished prose, final LaTeX, or production
 orchestration.

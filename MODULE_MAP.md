@@ -55,7 +55,7 @@ All implementation modules are under `factori/`.
 - `checklist.py`: manuscript checklist generation.
 - `final_paper.py`: assembled paper-shaped skeleton and assembly readiness report.
 
-## Packaging, Audit, Export, and Replay
+## Packaging, Audit, Export, Replay, and Diagnostics
 
 - `manifest.py`: artifact and reproducibility manifests.
 - `research_object.py`: reproducible research-object packaging.
@@ -67,8 +67,11 @@ All implementation modules are under `factori/`.
 - `latex_plan.py`: safe future LaTeX-export plan without generating LaTeX.
 - `replay.py`: public read-only replay API and optional non-provenance report writer.
 - `run_verifier.py`: disk-based ledger, artifact, evidence, and decision consistency checks.
+- `failure_explainer.py`: explicit root-cause mappings and deterministic rerun recommendations.
+- `diagnostics.py`: disk-loaded read-only diagnostics and optional non-provenance report writer.
 
 ## Reports
 
-- `reports.py`: deterministic Markdown renderers for stage, package, audit, export, and replay
-  reports. These rendered reports are presentation artifacts, not verification evidence.
+- `reports.py`: deterministic Markdown renderers for stage, package, audit, export, replay, and
+  diagnostics reports. These rendered reports are presentation artifacts, not verification
+  evidence.

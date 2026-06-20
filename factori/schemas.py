@@ -184,6 +184,41 @@ class ReplayStatus(StrEnum):
     REPLAY_FAILED = "ReplayFailed"
 
 
+class DiagnosticSeverity(StrEnum):
+    """Severity assigned to deterministic diagnostic root causes."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    BLOCKING = "Blocking"
+
+
+class DiagnosticStatus(StrEnum):
+    """Overall read-only diagnostic status."""
+
+    NO_ISSUES = "NoIssues"
+    WARNINGS_ONLY = "WarningsOnly"
+    ACTION_RECOMMENDED = "ActionRecommended"
+    BLOCKED = "Blocked"
+
+
+class RootCauseCategory(StrEnum):
+    """Deterministic root-cause categories for failed run outputs."""
+
+    MISSING_STAGE_OUTPUT = "MissingStageOutput"
+    MISSING_ARTIFACT = "MissingArtifact"
+    HASH_MISMATCH = "HashMismatch"
+    LEDGER_CONTINUITY_ISSUE = "LedgerContinuityIssue"
+    EVIDENCE_BOUNDARY_VIOLATION = "EvidenceBoundaryViolation"
+    CLAIM_LABEL_INFLATION = "ClaimLabelInflation"
+    SYNTHETIC_BOUNDARY_VIOLATION = "SyntheticBoundaryViolation"
+    BLOCKED_CLAIM_LEAK = "BlockedClaimLeak"
+    RELEASE_GATE_INCONSISTENCY = "ReleaseGateInconsistency"
+    EXPORT_READINESS_INCONSISTENCY = "ExportReadinessInconsistency"
+    REPLAY_REPORT_ONLY = "ReplayReportOnly"
+    RUNTIME_SUMMARY_MISUSE = "RuntimeSummaryMisuse"
+    UNKNOWN = "Unknown"
+
+
 class AuditCategory(StrEnum):
     """Final audit check categories."""
 
@@ -1193,6 +1228,65 @@ class RunVerificationSummary(StrictModel):
     replay_status: ReplayStatus
     ledger_mutated: bool
     artifact_manifest_mutated: bool
+
+
+class RootCauseHypothesis(StrictModel):
+    """One deterministic explanation for an audit, replay, or export finding."""
+
+    root_cause_id: str = Field(min_length=1)
+    category: RootCauseCategory
+    severity: DiagnosticSeverity
+    summary: str = Field(min_length=1)
+    explanation: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+    source_check_ids: list[str] = Field(default_factory=list)
+    artifact_refs: list[str] = Field(default_factory=list)
+    affected_output: str | None = None
+    rerun_from_stage: str | None = None
+    manual_inspection_required: bool = False
+
+
+class RecommendedRerunStep(StrictModel):
+    """A safe deterministic command suggestion that diagnostics never executes."""
+
+    step_id: str = Field(min_length=1)
+    stage: str = Field(min_length=1)
+    command: str | None = None
+    reason: str = Field(min_length=1)
+    order: int = Field(ge=0)
+    downstream: bool = False
+    safe_to_run: bool = True
+    executes_automatically: bool = False
+    manual_inspection_required: bool = False
+
+
+class DiagnosticFindingGroup(StrictModel):
+    """Deterministic grouping of related root-cause hypotheses."""
+
+    category: RootCauseCategory
+    severity: DiagnosticSeverity
+    root_cause_ids: list[str]
+    summary: str = Field(min_length=1)
+
+
+class DiagnosticReport(StrictModel):
+    """Read-only failure explanation report. This is not provenance or evidence."""
+
+    run_id: str = Field(min_length=1)
+    diagnostic_status: DiagnosticStatus
+    root_causes: list[RootCauseHypothesis]
+    finding_groups: list[DiagnosticFindingGroup]
+    recommended_steps: list[RecommendedRerunStep]
+    sources_loaded: list[str]
+    warnings: list[str] = Field(default_factory=list)
+    blocking_causes_count: int = Field(ge=0)
+    warning_causes_count: int = Field(ge=0)
+    ledger_mutated: bool
+    artifact_manifest_mutated: bool
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+    certifies_scientific_validity: bool = False
 
 
 class ScoreVector(StrictModel):
