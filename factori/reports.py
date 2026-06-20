@@ -24,6 +24,7 @@ from factori.schemas import (
     LedgerSummary,
     ManuscriptChecklist,
     ManuscriptPlan,
+    OutputHygieneReport,
     PaperSkeleton,
     PipelineRunReport,
     RedTeamReport,
@@ -1116,6 +1117,63 @@ def render_cross_run_comparison_markdown(
             "- Comparison reports are not verification evidence.",
             "- Comparison reports are not ledgered.",
             "- Each immutable ledger remains the source of truth for its run.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_output_hygiene_report_markdown(
+    *,
+    hygiene_report: OutputHygieneReport,
+) -> str:
+    """Render a read-only deterministic output hygiene report."""
+    lines = [
+        "# Run Output Hygiene Report",
+        "",
+        "Read-only filesystem inspection only; this is not provenance or evidence.",
+        "",
+        f"Run: `{hygiene_report.run_id}`",
+        "",
+        "## Summary",
+        "",
+        f"- Hygiene status: {hygiene_report.hygiene_status.value}",
+        f"- Files scanned: {hygiene_report.files_scanned}",
+        f"- Manifest entries: {hygiene_report.manifest_entries}",
+        f"- Orphaned files: {hygiene_report.orphaned_files}",
+        f"- Missing manifest files: {hygiene_report.missing_manifest_files}",
+        f"- Hash mismatches: {hygiene_report.hash_mismatches}",
+        f"- Duplicate outputs: {hygiene_report.duplicate_outputs}",
+        f"- Non-provenance files: {hygiene_report.non_provenance_files}",
+        f"- Unexpected files: {hygiene_report.unexpected_files}",
+        f"- Warnings: {hygiene_report.warnings_count}",
+        f"- Blocking findings: {hygiene_report.blocking_findings_count}",
+        f"- Ledger mutated: {str(hygiene_report.ledger_mutated).lower()}",
+        "- Artifact manifest mutated: "
+        f"{str(hygiene_report.artifact_manifest_mutated).lower()}",
+        "",
+        "## Findings",
+        "",
+        "| Category | Severity | Paths | Message |",
+        "| --- | --- | --- | --- |",
+    ]
+    if hygiene_report.findings:
+        for finding in hygiene_report.findings:
+            paths = ", ".join(f"`{path}`" for path in finding.paths) or "none"
+            lines.append(
+                f"| {finding.category.value} | {finding.severity.value} | "
+                f"{paths} | {finding.message} |"
+            )
+    else:
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Inspection Boundary",
+            "",
+            "- Hygiene inspection does not delete, repair, rewrite, or rehash stored metadata.",
+            "- Hygiene reports are not provenance or verification evidence.",
+            "- Hygiene reports are not ledgered or included in normal artifact manifests.",
+            "- The append-only ledger remains the source of truth.",
         ]
     )
     return "\n".join(lines) + "\n"

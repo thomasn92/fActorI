@@ -65,6 +65,9 @@ uv run factori validate-resume --run-id demo --start-at plan-manuscript
 uv run factori run-all --run-id demo --domain "human geography" --dry-run
 uv run factori plan-run --run-id demo --domain "human geography"
 uv run factori plan-run --run-id demo --domain "human geography" --json
+uv run factori inspect-hygiene --run-id demo
+uv run factori inspect-hygiene --run-id demo --write-report
+uv run factori inspect-hygiene --run-id demo --json
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
@@ -84,6 +87,12 @@ ledger commits, update manifests, or write status reports.
 `run-all --dry-run` and `plan-run` are read-only planning commands. They mirror run-all stage
 ordering and resume validation but do not execute stages, write dry-run reports, append ledger
 commits, or update artifact manifests.
+
+`inspect-hygiene` checks manifest/file consistency, artifact hashes, evidence boundaries,
+non-provenance report placement, duplicate outputs, stale sidecars/cache files, and unexpected run
+contents. It never deletes or repairs files. With `--write-report`, it writes only marked
+non-provenance files under `runs/<run_id>/hygiene/`; that directory is excluded from normal
+artifact manifests and no ledger commit is created.
 
 ## Foundation and Inspection
 

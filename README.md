@@ -42,6 +42,7 @@ Implemented so far:
 - canonical direct one-command deterministic pipeline orchestration;
 - read-only checkpoint/status inspection and stricter run-all resume validation;
 - read-only pipeline dry-run planning for run-all options and expected outputs;
+- read-only run output hygiene inspection for orphaned, stale, duplicate, or leaked files;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -106,6 +107,9 @@ uv run factori status --run-id demo --json
 uv run factori validate-resume --run-id demo --start-at plan-manuscript
 uv run factori run-all --run-id demo --domain "human geography" --dry-run
 uv run factori plan-run --run-id demo --domain "human geography" --json
+uv run factori inspect-hygiene --run-id demo
+uv run factori inspect-hygiene --run-id demo --write-report
+uv run factori inspect-hygiene --run-id demo --json
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -115,3 +119,7 @@ uv run factori validate-run --run-id demo
 
 All commands are local and deterministic. They do not call models, retrieval services, Lean,
 experiment runners, Docker, servers, or UI code.
+
+`inspect-hygiene` is read-only. Its optional reports are written under
+`runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
+from normal artifact manifests. It never deletes, repairs, rewrites, or rehashes stored metadata.

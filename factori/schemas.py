@@ -313,6 +313,56 @@ class PlannedStageStatus(StrEnum):
     READ_ONLY_CHECK = "ReadOnlyCheck"
 
 
+class OutputHygieneStatus(StrEnum):
+    """Overall status of a read-only run output hygiene inspection."""
+
+    CLEAN = "Clean"
+    CLEAN_WITH_WARNINGS = "CleanWithWarnings"
+    HYGIENE_ISSUES_FOUND = "HygieneIssuesFound"
+    HYGIENE_INSPECTION_FAILED = "HygieneInspectionFailed"
+
+
+class OutputHygieneSeverity(StrEnum):
+    """Severity assigned to deterministic output hygiene findings."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    BLOCKING = "Blocking"
+
+
+class OutputHygieneCategory(StrEnum):
+    """Deterministic categories for run-directory hygiene findings."""
+
+    ORPHANED_ARTIFACT = "OrphanedArtifact"
+    MISSING_MANIFEST_ENTRY = "MissingManifestEntry"
+    MISSING_FILE_FOR_MANIFEST_ENTRY = "MissingFileForManifestEntry"
+    HASH_MISMATCH = "HashMismatch"
+    DUPLICATE_OUTPUT = "DuplicateOutput"
+    STALE_OUTPUT = "StaleOutput"
+    NON_PROVENANCE_LEAK = "NonProvenanceLeak"
+    UNEXPECTED_DIRECTORY = "UnexpectedDirectory"
+    UNEXPECTED_FILE = "UnexpectedFile"
+    MANIFEST_EXCLUSION_VIOLATION = "ManifestExclusionViolation"
+    EVIDENCE_BOUNDARY_RISK = "EvidenceBoundaryRisk"
+    REPLAY_DIAGNOSTICS_LEAK = "ReplayDiagnosticsLeak"
+    UNKNOWN = "Unknown"
+
+
+class RunFileClassification(StrEnum):
+    """Filesystem classification used by read-only run indexing."""
+
+    LEDGER = "ledger"
+    NORMAL_ARTIFACT = "normal_artifact"
+    MANIFESTED_ARTIFACT = "manifested_artifact"
+    UNMANIFESTED_FILE = "unmanifested_file"
+    NON_PROVENANCE_REPORT = "non_provenance_report"
+    REPLAY_REPORT = "replay_report"
+    DIAGNOSTIC_REPORT = "diagnostic_report"
+    COMPARISON_REPORT = "comparison_report"
+    CACHE_OR_TEMP = "cache_or_temp"
+    UNEXPECTED = "unexpected"
+
+
 class RunCompletenessStatus(StrEnum):
     """Disk-inspected deterministic run completeness status."""
 
@@ -1666,6 +1716,80 @@ class PipelineDryRunPlan(StrictModel):
     warnings_count: int = Field(ge=0)
     blocking_findings_count: int = Field(ge=0)
     dry_run: bool = True
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+    certifies_scientific_validity: bool = False
+
+
+class RunFileRecord(StrictModel):
+    """One deterministic file record from a run-directory scan."""
+
+    path: str = Field(min_length=1)
+    classification: RunFileClassification
+    size_bytes: int = Field(ge=0)
+    suffix: str = ""
+    artifact_id: str | None = None
+    artifact_type: ArtifactType | None = None
+    artifact_manifest_entry: bool = False
+    manifested: bool = False
+    ledgered: bool = False
+    has_metadata: bool = False
+    non_provenance_marked: bool = False
+    is_evidence: bool = False
+    is_presentation: bool = False
+
+
+class RunFileIndex(StrictModel):
+    """Read-only deterministic index of files below one run directory."""
+
+    run_id: str = Field(min_length=1)
+    run_exists: bool
+    run_path: str = Field(min_length=1)
+    files: list[RunFileRecord]
+    directories: list[str] = Field(default_factory=list)
+    files_scanned: int = Field(ge=0)
+    manifest_entries: int = Field(ge=0)
+    ledger_exists: bool
+    ledger_commit_count: int = Field(ge=0)
+    artifact_manifest_exists: bool
+    load_errors: list[str] = Field(default_factory=list)
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+
+
+class OutputHygieneFinding(StrictModel):
+    """One deterministic run output hygiene finding."""
+
+    finding_id: str = Field(min_length=1)
+    category: OutputHygieneCategory
+    severity: OutputHygieneSeverity
+    message: str = Field(min_length=1)
+    paths: list[str] = Field(default_factory=list)
+    expected: str | None = None
+    observed: str | None = None
+
+
+class OutputHygieneReport(StrictModel):
+    """Read-only run output hygiene report. This is not provenance."""
+
+    run_id: str = Field(min_length=1)
+    hygiene_status: OutputHygieneStatus
+    file_index: RunFileIndex
+    findings: list[OutputHygieneFinding]
+    files_scanned: int = Field(ge=0)
+    manifest_entries: int = Field(ge=0)
+    orphaned_files: int = Field(ge=0)
+    missing_manifest_files: int = Field(ge=0)
+    hash_mismatches: int = Field(ge=0)
+    duplicate_outputs: int = Field(ge=0)
+    non_provenance_files: int = Field(ge=0)
+    unexpected_files: int = Field(ge=0)
+    warnings_count: int = Field(ge=0)
+    blocking_findings_count: int = Field(ge=0)
+    ledger_mutated: bool = False
+    artifact_manifest_mutated: bool = False
     not_provenance: bool = True
     not_evidence: bool = True
     not_ledgered: bool = True

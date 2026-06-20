@@ -24,6 +24,11 @@ from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
+from factori.output_hygiene import (
+    inspect_output_hygiene,
+    summarize_output_hygiene,
+    write_output_hygiene_report,
+)
 from factori.questioner import route_questions_to_action, routed_action, select_questions
 from factori.regression_diagnostics import summarize_cross_run_comparison
 from factori.replay import (
@@ -788,6 +793,48 @@ def diagnose_run_command(
     typer.echo(
         f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}"
     )
+
+
+@app.command("inspect-hygiene")
+def inspect_hygiene_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect run output hygiene without mutating, repairing, or deleting files."""
+    report = inspect_output_hygiene(run_id=run_id, root=root)
+    if write_report:
+        write_output_hygiene_report(run_id=run_id, report=report, root=root)
+    if json_output:
+        typer.echo(json.dumps(report.model_dump(mode="json"), sort_keys=True))
+        return
+    summary = summarize_output_hygiene(report)
+    for key in (
+        "run_id",
+        "hygiene_status",
+        "files_scanned",
+        "manifest_entries",
+        "orphaned_files",
+        "missing_manifest_files",
+        "hash_mismatches",
+        "duplicate_outputs",
+        "non_provenance_files",
+        "unexpected_files",
+        "warnings",
+        "blocking_findings",
+    ):
+        typer.echo(f"{key}={summary[key]}")
+    typer.echo(f"ledger_mutated={str(report.ledger_mutated).lower()}")
+    typer.echo(
+        f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}"
+    )
+    for finding in report.findings:
+        paths = ",".join(finding.paths) or "none"
+        typer.echo(
+            f"finding={finding.severity.value}:{finding.category.value}:"
+            f"{paths}:{finding.message}"
+        )
 
 
 @app.command("compare-runs")

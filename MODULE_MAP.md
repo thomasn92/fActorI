@@ -22,6 +22,10 @@ All implementation modules are under `factori/`.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
 - `pipeline_plan.py`: expected output tables and stage metadata used by dry-run planning.
 - `dry_run.py`: read-only run-all planning, blocker detection, and dry-run validation.
+- `run_files.py`: read-only run-directory indexing, artifact-link classification, and
+  non-provenance boundary markers.
+- `output_hygiene.py`: deterministic manifest/file/hash hygiene checks and optional reports that
+  remain outside provenance.
 
 ## Stage A
 
@@ -86,5 +90,5 @@ All implementation modules are under `factori/`.
 ## Reports
 
 - `reports.py`: deterministic Markdown renderers for stage, package, audit, export, replay,
-  diagnostics, cross-run comparison, and pipeline run reports. These rendered reports are
-  presentation artifacts, not verification evidence.
+  diagnostics, cross-run comparison, pipeline run, and output hygiene reports. These rendered
+  reports are presentation artifacts, not verification evidence.
