@@ -74,6 +74,8 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
         stages = selected_pipeline_stages(config)
     except PipelineConfigurationError as exc:
         raise PipelineRunError(str(exc)) from exc
+    if PipelineStage.RUN_STAGE_A in stages and not config.domain.strip():
+        raise PipelineRunError("domain is required when run-stage-a would run")
 
     store = ArtifactStore(config.root)
     ledger_path = store.run_path(config.run_id) / "ledger.sqlite"

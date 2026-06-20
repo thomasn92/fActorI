@@ -292,6 +292,27 @@ class PipelineFailurePolicy(StrEnum):
     FAIL_FAST = "FailFast"
 
 
+class DryRunStatus(StrEnum):
+    """Overall read-only pipeline dry-run planning status."""
+
+    DRY_RUN_RUNNABLE = "DryRunRunnable"
+    DRY_RUN_RUNNABLE_WITH_WARNINGS = "DryRunRunnableWithWarnings"
+    DRY_RUN_BLOCKED = "DryRunBlocked"
+    DRY_RUN_INVALID = "DryRunInvalid"
+
+
+class PlannedStageStatus(StrEnum):
+    """Read-only status of one planned pipeline stage."""
+
+    WOULD_RUN = "WouldRun"
+    WOULD_SKIP = "WouldSkip"
+    ALREADY_COMPLETE = "AlreadyComplete"
+    BLOCKED_BY_PREREQUISITE = "BlockedByPrerequisite"
+    BLOCKED_BY_STOP_AFTER = "BlockedByStopAfter"
+    OUT_OF_RANGE = "OutOfRange"
+    READ_ONLY_CHECK = "ReadOnlyCheck"
+
+
 class RunCompletenessStatus(StrEnum):
     """Disk-inspected deterministic run completeness status."""
 
@@ -1472,7 +1493,7 @@ class PipelineRunConfig(StrictModel):
     """Configuration for deterministic direct pipeline orchestration."""
 
     run_id: str = Field(min_length=1)
-    domain: str = Field(min_length=1)
+    domain: str = ""
     method: str | None = None
     root: Path = Path(".")
     stop_after: PipelineStage | None = None
@@ -1504,6 +1525,26 @@ class PipelineRunReport(StrictModel):
     pipeline_report_path: str = Field(min_length=1)
     fake: bool = True
     is_verification_evidence: bool = False
+
+
+class PlannedOutput(StrictModel):
+    """Expected output from a dry-run planned stage."""
+
+    output_kind: str = Field(min_length=1)
+    path: str | None = None
+    required_for_completion: bool = True
+    optional: bool = False
+    description: str = Field(min_length=1)
+
+
+class DryRunValidationFinding(StrictModel):
+    """One deterministic dry-run validation finding."""
+
+    finding_id: str = Field(min_length=1)
+    severity: DiagnosticSeverity
+    message: str = Field(min_length=1)
+    stage_name: str | None = None
+    blocking: bool = False
 
 
 class StagePrerequisite(StrictModel):
@@ -1584,6 +1625,51 @@ class RunStatusReport(StrictModel):
     blocking_issues: list[str] = Field(default_factory=list)
     read_only: bool = True
     is_provenance: bool = False
+
+
+class PlannedStage(StrictModel):
+    """One stage in a read-only pipeline dry-run plan."""
+
+    stage_name: str = Field(min_length=1)
+    status: PlannedStageStatus
+    read_only: bool = False
+    reason: str = Field(min_length=1)
+    expected_outputs: list[PlannedOutput] = Field(default_factory=list)
+    prerequisites: list[StagePrerequisite] = Field(default_factory=list)
+    missing_prerequisites: list[StagePrerequisite] = Field(default_factory=list)
+    already_complete: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
+class PipelineDryRunPlan(StrictModel):
+    """Read-only dry-run plan for deterministic run-all orchestration."""
+
+    run_id: str = Field(min_length=1)
+    domain: str = ""
+    method: str | None = None
+    root: str = "."
+    start_at: PipelineStage | None = None
+    stop_after: PipelineStage | None = None
+    skip_replay: bool = False
+    run_diagnostics: bool = False
+    write_replay_report: bool = False
+    write_diagnostic_report: bool = False
+    failure_policy: PipelineFailurePolicy = PipelineFailurePolicy.CONTINUE_SAFE
+    dry_run_status: DryRunStatus
+    planned_stages: list[PlannedStage]
+    planned_outputs: list[PlannedOutput] = Field(default_factory=list)
+    validation_findings: list[DryRunValidationFinding] = Field(default_factory=list)
+    run_status: RunStatusReport | None = None
+    resume_validation: ResumeValidationReport | None = None
+    next_stage: PipelineStage | None = None
+    selected_stages: list[PipelineStage] = Field(default_factory=list)
+    warnings_count: int = Field(ge=0)
+    blocking_findings_count: int = Field(ge=0)
+    dry_run: bool = True
+    not_provenance: bool = True
+    not_evidence: bool = True
+    not_ledgered: bool = True
+    certifies_scientific_validity: bool = False
 
 
 class ScoreVector(StrictModel):

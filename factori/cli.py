@@ -18,6 +18,7 @@ from factori.diagnostics import (
     write_diagnostic_report,
 )
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
+from factori.dry_run import build_pipeline_dry_run_plan
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
@@ -41,10 +42,12 @@ from factori.schemas import (
     ControllerActionType,
     DataRequirement,
     LiteratureState,
+    PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
     PipelineRunStatus,
     PipelineStage,
+    PlannedStageStatus,
     ScoreVector,
     StagnationEvent,
     VerificationLabel,
@@ -292,10 +295,49 @@ def validate_resume_command(
         raise typer.Exit(code=1)
 
 
+def _print_dry_run_plan(plan: PipelineDryRunPlan, *, json_output: bool) -> None:
+    if json_output:
+        typer.echo(json.dumps(plan.model_dump(mode="json"), sort_keys=True))
+        return
+    would_run = _planned_status_count(plan, PlannedStageStatus.WOULD_RUN)
+    read_only = _planned_status_count(plan, PlannedStageStatus.READ_ONLY_CHECK)
+    would_skip = _planned_status_count(plan, PlannedStageStatus.WOULD_SKIP)
+    already_complete = _planned_status_count(plan, PlannedStageStatus.ALREADY_COMPLETE)
+    blocked = sum(
+        1
+        for stage in plan.planned_stages
+        if stage.status
+        in {
+            PlannedStageStatus.BLOCKED_BY_PREREQUISITE,
+            PlannedStageStatus.BLOCKED_BY_STOP_AFTER,
+        }
+    )
+    typer.echo(f"run_id={plan.run_id}")
+    typer.echo(f"dry_run_status={plan.dry_run_status.value}")
+    typer.echo(f"planned_stages={len(plan.planned_stages)}")
+    typer.echo(f"would_run={would_run + read_only}")
+    typer.echo(f"would_skip={would_skip}")
+    typer.echo(f"already_complete={already_complete}")
+    typer.echo(f"blocked={blocked}")
+    typer.echo(f"warnings={plan.warnings_count}")
+    typer.echo(f"blocking_findings={plan.blocking_findings_count}")
+    typer.echo(
+        "next_stage="
+        + (plan.next_stage.value if plan.next_stage is not None else "none")
+    )
+
+
+def _planned_status_count(
+    plan: PipelineDryRunPlan,
+    status: PlannedStageStatus,
+) -> int:
+    return sum(1 for stage in plan.planned_stages if stage.status == status)
+
+
 @app.command("run-all")
 def run_all_command(
     run_id: Annotated[str, typer.Option("--run-id")],
-    domain: Annotated[str, typer.Option("--domain")],
+    domain: Annotated[str | None, typer.Option("--domain")] = None,
     method: Annotated[str | None, typer.Option("--method")] = None,
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
@@ -311,11 +353,13 @@ def run_all_command(
         typer.Option("--write-diagnostic-report"),
     ] = False,
     fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run the deterministic MVP pipeline directly in one process."""
     config = PipelineRunConfig(
         run_id=run_id,
-        domain=domain,
+        domain=domain or "",
         method=method,
         root=root,
         stop_after=stop_after,
@@ -330,6 +374,10 @@ def run_all_command(
             else PipelineFailurePolicy.CONTINUE_SAFE
         ),
     )
+    if dry_run:
+        plan = build_pipeline_dry_run_plan(config)
+        _print_dry_run_plan(plan, json_output=json_output)
+        return
     try:
         report = run_deterministic_pipeline(config)
     except PipelineRunError as exc:
@@ -368,6 +416,48 @@ def run_all_command(
         PipelineRunStatus.PIPELINE_FAILED,
     }:
         raise typer.Exit(code=1)
+
+
+@app.command("plan-run")
+def plan_run_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    domain: Annotated[str | None, typer.Option("--domain")] = None,
+    method: Annotated[str | None, typer.Option("--method")] = None,
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
+    start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
+    skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
+    run_diagnostics: Annotated[bool, typer.Option("--run-diagnostics")] = False,
+    write_replay_report: Annotated[
+        bool,
+        typer.Option("--write-replay-report"),
+    ] = False,
+    write_diagnostic_report: Annotated[
+        bool,
+        typer.Option("--write-diagnostic-report"),
+    ] = False,
+    fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan run-all execution without mutating provenance."""
+    config = PipelineRunConfig(
+        run_id=run_id,
+        domain=domain or "",
+        method=method,
+        root=root,
+        stop_after=stop_after,
+        start_at=start_at,
+        skip_replay=skip_replay,
+        run_diagnostics=run_diagnostics,
+        write_replay_report=write_replay_report,
+        write_diagnostic_report=write_diagnostic_report,
+        failure_policy=(
+            PipelineFailurePolicy.FAIL_FAST
+            if fail_fast
+            else PipelineFailurePolicy.CONTINUE_SAFE
+        ),
+    )
+    _print_dry_run_plan(build_pipeline_dry_run_plan(config), json_output=json_output)
 
 
 @app.command("run-stage-a")

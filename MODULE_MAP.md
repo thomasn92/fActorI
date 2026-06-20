@@ -20,6 +20,8 @@ All implementation modules are under `factori/`.
   run report. Replay and diagnostics are checked for ledger immutability around their execution.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
+- `pipeline_plan.py`: expected output tables and stage metadata used by dry-run planning.
+- `dry_run.py`: read-only run-all planning, blocker detection, and dry-run validation.
 
 ## Stage A
 

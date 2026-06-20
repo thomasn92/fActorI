@@ -27,12 +27,16 @@ uv run factori run-all --run-id demo-d --domain "human geography" --run-diagnost
 uv run factori run-all --run-id demo-e --domain "human geography" --run-diagnostics \
   --write-replay-report --write-diagnostic-report
 uv run factori run-all --run-id demo-f --domain "human geography" --fail-fast
+uv run factori run-all --run-id demo-g --domain "human geography" --dry-run
+uv run factori plan-run --run-id demo-h --domain "human geography" --json
 ```
 
 `run-all` calls existing stage functions directly. Its pipeline report is hashed and ledgered;
 replay and diagnostics remain read-only, and their optional reports remain outside provenance.
 When `--start-at` is used, `run-all` first validates the requested resume point against explicit
 checkpoint artifacts and blocks before mutation if prerequisites are missing.
+Dry-run planning is read-only and reports selected stages, blockers, and expected outputs without
+creating artifacts or ledger commits.
 
 Equivalent individual commands:
 
@@ -58,6 +62,9 @@ uv run factori status --run-id demo
 uv run factori status --run-id demo --stage run-stage-b
 uv run factori status --run-id demo --json
 uv run factori validate-resume --run-id demo --start-at plan-manuscript
+uv run factori run-all --run-id demo --domain "human geography" --dry-run
+uv run factori plan-run --run-id demo --domain "human geography"
+uv run factori plan-run --run-id demo --domain "human geography" --json
 ```
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
@@ -73,6 +80,10 @@ does not append ledger commits or update either artifact manifest.
 
 `status` and `validate-resume` are read-only checkpoint inspection commands. They do not append
 ledger commits, update manifests, or write status reports.
+
+`run-all --dry-run` and `plan-run` are read-only planning commands. They mirror run-all stage
+ordering and resume validation but do not execute stages, write dry-run reports, append ledger
+commits, or update artifact manifests.
 
 ## Foundation and Inspection
 

@@ -41,6 +41,7 @@ Implemented so far:
 - read-only deterministic cross-run comparison and regression diagnostics;
 - canonical direct one-command deterministic pipeline orchestration;
 - read-only checkpoint/status inspection and stricter run-all resume validation;
+- read-only pipeline dry-run planning for run-all options and expected outputs;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -73,7 +74,8 @@ The runner supports `--method`, `--root`, `--stop-after`, `--start-at`, `--skip-
 `--run-diagnostics`, optional non-provenance replay/diagnostic report flags, and `--fail-fast`.
 Replay and diagnostics remain read-only within the orchestrated run. A repeated full run with the
 same run ID fails clearly; `--start-at` is validated against explicit checkpoint artifacts before
-any resumed stage runs.
+any resumed stage runs. Use `--dry-run` or `plan-run` to inspect the planned stages and blockers
+without executing or writing anything.
 
 Individual stage and inspection commands:
 
@@ -102,6 +104,8 @@ uv run factori status --run-id demo
 uv run factori status --run-id demo --stage run-stage-b
 uv run factori status --run-id demo --json
 uv run factori validate-resume --run-id demo --start-at plan-manuscript
+uv run factori run-all --run-id demo --domain "human geography" --dry-run
+uv run factori plan-run --run-id demo --domain "human geography" --json
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
