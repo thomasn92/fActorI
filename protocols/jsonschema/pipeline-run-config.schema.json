@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "PipelineFailurePolicy": {
+      "description": "Pipeline behavior after the first blocking or failed stage.",
+      "enum": [
+        "ContinueSafe",
+        "FailFast"
+      ],
+      "title": "PipelineFailurePolicy",
+      "type": "string"
+    },
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/pipeline-run-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One-command pipeline configuration.",
+  "properties": {
+    "adapter_backend": {
+      "default": "fake",
+      "title": "Adapter Backend",
+      "type": "string"
+    },
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "domain": {
+      "default": "",
+      "title": "Domain",
+      "type": "string"
+    },
+    "failure_policy": {
+      "$ref": "#/$defs/PipelineFailurePolicy",
+      "default": "ContinueSafe"
+    },
+    "llm_model": {
+      "default": "gpt-5-mini",
+      "title": "Llm Model",
+      "type": "string"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "reviewer_backend": {
+      "default": "fake",
+      "title": "Reviewer Backend",
+      "type": "string"
+    },
+    "reviewer_max_objections": {
+      "default": 5,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Reviewer Max Objections",
+      "type": "integer"
+    },
+    "reviewer_model": {
+      "default": "gpt-5-mini",
+      "title": "Reviewer Model",
+      "type": "string"
+    },
+    "root": {
+      "default": ".",
+      "format": "path",
+      "title": "Root",
+      "type": "string"
+    },
+    "run_diagnostics": {
+      "default": false,
+      "title": "Run Diagnostics",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "skip_replay": {
+      "default": false,
+      "title": "Skip Replay",
+      "type": "boolean"
+    },
+    "start_at": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "stop_after": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "use_llm_reviewers": {
+      "default": false,
+      "title": "Use Llm Reviewers",
+      "type": "boolean"
+    },
+    "write_diagnostic_report": {
+      "default": false,
+      "title": "Write Diagnostic Report",
+      "type": "boolean"
+    },
+    "write_replay_report": {
+      "default": false,
+      "title": "Write Replay Report",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "PipelineRunConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.PipelineRunConfig",
+  "x-factori-verification-evidence": false
+}

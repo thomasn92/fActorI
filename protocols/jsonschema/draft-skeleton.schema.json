@@ -1,0 +1,351 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "ChecklistCategory": {
+      "description": "Draft/manuscript checklist categories.",
+      "enum": [
+        "EvidenceBoundary",
+        "ClaimLabels",
+        "SyntheticDataBoundary",
+        "BlockedClaims",
+        "SectionCompleteness",
+        "Reproducibility",
+        "LedgerLinks",
+        "ArtifactHashes",
+        "FinalSynthesisReadiness"
+      ],
+      "title": "ChecklistCategory",
+      "type": "string"
+    },
+    "ChecklistItem": {
+      "additionalProperties": false,
+      "description": "One deterministic manuscript checklist item.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/ChecklistCategory"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "description",
+        "passed",
+        "reason"
+      ],
+      "title": "ChecklistItem",
+      "type": "object"
+    },
+    "ClaimEvidenceLink": {
+      "additionalProperties": false,
+      "description": "One deterministic claim-to-evidence link.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "evidence_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Role"
+        },
+        "supports_label": {
+          "title": "Supports Label",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "claim_id",
+        "artifact_id",
+        "artifact_type",
+        "supports_label"
+      ],
+      "title": "ClaimEvidenceLink",
+      "type": "object"
+    },
+    "DraftClaimPlaceholder": {
+      "additionalProperties": false,
+      "description": "Label-preserving placeholder for one allowed claim.",
+      "properties": {
+        "allowed_section": {
+          "minLength": 1,
+          "title": "Allowed Section",
+          "type": "string"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_label": {
+          "$ref": "#/$defs/VerificationLabel"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "placeholder_text": {
+          "minLength": 1,
+          "title": "Placeholder Text",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "candidate_id",
+        "claim_label",
+        "placeholder_text",
+        "allowed_section"
+      ],
+      "title": "DraftClaimPlaceholder",
+      "type": "object"
+    },
+    "DraftSection": {
+      "additionalProperties": false,
+      "description": "Section scaffold for the draft skeleton.",
+      "properties": {
+        "allowed_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "paragraph_placeholders": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paragraph Placeholders",
+          "type": "array"
+        },
+        "required_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Evidence Ids",
+          "type": "array"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "section_purpose": {
+          "minLength": 1,
+          "title": "Section Purpose",
+          "type": "string"
+        },
+        "section_title": {
+          "minLength": 1,
+          "title": "Section Title",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_id",
+        "section_title",
+        "section_purpose",
+        "paragraph_placeholders"
+      ],
+      "title": "DraftSection",
+      "type": "object"
+    },
+    "ManuscriptChecklist": {
+      "additionalProperties": false,
+      "description": "Deterministic manuscript readiness checklist.",
+      "properties": {
+        "checklist_id": {
+          "minLength": 1,
+          "title": "Checklist Id",
+          "type": "string"
+        },
+        "failures_count": {
+          "minimum": 0,
+          "title": "Failures Count",
+          "type": "integer"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ChecklistItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checklist_id",
+        "items",
+        "failures_count"
+      ],
+      "title": "ManuscriptChecklist",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/draft-skeleton.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic draft scaffold.",
+  "properties": {
+    "abstract_stub": {
+      "minLength": 1,
+      "title": "Abstract Stub",
+      "type": "string"
+    },
+    "blocked_claim_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked Claim Warnings",
+      "type": "array"
+    },
+    "checklist": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ManuscriptChecklist"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "claim_placeholders": {
+      "items": {
+        "$ref": "#/$defs/DraftClaimPlaceholder"
+      },
+      "title": "Claim Placeholders",
+      "type": "array"
+    },
+    "evidence_links": {
+      "items": {
+        "$ref": "#/$defs/ClaimEvidenceLink"
+      },
+      "title": "Evidence Links",
+      "type": "array"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "section_stubs": {
+      "items": {
+        "$ref": "#/$defs/DraftSection"
+      },
+      "title": "Section Stubs",
+      "type": "array"
+    },
+    "skeleton_id": {
+      "minLength": 1,
+      "title": "Skeleton Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "skeleton_id",
+    "title",
+    "abstract_stub",
+    "section_stubs",
+    "claim_placeholders"
+  ],
+  "title": "DraftSkeleton",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.DraftSkeleton",
+  "x-factori-verification-evidence": false
+}

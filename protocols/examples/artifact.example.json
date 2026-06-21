@@ -1,0 +1,10 @@
+{
+  "content_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "id": "artifact-example",
+  "metadata": {
+    "is_verification_evidence": false
+  },
+  "path": "runs/example/reports/artifact-example.json",
+  "producing_commit_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "type": "report"
+}

@@ -1,0 +1,266 @@
+{
+  "$defs": {
+    "OutputHygieneCategory": {
+      "description": "Deterministic categories for run-directory hygiene findings.",
+      "enum": [
+        "OrphanedArtifact",
+        "MissingManifestEntry",
+        "MissingFileForManifestEntry",
+        "HashMismatch",
+        "DuplicateOutput",
+        "StaleOutput",
+        "NonProvenanceLeak",
+        "UnexpectedDirectory",
+        "UnexpectedFile",
+        "ManifestExclusionViolation",
+        "EvidenceBoundaryRisk",
+        "ReplayDiagnosticsLeak",
+        "Unknown"
+      ],
+      "title": "OutputHygieneCategory",
+      "type": "string"
+    },
+    "OutputHygieneStatus": {
+      "description": "Overall status of a read-only run output hygiene inspection.",
+      "enum": [
+        "Clean",
+        "CleanWithWarnings",
+        "HygieneIssuesFound",
+        "HygieneInspectionFailed"
+      ],
+      "title": "OutputHygieneStatus",
+      "type": "string"
+    },
+    "RemediationAction": {
+      "additionalProperties": false,
+      "description": "One deterministic recommendation that this MVP never executes.",
+      "properties": {
+        "action_id": {
+          "minLength": 1,
+          "title": "Action Id",
+          "type": "string"
+        },
+        "execution_performed": {
+          "default": false,
+          "title": "Execution Performed",
+          "type": "boolean"
+        },
+        "finding_category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutputHygieneCategory"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "finding_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finding Id"
+        },
+        "kind": {
+          "$ref": "#/$defs/RemediationActionKind"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "recommended_command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Command"
+        },
+        "recommended_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Stage"
+        },
+        "requires_human_review": {
+          "default": true,
+          "title": "Requires Human Review",
+          "type": "boolean"
+        },
+        "risk": {
+          "$ref": "#/$defs/RemediationRisk"
+        },
+        "status": {
+          "$ref": "#/$defs/RemediationStatus"
+        }
+      },
+      "required": [
+        "action_id",
+        "kind",
+        "risk",
+        "status",
+        "reason"
+      ],
+      "title": "RemediationAction",
+      "type": "object"
+    },
+    "RemediationActionKind": {
+      "description": "Non-executing hygiene remediation recommendation kinds.",
+      "enum": [
+        "InspectManually",
+        "RerunProducingStage",
+        "RegenerateManifest",
+        "QuarantineUnmanifestedFile",
+        "RemoveNonProvenanceReport",
+        "RemoveStaleTempFile",
+        "RestoreMissingArtifact",
+        "RejectRunAsInconsistent",
+        "NoActionNeeded"
+      ],
+      "title": "RemediationActionKind",
+      "type": "string"
+    },
+    "RemediationPlanStatus": {
+      "description": "Overall status of a deterministic hygiene remediation plan.",
+      "enum": [
+        "NoRemediationNeeded",
+        "RemediationRecommended",
+        "ManualInspectionRequired",
+        "RunInconsistent"
+      ],
+      "title": "RemediationPlanStatus",
+      "type": "string"
+    },
+    "RemediationRisk": {
+      "description": "Risk of a recommended remediation if a human later executes it.",
+      "enum": [
+        "Low",
+        "Medium",
+        "High",
+        "Unsafe"
+      ],
+      "title": "RemediationRisk",
+      "type": "string"
+    },
+    "RemediationStatus": {
+      "description": "Action-level status for a recommendation that is never auto-executed.",
+      "enum": [
+        "Recommended",
+        "ManualApprovalRequired",
+        "UnsafeToExecute",
+        "NotRequired"
+      ],
+      "title": "RemediationStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/hygiene-remediation-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-executing hygiene remediation plan.",
+  "properties": {
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/RemediationAction"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "artifact_manifest_mutated": {
+      "default": false,
+      "title": "Artifact Manifest Mutated",
+      "type": "boolean"
+    },
+    "certifies_scientific_validity": {
+      "default": false,
+      "title": "Certifies Scientific Validity",
+      "type": "boolean"
+    },
+    "execution_performed": {
+      "default": false,
+      "title": "Execution Performed",
+      "type": "boolean"
+    },
+    "ledger_mutated": {
+      "default": false,
+      "title": "Ledger Mutated",
+      "type": "boolean"
+    },
+    "not_evidence": {
+      "default": true,
+      "title": "Not Evidence",
+      "type": "boolean"
+    },
+    "not_ledgered": {
+      "default": true,
+      "title": "Not Ledgered",
+      "type": "boolean"
+    },
+    "not_provenance": {
+      "default": true,
+      "title": "Not Provenance",
+      "type": "boolean"
+    },
+    "plan_status": {
+      "$ref": "#/$defs/RemediationPlanStatus"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_finding_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Finding Ids",
+      "type": "array"
+    },
+    "source_hygiene_status": {
+      "$ref": "#/$defs/OutputHygieneStatus"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "source_hygiene_status",
+    "plan_status",
+    "actions"
+  ],
+  "title": "HygieneRemediationPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.HygieneRemediationPlan",
+  "x-factori-verification-evidence": false
+}

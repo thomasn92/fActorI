@@ -17,6 +17,8 @@ Start with:
 The LaTeX specification is reference material only and should not be read in full unless required
 by the task.
 
+Language-neutral developer contracts are documented in [`protocols/README.md`](protocols/README.md).
+
 Implemented so far:
 
 - strict Pydantic schemas for core research entities;
@@ -52,6 +54,7 @@ Implemented so far:
   hashes, ledgered context artifacts, and bounded adequacy that does not prove novelty;
 - an explicitly gated OpenAI reviewer adapter for Stage B structural critique, with strict local
   safety checks, ledgered context artifacts, and no verification or publication authority;
+- versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -123,6 +126,8 @@ uv run factori plan-hygiene-remediation --run-id demo
 uv run factori plan-hygiene-remediation --run-id demo --write-report
 uv run factori plan-hygiene-remediation --run-id demo --json
 uv run factori show-adapters
+uv run factori export-protocols
+uv run factori export-protocols --check
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -143,6 +148,10 @@ from normal artifact manifests. It never deletes, repairs, rewrites, or rehashes
 rerun commands when a producing stage is identifiable. It never executes cleanup, deletion,
 quarantine, restoration, manifest regeneration, or reruns. Optional plans remain under `hygiene/`
 and outside provenance.
+
+`export-protocols` derives developer-facing JSON Schemas from existing typed models. Its `--check`
+mode is read-only and suitable for CI. Protocol files are not run artifacts, ledger provenance, or
+scientific evidence.
 
 ## Adapter Interfaces
 

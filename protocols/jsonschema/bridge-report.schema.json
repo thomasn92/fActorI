@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "BranchStatus": {
+      "description": "Branch and run status labels for the MVP.",
+      "enum": [
+        "Active",
+        "PrunedDuplicate",
+        "RejectedRedTeam",
+        "PrunedUncertain",
+        "DeferredRealDataCandidate",
+        "RequiresRealData",
+        "InsufficientRetrievalAdequacy",
+        "StagnationStop",
+        "StopFailure",
+        "StopSuccess",
+        "NeedsHumanTailEscalation",
+        "FalseBridge",
+        "TrivialTheoremCandidate",
+        "StageCReady",
+        "BudgetDeferred"
+      ],
+      "title": "BranchStatus",
+      "type": "string"
+    },
+    "BridgeRepairAction": {
+      "description": "Allowed deterministic bridge repair actions.",
+      "enum": [
+        "DefineObjects",
+        "ChangeMetric",
+        "AddBaseline",
+        "AddSyntheticData",
+        "NarrowClaim",
+        "ReplaceMethod",
+        "RejectBridge"
+      ],
+      "title": "BridgeRepairAction",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/bridge-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stage B bridge validation result.",
+  "properties": {
+    "baseline_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Score",
+      "type": "number"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "data_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Data Score",
+      "type": "number"
+    },
+    "falsify_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Falsify Score",
+      "type": "number"
+    },
+    "final_status": {
+      "$ref": "#/$defs/BranchStatus",
+      "default": "Active"
+    },
+    "map_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Map Score",
+      "type": "number"
+    },
+    "nondecorative_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Nondecorative Score",
+      "type": "number"
+    },
+    "repair_action": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BridgeRepairAction"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "repair_attempted": {
+      "default": false,
+      "title": "Repair Attempted",
+      "type": "boolean"
+    },
+    "survival_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Survival Score",
+      "type": "number"
+    },
+    "survives": {
+      "title": "Survives",
+      "type": "boolean"
+    },
+    "transfer_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Transfer Score",
+      "type": "number"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "map_score",
+    "transfer_score",
+    "baseline_score",
+    "data_score",
+    "falsify_score",
+    "nondecorative_score",
+    "survival_score",
+    "survives"
+  ],
+  "title": "BridgeReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.BridgeReport",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,444 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "OutputHygieneCategory": {
+      "description": "Deterministic categories for run-directory hygiene findings.",
+      "enum": [
+        "OrphanedArtifact",
+        "MissingManifestEntry",
+        "MissingFileForManifestEntry",
+        "HashMismatch",
+        "DuplicateOutput",
+        "StaleOutput",
+        "NonProvenanceLeak",
+        "UnexpectedDirectory",
+        "UnexpectedFile",
+        "ManifestExclusionViolation",
+        "EvidenceBoundaryRisk",
+        "ReplayDiagnosticsLeak",
+        "Unknown"
+      ],
+      "title": "OutputHygieneCategory",
+      "type": "string"
+    },
+    "OutputHygieneFinding": {
+      "additionalProperties": false,
+      "description": "One deterministic run output hygiene finding.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/OutputHygieneCategory"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        },
+        "severity": {
+          "$ref": "#/$defs/OutputHygieneSeverity"
+        }
+      },
+      "required": [
+        "finding_id",
+        "category",
+        "severity",
+        "message"
+      ],
+      "title": "OutputHygieneFinding",
+      "type": "object"
+    },
+    "OutputHygieneSeverity": {
+      "description": "Severity assigned to deterministic output hygiene findings.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Blocking"
+      ],
+      "title": "OutputHygieneSeverity",
+      "type": "string"
+    },
+    "OutputHygieneStatus": {
+      "description": "Overall status of a read-only run output hygiene inspection.",
+      "enum": [
+        "Clean",
+        "CleanWithWarnings",
+        "HygieneIssuesFound",
+        "HygieneInspectionFailed"
+      ],
+      "title": "OutputHygieneStatus",
+      "type": "string"
+    },
+    "RunFileClassification": {
+      "description": "Filesystem classification used by read-only run indexing.",
+      "enum": [
+        "ledger",
+        "normal_artifact",
+        "manifested_artifact",
+        "unmanifested_file",
+        "non_provenance_report",
+        "replay_report",
+        "diagnostic_report",
+        "comparison_report",
+        "cache_or_temp",
+        "unexpected"
+      ],
+      "title": "RunFileClassification",
+      "type": "string"
+    },
+    "RunFileIndex": {
+      "additionalProperties": false,
+      "description": "Read-only deterministic index of files below one run directory.",
+      "properties": {
+        "artifact_manifest_exists": {
+          "title": "Artifact Manifest Exists",
+          "type": "boolean"
+        },
+        "directories": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Directories",
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/RunFileRecord"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "files_scanned": {
+          "minimum": 0,
+          "title": "Files Scanned",
+          "type": "integer"
+        },
+        "ledger_commit_count": {
+          "minimum": 0,
+          "title": "Ledger Commit Count",
+          "type": "integer"
+        },
+        "ledger_exists": {
+          "title": "Ledger Exists",
+          "type": "boolean"
+        },
+        "load_errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Load Errors",
+          "type": "array"
+        },
+        "manifest_entries": {
+          "minimum": 0,
+          "title": "Manifest Entries",
+          "type": "integer"
+        },
+        "not_evidence": {
+          "default": true,
+          "title": "Not Evidence",
+          "type": "boolean"
+        },
+        "not_ledgered": {
+          "default": true,
+          "title": "Not Ledgered",
+          "type": "boolean"
+        },
+        "not_provenance": {
+          "default": true,
+          "title": "Not Provenance",
+          "type": "boolean"
+        },
+        "run_exists": {
+          "title": "Run Exists",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "run_path": {
+          "minLength": 1,
+          "title": "Run Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "run_exists",
+        "run_path",
+        "files",
+        "files_scanned",
+        "manifest_entries",
+        "ledger_exists",
+        "ledger_commit_count",
+        "artifact_manifest_exists"
+      ],
+      "title": "RunFileIndex",
+      "type": "object"
+    },
+    "RunFileRecord": {
+      "additionalProperties": false,
+      "description": "One deterministic file record from a run-directory scan.",
+      "properties": {
+        "artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Id"
+        },
+        "artifact_manifest_entry": {
+          "default": false,
+          "title": "Artifact Manifest Entry",
+          "type": "boolean"
+        },
+        "artifact_type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactType"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "classification": {
+          "$ref": "#/$defs/RunFileClassification"
+        },
+        "has_metadata": {
+          "default": false,
+          "title": "Has Metadata",
+          "type": "boolean"
+        },
+        "is_evidence": {
+          "default": false,
+          "title": "Is Evidence",
+          "type": "boolean"
+        },
+        "is_presentation": {
+          "default": false,
+          "title": "Is Presentation",
+          "type": "boolean"
+        },
+        "ledgered": {
+          "default": false,
+          "title": "Ledgered",
+          "type": "boolean"
+        },
+        "manifested": {
+          "default": false,
+          "title": "Manifested",
+          "type": "boolean"
+        },
+        "non_provenance_marked": {
+          "default": false,
+          "title": "Non Provenance Marked",
+          "type": "boolean"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "suffix": {
+          "default": "",
+          "title": "Suffix",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "classification",
+        "size_bytes"
+      ],
+      "title": "RunFileRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/output-hygiene-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only run-directory hygiene report.",
+  "properties": {
+    "artifact_manifest_mutated": {
+      "default": false,
+      "title": "Artifact Manifest Mutated",
+      "type": "boolean"
+    },
+    "blocking_findings_count": {
+      "minimum": 0,
+      "title": "Blocking Findings Count",
+      "type": "integer"
+    },
+    "certifies_scientific_validity": {
+      "default": false,
+      "title": "Certifies Scientific Validity",
+      "type": "boolean"
+    },
+    "duplicate_outputs": {
+      "minimum": 0,
+      "title": "Duplicate Outputs",
+      "type": "integer"
+    },
+    "file_index": {
+      "$ref": "#/$defs/RunFileIndex"
+    },
+    "files_scanned": {
+      "minimum": 0,
+      "title": "Files Scanned",
+      "type": "integer"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/OutputHygieneFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "hash_mismatches": {
+      "minimum": 0,
+      "title": "Hash Mismatches",
+      "type": "integer"
+    },
+    "hygiene_status": {
+      "$ref": "#/$defs/OutputHygieneStatus"
+    },
+    "ledger_mutated": {
+      "default": false,
+      "title": "Ledger Mutated",
+      "type": "boolean"
+    },
+    "manifest_entries": {
+      "minimum": 0,
+      "title": "Manifest Entries",
+      "type": "integer"
+    },
+    "missing_manifest_files": {
+      "minimum": 0,
+      "title": "Missing Manifest Files",
+      "type": "integer"
+    },
+    "non_provenance_files": {
+      "minimum": 0,
+      "title": "Non Provenance Files",
+      "type": "integer"
+    },
+    "not_evidence": {
+      "default": true,
+      "title": "Not Evidence",
+      "type": "boolean"
+    },
+    "not_ledgered": {
+      "default": true,
+      "title": "Not Ledgered",
+      "type": "boolean"
+    },
+    "not_provenance": {
+      "default": true,
+      "title": "Not Provenance",
+      "type": "boolean"
+    },
+    "orphaned_files": {
+      "minimum": 0,
+      "title": "Orphaned Files",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "unexpected_files": {
+      "minimum": 0,
+      "title": "Unexpected Files",
+      "type": "integer"
+    },
+    "warnings_count": {
+      "minimum": 0,
+      "title": "Warnings Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "hygiene_status",
+    "file_index",
+    "findings",
+    "files_scanned",
+    "manifest_entries",
+    "orphaned_files",
+    "missing_manifest_files",
+    "hash_mismatches",
+    "duplicate_outputs",
+    "non_provenance_files",
+    "unexpected_files",
+    "warnings_count",
+    "blocking_findings_count"
+  ],
+  "title": "OutputHygieneReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.OutputHygieneReport",
+  "x-factori-verification-evidence": false
+}

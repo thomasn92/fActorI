@@ -1,0 +1,117 @@
+{
+  "$defs": {
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/experiment-run-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Current fake synthetic-experiment result shape.",
+  "properties": {
+    "ablation_passed": {
+      "title": "Ablation Passed",
+      "type": "boolean"
+    },
+    "baseline_strong": {
+      "title": "Baseline Strong",
+      "type": "boolean"
+    },
+    "baseline_value": {
+      "title": "Baseline Value",
+      "type": "number"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "delta": {
+      "title": "Delta",
+      "type": "number"
+    },
+    "experiment_id": {
+      "minLength": 1,
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "generator_name": {
+      "minLength": 1,
+      "title": "Generator Name",
+      "type": "string"
+    },
+    "generator_parameters": {
+      "additionalProperties": true,
+      "title": "Generator Parameters",
+      "type": "object"
+    },
+    "label": {
+      "$ref": "#/$defs/VerificationLabel"
+    },
+    "lcb_95": {
+      "title": "Lcb 95",
+      "type": "number"
+    },
+    "metric_name": {
+      "minLength": 1,
+      "title": "Metric Name",
+      "type": "string"
+    },
+    "metric_value": {
+      "title": "Metric Value",
+      "type": "number"
+    },
+    "predeclared_delta": {
+      "title": "Predeclared Delta",
+      "type": "number"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "experiment_id",
+    "generator_name",
+    "generator_parameters",
+    "seed",
+    "metric_name",
+    "metric_value",
+    "baseline_value",
+    "delta",
+    "predeclared_delta",
+    "lcb_95",
+    "ablation_passed",
+    "baseline_strong",
+    "label",
+    "reason"
+  ],
+  "title": "ExperimentRunResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.FakeExperimentResult",
+  "x-factori-verification-evidence": false
+}

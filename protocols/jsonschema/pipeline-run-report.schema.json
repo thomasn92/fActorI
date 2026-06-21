@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "DiagnosticStatus": {
+      "description": "Overall read-only diagnostic status.",
+      "enum": [
+        "NoIssues",
+        "WarningsOnly",
+        "ActionRecommended",
+        "Blocked"
+      ],
+      "title": "DiagnosticStatus",
+      "type": "string"
+    },
+    "PipelineFailurePolicy": {
+      "description": "Pipeline behavior after the first blocking or failed stage.",
+      "enum": [
+        "ContinueSafe",
+        "FailFast"
+      ],
+      "title": "PipelineFailurePolicy",
+      "type": "string"
+    },
+    "PipelineRunStatus": {
+      "description": "Overall and per-stage deterministic pipeline statuses.",
+      "enum": [
+        "PipelineSucceeded",
+        "PipelineSucceededWithWarnings",
+        "PipelineBlocked",
+        "PipelineFailed"
+      ],
+      "title": "PipelineRunStatus",
+      "type": "string"
+    },
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    },
+    "PipelineStageResult": {
+      "additionalProperties": false,
+      "description": "One stage result in the deterministic one-command pipeline.",
+      "properties": {
+        "created_artifacts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created Artifacts",
+          "type": "array"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "finished_at": {
+          "minLength": 1,
+          "title": "Finished At",
+          "type": "string"
+        },
+        "stage_name": {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        "started_at": {
+          "minLength": 1,
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PipelineRunStatus"
+        },
+        "summary": {
+          "additionalProperties": true,
+          "title": "Summary",
+          "type": "object"
+        }
+      },
+      "required": [
+        "stage_name",
+        "started_at",
+        "finished_at",
+        "status"
+      ],
+      "title": "PipelineStageResult",
+      "type": "object"
+    },
+    "ReleaseGateStatus": {
+      "description": "Final deterministic release gate statuses.",
+      "enum": [
+        "ReleaseReady",
+        "ReleaseBlocked",
+        "ReleaseReadyWithWarnings"
+      ],
+      "title": "ReleaseGateStatus",
+      "type": "string"
+    },
+    "ReplayStatus": {
+      "description": "Read-only replay verification statuses.",
+      "enum": [
+        "ReplayVerified",
+        "ReplayVerifiedWithWarnings",
+        "ReplayFailed"
+      ],
+      "title": "ReplayStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/pipeline-run-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Ledgered pipeline execution report.",
+  "properties": {
+    "blocking_stage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "diagnostic_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiagnosticStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "failure_policy": {
+      "$ref": "#/$defs/PipelineFailurePolicy"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "final_outputs": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Final Outputs",
+      "type": "object"
+    },
+    "finished_at": {
+      "minLength": 1,
+      "title": "Finished At",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "pipeline_report_path": {
+      "minLength": 1,
+      "title": "Pipeline Report Path",
+      "type": "string"
+    },
+    "pipeline_status": {
+      "$ref": "#/$defs/PipelineRunStatus"
+    },
+    "release_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReleaseGateStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "replay_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReplayStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stage_results": {
+      "items": {
+        "$ref": "#/$defs/PipelineStageResult"
+      },
+      "title": "Stage Results",
+      "type": "array"
+    },
+    "started_at": {
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "domain",
+    "stage_results",
+    "started_at",
+    "finished_at",
+    "pipeline_status",
+    "failure_policy",
+    "pipeline_report_path"
+  ],
+  "title": "PipelineRunReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.PipelineRunReport",
+  "x-factori-verification-evidence": false
+}

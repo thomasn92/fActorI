@@ -1,0 +1,88 @@
+{
+  "$id": "https://schemas.factori.local/0.1.0/retrieved-document.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Fetched source document metadata.",
+  "properties": {
+    "content": {
+      "default": "",
+      "title": "Content",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "fetch_status": {
+      "minLength": 1,
+      "title": "Fetch Status",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "raw_payload_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Raw Payload Hash",
+      "type": "string"
+    },
+    "retrieved_at": {
+      "minLength": 1,
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "source_id": {
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "text_or_abstract": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Text Or Abstract"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "provider",
+    "title",
+    "raw_payload_hash",
+    "retrieved_at",
+    "fetch_status"
+  ],
+  "title": "RetrievedDocument",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.RetrievedDocument",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,270 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "AuditCategory": {
+      "description": "Final audit check categories.",
+      "enum": [
+        "LedgerIntegrity",
+        "ArtifactIntegrity",
+        "EvidenceBoundary",
+        "ClaimLabelPreservation",
+        "SyntheticDataBoundary",
+        "BlockedClaimHandling",
+        "ProvenanceCompleteness",
+        "ResearchObjectCompleteness",
+        "PaperSkeletonConsistency",
+        "ReproducibilityReadiness",
+        "HumanEscalationPolicy"
+      ],
+      "title": "AuditCategory",
+      "type": "string"
+    },
+    "AuditCheck": {
+      "additionalProperties": false,
+      "description": "One deterministic final audit check.",
+      "properties": {
+        "artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/AuditCategory"
+        },
+        "check_id": {
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "commit_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commit Refs",
+          "type": "array"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/AuditSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/AuditCheckStatus"
+        }
+      },
+      "required": [
+        "check_id",
+        "category",
+        "status",
+        "severity",
+        "message"
+      ],
+      "title": "AuditCheck",
+      "type": "object"
+    },
+    "AuditCheckStatus": {
+      "description": "Per-check audit statuses.",
+      "enum": [
+        "Pass",
+        "Warning",
+        "Fail",
+        "NotApplicable"
+      ],
+      "title": "AuditCheckStatus",
+      "type": "string"
+    },
+    "AuditFinding": {
+      "additionalProperties": false,
+      "description": "One deterministic final audit finding.",
+      "properties": {
+        "artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/AuditCategory"
+        },
+        "check_id": {
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "commit_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commit Refs",
+          "type": "array"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/AuditSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/AuditCheckStatus"
+        }
+      },
+      "required": [
+        "check_id",
+        "category",
+        "status",
+        "severity",
+        "message"
+      ],
+      "title": "AuditFinding",
+      "type": "object"
+    },
+    "AuditSeverity": {
+      "description": "Audit finding severities.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Blocking"
+      ],
+      "title": "AuditSeverity",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/final-audit-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Internal-consistency audit report.",
+  "properties": {
+    "blocking_failures_count": {
+      "minimum": 0,
+      "title": "Blocking Failures Count",
+      "type": "integer"
+    },
+    "certifies_scientific_validity": {
+      "default": false,
+      "title": "Certifies Scientific Validity",
+      "type": "boolean"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/AuditCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "failures_count": {
+      "minimum": 0,
+      "title": "Failures Count",
+      "type": "integer"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/AuditFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "passes_count": {
+      "minimum": 0,
+      "title": "Passes Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warnings_count": {
+      "minimum": 0,
+      "title": "Warnings Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "checks",
+    "passes_count",
+    "warnings_count",
+    "failures_count",
+    "blocking_failures_count"
+  ],
+  "title": "FinalAuditReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.FinalAuditReport",
+  "x-factori-verification-evidence": false
+}

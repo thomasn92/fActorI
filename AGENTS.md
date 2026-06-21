@@ -14,6 +14,11 @@ project-memory files before opening the large LaTeX specification:
 `fActori_updated_data_regime.tex` is reference material only. Read it only when a task requires
 details that are not captured by the context files.
 
+Before large schema, storage, API, server, or cross-language refactors, inspect
+`protocols/README.md`, `protocols/version.json`, and the generated JSON Schemas under
+`protocols/jsonschema/`. Update them with `factori export-protocols`; do not hand-edit generated
+schemas.
+
 ## Scope
 
 - Keep the implementation deterministic unless a user explicitly changes that requirement.
@@ -70,6 +75,8 @@ details that are not captured by the context files.
 - Do not mutate or prune existing ledger history.
 - Do not silently upgrade claim labels or data regimes.
 - Do not treat generated presentation files as evidence.
+- Protocol schemas and examples are developer contracts. They are not run provenance or scientific
+  evidence.
 - Add tests in proportion to behavior and invariant risk.
 - Always run pytest and Ruff after code changes:
 

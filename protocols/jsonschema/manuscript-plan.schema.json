@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "FinalNucleusType": {
+      "description": "Final synthesis nucleus types.",
+      "enum": [
+        "AbstractNucleus",
+        "BranchNucleus"
+      ],
+      "title": "FinalNucleusType",
+      "type": "string"
+    },
+    "ManuscriptSectionPlan": {
+      "additionalProperties": false,
+      "description": "Section-level manuscript plan.",
+      "properties": {
+        "allowed_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "bullets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "bullets"
+      ],
+      "title": "ManuscriptSectionPlan",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/manuscript-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Structured manuscript plan.",
+  "properties": {
+    "allowed_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Claim Ids",
+      "type": "array"
+    },
+    "blocked_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked Claim Ids",
+      "type": "array"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "final_nucleus_id": {
+      "minLength": 1,
+      "title": "Final Nucleus Id",
+      "type": "string"
+    },
+    "nucleus_type": {
+      "$ref": "#/$defs/FinalNucleusType"
+    },
+    "plan_id": {
+      "minLength": 1,
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/ManuscriptSectionPlan"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "final_nucleus_id",
+    "nucleus_type",
+    "title",
+    "sections",
+    "allowed_claim_ids",
+    "blocked_claim_ids"
+  ],
+  "title": "ManuscriptPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.ManuscriptPlan",
+  "x-factori-verification-evidence": false
+}

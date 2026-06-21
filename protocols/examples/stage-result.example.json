@@ -1,0 +1,13 @@
+{
+  "created_artifacts": [
+    "runs/example/reports/artifact-example.json"
+  ],
+  "error_message": null,
+  "finished_at": "1970-01-01T00:00:01.000000Z",
+  "stage_name": "run-stage-a",
+  "started_at": "1970-01-01T00:00:00.000000Z",
+  "status": "PipelineSucceeded",
+  "summary": {
+    "stage_a_survivors": 1
+  }
+}

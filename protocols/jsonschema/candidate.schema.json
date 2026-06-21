@@ -1,0 +1,588 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "BranchStatus": {
+      "description": "Branch and run status labels for the MVP.",
+      "enum": [
+        "Active",
+        "PrunedDuplicate",
+        "RejectedRedTeam",
+        "PrunedUncertain",
+        "DeferredRealDataCandidate",
+        "RequiresRealData",
+        "InsufficientRetrievalAdequacy",
+        "StagnationStop",
+        "StopFailure",
+        "StopSuccess",
+        "NeedsHumanTailEscalation",
+        "FalseBridge",
+        "TrivialTheoremCandidate",
+        "StageCReady",
+        "BudgetDeferred"
+      ],
+      "title": "BranchStatus",
+      "type": "string"
+    },
+    "ConstraintSet": {
+      "additionalProperties": false,
+      "description": "User constraints over the candidate search space.",
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline"
+        },
+        "data_requirement": {
+          "$ref": "#/$defs/DataRequirement",
+          "default": "NoData"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "experiment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment"
+        },
+        "hypothesis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "primitives": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Primitives",
+          "type": "array"
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question"
+        },
+        "theory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Theory"
+        }
+      },
+      "title": "ConstraintSet",
+      "type": "object"
+    },
+    "DataRequirement": {
+      "description": "Data access regimes from the MVP data gate.",
+      "enum": [
+        "NoData",
+        "SyntheticOnly",
+        "PublicDownload",
+        "UserProvided"
+      ],
+      "title": "DataRequirement",
+      "type": "string"
+    },
+    "LiteratureState": {
+      "additionalProperties": false,
+      "description": "Retrieval adequacy state for a candidate.",
+      "properties": {
+        "adversarial": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Adversarial",
+          "type": "number"
+        },
+        "citation": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Citation",
+          "type": "number"
+        },
+        "closest_priors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Closest Priors",
+          "type": "array"
+        },
+        "diversity": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Diversity",
+          "type": "number"
+        },
+        "k": {
+          "default": 0,
+          "minimum": 0,
+          "title": "K",
+          "type": "integer"
+        },
+        "keyword": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Keyword",
+          "type": "number"
+        },
+        "novelty_risk": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Novelty Risk",
+          "type": "number"
+        },
+        "semantic": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Semantic",
+          "type": "number"
+        }
+      },
+      "title": "LiteratureState",
+      "type": "object"
+    },
+    "ReviewReport": {
+      "additionalProperties": false,
+      "description": "Structured reviewer critique.",
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "objections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Objections",
+          "type": "array"
+        },
+        "recommendation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BranchStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reviewer": {
+          "minLength": 1,
+          "title": "Reviewer",
+          "type": "string"
+        },
+        "scores": {
+          "$ref": "#/$defs/ScoreVector"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "reviewer",
+        "summary",
+        "scores"
+      ],
+      "title": "ReviewReport",
+      "type": "object"
+    },
+    "ScoreVector": {
+      "additionalProperties": false,
+      "description": "Continuous candidate scores in [0, 1].",
+      "properties": {
+        "difficulty": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Difficulty",
+          "type": "number"
+        },
+        "diversity": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Diversity",
+          "type": "number"
+        },
+        "feasibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Feasibility",
+          "type": "number"
+        },
+        "novelty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Novelty",
+          "type": "number"
+        },
+        "reviewer": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Reviewer",
+          "type": "number"
+        },
+        "uncertainty": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Uncertainty",
+          "type": "number"
+        },
+        "verifiability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Verifiability",
+          "type": "number"
+        }
+      },
+      "required": [
+        "novelty",
+        "feasibility",
+        "verifiability"
+      ],
+      "title": "ScoreVector",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    },
+    "VerificationState": {
+      "additionalProperties": false,
+      "description": "Current verification labels and evidence artifacts.",
+      "properties": {
+        "evidence_artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Evidence Artifacts",
+          "type": "array"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/VerificationLabel"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "VerificationState",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Research candidate branch.",
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "baseline": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baseline"
+    },
+    "constraints": {
+      "$ref": "#/$defs/ConstraintSet"
+    },
+    "data_requirement": {
+      "$ref": "#/$defs/DataRequirement",
+      "default": "NoData"
+    },
+    "domain": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Domain"
+    },
+    "experiment": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment"
+    },
+    "hypothesis": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "literature": {
+      "$ref": "#/$defs/LiteratureState"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "parent_candidate_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Candidate Id"
+    },
+    "primitives": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Primitives",
+      "type": "array"
+    },
+    "question": {
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "reviews": {
+      "items": {
+        "$ref": "#/$defs/ReviewReport"
+      },
+      "title": "Reviews",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/BranchStatus",
+      "default": "Active"
+    },
+    "symbolic_state": {
+      "additionalProperties": true,
+      "title": "Symbolic State",
+      "type": "object"
+    },
+    "theory": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Theory"
+    },
+    "variant_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Variant Type"
+    },
+    "verification": {
+      "$ref": "#/$defs/VerificationState"
+    }
+  },
+  "required": [
+    "id",
+    "question"
+  ],
+  "title": "Candidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.Candidate",
+  "x-factori-verification-evidence": false
+}

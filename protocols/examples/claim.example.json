@@ -1,0 +1,11 @@
+{
+  "allowed_in_main_text": false,
+  "allowed_section": "Theory",
+  "candidate_id": "candidate-example",
+  "claim_id": "claim-example",
+  "claim_label": "Conjecture",
+  "claim_text": "The proposed relationship remains conjectural.",
+  "evidence_artifact_ids": [],
+  "evidence_types": [],
+  "reason": "No proof evidence is linked."
+}

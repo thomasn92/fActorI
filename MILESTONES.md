@@ -27,10 +27,11 @@
 | 24 | First real-but-gated LLM candidate-generation adapter with deterministic prompt/safety contracts and fake defaults | `adapters/llm_real.py`, `adapters/llm_prompts.py`, `adapters/llm_safety.py`, `stage_a.py` | `run-stage-a --adapter-backend openai --allow-external-calls`, `run-all` with the same opt-in | Real Stage A proposals and sanitized traces are hashed and ledgered; fake default behavior is unchanged |
 | 25 | Gated OpenAlex source retrieval with deterministic normalization, source provenance, bounded adequacy, and fake defaults | `adapters/retrieval_real.py`, `adapters/retrieval_sources.py`, `adapters/retrieval_safety.py`, `retrieval.py`, `stage_b.py` | `run-stage-b --retrieval-backend openalex --allow-external-calls`, `retrieval-adequacy-demo` with the same opt-in | Real retrieval context is hashed and ledgered in Stage B; it is not verification evidence or novelty proof |
 | 26 | Gated OpenAI Stage B structural reviewer with deterministic prompts, parsing, safety fallback, and fake defaults | `adapters/llm_review.py`, `adapters/reviewer_prompts.py`, `adapters/reviewer_safety.py`, `reviewers.py`, `stage_b.py` | `run-stage-b --reviewer-backend openai --use-llm-reviewers --allow-external-calls` | Reviewer traces and reports are hashed and ledgered as non-evidence context; reviewer output has no verification or publication authority |
+| 26.5 | Language-neutral versioned protocol definitions, deterministic JSON Schema export, and interoperability examples | `protocols.py`, `schema_export.py`, `protocols/` | `export-protocols`, `export-protocols --check` | Read-only with respect to runs and ledgers; generated developer contracts are not provenance or evidence |
 
 ## Current Boundary
 
-Milestones through 26 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 26.5 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
 real agents, complete scientific literature coverage, proof checking, experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM

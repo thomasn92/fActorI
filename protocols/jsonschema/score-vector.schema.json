@@ -1,0 +1,64 @@
+{
+  "$id": "https://schemas.factori.local/0.1.0/score-vector.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Structured candidate score vector.",
+  "properties": {
+    "difficulty": {
+      "default": 0.5,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Difficulty",
+      "type": "number"
+    },
+    "diversity": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Diversity",
+      "type": "number"
+    },
+    "feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Feasibility",
+      "type": "number"
+    },
+    "novelty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Novelty",
+      "type": "number"
+    },
+    "reviewer": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Reviewer",
+      "type": "number"
+    },
+    "uncertainty": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Uncertainty",
+      "type": "number"
+    },
+    "verifiability": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Verifiability",
+      "type": "number"
+    }
+  },
+  "required": [
+    "novelty",
+    "feasibility",
+    "verifiability"
+  ],
+  "title": "ScoreVector",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.ScoreVector",
+  "x-factori-verification-evidence": false
+}

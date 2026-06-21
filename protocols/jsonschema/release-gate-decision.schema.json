@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "ReleaseGateStatus": {
+      "description": "Final deterministic release gate statuses.",
+      "enum": [
+        "ReleaseReady",
+        "ReleaseBlocked",
+        "ReleaseReadyWithWarnings"
+      ],
+      "title": "ReleaseGateStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/release-gate-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic release decision.",
+  "properties": {
+    "audit_checks": {
+      "minimum": 0,
+      "title": "Audit Checks",
+      "type": "integer"
+    },
+    "blocking_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Reasons",
+      "type": "array"
+    },
+    "certifies_scientific_validity": {
+      "default": false,
+      "title": "Certifies Scientific Validity",
+      "type": "boolean"
+    },
+    "ready_for_external_review": {
+      "title": "Ready For External Review",
+      "type": "boolean"
+    },
+    "ready_for_latex_export": {
+      "title": "Ready For Latex Export",
+      "type": "boolean"
+    },
+    "ready_for_polished_prose": {
+      "title": "Ready For Polished Prose",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/ReleaseGateStatus"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "status",
+    "ready_for_polished_prose",
+    "ready_for_latex_export",
+    "ready_for_external_review",
+    "audit_checks"
+  ],
+  "title": "ReleaseGateDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.ReleaseGateDecision",
+  "x-factori-verification-evidence": false
+}

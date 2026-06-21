@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/proof-verification-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Current fake proof-result shape; fake is explicit.",
+  "properties": {
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "evidence_artifact_type": {
+      "$ref": "#/$defs/ArtifactType"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "forbidden_tokens_present": {
+      "title": "Forbidden Tokens Present",
+      "type": "boolean"
+    },
+    "label": {
+      "$ref": "#/$defs/VerificationLabel"
+    },
+    "lean_exit_code_fake": {
+      "minimum": 0,
+      "title": "Lean Exit Code Fake",
+      "type": "integer"
+    },
+    "proof_attempt_id": {
+      "minLength": 1,
+      "title": "Proof Attempt Id",
+      "type": "string"
+    },
+    "proof_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Proof Score",
+      "type": "number"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "proof_attempt_id",
+    "lean_exit_code_fake",
+    "forbidden_tokens_present",
+    "proof_score",
+    "label",
+    "evidence_artifact_type",
+    "reason"
+  ],
+  "title": "ProofVerificationResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.FakeProofResult",
+  "x-factori-verification-evidence": false
+}

@@ -10,7 +10,16 @@ All implementation modules are under `factori/`.
 - `ledger.py`: append-only SQLite commit ledger and hash-chain validation.
 - `artifacts.py`: local artifact store and artifact-to-commit metadata links.
 - `hashing.py`: canonical JSON and SHA-256 helpers.
+- `protocols.py`: stable language-neutral protocol names mapped to existing typed Python models.
+- `schema_export.py`: deterministic JSON Schema, version metadata, and example export/check logic.
 - `cli.py`: Typer command surface for all implemented stages.
+
+## Protocol Contracts
+
+- `protocols/README.md`: consumer guidance, alias policy, versioning, and evidence boundaries.
+- `protocols/version.json`: explicit protocol version and generator metadata.
+- `protocols/jsonschema/`: generated JSON Schema Draft 2020-12 contracts.
+- `protocols/examples/`: deterministic cross-language payload fixtures.
 
 ## Adapters
 

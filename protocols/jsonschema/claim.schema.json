@@ -1,0 +1,85 @@
+{
+  "$defs": {
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/claim.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One label-preserving research claim.",
+  "properties": {
+    "allowed_in_main_text": {
+      "title": "Allowed In Main Text",
+      "type": "boolean"
+    },
+    "allowed_section": {
+      "minLength": 1,
+      "title": "Allowed Section",
+      "type": "string"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "claim_label": {
+      "$ref": "#/$defs/VerificationLabel"
+    },
+    "claim_text": {
+      "minLength": 1,
+      "title": "Claim Text",
+      "type": "string"
+    },
+    "evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Artifact Ids",
+      "type": "array"
+    },
+    "evidence_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Types",
+      "type": "array"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim_id",
+    "claim_text",
+    "claim_label",
+    "candidate_id",
+    "allowed_in_main_text",
+    "allowed_section",
+    "reason"
+  ],
+  "title": "Claim",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.Claim",
+  "x-factori-verification-evidence": false
+}

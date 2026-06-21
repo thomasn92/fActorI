@@ -1,0 +1,376 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "AuditCategory": {
+      "description": "Final audit check categories.",
+      "enum": [
+        "LedgerIntegrity",
+        "ArtifactIntegrity",
+        "EvidenceBoundary",
+        "ClaimLabelPreservation",
+        "SyntheticDataBoundary",
+        "BlockedClaimHandling",
+        "ProvenanceCompleteness",
+        "ResearchObjectCompleteness",
+        "PaperSkeletonConsistency",
+        "ReproducibilityReadiness",
+        "HumanEscalationPolicy"
+      ],
+      "title": "AuditCategory",
+      "type": "string"
+    },
+    "AuditCheckStatus": {
+      "description": "Per-check audit statuses.",
+      "enum": [
+        "Pass",
+        "Warning",
+        "Fail",
+        "NotApplicable"
+      ],
+      "title": "AuditCheckStatus",
+      "type": "string"
+    },
+    "AuditSeverity": {
+      "description": "Audit finding severities.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Blocking"
+      ],
+      "title": "AuditSeverity",
+      "type": "string"
+    },
+    "ReplayCheck": {
+      "additionalProperties": false,
+      "description": "One deterministic replay verification check.",
+      "properties": {
+        "artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/AuditCategory"
+        },
+        "check_id": {
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "commit_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commit Refs",
+          "type": "array"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed"
+        },
+        "severity": {
+          "$ref": "#/$defs/AuditSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/AuditCheckStatus"
+        }
+      },
+      "required": [
+        "check_id",
+        "category",
+        "status",
+        "severity",
+        "message"
+      ],
+      "title": "ReplayCheck",
+      "type": "object"
+    },
+    "ReplayFinding": {
+      "additionalProperties": false,
+      "description": "One read-only replay finding.",
+      "properties": {
+        "artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/AuditCategory"
+        },
+        "check_id": {
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "commit_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commit Refs",
+          "type": "array"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed"
+        },
+        "severity": {
+          "$ref": "#/$defs/AuditSeverity"
+        },
+        "status": {
+          "$ref": "#/$defs/AuditCheckStatus"
+        }
+      },
+      "required": [
+        "check_id",
+        "category",
+        "status",
+        "severity",
+        "message"
+      ],
+      "title": "ReplayFinding",
+      "type": "object"
+    },
+    "ReplayStatus": {
+      "description": "Read-only replay verification statuses.",
+      "enum": [
+        "ReplayVerified",
+        "ReplayVerifiedWithWarnings",
+        "ReplayFailed"
+      ],
+      "title": "ReplayStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/replay-verification-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only replay consistency report.",
+  "properties": {
+    "artifact_manifest_mutated": {
+      "title": "Artifact Manifest Mutated",
+      "type": "boolean"
+    },
+    "artifacts_checked": {
+      "minimum": 0,
+      "title": "Artifacts Checked",
+      "type": "integer"
+    },
+    "blocking_failures_count": {
+      "minimum": 0,
+      "title": "Blocking Failures Count",
+      "type": "integer"
+    },
+    "certifies_scientific_validity": {
+      "default": false,
+      "title": "Certifies Scientific Validity",
+      "type": "boolean"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/ReplayCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "evidence_artifacts_checked": {
+      "minimum": 0,
+      "title": "Evidence Artifacts Checked",
+      "type": "integer"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/ReplayFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "hashes_verified": {
+      "minimum": 0,
+      "title": "Hashes Verified",
+      "type": "integer"
+    },
+    "ledger_commits_checked": {
+      "minimum": 0,
+      "title": "Ledger Commits Checked",
+      "type": "integer"
+    },
+    "ledger_mutated": {
+      "title": "Ledger Mutated",
+      "type": "boolean"
+    },
+    "not_evidence": {
+      "default": true,
+      "title": "Not Evidence",
+      "type": "boolean"
+    },
+    "not_ledgered": {
+      "default": true,
+      "title": "Not Ledgered",
+      "type": "boolean"
+    },
+    "not_provenance": {
+      "default": true,
+      "title": "Not Provenance",
+      "type": "boolean"
+    },
+    "presentation_artifacts_checked": {
+      "minimum": 0,
+      "title": "Presentation Artifacts Checked",
+      "type": "integer"
+    },
+    "replay_status": {
+      "$ref": "#/$defs/ReplayStatus"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stage_outputs_checked": {
+      "minimum": 0,
+      "title": "Stage Outputs Checked",
+      "type": "integer"
+    },
+    "warnings_count": {
+      "minimum": 0,
+      "title": "Warnings Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "checks",
+    "replay_status",
+    "ledger_commits_checked",
+    "artifacts_checked",
+    "hashes_verified",
+    "evidence_artifacts_checked",
+    "presentation_artifacts_checked",
+    "stage_outputs_checked",
+    "warnings_count",
+    "blocking_failures_count",
+    "ledger_mutated",
+    "artifact_manifest_mutated"
+  ],
+  "title": "ReplayVerificationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.ReplayVerificationReport",
+  "x-factori-verification-evidence": false
+}

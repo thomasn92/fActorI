@@ -1,0 +1,306 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "DraftClaimPlaceholder": {
+      "additionalProperties": false,
+      "description": "Label-preserving placeholder for one allowed claim.",
+      "properties": {
+        "allowed_section": {
+          "minLength": 1,
+          "title": "Allowed Section",
+          "type": "string"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_label": {
+          "$ref": "#/$defs/VerificationLabel"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "placeholder_text": {
+          "minLength": 1,
+          "title": "Placeholder Text",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "candidate_id",
+        "claim_label",
+        "placeholder_text",
+        "allowed_section"
+      ],
+      "title": "DraftClaimPlaceholder",
+      "type": "object"
+    },
+    "PaperAppendix": {
+      "additionalProperties": false,
+      "description": "One appendix in the deterministic assembled paper skeleton.",
+      "properties": {
+        "appendix_id": {
+          "minLength": 1,
+          "title": "Appendix Id",
+          "type": "string"
+        },
+        "artifact_ref_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ref Ids",
+          "type": "array"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "content_lines": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Content Lines",
+          "type": "array"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "appendix_id",
+        "title",
+        "content_lines"
+      ],
+      "title": "PaperAppendix",
+      "type": "object"
+    },
+    "PaperSection": {
+      "additionalProperties": false,
+      "description": "One section in the deterministic assembled paper skeleton.",
+      "properties": {
+        "claim_placeholders": {
+          "items": {
+            "$ref": "#/$defs/DraftClaimPlaceholder"
+          },
+          "title": "Claim Placeholders",
+          "type": "array"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "purpose": {
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "purpose"
+      ],
+      "title": "PaperSection",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/paper-skeleton.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Assembled paper-shaped scaffold.",
+  "properties": {
+    "abstract_scaffold": {
+      "minLength": 1,
+      "title": "Abstract Scaffold",
+      "type": "string"
+    },
+    "appendices": {
+      "items": {
+        "$ref": "#/$defs/PaperAppendix"
+      },
+      "title": "Appendices",
+      "type": "array"
+    },
+    "claim_placeholders": {
+      "items": {
+        "$ref": "#/$defs/DraftClaimPlaceholder"
+      },
+      "title": "Claim Placeholders",
+      "type": "array"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "paper_id": {
+      "minLength": 1,
+      "title": "Paper Id",
+      "type": "string"
+    },
+    "provenance_refs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Provenance Refs",
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/PaperSection"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "paper_id",
+    "run_id",
+    "title",
+    "abstract_scaffold",
+    "sections",
+    "appendices",
+    "claim_placeholders",
+    "provenance_refs"
+  ],
+  "title": "PaperSkeleton",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.PaperSkeleton",
+  "x-factori-verification-evidence": false
+}

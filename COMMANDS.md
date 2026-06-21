@@ -8,6 +8,24 @@ Run commands from the repository root.
 uv sync --dev
 ```
 
+## Protocol Contracts
+
+Export the checked-in language-neutral JSON Schemas and deterministic examples:
+
+```bash
+uv run factori export-protocols
+```
+
+Verify that generated files are current without rewriting them:
+
+```bash
+uv run factori export-protocols --check
+```
+
+An isolated consumer export can use `--output-dir <path>/jsonschema`. Protocol export is outside
+run provenance: it creates no ledger commits, touches no run artifact manifests, and produces no
+verification evidence.
+
 ## Deterministic Pipeline
 
 Canonical one-command run:

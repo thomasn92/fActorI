@@ -1,0 +1,288 @@
+{
+  "$defs": {
+    "AbstractModel": {
+      "additionalProperties": false,
+      "description": "Proposed abstract synthesis model.",
+      "properties": {
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "claim_family": {
+          "minLength": 1,
+          "title": "Claim Family",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "instantiation_maps": {
+          "items": {
+            "$ref": "#/$defs/InstantiationMap"
+          },
+          "title": "Instantiation Maps",
+          "type": "array"
+        },
+        "mechanism": {
+          "minLength": 1,
+          "title": "Mechanism",
+          "type": "string"
+        },
+        "objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Objects",
+          "type": "array"
+        },
+        "synthesis_label": {
+          "default": "AbstractSynthesis",
+          "title": "Synthesis Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "objects",
+        "assumptions",
+        "mechanism",
+        "claim_family"
+      ],
+      "title": "AbstractModel",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "FinalNucleusType": {
+      "description": "Final synthesis nucleus types.",
+      "enum": [
+        "AbstractNucleus",
+        "BranchNucleus"
+      ],
+      "title": "FinalNucleusType",
+      "type": "string"
+    },
+    "InstantiationMap": {
+      "additionalProperties": false,
+      "description": "Deterministic map from an abstract model to a branch instance.",
+      "properties": {
+        "abstract_model_id": {
+          "minLength": 1,
+          "title": "Abstract Model Id",
+          "type": "string"
+        },
+        "branch_label": {
+          "$ref": "#/$defs/VerificationLabel"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "coherence_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Coherence Score",
+          "type": "number"
+        },
+        "coherent": {
+          "title": "Coherent",
+          "type": "boolean"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label_preserved": {
+          "title": "Label Preserved",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "abstract_model_id",
+        "candidate_id",
+        "coherent",
+        "coherence_score",
+        "role",
+        "branch_label",
+        "label_preserved",
+        "reason"
+      ],
+      "title": "InstantiationMap",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/final-nucleus.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Selected abstraction or candidate nucleus.",
+  "properties": {
+    "abstract_model": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AbstractModel"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Id"
+    },
+    "evidence_artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Evidence Artifacts",
+      "type": "array"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "labels_by_candidate": {
+      "additionalProperties": {
+        "$ref": "#/$defs/VerificationLabel"
+      },
+      "title": "Labels By Candidate",
+      "type": "object"
+    },
+    "nucleus_type": {
+      "$ref": "#/$defs/FinalNucleusType"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "supporting_candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Candidate Ids",
+      "type": "array"
+    },
+    "synthesis_label": {
+      "default": "AbstractSynthesis",
+      "title": "Synthesis Label",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "nucleus_type",
+    "supporting_candidate_ids",
+    "labels_by_candidate",
+    "reason"
+  ],
+  "title": "FinalNucleus",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.FinalNucleus",
+  "x-factori-verification-evidence": false
+}

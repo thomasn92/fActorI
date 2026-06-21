@@ -1,0 +1,46 @@
+{
+  "artifacts": [],
+  "baseline": null,
+  "constraints": {
+    "baseline": null,
+    "data_requirement": "NoData",
+    "domain": "machine learning",
+    "experiment": null,
+    "hypothesis": null,
+    "method": "calibration",
+    "primitives": [],
+    "question": null,
+    "theory": null
+  },
+  "data_requirement": "SyntheticOnly",
+  "domain": "machine learning",
+  "experiment": null,
+  "hypothesis": null,
+  "id": "candidate-example",
+  "literature": {
+    "adversarial": 0.0,
+    "citation": 0.0,
+    "closest_priors": [],
+    "diversity": 0.0,
+    "k": 0,
+    "keyword": 0.0,
+    "novelty_risk": 1.0,
+    "semantic": 0.0
+  },
+  "method": "calibration",
+  "parent_candidate_id": null,
+  "primitives": [],
+  "question": "Can calibration remain stable under a declared synthetic shift?",
+  "reviews": [],
+  "status": "Active",
+  "symbolic_state": {},
+  "theory": null,
+  "variant_type": null,
+  "verification": {
+    "evidence_artifacts": [],
+    "labels": [
+      "Unsupported"
+    ],
+    "notes": null
+  }
+}

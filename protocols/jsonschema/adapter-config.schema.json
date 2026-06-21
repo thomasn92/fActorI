@@ -1,0 +1,134 @@
+{
+  "$id": "https://schemas.factori.local/0.1.0/adapter-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Fake-default adapter configuration.",
+  "properties": {
+    "adapter_backend": {
+      "default": "fake",
+      "minLength": 1,
+      "title": "Adapter Backend",
+      "type": "string"
+    },
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "api_key": {
+      "anyOf": [
+        {
+          "format": "password",
+          "type": "string",
+          "writeOnly": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Api Key"
+    },
+    "api_key_env": {
+      "default": "OPENAI_API_KEY",
+      "minLength": 1,
+      "title": "Api Key Env",
+      "type": "string"
+    },
+    "llm_max_candidates": {
+      "default": 4,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Llm Max Candidates",
+      "type": "integer"
+    },
+    "llm_model": {
+      "default": "gpt-5-mini",
+      "minLength": 1,
+      "title": "Llm Model",
+      "type": "string"
+    },
+    "retrieval_api_key": {
+      "anyOf": [
+        {
+          "format": "password",
+          "type": "string",
+          "writeOnly": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Api Key"
+    },
+    "retrieval_api_key_env": {
+      "default": "OPENALEX_API_KEY",
+      "minLength": 1,
+      "title": "Retrieval Api Key Env",
+      "type": "string"
+    },
+    "retrieval_backend": {
+      "default": "fake",
+      "minLength": 1,
+      "title": "Retrieval Backend",
+      "type": "string"
+    },
+    "retrieval_limit": {
+      "default": 5,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Retrieval Limit",
+      "type": "integer"
+    },
+    "reviewer_api_key": {
+      "anyOf": [
+        {
+          "format": "password",
+          "type": "string",
+          "writeOnly": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewer Api Key"
+    },
+    "reviewer_api_key_env": {
+      "default": "OPENAI_API_KEY",
+      "minLength": 1,
+      "title": "Reviewer Api Key Env",
+      "type": "string"
+    },
+    "reviewer_backend": {
+      "default": "fake",
+      "minLength": 1,
+      "title": "Reviewer Backend",
+      "type": "string"
+    },
+    "reviewer_max_objections": {
+      "default": 5,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Reviewer Max Objections",
+      "type": "integer"
+    },
+    "reviewer_model": {
+      "default": "gpt-5-mini",
+      "minLength": 1,
+      "title": "Reviewer Model",
+      "type": "string"
+    },
+    "use_llm_reviewers": {
+      "default": false,
+      "title": "Use Llm Reviewers",
+      "type": "boolean"
+    }
+  },
+  "title": "AdapterConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.adapters.config.AdapterConfig",
+  "x-factori-verification-evidence": false
+}

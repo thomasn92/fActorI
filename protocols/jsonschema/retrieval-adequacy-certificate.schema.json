@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "BranchStatus": {
+      "description": "Branch and run status labels for the MVP.",
+      "enum": [
+        "Active",
+        "PrunedDuplicate",
+        "RejectedRedTeam",
+        "PrunedUncertain",
+        "DeferredRealDataCandidate",
+        "RequiresRealData",
+        "InsufficientRetrievalAdequacy",
+        "StagnationStop",
+        "StopFailure",
+        "StopSuccess",
+        "NeedsHumanTailEscalation",
+        "FalseBridge",
+        "TrivialTheoremCandidate",
+        "StageCReady",
+        "BudgetDeferred"
+      ],
+      "title": "BranchStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/retrieval-adequacy-certificate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded retrieval adequacy signal, not novelty proof.",
+  "properties": {
+    "adversarial": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Adversarial",
+      "type": "number"
+    },
+    "bounded_signal": {
+      "default": true,
+      "title": "Bounded Signal",
+      "type": "boolean"
+    },
+    "citation": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Citation",
+      "type": "number"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "diversity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Diversity",
+      "type": "number"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "keyword": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Keyword",
+      "type": "number"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "rho_adequacy": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Rho Adequacy",
+      "type": "number"
+    },
+    "semantic": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Semantic",
+      "type": "number"
+    },
+    "source_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Source Count",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/BranchStatus"
+    },
+    "tau_adequacy": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tau Adequacy",
+      "type": "number"
+    },
+    "weights": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Weights",
+      "type": "object"
+    }
+  },
+  "required": [
+    "semantic",
+    "keyword",
+    "citation",
+    "diversity",
+    "adversarial",
+    "weights",
+    "rho_adequacy",
+    "tau_adequacy",
+    "passed",
+    "status"
+  ],
+  "title": "RetrievalAdequacyCertificate",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.RetrievalAdequacyCertificate",
+  "x-factori-verification-evidence": false
+}

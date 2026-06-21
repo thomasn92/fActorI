@@ -1,0 +1,332 @@
+{
+  "$defs": {
+    "DiagnosticFindingGroup": {
+      "additionalProperties": false,
+      "description": "Deterministic grouping of related root-cause hypotheses.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/RootCauseCategory"
+        },
+        "root_cause_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Root Cause Ids",
+          "type": "array"
+        },
+        "severity": {
+          "$ref": "#/$defs/DiagnosticSeverity"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "severity",
+        "root_cause_ids",
+        "summary"
+      ],
+      "title": "DiagnosticFindingGroup",
+      "type": "object"
+    },
+    "DiagnosticSeverity": {
+      "description": "Severity assigned to deterministic diagnostic root causes.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Blocking"
+      ],
+      "title": "DiagnosticSeverity",
+      "type": "string"
+    },
+    "DiagnosticStatus": {
+      "description": "Overall read-only diagnostic status.",
+      "enum": [
+        "NoIssues",
+        "WarningsOnly",
+        "ActionRecommended",
+        "Blocked"
+      ],
+      "title": "DiagnosticStatus",
+      "type": "string"
+    },
+    "RecommendedRerunStep": {
+      "additionalProperties": false,
+      "description": "A safe deterministic command suggestion that diagnostics never executes.",
+      "properties": {
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "downstream": {
+          "default": false,
+          "title": "Downstream",
+          "type": "boolean"
+        },
+        "executes_automatically": {
+          "default": false,
+          "title": "Executes Automatically",
+          "type": "boolean"
+        },
+        "manual_inspection_required": {
+          "default": false,
+          "title": "Manual Inspection Required",
+          "type": "boolean"
+        },
+        "order": {
+          "minimum": 0,
+          "title": "Order",
+          "type": "integer"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "safe_to_run": {
+          "default": true,
+          "title": "Safe To Run",
+          "type": "boolean"
+        },
+        "stage": {
+          "minLength": 1,
+          "title": "Stage",
+          "type": "string"
+        },
+        "step_id": {
+          "minLength": 1,
+          "title": "Step Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "stage",
+        "reason",
+        "order"
+      ],
+      "title": "RecommendedRerunStep",
+      "type": "object"
+    },
+    "RootCauseCategory": {
+      "description": "Deterministic root-cause categories for failed run outputs.",
+      "enum": [
+        "MissingStageOutput",
+        "MissingArtifact",
+        "HashMismatch",
+        "LedgerContinuityIssue",
+        "EvidenceBoundaryViolation",
+        "ClaimLabelInflation",
+        "SyntheticBoundaryViolation",
+        "BlockedClaimLeak",
+        "ReleaseGateInconsistency",
+        "ExportReadinessInconsistency",
+        "ReplayReportOnly",
+        "RuntimeSummaryMisuse",
+        "Unknown"
+      ],
+      "title": "RootCauseCategory",
+      "type": "string"
+    },
+    "RootCauseHypothesis": {
+      "additionalProperties": false,
+      "description": "One deterministic explanation for an audit, replay, or export finding.",
+      "properties": {
+        "affected_output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Affected Output"
+        },
+        "artifact_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/RootCauseCategory"
+        },
+        "explanation": {
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "manual_inspection_required": {
+          "default": false,
+          "title": "Manual Inspection Required",
+          "type": "boolean"
+        },
+        "rerun_from_stage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerun From Stage"
+        },
+        "root_cause_id": {
+          "minLength": 1,
+          "title": "Root Cause Id",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/DiagnosticSeverity"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "source_check_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Check Ids",
+          "type": "array"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "root_cause_id",
+        "category",
+        "severity",
+        "summary",
+        "explanation",
+        "source"
+      ],
+      "title": "RootCauseHypothesis",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/diagnostic-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only failure diagnostics.",
+  "properties": {
+    "artifact_manifest_mutated": {
+      "title": "Artifact Manifest Mutated",
+      "type": "boolean"
+    },
+    "blocking_causes_count": {
+      "minimum": 0,
+      "title": "Blocking Causes Count",
+      "type": "integer"
+    },
+    "certifies_scientific_validity": {
+      "default": false,
+      "title": "Certifies Scientific Validity",
+      "type": "boolean"
+    },
+    "diagnostic_status": {
+      "$ref": "#/$defs/DiagnosticStatus"
+    },
+    "finding_groups": {
+      "items": {
+        "$ref": "#/$defs/DiagnosticFindingGroup"
+      },
+      "title": "Finding Groups",
+      "type": "array"
+    },
+    "ledger_mutated": {
+      "title": "Ledger Mutated",
+      "type": "boolean"
+    },
+    "not_evidence": {
+      "default": true,
+      "title": "Not Evidence",
+      "type": "boolean"
+    },
+    "not_ledgered": {
+      "default": true,
+      "title": "Not Ledgered",
+      "type": "boolean"
+    },
+    "not_provenance": {
+      "default": true,
+      "title": "Not Provenance",
+      "type": "boolean"
+    },
+    "recommended_steps": {
+      "items": {
+        "$ref": "#/$defs/RecommendedRerunStep"
+      },
+      "title": "Recommended Steps",
+      "type": "array"
+    },
+    "root_causes": {
+      "items": {
+        "$ref": "#/$defs/RootCauseHypothesis"
+      },
+      "title": "Root Causes",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sources_loaded": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sources Loaded",
+      "type": "array"
+    },
+    "warning_causes_count": {
+      "minimum": 0,
+      "title": "Warning Causes Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "diagnostic_status",
+    "root_causes",
+    "finding_groups",
+    "recommended_steps",
+    "sources_loaded",
+    "blocking_causes_count",
+    "warning_causes_count",
+    "ledger_mutated",
+    "artifact_manifest_mutated"
+  ],
+  "title": "DiagnosticReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.DiagnosticReport",
+  "x-factori-verification-evidence": false
+}

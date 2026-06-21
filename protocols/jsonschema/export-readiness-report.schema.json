@@ -1,0 +1,72 @@
+{
+  "$id": "https://schemas.factori.local/0.1.0/export-readiness-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Readiness report for future prose and LaTeX export.",
+  "properties": {
+    "blocking_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Reasons",
+      "type": "array"
+    },
+    "export_allowed_claims": {
+      "minimum": 0,
+      "title": "Export Allowed Claims",
+      "type": "integer"
+    },
+    "export_blocked": {
+      "title": "Export Blocked",
+      "type": "boolean"
+    },
+    "export_blocked_claims": {
+      "minimum": 0,
+      "title": "Export Blocked Claims",
+      "type": "integer"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "ready_for_external_review": {
+      "title": "Ready For External Review",
+      "type": "boolean"
+    },
+    "ready_for_latex_export": {
+      "title": "Ready For Latex Export",
+      "type": "boolean"
+    },
+    "ready_for_polished_prose": {
+      "title": "Ready For Polished Prose",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "ready_for_polished_prose",
+    "ready_for_latex_export",
+    "ready_for_external_review",
+    "export_blocked",
+    "export_allowed_claims",
+    "export_blocked_claims"
+  ],
+  "title": "ExportReadinessReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.ExportReadinessReport",
+  "x-factori-verification-evidence": false
+}

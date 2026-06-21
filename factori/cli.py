@@ -47,6 +47,7 @@ from factori.output_hygiene import (
     summarize_output_hygiene,
     write_output_hygiene_report,
 )
+from factori.protocols import PROTOCOL_VERSION
 from factori.questioner import route_questions_to_action, routed_action, select_questions
 from factori.regression_diagnostics import summarize_cross_run_comparison
 from factori.replay import (
@@ -58,6 +59,11 @@ from factori.replay import (
 from factori.research_object import ResearchObjectError, build_research_object
 from factori.retrieval import compute_retrieval_adequacy
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
+from factori.schema_export import (
+    DEFAULT_PROTOCOL_OUTPUT_DIR,
+    check_protocols,
+    export_protocols,
+)
 from factori.schemas import (
     ArtifactType,
     Candidate,
@@ -109,6 +115,28 @@ def _ensure_run_initialized(root: Path, run_id: str) -> None:
             payload={"run_id": run_id},
             timestamp="1970-01-01T00:00:00.000000Z",
         )
+
+
+@app.command("export-protocols")
+def export_protocols_command(
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output-dir"),
+    ] = DEFAULT_PROTOCOL_OUTPUT_DIR,
+    check: Annotated[bool, typer.Option("--check")] = False,
+) -> None:
+    """Export or verify language-neutral developer protocol contracts."""
+    result = check_protocols(output_dir) if check else export_protocols(output_dir)
+    if check and not result.up_to_date:
+        typer.echo("Protocol files are stale or missing:", err=True)
+        for path in result.stale_files:
+            typer.echo(f"- {path}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"protocol_version={PROTOCOL_VERSION}")
+    typer.echo(f"schemas={len(result.schema_files)}")
+    typer.echo(f"examples={len(result.example_files)}")
+    typer.echo(f"output_dir={result.output_dir}")
+    typer.echo(f"check={'ok' if check else 'not_requested'}")
 
 
 @app.command("adapters")

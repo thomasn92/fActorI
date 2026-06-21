@@ -1,0 +1,37 @@
+{
+  "abstract": null,
+  "authors": [
+    "Example Author"
+  ],
+  "claims_literature_coverage": false,
+  "doi": null,
+  "fake": true,
+  "is_verification_evidence": false,
+  "metadata": {},
+  "proves_novelty": false,
+  "provider": "fake",
+  "query": "calibration synthetic shift",
+  "rank": 0,
+  "raw_metadata_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "retrieved_at": "1970-01-01T00:00:00.000000Z",
+  "score": null,
+  "snippet": "",
+  "source_id": "source-example",
+  "source_provenance": {
+    "claims_literature_coverage": false,
+    "doi": null,
+    "is_verification_evidence": false,
+    "proves_novelty": false,
+    "provider": "fake",
+    "query": "calibration synthetic shift",
+    "rank": 0,
+    "raw_metadata_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "retrieved_at": "1970-01-01T00:00:00.000000Z",
+    "source_id": "source-example",
+    "url": null
+  },
+  "title": "Synthetic calibration context",
+  "url": null,
+  "venue": null,
+  "year": 1970
+}

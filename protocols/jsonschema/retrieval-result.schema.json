@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "SourceProvenance": {
+      "additionalProperties": false,
+      "description": "Source-level provenance that cannot confer a verification label.",
+      "properties": {
+        "claims_literature_coverage": {
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "query": {
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "rank": {
+          "minimum": 0,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "raw_metadata_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Raw Metadata Hash",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "minLength": 1,
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "source_id",
+        "provider",
+        "query",
+        "rank",
+        "retrieved_at",
+        "raw_metadata_hash"
+      ],
+      "title": "SourceProvenance",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/retrieval-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Normalized retrieval source result.",
+  "properties": {
+    "abstract": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Abstract"
+    },
+    "authors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Authors",
+      "type": "array"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "doi": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Doi"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "rank": {
+      "minimum": 0,
+      "title": "Rank",
+      "type": "integer"
+    },
+    "raw_metadata_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Raw Metadata Hash",
+      "type": "string"
+    },
+    "retrieved_at": {
+      "minLength": 1,
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Score"
+    },
+    "snippet": {
+      "default": "",
+      "title": "Snippet",
+      "type": "string"
+    },
+    "source_id": {
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "source_provenance": {
+      "$ref": "#/$defs/SourceProvenance"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "venue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Venue"
+    },
+    "year": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Year"
+    }
+  },
+  "required": [
+    "source_id",
+    "title",
+    "provider",
+    "retrieved_at",
+    "query",
+    "rank",
+    "raw_metadata_hash",
+    "source_provenance"
+  ],
+  "title": "RetrievalResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.RetrievalResult",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "ControllerDecisionAction": {
+      "description": "Allowed deterministic control actions.",
+      "enum": [
+        "Continue",
+        "Simplify",
+        "NarrowScope",
+        "IncreaseRetrievalAdequacy",
+        "AddSyntheticData",
+        "StrengthenBaseline",
+        "RunAblation",
+        "DowngradeClaim",
+        "ConvertToNegativeResult",
+        "AttemptAbstraction",
+        "StopFailure",
+        "StopSuccess",
+        "AskHuman"
+      ],
+      "title": "ControllerDecisionAction",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/baseline-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stage B baseline validation result.",
+  "properties": {
+    "baseline_strength": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Strength",
+      "type": "number"
+    },
+    "baseline_valid": {
+      "title": "Baseline Valid",
+      "type": "boolean"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "candidate_score_advantage": {
+      "maximum": 1.0,
+      "minimum": -1.0,
+      "title": "Candidate Score Advantage",
+      "type": "number"
+    },
+    "repairable": {
+      "title": "Repairable",
+      "type": "boolean"
+    },
+    "routed_action": {
+      "$ref": "#/$defs/ControllerDecisionAction"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "baseline_strength",
+    "candidate_score_advantage",
+    "baseline_valid",
+    "repairable",
+    "routed_action"
+  ],
+  "title": "BaselineReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.BaselineReport",
+  "x-factori-verification-evidence": false
+}

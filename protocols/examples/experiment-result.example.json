@@ -1,0 +1,20 @@
+{
+  "ablation_passed": false,
+  "baseline_strong": true,
+  "baseline_value": 0.5,
+  "candidate_id": "candidate-example",
+  "delta": 0.05,
+  "experiment_id": "experiment-example",
+  "fake": true,
+  "generator_name": "deterministic-example-generator",
+  "generator_parameters": {
+    "samples": 16
+  },
+  "label": "NegativeResult",
+  "lcb_95": -0.01,
+  "metric_name": "example_metric",
+  "metric_value": 0.55,
+  "predeclared_delta": 0.1,
+  "reason": "The deterministic example does not meet its declared threshold.",
+  "seed": 0
+}

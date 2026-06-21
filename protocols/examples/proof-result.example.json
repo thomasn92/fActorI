@@ -1,0 +1,11 @@
+{
+  "candidate_id": "candidate-example",
+  "evidence_artifact_type": "lean",
+  "fake": true,
+  "forbidden_tokens_present": false,
+  "label": "Conjecture",
+  "lean_exit_code_fake": 1,
+  "proof_attempt_id": "proof-example",
+  "proof_score": 0.75,
+  "reason": "Deterministic example only; no real Lean execution occurred."
+}

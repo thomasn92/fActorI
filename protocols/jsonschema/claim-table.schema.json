@@ -1,0 +1,174 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "Claim": {
+      "additionalProperties": false,
+      "description": "One labeled manuscript claim candidate.",
+      "properties": {
+        "allowed_in_main_text": {
+          "title": "Allowed In Main Text",
+          "type": "boolean"
+        },
+        "allowed_section": {
+          "minLength": 1,
+          "title": "Allowed Section",
+          "type": "string"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_label": {
+          "$ref": "#/$defs/VerificationLabel"
+        },
+        "claim_text": {
+          "minLength": 1,
+          "title": "Claim Text",
+          "type": "string"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "evidence_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Types",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim_id",
+        "claim_text",
+        "claim_label",
+        "candidate_id",
+        "allowed_in_main_text",
+        "allowed_section",
+        "reason"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ClaimEvidenceLink": {
+      "additionalProperties": false,
+      "description": "One deterministic claim-to-evidence link.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "evidence_role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Role"
+        },
+        "supports_label": {
+          "title": "Supports Label",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "claim_id",
+        "artifact_id",
+        "artifact_type",
+        "supports_label"
+      ],
+      "title": "ClaimEvidenceLink",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/claim-table.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Claim and evidence-link table.",
+  "properties": {
+    "claims": {
+      "items": {
+        "$ref": "#/$defs/Claim"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "evidence_links": {
+      "items": {
+        "$ref": "#/$defs/ClaimEvidenceLink"
+      },
+      "title": "Evidence Links",
+      "type": "array"
+    },
+    "final_nucleus_id": {
+      "minLength": 1,
+      "title": "Final Nucleus Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "final_nucleus_id",
+    "claims"
+  ],
+  "title": "ClaimTable",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.ClaimTable",
+  "x-factori-verification-evidence": false
+}

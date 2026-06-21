@@ -23,6 +23,18 @@ Constraints
 The SQLite ledger is append-only. Artifact contents are SHA-256 hashed and linked to their
 producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
+## Language-Neutral Protocol Boundary
+
+Stable public protocol names are registered in `factori/protocols.py` and exported from existing
+Pydantic models by `factori/schema_export.py`. Checked-in JSON Schema Draft 2020-12 files live under
+`protocols/jsonschema/`, with explicit version metadata and deterministic examples. Internal Python
+class names may differ from stable protocol names; each schema records its source model.
+
+Protocol export is a developer operation, not a pipeline stage. It does not inspect or mutate run
+directories, append ledger commits, update artifact manifests, or create scientific evidence. A
+future Rust tool or server should pin the protocol version and validate messages at process
+boundaries while continuing to treat the ledger as the provenance source of truth.
+
 ## Adapter Boundary
 
 The pipeline exposes small interfaces for candidate LLM, structural reviewer, retrieval, proof,
@@ -131,6 +143,7 @@ The following never count as verification evidence:
 - LLM reviewer prompts, responses, parse reports, objections, and recommendations.
 - retrieval queries, raw responses, normalized source records, fetched metadata, and adequacy
   certificates.
+- generated protocol schemas, protocol metadata, and interoperability examples.
 
 Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. They are not
 real Lean results or real scientific experiments.

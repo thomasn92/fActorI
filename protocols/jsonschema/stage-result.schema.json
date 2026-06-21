@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "PipelineRunStatus": {
+      "description": "Overall and per-stage deterministic pipeline statuses.",
+      "enum": [
+        "PipelineSucceeded",
+        "PipelineSucceededWithWarnings",
+        "PipelineBlocked",
+        "PipelineFailed"
+      ],
+      "title": "PipelineRunStatus",
+      "type": "string"
+    },
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.1.0/stage-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One pipeline-stage execution result.",
+  "properties": {
+    "created_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Created Artifacts",
+      "type": "array"
+    },
+    "error_message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Message"
+    },
+    "finished_at": {
+      "minLength": 1,
+      "title": "Finished At",
+      "type": "string"
+    },
+    "stage_name": {
+      "$ref": "#/$defs/PipelineStage"
+    },
+    "started_at": {
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/PipelineRunStatus"
+    },
+    "summary": {
+      "additionalProperties": true,
+      "title": "Summary",
+      "type": "object"
+    }
+  },
+  "required": [
+    "stage_name",
+    "started_at",
+    "finished_at",
+    "status"
+  ],
+  "title": "StageResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.1.0",
+  "x-factori-source-model": "factori.schemas.PipelineStageResult",
+  "x-factori-verification-evidence": false
+}
