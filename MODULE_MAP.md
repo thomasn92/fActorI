@@ -14,8 +14,8 @@ All implementation modules are under `factori/`.
 
 ## Adapters
 
-- `adapters/base.py`: small runtime-checkable protocols for LLM, retrieval, proof, experiment,
-  prose, and human-review backends.
+- `adapters/base.py`: small runtime-checkable protocols for candidate LLM, structural reviewer,
+  retrieval, proof, experiment, prose, and human-review backends.
 - `adapters/config.py`: strict fake-default backend/model configuration with external calls
   disabled and API keys excluded from reports.
 - `adapters/fake.py`: deterministic local implementations that delegate to current templates and
@@ -25,13 +25,18 @@ All implementation modules are under `factori/`.
   data-boundary enforcement for untrusted LLM output.
 - `adapters/llm_real.py`: provider-isolated OpenAI Responses transport and injected-transport
   Stage A LLM client; no network call occurs unless explicitly enabled and invoked.
+- `adapters/reviewer_prompts.py`: deterministic Stage B reviewer prompt and structured panel schema.
+- `adapters/reviewer_safety.py`: score normalization and rejection of reviewer verification,
+  publication, exhaustive-literature, and synthetic-to-real-world authority claims.
+- `adapters/llm_review.py`: fake reviewer wrapper plus gated OpenAI Stage B structural reviewer
+  using the existing injectable transport.
 - `adapters/retrieval_sources.py`: deterministic OpenAlex query contracts, URL/DOI normalization,
   abstract reconstruction, and source/document provenance hashes.
 - `adapters/retrieval_safety.py`: strict provider-result validation and malformed-source rejection.
 - `adapters/retrieval_real.py`: provider-isolated OpenAlex transport and injected-transport client
   for source metadata, abstracts, and bounded retrieval adequacy.
-- `adapters/registry.py`: fake-default registry and explicit gates for Stage A OpenAI and Stage B
-  OpenAlex adapters.
+- `adapters/registry.py`: fake-default registry and explicit gates for Stage A OpenAI, Stage B
+  OpenAI reviewer, and Stage B OpenAlex adapters.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -72,8 +77,8 @@ All implementation modules are under `factori/`.
 
 ## Stage B
 
-- `stage_b.py`: Stage B child expansion, optional per-parent gated retrieval, checks, gate, ranking,
-  artifacts, and ledger flow.
+- `stage_b.py`: Stage B child expansion, optional per-parent gated retrieval, optional gated LLM
+  structural reviewers, checks, gate, ranking, artifacts, and ledger flow.
 - `reviewers.py`: deterministic fake reviewer panels and disagreement resolution.
 - `bridge.py`: deterministic bridge survival and one-repair policy.
 - `baselines.py`: deterministic baseline validation.

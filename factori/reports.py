@@ -151,6 +151,7 @@ def render_stage_b_report(
     survivors: list[Candidate],
     scores: dict[str, ScoreVector],
     retrieval_adapter_metadata: dict[str, object] | None = None,
+    reviewer_adapter_metadata: dict[str, object] | None = None,
 ) -> str:
     """Render the ranked deterministic Stage B report."""
     rejected_bridge = [
@@ -184,6 +185,9 @@ def render_stage_b_report(
         f"- Pruned by Stage B gate: {len(gate_pruned)}",
         f"- Passing Stage B: {len(survivors)}",
         f"- Retrieval adapter: {(retrieval_adapter_metadata or {}).get('backend', 'fake')}",
+        f"- Reviewer adapter: {(reviewer_adapter_metadata or {}).get('backend', 'fake')}",
+        f"- Reviewer model: {(reviewer_adapter_metadata or {}).get('model') or 'none'}",
+        "- Reviewer output is structural critique only and has no verification authority.",
         "- Retrieval adequacy is bounded context, not proof of novelty or literature coverage.",
         "",
         "## Ranked Stage B Survivors",

@@ -25,13 +25,14 @@ producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
 ## Adapter Boundary
 
-The pipeline exposes small interfaces for future LLM, retrieval, proof, experiment, prose, and
-human-review backends. The active registry defaults to deterministic fake adapters and
+The pipeline exposes small interfaces for candidate LLM, structural reviewer, retrieval, proof,
+experiment, prose, and human-review backends. The active registry defaults to deterministic fake adapters and
 `allow_external_calls=false`. One provider-isolated OpenAI adapter is available only for Stage A
 candidate proposal. It cannot be selected without the `openai` backend, explicit external-call
 permission, and an API key. All retrieval, proof, experiment, prose, and human-review adapters
-remain fake except for one gated OpenAlex source-metadata adapter used by Stage B. OpenAlex also
-requires explicit external-call permission and configured credentials. No subprocess, Lean,
+remain fake except for one gated OpenAlex source-metadata adapter used by Stage B and one gated
+OpenAI Stage B structural-review adapter. Both Stage B adapters require explicit external-call
+permission and configured credentials. No subprocess, Lean,
 Docker runner, or human-review service is implemented.
 
 Adapters return typed values to existing stages. Any adapter output that changes run state must
@@ -45,6 +46,13 @@ response, and parse-report artifacts are hashed and ledgered as non-evidence con
 candidates still pass through Pydantic validation, the MVP data gate, deterministic scoring,
 deduplication, and the Stage A gate. LLM output can propose ideas only and cannot confer any
 verification label.
+
+The Stage B reviewer adapter uses a reviewer-specific prompt, parser, and safety layer. It produces
+up to three normalized structural reports for the existing disagreement resolver. Unsafe,
+malformed, verification-claiming, publication-approving, or synthetic-to-real-world output is
+rejected and replaced by deterministic rejecting fallback reports. Reviewer request, response, and
+parse artifacts are ledgered context only; they carry no proof, experiment, retrieval, human-review,
+publication, or scientific-validation authority.
 
 The OpenAlex retrieval adapter searches and fetches source metadata or abstracts only. Stage B
 performs one query per Stage A survivor, writes ledgered query/response/normalization/certificate
@@ -120,6 +128,7 @@ The following never count as verification evidence:
 - runtime summaries and manifests;
 - replay reports and diagnostics reports.
 - LLM requests, responses, parse reports, and candidate proposals.
+- LLM reviewer prompts, responses, parse reports, objections, and recommendations.
 - retrieval queries, raw responses, normalized source records, fetched metadata, and adequacy
   certificates.
 

@@ -18,6 +18,8 @@ from factori.config import (
     DEFAULT_LLM_MODEL,
     DEFAULT_RETRIEVAL_BACKEND,
     DEFAULT_RETRIEVAL_LIMIT,
+    DEFAULT_REVIEWER_BACKEND,
+    DEFAULT_REVIEWER_MAX_OBJECTIONS,
     DEFAULT_ROOT,
     DEFAULT_RUN_ID,
     LEDGER_FILENAME,
@@ -118,6 +120,18 @@ def show_adapters_command(
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    reviewer_backend: Annotated[
+        str,
+        typer.Option("--reviewer-backend"),
+    ] = DEFAULT_REVIEWER_BACKEND,
+    use_llm_reviewers: Annotated[
+        bool,
+        typer.Option("--use-llm-reviewers"),
+    ] = False,
+    reviewer_model: Annotated[
+        str,
+        typer.Option("--reviewer-model"),
+    ] = DEFAULT_LLM_MODEL,
     retrieval_backend: Annotated[
         str,
         typer.Option("--retrieval-backend"),
@@ -134,6 +148,9 @@ def show_adapters_command(
                 adapter_backend=backend,
                 allow_external_calls=allow_external_calls,
                 llm_model=llm_model,
+                reviewer_backend=reviewer_backend,
+                use_llm_reviewers=use_llm_reviewers,
+                reviewer_model=reviewer_model,
                 retrieval_backend=retrieval_backend,
                 retrieval_limit=retrieval_limit,
             )
@@ -147,6 +164,11 @@ def show_adapters_command(
         f"{str(registry.config.allow_external_calls).lower()}"
     )
     typer.echo(f"llm_model={registry.config.llm_model}")
+    typer.echo(f"reviewer_backend={registry.config.reviewer_backend}")
+    typer.echo(
+        f"use_llm_reviewers={str(registry.config.use_llm_reviewers).lower()}"
+    )
+    typer.echo(f"reviewer_model={registry.config.reviewer_model}")
     typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
     typer.echo(f"retrieval_limit={registry.config.retrieval_limit}")
     for name, class_name in registry.class_names().items():
@@ -414,6 +436,22 @@ def run_all_command(
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    reviewer_backend: Annotated[
+        str,
+        typer.Option("--reviewer-backend"),
+    ] = DEFAULT_REVIEWER_BACKEND,
+    use_llm_reviewers: Annotated[
+        bool,
+        typer.Option("--use-llm-reviewers"),
+    ] = False,
+    reviewer_model: Annotated[
+        str,
+        typer.Option("--reviewer-model"),
+    ] = DEFAULT_LLM_MODEL,
+    reviewer_max_objections: Annotated[
+        int,
+        typer.Option("--reviewer-max-objections"),
+    ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -439,6 +477,10 @@ def run_all_command(
         adapter_backend=adapter_backend,
         allow_external_calls=allow_external_calls,
         llm_model=llm_model,
+        reviewer_backend=reviewer_backend,
+        use_llm_reviewers=use_llm_reviewers,
+        reviewer_model=reviewer_model,
+        reviewer_max_objections=reviewer_max_objections,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -510,6 +552,22 @@ def plan_run_command(
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    reviewer_backend: Annotated[
+        str,
+        typer.Option("--reviewer-backend"),
+    ] = DEFAULT_REVIEWER_BACKEND,
+    use_llm_reviewers: Annotated[
+        bool,
+        typer.Option("--use-llm-reviewers"),
+    ] = False,
+    reviewer_model: Annotated[
+        str,
+        typer.Option("--reviewer-model"),
+    ] = DEFAULT_LLM_MODEL,
+    reviewer_max_objections: Annotated[
+        int,
+        typer.Option("--reviewer-max-objections"),
+    ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -534,6 +592,10 @@ def plan_run_command(
         adapter_backend=adapter_backend,
         allow_external_calls=allow_external_calls,
         llm_model=llm_model,
+        reviewer_backend=reviewer_backend,
+        use_llm_reviewers=use_llm_reviewers,
+        reviewer_model=reviewer_model,
+        reviewer_max_objections=reviewer_max_objections,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -611,14 +673,34 @@ def run_stage_b_command(
         int,
         typer.Option("--retrieval-limit"),
     ] = DEFAULT_RETRIEVAL_LIMIT,
+    reviewer_backend: Annotated[
+        str,
+        typer.Option("--reviewer-backend"),
+    ] = DEFAULT_REVIEWER_BACKEND,
+    use_llm_reviewers: Annotated[
+        bool,
+        typer.Option("--use-llm-reviewers"),
+    ] = False,
+    reviewer_model: Annotated[
+        str,
+        typer.Option("--reviewer-model"),
+    ] = DEFAULT_LLM_MODEL,
+    reviewer_max_objections: Annotated[
+        int,
+        typer.Option("--reviewer-max-objections"),
+    ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
 ) -> None:
-    """Run Stage B with fake defaults or explicitly gated source retrieval."""
+    """Run Stage B with fake defaults and explicitly gated external adapters."""
     try:
         registry = get_adapter_registry(
             AdapterConfig(
                 retrieval_backend=retrieval_backend,
                 allow_external_calls=allow_external_calls,
                 retrieval_limit=retrieval_limit,
+                reviewer_backend=reviewer_backend,
+                use_llm_reviewers=use_llm_reviewers,
+                reviewer_model=reviewer_model,
+                reviewer_max_objections=reviewer_max_objections,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -636,6 +718,7 @@ def run_stage_b_command(
                 if registry.config.retrieval_backend != "fake"
                 else None
             ),
+            reviewer_client=(registry.reviewer if use_llm_reviewers else None),
         )
     except StageBError as exc:
         typer.echo(str(exc), err=True)
@@ -648,6 +731,9 @@ def run_stage_b_command(
     typer.echo(f"insufficient_retrieval={len(result.insufficient_retrieval)}")
     typer.echo(f"passing_stage_b={len(result.survivors)}")
     typer.echo(f"stage_b_report={result.report_artifact.path}")
+    typer.echo(
+        f"reviewer_backend={result.reviewer_adapter_metadata['backend']}"
+    )
     typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
 
 

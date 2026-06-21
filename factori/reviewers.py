@@ -12,6 +12,14 @@ from factori.schemas import (
     StageBReviewerReport,
 )
 
+STAGE_B_REVIEWER_RUBRIC = {
+    "novelty": "Assess structural distinctness without claiming exhaustive literature coverage.",
+    "feasibility": "Assess whether the stated method and assumptions are executable.",
+    "verifiability": "Assess whether the claim can later be tested; do not verify it.",
+    "clarity": "Assess precision of objects, assumptions, and proposed comparisons.",
+    "significance": "Assess potential value conditionally, without publication approval.",
+}
+
 
 def run_reviewer_panel(candidate: Candidate) -> ReviewerPanelResult:
     """Run a deterministic fake reviewer panel."""

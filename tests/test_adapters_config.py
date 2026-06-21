@@ -11,6 +11,8 @@ def test_default_adapter_config_is_fake_and_external_calls_are_disabled() -> Non
     config = load_adapter_config()
 
     assert config.adapter_backend == "fake"
+    assert config.reviewer_backend == "fake"
+    assert config.use_llm_reviewers is False
     assert config.allow_external_calls is False
     assert DEFAULT_ADAPTER_BACKEND == "fake"
     assert DEFAULT_ALLOW_EXTERNAL_CALLS is False

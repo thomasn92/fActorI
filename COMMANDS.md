@@ -75,9 +75,10 @@ uv run factori show-adapters
 uv run factori adapters
 ```
 
-The default adapter path is fake and makes no external calls. The only real adapter currently
-available is Stage A candidate proposal, and it requires all three opt-ins: backend, external-call
-permission, and an API key. The model is configurable because availability can vary by account:
+The default adapter path is fake and makes no external calls. Gated OpenAI adapters are available
+for Stage A candidate proposal and Stage B structural review. Each requires explicit backend/use,
+external-call permission, and an API key. Models are configurable because availability can vary by
+account:
 
 ```bash
 OPENAI_API_KEY="<key>" uv run factori show-adapters \
@@ -88,6 +89,22 @@ OPENAI_API_KEY="<key>" uv run factori run-stage-a \
 OPENAI_API_KEY="<key>" uv run factori run-all \
   --run-id llm-pipeline --domain "human geography" --method "optimal transport" \
   --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
+```
+
+Stage B LLM reviewers provide critique and scores only. They have no verification, publication,
+proof, experiment, retrieval, or human-approval authority:
+
+```bash
+OPENAI_API_KEY="<key>" uv run factori show-adapters \
+  --reviewer-backend openai --use-llm-reviewers \
+  --allow-external-calls --reviewer-model gpt-5-mini
+OPENAI_API_KEY="<key>" uv run factori run-stage-b \
+  --run-id demo --reviewer-backend openai --use-llm-reviewers \
+  --allow-external-calls --reviewer-model gpt-5-mini
+OPENAI_API_KEY="<key>" uv run factori run-all \
+  --run-id reviewer-pipeline --domain "human geography" \
+  --reviewer-backend openai --use-llm-reviewers \
+  --allow-external-calls --reviewer-model gpt-5-mini
 ```
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and

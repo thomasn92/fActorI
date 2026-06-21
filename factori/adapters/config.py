@@ -13,6 +13,8 @@ from factori.config import (
     DEFAULT_LLM_MODEL,
     DEFAULT_RETRIEVAL_BACKEND,
     DEFAULT_RETRIEVAL_LIMIT,
+    DEFAULT_REVIEWER_BACKEND,
+    DEFAULT_REVIEWER_MAX_OBJECTIONS,
     OPENAI_API_KEY_ENV,
     OPENALEX_API_KEY_ENV,
 )
@@ -28,6 +30,16 @@ class AdapterConfig(StrictModel):
     api_key: SecretStr | None = Field(default=None, repr=False)
     api_key_env: str = Field(default=OPENAI_API_KEY_ENV, min_length=1)
     llm_max_candidates: int = Field(default=4, ge=1, le=20)
+    reviewer_backend: str = Field(default=DEFAULT_REVIEWER_BACKEND, min_length=1)
+    use_llm_reviewers: bool = False
+    reviewer_model: str = Field(default=DEFAULT_LLM_MODEL, min_length=1)
+    reviewer_api_key: SecretStr | None = Field(default=None, repr=False)
+    reviewer_api_key_env: str = Field(default=OPENAI_API_KEY_ENV, min_length=1)
+    reviewer_max_objections: int = Field(
+        default=DEFAULT_REVIEWER_MAX_OBJECTIONS,
+        ge=1,
+        le=20,
+    )
     retrieval_backend: str = Field(default=DEFAULT_RETRIEVAL_BACKEND, min_length=1)
     retrieval_api_key: SecretStr | None = Field(default=None, repr=False)
     retrieval_api_key_env: str = Field(default=OPENALEX_API_KEY_ENV, min_length=1)
@@ -49,7 +61,21 @@ class AdapterConfig(StrictModel):
             raise ValueError("retrieval_backend must not be empty")
         return normalized
 
-    @field_validator("llm_model", "api_key_env", "retrieval_api_key_env")
+    @field_validator("reviewer_backend")
+    @classmethod
+    def normalize_reviewer_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("reviewer_backend must not be empty")
+        return normalized
+
+    @field_validator(
+        "llm_model",
+        "api_key_env",
+        "reviewer_model",
+        "reviewer_api_key_env",
+        "retrieval_api_key_env",
+    )
     @classmethod
     def strip_nonempty_text(cls, value: str) -> str:
         normalized = value.strip()

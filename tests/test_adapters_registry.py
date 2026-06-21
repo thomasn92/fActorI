@@ -24,6 +24,7 @@ def test_registry_exposes_all_required_adapters() -> None:
     assert registry.class_names() == {
         "llm": "FakeLLMClient",
         "retrieval": "FakeRetrievalClient",
+        "reviewer": "FakeReviewerClient",
         "proof_verifier": "FakeProofVerifier",
         "experiment_runner": "FakeExperimentRunner",
         "prose_generator": "FakeProseGenerator",

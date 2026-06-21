@@ -14,6 +14,7 @@ from factori.adapters.base import (
     ProofVerifier,
     ProseGenerator,
     RetrievalClient,
+    ReviewerClient,
 )
 from factori.adapters.config import AdapterConfig, load_adapter_config
 from factori.adapters.fake import (
@@ -29,6 +30,7 @@ from factori.adapters.llm_real import (
     OpenAILLMClient,
     OpenAIResponsesTransport,
 )
+from factori.adapters.llm_review import FakeReviewerClient, OpenAIReviewerClient
 from factori.adapters.retrieval_real import (
     OpenAlexRetrievalClient,
     OpenAlexTransport,
@@ -47,6 +49,7 @@ class AdapterRegistry:
     config: AdapterConfig
     llm: LLMClient
     retrieval: RetrievalClient
+    reviewer: ReviewerClient
     proof_verifier: ProofVerifier
     experiment_runner: ExperimentRunner
     prose_generator: ProseGenerator
@@ -57,6 +60,7 @@ class AdapterRegistry:
         return {
             "llm": type(self.llm).__name__,
             "retrieval": type(self.retrieval).__name__,
+            "reviewer": type(self.reviewer).__name__,
             "proof_verifier": type(self.proof_verifier).__name__,
             "experiment_runner": type(self.experiment_runner).__name__,
             "prose_generator": type(self.prose_generator).__name__,
@@ -68,11 +72,12 @@ def get_adapter_registry(
     config: AdapterConfig | Mapping[str, Any] | None = None,
     *,
     llm_transport: LLMTransport | None = None,
+    reviewer_transport: LLMTransport | None = None,
     retrieval_transport: RetrievalTransport | None = None,
     retrieval_clock: Callable[[], str] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> AdapterRegistry:
-    """Build fake adapters or an explicitly gated Stage A OpenAI LLM adapter."""
+    """Build fake defaults plus explicitly gated Stage A and Stage B adapters."""
     loaded = load_adapter_config(config)
     if loaded.adapter_backend not in {"fake", "openai", "real_llm"}:
         raise AdapterConfigurationError(
@@ -100,6 +105,41 @@ def get_adapter_registry(
             model=loaded.llm_model,
             transport=llm_transport or OpenAIResponsesTransport(),
             max_candidates=loaded.llm_max_candidates,
+            allow_external_calls=True,
+        )
+    if loaded.reviewer_backend not in {"fake", "openai", "real_llm"}:
+        raise AdapterConfigurationError(
+            f"Reviewer backend '{loaded.reviewer_backend}' is not implemented. "
+            "Available reviewer backends are 'fake' and gated 'openai'."
+        )
+    reviewer: ReviewerClient = FakeReviewerClient()
+    if loaded.use_llm_reviewers:
+        if loaded.reviewer_backend == "fake":
+            raise AdapterConfigurationError(
+                "LLM reviewers requested but reviewer_backend is 'fake'."
+            )
+        if not loaded.allow_external_calls:
+            raise AdapterConfigurationError(
+                "External calls are disabled. Set allow_external_calls=true to use real "
+                "LLM reviewer adapters."
+            )
+        configured_reviewer_key = (
+            loaded.reviewer_api_key.get_secret_value()
+            if loaded.reviewer_api_key is not None
+            else None
+        )
+        reviewer_key = configured_reviewer_key or environment.get(
+            loaded.reviewer_api_key_env
+        )
+        if not reviewer_key:
+            raise AdapterConfigurationError(
+                "Real LLM reviewer adapter requested but no API key is configured."
+            )
+        reviewer = OpenAIReviewerClient(
+            api_key=reviewer_key,
+            model=loaded.reviewer_model,
+            transport=reviewer_transport or OpenAIResponsesTransport(),
+            max_objections=loaded.reviewer_max_objections,
             allow_external_calls=True,
         )
     if loaded.retrieval_backend not in {"fake", "openalex", "real_retrieval"}:
@@ -140,6 +180,7 @@ def get_adapter_registry(
         config=loaded,
         llm=llm,
         retrieval=retrieval,
+        reviewer=reviewer,
         proof_verifier=FakeProofVerifier(),
         experiment_runner=FakeExperimentRunner(),
         prose_generator=FakeProseGenerator(),

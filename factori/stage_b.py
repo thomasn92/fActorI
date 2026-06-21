@@ -13,7 +13,7 @@ from factori.questioner import route_questions_to_action, select_questions
 from factori.redteam import run_redteam_checks
 from factori.reports import render_stage_b_report
 from factori.retrieval import run_retrieval_with_provenance
-from factori.reviewers import run_reviewer_panel
+from factori.reviewers import STAGE_B_REVIEWER_RUBRIC, run_reviewer_panel
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
@@ -24,6 +24,7 @@ from factori.schemas import (
     ControllerActionType,
     DataRequirement,
     LiteratureState,
+    LLMReviewerTrace,
     RedTeamReport,
     RetrievalRunReport,
     ReviewerDisagreementType,
@@ -37,7 +38,7 @@ from factori.scoring import cost_aware_score, score_candidate, score_payload
 from factori.stagnation import compute_stagnation
 
 if TYPE_CHECKING:
-    from factori.adapters.base import RetrievalClient
+    from factori.adapters.base import RetrievalClient, ReviewerClient
 
 MAX_STAGE_B_SURVIVORS = 2
 
@@ -67,6 +68,8 @@ class StageBResult:
     artifacts: dict[str, list[ArtifactRef]]
     retrieval_runs: dict[str, RetrievalRunReport]
     retrieval_artifacts: list[ArtifactRef]
+    llm_reviewer_artifacts: list[ArtifactRef]
+    reviewer_adapter_metadata: dict[str, object]
     report_artifact: ArtifactRef
     report_commit_hash: str
 
@@ -123,6 +126,7 @@ def run_stage_b(
     store: ArtifactStore,
     ledger: ResearchLedger,
     retrieval_client: RetrievalClient | None = None,
+    reviewer_client: ReviewerClient | None = None,
 ) -> StageBResult:
     """Run deterministic Stage B structural validation."""
     store.init_run(run_id)
@@ -134,6 +138,7 @@ def run_stage_b(
         payload={
             "stage_a_survivor_ids": [candidate.id for candidate in stage_a_survivors],
             "retrieval_adapter": _retrieval_adapter_metadata(retrieval_client),
+            "reviewer_adapter": _reviewer_adapter_metadata(reviewer_client),
         },
     )
 
@@ -161,6 +166,7 @@ def run_stage_b(
         artifacts[child.id] = [_write_child_candidate(run_id, child, store, ledger)]
 
     reviewer_panels: dict[str, ReviewerPanelResult] = {}
+    llm_reviewer_artifacts: list[ArtifactRef] = []
     bridge_reports: dict[str, BridgeReport] = {}
     baseline_reports: dict[str, BaselineReport] = {}
     redteam_reports: dict[str, RedTeamReport] = {}
@@ -168,7 +174,24 @@ def run_stage_b(
     candidate_by_id = {child.id: child for child in children}
 
     for child in children:
-        panel = run_reviewer_panel(child)
+        if reviewer_client is not None and not reviewer_client.is_fake:
+            panel = reviewer_client.review_candidate(
+                child,
+                STAGE_B_REVIEWER_RUBRIC,
+                _retrieval_context_for_reviewer(child, retrieval_runs),
+            )
+            trace = _latest_reviewer_trace(reviewer_client)
+            trace_artifacts = _write_llm_reviewer_trace_artifacts(
+                run_id,
+                child.id,
+                trace,
+                store,
+                ledger,
+            )
+            artifacts[child.id].extend(trace_artifacts)
+            llm_reviewer_artifacts.extend(trace_artifacts)
+        else:
+            panel = run_reviewer_panel(child)
         reviewer_panels[child.id] = panel
         artifacts[child.id].append(_write_reviewer_artifact(run_id, panel, store, ledger))
         _commit_disagreement(run_id, panel, ledger)
@@ -328,6 +351,7 @@ def run_stage_b(
         store=store,
         ledger=ledger,
         retrieval_adapter_metadata=_retrieval_adapter_metadata(retrieval_client),
+        reviewer_adapter_metadata=_reviewer_adapter_metadata(reviewer_client),
     )
 
     return StageBResult(
@@ -348,6 +372,8 @@ def run_stage_b(
         artifacts=artifacts,
         retrieval_runs=retrieval_runs,
         retrieval_artifacts=retrieval_artifacts,
+        llm_reviewer_artifacts=llm_reviewer_artifacts,
+        reviewer_adapter_metadata=_reviewer_adapter_metadata(reviewer_client),
         report_artifact=report_artifact,
         report_commit_hash=report_commit_hash,
     )
@@ -573,12 +599,19 @@ def _write_reviewer_artifact(
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> ArtifactRef:
+    fake = all(report.fake for report in panel.reports)
     artifact = store.write_json(
         run_id=run_id,
         artifact_id=f"reviewer-report-{panel.candidate_id}",
         artifact_type=ArtifactType.REPORT,
         data=panel,
-        metadata={"stage": "stage_b", "report": "reviewers", "fake": True},
+        metadata={
+            "stage": "stage_b",
+            "report": "reviewers",
+            "fake": fake,
+            "is_verification_evidence": False,
+            "scientific_approval": False,
+        },
     )
     commit = ledger.append_commit(
         run_id=run_id,
@@ -741,6 +774,7 @@ def _write_stage_b_report(
     store: ArtifactStore,
     ledger: ResearchLedger,
     retrieval_adapter_metadata: dict[str, object],
+    reviewer_adapter_metadata: dict[str, object],
 ) -> tuple[ArtifactRef, str]:
     markdown = render_stage_b_report(
         run_id=run_id,
@@ -754,6 +788,7 @@ def _write_stage_b_report(
         survivors=survivors,
         scores=scores,
         retrieval_adapter_metadata=retrieval_adapter_metadata,
+        reviewer_adapter_metadata=reviewer_adapter_metadata,
     )
     artifact = store.write_markdown(
         run_id=run_id,
@@ -764,6 +799,7 @@ def _write_stage_b_report(
             "stage": "stage_b",
             "fake": True,
             "retrieval_adapter": retrieval_adapter_metadata,
+            "reviewer_adapter": reviewer_adapter_metadata,
             "is_verification_evidence": False,
         },
     )
@@ -776,6 +812,8 @@ def _write_stage_b_report(
             "stage_b_children": len(children),
             "survivor_ids": [candidate.id for candidate in survivors],
             "retrieval_adapter": retrieval_adapter_metadata,
+            "reviewer_adapter": reviewer_adapter_metadata,
+            "reviewer_has_verification_authority": False,
         },
         artifact_refs=[artifact],
     )
@@ -807,6 +845,116 @@ def _retrieval_adapter_metadata(
         "fake": retrieval_client.is_fake,
         "external_calls_enabled": retrieval_client.external_calls_enabled,
     }
+
+
+def _reviewer_adapter_metadata(
+    reviewer_client: ReviewerClient | None,
+) -> dict[str, object]:
+    if reviewer_client is None:
+        return {
+            "backend": "fake",
+            "class": "deterministic_fake_reviewer_panel",
+            "model": None,
+            "fake": True,
+            "external_calls_enabled": False,
+            "has_verification_authority": False,
+        }
+    return {
+        "backend": reviewer_client.backend_name,
+        "class": type(reviewer_client).__name__,
+        "model": getattr(reviewer_client, "model", None),
+        "fake": reviewer_client.is_fake,
+        "external_calls_enabled": reviewer_client.external_calls_enabled,
+        "has_verification_authority": False,
+    }
+
+
+def _retrieval_context_for_reviewer(
+    candidate: Candidate,
+    retrieval_runs: dict[str, RetrievalRunReport],
+) -> dict[str, object] | None:
+    parent_id = candidate.parent_candidate_id or ""
+    retrieval_run = retrieval_runs.get(parent_id)
+    if retrieval_run is None:
+        return {
+            "source": "bounded_candidate_literature_state",
+            "fake": True,
+            "source_count": candidate.literature.k,
+            "closest_prior_ids": candidate.literature.closest_priors,
+            "is_exhaustive_literature_coverage": False,
+        }
+    return {
+        "source": retrieval_run.provider,
+        "fake": retrieval_run.fake,
+        "source_count": len(retrieval_run.results),
+        "source_ids": [result.source_id for result in retrieval_run.results],
+        "rho_adequacy": retrieval_run.certificate.rho_adequacy,
+        "is_exhaustive_literature_coverage": False,
+    }
+
+
+def _latest_reviewer_trace(reviewer_client: ReviewerClient) -> LLMReviewerTrace:
+    traces = getattr(reviewer_client, "review_traces", None)
+    if not isinstance(traces, list) or not traces:
+        raise StageBError("Real LLM reviewer did not provide a provenance trace")
+    return LLMReviewerTrace.model_validate(traces[-1])
+
+
+def _write_llm_reviewer_trace_artifacts(
+    run_id: str,
+    candidate_id: str,
+    trace: LLMReviewerTrace,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> list[ArtifactRef]:
+    common_metadata = {
+        "stage": "stage_b",
+        "candidate_id": candidate_id,
+        "artifact_role": "llm_reviewer_context",
+        "fake": False,
+        "is_verification_evidence": False,
+        "scientific_approval": False,
+    }
+    artifacts = [
+        store.write_json(
+            run_id=run_id,
+            artifact_id=f"llm-stage-b-reviewer-request-{candidate_id}",
+            artifact_type=ArtifactType.REPORT,
+            data=trace.request,
+            metadata={**common_metadata, "trace_part": "request"},
+        ),
+        store.write_json(
+            run_id=run_id,
+            artifact_id=f"llm-stage-b-reviewer-response-{candidate_id}",
+            artifact_type=ArtifactType.REPORT,
+            data=trace.raw_response,
+            metadata={**common_metadata, "trace_part": "response"},
+        ),
+        store.write_json(
+            run_id=run_id,
+            artifact_id=f"llm-stage-b-reviewer-parse-report-{candidate_id}",
+            artifact_type=ArtifactType.REPORT,
+            data=trace.parse_result,
+            metadata={**common_metadata, "trace_part": "parse_report"},
+        ),
+    ]
+    commit = ledger.append_commit(
+        run_id=run_id,
+        candidate_id=candidate_id,
+        parent_hash=ledger.latest_commit_hash(run_id),
+        action_type=ControllerActionType.STAGE_B_LLM_REVIEW_RECORDED,
+        payload={
+            "candidate_id": candidate_id,
+            "backend": trace.request.get("backend"),
+            "model": trace.request.get("model"),
+            "accepted_reports": len(trace.parse_result.reports),
+            "rejected_reports": len(trace.parse_result.rejected_reports),
+            "fallback_used": trace.parse_result.fallback_used,
+            "is_verification_evidence": False,
+        },
+        artifact_refs=artifacts,
+    )
+    return [store.link_artifact_to_commit(item, commit.commit_hash) for item in artifacts]
 
 
 def _gate_payload(

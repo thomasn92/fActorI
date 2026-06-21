@@ -17,6 +17,7 @@ from factori.schemas import (
     RetrievalAdequacyCertificate,
     RetrievalResult,
     RetrievedDocument,
+    ReviewerPanelResult,
     ReviewReport,
 )
 
@@ -66,6 +67,18 @@ class RetrievalClient(AdapterClient, Protocol):
         query: str,
         results: list[RetrievalResult],
     ) -> RetrievalAdequacyCertificate: ...
+
+
+@runtime_checkable
+class ReviewerClient(AdapterClient, Protocol):
+    """Stage B structural-review seam with no verification authority."""
+
+    def review_candidate(
+        self,
+        candidate: Candidate,
+        rubric: Mapping[str, Any],
+        retrieval_context: Mapping[str, Any] | None = None,
+    ) -> ReviewerPanelResult: ...
 
 
 @runtime_checkable
@@ -122,5 +135,6 @@ __all__ = [
     "ProofVerifier",
     "ProseGenerator",
     "RetrievalClient",
+    "ReviewerClient",
     "ReviewerLike",
 ]

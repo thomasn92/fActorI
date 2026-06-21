@@ -110,6 +110,7 @@ class ControllerActionType(StrEnum):
     STAGNATION_DEMO = "StagnationDemo"
     STAGE_B_STARTED = "StageBStarted"
     STAGE_B_CHILD_GENERATED = "StageBChildGenerated"
+    STAGE_B_LLM_REVIEW_RECORDED = "StageBLLMReviewRecorded"
     STAGE_B_REVIEWERS_RUN = "StageBReviewersRun"
     STAGE_B_DISAGREEMENT_RESOLVED = "StageBDisagreementResolved"
     STAGE_B_BRIDGE_CHECKED = "StageBBridgeChecked"
@@ -786,7 +787,7 @@ class RuntimeSummary(StrictModel):
 
 
 class StageBReviewerReport(StrictModel):
-    """One deterministic fake Stage B reviewer report."""
+    """One Stage B structural reviewer report without verification authority."""
 
     reviewer_id: str = Field(min_length=1)
     candidate_id: str = Field(min_length=1)
@@ -797,6 +798,9 @@ class StageBReviewerReport(StrictModel):
     significance_score: float = Field(ge=0.0, le=1.0)
     objections: list[str] = Field(default_factory=list)
     recommendation: ReviewerRecommendation
+    fake: bool = True
+    is_verification_evidence: bool = False
+    scientific_approval: bool = False
 
     def aggregate_score(self) -> float:
         """Mean reviewer score used for deterministic disagreement."""
@@ -807,6 +811,54 @@ class StageBReviewerReport(StrictModel):
             + self.clarity_score
             + self.significance_score
         ) / 5.0
+
+
+class ReviewerPromptContract(StrictModel):
+    """Deterministic prompt contract for Stage B structural critique only."""
+
+    candidate_id: str = Field(min_length=1)
+    candidate_summary: dict[str, Any]
+    domain: str = Field(min_length=1)
+    method: str | None = None
+    data_requirement: DataRequirement
+    retrieval_context_summary: dict[str, Any] | None = None
+    rubric: dict[str, Any]
+    requested_output_schema: dict[str, Any]
+    forbidden_outputs: list[str]
+    evidence_boundary_instructions: list[str]
+    max_objections: int = Field(ge=1)
+    prompt_text: str = Field(min_length=1)
+
+
+class ReviewerValidationResult(StrictModel):
+    """Safety result for one LLM-generated structural reviewer report."""
+
+    reviewer_id: str | None = None
+    candidate_id: str | None = None
+    valid: bool
+    reasons: list[str] = Field(default_factory=list)
+
+
+class LLMReviewerParseResult(StrictModel):
+    """Normalized non-evidence Stage B reviewer response."""
+
+    reports: list[StageBReviewerReport] = Field(default_factory=list)
+    rejected_reports: list[dict[str, Any]] = Field(default_factory=list)
+    truncated: bool = False
+    fallback_used: bool = False
+    reasons: list[str] = Field(default_factory=list)
+    fake: bool = False
+    is_verification_evidence: bool = False
+
+
+class LLMReviewerTrace(StrictModel):
+    """Sanitized LLM reviewer request/response retained as non-evidence context."""
+
+    request: dict[str, Any]
+    raw_response: Any
+    parse_result: LLMReviewerParseResult
+    fake: bool = False
+    is_verification_evidence: bool = False
 
 
 class ReviewerPanelResult(StrictModel):
@@ -1750,6 +1802,10 @@ class PipelineRunConfig(StrictModel):
     adapter_backend: str = "fake"
     allow_external_calls: bool = False
     llm_model: str = "gpt-5-mini"
+    reviewer_backend: str = "fake"
+    use_llm_reviewers: bool = False
+    reviewer_model: str = "gpt-5-mini"
+    reviewer_max_objections: int = Field(default=5, ge=1, le=20)
     stop_after: PipelineStage | None = None
     start_at: PipelineStage | None = None
     skip_replay: bool = False

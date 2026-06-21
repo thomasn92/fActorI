@@ -84,13 +84,17 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
         raise PipelineRunError("domain is required when run-stage-a would run")
 
     adapter_registry: AdapterRegistry | None = None
-    if PipelineStage.RUN_STAGE_A in stages:
+    if PipelineStage.RUN_STAGE_A in stages or PipelineStage.RUN_STAGE_B in stages:
         try:
             adapter_registry = get_adapter_registry(
                 AdapterConfig(
                     adapter_backend=config.adapter_backend,
                     allow_external_calls=config.allow_external_calls,
                     llm_model=config.llm_model,
+                    reviewer_backend=config.reviewer_backend,
+                    use_llm_reviewers=config.use_llm_reviewers,
+                    reviewer_model=config.reviewer_model,
+                    reviewer_max_objections=config.reviewer_max_objections,
                 )
             )
         except AdapterConfigurationError as exc:
@@ -241,13 +245,24 @@ def _execute_stage(
             adapter_model=result.adapter_metadata.get("model"),
         )
     if stage == PipelineStage.RUN_STAGE_B:
-        result = run_stage_b(run_id=run_id, store=store, ledger=ledger)
+        result = run_stage_b(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            reviewer_client=(
+                adapter_registry.reviewer
+                if adapter_registry is not None and config.use_llm_reviewers
+                else None
+            ),
+        )
         artifacts = [item for values in result.artifacts.values() for item in values]
         artifacts.append(result.report_artifact)
         return _success(
             artifacts,
             stage_b_children=len(result.children),
             stage_b_survivors=len(result.survivors),
+            reviewer_backend=result.reviewer_adapter_metadata["backend"],
+            reviewer_model=result.reviewer_adapter_metadata.get("model"),
         )
     if stage == PipelineStage.SELECT_STAGE_C:
         result = run_stage_c_selection(run_id=run_id, store=store, ledger=ledger)
