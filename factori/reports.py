@@ -150,6 +150,7 @@ def render_stage_b_report(
     gate_pruned: list[Candidate],
     survivors: list[Candidate],
     scores: dict[str, ScoreVector],
+    retrieval_adapter_metadata: dict[str, object] | None = None,
 ) -> str:
     """Render the ranked deterministic Stage B report."""
     rejected_bridge = [
@@ -182,6 +183,8 @@ def render_stage_b_report(
         f"- Insufficient retrieval: {len(insufficient_retrieval)}",
         f"- Pruned by Stage B gate: {len(gate_pruned)}",
         f"- Passing Stage B: {len(survivors)}",
+        f"- Retrieval adapter: {(retrieval_adapter_metadata or {}).get('backend', 'fake')}",
+        "- Retrieval adequacy is bounded context, not proof of novelty or literature coverage.",
         "",
         "## Ranked Stage B Survivors",
         "",

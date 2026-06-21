@@ -48,12 +48,14 @@ Implemented so far:
   deterministic fake defaults;
 - an explicitly gated OpenAI adapter for Stage A candidate proposal only, with strict local parsing
   and ledgered non-evidence request/response traces;
+- an explicitly gated OpenAlex adapter for Stage B source metadata/abstract retrieval, with source
+  hashes, ledgered context artifacts, and bounded adequacy that does not prove novelty;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
-Not implemented yet: LangGraph orchestration, real LLM reviewers/synthesis/writing, Lean
-integration, real literature retrieval, real experiments, Docker, FastAPI, full manuscript
-synthesis, LaTeX paper generation, or a frontend.
+Not implemented yet: LangGraph orchestration, real LLM reviewers/synthesis/writing, complete or
+claim-verifying literature coverage, Lean integration, real experiments, Docker, FastAPI, full
+manuscript synthesis, LaTeX paper generation, or a frontend.
 
 ## Install
 
@@ -129,6 +131,7 @@ uv run factori validate-run --run-id demo
 Default commands are local and deterministic. They do not call models, retrieval services, Lean,
 experiment runners, Docker, servers, or UI code. The gated Stage A OpenAI path described below is
 the sole exception and is never selected by default.
+The separately gated Stage B OpenAlex path is the only other external-call exception.
 
 `inspect-hygiene` is read-only. Its optional reports are written under
 `runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
@@ -145,14 +148,25 @@ The adapter registry exposes `LLMClient`, `RetrievalClient`, `ProofVerifier`, `E
 `ProseGenerator`, and `HumanReviewClient`. It defaults to `fake` with external calls disabled. Fake
 adapters use local deterministic templates and validators. A provider-isolated `openai` backend is
 available only for Stage A candidate proposal and requires explicit external-call permission plus
-`OPENAI_API_KEY`. All other adapters remain fake.
+`OPENAI_API_KEY`. A separately gated `openalex` retrieval backend supports Stage B source metadata
+and abstract context with `OPENALEX_API_KEY`. Proof, experiment, prose, and human-review adapters
+remain fake.
 
 LLM output is validated locally, then passes through the existing data gate, scoring, deduplication,
 artifact store, and ledger. Requests, raw responses, parse reports, and proposals are not
 verification evidence.
 
+OpenAlex retrieval output is normalized, source-hashed, and ledgered through Stage B. It supports
+only bounded retrieval adequacy and literature context. It does not prove novelty, complete
+coverage, claim correctness, or external-review readiness.
+
 ```bash
 OPENAI_API_KEY="<key>" uv run factori run-stage-a \
   --run-id llm-demo --domain "human geography" --method "optimal transport" \
   --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
+```
+
+```bash
+OPENALEX_API_KEY="<key>" uv run factori run-stage-b \
+  --run-id demo --retrieval-backend openalex --allow-external-calls --retrieval-limit 5
 ```

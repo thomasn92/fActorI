@@ -90,6 +90,19 @@ OPENAI_API_KEY="<key>" uv run factori run-all \
   --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
 ```
 
+Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
+bounded adequacy. It does not prove novelty or complete literature coverage:
+
+```bash
+OPENALEX_API_KEY="<key>" uv run factori show-adapters \
+  --retrieval-backend openalex --allow-external-calls --retrieval-limit 5
+OPENALEX_API_KEY="<key>" uv run factori retrieval-adequacy-demo \
+  --query "human geography optimal transport" \
+  --retrieval-backend openalex --allow-external-calls --retrieval-limit 5
+OPENALEX_API_KEY="<key>" uv run factori run-stage-b \
+  --run-id demo --retrieval-backend openalex --allow-external-calls --retrieval-limit 5
+```
+
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
 `runs/demo/replay/` and does not append ledger commits or update the artifact manifest.
 
@@ -122,6 +135,8 @@ marked non-provenance plan files under `runs/<run_id>/hygiene/` and creates no l
 `show-adapters` (alias `adapters`) prints the active registry without invoking it. The default is
 `adapter_backend=fake` and `allow_external_calls=false`. The `openai` backend fails before any
 network call unless external calls are explicitly allowed and an API key is present.
+The `openalex` retrieval backend has the same fail-closed behavior and uses
+`OPENALEX_API_KEY`; retrieval artifacts remain non-verification context.
 
 ## Foundation and Inspection
 
@@ -151,4 +166,5 @@ Commands for an already-created local environment:
 ```
 
 Default commands do not call external APIs, real Lean, real experiments, Docker, a server, or a
-frontend. Only the explicitly gated Stage A OpenAI command above may call an external API.
+frontend. Only the explicitly gated Stage A OpenAI and Stage B OpenAlex commands above may call an
+external API.

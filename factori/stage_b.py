@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from factori.artifacts import ArtifactStore
 from factori.baselines import evaluate_baseline
@@ -11,6 +12,7 @@ from factori.ledger import ResearchLedger
 from factori.questioner import route_questions_to_action, select_questions
 from factori.redteam import run_redteam_checks
 from factori.reports import render_stage_b_report
+from factori.retrieval import run_retrieval_with_provenance
 from factori.reviewers import run_reviewer_panel
 from factori.schemas import (
     ArtifactRef,
@@ -23,6 +25,7 @@ from factori.schemas import (
     DataRequirement,
     LiteratureState,
     RedTeamReport,
+    RetrievalRunReport,
     ReviewerDisagreementType,
     ReviewerPanelResult,
     ScoreVector,
@@ -32,6 +35,9 @@ from factori.schemas import (
 )
 from factori.scoring import cost_aware_score, score_candidate, score_payload
 from factori.stagnation import compute_stagnation
+
+if TYPE_CHECKING:
+    from factori.adapters.base import RetrievalClient
 
 MAX_STAGE_B_SURVIVORS = 2
 
@@ -59,6 +65,8 @@ class StageBResult:
     gate_pruned: list[Candidate]
     survivors: list[Candidate]
     artifacts: dict[str, list[ArtifactRef]]
+    retrieval_runs: dict[str, RetrievalRunReport]
+    retrieval_artifacts: list[ArtifactRef]
     report_artifact: ArtifactRef
     report_commit_hash: str
 
@@ -114,6 +122,7 @@ def run_stage_b(
     run_id: str,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    retrieval_client: RetrievalClient | None = None,
 ) -> StageBResult:
     """Run deterministic Stage B structural validation."""
     store.init_run(run_id)
@@ -122,8 +131,29 @@ def run_stage_b(
         run_id=run_id,
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE_B_STARTED,
-        payload={"stage_a_survivor_ids": [candidate.id for candidate in stage_a_survivors]},
+        payload={
+            "stage_a_survivor_ids": [candidate.id for candidate in stage_a_survivors],
+            "retrieval_adapter": _retrieval_adapter_metadata(retrieval_client),
+        },
     )
+
+    retrieval_runs: dict[str, RetrievalRunReport] = {}
+    retrieval_artifacts: list[ArtifactRef] = []
+    retrieval_certificates = {}
+    if retrieval_client is not None and not retrieval_client.is_fake:
+        limit = int(getattr(retrieval_client, "default_limit", 5))
+        for parent in stage_a_survivors:
+            retrieval_execution = run_retrieval_with_provenance(
+                run_id=run_id,
+                query=_retrieval_query_for_candidate(parent),
+                limit=limit,
+                retrieval_client=retrieval_client,
+                store=store,
+                ledger=ledger,
+            )
+            retrieval_runs[parent.id] = retrieval_execution.report
+            retrieval_artifacts.extend(retrieval_execution.artifacts.values())
+            retrieval_certificates[parent.id] = retrieval_execution.report.certificate
 
     children = expand_stage_b_children(stage_a_survivors)
     artifacts: dict[str, list[ArtifactRef]] = {}
@@ -165,7 +195,11 @@ def run_stage_b(
         baseline_reports[child.id] = baseline
         artifacts[child.id].append(_write_baseline_artifact(run_id, baseline, store, ledger))
 
-        redteam = run_redteam_checks(child, score)
+        redteam = run_redteam_checks(
+            child,
+            score,
+            retrieval_certificate=retrieval_certificates.get(child.parent_candidate_id or ""),
+        )
         redteam_reports[child.id] = redteam
         artifacts[child.id].append(_write_redteam_artifact(run_id, redteam, store, ledger))
         if redteam.status != BranchStatus.ACTIVE:
@@ -293,6 +327,7 @@ def run_stage_b(
         scores=scores,
         store=store,
         ledger=ledger,
+        retrieval_adapter_metadata=_retrieval_adapter_metadata(retrieval_client),
     )
 
     return StageBResult(
@@ -311,6 +346,8 @@ def run_stage_b(
         gate_pruned=gate_pruned,
         survivors=survivors,
         artifacts=artifacts,
+        retrieval_runs=retrieval_runs,
+        retrieval_artifacts=retrieval_artifacts,
         report_artifact=report_artifact,
         report_commit_hash=report_commit_hash,
     )
@@ -703,6 +740,7 @@ def _write_stage_b_report(
     scores: dict[str, ScoreVector],
     store: ArtifactStore,
     ledger: ResearchLedger,
+    retrieval_adapter_metadata: dict[str, object],
 ) -> tuple[ArtifactRef, str]:
     markdown = render_stage_b_report(
         run_id=run_id,
@@ -715,13 +753,19 @@ def _write_stage_b_report(
         gate_pruned=gate_pruned,
         survivors=survivors,
         scores=scores,
+        retrieval_adapter_metadata=retrieval_adapter_metadata,
     )
     artifact = store.write_markdown(
         run_id=run_id,
         artifact_id="stage-b-report",
         artifact_type=ArtifactType.REPORT,
         markdown=markdown,
-        metadata={"stage": "stage_b", "fake": True},
+        metadata={
+            "stage": "stage_b",
+            "fake": True,
+            "retrieval_adapter": retrieval_adapter_metadata,
+            "is_verification_evidence": False,
+        },
     )
     commit = ledger.append_commit(
         run_id=run_id,
@@ -731,10 +775,38 @@ def _write_stage_b_report(
             "stage_a_survivors": len(stage_a_survivors),
             "stage_b_children": len(children),
             "survivor_ids": [candidate.id for candidate in survivors],
+            "retrieval_adapter": retrieval_adapter_metadata,
         },
         artifact_refs=[artifact],
     )
     return store.link_artifact_to_commit(artifact, commit.commit_hash), commit.commit_hash
+
+
+def _retrieval_query_for_candidate(candidate: Candidate) -> str:
+    return " ".join(
+        part
+        for part in [candidate.domain, candidate.method, candidate.question]
+        if part
+    )
+
+
+def _retrieval_adapter_metadata(
+    retrieval_client: RetrievalClient | None,
+) -> dict[str, object]:
+    if retrieval_client is None:
+        return {
+            "backend": "fake",
+            "class": "candidate_literature_state",
+            "fake": True,
+            "external_calls_enabled": False,
+        }
+    return {
+        "backend": retrieval_client.backend_name,
+        "class": type(retrieval_client).__name__,
+        "provider": getattr(retrieval_client, "provider", retrieval_client.backend_name),
+        "fake": retrieval_client.is_fake,
+        "external_calls_enabled": retrieval_client.external_calls_enabled,
+    }
 
 
 def _gate_payload(

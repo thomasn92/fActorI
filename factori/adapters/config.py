@@ -11,7 +11,10 @@ from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
     DEFAULT_LLM_MODEL,
+    DEFAULT_RETRIEVAL_BACKEND,
+    DEFAULT_RETRIEVAL_LIMIT,
     OPENAI_API_KEY_ENV,
+    OPENALEX_API_KEY_ENV,
 )
 from factori.schemas import StrictModel
 
@@ -25,6 +28,10 @@ class AdapterConfig(StrictModel):
     api_key: SecretStr | None = Field(default=None, repr=False)
     api_key_env: str = Field(default=OPENAI_API_KEY_ENV, min_length=1)
     llm_max_candidates: int = Field(default=4, ge=1, le=20)
+    retrieval_backend: str = Field(default=DEFAULT_RETRIEVAL_BACKEND, min_length=1)
+    retrieval_api_key: SecretStr | None = Field(default=None, repr=False)
+    retrieval_api_key_env: str = Field(default=OPENALEX_API_KEY_ENV, min_length=1)
+    retrieval_limit: int = Field(default=DEFAULT_RETRIEVAL_LIMIT, ge=1, le=100)
 
     @field_validator("adapter_backend")
     @classmethod
@@ -34,7 +41,15 @@ class AdapterConfig(StrictModel):
             raise ValueError("adapter_backend must not be empty")
         return normalized
 
-    @field_validator("llm_model", "api_key_env")
+    @field_validator("retrieval_backend")
+    @classmethod
+    def normalize_retrieval_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("retrieval_backend must not be empty")
+        return normalized
+
+    @field_validator("llm_model", "api_key_env", "retrieval_api_key_env")
     @classmethod
     def strip_nonempty_text(cls, value: str) -> str:
         normalized = value.strip()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,6 +28,11 @@ from factori.adapters.llm_real import (
     LLMTransport,
     OpenAILLMClient,
     OpenAIResponsesTransport,
+)
+from factori.adapters.retrieval_real import (
+    OpenAlexRetrievalClient,
+    OpenAlexTransport,
+    RetrievalTransport,
 )
 
 
@@ -63,6 +68,8 @@ def get_adapter_registry(
     config: AdapterConfig | Mapping[str, Any] | None = None,
     *,
     llm_transport: LLMTransport | None = None,
+    retrieval_transport: RetrievalTransport | None = None,
+    retrieval_clock: Callable[[], str] | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> AdapterRegistry:
     """Build fake adapters or an explicitly gated Stage A OpenAI LLM adapter."""
@@ -72,6 +79,7 @@ def get_adapter_registry(
             f"Adapter backend '{loaded.adapter_backend}' is not implemented. "
             "Only 'fake' is available in this milestone."
         )
+    environment = os.environ if environ is None else environ
     llm: LLMClient = FakeLLMClient()
     if loaded.adapter_backend in {"openai", "real_llm"}:
         if not loaded.allow_external_calls:
@@ -79,7 +87,6 @@ def get_adapter_registry(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "LLM adapters."
             )
-        environment = os.environ if environ is None else environ
         configured_key = (
             loaded.api_key.get_secret_value() if loaded.api_key is not None else None
         )
@@ -95,10 +102,44 @@ def get_adapter_registry(
             max_candidates=loaded.llm_max_candidates,
             allow_external_calls=True,
         )
+    if loaded.retrieval_backend not in {"fake", "openalex", "real_retrieval"}:
+        raise AdapterConfigurationError(
+            f"Retrieval backend '{loaded.retrieval_backend}' is not implemented. "
+            "Available retrieval backends are 'fake' and gated 'openalex'."
+        )
+    retrieval: RetrievalClient = FakeRetrievalClient()
+    if loaded.retrieval_backend in {"openalex", "real_retrieval"}:
+        if not loaded.allow_external_calls:
+            raise AdapterConfigurationError(
+                "External calls are disabled. Set allow_external_calls=true to use real "
+                "retrieval adapters."
+            )
+        configured_retrieval_key = (
+            loaded.retrieval_api_key.get_secret_value()
+            if loaded.retrieval_api_key is not None
+            else None
+        )
+        retrieval_key = configured_retrieval_key or environment.get(
+            loaded.retrieval_api_key_env
+        )
+        if not retrieval_key:
+            raise AdapterConfigurationError(
+                "Real retrieval adapter requested but required credentials are not configured."
+            )
+        retrieval_kwargs: dict[str, Any] = {}
+        if retrieval_clock is not None:
+            retrieval_kwargs["clock"] = retrieval_clock
+        retrieval = OpenAlexRetrievalClient(
+            api_key=retrieval_key,
+            transport=retrieval_transport or OpenAlexTransport(),
+            default_limit=loaded.retrieval_limit,
+            allow_external_calls=True,
+            **retrieval_kwargs,
+        )
     return AdapterRegistry(
         config=loaded,
         llm=llm,
-        retrieval=FakeRetrievalClient(),
+        retrieval=retrieval,
         proof_verifier=FakeProofVerifier(),
         experiment_runner=FakeExperimentRunner(),
         prose_generator=FakeProseGenerator(),

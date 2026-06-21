@@ -29,6 +29,10 @@ details that are not captured by the context files.
   `openai` backend, `allow_external_calls=true`, and an API key. Do not extend it to review,
   retrieval, verification, experiments, synthesis, prose, or human approval unless explicitly
   requested.
+- A gated OpenAlex adapter exists only for source metadata/abstract retrieval and bounded
+  retrieval-adequacy inputs. It requires the explicit `openalex` retrieval backend,
+  `allow_external_calls=true`, and configured credentials. Do not treat it as novelty proof,
+  complete literature coverage, claim verification, or external-review readiness.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -48,6 +52,9 @@ details that are not captured by the context files.
   adapters must not write around provenance or bypass evidence checks.
 - LLM prompts, raw responses, parse reports, and proposed candidates are provenance/context only;
   they are not proof, experiment, literature, or human-review evidence.
+- Retrieval queries, responses, normalized sources, documents, and adequacy certificates are
+  literature context only. They are not proof, experiment, claim-verification, or human-approval
+  evidence.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

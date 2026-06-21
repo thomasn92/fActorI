@@ -3,14 +3,26 @@
 from __future__ import annotations
 
 from factori.retrieval import compute_retrieval_adequacy
-from factori.schemas import BranchStatus, Candidate, RedTeamReport, ScoreVector
+from factori.schemas import (
+    BranchStatus,
+    Candidate,
+    RedTeamReport,
+    RetrievalAdequacyCertificate,
+    ScoreVector,
+)
 
 TRIVIALITY_THRESHOLD = 0.70
 
 
-def run_redteam_checks(candidate: Candidate, score: ScoreVector) -> RedTeamReport:
+def run_redteam_checks(
+    candidate: Candidate,
+    score: ScoreVector,
+    retrieval_certificate: RetrievalAdequacyCertificate | None = None,
+) -> RedTeamReport:
     """Run deterministic novelty-risk, retrieval, and triviality checks."""
-    retrieval_certificate = compute_retrieval_adequacy(candidate.literature)
+    retrieval_certificate = retrieval_certificate or compute_retrieval_adequacy(
+        candidate.literature
+    )
     theorem_style = _is_theorem_style(candidate)
     triviality_score = theorem_significance(candidate, score) if theorem_style else None
     triviality_passed = triviality_score is None or triviality_score >= TRIVIALITY_THRESHOLD

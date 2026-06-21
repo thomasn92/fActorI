@@ -25,10 +25,11 @@
 | 22 | Deterministic non-executing hygiene remediation planning with risk levels and producing-stage recommendations | `hygiene_plan.py`, `remediation.py` | `plan-hygiene-remediation` | Read-only; recommendations are never executed and optional plans remain outside provenance and the ledger |
 | 23 | Explicit backend adapter interfaces with deterministic fake defaults and fake-only registry enforcement | `adapters/base.py`, `adapters/fake.py`, `adapters/registry.py`, `adapters/config.py` | `show-adapters`, `adapters` | Registry inspection is read-only; stage-owned adapter outputs continue through existing artifact and ledger paths |
 | 24 | First real-but-gated LLM candidate-generation adapter with deterministic prompt/safety contracts and fake defaults | `adapters/llm_real.py`, `adapters/llm_prompts.py`, `adapters/llm_safety.py`, `stage_a.py` | `run-stage-a --adapter-backend openai --allow-external-calls`, `run-all` with the same opt-in | Real Stage A proposals and sanitized traces are hashed and ledgered; fake default behavior is unchanged |
+| 25 | Gated OpenAlex source retrieval with deterministic normalization, source provenance, bounded adequacy, and fake defaults | `adapters/retrieval_real.py`, `adapters/retrieval_sources.py`, `adapters/retrieval_safety.py`, `retrieval.py`, `stage_b.py` | `run-stage-b --retrieval-backend openalex --allow-external-calls`, `retrieval-adequacy-demo` with the same opt-in | Real retrieval context is hashed and ledgered in Stage B; it is not verification evidence or novelty proof |
 
 ## Current Boundary
 
-Milestones through 24 implement a deterministic scaffold plus one explicitly gated external seam
-for Stage A candidate proposal. They do not implement autonomous real agents, scientific retrieval,
-proof checking, experiments, LLM review/synthesis/writing, polished prose, final LaTeX, or
-production orchestration frameworks.
+Milestones through 25 implement a deterministic scaffold plus explicitly gated external seams for
+Stage A candidate proposal and Stage B source metadata retrieval. They do not implement autonomous
+real agents, complete scientific literature coverage, proof checking, experiments, LLM
+review/synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks.

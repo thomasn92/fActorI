@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from statistics import mean
 from typing import Any
 
-from factori.hashing import canonical_json, sha256_text
+from factori.hashing import canonical_json, sha256_json, sha256_text
 from factori.schemas import (
     BranchStatus,
     Candidate,
@@ -23,7 +23,10 @@ from factori.schemas import (
     RetrievalResult,
     RetrievedDocument,
     ReviewReport,
+    SourceProvenance,
 )
+
+FAKE_RETRIEVAL_TIMESTAMP = "1970-01-01T00:00:00Z"
 
 
 @dataclass(frozen=True)
@@ -87,26 +90,60 @@ class FakeRetrievalClient:
             raise ValueError("retrieval limit must be non-negative")
         normalized = " ".join(query.lower().split()) or "empty-query"
         digest = sha256_text(normalized)[:12]
-        return [
-            RetrievalResult(
-                source_id=f"fake-source-{digest}-{index + 1:03d}",
-                title=f"Fake retrieval result {index + 1} for {normalized}",
-                snippet="Deterministic placeholder literature result; no source was retrieved.",
-                score=round(max(0.5, 0.9 - 0.04 * index), 6),
-                metadata={"query": normalized, "rank": index + 1, "backend": "fake"},
+        results = []
+        for index in range(limit):
+            source_id = f"fake-source-{digest}-{index + 1:03d}"
+            raw_hash = sha256_json(
+                {"source_id": source_id, "query": normalized, "rank": index}
             )
-            for index in range(limit)
-        ]
+            provenance = SourceProvenance(
+                source_id=source_id,
+                provider="fake",
+                query=normalized,
+                rank=index,
+                retrieved_at=FAKE_RETRIEVAL_TIMESTAMP,
+                raw_metadata_hash=raw_hash,
+            )
+            results.append(
+                RetrievalResult(
+                    source_id=source_id,
+                    title=f"Fake retrieval result {index + 1} for {normalized}",
+                    provider="fake",
+                    retrieved_at=FAKE_RETRIEVAL_TIMESTAMP,
+                    query=normalized,
+                    rank=index,
+                    raw_metadata_hash=raw_hash,
+                    source_provenance=provenance,
+                    snippet=(
+                        "Deterministic placeholder literature result; no source was retrieved."
+                    ),
+                    score=round(max(0.5, 0.9 - 0.04 * index), 6),
+                    metadata={"query": normalized, "rank": index, "backend": "fake"},
+                )
+            )
+        return results
 
     def fetch(self, source_id: str) -> RetrievedDocument:
+        payload = {
+            "source_id": source_id,
+            "backend": "fake",
+            "external_fetch_performed": False,
+        }
         return RetrievedDocument(
             source_id=source_id,
+            provider="fake",
             title=f"Fake document {source_id}",
             content=(
                 "[FAKE RETRIEVED DOCUMENT] No external source was fetched. "
                 f"Synthetic source identifier: {source_id}."
             ),
-            metadata={"backend": "fake", "external_fetch_performed": False},
+            text_or_abstract=(
+                "[FAKE RETRIEVED DOCUMENT] No external source was fetched."
+            ),
+            raw_payload_hash=sha256_json(payload),
+            retrieved_at=FAKE_RETRIEVAL_TIMESTAMP,
+            fetch_status="FakeNoFetchPerformed",
+            metadata=payload,
         )
 
     def build_adequacy_certificate(
@@ -117,7 +154,9 @@ class FakeRetrievalClient:
         from factori.retrieval import compute_retrieval_adequacy
 
         normalized = " ".join(query.split())
-        average_score = mean(result.score for result in results) if results else 0.0
+        average_score = (
+            mean(result.score or 0.0 for result in results) if results else 0.0
+        )
         result_count = len(results)
         literature_state = LiteratureState(
             k=result_count,
@@ -131,7 +170,16 @@ class FakeRetrievalClient:
             novelty_risk=round(max(0.0, 1.0 - average_score), 6),
             closest_priors=[result.source_id for result in results[:3]],
         )
-        return compute_retrieval_adequacy(literature_state)
+        return compute_retrieval_adequacy(literature_state).model_copy(
+            update={
+                "provider": "fake",
+                "source_count": result_count,
+                "limitations": [
+                    "Fake retrieval adequacy is a bounded test signal, not novelty proof or "
+                    "literature coverage."
+                ],
+            }
+        )
 
 
 @dataclass(frozen=True)

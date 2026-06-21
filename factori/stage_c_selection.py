@@ -260,7 +260,7 @@ def run_stage_c_selection(
         candidate = context.candidate
         scores[candidate.id] = context.score
         artifacts[candidate.id] = []
-        retrieval_certificate = compute_retrieval_adequacy(candidate.literature)
+        retrieval_certificate = context.redteam_report.retrieval_certificate
         redteam_report = aggregate_redteam_selection(
             candidate=candidate,
             siblings=stage_b_survivors,

@@ -28,6 +28,12 @@ from factori.adapters.registry import (
     AdapterRegistry,
     get_adapter_registry,
 )
+from factori.adapters.retrieval_real import OpenAlexRetrievalClient, OpenAlexTransport
+from factori.adapters.retrieval_safety import validate_retrieval_result
+from factori.adapters.retrieval_sources import (
+    build_retrieval_query,
+    normalize_retrieval_result,
+)
 
 __all__ = [
     "AdapterConfig",
@@ -44,12 +50,17 @@ __all__ = [
     "LLMClient",
     "OpenAILLMClient",
     "OpenAIResponsesTransport",
+    "OpenAlexRetrievalClient",
+    "OpenAlexTransport",
     "ProofVerifier",
     "ProseGenerator",
     "RetrievalClient",
     "get_adapter_registry",
     "build_stage_a_candidate_prompt",
+    "build_retrieval_query",
     "load_adapter_config",
     "parse_llm_candidate_response",
+    "normalize_retrieval_result",
     "validate_llm_candidate",
+    "validate_retrieval_result",
 ]

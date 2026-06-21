@@ -16,6 +16,8 @@ from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
     DEFAULT_LLM_MODEL,
+    DEFAULT_RETRIEVAL_BACKEND,
+    DEFAULT_RETRIEVAL_LIMIT,
     DEFAULT_ROOT,
     DEFAULT_RUN_ID,
     LEDGER_FILENAME,
@@ -116,6 +118,14 @@ def show_adapters_command(
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    retrieval_backend: Annotated[
+        str,
+        typer.Option("--retrieval-backend"),
+    ] = DEFAULT_RETRIEVAL_BACKEND,
+    retrieval_limit: Annotated[
+        int,
+        typer.Option("--retrieval-limit"),
+    ] = DEFAULT_RETRIEVAL_LIMIT,
 ) -> None:
     """Show the active adapter registry without calling any backend."""
     try:
@@ -124,6 +134,8 @@ def show_adapters_command(
                 adapter_backend=backend,
                 allow_external_calls=allow_external_calls,
                 llm_model=llm_model,
+                retrieval_backend=retrieval_backend,
+                retrieval_limit=retrieval_limit,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -135,6 +147,8 @@ def show_adapters_command(
         f"{str(registry.config.allow_external_calls).lower()}"
     )
     typer.echo(f"llm_model={registry.config.llm_model}")
+    typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
+    typer.echo(f"retrieval_limit={registry.config.retrieval_limit}")
     for name, class_name in registry.class_names().items():
         typer.echo(f"{name}={class_name}")
 
@@ -585,12 +599,44 @@ def run_stage_a_command(
 def run_stage_b_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    retrieval_backend: Annotated[
+        str,
+        typer.Option("--retrieval-backend"),
+    ] = DEFAULT_RETRIEVAL_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    retrieval_limit: Annotated[
+        int,
+        typer.Option("--retrieval-limit"),
+    ] = DEFAULT_RETRIEVAL_LIMIT,
 ) -> None:
-    """Run deterministic fake Stage B structural validation."""
+    """Run Stage B with fake defaults or explicitly gated source retrieval."""
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                retrieval_backend=retrieval_backend,
+                allow_external_calls=allow_external_calls,
+                retrieval_limit=retrieval_limit,
+            )
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
-        result = run_stage_b(run_id=run_id, store=store, ledger=ledger)
+        result = run_stage_b(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            retrieval_client=(
+                registry.retrieval
+                if registry.config.retrieval_backend != "fake"
+                else None
+            ),
+        )
     except StageBError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
@@ -602,6 +648,7 @@ def run_stage_b_command(
     typer.echo(f"insufficient_retrieval={len(result.insufficient_retrieval)}")
     typer.echo(f"passing_stage_b={len(result.survivors)}")
     typer.echo(f"stage_b_report={result.report_artifact.path}")
+    typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
 
 
 @app.command("select-stage-c")
@@ -1100,18 +1147,50 @@ def questioner_check(
 
 
 @app.command("retrieval-adequacy-demo")
-def retrieval_adequacy_demo() -> None:
-    """Print a deterministic retrieval adequacy certificate."""
-    certificate = compute_retrieval_adequacy(
-        LiteratureState(
-            semantic=0.70,
-            keyword=0.74,
-            citation=0.66,
-            diversity=0.62,
-            adversarial=0.58,
-            novelty_risk=0.25,
+def retrieval_adequacy_demo(
+    query: Annotated[
+        str,
+        typer.Option("--query"),
+    ] = "distribution shift uncertainty quantification",
+    retrieval_backend: Annotated[
+        str,
+        typer.Option("--retrieval-backend"),
+    ] = DEFAULT_RETRIEVAL_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    retrieval_limit: Annotated[
+        int,
+        typer.Option("--retrieval-limit"),
+    ] = DEFAULT_RETRIEVAL_LIMIT,
+) -> None:
+    """Print fake-default or explicitly gated bounded retrieval adequacy."""
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                retrieval_backend=retrieval_backend,
+                allow_external_calls=allow_external_calls,
+                retrieval_limit=retrieval_limit,
+            )
         )
-    )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if registry.config.retrieval_backend == "fake":
+        certificate = compute_retrieval_adequacy(
+            LiteratureState(
+                semantic=0.70,
+                keyword=0.74,
+                citation=0.66,
+                diversity=0.62,
+                adversarial=0.58,
+                novelty_risk=0.25,
+            )
+        )
+    else:
+        results = registry.retrieval.search(query, retrieval_limit)
+        certificate = registry.retrieval.build_adequacy_certificate(query, results)
     typer.echo(json.dumps(certificate.model_dump(mode="json"), sort_keys=True))
 
 

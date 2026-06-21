@@ -25,7 +25,13 @@ All implementation modules are under `factori/`.
   data-boundary enforcement for untrusted LLM output.
 - `adapters/llm_real.py`: provider-isolated OpenAI Responses transport and injected-transport
   Stage A LLM client; no network call occurs unless explicitly enabled and invoked.
-- `adapters/registry.py`: fake-default registry and explicit gating for the Stage A OpenAI adapter.
+- `adapters/retrieval_sources.py`: deterministic OpenAlex query contracts, URL/DOI normalization,
+  abstract reconstruction, and source/document provenance hashes.
+- `adapters/retrieval_safety.py`: strict provider-result validation and malformed-source rejection.
+- `adapters/retrieval_real.py`: provider-isolated OpenAlex transport and injected-transport client
+  for source metadata, abstracts, and bounded retrieval adequacy.
+- `adapters/registry.py`: fake-default registry and explicit gates for Stage A OpenAI and Stage B
+  OpenAlex adapters.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -60,12 +66,14 @@ All implementation modules are under `factori/`.
 - `questioner.py`: Strategic Questioner selection and action routing.
 - `autonomy.py`: deterministic HumanRequired predicate and autonomy contract.
 - `stagnation.py`: global stagnation index and forced actions.
-- `retrieval.py`: retrieval adequacy certificate skeleton.
+- `retrieval.py`: retrieval adequacy certificate skeleton plus stage-owned query/response/result/
+  certificate artifact and ledger flow.
 - `runtime_summary.py`: non-provenance runtime context compression.
 
 ## Stage B
 
-- `stage_b.py`: Stage B child expansion, checks, gate, ranking, artifacts, and ledger flow.
+- `stage_b.py`: Stage B child expansion, optional per-parent gated retrieval, checks, gate, ranking,
+  artifacts, and ledger flow.
 - `reviewers.py`: deterministic fake reviewer panels and disagreement resolution.
 - `bridge.py`: deterministic bridge survival and one-repair policy.
 - `baselines.py`: deterministic baseline validation.

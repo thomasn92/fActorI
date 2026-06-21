@@ -30,7 +30,9 @@ human-review backends. The active registry defaults to deterministic fake adapte
 `allow_external_calls=false`. One provider-isolated OpenAI adapter is available only for Stage A
 candidate proposal. It cannot be selected without the `openai` backend, explicit external-call
 permission, and an API key. All retrieval, proof, experiment, prose, and human-review adapters
-remain fake. No subprocess, Lean, Docker runner, or human-review service is implemented.
+remain fake except for one gated OpenAlex source-metadata adapter used by Stage B. OpenAlex also
+requires explicit external-call permission and configured credentials. No subprocess, Lean,
+Docker runner, or human-review service is implemented.
 
 Adapters return typed values to existing stages. Any adapter output that changes run state must
 still be validated, written through the artifact store, and committed through the append-only
@@ -43,6 +45,13 @@ response, and parse-report artifacts are hashed and ledgered as non-evidence con
 candidates still pass through Pydantic validation, the MVP data gate, deterministic scoring,
 deduplication, and the Stage A gate. LLM output can propose ideas only and cannot confer any
 verification label.
+
+The OpenAlex retrieval adapter searches and fetches source metadata or abstracts only. Stage B
+performs one query per Stage A survivor, writes ledgered query/response/normalization/certificate
+artifacts, and reuses each bounded certificate across child variants. Stage C selection reuses the
+Stage B certificate and does not repeat retrieval. Source metadata hashes establish provenance;
+they do not establish novelty, complete literature coverage, claim validity, or external-review
+readiness.
 
 ## Mutating and Read-Only Operations
 
@@ -111,6 +120,8 @@ The following never count as verification evidence:
 - runtime summaries and manifests;
 - replay reports and diagnostics reports.
 - LLM requests, responses, parse reports, and candidate proposals.
+- retrieval queries, raw responses, normalized source records, fetched metadata, and adequacy
+  certificates.
 
 Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. They are not
 real Lean results or real scientific experiments.
