@@ -13,6 +13,7 @@ verification evidence, or a replacement for the append-only research ledger.
 - `jsonschema/*.schema.json`: JSON Schema Draft 2020-12 contracts.
 - `examples/*.example.json`: small deterministic payload examples.
 - `examples/README.md`: example-use and evidence-boundary notes.
+- `compatibility.md`: conservative schema-change classification policy.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -38,3 +39,13 @@ fails if a schema, version file, or example is missing or stale.
 
 Consumers should pin `protocol_version` from `version.json`, validate payloads at process
 boundaries, and treat version changes as interface changes requiring compatibility review.
+
+Compare two exported versions with:
+
+```bash
+uv run factori check-protocol-compat \
+  --old-dir path/to/old/jsonschema --new-dir path/to/new/jsonschema
+```
+
+See [`compatibility.md`](compatibility.md) for the exact breaking, non-breaking, documentation, and
+unknown-change policy. Compatibility checking is conservative and read-only.

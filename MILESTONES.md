@@ -28,10 +28,12 @@
 | 25 | Gated OpenAlex source retrieval with deterministic normalization, source provenance, bounded adequacy, and fake defaults | `adapters/retrieval_real.py`, `adapters/retrieval_sources.py`, `adapters/retrieval_safety.py`, `retrieval.py`, `stage_b.py` | `run-stage-b --retrieval-backend openalex --allow-external-calls`, `retrieval-adequacy-demo` with the same opt-in | Real retrieval context is hashed and ledgered in Stage B; it is not verification evidence or novelty proof |
 | 26 | Gated OpenAI Stage B structural reviewer with deterministic prompts, parsing, safety fallback, and fake defaults | `adapters/llm_review.py`, `adapters/reviewer_prompts.py`, `adapters/reviewer_safety.py`, `reviewers.py`, `stage_b.py` | `run-stage-b --reviewer-backend openai --use-llm-reviewers --allow-external-calls` | Reviewer traces and reports are hashed and ledgered as non-evidence context; reviewer output has no verification or publication authority |
 | 26.5 | Language-neutral versioned protocol definitions, deterministic JSON Schema export, and interoperability examples | `protocols.py`, `schema_export.py`, `protocols/` | `export-protocols`, `export-protocols --check` | Read-only with respect to runs and ledgers; generated developer contracts are not provenance or evidence |
+| 27 | Conservative protocol compatibility checking and deterministic schema-change classification | `protocol_compat.py`, `schema_diff.py`, `protocols/compatibility.md` | `check-protocol-compat` | Read-only developer-contract comparison; creates no files, run artifacts, or ledger commits |
+| 27-P | Persistence hardening I: atomic artifact/sidecar replacement, newline-stable hashing, injectable clocks, and storage protocols | `storage_protocols.py`, `artifacts.py`, `ledger.py`, `run_all.py` | Existing commands unchanged | Existing mutating stages retain append-only behavior; persistence is safer and fixed clocks are injectable for tests |
 
 ## Current Boundary
 
-Milestones through 26.5 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 27-P implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
 real agents, complete scientific literature coverage, proof checking, experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM

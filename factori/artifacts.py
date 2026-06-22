@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +68,7 @@ class ArtifactStore:
         """Write a canonical JSON artifact and return its reference."""
         self.init_run(run_id)
         path = self._artifact_path(run_id, artifact_type, artifact_id, "json")
-        path.write_text(canonical_json(data) + "\n", encoding="utf-8")
+        self._atomic_write_text(path, canonical_json(data) + "\n")
         return self._ref(
             artifact_id=artifact_id,
             artifact_type=artifact_type,
@@ -88,7 +90,7 @@ class ArtifactStore:
         """Write a Markdown artifact and return its reference."""
         self.init_run(run_id)
         path = self._artifact_path(run_id, artifact_type, artifact_id, "md")
-        path.write_text(markdown, encoding="utf-8")
+        self._atomic_write_text(path, markdown)
         return self._ref(
             artifact_id=artifact_id,
             artifact_type=artifact_type,
@@ -102,8 +104,56 @@ class ArtifactStore:
         linked = artifact.model_copy(update={"producing_commit_hash": commit_hash})
         meta_path = self.root / f"{linked.path}.meta.json"
         meta_path.parent.mkdir(parents=True, exist_ok=True)
-        meta_path.write_text(canonical_json(linked) + "\n", encoding="utf-8")
+        self._atomic_write_text(meta_path, canonical_json(linked) + "\n")
         return linked
+
+    def _atomic_write_text(self, path: Path, text: str) -> None:
+        """Atomically replace one UTF-8 text file using stable LF newlines."""
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+        self._atomic_write_bytes(path, normalized.encode("utf-8"))
+
+    def _atomic_write_bytes(self, path: Path, content: bytes) -> None:
+        """Write and fsync a same-directory temp file before atomic replacement."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temp_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+        )
+        temp_path = Path(temp_name)
+        handle_open = False
+        try:
+            handle = os.fdopen(descriptor, "wb")
+            handle_open = True
+            descriptor = -1
+            with handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            handle_open = False
+            os.replace(temp_path, path)
+            self._fsync_directory(path.parent)
+        except BaseException:
+            if descriptor >= 0:
+                os.close(descriptor)
+            if handle_open:
+                handle.close()
+            temp_path.unlink(missing_ok=True)
+            raise
+
+    @staticmethod
+    def _fsync_directory(directory: Path) -> None:
+        """Best-effort directory fsync after replace on supporting platforms."""
+        try:
+            descriptor = os.open(directory, os.O_RDONLY)
+        except OSError:
+            return
+        try:
+            os.fsync(descriptor)
+        except OSError:
+            pass
+        finally:
+            os.close(descriptor)
 
     def _artifact_path(
         self,

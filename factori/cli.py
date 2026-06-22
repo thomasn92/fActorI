@@ -47,6 +47,7 @@ from factori.output_hygiene import (
     summarize_output_hygiene,
     write_output_hygiene_report,
 )
+from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
 from factori.protocols import PROTOCOL_VERSION
 from factori.questioner import route_questions_to_action, routed_action, select_questions
 from factori.regression_diagnostics import summarize_cross_run_comparison
@@ -137,6 +138,39 @@ def export_protocols_command(
     typer.echo(f"examples={len(result.example_files)}")
     typer.echo(f"output_dir={result.output_dir}")
     typer.echo(f"check={'ok' if check else 'not_requested'}")
+
+
+@app.command("check-protocol-compat")
+def check_protocol_compat_command(
+    old_dir: Annotated[Path, typer.Option("--old-dir")],
+    new_dir: Annotated[Path, typer.Option("--new-dir")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    fail_on_breaking: Annotated[
+        bool,
+        typer.Option("--fail-on-breaking"),
+    ] = False,
+) -> None:
+    """Compare two protocol schema directories without modifying either."""
+    report = compare_schema_dirs(old_dir, new_dir)
+    if json_output:
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+    else:
+        typer.echo(f"old_protocol_version={report.old_protocol_version}")
+        typer.echo(f"new_protocol_version={report.new_protocol_version}")
+        typer.echo(f"schemas_added={len(report.schemas_added)}")
+        typer.echo(f"schemas_removed={len(report.schemas_removed)}")
+        typer.echo(f"schemas_changed={len(report.schemas_changed)}")
+        typer.echo(f"breaking_changes={len(report.breaking_changes)}")
+        typer.echo(f"nonbreaking_changes={len(report.nonbreaking_changes)}")
+        typer.echo(f"documentation_changes={len(report.documentation_changes)}")
+        typer.echo(f"unknown_changes={len(report.unknown_changes)}")
+        typer.echo(f"compatibility_status={report.compatibility_status.value}")
+        for error in report.comparison_errors:
+            typer.echo(f"error={error}", err=True)
+    if report.compatibility_status == ProtocolCompatibilityStatus.COMPARISON_FAILED:
+        raise typer.Exit(code=1)
+    if fail_on_breaking and report.breaking_changes:
+        raise typer.Exit(code=1)
 
 
 @app.command("adapters")

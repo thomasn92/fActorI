@@ -23,6 +23,18 @@ Constraints
 The SQLite ledger is append-only. Artifact contents are SHA-256 hashed and linked to their
 producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
+## Persistence Boundary
+
+Artifact and sidecar writes use UTF-8 with normalized LF newlines. Each write is flushed and synced
+to a temporary file in the destination directory, atomically installed with `os.replace`, then
+hashed from the final on-disk bytes. Pre-replace failures leave an existing final file unchanged and
+remove the temporary file when possible.
+
+`Clock`, `LedgerProtocol`, and `ArtifactStoreProtocol` define the small persistence surface used by
+the current pipeline. `SystemClock` preserves normal UTC behavior. `FixedClock` can drive ledger and
+pipeline-report timestamps in tests without changing stage logic or CLI semantics. These protocols
+are implementation seams; they do not replace the append-only ledger as provenance.
+
 ## Language-Neutral Protocol Boundary
 
 Stable public protocol names are registered in `factori/protocols.py` and exported from existing

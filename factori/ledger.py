@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from factori.hashing import canonical_json, sha256_json
 from factori.schemas import ArtifactRef, ControllerActionType, LedgerCommit
+from factori.storage_protocols import Clock, SystemClock
 
 
 class LedgerError(RuntimeError):
@@ -19,7 +19,7 @@ class LedgerError(RuntimeError):
 
 def utc_timestamp() -> str:
     """Return an ISO-8601 UTC timestamp."""
-    return datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    return SystemClock().now()
 
 
 def _artifact_for_hash(
@@ -102,8 +102,9 @@ def compute_commit_hash(
 class ResearchLedger:
     """Local append-only SQLite ledger."""
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, clock: Clock | None = None) -> None:
         self.path = Path(path)
+        self.clock = clock or SystemClock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -158,6 +159,7 @@ class ResearchLedger:
         candidate_id: str | None = None,
         artifact_refs: Iterable[ArtifactRef] = (),
         timestamp: str | None = None,
+        clock: Clock | None = None,
     ) -> LedgerCommit:
         """Append one immutable commit.
 
@@ -169,7 +171,7 @@ class ResearchLedger:
         if parent_hash is not None and not self.has_commit(parent_hash):
             raise LedgerError(f"parent hash does not exist: {parent_hash}")
 
-        timestamp = timestamp or utc_timestamp()
+        timestamp = timestamp or (clock or self.clock).now()
         self_link_artifact_ids = {ref.id for ref in refs if ref.producing_commit_hash is None}
         commit_hash = compute_commit_hash(
             parent_hash=parent_hash,

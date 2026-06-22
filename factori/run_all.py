@@ -24,7 +24,7 @@ from factori.draft_skeleton import run_draft_skeleton_generation
 from factori.export_plan import prepare_export
 from factori.final_audit import run_final_audit
 from factori.final_paper import run_paper_assembly
-from factori.ledger import ResearchLedger, utc_timestamp
+from factori.ledger import ResearchLedger
 from factori.manuscript_plan import run_manuscript_planning
 from factori.pipeline import (
     PipelineConfigurationError,
@@ -56,6 +56,7 @@ from factori.stage_b import run_stage_b
 from factori.stage_c import run_stage_c
 from factori.stage_c_selection import run_stage_c_selection
 from factori.status import validate_resume_request
+from factori.storage_protocols import Clock, SystemClock
 
 
 class PipelineRunError(RuntimeError):
@@ -74,8 +75,13 @@ class _StageExecution:
     diagnostic_status: DiagnosticStatus | None = None
 
 
-def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
+def run_deterministic_pipeline(
+    config: PipelineRunConfig,
+    *,
+    clock: Clock | None = None,
+) -> PipelineRunReport:
     """Execute selected deterministic stages directly and write a ledgered pipeline report."""
+    clock = clock or SystemClock()
     try:
         stages = selected_pipeline_stages(config)
     except PipelineConfigurationError as exc:
@@ -119,8 +125,8 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
             raise PipelineRunError(f"Cannot start at {config.start_at.value}: {details}")
 
     store.init_run(config.run_id)
-    ledger = ResearchLedger(ledger_path)
-    pipeline_started = utc_timestamp()
+    ledger = ResearchLedger(ledger_path, clock=clock)
+    pipeline_started = clock.now()
     stage_results: list[PipelineStageResult] = []
     warnings: list[str] = []
     final_outputs: dict[str, str] = {}
@@ -134,7 +140,7 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
         if mutating_failure and not stage_is_read_only(stage):
             warnings.append(f"Skipped {stage.value} after an earlier mutating-stage failure")
             continue
-        stage_started = utc_timestamp()
+        stage_started = clock.now()
         commits_before = len(ledger.list_commits(config.run_id))
         try:
             execution = _execute_stage(stage, config, store, ledger, adapter_registry)
@@ -146,7 +152,7 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
             stage_result = PipelineStageResult(
                 stage_name=stage,
                 started_at=stage_started,
-                finished_at=utc_timestamp(),
+                finished_at=clock.now(),
                 status=execution.status,
                 created_artifacts=execution.artifacts,
                 summary={
@@ -170,7 +176,7 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
                 PipelineStageResult(
                     stage_name=stage,
                     started_at=stage_started,
-                    finished_at=utc_timestamp(),
+                    finished_at=clock.now(),
                     status=PipelineRunStatus.PIPELINE_FAILED,
                     summary={
                         "ledger_commits_before": commits_before,
@@ -196,7 +202,7 @@ def run_deterministic_pipeline(config: PipelineRunConfig) -> PipelineRunReport:
         method=config.method,
         stage_results=stage_results,
         started_at=pipeline_started,
-        finished_at=utc_timestamp(),
+        finished_at=clock.now(),
         pipeline_status=pipeline_status,
         failure_policy=config.failure_policy,
         blocking_stage=blocking_stage,

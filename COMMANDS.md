@@ -26,6 +26,21 @@ An isolated consumer export can use `--output-dir <path>/jsonschema`. Protocol e
 run provenance: it creates no ledger commits, touches no run artifact manifests, and produces no
 verification evidence.
 
+Compare two exported schema versions without writing either directory:
+
+```bash
+uv run factori check-protocol-compat \
+  --old-dir path/to/old/jsonschema \
+  --new-dir path/to/new/jsonschema
+uv run factori check-protocol-compat \
+  --old-dir path/to/old/jsonschema \
+  --new-dir path/to/new/jsonschema \
+  --json --fail-on-breaking
+```
+
+The checker is conservative. Unknown composition or reference changes require manual review. The
+optional-property removal policy is breaking because generated consumers may depend on the field.
+
 ## Deterministic Pipeline
 
 Canonical one-command run:
@@ -199,6 +214,10 @@ Commands for an already-created local environment:
 .venv/bin/python -m pytest
 .venv/bin/ruff check .
 ```
+
+Persistence tests cover atomic replacement, failed-write cleanup, final-byte hashes, newline
+normalization, storage protocol conformance, and fixed-clock pipeline timestamps. No separate CLI
+configuration is required; normal commands continue to use the UTC system clock.
 
 Default commands do not call external APIs, real Lean, real experiments, Docker, a server, or a
 frontend. Only the explicitly gated Stage A OpenAI and Stage B OpenAlex commands above may call an

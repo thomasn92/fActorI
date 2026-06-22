@@ -18,12 +18,16 @@ The LaTeX specification is reference material only and should not be read in ful
 by the task.
 
 Language-neutral developer contracts are documented in [`protocols/README.md`](protocols/README.md).
+Compatibility rules are documented in
+[`protocols/compatibility.md`](protocols/compatibility.md).
 
 Implemented so far:
 
 - strict Pydantic schemas for core research entities;
 - a local SQLite append-only ledger with deterministic commit hashes;
-- a local filesystem artifact store under `runs/<run_id>/`;
+- a local filesystem artifact store under `runs/<run_id>/` with atomic replacement, UTF-8/LF
+  normalization, final-byte hashing, and best-effort durability sync;
+- small runtime-checkable ledger, artifact-store, and clock protocols with fixed-clock test support;
 - a minimal Typer CLI;
 - deterministic fake Stage 0 opportunity discovery and Stage A candidate ranking;
 - deterministic fake Stage B structural validation;
@@ -55,6 +59,7 @@ Implemented so far:
 - an explicitly gated OpenAI reviewer adapter for Stage B structural critique, with strict local
   safety checks, ledgered context artifacts, and no verification or publication authority;
 - versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
+- conservative read-only protocol compatibility and schema-change classification;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -128,6 +133,7 @@ uv run factori plan-hygiene-remediation --run-id demo --json
 uv run factori show-adapters
 uv run factori export-protocols
 uv run factori export-protocols --check
+uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -152,6 +158,14 @@ and outside provenance.
 `export-protocols` derives developer-facing JSON Schemas from existing typed models. Its `--check`
 mode is read-only and suitable for CI. Protocol files are not run artifacts, ledger provenance, or
 scientific evidence.
+
+`check-protocol-compat` compares exported schema directories without modifying them. It detects
+common breaking and widening changes and reports complex composition/reference changes as unknown
+instead of claiming semantic compatibility.
+
+Persistence writes use a same-directory temporary file, flush and fsync its bytes, then atomically
+replace the final path. Commit and pipeline timestamps use `SystemClock` by default; tests and
+embedded callers may inject `FixedClock` without changing CLI behavior.
 
 ## Adapter Interfaces
 

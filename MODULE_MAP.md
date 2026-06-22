@@ -9,9 +9,13 @@ All implementation modules are under `factori/`.
 - `schemas.py`: strict Pydantic models, enums, labels, and cross-stage contracts.
 - `ledger.py`: append-only SQLite commit ledger and hash-chain validation.
 - `artifacts.py`: local artifact store and artifact-to-commit metadata links.
+- `storage_protocols.py`: runtime-checkable ledger/artifact-store/clock interfaces plus system and
+  fixed clocks.
 - `hashing.py`: canonical JSON and SHA-256 helpers.
 - `protocols.py`: stable language-neutral protocol names mapped to existing typed Python models.
 - `schema_export.py`: deterministic JSON Schema, version metadata, and example export/check logic.
+- `schema_diff.py`: conservative field/type/enum/constraint JSON Schema change classification.
+- `protocol_compat.py`: read-only schema-directory comparison and aggregate compatibility status.
 - `cli.py`: Typer command surface for all implemented stages.
 
 ## Protocol Contracts
@@ -20,6 +24,7 @@ All implementation modules are under `factori/`.
 - `protocols/version.json`: explicit protocol version and generator metadata.
 - `protocols/jsonschema/`: generated JSON Schema Draft 2020-12 contracts.
 - `protocols/examples/`: deterministic cross-language payload fixtures.
+- `protocols/compatibility.md`: documented breaking, non-breaking, documentation, and unknown policy.
 
 ## Adapters
 
@@ -53,7 +58,8 @@ All implementation modules are under `factori/`.
 - `pipeline.py`: canonical stage order, start/stop validation, read-only stage classification,
   and deterministic overall status derivation.
 - `run_all.py`: explicit direct orchestration of existing stages plus the hashed, ledgered pipeline
-  run report. Replay and diagnostics are checked for ledger immutability around their execution.
+  run report. It accepts an optional clock; replay and diagnostics are checked for ledger
+  immutability around their execution.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
 - `pipeline_plan.py`: expected output tables and stage metadata used by dry-run planning.

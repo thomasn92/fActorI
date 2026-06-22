@@ -73,6 +73,9 @@ schemas.
 ## Development Rules
 
 - Do not mutate or prune existing ledger history.
+- Preserve atomic artifact writes: use same-directory temporary files, replace atomically, and hash
+  final on-disk bytes. Do not bypass `ArtifactStore` for normal pipeline artifacts.
+- Use the `Clock` seam for new persistence/orchestration timestamps so tests can remain deterministic.
 - Do not silently upgrade claim labels or data regimes.
 - Do not treat generated presentation files as evidence.
 - Protocol schemas and examples are developer contracts. They are not run provenance or scientific
