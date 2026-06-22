@@ -18,6 +18,7 @@ from factori.checkpoints import (
     stage_is_optional_checkpoint,
 )
 from factori.ledger import ResearchLedger
+from factori.rerun_policy import validate_ledger_tip
 from factori.schemas import (
     DiagnosticReport,
     DiagnosticStatus,
@@ -26,6 +27,7 @@ from factori.schemas import (
     ReleaseGateDecision,
     ReleaseGateStatus,
     ReplayStatus,
+    RerunPolicy,
     ResumeValidationReport,
     ResumeValidationStatus,
     RunCompletenessStatus,
@@ -41,9 +43,7 @@ _STAGE_COMMANDS = {
     PipelineStage.RUN_STAGE_C: "uv run factori run-stage-c --run-id <run_id>",
     PipelineStage.SYNTHESIZE_ABSTRACT: "uv run factori synthesize-abstract --run-id <run_id>",
     PipelineStage.PLAN_MANUSCRIPT: "uv run factori plan-manuscript --run-id <run_id>",
-    PipelineStage.BUILD_DRAFT_SKELETON: (
-        "uv run factori build-draft-skeleton --run-id <run_id>"
-    ),
+    PipelineStage.BUILD_DRAFT_SKELETON: ("uv run factori build-draft-skeleton --run-id <run_id>"),
     PipelineStage.PACKAGE_RESEARCH_OBJECT: (
         "uv run factori package-research-object --run-id <run_id>"
     ),
@@ -73,6 +73,24 @@ def inspect_run_status(run_id: str, root: str | Path = ".") -> RunStatusReport:
             ledger_commit_count = len(ResearchLedger(ledger_file).list_commits(run_id))
         except Exception as exc:  # pragma: no cover - defensive against corrupt SQLite files.
             blocking_issues.append(f"ledger could not be read: {exc}")
+        tip_report = validate_ledger_tip(
+            run_id,
+            root=root_path,
+            policy=RerunPolicy.ALLOW_IF_FORCED,
+        )
+        if tip_report.blocking_findings:
+            blocking_issues.extend(
+                f"ledger tip validation: {finding.message}"
+                for finding in tip_report.blocking_findings
+            )
+        elif tip_report.branch_findings or tip_report.duplicate_stage_findings:
+            warnings.extend(
+                f"ledger tip validation: {finding.message}"
+                for finding in [
+                    *tip_report.branch_findings,
+                    *tip_report.duplicate_stage_findings,
+                ]
+            )
 
     checkpoints = (
         inspect_all_stage_checkpoints(run_id, root_path, include_optional=True)
@@ -88,26 +106,16 @@ def inspect_run_status(run_id: str, root: str | Path = ".") -> RunStatusReport:
     ]
     completed_stages = [checkpoint.stage_name for checkpoint in checkpoints if checkpoint.completed]
     missing_stages = [
-        checkpoint.stage_name
-        for checkpoint in nonoptional
-        if not checkpoint.completed
+        checkpoint.stage_name for checkpoint in nonoptional if not checkpoint.completed
     ]
     last_completed, first_missing, gap_issues = _completion_continuity(nonoptional)
     blocking_issues.extend(gap_issues)
 
     present = sorted(
-        {
-            path
-            for checkpoint in checkpoints
-            for path in checkpoint.required_artifacts_present
-        }
+        {path for checkpoint in checkpoints for path in checkpoint.required_artifacts_present}
     )
     missing = sorted(
-        {
-            path
-            for checkpoint in nonoptional
-            for path in checkpoint.required_artifacts_missing
-        }
+        {path for checkpoint in nonoptional for path in checkpoint.required_artifacts_missing}
     )
 
     release_status = _load_release_status(root_path, run_id, warnings)
@@ -133,9 +141,7 @@ def inspect_run_status(run_id: str, root: str | Path = ".") -> RunStatusReport:
         replay_status=replay_status,
         diagnostic_status=diagnostic_status,
     )
-    artifact_manifest_exists = (
-        run_path / "research_object" / "artifact-manifest.json"
-    ).is_file()
+    artifact_manifest_exists = (run_path / "research_object" / "artifact-manifest.json").is_file()
 
     return RunStatusReport(
         run_id=run_id,
@@ -257,11 +263,7 @@ def _missing_prerequisites(
 
 
 def _checkpoint_warnings(checkpoints: list[StageCheckpoint]) -> list[str]:
-    return [
-        warning
-        for checkpoint in checkpoints
-        for warning in checkpoint.warnings
-    ]
+    return [warning for checkpoint in checkpoints for warning in checkpoint.warnings]
 
 
 def _completion_continuity(
@@ -279,8 +281,7 @@ def _completion_continuity(
             continue
         if checkpoint.completed and first_missing is not None:
             issues.append(
-                f"{checkpoint.stage_name.value} is complete but "
-                f"{first_missing.value} is missing"
+                f"{checkpoint.stage_name.value} is complete but {first_missing.value} is missing"
             )
     return last_completed, first_missing, issues
 
@@ -316,7 +317,7 @@ def _completeness_status(
 ) -> RunCompletenessStatus:
     if not run_exists:
         return RunCompletenessStatus.NO_RUN_FOUND
-    if has_gap or "ledger is missing" in blocking_issues:
+    if has_gap or any(issue.startswith("ledger") for issue in blocking_issues):
         return RunCompletenessStatus.INCONSISTENT_RUN
     if (
         release_status == ReleaseGateStatus.RELEASE_BLOCKED
@@ -345,9 +346,7 @@ def _load_release_status(
     path = root / "runs" / run_id / "reports" / "release-gate-decision.json"
     if path.is_file():
         try:
-            return ReleaseGateDecision.model_validate_json(
-                path.read_text(encoding="utf-8")
-            ).status
+            return ReleaseGateDecision.model_validate_json(path.read_text(encoding="utf-8")).status
         except ValueError as exc:
             warnings.append(f"release gate decision could not be parsed: {exc}")
             return None

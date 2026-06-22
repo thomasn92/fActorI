@@ -64,6 +64,21 @@ uv run factori run-all --run-id demo-g --domain "human geography" --dry-run
 uv run factori plan-run --run-id demo-h --domain "human geography" --json
 ```
 
+Mutating commands fail if their completion artifacts already exist. Resume safely by selecting a
+later stage, skip completed stages explicitly, or force only under the force-aware policy:
+
+```bash
+uv run factori run-all --run-id demo --domain "human geography" \
+  --rerun-policy skip-if-complete
+uv run factori run-stage-a --run-id demo --domain "human geography" \
+  --rerun-policy allow-if-forced --force
+uv run factori validate-ledger-tip --run-id demo
+```
+
+`fail-if-exists` is the default for all mutating stage commands and `run-all`. Read-only commands
+remain rerunnable. `validate-ledger-tip` reports hash-chain failures, broken parent links, forks, multiple tips, and
+repeated mutating-stage start markers without changing the ledger or artifact manifest.
+
 `run-all` calls existing stage functions directly. Its pipeline report is hashed and ledgered;
 replay and diagnostics remain read-only, and their optional reports remain outside provenance.
 When `--start-at` is used, `run-all` first validates the requested resume point against explicit

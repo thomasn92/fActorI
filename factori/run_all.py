@@ -34,6 +34,7 @@ from factori.pipeline import (
 )
 from factori.replay import replay_verify_run, write_replay_report
 from factori.reports import render_pipeline_run_report_markdown
+from factori.rerun_policy import decide_stage_rerun
 from factori.research_object import build_research_object
 from factori.schemas import (
     ArtifactRef,
@@ -55,7 +56,7 @@ from factori.stage_a import constraint_from_inputs, run_stage_a
 from factori.stage_b import run_stage_b
 from factori.stage_c import run_stage_c
 from factori.stage_c_selection import run_stage_c_selection
-from factori.status import validate_resume_request
+from factori.status import inspect_run_status, validate_resume_request
 from factori.storage_protocols import Clock, SystemClock
 
 
@@ -89,8 +90,37 @@ def run_deterministic_pipeline(
     if PipelineStage.RUN_STAGE_A in stages and not config.domain.strip():
         raise PipelineRunError("domain is required when run-stage-a would run")
 
+    status_report = inspect_run_status(config.run_id, config.root)
+    rerun_decisions = {
+        stage: decide_stage_rerun(
+            config.run_id,
+            stage,
+            config.rerun_policy,
+            status_report,
+            force=config.force,
+            root=config.root,
+        )
+        for stage in stages
+    }
+    blocked_decision = next(
+        (
+            decision
+            for decision in rerun_decisions.values()
+            if not decision.should_run and not decision.should_skip
+        ),
+        None,
+    )
+    if blocked_decision is not None:
+        raise PipelineRunError(
+            f"Cannot run {blocked_decision.stage_name.value}: {blocked_decision.reason}"
+        )
+
     adapter_registry: AdapterRegistry | None = None
-    if PipelineStage.RUN_STAGE_A in stages or PipelineStage.RUN_STAGE_B in stages:
+    if any(
+        stage in {PipelineStage.RUN_STAGE_A, PipelineStage.RUN_STAGE_B}
+        and rerun_decisions[stage].should_run
+        for stage in stages
+    ):
         try:
             adapter_registry = get_adapter_registry(
                 AdapterConfig(
@@ -108,12 +138,6 @@ def run_deterministic_pipeline(
 
     store = ArtifactStore(config.root)
     ledger_path = store.run_path(config.run_id) / "ledger.sqlite"
-    if config.start_at is None and ledger_path.is_file():
-        existing = ResearchLedger(ledger_path).list_commits(config.run_id)
-        if existing:
-            raise PipelineRunError(
-                f"Run already exists: {config.run_id}; use --start-at to resume"
-            )
     if config.start_at is not None:
         validation = validate_resume_request(
             run_id=config.run_id,
@@ -135,6 +159,7 @@ def run_deterministic_pipeline(
     replay_status: ReplayStatus | None = None
     diagnostic_status: DiagnosticStatus | None = None
     mutating_failure = False
+    mutating_stage_executed = False
 
     for stage in stages:
         if mutating_failure and not stage_is_read_only(stage):
@@ -142,6 +167,25 @@ def run_deterministic_pipeline(
             continue
         stage_started = clock.now()
         commits_before = len(ledger.list_commits(config.run_id))
+        rerun_decision = rerun_decisions[stage]
+        if rerun_decision.should_skip:
+            stage_results.append(
+                PipelineStageResult(
+                    stage_name=stage,
+                    started_at=stage_started,
+                    finished_at=clock.now(),
+                    status=PipelineRunStatus.PIPELINE_SUCCEEDED,
+                    summary={
+                        "rerun_status": rerun_decision.status.value,
+                        "rerun_policy": rerun_decision.policy.value,
+                        "ledger_commits_before": commits_before,
+                        "ledger_commits_after": commits_before,
+                    },
+                )
+            )
+            continue
+        if not stage_is_read_only(stage):
+            mutating_stage_executed = True
         try:
             execution = _execute_stage(stage, config, store, ledger, adapter_registry)
             commits_after = len(ledger.list_commits(config.run_id))
@@ -213,7 +257,15 @@ def run_deterministic_pipeline(
         diagnostic_status=diagnostic_status,
         pipeline_report_path=pipeline_report_path,
     )
-    _write_pipeline_report(report, store, ledger)
+    existing_report = (
+        config.root
+        / "runs"
+        / config.run_id
+        / "reports"
+        / "pipeline-run-report.json"
+    )
+    if mutating_stage_executed or not existing_report.is_file():
+        _write_pipeline_report(report, store, ledger)
     return report
 
 

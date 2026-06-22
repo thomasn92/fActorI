@@ -97,7 +97,7 @@ def test_stage_a_gate_keeps_only_valid_survivors(tmp_path) -> None:
     assert all(candidate.status == BranchStatus.ACTIVE for candidate in result.survivors)
 
 
-def test_cli_run_stage_a_can_be_repeated_without_corrupting_state(tmp_path) -> None:
+def test_cli_run_stage_a_blocks_accidental_rerun(tmp_path) -> None:
     runner = CliRunner()
     args = [
         "run-stage-a",
@@ -118,15 +118,13 @@ def test_cli_run_stage_a_can_be_repeated_without_corrupting_state(tmp_path) -> N
     second = runner.invoke(app, args)
     second_ledger = ResearchLedger(tmp_path / "runs" / "run-1" / "ledger.sqlite")
     second_commits = second_ledger.list_commits("run-1")
-    second_candidate_ids = _candidate_ids_from_ledger(second_commits)
-    second_scores = _scores_from_ledger(second_commits)
-
     assert first.exit_code == 0
-    assert second.exit_code == 0
+    assert second.exit_code == 1
     assert "generated_candidates=15" in first.output
-    assert first_candidate_ids == second_candidate_ids
-    assert first_scores == second_scores
-    assert len(second_commits) > len(first_commits)
+    assert "BlockedAlreadyComplete" in second.output
+    assert first_candidate_ids == _candidate_ids_from_ledger(second_commits)
+    assert first_scores == _scores_from_ledger(second_commits)
+    assert len(second_commits) == len(first_commits)
 
 
 def _candidate_ids_from_ledger(commits) -> list[str]:

@@ -60,6 +60,7 @@ Implemented so far:
   safety checks, ledgered context artifacts, and no verification or publication authority;
 - versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
 - conservative read-only protocol compatibility and schema-change classification;
+- fail-closed mutating-stage rerun policies and read-only ledger tip/fork validation;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
@@ -89,11 +90,13 @@ uv run factori run-all --run-id demo --domain "human geography"
 ```
 
 The runner supports `--method`, `--root`, `--stop-after`, `--start-at`, `--skip-replay`,
-`--run-diagnostics`, optional non-provenance replay/diagnostic report flags, and `--fail-fast`.
+`--run-diagnostics`, optional non-provenance replay/diagnostic report flags, `--fail-fast`, and an
+explicit `--rerun-policy`.
 Replay and diagnostics remain read-only within the orchestrated run. A repeated full run with the
-same run ID fails clearly; `--start-at` is validated against explicit checkpoint artifacts before
-any resumed stage runs. Use `--dry-run` or `plan-run` to inspect the planned stages and blockers
-without executing or writing anything.
+same run ID fails clearly by default. `skip-if-complete` explicitly skips completed stages;
+`allow-if-forced --force` permits deliberate reruns. `--start-at` is validated against explicit
+checkpoint artifacts before any resumed stage runs. Use `--dry-run` or `plan-run` to inspect the
+planned stages and blockers without executing or writing anything.
 
 Individual stage and inspection commands:
 
@@ -139,6 +142,7 @@ uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
 uv run factori show-ledger --run-id demo
 uv run factori validate-run --run-id demo
+uv run factori validate-ledger-tip --run-id demo
 ```
 
 Default commands are local and deterministic. They do not call models, retrieval services, Lean,

@@ -155,7 +155,7 @@ def test_repeated_full_run_fails_clearly(tmp_path) -> None:
         _config(tmp_path, stop_after=PipelineStage.RUN_STAGE_A)
     )
 
-    with pytest.raises(PipelineRunError, match="Run already exists"):
+    with pytest.raises(PipelineRunError, match="Stage is already complete"):
         run_deterministic_pipeline(_config(tmp_path))
 
 

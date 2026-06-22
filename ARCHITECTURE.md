@@ -35,6 +35,13 @@ the current pipeline. `SystemClock` preserves normal UTC behavior. `FixedClock` 
 pipeline-report timestamps in tests without changing stage logic or CLI semantics. These protocols
 are implementation seams; they do not replace the append-only ledger as provenance.
 
+Mutating stage commands use an explicit rerun policy. The default `FailIfExists` policy blocks a
+stage when its required completion artifacts already exist. `SkipIfComplete` performs an explicit
+no-op, while `AllowIfForced` requires `--force`. Read-only stages are always rerunnable. Ledger tip
+validation checks commit hashes, parent continuity, insertion-order tip extension, forks, multiple tips, and
+repeated mutating-stage start markers without rewriting or repairing history. Broken lineage makes
+a run inconsistent and blocks further mutation.
+
 ## Language-Neutral Protocol Boundary
 
 Stable public protocol names are registered in `factori/protocols.py` and exported from existing
@@ -94,6 +101,9 @@ Inspection commands such as `show-ledger` and `validate-run` are read-only. Repl
 strictly read-only. `replay-verify --write-report` may write under `runs/<run_id>/replay/`, but those
 reports are marked non-provenance, non-evidence, and non-ledgered. Future diagnostics must follow
 the same rule unless explicitly designed as a mutating pipeline stage.
+
+`validate-ledger-tip`, `status`, resume validation, dry-run planning, replay, diagnostics,
+comparison, hygiene inspection, and remediation planning remain rerunnable and read-only.
 
 ## Data Regimes
 

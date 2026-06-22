@@ -73,6 +73,12 @@ schemas.
 ## Development Rules
 
 - Do not mutate or prune existing ledger history.
+- Mutating stage commands fail closed when completion artifacts already exist. Preserve the
+  explicit rerun policy; do not bypass it with direct duplicate-style commits. Use
+  `SkipIfComplete` for no-op resumes or `AllowIfForced` plus an explicit force request when a
+  deliberate rerun is required.
+- Treat ledger fork, broken-parent, and multiple-tip findings as consistency failures. Validation
+  commands are read-only and must never repair or rewrite ledger history.
 - Preserve atomic artifact writes: use same-directory temporary files, replace atomically, and hash
   final on-disk bytes. Do not bypass `ArtifactStore` for normal pipeline artifacts.
 - Use the `Clock` seam for new persistence/orchestration timestamps so tests can remain deterministic.

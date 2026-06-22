@@ -295,6 +295,35 @@ class PipelineFailurePolicy(StrEnum):
     FAIL_FAST = "FailFast"
 
 
+class RerunPolicy(StrEnum):
+    """Explicit policy for invoking a stage against existing completion artifacts."""
+
+    FAIL_IF_EXISTS = "FailIfExists"
+    SKIP_IF_COMPLETE = "SkipIfComplete"
+    ALLOW_IF_FORCED = "AllowIfForced"
+    READ_ONLY_ONLY = "ReadOnlyOnly"
+
+
+class StageRerunStatus(StrEnum):
+    """Deterministic decision status for one requested stage invocation."""
+
+    ALLOWED = "Allowed"
+    BLOCKED_ALREADY_COMPLETE = "BlockedAlreadyComplete"
+    SKIPPED_ALREADY_COMPLETE = "SkippedAlreadyComplete"
+    ALLOWED_FORCED = "AllowedForced"
+    READ_ONLY_ALLOWED = "ReadOnlyAllowed"
+    BLOCKED_INCONSISTENT = "BlockedInconsistent"
+
+
+class LedgerTipStatus(StrEnum):
+    """Read-only ledger linearity validation status."""
+
+    VALID = "Valid"
+    WARNING = "Warning"
+    INVALID = "Invalid"
+    MISSING = "Missing"
+
+
 class DryRunStatus(StrEnum):
     """Overall read-only pipeline dry-run planning status."""
 
@@ -1813,6 +1842,8 @@ class PipelineRunConfig(StrictModel):
     write_replay_report: bool = False
     write_diagnostic_report: bool = False
     failure_policy: PipelineFailurePolicy = PipelineFailurePolicy.CONTINUE_SAFE
+    rerun_policy: RerunPolicy = RerunPolicy.FAIL_IF_EXISTS
+    force: bool = False
 
 
 class PipelineRunReport(StrictModel):
@@ -1866,6 +1897,48 @@ class StagePrerequisite(StrictModel):
     required_report: str | None = None
     blocking_if_missing: bool = True
     message: str = Field(min_length=1)
+
+
+class StageRerunDecision(StrictModel):
+    """Read-only stage rerun decision derived from completion artifacts."""
+
+    run_id: str = Field(min_length=1)
+    stage_name: PipelineStage
+    policy: RerunPolicy
+    status: StageRerunStatus
+    stage_completed: bool
+    force_requested: bool = False
+    should_run: bool
+    should_skip: bool = False
+    reason: str = Field(min_length=1)
+    read_only: bool = True
+    is_provenance: bool = False
+
+
+class LedgerBranchFinding(StrictModel):
+    """One read-only finding about ledger linearity or duplicate stage markers."""
+
+    finding_type: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    commit_hashes: list[str] = Field(default_factory=list)
+    parent_hash: str | None = None
+    stage_name: PipelineStage | None = None
+    blocking: bool = False
+
+
+class LedgerTipValidationReport(StrictModel):
+    """Read-only ledger tip, parent, fork, and duplicate-stage validation."""
+
+    run_id: str = Field(min_length=1)
+    status: LedgerTipStatus
+    commit_count: int = Field(ge=0)
+    tip_hashes: list[str] = Field(default_factory=list)
+    branch_findings: list[LedgerBranchFinding] = Field(default_factory=list)
+    duplicate_stage_findings: list[LedgerBranchFinding] = Field(default_factory=list)
+    blocking_findings: list[LedgerBranchFinding] = Field(default_factory=list)
+    ledger_exists: bool
+    read_only: bool = True
+    is_provenance: bool = False
 
 
 class StageCheckpoint(StrictModel):

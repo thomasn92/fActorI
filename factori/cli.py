@@ -57,6 +57,7 @@ from factori.replay import (
     summarize_replay_verification,
     write_replay_report,
 )
+from factori.rerun_policy import decide_stage_rerun, validate_ledger_tip
 from factori.research_object import ResearchObjectError, build_research_object
 from factori.retrieval import compute_retrieval_adequacy
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
@@ -78,7 +79,9 @@ from factori.schemas import (
     PipelineRunStatus,
     PipelineStage,
     PlannedStageStatus,
+    RerunPolicy,
     ScoreVector,
+    StageRerunStatus,
     StagnationEvent,
     VerificationLabel,
     VerificationState,
@@ -116,6 +119,50 @@ def _ensure_run_initialized(root: Path, run_id: str) -> None:
             payload={"run_id": run_id},
             timestamp="1970-01-01T00:00:00.000000Z",
         )
+
+
+def _parse_rerun_policy(value: str) -> RerunPolicy:
+    normalized = value.lower().replace("-", "").replace("_", "")
+    policies = {
+        "failifexists": RerunPolicy.FAIL_IF_EXISTS,
+        "skipifcomplete": RerunPolicy.SKIP_IF_COMPLETE,
+        "allowifforced": RerunPolicy.ALLOW_IF_FORCED,
+        "readonlyonly": RerunPolicy.READ_ONLY_ONLY,
+    }
+    try:
+        return policies[normalized]
+    except KeyError as exc:
+        choices = "fail-if-exists, skip-if-complete, allow-if-forced, read-only-only"
+        raise typer.BadParameter(f"Expected one of: {choices}") from exc
+
+
+def _guard_mutating_stage(
+    *,
+    root: Path,
+    run_id: str,
+    stage: PipelineStage,
+    rerun_policy: str,
+    force: bool,
+) -> bool:
+    policy = _parse_rerun_policy(rerun_policy)
+    status_report = inspect_run_status(run_id=run_id, root=root)
+    decision = decide_stage_rerun(
+        run_id=run_id,
+        stage_name=stage,
+        policy=policy,
+        status_report=status_report,
+        force=force,
+        root=root,
+    )
+    if decision.status == StageRerunStatus.SKIPPED_ALREADY_COMPLETE:
+        typer.echo(f"stage_rerun_status={decision.status.value}")
+        typer.echo(f"stage={stage.value}")
+        return False
+    if not decision.should_run:
+        typer.echo(f"stage_rerun_status={decision.status.value}", err=True)
+        typer.echo(decision.reason, err=True)
+        raise typer.Exit(code=1)
+    return True
 
 
 @app.command("export-protocols")
@@ -221,15 +268,10 @@ def show_adapters_command(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"adapter_backend={registry.config.adapter_backend}")
-    typer.echo(
-        "allow_external_calls="
-        f"{str(registry.config.allow_external_calls).lower()}"
-    )
+    typer.echo(f"allow_external_calls={str(registry.config.allow_external_calls).lower()}")
     typer.echo(f"llm_model={registry.config.llm_model}")
     typer.echo(f"reviewer_backend={registry.config.reviewer_backend}")
-    typer.echo(
-        f"use_llm_reviewers={str(registry.config.use_llm_reviewers).lower()}"
-    )
+    typer.echo(f"use_llm_reviewers={str(registry.config.use_llm_reviewers).lower()}")
     typer.echo(f"reviewer_model={registry.config.reviewer_model}")
     typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
     typer.echo(f"retrieval_limit={registry.config.retrieval_limit}")
@@ -371,6 +413,24 @@ def validate_run(
     typer.echo(f"valid {run_id}")
 
 
+@app.command("validate-ledger-tip")
+def validate_ledger_tip_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Inspect ledger tips, forks, parent links, and duplicate stage markers."""
+    report = validate_ledger_tip(run_id, root=root)
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"ledger_tip_status={report.status.value}")
+    typer.echo(f"commits={report.commit_count}")
+    typer.echo(f"tips={len(report.tip_hashes)}")
+    typer.echo(f"branch_findings={len(report.branch_findings)}")
+    typer.echo(f"duplicate_stage_findings={len(report.duplicate_stage_findings)}")
+    typer.echo(f"blocking_findings={len(report.blocking_findings)}")
+    if report.status.value in {"Invalid", "Missing"}:
+        raise typer.Exit(code=1)
+
+
 @app.command("status")
 def status_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -387,14 +447,8 @@ def status_command(
         typer.echo(f"run_id={detail['run_id']}")
         typer.echo(f"stage={detail['stage']}")
         typer.echo(f"completed={str(detail['completed']).lower()}")
-        typer.echo(
-            "required_artifacts_present="
-            f"{len(detail['required_artifacts_present'])}"
-        )
-        typer.echo(
-            "required_artifacts_missing="
-            f"{len(detail['required_artifacts_missing'])}"
-        )
+        typer.echo(f"required_artifacts_present={len(detail['required_artifacts_present'])}")
+        typer.echo(f"required_artifacts_missing={len(detail['required_artifacts_missing'])}")
         typer.echo(f"prerequisites={len(detail['prerequisites'])}")
         return
 
@@ -408,11 +462,7 @@ def status_command(
     typer.echo(f"missing_stages={len(report.missing_stages)}")
     typer.echo(
         "last_completed_stage="
-        + (
-            report.last_completed_stage.value
-            if report.last_completed_stage is not None
-            else "none"
-        )
+        + (report.last_completed_stage.value if report.last_completed_stage is not None else "none")
     )
     typer.echo(
         "next_recommended_stage="
@@ -470,10 +520,7 @@ def _print_dry_run_plan(plan: PipelineDryRunPlan, *, json_output: bool) -> None:
     typer.echo(f"blocked={blocked}")
     typer.echo(f"warnings={plan.warnings_count}")
     typer.echo(f"blocking_findings={plan.blocking_findings_count}")
-    typer.echo(
-        "next_stage="
-        + (plan.next_stage.value if plan.next_stage is not None else "none")
-    )
+    typer.echo("next_stage=" + (plan.next_stage.value if plan.next_stage is not None else "none"))
 
 
 def _planned_status_count(
@@ -527,6 +574,11 @@ def run_all_command(
         typer.Option("--write-diagnostic-report"),
     ] = False,
     fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -550,10 +602,10 @@ def run_all_command(
         write_replay_report=write_replay_report,
         write_diagnostic_report=write_diagnostic_report,
         failure_policy=(
-            PipelineFailurePolicy.FAIL_FAST
-            if fail_fast
-            else PipelineFailurePolicy.CONTINUE_SAFE
+            PipelineFailurePolicy.FAIL_FAST if fail_fast else PipelineFailurePolicy.CONTINUE_SAFE
         ),
+        rerun_policy=_parse_rerun_policy(rerun_policy),
+        force=force,
     )
     if dry_run:
         plan = build_pipeline_dry_run_plan(config)
@@ -579,17 +631,12 @@ def run_all_command(
     )
     typer.echo(
         "diagnostic_status="
-        + (
-            report.diagnostic_status.value
-            if report.diagnostic_status is not None
-            else "skipped"
-        )
+        + (report.diagnostic_status.value if report.diagnostic_status is not None else "skipped")
     )
     typer.echo(f"research_object={report.final_outputs.get('research_object', 'missing')}")
     typer.echo(f"paper_skeleton={report.final_outputs.get('paper_skeleton', 'missing')}")
     typer.echo(
-        "export_readiness_report="
-        f"{report.final_outputs.get('export_readiness_report', 'missing')}"
+        f"export_readiness_report={report.final_outputs.get('export_readiness_report', 'missing')}"
     )
     typer.echo(f"pipeline_report={report.pipeline_report_path}")
     if report.pipeline_status in {
@@ -643,6 +690,11 @@ def plan_run_command(
         typer.Option("--write-diagnostic-report"),
     ] = False,
     fail_fast: Annotated[bool, typer.Option("--fail-fast")] = False,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Plan run-all execution without mutating provenance."""
@@ -665,10 +717,10 @@ def plan_run_command(
         write_replay_report=write_replay_report,
         write_diagnostic_report=write_diagnostic_report,
         failure_policy=(
-            PipelineFailurePolicy.FAIL_FAST
-            if fail_fast
-            else PipelineFailurePolicy.CONTINUE_SAFE
+            PipelineFailurePolicy.FAIL_FAST if fail_fast else PipelineFailurePolicy.CONTINUE_SAFE
         ),
+        rerun_policy=_parse_rerun_policy(rerun_policy),
+        force=force,
     )
     _print_dry_run_plan(build_pipeline_dry_run_plan(config), json_output=json_output)
 
@@ -688,8 +740,21 @@ def run_stage_a_command(
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Run Stage 0/A with fake defaults or an explicitly gated real LLM."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.RUN_STAGE_A,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     try:
         registry = get_adapter_registry(
             AdapterConfig(
@@ -751,8 +816,21 @@ def run_stage_b_command(
         int,
         typer.Option("--reviewer-max-objections"),
     ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Run Stage B with fake defaults and explicitly gated external adapters."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.RUN_STAGE_B,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     try:
         registry = get_adapter_registry(
             AdapterConfig(
@@ -776,9 +854,7 @@ def run_stage_b_command(
             store=store,
             ledger=ledger,
             retrieval_client=(
-                registry.retrieval
-                if registry.config.retrieval_backend != "fake"
-                else None
+                registry.retrieval if registry.config.retrieval_backend != "fake" else None
             ),
             reviewer_client=(registry.reviewer if use_llm_reviewers else None),
         )
@@ -793,9 +869,7 @@ def run_stage_b_command(
     typer.echo(f"insufficient_retrieval={len(result.insufficient_retrieval)}")
     typer.echo(f"passing_stage_b={len(result.survivors)}")
     typer.echo(f"stage_b_report={result.report_artifact.path}")
-    typer.echo(
-        f"reviewer_backend={result.reviewer_adapter_metadata['backend']}"
-    )
+    typer.echo(f"reviewer_backend={result.reviewer_adapter_metadata['backend']}")
     typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
 
 
@@ -803,8 +877,21 @@ def run_stage_b_command(
 def select_stage_c_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Run deterministic Stage B-to-C filtering and Stage C candidate selection."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.SELECT_STAGE_C,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -826,8 +913,21 @@ def select_stage_c_command(
 def run_stage_c_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Run deterministic fake Stage C verification."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.RUN_STAGE_C,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -856,8 +956,21 @@ def run_stage_c_command(
 def synthesize_abstract_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Run deterministic abstract synthesis and final nucleus selection."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.SYNTHESIZE_ABSTRACT,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -877,8 +990,21 @@ def synthesize_abstract_command(
 def plan_manuscript_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Build deterministic manuscript planning artifacts."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.PLAN_MANUSCRIPT,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -900,8 +1026,21 @@ def plan_manuscript_command(
 def build_draft_skeleton_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Build deterministic draft skeleton and checklist artifacts."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.BUILD_DRAFT_SKELETON,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -921,8 +1060,21 @@ def build_draft_skeleton_command(
 def package_research_object_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Package deterministic pipeline outputs into a local research object."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.PACKAGE_RESEARCH_OBJECT,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -934,9 +1086,7 @@ def package_research_object_command(
     typer.echo(f"commits={result.ledger_summary.commit_count}")
     typer.echo(f"artifacts={len(result.artifact_manifest.artifacts)}")
     typer.echo(f"evidence_artifacts={result.artifact_manifest.evidence_artifact_count}")
-    typer.echo(
-        f"presentation_artifacts={result.artifact_manifest.presentation_artifact_count}"
-    )
+    typer.echo(f"presentation_artifacts={result.artifact_manifest.presentation_artifact_count}")
     typer.echo(f"branch_outcomes={len(result.branch_outcomes)}")
     typer.echo(f"reproducible={str(result.reproducibility_manifest.reproducible).lower()}")
     typer.echo(f"research_object={result.manifest.research_object_markdown.path}")
@@ -946,8 +1096,21 @@ def package_research_object_command(
 def assemble_paper_skeleton_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Assemble deterministic paper-shaped Markdown and JSON skeleton artifacts."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.ASSEMBLE_PAPER_SKELETON,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -960,8 +1123,7 @@ def assemble_paper_skeleton_command(
     typer.echo(f"claims_blocked={result.assembly_report.claims_blocked}")
     typer.echo(f"evidence_links={result.assembly_report.evidence_links_count}")
     typer.echo(
-        "ready_for_polished_prose="
-        f"{str(result.assembly_report.ready_for_polished_prose).lower()}"
+        f"ready_for_polished_prose={str(result.assembly_report.ready_for_polished_prose).lower()}"
     )
     typer.echo(f"paper_skeleton={result.paper_markdown_artifact.path}")
 
@@ -970,8 +1132,21 @@ def assemble_paper_skeleton_command(
 def final_audit_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Run deterministic final audit and release gate."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.FINAL_AUDIT,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -998,8 +1173,21 @@ def final_audit_command(
 def prepare_export_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
 ) -> None:
     """Prepare deterministic export contracts and maps."""
+    if not _guard_mutating_stage(
+        root=root,
+        run_id=run_id,
+        stage=PipelineStage.PREPARE_EXPORT,
+        rerun_policy=rerun_policy,
+        force=force,
+    ):
+        return
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
@@ -1050,9 +1238,7 @@ def replay_verify_command(
     typer.echo(f"warnings={summary.warnings}")
     typer.echo(f"blocking_failures={summary.blocking_failures}")
     typer.echo(f"ledger_mutated={str(summary.ledger_mutated).lower()}")
-    typer.echo(
-        f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}"
-    )
+    typer.echo(f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}")
     typer.echo(f"replay_status={summary.replay_status.value}")
 
 
@@ -1077,9 +1263,7 @@ def diagnose_run_command(
     typer.echo(f"blocking_causes={report.blocking_causes_count}")
     typer.echo(f"warnings={report.warning_causes_count + len(report.warnings)}")
     typer.echo(f"ledger_mutated={str(report.ledger_mutated).lower()}")
-    typer.echo(
-        f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}"
-    )
+    typer.echo(f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}")
 
 
 @app.command("inspect-hygiene")
@@ -1113,14 +1297,11 @@ def inspect_hygiene_command(
     ):
         typer.echo(f"{key}={summary[key]}")
     typer.echo(f"ledger_mutated={str(report.ledger_mutated).lower()}")
-    typer.echo(
-        f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}"
-    )
+    typer.echo(f"artifact_manifest_mutated={str(report.artifact_manifest_mutated).lower()}")
     for finding in report.findings:
         paths = ",".join(finding.paths) or "none"
         typer.echo(
-            f"finding={finding.severity.value}:{finding.category.value}:"
-            f"{paths}:{finding.message}"
+            f"finding={finding.severity.value}:{finding.category.value}:{paths}:{finding.message}"
         )
 
 
@@ -1153,15 +1334,12 @@ def plan_hygiene_remediation_command(
     ):
         typer.echo(f"{key}={summary[key]}")
     typer.echo(f"ledger_mutated={str(plan.ledger_mutated).lower()}")
-    typer.echo(
-        f"artifact_manifest_mutated={str(plan.artifact_manifest_mutated).lower()}"
-    )
+    typer.echo(f"artifact_manifest_mutated={str(plan.artifact_manifest_mutated).lower()}")
     for action in plan.actions:
         paths = ",".join(action.paths) or "none"
         stage = action.recommended_stage or "none"
         typer.echo(
-            f"action={action.kind.value}:{action.risk.value}:{stage}:"
-            f"{paths}:{action.reason}"
+            f"action={action.kind.value}:{action.risk.value}:{stage}:{paths}:{action.reason}"
         )
 
 
@@ -1225,9 +1403,7 @@ def compare_runs_command(
         )
     )
     typer.echo(f"ledger_mutated={str(summary.ledger_mutated).lower()}")
-    typer.echo(
-        f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}"
-    )
+    typer.echo(f"artifact_manifest_mutated={str(summary.artifact_manifest_mutated).lower()}")
 
 
 @app.command("questioner-check")

@@ -62,6 +62,8 @@ All implementation modules are under `factori/`.
   immutability around their execution.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
+- `rerun_policy.py`: artifact-based mutating-stage rerun decisions plus read-only ledger tip,
+  parent, fork, and duplicate-stage validation.
 - `pipeline_plan.py`: expected output tables and stage metadata used by dry-run planning.
 - `dry_run.py`: read-only run-all planning, blocker detection, and dry-run validation.
 - `run_files.py`: read-only run-directory indexing, artifact-link classification, and

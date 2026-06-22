@@ -28,6 +28,17 @@
       ],
       "title": "PipelineStage",
       "type": "string"
+    },
+    "RerunPolicy": {
+      "description": "Explicit policy for invoking a stage against existing completion artifacts.",
+      "enum": [
+        "FailIfExists",
+        "SkipIfComplete",
+        "AllowIfForced",
+        "ReadOnlyOnly"
+      ],
+      "title": "RerunPolicy",
+      "type": "string"
     }
   },
   "$id": "https://schemas.factori.local/0.1.0/pipeline-run-config.schema.json",
@@ -54,6 +65,11 @@
       "$ref": "#/$defs/PipelineFailurePolicy",
       "default": "ContinueSafe"
     },
+    "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+    },
     "llm_model": {
       "default": "gpt-5-mini",
       "title": "Llm Model",
@@ -70,6 +86,10 @@
       ],
       "default": null,
       "title": "Method"
+    },
+    "rerun_policy": {
+      "$ref": "#/$defs/RerunPolicy",
+      "default": "FailIfExists"
     },
     "reviewer_backend": {
       "default": "fake",
