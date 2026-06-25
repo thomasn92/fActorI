@@ -1,0 +1,47 @@
+{
+  "constraints": {
+    "baseline": null,
+    "data_requirement": "SyntheticOnly",
+    "domain": "machine learning",
+    "experiment": null,
+    "hypothesis": null,
+    "method": "calibration",
+    "primitives": [],
+    "question": null,
+    "theory": null
+  },
+  "data_regime_policy": [
+    "NoData",
+    "SyntheticOnly",
+    "PublicDownload",
+    "UserProvided"
+  ],
+  "domain": "machine learning",
+  "evidence_boundary_instructions": [
+    "Candidate proposals are not evidence."
+  ],
+  "forbidden_claims": [
+    "Do not claim verification labels."
+  ],
+  "max_candidates": 2,
+  "method": "calibration",
+  "mvp_data_gate": {
+    "allowed": [
+      "NoData",
+      "SyntheticOnly"
+    ],
+    "deferred": [
+      "PublicDownload",
+      "UserProvided"
+    ]
+  },
+  "prompt_text": "Deterministic example prompt contract.",
+  "requested_output_schema": {
+    "properties": {
+      "candidates": {
+        "type": "array"
+      }
+    },
+    "type": "object"
+  }
+}

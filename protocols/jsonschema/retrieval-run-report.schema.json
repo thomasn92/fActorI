@@ -1,0 +1,589 @@
+{
+  "$defs": {
+    "BranchStatus": {
+      "description": "Branch and run status labels for the MVP.",
+      "enum": [
+        "Active",
+        "PrunedDuplicate",
+        "RejectedRedTeam",
+        "PrunedUncertain",
+        "DeferredRealDataCandidate",
+        "RequiresRealData",
+        "InsufficientRetrievalAdequacy",
+        "StagnationStop",
+        "StopFailure",
+        "StopSuccess",
+        "NeedsHumanTailEscalation",
+        "FalseBridge",
+        "TrivialTheoremCandidate",
+        "StageCReady",
+        "BudgetDeferred"
+      ],
+      "title": "BranchStatus",
+      "type": "string"
+    },
+    "RetrievalAdequacyCertificate": {
+      "additionalProperties": false,
+      "description": "Skeleton retrieval adequacy certificate.",
+      "properties": {
+        "adversarial": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Adversarial",
+          "type": "number"
+        },
+        "bounded_signal": {
+          "default": true,
+          "title": "Bounded Signal",
+          "type": "boolean"
+        },
+        "citation": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Citation",
+          "type": "number"
+        },
+        "claims_literature_coverage": {
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "diversity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Diversity",
+          "type": "number"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "keyword": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Keyword",
+          "type": "number"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "rho_adequacy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Rho Adequacy",
+          "type": "number"
+        },
+        "semantic": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Semantic",
+          "type": "number"
+        },
+        "source_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Count",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/BranchStatus"
+        },
+        "tau_adequacy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tau Adequacy",
+          "type": "number"
+        },
+        "weights": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Weights",
+          "type": "object"
+        }
+      },
+      "required": [
+        "semantic",
+        "keyword",
+        "citation",
+        "diversity",
+        "adversarial",
+        "weights",
+        "rho_adequacy",
+        "tau_adequacy",
+        "passed",
+        "status"
+      ],
+      "title": "RetrievalAdequacyCertificate",
+      "type": "object"
+    },
+    "RetrievalParseReport": {
+      "additionalProperties": false,
+      "description": "Non-evidence summary of provider response normalization.",
+      "properties": {
+        "accepted_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Accepted Source Ids",
+          "type": "array"
+        },
+        "fake": {
+          "default": false,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "raw_response_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Raw Response Hash",
+          "type": "string"
+        },
+        "rejected_results": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Rejected Results",
+          "type": "array"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "provider",
+        "raw_response_hash"
+      ],
+      "title": "RetrievalParseReport",
+      "type": "object"
+    },
+    "RetrievalQuery": {
+      "additionalProperties": false,
+      "description": "Deterministic provider query contract retained as non-evidence context.",
+      "properties": {
+        "endpoint": {
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "fake": {
+          "default": false,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "limit": {
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "query": {
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "query_id": {
+          "minLength": 1,
+          "title": "Query Id",
+          "type": "string"
+        },
+        "requires_credentials": {
+          "default": true,
+          "title": "Requires Credentials",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "query_id",
+        "query",
+        "provider",
+        "limit",
+        "endpoint"
+      ],
+      "title": "RetrievalQuery",
+      "type": "object"
+    },
+    "RetrievalResult": {
+      "additionalProperties": false,
+      "description": "One normalized retrieval result used only for literature context.",
+      "properties": {
+        "abstract": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abstract"
+        },
+        "authors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Authors",
+          "type": "array"
+        },
+        "claims_literature_coverage": {
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "query": {
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "rank": {
+          "minimum": 0,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "raw_metadata_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Raw Metadata Hash",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "snippet": {
+          "default": "",
+          "title": "Snippet",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_provenance": {
+          "$ref": "#/$defs/SourceProvenance"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "venue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Venue"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        }
+      },
+      "required": [
+        "source_id",
+        "title",
+        "provider",
+        "retrieved_at",
+        "query",
+        "rank",
+        "raw_metadata_hash",
+        "source_provenance"
+      ],
+      "title": "RetrievalResult",
+      "type": "object"
+    },
+    "SourceProvenance": {
+      "additionalProperties": false,
+      "description": "Source-level provenance that cannot confer a verification label.",
+      "properties": {
+        "claims_literature_coverage": {
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "query": {
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "rank": {
+          "minimum": 0,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "raw_metadata_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Raw Metadata Hash",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "source_id",
+        "provider",
+        "query",
+        "rank",
+        "retrieved_at",
+        "raw_metadata_hash"
+      ],
+      "title": "SourceProvenance",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/retrieval-run-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded retrieval run report; not proof of novelty.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "certificate": {
+      "$ref": "#/$defs/RetrievalAdequacyCertificate"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "config_metadata": {
+      "additionalProperties": true,
+      "title": "Config Metadata",
+      "type": "object"
+    },
+    "fake": {
+      "default": false,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "parse_report": {
+      "$ref": "#/$defs/RetrievalParseReport"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "query": {
+      "$ref": "#/$defs/RetrievalQuery"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/RetrievalResult"
+      },
+      "title": "Results",
+      "type": "array"
+    }
+  },
+  "required": [
+    "query",
+    "results",
+    "parse_report",
+    "certificate",
+    "backend",
+    "provider"
+  ],
+  "title": "RetrievalRunReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.RetrievalRunReport",
+  "x-factori-verification-evidence": false
+}

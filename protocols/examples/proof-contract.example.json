@@ -1,0 +1,10 @@
+{
+  "allow_external_calls": false,
+  "backend": "fake",
+  "candidate_id": "candidate-example",
+  "fake_default": true,
+  "is_verification_evidence": false,
+  "proof_payload": {
+    "attempt": "deterministic-placeholder"
+  }
+}

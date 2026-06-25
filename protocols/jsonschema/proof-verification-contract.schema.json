@@ -1,0 +1,46 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/proof-verification-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider-neutral proof verification request contract.",
+  "properties": {
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "backend": {
+      "default": "fake",
+      "title": "Backend",
+      "type": "string"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "fake_default": {
+      "default": true,
+      "title": "Fake Default",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proof_payload": {
+      "additionalProperties": true,
+      "title": "Proof Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
+  "title": "ProofVerificationContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ProofVerificationContract",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,13 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/proof-backend.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Proof backend enum.",
+  "enum": [
+    "fake"
+  ],
+  "title": "ProofBackend",
+  "type": "string",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.protocols.ProofBackend",
+  "x-factori-verification-evidence": false
+}

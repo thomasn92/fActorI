@@ -49,6 +49,14 @@ Pydantic models by `factori/schema_export.py`. Checked-in JSON Schema Draft 2020
 `protocols/jsonschema/`, with explicit version metadata and deterministic examples. Internal Python
 class names may differ from stable protocol names; each schema records its source model.
 
+Protocol version `0.2.0` exports top-level run-control, adapter I/O, manifest, output, and enum
+contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
+`retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
+annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
+Examples are validated against generated schemas by `factori validate-protocol-examples`.
+Version movement is checked by `factori check-protocol-version` using the MAJOR/MINOR/PATCH rules
+in `protocols/versioning.md`.
+
 Protocol export is a developer operation, not a pipeline stage. It does not inspect or mutate run
 directories, append ledger commits, update artifact manifests, or create scientific evidence. A
 future Rust tool or server should pin the protocol version and validate messages at process

@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact-example",
+      "artifact_type": "report",
+      "content_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "is_evidence": false,
+      "is_presentation": true,
+      "metadata": {
+        "example": true
+      },
+      "path": "runs/example/reports/artifact-example.json",
+      "producing_commit_hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "evidence_artifact_count": 0,
+  "presentation_artifact_count": 1,
+  "run_id": "example",
+  "source_of_truth": "ledger"
+}

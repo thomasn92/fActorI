@@ -16,7 +16,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.1.0/experiment-run-result.schema.json",
+  "$id": "https://schemas.factori.local/0.2.0/experiment-run-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Current fake synthetic-experiment result shape.",
@@ -111,7 +111,7 @@
   ],
   "title": "ExperimentRunResult",
   "type": "object",
-  "x-factori-protocol-version": "0.1.0",
+  "x-factori-protocol-version": "0.2.0",
   "x-factori-source-model": "factori.schemas.FakeExperimentResult",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,14 @@
+{
+  "endpoint": "fake://retrieval",
+  "fake": true,
+  "is_verification_evidence": false,
+  "limit": 2,
+  "parameters": {
+    "query": "calibration synthetic shift"
+  },
+  "proves_novelty": false,
+  "provider": "fake",
+  "query": "calibration synthetic shift",
+  "query_id": "query-example",
+  "requires_credentials": false
+}

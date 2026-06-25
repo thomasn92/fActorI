@@ -1,0 +1,58 @@
+{
+  "blocking_findings_count": 0,
+  "certifies_scientific_validity": false,
+  "domain": "machine learning",
+  "dry_run": true,
+  "dry_run_status": "DryRunRunnable",
+  "failure_policy": "ContinueSafe",
+  "method": "calibration",
+  "next_stage": "run-stage-a",
+  "not_evidence": true,
+  "not_ledgered": true,
+  "not_provenance": true,
+  "planned_outputs": [
+    {
+      "description": "Stage A ranked report.",
+      "optional": false,
+      "output_kind": "stage_a_report",
+      "path": "runs/example/reports/stage-a-report.md",
+      "required_for_completion": true
+    }
+  ],
+  "planned_stages": [
+    {
+      "already_complete": false,
+      "expected_outputs": [
+        {
+          "description": "Stage A ranked report.",
+          "optional": false,
+          "output_kind": "stage_a_report",
+          "path": "runs/example/reports/stage-a-report.md",
+          "required_for_completion": true
+        }
+      ],
+      "missing_prerequisites": [],
+      "prerequisites": [],
+      "read_only": false,
+      "reason": "No prior run artifacts are required.",
+      "stage_name": "run-stage-a",
+      "status": "WouldRun",
+      "warnings": []
+    }
+  ],
+  "resume_validation": null,
+  "root": ".",
+  "run_diagnostics": false,
+  "run_id": "example",
+  "run_status": null,
+  "selected_stages": [
+    "run-stage-a"
+  ],
+  "skip_replay": false,
+  "start_at": null,
+  "stop_after": null,
+  "validation_findings": [],
+  "warnings_count": 0,
+  "write_diagnostic_report": false,
+  "write_replay_report": false
+}

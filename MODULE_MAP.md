@@ -16,6 +16,10 @@ All implementation modules are under `factori/`.
 - `schema_export.py`: deterministic JSON Schema, version metadata, and example export/check logic.
 - `schema_diff.py`: conservative field/type/enum/constraint JSON Schema change classification.
 - `protocol_compat.py`: read-only schema-directory comparison and aggregate compatibility status.
+- `protocol_validation.py`: read-only JSON-Schema-level validation for deterministic protocol
+  examples without mutating protocol or run files.
+- `protocol_versioning.py`: semantic protocol version-bump checks derived from compatibility
+  reports.
 - `cli.py`: Typer command surface for all implemented stages.
 
 ## Protocol Contracts
@@ -25,6 +29,8 @@ All implementation modules are under `factori/`.
 - `protocols/jsonschema/`: generated JSON Schema Draft 2020-12 contracts.
 - `protocols/examples/`: deterministic cross-language payload fixtures.
 - `protocols/compatibility.md`: documented breaking, non-breaking, documentation, and unknown policy.
+- `protocols/versioning.md`: MAJOR/MINOR/PATCH protocol version bump rules.
+- `protocols/server-readiness.md`: future server/Rust contract boundary and remaining gaps.
 
 ## Adapters
 

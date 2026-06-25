@@ -9,8 +9,13 @@ from factori.schemas import (
     ArtifactRef,
     FakeExperimentResult,
     FakeProofResult,
+    LedgerTipValidationReport,
+    LLMCandidateParseReport,
+    LLMPromptContract,
     PipelineStageResult,
+    RunStatusReport,
     StageBReviewerReport,
+    StageRerunDecision,
 )
 from factori.stage_c_selection import StageCSelectionResult
 
@@ -21,11 +26,11 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 32
+    assert len(first) == 63
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.1.0"
+    assert PROTOCOL_VERSION == "0.2.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
-    assert names[-1] == "AdapterConfig"
+    assert names[-1] == "ProtocolCompatibilityStatus"
 
 
 def test_protocol_aliases_map_to_existing_typed_models() -> None:
@@ -36,6 +41,51 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ProofVerificationResult").model is FakeProofResult
     assert get_protocol_definition("ExperimentRunResult").model is FakeExperimentResult
     assert get_protocol_definition("AdapterConfig").model is AdapterConfig
+    assert get_protocol_definition("RunStatusReport").model is RunStatusReport
+    assert get_protocol_definition("StageRerunDecision").model is StageRerunDecision
+    assert get_protocol_definition("LedgerTipValidationReport").model is LedgerTipValidationReport
+    assert get_protocol_definition("LLMPromptContract").model is LLMPromptContract
+    assert get_protocol_definition("LLMCandidateParseReport").model is LLMCandidateParseReport
+
+
+def test_server_facing_protocols_and_enums_are_registered() -> None:
+    names = {definition.name for definition in get_protocol_definitions()}
+
+    expected = {
+        "RunStatusReport",
+        "ResumeValidationReport",
+        "StageCheckpoint",
+        "RerunPolicy",
+        "StageRerunDecision",
+        "StageRerunStatus",
+        "LedgerTipValidationReport",
+        "PipelineStagePlan",
+        "ArtifactManifest",
+        "ResearchObjectManifest",
+        "ReproducibilityManifest",
+        "RunSummary",
+        "LLMPromptContract",
+        "LLMCandidateParseReport",
+        "LLMReviewerPromptContract",
+        "LLMReviewerParseReport",
+        "RetrievalQuery",
+        "RetrievalRunReport",
+        "RetrievalParseReport",
+        "ProofVerificationContract",
+        "HumanReviewDecision",
+        "GeneratedSectionDraft",
+        "DataRequirement",
+        "EvidenceType",
+        "ClaimLabel",
+        "AdapterBackend",
+        "RetrievalBackend",
+        "ReviewerBackend",
+        "ProofBackend",
+        "ReleaseStatus",
+        "ProtocolCompatibilityStatus",
+    }
+
+    assert expected <= names
 
 
 def test_protocol_filenames_are_language_neutral_and_stable() -> None:

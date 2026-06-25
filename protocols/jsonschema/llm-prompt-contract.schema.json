@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "DataRequirement": {
+      "description": "Data access regimes from the MVP data gate.",
+      "enum": [
+        "NoData",
+        "SyntheticOnly",
+        "PublicDownload",
+        "UserProvided"
+      ],
+      "title": "DataRequirement",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/llm-prompt-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stage A candidate-generation prompt contract.",
+  "properties": {
+    "constraints": {
+      "additionalProperties": true,
+      "title": "Constraints",
+      "type": "object"
+    },
+    "data_regime_policy": {
+      "items": {
+        "$ref": "#/$defs/DataRequirement"
+      },
+      "title": "Data Regime Policy",
+      "type": "array"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "evidence_boundary_instructions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Boundary Instructions",
+      "type": "array"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "max_candidates": {
+      "minimum": 1,
+      "title": "Max Candidates",
+      "type": "integer"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "mvp_data_gate": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/DataRequirement"
+        },
+        "type": "array"
+      },
+      "title": "Mvp Data Gate",
+      "type": "object"
+    },
+    "prompt_text": {
+      "minLength": 1,
+      "title": "Prompt Text",
+      "type": "string"
+    },
+    "requested_output_schema": {
+      "additionalProperties": true,
+      "title": "Requested Output Schema",
+      "type": "object"
+    }
+  },
+  "required": [
+    "domain",
+    "constraints",
+    "data_regime_policy",
+    "mvp_data_gate",
+    "requested_output_schema",
+    "forbidden_claims",
+    "evidence_boundary_instructions",
+    "max_candidates",
+    "prompt_text"
+  ],
+  "title": "LLMPromptContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.LLMPromptContract",
+  "x-factori-verification-evidence": false
+}

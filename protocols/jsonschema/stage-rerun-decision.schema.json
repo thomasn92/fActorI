@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    },
+    "RerunPolicy": {
+      "description": "Explicit policy for invoking a stage against existing completion artifacts.",
+      "enum": [
+        "FailIfExists",
+        "SkipIfComplete",
+        "AllowIfForced",
+        "ReadOnlyOnly"
+      ],
+      "title": "RerunPolicy",
+      "type": "string"
+    },
+    "StageRerunStatus": {
+      "description": "Deterministic decision status for one requested stage invocation.",
+      "enum": [
+        "Allowed",
+        "BlockedAlreadyComplete",
+        "SkippedAlreadyComplete",
+        "AllowedForced",
+        "ReadOnlyAllowed",
+        "BlockedInconsistent"
+      ],
+      "title": "StageRerunStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/stage-rerun-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only mutating-stage rerun decision.",
+  "properties": {
+    "force_requested": {
+      "default": false,
+      "title": "Force Requested",
+      "type": "boolean"
+    },
+    "is_provenance": {
+      "default": false,
+      "title": "Is Provenance",
+      "type": "boolean"
+    },
+    "policy": {
+      "$ref": "#/$defs/RerunPolicy"
+    },
+    "read_only": {
+      "default": true,
+      "title": "Read Only",
+      "type": "boolean"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "should_run": {
+      "title": "Should Run",
+      "type": "boolean"
+    },
+    "should_skip": {
+      "default": false,
+      "title": "Should Skip",
+      "type": "boolean"
+    },
+    "stage_completed": {
+      "title": "Stage Completed",
+      "type": "boolean"
+    },
+    "stage_name": {
+      "$ref": "#/$defs/PipelineStage"
+    },
+    "status": {
+      "$ref": "#/$defs/StageRerunStatus"
+    }
+  },
+  "required": [
+    "run_id",
+    "stage_name",
+    "policy",
+    "status",
+    "stage_completed",
+    "should_run",
+    "reason"
+  ],
+  "title": "StageRerunDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.StageRerunDecision",
+  "x-factori-verification-evidence": false
+}

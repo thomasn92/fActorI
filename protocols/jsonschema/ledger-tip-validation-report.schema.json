@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "LedgerBranchFinding": {
+      "additionalProperties": false,
+      "description": "One read-only finding about ledger linearity or duplicate stage markers.",
+      "properties": {
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "commit_hashes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commit Hashes",
+          "type": "array"
+        },
+        "finding_type": {
+          "minLength": 1,
+          "title": "Finding Type",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "parent_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Hash"
+        },
+        "stage_name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "finding_type",
+        "message"
+      ],
+      "title": "LedgerBranchFinding",
+      "type": "object"
+    },
+    "LedgerTipStatus": {
+      "description": "Read-only ledger linearity validation status.",
+      "enum": [
+        "Valid",
+        "Warning",
+        "Invalid",
+        "Missing"
+      ],
+      "title": "LedgerTipStatus",
+      "type": "string"
+    },
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/ledger-tip-validation-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only ledger tip and fork validation report.",
+  "properties": {
+    "blocking_findings": {
+      "items": {
+        "$ref": "#/$defs/LedgerBranchFinding"
+      },
+      "title": "Blocking Findings",
+      "type": "array"
+    },
+    "branch_findings": {
+      "items": {
+        "$ref": "#/$defs/LedgerBranchFinding"
+      },
+      "title": "Branch Findings",
+      "type": "array"
+    },
+    "commit_count": {
+      "minimum": 0,
+      "title": "Commit Count",
+      "type": "integer"
+    },
+    "duplicate_stage_findings": {
+      "items": {
+        "$ref": "#/$defs/LedgerBranchFinding"
+      },
+      "title": "Duplicate Stage Findings",
+      "type": "array"
+    },
+    "is_provenance": {
+      "default": false,
+      "title": "Is Provenance",
+      "type": "boolean"
+    },
+    "ledger_exists": {
+      "title": "Ledger Exists",
+      "type": "boolean"
+    },
+    "read_only": {
+      "default": true,
+      "title": "Read Only",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/LedgerTipStatus"
+    },
+    "tip_hashes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tip Hashes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "status",
+    "commit_count",
+    "ledger_exists"
+  ],
+  "title": "LedgerTipValidationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.LedgerTipValidationReport",
+  "x-factori-verification-evidence": false
+}

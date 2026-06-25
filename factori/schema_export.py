@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
+from factori.adapters.config import AdapterConfig
 from factori.protocols import (
     PROTOCOL_GENERATOR,
     PROTOCOL_SOURCE,
@@ -18,26 +19,78 @@ from factori.protocols import (
     get_protocol_definitions,
 )
 from factori.schemas import (
+    ArtifactManifest,
+    ArtifactManifestEntry,
     ArtifactRef,
     ArtifactType,
     Candidate,
     Claim,
     ConstraintSet,
     DataRequirement,
+    DryRunStatus,
     FakeExperimentResult,
     FakeProofResult,
+    LedgerTipStatus,
+    LedgerTipValidationReport,
+    LLMCandidateParseReport,
+    LLMPromptContract,
+    NextStageRecommendation,
+    PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunReport,
     PipelineRunStatus,
     PipelineStage,
     PipelineStageResult,
+    PlannedOutput,
+    PlannedStage,
+    PlannedStageStatus,
+    ProofVerificationContract,
+    ResearchObjectManifest,
+    ResumeValidationReport,
+    ResumeValidationStatus,
+    RetrievalQuery,
     RetrievalResult,
+    RunCompletenessStatus,
+    RunStatusReport,
     SourceProvenance,
+    StageCheckpoint,
+    StagePrerequisite,
     VerificationLabel,
 )
 
 DEFAULT_PROTOCOL_OUTPUT_DIR = Path("protocols/jsonschema")
 _HASH = "0" * 64
+_TIMESTAMP_PROPERTY_NAMES = frozenset(
+    {
+        "created_at",
+        "finished_at",
+        "retrieved_at",
+        "started_at",
+        "timestamp",
+    }
+)
+
+EXAMPLE_PROTOCOLS: dict[str, str] = {
+    "adapter-config.example.json": "AdapterConfig",
+    "artifact.example.json": "ArtifactRecord",
+    "artifact-manifest.example.json": "ArtifactManifest",
+    "candidate.example.json": "Candidate",
+    "claim.example.json": "Claim",
+    "experiment-result.example.json": "ExperimentRunResult",
+    "ledger-tip-validation-report.example.json": "LedgerTipValidationReport",
+    "llm-candidate-request.example.json": "LLMPromptContract",
+    "llm-candidate-response.example.json": "LLMCandidateParseReport",
+    "pipeline-dry-run-plan.example.json": "PipelineDryRunPlan",
+    "pipeline-run-report.example.json": "PipelineRunReport",
+    "proof-contract.example.json": "ProofVerificationContract",
+    "proof-result.example.json": "ProofVerificationResult",
+    "research-object-manifest.example.json": "ResearchObjectManifest",
+    "resume-validation-report.example.json": "ResumeValidationReport",
+    "retrieval-query.example.json": "RetrievalQuery",
+    "retrieval-result.example.json": "RetrievalResult",
+    "run-status-report.example.json": "RunStatusReport",
+    "stage-result.example.json": "StageResult",
+}
 
 
 class ProtocolExportError(RuntimeError):
@@ -105,6 +158,7 @@ def require_protocols_current(
 def build_protocol_schema(definition: ProtocolDefinition) -> dict[str, Any]:
     """Generate one language-neutral schema from its existing typed model."""
     schema = TypeAdapter(definition.model).json_schema(mode="serialization")
+    _normalize_protocol_schema(schema)
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     schema["$id"] = (
         f"https://schemas.factori.local/{PROTOCOL_VERSION}/{definition.filename}"
@@ -145,6 +199,23 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         producing_commit_hash=_HASH,
         metadata={"is_verification_evidence": False},
     )
+    artifact_manifest = ArtifactManifest(
+        run_id="example",
+        artifacts=[
+            ArtifactManifestEntry(
+                artifact_id=artifact.id,
+                artifact_type=artifact.type,
+                path=artifact.path,
+                content_hash=artifact.content_hash,
+                producing_commit_hash=artifact.producing_commit_hash,
+                is_evidence=False,
+                is_presentation=True,
+                metadata={"example": True},
+            )
+        ],
+        evidence_artifact_count=0,
+        presentation_artifact_count=1,
+    )
     stage_result = PipelineStageResult(
         stage_name=PipelineStage.RUN_STAGE_A,
         started_at="1970-01-01T00:00:00.000000Z",
@@ -174,6 +245,16 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         source_provenance=provenance,
         fake=True,
     )
+    retrieval_query = RetrievalQuery(
+        query_id="query-example",
+        query="calibration synthetic shift",
+        provider="fake",
+        limit=2,
+        endpoint="fake://retrieval",
+        parameters={"query": "calibration synthetic shift"},
+        requires_credentials=False,
+        fake=True,
+    )
     proof = FakeProofResult(
         candidate_id=candidate.id,
         proof_attempt_id="proof-example",
@@ -201,6 +282,12 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         label=VerificationLabel.NEGATIVE_RESULT,
         reason="The deterministic example does not meet its declared threshold.",
     )
+    proof_contract = ProofVerificationContract(
+        candidate_id=candidate.id,
+        backend="fake",
+        proof_payload={"attempt": "deterministic-placeholder"},
+        allow_external_calls=False,
+    )
     claim = Claim(
         claim_id="claim-example",
         claim_text="The proposed relationship remains conjectural.",
@@ -220,14 +307,144 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         failure_policy=PipelineFailurePolicy.CONTINUE_SAFE,
         pipeline_report_path="runs/example/reports/pipeline-run-report.md",
     )
+    checkpoint = StageCheckpoint(
+        stage_name=PipelineStage.RUN_STAGE_A,
+        completed=True,
+        required_artifacts_present=["runs/example/reports/stage-a-report.md"],
+        completion_evidence=["stage_a_report"],
+    )
+    next_stage = NextStageRecommendation(
+        stage_name=PipelineStage.RUN_STAGE_B,
+        command="uv run factori run-stage-b --run-id example",
+        reason="Stage A example checkpoint is complete.",
+    )
+    run_status = RunStatusReport(
+        run_id="example",
+        run_exists=True,
+        completed_stages=[PipelineStage.RUN_STAGE_A],
+        missing_stages=[PipelineStage.RUN_STAGE_B],
+        next_recommended_stage=next_stage,
+        last_completed_stage=PipelineStage.RUN_STAGE_A,
+        required_artifacts_present=["runs/example/reports/stage-a-report.md"],
+        stage_checkpoints=[checkpoint],
+        ledger_exists=True,
+        ledger_commit_count=3,
+        artifact_manifest_exists=False,
+        research_object_exists=False,
+        paper_skeleton_exists=False,
+        final_audit_exists=False,
+        export_preparation_exists=False,
+        replay_report_exists=False,
+        diagnostic_report_exists=False,
+        completeness_status=RunCompletenessStatus.PARTIAL_RUN,
+    )
+    prerequisite = StagePrerequisite(
+        stage_name=PipelineStage.RUN_STAGE_B,
+        required_prior_stage=PipelineStage.RUN_STAGE_A,
+        required_artifact_path_or_kind="reports/stage-a-report.md",
+        required_report="stage-a-report",
+        message="Stage B requires Stage A survivor output.",
+    )
+    resume_validation = ResumeValidationReport(
+        run_id="example",
+        start_at_stage=PipelineStage.RUN_STAGE_B,
+        resume_status=ResumeValidationStatus.RESUME_ALLOWED,
+        prerequisites=[prerequisite],
+        next_recommended_stage=next_stage,
+        run_exists=True,
+        ledger_exists=True,
+        ledger_commit_count=3,
+    )
+    ledger_tip = LedgerTipValidationReport(
+        run_id="example",
+        status=LedgerTipStatus.VALID,
+        commit_count=3,
+        tip_hashes=[_HASH],
+        ledger_exists=True,
+    )
+    llm_prompt = LLMPromptContract(
+        domain="machine learning",
+        method="calibration",
+        constraints=ConstraintSet(
+            domain="machine learning",
+            method="calibration",
+            data_requirement=DataRequirement.SYNTHETIC_ONLY,
+        ).model_dump(mode="json"),
+        data_regime_policy=list(DataRequirement),
+        mvp_data_gate={
+            "allowed": [DataRequirement.NO_DATA, DataRequirement.SYNTHETIC_ONLY],
+            "deferred": [
+                DataRequirement.PUBLIC_DOWNLOAD,
+                DataRequirement.USER_PROVIDED,
+            ],
+        },
+        requested_output_schema={
+            "type": "object",
+            "properties": {"candidates": {"type": "array"}},
+        },
+        forbidden_claims=["Do not claim verification labels."],
+        evidence_boundary_instructions=["Candidate proposals are not evidence."],
+        max_candidates=2,
+        prompt_text="Deterministic example prompt contract.",
+    )
+    llm_response = LLMCandidateParseReport(
+        accepted_candidate_ids=[candidate.id],
+        rejected_candidates=[],
+        max_candidates=2,
+        truncated=False,
+        fake=True,
+    )
+    planned_output = PlannedOutput(
+        output_kind="stage_a_report",
+        path="runs/example/reports/stage-a-report.md",
+        description="Stage A ranked report.",
+    )
+    planned_stage = PlannedStage(
+        stage_name=PipelineStage.RUN_STAGE_A.value,
+        status=PlannedStageStatus.WOULD_RUN,
+        reason="No prior run artifacts are required.",
+        expected_outputs=[planned_output],
+    )
+    dry_run_plan = PipelineDryRunPlan(
+        run_id="example",
+        domain="machine learning",
+        method="calibration",
+        dry_run_status=DryRunStatus.DRY_RUN_RUNNABLE,
+        planned_stages=[planned_stage],
+        planned_outputs=[planned_output],
+        next_stage=PipelineStage.RUN_STAGE_A,
+        selected_stages=[PipelineStage.RUN_STAGE_A],
+        warnings_count=0,
+        blocking_findings_count=0,
+    )
+    research_manifest = ResearchObjectManifest(
+        research_object_json=artifact,
+        research_object_markdown=artifact,
+        artifact_manifest=artifact,
+        ledger_summary=artifact,
+        branch_outcomes=artifact,
+        reproducibility_manifest=artifact,
+    )
+    adapter_config = AdapterConfig()
     return {
+        "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
         "artifact.example.json": artifact.model_dump(mode="json"),
+        "artifact-manifest.example.json": artifact_manifest.model_dump(mode="json"),
         "stage-result.example.json": stage_result.model_dump(mode="json"),
+        "run-status-report.example.json": run_status.model_dump(mode="json"),
+        "resume-validation-report.example.json": resume_validation.model_dump(mode="json"),
+        "ledger-tip-validation-report.example.json": ledger_tip.model_dump(mode="json"),
+        "llm-candidate-request.example.json": llm_prompt.model_dump(mode="json"),
+        "llm-candidate-response.example.json": llm_response.model_dump(mode="json"),
+        "retrieval-query.example.json": retrieval_query.model_dump(mode="json"),
         "retrieval-result.example.json": retrieval.model_dump(mode="json"),
+        "proof-contract.example.json": proof_contract.model_dump(mode="json"),
         "proof-result.example.json": proof.model_dump(mode="json"),
         "experiment-result.example.json": experiment.model_dump(mode="json"),
         "claim.example.json": claim.model_dump(mode="json"),
+        "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
+        "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),
     }
 
@@ -267,8 +484,56 @@ def _json_text(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
 
 
+def _normalize_protocol_schema(schema: dict[str, Any]) -> None:
+    """Normalize generated JSON Schema for language-neutral consumers."""
+    _normalize_schema_node(schema, property_name=None)
+
+
+def _normalize_schema_node(node: Any, *, property_name: str | None) -> None:
+    if isinstance(node, list):
+        for item in node:
+            _normalize_schema_node(item, property_name=property_name)
+        return
+    if not isinstance(node, dict):
+        return
+
+    if node.get("format") == "password":
+        node.pop("format", None)
+        node.pop("writeOnly", None)
+        node["x-factori-sensitive"] = True
+    elif node.get("format") == "path":
+        node.pop("format", None)
+        node["x-factori-format"] = "portable-path-string"
+
+    if property_name in _TIMESTAMP_PROPERTY_NAMES:
+        _apply_date_time_format(node)
+
+    properties = node.get("properties")
+    if isinstance(properties, dict):
+        for child_name, child_schema in properties.items():
+            _normalize_schema_node(child_schema, property_name=child_name)
+
+    for key, value in node.items():
+        if key == "properties":
+            continue
+        _normalize_schema_node(value, property_name=property_name)
+
+
+def _apply_date_time_format(node: dict[str, Any]) -> None:
+    if node.get("type") == "string":
+        node["format"] = "date-time"
+        return
+    for key in ("anyOf", "oneOf"):
+        branches = node.get(key)
+        if isinstance(branches, list):
+            for branch in branches:
+                if isinstance(branch, dict) and branch.get("type") == "string":
+                    branch["format"] = "date-time"
+
+
 __all__ = [
     "DEFAULT_PROTOCOL_OUTPUT_DIR",
+    "EXAMPLE_PROTOCOLS",
     "ProtocolExportError",
     "ProtocolExportResult",
     "build_protocol_schema",

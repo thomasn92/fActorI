@@ -282,7 +282,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.1.0/research-object.schema.json",
+  "$id": "https://schemas.factori.local/0.2.0/research-object.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Packaged reproducible research object.",
@@ -319,6 +319,7 @@
       "$ref": "#/$defs/ArtifactRef"
     },
     "created_at": {
+      "format": "date-time",
       "minLength": 1,
       "title": "Created At",
       "type": "string"
@@ -380,7 +381,7 @@
   ],
   "title": "ResearchObject",
   "type": "object",
-  "x-factori-protocol-version": "0.1.0",
+  "x-factori-protocol-version": "0.2.0",
   "x-factori-source-model": "factori.schemas.ResearchObject",
   "x-factori-verification-evidence": false
 }

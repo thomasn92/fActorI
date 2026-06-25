@@ -19,7 +19,9 @@ by the task.
 
 Language-neutral developer contracts are documented in [`protocols/README.md`](protocols/README.md).
 Compatibility rules are documented in
-[`protocols/compatibility.md`](protocols/compatibility.md).
+[`protocols/compatibility.md`](protocols/compatibility.md), with version bump rules in
+[`protocols/versioning.md`](protocols/versioning.md) and server-readiness notes in
+[`protocols/server-readiness.md`](protocols/server-readiness.md).
 
 Implemented so far:
 
@@ -60,6 +62,8 @@ Implemented so far:
   safety checks, ledgered context artifacts, and no verification or publication authority;
 - versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
 - conservative read-only protocol compatibility and schema-change classification;
+- server-facing run-control, adapter I/O, manifest, and enum protocol exports with JSON
+  Schema-level example validation and explicit protocol versioning checks;
 - fail-closed mutating-stage rerun policies and read-only ledger tip/fork validation;
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
@@ -136,7 +140,10 @@ uv run factori plan-hygiene-remediation --run-id demo --json
 uv run factori show-adapters
 uv run factori export-protocols
 uv run factori export-protocols --check
+uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
+uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
+  --old-version 0.1.0 --new-version 0.2.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -166,6 +173,10 @@ scientific evidence.
 `check-protocol-compat` compares exported schema directories without modifying them. It detects
 common breaking and widening changes and reports complex composition/reference changes as unknown
 instead of claiming semantic compatibility.
+
+`validate-protocol-examples` validates deterministic examples against exported JSON Schemas.
+`check-protocol-version` enforces MAJOR/MINOR/PATCH rules for schema changes. Both commands are
+developer-contract checks only; they do not create run artifacts or ledger commits.
 
 Persistence writes use a same-directory temporary file, flush and fsync its bytes, then atomically
 replace the final path. Commit and pipeline timestamps use `SystemClock` by default; tests and

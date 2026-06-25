@@ -1,0 +1,52 @@
+{
+  "artifact_manifest_exists": false,
+  "blocking_issues": [],
+  "completed_stages": [
+    "run-stage-a"
+  ],
+  "completeness_status": "PartialRun",
+  "diagnostic_report_exists": false,
+  "diagnostic_status": null,
+  "export_preparation_exists": false,
+  "final_audit_exists": false,
+  "is_provenance": false,
+  "last_completed_stage": "run-stage-a",
+  "ledger_commit_count": 3,
+  "ledger_exists": true,
+  "missing_stages": [
+    "run-stage-b"
+  ],
+  "next_recommended_stage": {
+    "command": "uv run factori run-stage-b --run-id example",
+    "reason": "Stage A example checkpoint is complete.",
+    "stage_name": "run-stage-b"
+  },
+  "paper_skeleton_exists": false,
+  "read_only": true,
+  "release_status": null,
+  "replay_report_exists": false,
+  "replay_status": null,
+  "required_artifacts_missing": [],
+  "required_artifacts_present": [
+    "runs/example/reports/stage-a-report.md"
+  ],
+  "research_object_exists": false,
+  "run_exists": true,
+  "run_id": "example",
+  "stage_checkpoints": [
+    {
+      "completed": true,
+      "completion_evidence": [
+        "stage_a_report"
+      ],
+      "optional": false,
+      "required_artifacts_missing": [],
+      "required_artifacts_present": [
+        "runs/example/reports/stage-a-report.md"
+      ],
+      "stage_name": "run-stage-a",
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}

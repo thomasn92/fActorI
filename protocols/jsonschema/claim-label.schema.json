@@ -1,0 +1,20 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/claim-label.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Claim and verification label enum.",
+  "enum": [
+    "LeanVerified",
+    "ExperimentVerified",
+    "SyntheticExperimentVerified",
+    "RealDataExperimentVerified",
+    "Conjecture",
+    "NegativeResult",
+    "Limitation",
+    "Unsupported"
+  ],
+  "title": "ClaimLabel",
+  "type": "string",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.VerificationLabel",
+  "x-factori-verification-evidence": false
+}

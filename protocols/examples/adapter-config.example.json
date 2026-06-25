@@ -1,0 +1,18 @@
+{
+  "adapter_backend": "fake",
+  "allow_external_calls": false,
+  "api_key": null,
+  "api_key_env": "OPENAI_API_KEY",
+  "llm_max_candidates": 4,
+  "llm_model": "gpt-5-mini",
+  "retrieval_api_key": null,
+  "retrieval_api_key_env": "OPENALEX_API_KEY",
+  "retrieval_backend": "fake",
+  "retrieval_limit": 5,
+  "reviewer_api_key": null,
+  "reviewer_api_key_env": "OPENAI_API_KEY",
+  "reviewer_backend": "fake",
+  "reviewer_max_objections": 5,
+  "reviewer_model": "gpt-5-mini",
+  "use_llm_reviewers": false
+}

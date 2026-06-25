@@ -48,6 +48,14 @@ from factori.output_hygiene import (
     write_output_hygiene_report,
 )
 from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
+from factori.protocol_validation import (
+    DEFAULT_PROTOCOL_EXAMPLES_DIR,
+    validate_protocol_examples,
+)
+from factori.protocol_versioning import (
+    ProtocolVersionCheckStatus,
+    check_protocol_version_dirs,
+)
 from factori.protocols import PROTOCOL_VERSION
 from factori.questioner import route_questions_to_action, routed_action, select_questions
 from factori.regression_diagnostics import summarize_cross_run_comparison
@@ -217,6 +225,73 @@ def check_protocol_compat_command(
     if report.compatibility_status == ProtocolCompatibilityStatus.COMPARISON_FAILED:
         raise typer.Exit(code=1)
     if fail_on_breaking and report.breaking_changes:
+        raise typer.Exit(code=1)
+
+
+@app.command("validate-protocol-examples")
+def validate_protocol_examples_command(
+    schema_dir: Annotated[
+        Path,
+        typer.Option("--schema-dir"),
+    ] = DEFAULT_PROTOCOL_OUTPUT_DIR,
+    examples_dir: Annotated[
+        Path,
+        typer.Option("--examples-dir"),
+    ] = DEFAULT_PROTOCOL_EXAMPLES_DIR,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate deterministic protocol examples against exported JSON Schemas."""
+    report = validate_protocol_examples(schema_dir=schema_dir, examples_dir=examples_dir)
+    if json_output:
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+    else:
+        typer.echo(f"schema_dir={report.schema_dir}")
+        typer.echo(f"examples_dir={report.examples_dir}")
+        typer.echo(f"examples_checked={report.examples_checked}")
+        typer.echo(f"examples_valid={report.examples_valid}")
+        typer.echo(f"examples_invalid={report.examples_invalid}")
+        for result in report.results:
+            if not result.valid:
+                typer.echo(f"invalid_example={result.example_file}", err=True)
+                for error in result.errors:
+                    typer.echo(f"error={error}", err=True)
+    if report.examples_invalid:
+        raise typer.Exit(code=1)
+
+
+@app.command("check-protocol-version")
+def check_protocol_version_command(
+    old_dir: Annotated[Path, typer.Option("--old-dir")],
+    new_dir: Annotated[Path, typer.Option("--new-dir")],
+    old_version: Annotated[str | None, typer.Option("--old-version")] = None,
+    new_version: Annotated[str | None, typer.Option("--new-version")] = None,
+    allow_unknown: Annotated[bool, typer.Option("--allow-unknown")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Check semantic protocol version movement against schema compatibility."""
+    report = check_protocol_version_dirs(
+        old_dir,
+        new_dir,
+        old_version=old_version,
+        new_version=new_version,
+        allow_unknown=allow_unknown,
+    )
+    if json_output:
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+    else:
+        typer.echo(f"old_version={report.old_version}")
+        typer.echo(f"new_version={report.new_version}")
+        typer.echo(f"required_bump={report.required_bump.value}")
+        typer.echo(f"observed_bump={report.observed_bump.value}")
+        typer.echo(f"version_check_status={report.status.value}")
+        typer.echo(f"compatibility_status={report.compatibility_status.value}")
+        typer.echo(f"breaking_changes={report.breaking_changes}")
+        typer.echo(f"nonbreaking_changes={report.nonbreaking_changes}")
+        typer.echo(f"documentation_changes={report.documentation_changes}")
+        typer.echo(f"unknown_changes={report.unknown_changes}")
+        for reason in report.reasons:
+            typer.echo(f"reason={reason}", err=True)
+    if report.status != ProtocolVersionCheckStatus.PASSED:
         raise typer.Exit(code=1)
 
 

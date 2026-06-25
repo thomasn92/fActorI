@@ -1,0 +1,51 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/llm-candidate-parse-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stage A LLM candidate parse and safety report.",
+  "properties": {
+    "accepted_candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Candidate Ids",
+      "type": "array"
+    },
+    "fake": {
+      "default": false,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "max_candidates": {
+      "minimum": 1,
+      "title": "Max Candidates",
+      "type": "integer"
+    },
+    "rejected_candidates": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejected Candidates",
+      "type": "array"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "max_candidates"
+  ],
+  "title": "LLMCandidateParseReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.LLMCandidateParseReport",
+  "x-factori-verification-evidence": false
+}

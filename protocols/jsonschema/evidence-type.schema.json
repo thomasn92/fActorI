@@ -1,0 +1,20 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/evidence-type.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Artifact/evidence category enum.",
+  "enum": [
+    "candidate",
+    "score",
+    "report",
+    "literature",
+    "lean",
+    "experiment",
+    "log",
+    "latex"
+  ],
+  "title": "EvidenceType",
+  "type": "string",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ArtifactType",
+  "x-factori-verification-evidence": false
+}

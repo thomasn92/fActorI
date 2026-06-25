@@ -1,0 +1,57 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/retrieval-parse-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider retrieval response parse report.",
+  "properties": {
+    "accepted_source_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Source Ids",
+      "type": "array"
+    },
+    "fake": {
+      "default": false,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "raw_response_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Raw Response Hash",
+      "type": "string"
+    },
+    "rejected_results": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejected Results",
+      "type": "array"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "provider",
+    "raw_response_hash"
+  ],
+  "title": "RetrievalParseReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.RetrievalParseReport",
+  "x-factori-verification-evidence": false
+}

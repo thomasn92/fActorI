@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/protocol-compatibility-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Protocol schema compatibility status enum.",
+  "enum": [
+    "Compatible",
+    "CompatibleWithWarnings",
+    "BreakingChangesDetected",
+    "ComparisonFailed"
+  ],
+  "title": "ProtocolCompatibilityStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.protocol_compat.ProtocolCompatibilityStatus",
+  "x-factori-verification-evidence": false
+}

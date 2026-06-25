@@ -41,7 +41,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.1.0/pipeline-run-config.schema.json",
+  "$id": "https://schemas.factori.local/0.2.0/pipeline-run-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One-command pipeline configuration.",
@@ -110,9 +110,9 @@
     },
     "root": {
       "default": ".",
-      "format": "path",
       "title": "Root",
-      "type": "string"
+      "type": "string",
+      "x-factori-format": "portable-path-string"
     },
     "run_diagnostics": {
       "default": false,
@@ -172,7 +172,7 @@
   ],
   "title": "PipelineRunConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.1.0",
+  "x-factori-protocol-version": "0.2.0",
   "x-factori-source-model": "factori.schemas.PipelineRunConfig",
   "x-factori-verification-evidence": false
 }

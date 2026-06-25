@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "ArtifactManifestEntry": {
+      "additionalProperties": false,
+      "description": "One artifact entry in the research object manifest.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "is_evidence": {
+          "title": "Is Evidence",
+          "type": "boolean"
+        },
+        "is_presentation": {
+          "title": "Is Presentation",
+          "type": "boolean"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "artifact_type",
+        "path",
+        "is_evidence",
+        "is_presentation"
+      ],
+      "title": "ArtifactManifestEntry",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/artifact-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived artifact manifest.",
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ArtifactManifestEntry"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "evidence_artifact_count": {
+      "minimum": 0,
+      "title": "Evidence Artifact Count",
+      "type": "integer"
+    },
+    "presentation_artifact_count": {
+      "minimum": 0,
+      "title": "Presentation Artifact Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_of_truth": {
+      "default": "ledger",
+      "title": "Source Of Truth",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "artifacts",
+    "evidence_artifact_count",
+    "presentation_artifact_count"
+  ],
+  "title": "ArtifactManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ArtifactManifest",
+  "x-factori-verification-evidence": false
+}

@@ -17,7 +17,8 @@ details that are not captured by the context files.
 Before large schema, storage, API, server, or cross-language refactors, inspect
 `protocols/README.md`, `protocols/version.json`, and the generated JSON Schemas under
 `protocols/jsonschema/`. Update them with `factori export-protocols`; do not hand-edit generated
-schemas.
+schemas. Validate examples with `factori validate-protocol-examples` and use
+`factori check-protocol-version` for schema version bump rules.
 
 ## Scope
 

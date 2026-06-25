@@ -37,7 +37,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.1.0/bridge-report.schema.json",
+  "$id": "https://schemas.factori.local/0.2.0/bridge-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Stage B bridge validation result.",
@@ -127,7 +127,7 @@
   ],
   "title": "BridgeReport",
   "type": "object",
-  "x-factori-protocol-version": "0.1.0",
+  "x-factori-protocol-version": "0.2.0",
   "x-factori-source-model": "factori.schemas.BridgeReport",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,152 @@
+{
+  "$defs": {
+    "ReviewerRecommendation": {
+      "description": "Deterministic fake reviewer recommendation labels.",
+      "enum": [
+        "Accept",
+        "WeakAccept",
+        "Revise",
+        "WeakReject",
+        "Reject"
+      ],
+      "title": "ReviewerRecommendation",
+      "type": "string"
+    },
+    "StageBReviewerReport": {
+      "additionalProperties": false,
+      "description": "One Stage B structural reviewer report without verification authority.",
+      "properties": {
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "clarity_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Clarity Score",
+          "type": "number"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "feasibility_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Feasibility Score",
+          "type": "number"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "novelty_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Novelty Score",
+          "type": "number"
+        },
+        "objections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Objections",
+          "type": "array"
+        },
+        "recommendation": {
+          "$ref": "#/$defs/ReviewerRecommendation"
+        },
+        "reviewer_id": {
+          "minLength": 1,
+          "title": "Reviewer Id",
+          "type": "string"
+        },
+        "scientific_approval": {
+          "default": false,
+          "title": "Scientific Approval",
+          "type": "boolean"
+        },
+        "significance_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Significance Score",
+          "type": "number"
+        },
+        "verifiability_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Verifiability Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "reviewer_id",
+        "candidate_id",
+        "novelty_score",
+        "feasibility_score",
+        "verifiability_score",
+        "clarity_score",
+        "significance_score",
+        "recommendation"
+      ],
+      "title": "StageBReviewerReport",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/llm-reviewer-parse-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stage B LLM reviewer parse and safety result.",
+  "properties": {
+    "fake": {
+      "default": false,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "fallback_used": {
+      "default": false,
+      "title": "Fallback Used",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "rejected_reports": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejected Reports",
+      "type": "array"
+    },
+    "reports": {
+      "items": {
+        "$ref": "#/$defs/StageBReviewerReport"
+      },
+      "title": "Reports",
+      "type": "array"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    }
+  },
+  "title": "LLMReviewerParseReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.LLMReviewerParseResult",
+  "x-factori-verification-evidence": false
+}

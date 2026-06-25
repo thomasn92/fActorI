@@ -1,0 +1,95 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/reproducibility-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived reproducibility manifest.",
+  "properties": {
+    "all_artifacts_have_hashes": {
+      "title": "All Artifacts Have Hashes",
+      "type": "boolean"
+    },
+    "all_evidence_artifacts_have_producing_commits": {
+      "title": "All Evidence Artifacts Have Producing Commits",
+      "type": "boolean"
+    },
+    "blocked_claims_list_exists": {
+      "title": "Blocked Claims List Exists",
+      "type": "boolean"
+    },
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "claim_table_exists": {
+      "title": "Claim Table Exists",
+      "type": "boolean"
+    },
+    "draft_skeleton_exists": {
+      "title": "Draft Skeleton Exists",
+      "type": "boolean"
+    },
+    "environment_metadata_present": {
+      "title": "Environment Metadata Present",
+      "type": "boolean"
+    },
+    "final_nucleus_exists": {
+      "title": "Final Nucleus Exists",
+      "type": "boolean"
+    },
+    "latest_commit_exists": {
+      "title": "Latest Commit Exists",
+      "type": "boolean"
+    },
+    "ledger_exists": {
+      "title": "Ledger Exists",
+      "type": "boolean"
+    },
+    "manuscript_plan_exists": {
+      "title": "Manuscript Plan Exists",
+      "type": "boolean"
+    },
+    "reproducible": {
+      "title": "Reproducible",
+      "type": "boolean"
+    },
+    "root_commit_exists": {
+      "title": "Root Commit Exists",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "ledger_exists",
+    "root_commit_exists",
+    "latest_commit_exists",
+    "all_artifacts_have_hashes",
+    "all_evidence_artifacts_have_producing_commits",
+    "claim_table_exists",
+    "draft_skeleton_exists",
+    "manuscript_plan_exists",
+    "final_nucleus_exists",
+    "blocked_claims_list_exists",
+    "environment_metadata_present",
+    "reproducible"
+  ],
+  "title": "ReproducibilityManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ReproducibilityManifest",
+  "x-factori-verification-evidence": false
+}

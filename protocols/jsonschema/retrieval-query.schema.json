@@ -1,0 +1,70 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/retrieval-query.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider retrieval query contract.",
+  "properties": {
+    "endpoint": {
+      "minLength": 1,
+      "title": "Endpoint",
+      "type": "string"
+    },
+    "fake": {
+      "default": false,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limit": {
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "query_id": {
+      "minLength": 1,
+      "title": "Query Id",
+      "type": "string"
+    },
+    "requires_credentials": {
+      "default": true,
+      "title": "Requires Credentials",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "query_id",
+    "query",
+    "provider",
+    "limit",
+    "endpoint"
+  ],
+  "title": "RetrievalQuery",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.RetrievalQuery",
+  "x-factori-verification-evidence": false
+}

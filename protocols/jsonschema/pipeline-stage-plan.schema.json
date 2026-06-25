@@ -1,0 +1,203 @@
+{
+  "$defs": {
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    },
+    "PlannedOutput": {
+      "additionalProperties": false,
+      "description": "Expected output from a dry-run planned stage.",
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "output_kind": {
+          "minLength": 1,
+          "title": "Output Kind",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "required_for_completion": {
+          "default": true,
+          "title": "Required For Completion",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "output_kind",
+        "description"
+      ],
+      "title": "PlannedOutput",
+      "type": "object"
+    },
+    "PlannedStageStatus": {
+      "description": "Read-only status of one planned pipeline stage.",
+      "enum": [
+        "WouldRun",
+        "WouldSkip",
+        "AlreadyComplete",
+        "BlockedByPrerequisite",
+        "BlockedByStopAfter",
+        "OutOfRange",
+        "ReadOnlyCheck"
+      ],
+      "title": "PlannedStageStatus",
+      "type": "string"
+    },
+    "StagePrerequisite": {
+      "additionalProperties": false,
+      "description": "One explicit artifact or report prerequisite for a pipeline stage.",
+      "properties": {
+        "blocking_if_missing": {
+          "default": true,
+          "title": "Blocking If Missing",
+          "type": "boolean"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "required_artifact_path_or_kind": {
+          "minLength": 1,
+          "title": "Required Artifact Path Or Kind",
+          "type": "string"
+        },
+        "required_prior_stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required_report": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Report"
+        },
+        "stage_name": {
+          "$ref": "#/$defs/PipelineStage"
+        }
+      },
+      "required": [
+        "stage_name",
+        "required_artifact_path_or_kind",
+        "message"
+      ],
+      "title": "StagePrerequisite",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/pipeline-stage-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One planned stage from the dry-run planner.",
+  "properties": {
+    "already_complete": {
+      "default": false,
+      "title": "Already Complete",
+      "type": "boolean"
+    },
+    "expected_outputs": {
+      "items": {
+        "$ref": "#/$defs/PlannedOutput"
+      },
+      "title": "Expected Outputs",
+      "type": "array"
+    },
+    "missing_prerequisites": {
+      "items": {
+        "$ref": "#/$defs/StagePrerequisite"
+      },
+      "title": "Missing Prerequisites",
+      "type": "array"
+    },
+    "prerequisites": {
+      "items": {
+        "$ref": "#/$defs/StagePrerequisite"
+      },
+      "title": "Prerequisites",
+      "type": "array"
+    },
+    "read_only": {
+      "default": false,
+      "title": "Read Only",
+      "type": "boolean"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "stage_name": {
+      "minLength": 1,
+      "title": "Stage Name",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/PlannedStageStatus"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "stage_name",
+    "status",
+    "reason"
+  ],
+  "title": "PipelineStagePlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.PlannedStage",
+  "x-factori-verification-evidence": false
+}

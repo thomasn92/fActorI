@@ -1,0 +1,115 @@
+{
+  "$defs": {
+    "DataRequirement": {
+      "description": "Data access regimes from the MVP data gate.",
+      "enum": [
+        "NoData",
+        "SyntheticOnly",
+        "PublicDownload",
+        "UserProvided"
+      ],
+      "title": "DataRequirement",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/llm-reviewer-prompt-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stage B structural-review prompt contract.",
+  "properties": {
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "candidate_summary": {
+      "additionalProperties": true,
+      "title": "Candidate Summary",
+      "type": "object"
+    },
+    "data_requirement": {
+      "$ref": "#/$defs/DataRequirement"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "evidence_boundary_instructions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Boundary Instructions",
+      "type": "array"
+    },
+    "forbidden_outputs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Outputs",
+      "type": "array"
+    },
+    "max_objections": {
+      "minimum": 1,
+      "title": "Max Objections",
+      "type": "integer"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "prompt_text": {
+      "minLength": 1,
+      "title": "Prompt Text",
+      "type": "string"
+    },
+    "requested_output_schema": {
+      "additionalProperties": true,
+      "title": "Requested Output Schema",
+      "type": "object"
+    },
+    "retrieval_context_summary": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Context Summary"
+    },
+    "rubric": {
+      "additionalProperties": true,
+      "title": "Rubric",
+      "type": "object"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "candidate_summary",
+    "domain",
+    "data_requirement",
+    "rubric",
+    "requested_output_schema",
+    "forbidden_outputs",
+    "evidence_boundary_instructions",
+    "max_objections",
+    "prompt_text"
+  ],
+  "title": "LLMReviewerPromptContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ReviewerPromptContract",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,28 @@
+{
+  "blocking_issues": [],
+  "is_provenance": false,
+  "ledger_commit_count": 3,
+  "ledger_exists": true,
+  "missing_prerequisites": [],
+  "next_recommended_stage": {
+    "command": "uv run factori run-stage-b --run-id example",
+    "reason": "Stage A example checkpoint is complete.",
+    "stage_name": "run-stage-b"
+  },
+  "prerequisites": [
+    {
+      "blocking_if_missing": true,
+      "message": "Stage B requires Stage A survivor output.",
+      "required_artifact_path_or_kind": "reports/stage-a-report.md",
+      "required_prior_stage": "run-stage-a",
+      "required_report": "stage-a-report",
+      "stage_name": "run-stage-b"
+    }
+  ],
+  "read_only": true,
+  "resume_status": "ResumeAllowed",
+  "run_exists": true,
+  "run_id": "example",
+  "start_at_stage": "run-stage-b",
+  "warnings": []
+}

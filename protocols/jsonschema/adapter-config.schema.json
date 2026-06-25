@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.1.0/adapter-config.schema.json",
+  "$id": "https://schemas.factori.local/0.2.0/adapter-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Fake-default adapter configuration.",
@@ -18,9 +18,8 @@
     "api_key": {
       "anyOf": [
         {
-          "format": "password",
           "type": "string",
-          "writeOnly": true
+          "x-factori-sensitive": true
         },
         {
           "type": "null"
@@ -51,9 +50,8 @@
     "retrieval_api_key": {
       "anyOf": [
         {
-          "format": "password",
           "type": "string",
-          "writeOnly": true
+          "x-factori-sensitive": true
         },
         {
           "type": "null"
@@ -84,9 +82,8 @@
     "reviewer_api_key": {
       "anyOf": [
         {
-          "format": "password",
           "type": "string",
-          "writeOnly": true
+          "x-factori-sensitive": true
         },
         {
           "type": "null"
@@ -128,7 +125,7 @@
   },
   "title": "AdapterConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.1.0",
+  "x-factori-protocol-version": "0.2.0",
   "x-factori-source-model": "factori.adapters.config.AdapterConfig",
   "x-factori-verification-evidence": false
 }

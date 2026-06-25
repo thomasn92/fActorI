@@ -1028,6 +1028,21 @@ class FakeExperimentResult(StrictModel):
     fake: bool = True
 
 
+class ProofVerificationContract(StrictModel):
+    """Provider-neutral proof-verification request contract for future adapters.
+
+    The current MVP only supports deterministic fake proof validation. This contract is exported
+    for future servers and tools; it does not authorize external prover execution.
+    """
+
+    candidate_id: str = Field(min_length=1)
+    backend: str = "fake"
+    proof_payload: dict[str, Any] = Field(default_factory=dict)
+    allow_external_calls: bool = False
+    fake_default: bool = True
+    is_verification_evidence: bool = False
+
+
 class ConstraintSet(StrictModel):
     """User constraints over the candidate search space."""
 

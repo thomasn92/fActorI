@@ -1,0 +1,14 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/reviewer-backend.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Reviewer backend enum.",
+  "enum": [
+    "fake",
+    "openai"
+  ],
+  "title": "ReviewerBackend",
+  "type": "string",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.protocols.ReviewerBackend",
+  "x-factori-verification-evidence": false
+}

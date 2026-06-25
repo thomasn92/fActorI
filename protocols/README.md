@@ -14,6 +14,8 @@ verification evidence, or a replacement for the append-only research ledger.
 - `examples/*.example.json`: small deterministic payload examples.
 - `examples/README.md`: example-use and evidence-boundary notes.
 - `compatibility.md`: conservative schema-change classification policy.
+- `versioning.md`: semantic version bump rules for protocol changes.
+- `server-readiness.md`: current future-server contract boundary.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -22,6 +24,13 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `ReviewerReport` generated from `StageBReviewerReport`;
 - `ProofVerificationResult` generated from `FakeProofResult`;
 - `ExperimentRunResult` generated from `FakeExperimentResult`.
+- `RunSummary` generated from `LedgerSummary`;
+- `PipelineStagePlan` generated from `PlannedStage`;
+- `LLMReviewerPromptContract` generated from `ReviewerPromptContract`;
+- `LLMReviewerParseReport` generated from `LLMReviewerParseResult`;
+- `EvidenceType` generated from `ArtifactType`;
+- `ClaimLabel` generated from `VerificationLabel`;
+- `ReleaseStatus` generated from `ReleaseGateStatus`.
 
 The generated schema records the qualified Python source model in
 `x-factori-source-model`. Fake proof and experiment result schemas retain their explicit `fake`
@@ -32,6 +41,7 @@ field and do not imply real scientific verification.
 ```bash
 uv run factori export-protocols
 uv run factori export-protocols --check
+uv run factori validate-protocol-examples
 ```
 
 Use `--output-dir` to export an isolated copy for another toolchain. Check mode is read-only and
@@ -49,3 +59,16 @@ uv run factori check-protocol-compat \
 
 See [`compatibility.md`](compatibility.md) for the exact breaking, non-breaking, documentation, and
 unknown-change policy. Compatibility checking is conservative and read-only.
+
+Check protocol version movement with:
+
+```bash
+uv run factori check-protocol-version \
+  --old-dir path/to/old/jsonschema \
+  --new-dir path/to/new/jsonschema \
+  --old-version 0.1.0 \
+  --new-version 0.2.0
+```
+
+See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and
+[`server-readiness.md`](server-readiness.md) for the future server contract boundary.

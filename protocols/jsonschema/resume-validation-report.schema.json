@@ -1,0 +1,213 @@
+{
+  "$defs": {
+    "NextStageRecommendation": {
+      "additionalProperties": false,
+      "description": "Deterministic next-stage suggestion from checkpoint inspection.",
+      "properties": {
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "NextStageRecommendation",
+      "type": "object"
+    },
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    },
+    "ResumeValidationStatus": {
+      "description": "Read-only validation status for a requested pipeline resume point.",
+      "enum": [
+        "ResumeAllowed",
+        "ResumeBlocked",
+        "ResumeAllowedWithWarnings"
+      ],
+      "title": "ResumeValidationStatus",
+      "type": "string"
+    },
+    "StagePrerequisite": {
+      "additionalProperties": false,
+      "description": "One explicit artifact or report prerequisite for a pipeline stage.",
+      "properties": {
+        "blocking_if_missing": {
+          "default": true,
+          "title": "Blocking If Missing",
+          "type": "boolean"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "required_artifact_path_or_kind": {
+          "minLength": 1,
+          "title": "Required Artifact Path Or Kind",
+          "type": "string"
+        },
+        "required_prior_stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required_report": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Required Report"
+        },
+        "stage_name": {
+          "$ref": "#/$defs/PipelineStage"
+        }
+      },
+      "required": [
+        "stage_name",
+        "required_artifact_path_or_kind",
+        "message"
+      ],
+      "title": "StagePrerequisite",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/resume-validation-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only resume-prerequisite validation report.",
+  "properties": {
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "is_provenance": {
+      "default": false,
+      "title": "Is Provenance",
+      "type": "boolean"
+    },
+    "ledger_commit_count": {
+      "minimum": 0,
+      "title": "Ledger Commit Count",
+      "type": "integer"
+    },
+    "ledger_exists": {
+      "title": "Ledger Exists",
+      "type": "boolean"
+    },
+    "missing_prerequisites": {
+      "items": {
+        "$ref": "#/$defs/StagePrerequisite"
+      },
+      "title": "Missing Prerequisites",
+      "type": "array"
+    },
+    "next_recommended_stage": {
+      "$ref": "#/$defs/NextStageRecommendation"
+    },
+    "prerequisites": {
+      "items": {
+        "$ref": "#/$defs/StagePrerequisite"
+      },
+      "title": "Prerequisites",
+      "type": "array"
+    },
+    "read_only": {
+      "default": true,
+      "title": "Read Only",
+      "type": "boolean"
+    },
+    "resume_status": {
+      "$ref": "#/$defs/ResumeValidationStatus"
+    },
+    "run_exists": {
+      "title": "Run Exists",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "start_at_stage": {
+      "$ref": "#/$defs/PipelineStage"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "start_at_stage",
+    "resume_status",
+    "prerequisites",
+    "next_recommended_stage",
+    "run_exists",
+    "ledger_exists",
+    "ledger_commit_count"
+  ],
+  "title": "ResumeValidationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ResumeValidationReport",
+  "x-factori-verification-evidence": false
+}

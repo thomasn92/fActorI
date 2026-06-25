@@ -47,8 +47,12 @@ _DOCUMENTATION_KEYS = {
     "description",
     "example",
     "examples",
+    "format",
     "title",
+    "writeOnly",
+    "x-factori-format",
     "x-factori-protocol-version",
+    "x-factori-sensitive",
     "x-factori-source-model",
 }
 _COMPOSITION_KEYS = {"allOf", "anyOf", "oneOf", "not"}

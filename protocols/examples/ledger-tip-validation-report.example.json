@@ -1,0 +1,14 @@
+{
+  "blocking_findings": [],
+  "branch_findings": [],
+  "commit_count": 3,
+  "duplicate_stage_findings": [],
+  "is_provenance": false,
+  "ledger_exists": true,
+  "read_only": true,
+  "run_id": "example",
+  "status": "Valid",
+  "tip_hashes": [
+    "0000000000000000000000000000000000000000000000000000000000000000"
+  ]
+}

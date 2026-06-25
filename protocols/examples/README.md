@@ -12,3 +12,5 @@ The examples intentionally preserve MVP boundaries:
 - artifact and protocol files are not verification evidence.
 
 Use the matching schema under `../jsonschema/` when implementing decoders in another language.
+Run `factori validate-protocol-examples` to validate every example against its exported JSON
+Schema without mutating protocol files, run artifacts, or ledger history.

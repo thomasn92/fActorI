@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/stage-checkpoint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Artifact-derived stage completion checkpoint.",
+  "properties": {
+    "completed": {
+      "title": "Completed",
+      "type": "boolean"
+    },
+    "completion_evidence": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Completion Evidence",
+      "type": "array"
+    },
+    "optional": {
+      "default": false,
+      "title": "Optional",
+      "type": "boolean"
+    },
+    "required_artifacts_missing": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Artifacts Missing",
+      "type": "array"
+    },
+    "required_artifacts_present": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Artifacts Present",
+      "type": "array"
+    },
+    "stage_name": {
+      "$ref": "#/$defs/PipelineStage"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "stage_name",
+    "completed"
+  ],
+  "title": "StageCheckpoint",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.StageCheckpoint",
+  "x-factori-verification-evidence": false
+}

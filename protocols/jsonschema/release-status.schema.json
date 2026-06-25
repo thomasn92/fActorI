@@ -1,0 +1,15 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/release-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Release status enum.",
+  "enum": [
+    "ReleaseReady",
+    "ReleaseBlocked",
+    "ReleaseReadyWithWarnings"
+  ],
+  "title": "ReleaseStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ReleaseGateStatus",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,88 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/run-summary.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived run ledger summary.",
+  "properties": {
+    "action_type_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Action Type Counts",
+      "type": "object"
+    },
+    "artifact_count": {
+      "minimum": 0,
+      "title": "Artifact Count",
+      "type": "integer"
+    },
+    "candidate_count": {
+      "minimum": 0,
+      "title": "Candidate Count",
+      "type": "integer"
+    },
+    "commit_count": {
+      "minimum": 0,
+      "title": "Commit Count",
+      "type": "integer"
+    },
+    "human_tail_escalation_count": {
+      "minimum": 0,
+      "title": "Human Tail Escalation Count",
+      "type": "integer"
+    },
+    "latest_commit_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Commit Hash"
+    },
+    "root_commit_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Root Commit Hash"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_of_truth": {
+      "default": "ledger",
+      "title": "Source Of Truth",
+      "type": "string"
+    },
+    "verification_decision_count": {
+      "minimum": 0,
+      "title": "Verification Decision Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "commit_count",
+    "action_type_counts",
+    "candidate_count",
+    "artifact_count",
+    "verification_decision_count",
+    "human_tail_escalation_count"
+  ],
+  "title": "RunSummary",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.LedgerSummary",
+  "x-factori-verification-evidence": false
+}

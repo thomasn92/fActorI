@@ -1,0 +1,10 @@
+{
+  "accepted_candidate_ids": [
+    "candidate-example"
+  ],
+  "fake": true,
+  "is_verification_evidence": false,
+  "max_candidates": 2,
+  "rejected_candidates": [],
+  "truncated": false
+}

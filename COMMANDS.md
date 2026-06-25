@@ -22,6 +22,13 @@ Verify that generated files are current without rewriting them:
 uv run factori export-protocols --check
 ```
 
+Validate deterministic example payloads against exported JSON Schemas:
+
+```bash
+uv run factori validate-protocol-examples
+uv run factori validate-protocol-examples --json
+```
+
 An isolated consumer export can use `--output-dir <path>/jsonschema`. Protocol export is outside
 run provenance: it creates no ledger commits, touches no run artifact manifests, and produces no
 verification evidence.
@@ -40,6 +47,23 @@ uv run factori check-protocol-compat \
 
 The checker is conservative. Unknown composition or reference changes require manual review. The
 optional-property removal policy is breaking because generated consumers may depend on the field.
+
+Check whether the protocol version bump is sufficient for a schema change:
+
+```bash
+uv run factori check-protocol-version \
+  --old-dir path/to/old/jsonschema \
+  --new-dir path/to/new/jsonschema \
+  --old-version 0.1.0 \
+  --new-version 0.2.0
+uv run factori check-protocol-version \
+  --old-dir path/to/old/jsonschema \
+  --new-dir path/to/new/jsonschema \
+  --json
+```
+
+Protocol validation, compatibility, and version checks are read-only developer-contract commands.
+They do not create run artifacts, ledger commits, or verification evidence.
 
 ## Deterministic Pipeline
 

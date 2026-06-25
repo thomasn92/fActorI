@@ -42,11 +42,12 @@ The checker classifies these changes as non-breaking:
 
 ## Documentation-Only Changes
 
-Titles, descriptions, comments, examples, schema identifiers, and the generated protocol-version
-or source-model metadata are classified as documentation changes. Unknown or evidence-related
-`x-*` metadata is not assumed to be documentation. Renaming a top-level protocol is represented by
-a removed schema file plus a new schema file and therefore remains breaking unless the old filename
-is retained as an alias.
+Titles, descriptions, comments, examples, schema identifiers, JSON Schema `format` annotations,
+`writeOnly`, and generated `x-factori-format`, `x-factori-sensitive`,
+`x-factori-protocol-version`, or `x-factori-source-model` metadata are classified as documentation
+changes. Unknown or evidence-related `x-*` metadata is not assumed to be documentation. Renaming a
+top-level protocol is represented by a removed schema file plus a new schema file and therefore
+remains breaking unless the old filename is retained as an alias.
 
 ## Unknown Changes
 

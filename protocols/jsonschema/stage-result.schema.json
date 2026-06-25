@@ -32,7 +32,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.1.0/stage-result.schema.json",
+  "$id": "https://schemas.factori.local/0.2.0/stage-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One pipeline-stage execution result.",
@@ -57,6 +57,7 @@
       "title": "Error Message"
     },
     "finished_at": {
+      "format": "date-time",
       "minLength": 1,
       "title": "Finished At",
       "type": "string"
@@ -65,6 +66,7 @@
       "$ref": "#/$defs/PipelineStage"
     },
     "started_at": {
+      "format": "date-time",
       "minLength": 1,
       "title": "Started At",
       "type": "string"
@@ -86,7 +88,7 @@
   ],
   "title": "StageResult",
   "type": "object",
-  "x-factori-protocol-version": "0.1.0",
+  "x-factori-protocol-version": "0.2.0",
   "x-factori-source-model": "factori.schemas.PipelineStageResult",
   "x-factori-verification-evidence": false
 }

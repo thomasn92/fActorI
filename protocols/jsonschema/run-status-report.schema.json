@@ -1,0 +1,343 @@
+{
+  "$defs": {
+    "DiagnosticStatus": {
+      "description": "Overall read-only diagnostic status.",
+      "enum": [
+        "NoIssues",
+        "WarningsOnly",
+        "ActionRecommended",
+        "Blocked"
+      ],
+      "title": "DiagnosticStatus",
+      "type": "string"
+    },
+    "NextStageRecommendation": {
+      "additionalProperties": false,
+      "description": "Deterministic next-stage suggestion from checkpoint inspection.",
+      "properties": {
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "NextStageRecommendation",
+      "type": "object"
+    },
+    "PipelineStage": {
+      "description": "Supported deterministic one-command pipeline stages.",
+      "enum": [
+        "run-stage-a",
+        "run-stage-b",
+        "select-stage-c",
+        "run-stage-c",
+        "synthesize-abstract",
+        "plan-manuscript",
+        "build-draft-skeleton",
+        "package-research-object",
+        "assemble-paper-skeleton",
+        "final-audit",
+        "prepare-export",
+        "replay-verify",
+        "diagnose-run"
+      ],
+      "title": "PipelineStage",
+      "type": "string"
+    },
+    "ReleaseGateStatus": {
+      "description": "Final deterministic release gate statuses.",
+      "enum": [
+        "ReleaseReady",
+        "ReleaseBlocked",
+        "ReleaseReadyWithWarnings"
+      ],
+      "title": "ReleaseGateStatus",
+      "type": "string"
+    },
+    "ReplayStatus": {
+      "description": "Read-only replay verification statuses.",
+      "enum": [
+        "ReplayVerified",
+        "ReplayVerifiedWithWarnings",
+        "ReplayFailed"
+      ],
+      "title": "ReplayStatus",
+      "type": "string"
+    },
+    "RunCompletenessStatus": {
+      "description": "Disk-inspected deterministic run completeness status.",
+      "enum": [
+        "NoRunFound",
+        "PartialRun",
+        "ReadyToResume",
+        "CompleteRun",
+        "CompleteWithWarnings",
+        "BlockedRun",
+        "InconsistentRun"
+      ],
+      "title": "RunCompletenessStatus",
+      "type": "string"
+    },
+    "StageCheckpoint": {
+      "additionalProperties": false,
+      "description": "Read-only stage completion inspection derived from files on disk.",
+      "properties": {
+        "completed": {
+          "title": "Completed",
+          "type": "boolean"
+        },
+        "completion_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Completion Evidence",
+          "type": "array"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "required_artifacts_missing": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Artifacts Missing",
+          "type": "array"
+        },
+        "required_artifacts_present": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Artifacts Present",
+          "type": "array"
+        },
+        "stage_name": {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stage_name",
+        "completed"
+      ],
+      "title": "StageCheckpoint",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/run-status-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only run status report.",
+  "properties": {
+    "artifact_manifest_exists": {
+      "title": "Artifact Manifest Exists",
+      "type": "boolean"
+    },
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "completed_stages": {
+      "items": {
+        "$ref": "#/$defs/PipelineStage"
+      },
+      "title": "Completed Stages",
+      "type": "array"
+    },
+    "completeness_status": {
+      "$ref": "#/$defs/RunCompletenessStatus"
+    },
+    "diagnostic_report_exists": {
+      "title": "Diagnostic Report Exists",
+      "type": "boolean"
+    },
+    "diagnostic_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiagnosticStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "export_preparation_exists": {
+      "title": "Export Preparation Exists",
+      "type": "boolean"
+    },
+    "final_audit_exists": {
+      "title": "Final Audit Exists",
+      "type": "boolean"
+    },
+    "is_provenance": {
+      "default": false,
+      "title": "Is Provenance",
+      "type": "boolean"
+    },
+    "last_completed_stage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PipelineStage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "ledger_commit_count": {
+      "minimum": 0,
+      "title": "Ledger Commit Count",
+      "type": "integer"
+    },
+    "ledger_exists": {
+      "title": "Ledger Exists",
+      "type": "boolean"
+    },
+    "missing_stages": {
+      "items": {
+        "$ref": "#/$defs/PipelineStage"
+      },
+      "title": "Missing Stages",
+      "type": "array"
+    },
+    "next_recommended_stage": {
+      "$ref": "#/$defs/NextStageRecommendation"
+    },
+    "paper_skeleton_exists": {
+      "title": "Paper Skeleton Exists",
+      "type": "boolean"
+    },
+    "read_only": {
+      "default": true,
+      "title": "Read Only",
+      "type": "boolean"
+    },
+    "release_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReleaseGateStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "replay_report_exists": {
+      "title": "Replay Report Exists",
+      "type": "boolean"
+    },
+    "replay_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReplayStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "required_artifacts_missing": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Artifacts Missing",
+      "type": "array"
+    },
+    "required_artifacts_present": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Artifacts Present",
+      "type": "array"
+    },
+    "research_object_exists": {
+      "title": "Research Object Exists",
+      "type": "boolean"
+    },
+    "run_exists": {
+      "title": "Run Exists",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stage_checkpoints": {
+      "items": {
+        "$ref": "#/$defs/StageCheckpoint"
+      },
+      "title": "Stage Checkpoints",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "run_exists",
+    "completed_stages",
+    "missing_stages",
+    "next_recommended_stage",
+    "ledger_exists",
+    "ledger_commit_count",
+    "artifact_manifest_exists",
+    "research_object_exists",
+    "paper_skeleton_exists",
+    "final_audit_exists",
+    "export_preparation_exists",
+    "replay_report_exists",
+    "diagnostic_report_exists",
+    "completeness_status"
+  ],
+  "title": "RunStatusReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.RunStatusReport",
+  "x-factori-verification-evidence": false
+}

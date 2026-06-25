@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.2.0/research-object-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "References to research-object package files.",
+  "properties": {
+    "artifact_manifest": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "branch_outcomes": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "ledger_summary": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "reproducibility_manifest": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "research_object_json": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "research_object_markdown": {
+      "$ref": "#/$defs/ArtifactRef"
+    }
+  },
+  "required": [
+    "research_object_json",
+    "research_object_markdown",
+    "artifact_manifest",
+    "ledger_summary",
+    "branch_outcomes",
+    "reproducibility_manifest"
+  ],
+  "title": "ResearchObjectManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.ResearchObjectManifest",
+  "x-factori-verification-evidence": false
+}

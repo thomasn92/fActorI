@@ -1,0 +1,48 @@
+{
+  "$id": "https://schemas.factori.local/0.2.0/human-review-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Future human-review adapter decision placeholder.",
+  "properties": {
+    "approved": {
+      "default": false,
+      "title": "Approved",
+      "type": "boolean"
+    },
+    "decision": {
+      "minLength": 1,
+      "title": "Decision",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "reviewer_is_human": {
+      "default": false,
+      "title": "Reviewer Is Human",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "request_id",
+    "decision",
+    "reason"
+  ],
+  "title": "HumanReviewDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.2.0",
+  "x-factori-source-model": "factori.schemas.HumanReviewDecision",
+  "x-factori-verification-evidence": false
+}

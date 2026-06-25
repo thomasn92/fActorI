@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 
 from factori.adapters.config import AdapterConfig
+from factori.protocol_compat import ProtocolCompatibilityStatus
 from factori.schemas import (
+    ArtifactManifest,
     ArtifactRef,
+    ArtifactType,
     BaselineReport,
     BridgeReport,
     Candidate,
     Claim,
     ClaimTable,
+    DataRequirement,
     DiagnosticReport,
     DraftSkeleton,
     ExportReadinessReport,
@@ -21,8 +26,15 @@ from factori.schemas import (
     FakeProofResult,
     FinalAuditReport,
     FinalNucleus,
+    GeneratedSectionDraft,
+    HumanReviewDecision,
     HygieneRemediationPlan,
     LedgerCommit,
+    LedgerSummary,
+    LedgerTipValidationReport,
+    LLMCandidateParseReport,
+    LLMPromptContract,
+    LLMReviewerParseResult,
     ManuscriptPlan,
     OutputHygieneReport,
     PaperSkeleton,
@@ -30,21 +42,64 @@ from factori.schemas import (
     PipelineRunConfig,
     PipelineRunReport,
     PipelineStageResult,
+    PlannedStage,
+    ProofVerificationContract,
     ReleaseGateDecision,
+    ReleaseGateStatus,
     ReplayVerificationReport,
+    ReproducibilityManifest,
+    RerunPolicy,
     ResearchObject,
+    ResearchObjectManifest,
+    ResumeValidationReport,
     RetrievalAdequacyCertificate,
+    RetrievalParseReport,
+    RetrievalQuery,
     RetrievalResult,
+    RetrievalRunReport,
     RetrievedDocument,
+    ReviewerPromptContract,
+    RunStatusReport,
     ScoreVector,
     StageBReviewerReport,
+    StageCheckpoint,
+    StageRerunDecision,
+    StageRerunStatus,
+    VerificationLabel,
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.1.0"
+PROTOCOL_VERSION = "0.2.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
+
+
+class AdapterBackend(StrEnum):
+    """Provider-neutral adapter backend names exposed by the protocol layer."""
+
+    FAKE = "fake"
+    OPENAI = "openai"
+
+
+class RetrievalBackend(StrEnum):
+    """Provider-neutral retrieval backend names exposed by the protocol layer."""
+
+    FAKE = "fake"
+    OPENALEX = "openalex"
+
+
+class ReviewerBackend(StrEnum):
+    """Provider-neutral Stage B reviewer backend names exposed by the protocol layer."""
+
+    FAKE = "fake"
+    OPENAI = "openai"
+
+
+class ProofBackend(StrEnum):
+    """Proof backend names. Only fake is available in the current MVP."""
+
+    FAKE = "fake"
 
 
 @dataclass(frozen=True)
@@ -71,9 +126,52 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("ScoreVector", ScoreVector, "Structured candidate score vector."),
     ProtocolDefinition("LedgerCommit", LedgerCommit, "Append-only provenance commit."),
     ProtocolDefinition("ArtifactRecord", ArtifactRef, "Content-hashed artifact reference."),
+    ProtocolDefinition("ArtifactManifest", ArtifactManifest, "Derived artifact manifest."),
     ProtocolDefinition("StageResult", PipelineStageResult, "One pipeline-stage execution result."),
+    ProtocolDefinition("RunStatusReport", RunStatusReport, "Read-only run status report."),
+    ProtocolDefinition(
+        "ResumeValidationReport",
+        ResumeValidationReport,
+        "Read-only resume-prerequisite validation report.",
+    ),
+    ProtocolDefinition(
+        "StageCheckpoint",
+        StageCheckpoint,
+        "Artifact-derived stage completion checkpoint.",
+    ),
+    ProtocolDefinition(
+        "RerunPolicy",
+        RerunPolicy,
+        "Explicit mutating-stage rerun policy.",
+    ),
+    ProtocolDefinition(
+        "StageRerunDecision",
+        StageRerunDecision,
+        "Read-only mutating-stage rerun decision.",
+    ),
+    ProtocolDefinition(
+        "StageRerunStatus",
+        StageRerunStatus,
+        "Stage rerun decision status enum.",
+    ),
+    ProtocolDefinition(
+        "LedgerTipValidationReport",
+        LedgerTipValidationReport,
+        "Read-only ledger tip and fork validation report.",
+    ),
     ProtocolDefinition("RetrievalResult", RetrievalResult, "Normalized retrieval source result."),
+    ProtocolDefinition("RetrievalQuery", RetrievalQuery, "Provider retrieval query contract."),
     ProtocolDefinition("RetrievedDocument", RetrievedDocument, "Fetched source document metadata."),
+    ProtocolDefinition(
+        "RetrievalRunReport",
+        RetrievalRunReport,
+        "Bounded retrieval run report; not proof of novelty.",
+    ),
+    ProtocolDefinition(
+        "RetrievalParseReport",
+        RetrievalParseReport,
+        "Provider retrieval response parse report.",
+    ),
     ProtocolDefinition(
         "RetrievalAdequacyCertificate",
         RetrievalAdequacyCertificate,
@@ -83,6 +181,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ReviewerReport",
         StageBReviewerReport,
         "Stage B structural review without verification authority.",
+    ),
+    ProtocolDefinition(
+        "LLMReviewerPromptContract",
+        ReviewerPromptContract,
+        "Stage B structural-review prompt contract.",
+    ),
+    ProtocolDefinition(
+        "LLMReviewerParseReport",
+        LLMReviewerParseResult,
+        "Stage B LLM reviewer parse and safety result.",
     ),
     ProtocolDefinition("BridgeReport", BridgeReport, "Stage B bridge validation result."),
     ProtocolDefinition("BaselineReport", BaselineReport, "Stage B baseline validation result."),
@@ -97,6 +205,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "Current fake proof-result shape; fake is explicit.",
     ),
     ProtocolDefinition(
+        "ProofVerificationContract",
+        ProofVerificationContract,
+        "Provider-neutral proof verification request contract.",
+    ),
+    ProtocolDefinition(
         "ExperimentRunResult",
         FakeExperimentResult,
         "Current fake synthetic-experiment result shape.",
@@ -107,6 +220,17 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("ManuscriptPlan", ManuscriptPlan, "Structured manuscript plan."),
     ProtocolDefinition("DraftSkeleton", DraftSkeleton, "Deterministic draft scaffold."),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
+    ProtocolDefinition(
+        "ResearchObjectManifest",
+        ResearchObjectManifest,
+        "References to research-object package files.",
+    ),
+    ProtocolDefinition(
+        "ReproducibilityManifest",
+        ReproducibilityManifest,
+        "Derived reproducibility manifest.",
+    ),
+    ProtocolDefinition("RunSummary", LedgerSummary, "Derived run ledger summary."),
     ProtocolDefinition("PaperSkeleton", PaperSkeleton, "Assembled paper-shaped scaffold."),
     ProtocolDefinition("FinalAuditReport", FinalAuditReport, "Internal-consistency audit report."),
     ProtocolDefinition(
@@ -150,7 +274,45 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         PipelineDryRunPlan,
         "Read-only pipeline execution plan.",
     ),
+    ProtocolDefinition(
+        "PipelineStagePlan",
+        PlannedStage,
+        "One planned stage from the dry-run planner.",
+    ),
     ProtocolDefinition("AdapterConfig", AdapterConfig, "Fake-default adapter configuration."),
+    ProtocolDefinition(
+        "LLMPromptContract",
+        LLMPromptContract,
+        "Stage A candidate-generation prompt contract.",
+    ),
+    ProtocolDefinition(
+        "LLMCandidateParseReport",
+        LLMCandidateParseReport,
+        "Stage A LLM candidate parse and safety report.",
+    ),
+    ProtocolDefinition(
+        "GeneratedSectionDraft",
+        GeneratedSectionDraft,
+        "Future prose adapter section draft placeholder.",
+    ),
+    ProtocolDefinition(
+        "HumanReviewDecision",
+        HumanReviewDecision,
+        "Future human-review adapter decision placeholder.",
+    ),
+    ProtocolDefinition("DataRequirement", DataRequirement, "Candidate data regime enum."),
+    ProtocolDefinition("EvidenceType", ArtifactType, "Artifact/evidence category enum."),
+    ProtocolDefinition("ClaimLabel", VerificationLabel, "Claim and verification label enum."),
+    ProtocolDefinition("AdapterBackend", AdapterBackend, "Adapter backend enum."),
+    ProtocolDefinition("RetrievalBackend", RetrievalBackend, "Retrieval backend enum."),
+    ProtocolDefinition("ReviewerBackend", ReviewerBackend, "Reviewer backend enum."),
+    ProtocolDefinition("ProofBackend", ProofBackend, "Proof backend enum."),
+    ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
+    ProtocolDefinition(
+        "ProtocolCompatibilityStatus",
+        ProtocolCompatibilityStatus,
+        "Protocol schema compatibility status enum.",
+    ),
 )
 
 
@@ -179,7 +341,11 @@ __all__ = [
     "PROTOCOL_SOURCE",
     "PROTOCOL_VERSION",
     "SCHEMA_FORMAT",
+    "AdapterBackend",
+    "ProofBackend",
     "ProtocolDefinition",
+    "RetrievalBackend",
+    "ReviewerBackend",
     "get_protocol_definition",
     "get_protocol_definitions",
     "protocol_slug",
