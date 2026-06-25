@@ -32,12 +32,23 @@ Selected CLI-owned operations are also exposed through typed library entry point
 `factori.commands`. The CLI remains the user-facing Typer surface, but extracted command functions
 own the deterministic side effects and return typed results without printing or exiting directly.
 
+Stage B keeps `factori.stage_b.run_stage_b` as the stable public entry point, but the implementation
+is split into deterministic internal phases in `factori.stage_b_phases`. The phase split separates
+input loading, optional retrieval, child expansion, per-child structural processing, gate
+classification, survivor selection, and report persistence without changing Stage B artifacts,
+reports, scoring, gates, or ledger actions.
+
 ## Persistence Boundary
 
 Artifact and sidecar writes use UTF-8 with normalized LF newlines. Each write is flushed and synced
 to a temporary file in the destination directory, atomically installed with `os.replace`, then
 hashed from the final on-disk bytes. Pre-replace failures leave an existing final file unchanged and
 remove the temporary file when possible.
+
+Stage-owned artifact persistence should use `factori.persistence` where practical. These helpers
+centralize the normal write artifact -> append ledger commit -> link producing commit sequence while
+leaving stage-specific payloads, metadata, action types, and evidence policy explicit at the call
+site.
 
 `Clock`, `LedgerProtocol`, and `ArtifactStoreProtocol` define the small persistence surface used by
 the current pipeline. `SystemClock` preserves normal UTC behavior. `FixedClock` can drive ledger and

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from factori.artifacts import ArtifactStore
 from factori.ledger import ResearchLedger
+from factori.persistence import persist_markdown_artifact
 from factori.reports import render_opportunity_report
 from factori.schemas import ArtifactRef, ArtifactType, ConstraintSet, ControllerActionType
 
@@ -136,26 +137,23 @@ def run_stage0(
         opportunities=opportunities,
         promoted_methods=promoted_methods,
     )
-    artifact = store.write_markdown(
+    result = persist_markdown_artifact(
         run_id=run_id,
+        store=store,
+        ledger=ledger,
         artifact_id="stage0-opportunity-report",
         artifact_type=ArtifactType.REPORT,
         markdown=markdown,
         metadata={"stage": "stage0", "fake": True},
-    )
-    commit = ledger.append_commit(
-        run_id=run_id,
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE0_OPPORTUNITY_DISCOVERY,
-        payload={
+        commit_payload={
             "constraints": constraints.model_dump(mode="json"),
             "primitives": primitives,
             "opportunities": opportunities,
             "promoted_methods": promoted_methods,
         },
-        artifact_refs=[artifact],
     )
-    linked_artifact = store.link_artifact_to_commit(artifact, commit.commit_hash)
     return Stage0Result(
         skipped=False,
         input_constraints=constraints,
@@ -163,6 +161,6 @@ def run_stage0(
         primitives=primitives,
         opportunities=opportunities,
         promoted_methods=promoted_methods,
-        report_artifact=linked_artifact,
-        commit_hash=commit.commit_hash,
+        report_artifact=result.artifact,
+        commit_hash=result.commit.commit_hash,
     )

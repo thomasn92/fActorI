@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING
 from factori.artifacts import ArtifactStore
 from factori.dedup import DedupResult, DuplicateDecision, deduplicate_candidates
 from factori.ledger import ResearchLedger
+from factori.persistence import (
+    ArtifactWriteSpec,
+    persist_artifacts_with_commit,
+    persist_json_artifact,
+    persist_markdown_artifact,
+)
 from factori.reports import render_stage_a_report
 from factori.schemas import (
     ArtifactRef,
@@ -361,27 +367,25 @@ def _write_candidate_artifact(
     ledger: ResearchLedger,
 ) -> ArtifactRef:
     candidate_fake = bool(candidate.symbolic_state.get("fake", True))
-    artifact = store.write_json(
+    result = persist_json_artifact(
         run_id=run_id,
+        store=store,
+        ledger=ledger,
         artifact_id=candidate.id,
         artifact_type=ArtifactType.CANDIDATE,
-        data=candidate,
+        payload=candidate,
         metadata={
             "stage": "stage_a",
             "fake": candidate_fake,
             "adapter_backend": candidate.symbolic_state.get("adapter_backend", "fake"),
             "is_verification_evidence": False,
         },
-    )
-    commit = ledger.append_commit(
-        run_id=run_id,
-        candidate_id=candidate.id,
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE_A_CANDIDATE_GENERATED,
-        payload={"candidate": candidate.model_dump(mode="json")},
-        artifact_refs=[artifact],
+        commit_payload={"candidate": candidate.model_dump(mode="json")},
+        candidate_id=candidate.id,
     )
-    return store.link_artifact_to_commit(artifact, commit.commit_hash)
+    return result.artifact
 
 
 def _write_score_artifact(
@@ -391,22 +395,21 @@ def _write_score_artifact(
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> ArtifactRef:
-    artifact = store.write_json(
+    payload = score_payload(candidate, score)
+    result = persist_json_artifact(
         run_id=run_id,
+        store=store,
+        ledger=ledger,
         artifact_id=f"{candidate.id}-score",
         artifact_type=ArtifactType.SCORE,
-        data=score_payload(candidate, score),
+        payload=payload,
         metadata={"stage": "stage_a", "candidate_id": candidate.id, "fake": True},
-    )
-    commit = ledger.append_commit(
-        run_id=run_id,
-        candidate_id=candidate.id,
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE_A_SCORE_COMPUTED,
-        payload=score_payload(candidate, score),
-        artifact_refs=[artifact],
+        commit_payload=payload,
+        candidate_id=candidate.id,
     )
-    return store.link_artifact_to_commit(artifact, commit.commit_hash)
+    return result.artifact
 
 
 def _commit_duplicate_pruning(
@@ -506,8 +509,10 @@ def _write_stage_a_report(
         scores=scores,
         adapter_metadata=adapter_metadata,
     )
-    artifact = store.write_markdown(
+    result = persist_markdown_artifact(
         run_id=run_id,
+        store=store,
+        ledger=ledger,
         artifact_id="stage-a-report",
         artifact_type=ArtifactType.REPORT,
         markdown=markdown,
@@ -517,12 +522,9 @@ def _write_stage_a_report(
             "adapter": adapter_metadata,
             "is_verification_evidence": False,
         },
-    )
-    commit = ledger.append_commit(
-        run_id=run_id,
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE_A_REPORT_WRITTEN,
-        payload={
+        commit_payload={
             "generated_count": len(generated_candidates),
             "deferred_count": len(deferred_candidates),
             "duplicate_pruned_count": len(duplicate_decisions),
@@ -530,9 +532,8 @@ def _write_stage_a_report(
             "survivor_ids": [candidate.id for candidate in survivors],
             "adapter": adapter_metadata,
         },
-        artifact_refs=[artifact],
     )
-    return store.link_artifact_to_commit(artifact, commit.commit_hash), commit.commit_hash
+    return result.artifact, result.commit.commit_hash
 
 
 def _adapter_metadata(llm_client: LLMClient | None) -> dict[str, object]:
@@ -575,34 +576,36 @@ def _write_llm_trace_artifacts(
         "artifact_role": "llm_candidate_proposal_context",
         "is_verification_evidence": False,
     }
-    artifacts = {
-        "request": store.write_json(
-            run_id=run_id,
-            artifact_id="llm-stage-a-request",
-            artifact_type=ArtifactType.REPORT,
-            data={"requests": [trace.request for trace in traces]},
-            metadata=metadata,
-        ),
-        "response": store.write_json(
-            run_id=run_id,
-            artifact_id="llm-stage-a-response",
-            artifact_type=ArtifactType.REPORT,
-            data={"responses": [trace.raw_response for trace in traces]},
-            metadata=metadata,
-        ),
-        "parse_report": store.write_json(
-            run_id=run_id,
-            artifact_id="llm-stage-a-parse-report",
-            artifact_type=ArtifactType.REPORT,
-            data={"parse_reports": [trace.parse_report for trace in traces]},
-            metadata=metadata,
-        ),
-    }
-    commit = ledger.append_commit(
+    result = persist_artifacts_with_commit(
         run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id="llm-stage-a-request",
+                artifact_type=ArtifactType.REPORT,
+                payload={"requests": [trace.request for trace in traces]},
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id="llm-stage-a-response",
+                artifact_type=ArtifactType.REPORT,
+                payload={"responses": [trace.raw_response for trace in traces]},
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id="llm-stage-a-parse-report",
+                artifact_type=ArtifactType.REPORT,
+                payload={"parse_reports": [trace.parse_report for trace in traces]},
+                artifact_format="json",
+                metadata=metadata,
+            ),
+        ],
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.STAGE_A_LLM_CANDIDATES_PROPOSED,
-        payload={
+        commit_payload={
             "adapter": _adapter_metadata(llm_client),
             "request_count": len(traces),
             "accepted_candidate_ids": sorted(
@@ -615,11 +618,14 @@ def _write_llm_trace_artifacts(
             ),
             "is_verification_evidence": False,
         },
-        artifact_refs=list(artifacts.values()),
     )
     return {
-        key: store.link_artifact_to_commit(artifact, commit.commit_hash)
-        for key, artifact in artifacts.items()
+        key: artifact
+        for key, artifact in zip(
+            ["request", "response", "parse_report"],
+            result.artifacts,
+            strict=True,
+        )
     }
 
 

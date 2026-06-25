@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from factori.artifacts import ArtifactStore
 from factori.ledger import ResearchLedger
+from factori.persistence import ArtifactWriteSpec, persist_artifacts_with_commit
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
@@ -137,53 +138,57 @@ def run_retrieval_with_provenance(
         "claims_literature_coverage": False,
         "fake": False,
     }
-    artifacts = {
-        "query": store.write_json(
-            run_id=run_id,
-            artifact_id=f"retrieval-query-{query_hash}",
-            artifact_type=ArtifactType.REPORT,
-            data=trace.query,
-            metadata=metadata,
-        ),
-        "response": store.write_json(
-            run_id=run_id,
-            artifact_id=f"retrieval-response-{query_hash}",
-            artifact_type=ArtifactType.REPORT,
-            data=trace.raw_response,
-            metadata=metadata,
-        ),
-        "normalized_results": store.write_json(
-            run_id=run_id,
-            artifact_id=f"retrieval-normalized-results-{query_hash}",
-            artifact_type=ArtifactType.REPORT,
-            data={
-                "results": results,
-                "parse_report": trace.parse_report,
-                "is_verification_evidence": False,
-            },
-            metadata=metadata,
-        ),
-        "adequacy": store.write_json(
-            run_id=run_id,
-            artifact_id=f"retrieval-adequacy-{query_hash}",
-            artifact_type=ArtifactType.REPORT,
-            data=certificate,
-            metadata=metadata,
-        ),
-    }
-    commit = ledger.append_commit(
+    result = persist_artifacts_with_commit(
         run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id=f"retrieval-query-{query_hash}",
+                artifact_type=ArtifactType.REPORT,
+                payload=trace.query,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=f"retrieval-response-{query_hash}",
+                artifact_type=ArtifactType.REPORT,
+                payload=trace.raw_response,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=f"retrieval-normalized-results-{query_hash}",
+                artifact_type=ArtifactType.REPORT,
+                payload={
+                    "results": results,
+                    "parse_report": trace.parse_report,
+                    "is_verification_evidence": False,
+                },
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=f"retrieval-adequacy-{query_hash}",
+                artifact_type=ArtifactType.REPORT,
+                payload=certificate,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+        ],
         parent_hash=ledger.latest_commit_hash(run_id),
         action_type=ControllerActionType.RETRIEVAL_RUN_RECORDED,
-        payload=report.model_dump(mode="json"),
-        artifact_refs=list(artifacts.values()),
+        commit_payload=report.model_dump(mode="json"),
     )
-    linked = {
-        key: store.link_artifact_to_commit(artifact, commit.commit_hash)
-        for key, artifact in artifacts.items()
-    }
+    linked = dict(
+        zip(
+            ["query", "response", "normalized_results", "adequacy"],
+            result.artifacts,
+            strict=True,
+        )
+    )
     return RetrievalExecutionResult(
         report=report,
         artifacts=linked,
-        commit_hash=commit.commit_hash,
+        commit_hash=result.commit.commit_hash,
     )

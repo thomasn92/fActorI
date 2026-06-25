@@ -30,6 +30,8 @@ All implementation modules are under `factori/`.
   - `schemas/protocol_models.py`: protocol-facing schema re-export convenience module.
 - `ledger.py`: append-only SQLite commit ledger and hash-chain validation.
 - `artifacts.py`: local artifact store and artifact-to-commit metadata links.
+- `persistence.py`: shared helpers for the normal artifact write, ledger commit, and producing
+  commit-link sequence used by Stage A and Stage B outputs.
 - `storage_protocols.py`: runtime-checkable ledger/artifact-store/clock interfaces plus system and
   fixed clocks.
 - `hashing.py`: canonical JSON and SHA-256 helpers.
@@ -137,8 +139,10 @@ All implementation modules are under `factori/`.
 
 ## Stage B
 
-- `stage_b.py`: Stage B child expansion, optional per-parent gated retrieval, optional gated LLM
-  structural reviewers, checks, gate, ranking, artifacts, and ledger flow.
+- `stage_b.py`: stable public Stage B entry point and `StageBResult` assembly.
+- `stage_b_phases.py`: internal deterministic Stage B phases for input loading, optional
+  per-parent retrieval, child expansion, per-child reviewer/bridge/baseline/red-team/triviality
+  processing, gate classification, survivor selection, and report persistence.
 - `reviewers.py`: deterministic fake reviewer panels and disagreement resolution.
 - `bridge.py`: deterministic bridge survival and one-repair policy.
 - `baselines.py`: deterministic baseline validation.

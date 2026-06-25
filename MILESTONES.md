@@ -36,10 +36,12 @@
 | 31 | Deterministic narrative manuscript contract and paper-shape critic for central message, problem framing, novelty positioning, one-main-result focus, numerics, empirical boundaries, and appendix allocation | `narrative_contract.py`, `paper_shape.py`, `manuscript_plan.py` | `critique-paper-shape` | Read-only by default; optional reports are hashed and ledgered manuscript-quality context, not verification evidence |
 | 32 | Schema/module maintainability hardening: split the large schema monolith into a grouped `factori.schemas` package with stable compatibility re-exports | `schemas/`, `protocols.py`, `schema_export.py` | Existing commands unchanged | Refactor-only; public schema imports and protocol output remain stable |
 | 33 | CLI/library boundary hardening: extract selected CLI-owned business logic into typed library entry points | `commands/candidates.py`, `commands/artifacts.py`, `commands/questioner.py`, `commands/retrieval_demo.py`, `cli.py` | `add-candidate`, `write-artifact`, `questioner-check`, `retrieval-adequacy-demo` | Existing mutability behavior preserved; CLI output remains compatible |
+| 34 | Stage B internal phase refactor: split `run_stage_b` into deterministic internal phases while preserving the public entry point | `stage_b.py`, `stage_b_phases.py` | `run-stage-b` | Refactor-only; Stage B artifacts, report layout, scoring, gates, and ledger actions remain compatible |
+| 35 | Shared artifact persistence helpers for Stage A and Stage B output artifacts and producing commits | `persistence.py`, `stage_a.py`, `stage0.py`, `retrieval.py`, `stage_b_phases.py` | Existing commands unchanged | Refactor-only; artifact IDs, paths, reports, ledger action types, and protocol output remain compatible |
 
 ## Current Boundary
 
-Milestones through 33 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 35 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
 real agents, complete scientific literature coverage, proof checking, experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
@@ -49,4 +51,7 @@ provider-neutral enough to add future backends behind the same fail-closed gates
 for future server/Rust boundary design, but no server or Rust implementation exists yet. Schema
 definitions are now grouped for maintainability while `from factori.schemas import X` remains the
 public compatibility path. A small subset of CLI commands now call typed library entry points, but
-the Typer command surface remains compatible.
+the Typer command surface remains compatible. Stage B internals are phase-split for maintainability
+while `run_stage_b` remains the stable public API. Stage A and Stage B artifact persistence now
+share helpers for the normal write-artifact, append-commit, and producing-commit link sequence
+without changing stage-specific decisions or public outputs.

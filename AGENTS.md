@@ -55,6 +55,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Prefer typed library entry points under `factori.commands` for command business logic when they
   exist. Keep Typer command functions focused on argument parsing, output formatting, and
   Typer-specific error conversion.
+- Keep `factori.stage_b.run_stage_b` as the public Stage B entry point. Stage B internals are split
+  into deterministic phases in `factori.stage_b_phases`; edit those phases for Stage B internals
+  without changing the public result shape, artifact IDs, report layout, or ledger action sequence.
 
 ## Evidence and Provenance
 
@@ -91,6 +94,8 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   commands are read-only and must never repair or rewrite ledger history.
 - Preserve atomic artifact writes: use same-directory temporary files, replace atomically, and hash
   final on-disk bytes. Do not bypass `ArtifactStore` for normal pipeline artifacts.
+- Use the shared helpers in `factori.persistence` for new artifact-write plus ledger-commit paths
+  when they fit. Do not hand-roll write/append/link sequences without a concrete reason.
 - Use the `Clock` seam for new persistence/orchestration timestamps so tests can remain deterministic.
 - Do not silently upgrade claim labels or data regimes.
 - Do not treat generated presentation files as evidence.
