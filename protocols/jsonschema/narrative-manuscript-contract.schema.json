@@ -1,0 +1,160 @@
+{
+  "$id": "https://schemas.factori.local/0.3.0/narrative-manuscript-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic paper narrative contract; not scientific validation.",
+  "properties": {
+    "appendix_policy": {
+      "default": "",
+      "title": "Appendix Policy",
+      "type": "string"
+    },
+    "blocked_or_missing_items": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked Or Missing Items",
+      "type": "array"
+    },
+    "central_message": {
+      "default": "",
+      "title": "Central Message",
+      "type": "string"
+    },
+    "contract_id": {
+      "minLength": 1,
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "derivatives_or_corollaries": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Derivatives Or Corollaries",
+      "type": "array"
+    },
+    "empirical_study_boundary": {
+      "default": "",
+      "title": "Empirical Study Boundary",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "final_nucleus_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Nucleus Id"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "literature_gap": {
+      "default": "",
+      "title": "Literature Gap",
+      "type": "string"
+    },
+    "main_result_formal_pointer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Main Result Formal Pointer"
+    },
+    "main_result_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Main Result Id"
+    },
+    "main_result_in_words": {
+      "default": "",
+      "title": "Main Result In Words",
+      "type": "string"
+    },
+    "model_frame": {
+      "default": "",
+      "title": "Model Frame",
+      "type": "string"
+    },
+    "notation_policy": {
+      "default": "",
+      "title": "Notation Policy",
+      "type": "string"
+    },
+    "novelty_claim": {
+      "default": "",
+      "title": "Novelty Claim",
+      "type": "string"
+    },
+    "numerical_study_purpose": {
+      "default": "",
+      "title": "Numerical Study Purpose",
+      "type": "string"
+    },
+    "problem_statement": {
+      "default": "",
+      "title": "Problem Statement",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_plan": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Section Plan",
+      "type": "array"
+    },
+    "synthetic_study_boundary": {
+      "default": "",
+      "title": "Synthetic Study Boundary",
+      "type": "string"
+    },
+    "why_interesting": {
+      "default": "",
+      "title": "Why Interesting",
+      "type": "string"
+    }
+  },
+  "required": [
+    "contract_id",
+    "run_id"
+  ],
+  "title": "NarrativeManuscriptContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.3.0",
+  "x-factori-source-model": "factori.schemas.NarrativeManuscriptContract",
+  "x-factori-verification-evidence": false
+}

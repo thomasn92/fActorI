@@ -6,10 +6,14 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
-from urllib.request import Request, urlopen
 
+from factori.adapters.errors import (
+    AdapterExternalCallsDisabled,
+    AdapterMissingCredentials,
+    AdapterResponseParseError,
+)
+from factori.adapters.http import URLOpener, request_json
 from factori.adapters.retrieval_safety import (
     RetrievalResponseError,
     parse_retrieval_response,
@@ -46,33 +50,30 @@ class OpenAlexTransport:
 
     endpoint: str = OPENALEX_WORKS_ENDPOINT
     timeout_seconds: float = 60.0
+    opener: URLOpener | None = None
 
     def search(self, *, query: RetrievalQuery, api_key: str) -> Any:
         parameters = {**query.parameters, "api_key": api_key}
-        return self._get(f"{self.endpoint}?{urlencode(parameters)}")
+        return self._get(f"{self.endpoint}?{urlencode(parameters)}", operation="works.search")
 
     def fetch(self, *, source_id: str, api_key: str) -> Any:
         normalized_id = source_id.rstrip("/").rsplit("/", maxsplit=1)[-1]
         if not normalized_id:
             raise ValueError("source_id must not be empty")
         url = f"{self.endpoint}/{quote(normalized_id, safe='')}?{urlencode({'api_key': api_key})}"
-        return self._get(url)
+        return self._get(url, operation="works.fetch")
 
-    def _get(self, url: str) -> Any:
-        request = Request(
+    def _get(self, url: str, *, operation: str) -> Any:
+        return request_json(
             url,
-            headers={"Accept": "application/json", "User-Agent": "factori/0.1"},
             method="GET",
+            headers={"Accept": "application/json", "User-Agent": "factori/0.1"},
+            timeout_seconds=self.timeout_seconds,
+            backend="openalex",
+            provider="openalex",
+            operation=operation,
+            opener=self.opener,
         )
-        try:
-            with urlopen(request, timeout=self.timeout_seconds) as response:  # noqa: S310
-                return json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            raise RuntimeError(f"OpenAlex request failed with HTTP {exc.code}") from exc
-        except (URLError, TimeoutError) as exc:
-            raise RuntimeError("OpenAlex request failed before a response was received") from exc
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("OpenAlex returned invalid JSON") from exc
 
 
 @dataclass
@@ -95,12 +96,12 @@ class OpenAlexRetrievalClient:
 
     def __post_init__(self) -> None:
         if not self.allow_external_calls:
-            raise ValueError(
+            raise AdapterExternalCallsDisabled(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "retrieval adapters."
             )
         if not self.api_key.strip():
-            raise ValueError(
+            raise AdapterMissingCredentials(
                 "Real retrieval adapter requested but required credentials are not configured."
             )
         if self.default_limit < 1:
@@ -116,6 +117,7 @@ class OpenAlexRetrievalClient:
             results, parse_report = parse_retrieval_response(
                 raw_response,
                 provider=self.provider,
+                backend=self.backend_name,
                 query=contract.query,
                 limit=contract.limit,
                 retrieved_at=retrieved_at,
@@ -142,10 +144,16 @@ class OpenAlexRetrievalClient:
             self.transport.fetch(source_id=source_id, api_key=self.api_key)
         )
         if not isinstance(raw_payload, dict):
-            raise RuntimeError("OpenAlex fetch response must be a JSON object")
+            raise AdapterResponseParseError(
+                backend=self.backend_name,
+                provider=self.provider,
+                operation="works.fetch",
+                message="OpenAlex fetch response must be a JSON object",
+            )
         return normalize_retrieved_document(
             raw_payload,
             self.provider,
+            backend=self.backend_name,
             retrieved_at=self.clock(),
         )
 
@@ -251,7 +259,13 @@ def _json_compatible(value: Any) -> Any:
     try:
         return json.loads(json.dumps(value, ensure_ascii=False))
     except (TypeError, ValueError) as exc:
-        raise RuntimeError("retrieval transport returned a non-JSON-compatible response") from exc
+        raise AdapterResponseParseError(
+            backend="openalex",
+            provider="openalex",
+            operation="retrieval.transport",
+            message="retrieval transport returned a non-JSON-compatible response",
+            cause=exc,
+        ) from exc
 
 
 __all__ = [

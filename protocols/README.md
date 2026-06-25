@@ -67,7 +67,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.2.0
+  --new-version 0.3.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

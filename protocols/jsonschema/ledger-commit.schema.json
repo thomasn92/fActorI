@@ -124,6 +124,8 @@
         "BlockedClaimsIdentified",
         "ManuscriptPlanBuilt",
         "ManuscriptPlanReportWritten",
+        "NarrativeContractWritten",
+        "PaperShapeCritiqueWritten",
         "DraftSkeletonStarted",
         "DraftSkeletonBuilt",
         "ManuscriptChecklistBuilt",
@@ -154,7 +156,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.2.0/ledger-commit.schema.json",
+  "$id": "https://schemas.factori.local/0.3.0/ledger-commit.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only provenance commit.",
@@ -222,7 +224,7 @@
   ],
   "title": "LedgerCommit",
   "type": "object",
-  "x-factori-protocol-version": "0.2.0",
+  "x-factori-protocol-version": "0.3.0",
   "x-factori-source-model": "factori.schemas.LedgerCommit",
   "x-factori-verification-evidence": false
 }

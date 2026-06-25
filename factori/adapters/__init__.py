@@ -1,6 +1,8 @@
 """Explicit adapter interfaces with deterministic fake defaults."""
 
 from factori.adapters.base import (
+    CandidateGenerationClient,
+    ContextSummarizationClient,
     ExperimentRunner,
     HumanReviewClient,
     LLMClient,
@@ -9,7 +11,24 @@ from factori.adapters.base import (
     RetrievalClient,
     ReviewerClient,
 )
+from factori.adapters.capabilities import (
+    AdapterCapability,
+    AdapterProviderDescriptor,
+    AdapterRegistryDescriptor,
+    get_provider_descriptors,
+)
 from factori.adapters.config import AdapterConfig, load_adapter_config
+from factori.adapters.errors import (
+    AdapterBackendNotFound,
+    AdapterCapabilityError,
+    AdapterConfigurationError,
+    AdapterError,
+    AdapterExternalCallsDisabled,
+    AdapterMissingCredentials,
+    AdapterResponseParseError,
+    AdapterSafetyError,
+    AdapterTransportError,
+)
 from factori.adapters.fake import (
     FakeExperimentRunner,
     FakeHumanReviewClient,
@@ -26,7 +45,6 @@ from factori.adapters.llm_safety import (
     validate_llm_candidate,
 )
 from factori.adapters.registry import (
-    AdapterConfigurationError,
     AdapterRegistry,
     get_adapter_registry,
 )
@@ -44,8 +62,21 @@ from factori.adapters.reviewer_safety import (
 
 __all__ = [
     "AdapterConfig",
+    "AdapterBackendNotFound",
+    "AdapterCapability",
+    "AdapterCapabilityError",
     "AdapterConfigurationError",
+    "AdapterError",
+    "AdapterExternalCallsDisabled",
+    "AdapterMissingCredentials",
+    "AdapterProviderDescriptor",
+    "AdapterRegistryDescriptor",
+    "AdapterResponseParseError",
+    "AdapterSafetyError",
+    "AdapterTransportError",
     "AdapterRegistry",
+    "CandidateGenerationClient",
+    "ContextSummarizationClient",
     "ExperimentRunner",
     "FakeExperimentRunner",
     "FakeHumanReviewClient",
@@ -66,6 +97,7 @@ __all__ = [
     "RetrievalClient",
     "ReviewerClient",
     "get_adapter_registry",
+    "get_provider_descriptors",
     "build_stage_a_candidate_prompt",
     "build_stage_b_reviewer_prompt",
     "build_retrieval_query",

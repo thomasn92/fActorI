@@ -1,4 +1,4 @@
-"""Adapter registry with deterministic fake defaults and gated real LLM support."""
+"""Adapter registry with deterministic fake defaults and gated real adapters."""
 
 from __future__ import annotations
 
@@ -16,7 +16,21 @@ from factori.adapters.base import (
     RetrievalClient,
     ReviewerClient,
 )
+from factori.adapters.capabilities import (
+    AdapterProviderDescriptor,
+    AdapterRegistryDescriptor,
+    backend_names_for_kind,
+    find_descriptor,
+    get_provider_descriptors,
+)
 from factori.adapters.config import AdapterConfig, load_adapter_config
+from factori.adapters.errors import (
+    AdapterBackendNotFound,
+    AdapterCapabilityError,
+    AdapterConfigurationError,
+    AdapterExternalCallsDisabled,
+    AdapterMissingCredentials,
+)
 from factori.adapters.fake import (
     FakeExperimentRunner,
     FakeHumanReviewClient,
@@ -38,15 +52,12 @@ from factori.adapters.retrieval_real import (
 )
 
 
-class AdapterConfigurationError(ValueError):
-    """Raised when an unavailable or unsafe adapter backend is requested."""
-
-
 @dataclass(frozen=True)
 class AdapterRegistry:
     """Small explicit collection of active backend adapters."""
 
     config: AdapterConfig
+    descriptor: AdapterRegistryDescriptor
     llm: LLMClient
     retrieval: RetrievalClient
     reviewer: ReviewerClient
@@ -67,6 +78,10 @@ class AdapterRegistry:
             "human_review": type(self.human_review).__name__,
         }
 
+    def provider_descriptors(self) -> tuple[AdapterProviderDescriptor, ...]:
+        """Return provider capability metadata in stable order."""
+        return self.descriptor.providers
+
 
 def get_adapter_registry(
     config: AdapterConfig | Mapping[str, Any] | None = None,
@@ -79,16 +94,17 @@ def get_adapter_registry(
 ) -> AdapterRegistry:
     """Build fake defaults plus explicitly gated Stage A and Stage B adapters."""
     loaded = load_adapter_config(config)
-    if loaded.adapter_backend not in {"fake", "openai", "real_llm"}:
-        raise AdapterConfigurationError(
-            f"Adapter backend '{loaded.adapter_backend}' is not implemented. "
-            "Only 'fake' is available in this milestone."
-        )
+    _require_backend(
+        loaded.adapter_backend,
+        kind="llm",
+        capability="candidate_generation",
+        label="Adapter",
+    )
     environment = os.environ if environ is None else environ
     llm: LLMClient = FakeLLMClient()
     if loaded.adapter_backend in {"openai", "real_llm"}:
         if not loaded.allow_external_calls:
-            raise AdapterConfigurationError(
+            raise AdapterExternalCallsDisabled(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "LLM adapters."
             )
@@ -97,7 +113,7 @@ def get_adapter_registry(
         )
         api_key = configured_key or environment.get(loaded.api_key_env)
         if not api_key:
-            raise AdapterConfigurationError(
+            raise AdapterMissingCredentials(
                 "Real LLM adapter requested but no API key is configured."
             )
         llm = OpenAILLMClient(
@@ -107,19 +123,20 @@ def get_adapter_registry(
             max_candidates=loaded.llm_max_candidates,
             allow_external_calls=True,
         )
-    if loaded.reviewer_backend not in {"fake", "openai", "real_llm"}:
-        raise AdapterConfigurationError(
-            f"Reviewer backend '{loaded.reviewer_backend}' is not implemented. "
-            "Available reviewer backends are 'fake' and gated 'openai'."
-        )
+    _require_backend(
+        loaded.reviewer_backend,
+        kind="reviewer",
+        capability="review",
+        label="Reviewer",
+    )
     reviewer: ReviewerClient = FakeReviewerClient()
     if loaded.use_llm_reviewers:
         if loaded.reviewer_backend == "fake":
-            raise AdapterConfigurationError(
+            raise AdapterCapabilityError(
                 "LLM reviewers requested but reviewer_backend is 'fake'."
             )
         if not loaded.allow_external_calls:
-            raise AdapterConfigurationError(
+            raise AdapterExternalCallsDisabled(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "LLM reviewer adapters."
             )
@@ -132,7 +149,7 @@ def get_adapter_registry(
             loaded.reviewer_api_key_env
         )
         if not reviewer_key:
-            raise AdapterConfigurationError(
+            raise AdapterMissingCredentials(
                 "Real LLM reviewer adapter requested but no API key is configured."
             )
         reviewer = OpenAIReviewerClient(
@@ -142,15 +159,16 @@ def get_adapter_registry(
             max_objections=loaded.reviewer_max_objections,
             allow_external_calls=True,
         )
-    if loaded.retrieval_backend not in {"fake", "openalex", "real_retrieval"}:
-        raise AdapterConfigurationError(
-            f"Retrieval backend '{loaded.retrieval_backend}' is not implemented. "
-            "Available retrieval backends are 'fake' and gated 'openalex'."
-        )
+    _require_backend(
+        loaded.retrieval_backend,
+        kind="retrieval",
+        capability="retrieval",
+        label="Retrieval",
+    )
     retrieval: RetrievalClient = FakeRetrievalClient()
     if loaded.retrieval_backend in {"openalex", "real_retrieval"}:
         if not loaded.allow_external_calls:
-            raise AdapterConfigurationError(
+            raise AdapterExternalCallsDisabled(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "retrieval adapters."
             )
@@ -163,7 +181,7 @@ def get_adapter_registry(
             loaded.retrieval_api_key_env
         )
         if not retrieval_key:
-            raise AdapterConfigurationError(
+            raise AdapterMissingCredentials(
                 "Real retrieval adapter requested but required credentials are not configured."
             )
         retrieval_kwargs: dict[str, Any] = {}
@@ -178,6 +196,13 @@ def get_adapter_registry(
         )
     return AdapterRegistry(
         config=loaded,
+        descriptor=AdapterRegistryDescriptor(
+            active_candidate_backend=loaded.adapter_backend,
+            active_reviewer_backend=loaded.reviewer_backend,
+            active_retrieval_backend=loaded.retrieval_backend,
+            allow_external_calls=loaded.allow_external_calls,
+            providers=get_provider_descriptors(),
+        ),
         llm=llm,
         retrieval=retrieval,
         reviewer=reviewer,
@@ -188,8 +213,29 @@ def get_adapter_registry(
     )
 
 
+def _require_backend(
+    backend: str,
+    *,
+    kind: str,
+    capability: str,
+    label: str,
+) -> AdapterProviderDescriptor:
+    descriptor = find_descriptor(backend, kind=kind, capability=capability)
+    if descriptor is None:
+        accepted = ", ".join(backend_names_for_kind(kind))
+        raise AdapterBackendNotFound(
+            f"{label} backend '{backend}' is not implemented. "
+            f"Available {kind} backends are: {accepted}."
+        )
+    return descriptor
+
+
 __all__ = [
+    "AdapterBackendNotFound",
+    "AdapterCapabilityError",
     "AdapterConfigurationError",
+    "AdapterExternalCallsDisabled",
+    "AdapterMissingCredentials",
     "AdapterRegistry",
     "get_adapter_registry",
 ]

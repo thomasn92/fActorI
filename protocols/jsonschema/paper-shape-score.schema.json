@@ -1,0 +1,78 @@
+{
+  "$id": "https://schemas.factori.local/0.3.0/paper-shape-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Weighted diagnostic paper-shape score.",
+  "properties": {
+    "appendix_allocation": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Appendix Allocation",
+      "type": "number"
+    },
+    "central_message": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Central Message",
+      "type": "number"
+    },
+    "empirical_boundary": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Empirical Boundary",
+      "type": "number"
+    },
+    "literature_positioning": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Literature Positioning",
+      "type": "number"
+    },
+    "main_result_focus": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Main Result Focus",
+      "type": "number"
+    },
+    "model_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Model Clarity",
+      "type": "number"
+    },
+    "numerics_purpose": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Numerics Purpose",
+      "type": "number"
+    },
+    "problem_framing": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Problem Framing",
+      "type": "number"
+    },
+    "total": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Total",
+      "type": "number"
+    }
+  },
+  "required": [
+    "central_message",
+    "problem_framing",
+    "literature_positioning",
+    "model_clarity",
+    "main_result_focus",
+    "numerics_purpose",
+    "empirical_boundary",
+    "appendix_allocation",
+    "total"
+  ],
+  "title": "PaperShapeScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.3.0",
+  "x-factori-source-model": "factori.schemas.PaperShapeScore",
+  "x-factori-verification-evidence": false
+}

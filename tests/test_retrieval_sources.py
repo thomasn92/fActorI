@@ -30,8 +30,8 @@ def test_openalex_result_normalization_is_deterministic_and_provenanced() -> Non
         "_normalized_score": 0.93,
     }
 
-    first = normalize_retrieval_result(raw, "openalex")
-    second = normalize_retrieval_result(raw, "openalex")
+    first = normalize_retrieval_result(raw, "openalex", backend="provider-neutral")
+    second = normalize_retrieval_result(raw, "openalex", backend="provider-neutral")
 
     assert first == second
     assert first.source_id == "W123"
@@ -47,12 +47,15 @@ def test_openalex_result_normalization_is_deterministic_and_provenanced() -> Non
     assert first.source_provenance.query == first.query
     assert first.is_verification_evidence is False
     assert first.proves_novelty is False
+    assert first.metadata["adapter_backend"] == "provider-neutral"
+    assert first.metadata["adapter_provider"] == "openalex"
 
 
 def test_fetched_document_has_raw_payload_hash_and_boundary_markers() -> None:
     document = normalize_retrieved_document(
         _raw_work(),
         "openalex",
+        backend="provider-neutral",
         retrieved_at=RETRIEVED_AT,
     )
 
@@ -63,6 +66,8 @@ def test_fetched_document_has_raw_payload_hash_and_boundary_markers() -> None:
     assert document.fetch_status == "MetadataOrAbstractFetched"
     assert document.is_verification_evidence is False
     assert document.proves_novelty is False
+    assert document.metadata["adapter_backend"] == "provider-neutral"
+    assert document.metadata["adapter_provider"] == "openalex"
 
 
 def _raw_work(work_id: str = "W123") -> dict[str, object]:

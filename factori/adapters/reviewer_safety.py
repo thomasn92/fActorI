@@ -54,6 +54,8 @@ def parse_llm_reviewer_response(
     expected_candidate_id: str | None = None,
     data_requirement: DataRequirement | None = None,
     max_objections: int = 5,
+    backend: str = "unknown",
+    provider: str = "unknown",
 ) -> LLMReviewerParseResult:
     """Parse, clamp, normalize, and locally validate structural reviews."""
     payload = _structured_payload(raw_response)
@@ -74,7 +76,12 @@ def parse_llm_reviewer_response(
             rejected.append({"index": index, "reasons": reasons})
             continue
         try:
-            report = _normalize_report(raw_review, max_objections=max_objections)
+            report = _normalize_report(
+                raw_review,
+                max_objections=max_objections,
+                backend=backend,
+                provider=provider,
+            )
         except (TypeError, ValueError, ValidationError) as exc:
             rejected.append({"index": index, "reasons": [str(exc)]})
             continue
@@ -124,6 +131,9 @@ def safe_failure_report(
     candidate_id: str,
     index: int,
     reasons: list[str],
+    *,
+    backend: str = "unknown",
+    provider: str = "unknown",
 ) -> StageBReviewerReport:
     """Return a deterministic rejecting report when model output is unsafe."""
     reason = "; ".join(sorted(set(reasons))) or "LLM reviewer output was rejected."
@@ -137,6 +147,11 @@ def safe_failure_report(
         significance_score=0.20,
         objections=[f"Unsafe or malformed LLM reviewer output: {reason}"],
         recommendation=ReviewerRecommendation.REJECT,
+        metadata={
+            "adapter_backend": backend,
+            "adapter_provider": provider,
+            "safety_fallback": True,
+        },
         fake=True,
     )
 
@@ -200,7 +215,13 @@ def _authority_reasons(
     return reasons
 
 
-def _normalize_report(raw_review: dict[str, Any], *, max_objections: int) -> StageBReviewerReport:
+def _normalize_report(
+    raw_review: dict[str, Any],
+    *,
+    max_objections: int,
+    backend: str,
+    provider: str,
+) -> StageBReviewerReport:
     if max_objections < 1:
         raise ValueError("max_objections must be at least 1")
     score_fields = (
@@ -224,6 +245,11 @@ def _normalize_report(raw_review: dict[str, Any], *, max_objections: int) -> Sta
         candidate_id=str(raw_review["candidate_id"]).strip(),
         objections=[item.strip() for item in raw_objections[:max_objections] if item.strip()],
         recommendation=recommendation,
+        metadata={
+            "adapter_backend": backend,
+            "adapter_provider": provider,
+            "is_verification_evidence": False,
+        },
         fake=False,
         **normalized_scores,
     )

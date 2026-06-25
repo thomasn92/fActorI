@@ -25,7 +25,9 @@ from factori.schemas import (
     LedgerSummary,
     ManuscriptChecklist,
     ManuscriptPlan,
+    NarrativeManuscriptContract,
     OutputHygieneReport,
+    PaperShapeCritique,
     PaperSkeleton,
     PipelineRunReport,
     RedTeamReport,
@@ -505,6 +507,91 @@ def render_manuscript_plan_report(
             "- Presentation artifacts are not verification evidence.",
         ]
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_paper_shape_critique_markdown(
+    contract: NarrativeManuscriptContract,
+    critique: PaperShapeCritique,
+) -> str:
+    """Render deterministic paper-shape critique Markdown."""
+    lines = [
+        "# Paper Shape Critique",
+        "",
+        "Deterministic manuscript-quality diagnostic only; this is not scientific validation.",
+        "",
+        f"Run: `{critique.run_id}`",
+        f"Status: `{critique.status.value}`",
+        f"Score: `{critique.score.total:.3f}`",
+        "",
+        "## Central Message Assessment",
+        "",
+        f"- Central message: {contract.central_message or 'missing'}",
+        f"- Score: {critique.central_message_assessment.score:.3f}",
+        "",
+        "## Problem Framing Assessment",
+        "",
+        f"- Problem statement: {contract.problem_statement or 'missing'}",
+        f"- Why interesting: {contract.why_interesting or 'missing'}",
+        f"- Score: {critique.score.problem_framing:.3f}",
+        "",
+        "## Literature Positioning Assessment",
+        "",
+        f"- Literature gap: {contract.literature_gap or 'missing'}",
+        f"- Novelty claim: {contract.novelty_claim or 'missing'}",
+        f"- Score: {critique.literature_positioning_assessment.score:.3f}",
+        "",
+        "## Model / Notation Assessment",
+        "",
+        f"- Model frame: {contract.model_frame or 'missing'}",
+        f"- Notation policy: {contract.notation_policy or 'missing'}",
+        f"- Score: {critique.model_notation_assessment.score:.3f}",
+        "",
+        "## Main Result Focus",
+        "",
+        f"- Main result: {contract.main_result_in_words or 'missing'}",
+        f"- Primary main results: {critique.main_result_assessment.primary_main_results}",
+        f"- Score: {critique.main_result_assessment.score:.3f}",
+        "",
+        "## Numerical Study Purpose",
+        "",
+        f"- Purpose: {contract.numerical_study_purpose or 'not applicable'}",
+        f"- Score: {critique.numerical_study_assessment.score:.3f}",
+        "",
+        "## Synthetic / Empirical Boundary",
+        "",
+        f"- Synthetic boundary: {contract.synthetic_study_boundary or 'not applicable'}",
+        f"- Empirical boundary: {contract.empirical_study_boundary or 'not applicable'}",
+        f"- Score: {critique.empirical_boundary_assessment.score:.3f}",
+        "",
+        "## Appendix Allocation",
+        "",
+        f"- Appendix policy: {contract.appendix_policy or 'missing'}",
+        f"- Technical lemmas in main body: "
+        f"{critique.appendix_allocation_assessment.technical_lemmas_in_main_body}",
+        f"- Score: {critique.appendix_allocation_assessment.score:.3f}",
+        "",
+        "## Missing Items",
+        "",
+        *([f"- {item}" for item in critique.missing_items] or ["- none"]),
+        "",
+        "## Recommended Structural Edits",
+        "",
+        *(
+            [f"- {item}" for item in critique.recommended_structural_edits]
+            or ["- none"]
+        ),
+        "",
+        "## Evidence Boundary",
+        "",
+        "- Narrative quality is not proof evidence.",
+        "- Narrative quality is not experiment evidence.",
+        "- Narrative quality is not retrieval evidence.",
+        "- Narrative quality is not human approval.",
+        "- Narrative quality cannot upgrade verification labels.",
+    ]
+    if critique.warnings:
+        lines.extend(["", "## Warnings", "", *[f"- {item}" for item in critique.warnings]])
     return "\n".join(lines) + "\n"
 
 

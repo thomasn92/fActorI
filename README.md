@@ -39,6 +39,7 @@ Implemented so far:
 - deterministic fake Stage C verification labeling and evidence-boundary checks;
 - deterministic Abstract Synthesis skeleton and final nucleus selection;
 - deterministic manuscript planning skeleton with claim/evidence tables;
+- deterministic narrative manuscript contract and paper-shape critique;
 - deterministic draft skeleton and manuscript checklist generation;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
@@ -114,6 +115,8 @@ uv run factori select-stage-c --run-id demo
 uv run factori run-stage-c --run-id demo
 uv run factori synthesize-abstract --run-id demo
 uv run factori plan-manuscript --run-id demo
+uv run factori critique-paper-shape --run-id demo
+uv run factori critique-paper-shape --run-id demo --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -143,7 +146,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.2.0
+  --old-version 0.1.0 --new-version 0.3.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -186,7 +189,9 @@ embedded callers may inject `FixedClock` without changing CLI behavior.
 
 The adapter registry exposes `LLMClient`, `ReviewerClient`, `RetrievalClient`, `ProofVerifier`,
 `ExperimentRunner`, `ProseGenerator`, and `HumanReviewClient`. It defaults to `fake` with external
-calls disabled. Fake adapters use local deterministic templates and validators. A provider-isolated
+calls disabled. Fake adapters use local deterministic templates and validators. The registry also
+exposes provider-neutral capability descriptors and typed adapter errors so future providers can be
+added without changing evidence or provenance rules. A provider-isolated
 `openai` backend supports Stage A candidate proposal, and a separate explicit Stage B reviewer flag
 uses the same provider transport for structural critique only. Both require external-call permission
 plus `OPENAI_API_KEY`. A separately gated `openalex` retrieval backend supports Stage B source
@@ -204,6 +209,25 @@ proof or experiment success, or turn bounded retrieval context into a literature
 OpenAlex retrieval output is normalized, source-hashed, and ledgered through Stage B. It supports
 only bounded retrieval adequacy and literature context. It does not prove novelty, complete
 coverage, claim correctness, or external-review readiness.
+
+`show-adapters` prints both active adapter classes and provider capability metadata. Invalid
+backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,
+and malformed JSON responses use shared typed errors. Error strings are deterministic and must not
+expose API keys or secrets.
+
+## Narrative Paper Shape
+
+`critique-paper-shape` checks whether the manuscript plan has a central message, explicit problem
+framing, bounded literature positioning, simple model notation, one main result, purposeful
+numerics, synthetic/empirical boundaries, and appendix allocation.
+
+```bash
+uv run factori critique-paper-shape --run-id demo
+uv run factori critique-paper-shape --run-id demo --write-report
+```
+
+The critique is manuscript-quality context only. It is not proof evidence, experiment evidence,
+retrieval evidence, human approval, or scientific validation.
 
 ```bash
 OPENAI_API_KEY="<key>" uv run factori run-stage-a \

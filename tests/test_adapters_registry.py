@@ -3,10 +3,12 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 from factori.adapters.config import AdapterConfig
-from factori.adapters.registry import (
-    AdapterConfigurationError,
-    get_adapter_registry,
+from factori.adapters.errors import (
+    AdapterBackendNotFound,
+    AdapterExternalCallsDisabled,
+    AdapterMissingCredentials,
 )
+from factori.adapters.registry import get_adapter_registry
 from factori.cli import app
 
 
@@ -30,20 +32,45 @@ def test_registry_exposes_all_required_adapters() -> None:
         "prose_generator": "FakeProseGenerator",
         "human_review": "FakeHumanReviewClient",
     }
+    assert registry.provider_descriptors()[0].backend_name == "fake"
+    assert registry.provider_descriptors()[0].is_default is True
 
 
 def test_non_fake_backend_fails_clearly() -> None:
     try:
         get_adapter_registry(AdapterConfig(adapter_backend="real"))
-    except AdapterConfigurationError as exc:
+    except AdapterBackendNotFound as exc:
         message = str(exc)
     else:  # pragma: no cover - explicit failure path.
         raise AssertionError("non-fake backend unexpectedly loaded")
 
-    assert message == (
-        "Adapter backend 'real' is not implemented. "
-        "Only 'fake' is available in this milestone."
-    )
+    assert "Adapter backend 'real' is not implemented." in message
+    assert "Available llm backends are: fake, openai, real_llm." in message
+
+
+def test_real_backend_disabled_and_missing_key_use_typed_errors() -> None:
+    try:
+        get_adapter_registry(
+            AdapterConfig(
+                adapter_backend="openai",
+                allow_external_calls=False,
+                api_key="test-key",
+            )
+        )
+    except AdapterExternalCallsDisabled as exc:
+        assert "External calls are disabled" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("OpenAI backend unexpectedly loaded")
+
+    try:
+        get_adapter_registry(
+            AdapterConfig(adapter_backend="openai", allow_external_calls=True),
+            environ={},
+        )
+    except AdapterMissingCredentials as exc:
+        assert "no API key is configured" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("OpenAI backend unexpectedly loaded without a key")
 
 
 def test_show_adapters_cli_works() -> None:
@@ -54,6 +81,9 @@ def test_show_adapters_cli_works() -> None:
     assert "allow_external_calls=false" in result.output
     assert "llm=FakeLLMClient" in result.output
     assert "human_review=FakeHumanReviewClient" in result.output
+    assert "provider_descriptor=backend=fake,provider=fake,kind=all" in result.output
+    assert "supports_candidate_generation=true" in result.output
+    assert "backend=openai,provider=openai,kind=llm" in result.output
 
 
 def test_adapters_cli_alias_works() -> None:

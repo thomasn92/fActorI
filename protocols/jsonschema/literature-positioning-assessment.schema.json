@@ -1,0 +1,41 @@
+{
+  "$id": "https://schemas.factori.local/0.3.0/literature-positioning-assessment.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Literature-positioning diagnostic assessment.",
+  "properties": {
+    "findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Score",
+      "type": "number"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "score",
+    "passed"
+  ],
+  "title": "LiteraturePositioningAssessment",
+  "type": "object",
+  "x-factori-protocol-version": "0.3.0",
+  "x-factori-source-model": "factori.schemas.LiteraturePositioningAssessment",
+  "x-factori-verification-evidence": false
+}

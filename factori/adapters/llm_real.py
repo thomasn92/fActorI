@@ -6,9 +6,13 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
+from factori.adapters.errors import (
+    AdapterExternalCallsDisabled,
+    AdapterMissingCredentials,
+    AdapterResponseParseError,
+)
+from factori.adapters.http import URLOpener, request_json
 from factori.adapters.llm_prompts import build_stage_a_candidate_prompt
 from factori.adapters.llm_safety import (
     LLMCandidateResponseError,
@@ -44,6 +48,7 @@ class OpenAIResponsesTransport:
 
     endpoint: str = OPENAI_RESPONSES_URL
     timeout_seconds: float = 60.0
+    opener: URLOpener | None = None
 
     def create_response(
         self,
@@ -65,27 +70,21 @@ class OpenAIResponsesTransport:
                 }
             },
         }
-        request = Request(
+        body = request_json(
             self.endpoint,
-            data=json.dumps(payload).encode("utf-8"),
+            method="POST",
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
                 "User-Agent": "factori/0.1",
             },
-            method="POST",
+            payload=payload,
+            timeout_seconds=self.timeout_seconds,
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            opener=self.opener,
         )
-        try:
-            with urlopen(request, timeout=self.timeout_seconds) as response:  # noqa: S310
-                body = json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            raise RuntimeError(f"OpenAI Responses request failed with HTTP {exc.code}") from exc
-        except (URLError, TimeoutError) as exc:
-            raise RuntimeError(
-                "OpenAI Responses request failed before a response was received"
-            ) from exc
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("OpenAI Responses endpoint returned invalid JSON") from exc
         return _extract_output_text(body)
 
 
@@ -99,6 +98,7 @@ class OpenAILLMClient:
     max_candidates: int = 4
     allow_external_calls: bool = False
     backend_name: str = field(default="openai", init=False)
+    provider_name: str = field(default="openai", init=False)
     is_fake: bool = field(default=False, init=False)
     generation_traces: list[LLMGenerationTrace] = field(default_factory=list, init=False)
 
@@ -109,12 +109,14 @@ class OpenAILLMClient:
 
     def __post_init__(self) -> None:
         if not self.allow_external_calls:
-            raise ValueError(
+            raise AdapterExternalCallsDisabled(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "LLM adapters."
             )
         if not self.api_key.strip():
-            raise ValueError("Real LLM adapter requested but no API key is configured.")
+            raise AdapterMissingCredentials(
+                "Real LLM adapter requested but no API key is configured."
+            )
         if not self.model.strip():
             raise ValueError("Real LLM adapter requires a non-empty model name.")
         if self.max_candidates < 1:
@@ -144,6 +146,8 @@ class OpenAILLMClient:
             candidates, parse_report = parse_llm_candidate_response_with_report(
                 sanitized_response,
                 max_candidates=self.max_candidates,
+                backend=self.backend_name,
+                provider=self.provider_name,
             )
         except LLMCandidateResponseError as exc:
             candidates = []
@@ -185,7 +189,12 @@ class OpenAILLMClient:
 
 def _extract_output_text(response_body: Any) -> str:
     if not isinstance(response_body, dict):
-        raise RuntimeError("OpenAI Responses payload is not a JSON object")
+        raise AdapterResponseParseError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            message="OpenAI Responses payload is not a JSON object",
+        )
     direct = response_body.get("output_text")
     if isinstance(direct, str) and direct.strip():
         return direct
@@ -198,14 +207,25 @@ def _extract_output_text(response_body: Any) -> str:
             text = content.get("text")
             if isinstance(text, str) and text.strip():
                 return text
-    raise RuntimeError("OpenAI Responses payload did not contain structured output text")
+    raise AdapterResponseParseError(
+        backend="openai",
+        provider="openai",
+        operation="responses.create",
+        message="OpenAI Responses payload did not contain structured output text",
+    )
 
 
 def _json_compatible(value: Any) -> Any:
     try:
         return json.loads(json.dumps(value, ensure_ascii=False))
     except (TypeError, ValueError) as exc:
-        raise RuntimeError("LLM transport returned a non-JSON-compatible response") from exc
+        raise AdapterResponseParseError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            message="LLM transport returned a non-JSON-compatible response",
+            cause=exc,
+        ) from exc
 
 
 __all__ = [

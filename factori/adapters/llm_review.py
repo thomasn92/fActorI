@@ -7,6 +7,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from factori.adapters.errors import (
+    AdapterExternalCallsDisabled,
+    AdapterMissingCredentials,
+    AdapterResponseParseError,
+)
 from factori.adapters.llm_real import LLMTransport, OpenAIResponsesTransport
 from factori.adapters.reviewer_prompts import build_stage_b_reviewer_prompt
 from factori.adapters.reviewer_safety import (
@@ -46,6 +51,7 @@ class OpenAIReviewerClient:
     max_objections: int = 5
     allow_external_calls: bool = False
     backend_name: str = field(default="openai", init=False)
+    provider_name: str = field(default="openai", init=False)
     is_fake: bool = field(default=False, init=False)
     review_traces: list[LLMReviewerTrace] = field(default_factory=list, init=False)
 
@@ -55,12 +61,12 @@ class OpenAIReviewerClient:
 
     def __post_init__(self) -> None:
         if not self.allow_external_calls:
-            raise ValueError(
+            raise AdapterExternalCallsDisabled(
                 "External calls are disabled. Set allow_external_calls=true to use real "
                 "LLM reviewer adapters."
             )
         if not self.api_key.strip():
-            raise ValueError(
+            raise AdapterMissingCredentials(
                 "Real LLM reviewer adapter requested but no API key is configured."
             )
         if not self.model.strip():
@@ -93,6 +99,8 @@ class OpenAIReviewerClient:
                 expected_candidate_id=candidate.id,
                 data_requirement=candidate.data_requirement,
                 max_objections=self.max_objections,
+                backend=self.backend_name,
+                provider=self.provider_name,
             )
         except LLMReviewerResponseError as exc:
             parsed = LLMReviewerParseResult(
@@ -111,7 +119,15 @@ class OpenAIReviewerClient:
                 ],
             ]
             for index in range(len(reports) + 1, 4):
-                reports.append(safe_failure_report(candidate.id, index, fallback_reasons))
+                reports.append(
+                    safe_failure_report(
+                        candidate.id,
+                        index,
+                        fallback_reasons,
+                        backend=self.backend_name,
+                        provider=self.provider_name,
+                    )
+                )
             parsed = parsed.model_copy(
                 update={"reports": reports, "fallback_used": True}
             )
@@ -136,7 +152,13 @@ def _json_compatible(value: Any) -> Any:
     try:
         return json.loads(json.dumps(value, ensure_ascii=False))
     except (TypeError, ValueError) as exc:
-        raise RuntimeError("LLM reviewer transport returned non-JSON-compatible data") from exc
+        raise AdapterResponseParseError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            message="LLM reviewer transport returned non-JSON-compatible data",
+            cause=exc,
+        ) from exc
 
 
 __all__ = ["FakeReviewerClient", "OpenAIReviewerClient"]

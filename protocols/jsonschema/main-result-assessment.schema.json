@@ -1,0 +1,47 @@
+{
+  "$id": "https://schemas.factori.local/0.3.0/main-result-assessment.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One-main-result diagnostic assessment.",
+  "properties": {
+    "findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "primary_main_results": {
+      "minimum": 0,
+      "title": "Primary Main Results",
+      "type": "integer"
+    },
+    "score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Score",
+      "type": "number"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "score",
+    "passed",
+    "primary_main_results"
+  ],
+  "title": "MainResultAssessment",
+  "type": "object",
+  "x-factori-protocol-version": "0.3.0",
+  "x-factori-source-model": "factori.schemas.MainResultAssessment",
+  "x-factori-verification-evidence": false
+}

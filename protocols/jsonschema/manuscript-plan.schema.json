@@ -27,6 +27,13 @@
           "title": "Bullets",
           "type": "array"
         },
+        "narrative_roles": {
+          "items": {
+            "$ref": "#/$defs/NarrativeSectionRole"
+          },
+          "title": "Narrative Roles",
+          "type": "array"
+        },
         "section_id": {
           "minLength": 1,
           "title": "Section Id",
@@ -45,9 +52,28 @@
       ],
       "title": "ManuscriptSectionPlan",
       "type": "object"
+    },
+    "NarrativeSectionRole": {
+      "description": "Manuscript section roles used by the narrative-quality critic.",
+      "enum": [
+        "CentralMessage",
+        "ProblemFraming",
+        "BackgroundLiteraturePositioning",
+        "ModelFrame",
+        "MainBodyResult",
+        "DerivativeOrCorollary",
+        "TechnicalLemma",
+        "AppendixOnlyProof",
+        "NumericalValidation",
+        "EmpiricalDiscussion",
+        "SyntheticBoundary",
+        "LimitationsDiscussion"
+      ],
+      "title": "NarrativeSectionRole",
+      "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.2.0/manuscript-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.3.0/manuscript-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Structured manuscript plan.",
@@ -108,7 +134,7 @@
   ],
   "title": "ManuscriptPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.2.0",
+  "x-factori-protocol-version": "0.3.0",
   "x-factori-source-model": "factori.schemas.ManuscriptPlan",
   "x-factori-verification-evidence": false
 }

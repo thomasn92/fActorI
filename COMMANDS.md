@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.2.0
+  --new-version 0.3.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -119,6 +119,9 @@ uv run factori select-stage-c --run-id demo
 uv run factori run-stage-c --run-id demo
 uv run factori synthesize-abstract --run-id demo
 uv run factori plan-manuscript --run-id demo
+uv run factori critique-paper-shape --run-id demo
+uv run factori critique-paper-shape --run-id demo --write-report
+uv run factori critique-paper-shape --run-id demo --json
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -221,11 +224,18 @@ conservative recommendation with an explicit risk and optional producing-stage r
 does not execute any recommendation or rewrite a manifest. With `--write-report`, it writes only
 marked non-provenance plan files under `runs/<run_id>/hygiene/` and creates no ledger commit.
 
+`critique-paper-shape` is read-only by default. It checks the narrative manuscript contract and
+paper-shape diagnostics after `plan-manuscript`. With `--write-report`, it writes hashed, ledgered
+manuscript-quality context artifacts under `runs/<run_id>/reports/`; these are not verification
+evidence and cannot change scientific labels.
+
 `show-adapters` (alias `adapters`) prints the active registry without invoking it. The default is
 `adapter_backend=fake` and `allow_external_calls=false`. The `openai` backend fails before any
 network call unless external calls are explicitly allowed and an API key is present.
 The `openalex` retrieval backend has the same fail-closed behavior and uses
 `OPENALEX_API_KEY`; retrieval artifacts remain non-verification context.
+The output also includes provider-neutral capability descriptors for the fake, OpenAI candidate,
+OpenAI reviewer, and OpenAlex retrieval backends.
 
 ## Foundation and Inspection
 

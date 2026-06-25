@@ -36,10 +36,15 @@ All implementation modules are under `factori/`.
 
 - `adapters/base.py`: small runtime-checkable protocols for candidate LLM, structural reviewer,
   retrieval, proof, experiment, prose, and human-review backends.
+- `adapters/capabilities.py`: provider-neutral capability descriptors for fake, OpenAI candidate,
+  OpenAI reviewer, and OpenAlex retrieval backends.
 - `adapters/config.py`: strict fake-default backend/model configuration with external calls
   disabled and API keys excluded from reports.
+- `adapters/errors.py`: shared adapter configuration, capability, transport, parsing, and safety
+  errors with secret-safe string rendering.
 - `adapters/fake.py`: deterministic local implementations that delegate to current templates and
   fake validators without network, subprocess, Lean, Docker, or human access.
+- `adapters/http.py`: minimal injectable HTTP/JSON request helpers used by gated real transports.
 - `adapters/llm_prompts.py`: deterministic Stage A candidate prompt and structured-output contract.
 - `adapters/llm_safety.py`: strict parsing, candidate validation, label-inflation checks, and MVP
   data-boundary enforcement for untrusted LLM output.
@@ -55,8 +60,8 @@ All implementation modules are under `factori/`.
 - `adapters/retrieval_safety.py`: strict provider-result validation and malformed-source rejection.
 - `adapters/retrieval_real.py`: provider-isolated OpenAlex transport and injected-transport client
   for source metadata, abstracts, and bounded retrieval adequacy.
-- `adapters/registry.py`: fake-default registry and explicit gates for Stage A OpenAI, Stage B
-  OpenAI reviewer, and Stage B OpenAlex adapters.
+- `adapters/registry.py`: fake-default registry, provider descriptors, and explicit gates for
+  Stage A OpenAI, Stage B OpenAI reviewer, and Stage B OpenAlex adapters.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -123,6 +128,10 @@ All implementation modules are under `factori/`.
 - `final_selection.py`: deterministic abstract-or-branch final nucleus selection.
 - `claims.py`: claim/evidence table and claim-admissibility helpers.
 - `manuscript_plan.py`: section-level manuscript planning.
+- `narrative_contract.py`: deterministic central-message/problem/gap/model/result narrative
+  contract construction.
+- `paper_shape.py`: deterministic paper-shape critique and optional manuscript-quality report
+  writing.
 - `draft_skeleton.py`: deterministic Markdown/JSON draft scaffold generation.
 - `checklist.py`: manuscript checklist generation.
 - `final_paper.py`: assembled paper-shaped skeleton and assembly readiness report.
@@ -147,5 +156,6 @@ All implementation modules are under `factori/`.
 ## Reports
 
 - `reports.py`: deterministic Markdown renderers for stage, package, audit, export, replay,
-  diagnostics, cross-run comparison, pipeline run, output hygiene, and remediation-plan reports.
+  diagnostics, cross-run comparison, pipeline run, output hygiene, remediation-plan, and
+  paper-shape critique reports.
   These rendered reports are presentation artifacts, not verification evidence.

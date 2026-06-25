@@ -55,15 +55,26 @@ class LLMCandidateResponseError(ValueError):
 def parse_llm_candidate_response(
     raw_response: Any,
     max_candidates: int = 4,
+    *,
+    backend: str = "unknown",
+    provider: str = "unknown",
 ) -> list[Candidate]:
     """Parse valid candidates and discard malformed or unsafe proposals."""
-    candidates, _ = parse_llm_candidate_response_with_report(raw_response, max_candidates)
+    candidates, _ = parse_llm_candidate_response_with_report(
+        raw_response,
+        max_candidates,
+        backend=backend,
+        provider=provider,
+    )
     return candidates
 
 
 def parse_llm_candidate_response_with_report(
     raw_response: Any,
     max_candidates: int = 4,
+    *,
+    backend: str = "unknown",
+    provider: str = "unknown",
 ) -> tuple[list[Candidate], LLMCandidateParseReport]:
     """Parse an untrusted structured response and return an explicit rejection report."""
     if max_candidates < 1:
@@ -79,7 +90,7 @@ def parse_llm_candidate_response_with_report(
         if len(accepted) >= max_candidates:
             break
         try:
-            candidate = _candidate_from_item(item, index)
+            candidate = _candidate_from_item(item, index, backend=backend, provider=provider)
         except (TypeError, ValueError, ValidationError) as exc:
             rejected.append({"index": index, "reasons": [str(exc)]})
             continue
@@ -139,7 +150,13 @@ def _structured_payload(raw_response: Any) -> dict[str, Any]:
     return payload
 
 
-def _candidate_from_item(item: Any, index: int) -> Candidate:
+def _candidate_from_item(
+    item: Any,
+    index: int,
+    *,
+    backend: str,
+    provider: str,
+) -> Candidate:
     if not isinstance(item, dict):
         raise TypeError("candidate must be a JSON object")
     required = {
@@ -204,7 +221,8 @@ def _candidate_from_item(item: Any, index: int) -> Candidate:
             "claim_type": claim_type,
             "assumptions": assumptions,
             "risks": risks,
-            "adapter_backend": "openai",
+            "adapter_backend": backend,
+            "adapter_provider": provider,
             "llm_proposed": True,
             "fake": False,
             "raw_candidate_hash": sha256_json(normalized_item),

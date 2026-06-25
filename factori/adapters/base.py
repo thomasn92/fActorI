@@ -36,8 +36,8 @@ class AdapterClient(Protocol):
 
 
 @runtime_checkable
-class LLMClient(AdapterClient, Protocol):
-    """Candidate, review, and context operations for a future model backend."""
+class CandidateGenerationClient(AdapterClient, Protocol):
+    """Stage A candidate-generation seam."""
 
     def generate_candidates(
         self,
@@ -45,13 +45,23 @@ class LLMClient(AdapterClient, Protocol):
         constraints: ConstraintSet,
     ) -> list[CandidateLike]: ...
 
+
+@runtime_checkable
+class ContextSummarizationClient(AdapterClient, Protocol):
+    """Context summarization seam for future backends."""
+
+    def summarize_context(self, context: str | Mapping[str, Any]) -> str: ...
+
+
+@runtime_checkable
+class LLMClient(CandidateGenerationClient, ContextSummarizationClient, Protocol):
+    """Backward-compatible aggregate LLM seam."""
+
     def review_candidate(
         self,
         candidate: Candidate,
         rubric: Mapping[str, Any],
     ) -> ReviewerLike: ...
-
-    def summarize_context(self, context: str | Mapping[str, Any]) -> str: ...
 
 
 @runtime_checkable
@@ -126,7 +136,9 @@ class HumanReviewClient(AdapterClient, Protocol):
 
 __all__ = [
     "AdapterClient",
+    "CandidateGenerationClient",
     "CandidateLike",
+    "ContextSummarizationClient",
     "ExperimentRunResult",
     "ExperimentRunner",
     "HumanReviewClient",

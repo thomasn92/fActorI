@@ -49,6 +49,32 @@ class VerificationLabel(StrEnum):
     UNSUPPORTED = "Unsupported"
 
 
+class NarrativeSectionRole(StrEnum):
+    """Manuscript section roles used by the narrative-quality critic."""
+
+    CENTRAL_MESSAGE = "CentralMessage"
+    PROBLEM_FRAMING = "ProblemFraming"
+    BACKGROUND_LITERATURE_POSITIONING = "BackgroundLiteraturePositioning"
+    MODEL_FRAME = "ModelFrame"
+    MAIN_BODY_RESULT = "MainBodyResult"
+    DERIVATIVE_COROLLARY = "DerivativeOrCorollary"
+    TECHNICAL_LEMMA = "TechnicalLemma"
+    APPENDIX_ONLY_PROOF = "AppendixOnlyProof"
+    NUMERICAL_VALIDATION = "NumericalValidation"
+    EMPIRICAL_DISCUSSION = "EmpiricalDiscussion"
+    SYNTHETIC_BOUNDARY = "SyntheticBoundary"
+    LIMITATIONS_DISCUSSION = "LimitationsDiscussion"
+
+
+class PaperShapeStatus(StrEnum):
+    """Diagnostic paper-shape status; not a scientific validation label."""
+
+    PAPER_SHAPED = "PaperShaped"
+    PAPER_SHAPED_WITH_WARNINGS = "PaperShapedWithWarnings"
+    PAPER_SHAPE_WEAK = "PaperShapeWeak"
+    NOT_PAPER_SHAPED = "NotPaperShaped"
+
+
 class BranchStatus(StrEnum):
     """Branch and run status labels for the MVP."""
 
@@ -146,6 +172,8 @@ class ControllerActionType(StrEnum):
     BLOCKED_CLAIMS_IDENTIFIED = "BlockedClaimsIdentified"
     MANUSCRIPT_PLAN_BUILT = "ManuscriptPlanBuilt"
     MANUSCRIPT_PLAN_REPORT_WRITTEN = "ManuscriptPlanReportWritten"
+    NARRATIVE_CONTRACT_WRITTEN = "NarrativeContractWritten"
+    PAPER_SHAPE_CRITIQUE_WRITTEN = "PaperShapeCritiqueWritten"
     DRAFT_SKELETON_STARTED = "DraftSkeletonStarted"
     DRAFT_SKELETON_BUILT = "DraftSkeletonBuilt"
     MANUSCRIPT_CHECKLIST_BUILT = "ManuscriptChecklistBuilt"
@@ -827,6 +855,7 @@ class StageBReviewerReport(StrictModel):
     significance_score: float = Field(ge=0.0, le=1.0)
     objections: list[str] = Field(default_factory=list)
     recommendation: ReviewerRecommendation
+    metadata: dict[str, Any] = Field(default_factory=dict)
     fake: bool = True
     is_verification_evidence: bool = False
     scientific_approval: bool = False
@@ -1348,6 +1377,7 @@ class ManuscriptSectionPlan(StrictModel):
     title: str = Field(min_length=1)
     bullets: list[str]
     allowed_claim_ids: list[str] = Field(default_factory=list)
+    narrative_roles: list[NarrativeSectionRole] = Field(default_factory=list)
 
 
 class ManuscriptPlan(StrictModel):
@@ -1361,6 +1391,138 @@ class ManuscriptPlan(StrictModel):
     allowed_claim_ids: list[str]
     blocked_claim_ids: list[str]
     fake: bool = True
+
+
+class NarrativeManuscriptContract(StrictModel):
+    """Deterministic manuscript narrative contract; not verification evidence."""
+
+    contract_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    final_nucleus_id: str | None = None
+    central_message: str = ""
+    problem_statement: str = ""
+    why_interesting: str = ""
+    literature_gap: str = ""
+    novelty_claim: str = ""
+    model_frame: str = ""
+    notation_policy: str = ""
+    main_result_id: str | None = None
+    main_result_in_words: str = ""
+    main_result_formal_pointer: str | None = None
+    derivatives_or_corollaries: list[str] = Field(default_factory=list)
+    numerical_study_purpose: str = ""
+    synthetic_study_boundary: str = ""
+    empirical_study_boundary: str = ""
+    appendix_policy: str = ""
+    section_plan: list[dict[str, Any]] = Field(default_factory=list)
+    blocked_or_missing_items: list[str] = Field(default_factory=list)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class MainMessageAssessment(StrictModel):
+    """Assessment of central paper message focus."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class LiteraturePositioningAssessment(StrictModel):
+    """Assessment of novelty and literature-positioning shape."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ModelNotationAssessment(StrictModel):
+    """Assessment of simple model frame and notation policy."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class MainResultAssessment(StrictModel):
+    """Assessment of one-main-result discipline."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    primary_main_results: int = Field(ge=0)
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class NumericalStudyAssessment(StrictModel):
+    """Assessment of numerical-study purpose."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    numerics_present: bool
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class EmpiricalBoundaryAssessment(StrictModel):
+    """Assessment of synthetic/empirical boundary discipline."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    empirical_section_present: bool
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AppendixAllocationAssessment(StrictModel):
+    """Assessment of appendix allocation for technical material."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    technical_lemmas_in_main_body: int = Field(ge=0)
+    findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class PaperShapeScore(StrictModel):
+    """Weighted deterministic paper-shape score; diagnostic only."""
+
+    central_message: float = Field(ge=0.0, le=1.0)
+    problem_framing: float = Field(ge=0.0, le=1.0)
+    literature_positioning: float = Field(ge=0.0, le=1.0)
+    model_clarity: float = Field(ge=0.0, le=1.0)
+    main_result_focus: float = Field(ge=0.0, le=1.0)
+    numerics_purpose: float = Field(ge=0.0, le=1.0)
+    empirical_boundary: float = Field(ge=0.0, le=1.0)
+    appendix_allocation: float = Field(ge=0.0, le=1.0)
+    total: float = Field(ge=0.0, le=1.0)
+
+
+class PaperShapeCritique(StrictModel):
+    """Deterministic narrative-quality critique; not scientific validation."""
+
+    critique_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    contract_id: str = Field(min_length=1)
+    status: PaperShapeStatus
+    score: PaperShapeScore
+    central_message_assessment: MainMessageAssessment
+    literature_positioning_assessment: LiteraturePositioningAssessment
+    model_notation_assessment: ModelNotationAssessment
+    main_result_assessment: MainResultAssessment
+    numerical_study_assessment: NumericalStudyAssessment
+    empirical_boundary_assessment: EmpiricalBoundaryAssessment
+    appendix_allocation_assessment: AppendixAllocationAssessment
+    missing_items: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    recommended_structural_edits: list[str] = Field(default_factory=list)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
 
 
 class ChecklistItem(StrictModel):

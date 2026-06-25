@@ -26,9 +26,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 63
+    assert len(first) == 73
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.2.0"
+    assert PROTOCOL_VERSION == "0.3.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -64,6 +64,16 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "ResearchObjectManifest",
         "ReproducibilityManifest",
         "RunSummary",
+        "NarrativeManuscriptContract",
+        "PaperShapeCritique",
+        "PaperShapeScore",
+        "MainMessageAssessment",
+        "LiteraturePositioningAssessment",
+        "ModelNotationAssessment",
+        "MainResultAssessment",
+        "NumericalStudyAssessment",
+        "EmpiricalBoundaryAssessment",
+        "AppendixAllocationAssessment",
         "LLMPromptContract",
         "LLMCandidateParseReport",
         "LLMReviewerPromptContract",

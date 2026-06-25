@@ -43,6 +43,11 @@
           "title": "Is Verification Evidence",
           "type": "boolean"
         },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
         "novelty_score": {
           "maximum": 1.0,
           "minimum": 0.0,
@@ -96,7 +101,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.2.0/llm-reviewer-parse-report.schema.json",
+  "$id": "https://schemas.factori.local/0.3.0/llm-reviewer-parse-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Stage B LLM reviewer parse and safety result.",
@@ -146,7 +151,7 @@
   },
   "title": "LLMReviewerParseReport",
   "type": "object",
-  "x-factori-protocol-version": "0.2.0",
+  "x-factori-protocol-version": "0.3.0",
   "x-factori-source-model": "factori.schemas.LLMReviewerParseResult",
   "x-factori-verification-evidence": false
 }

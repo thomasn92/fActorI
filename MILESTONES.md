@@ -32,12 +32,16 @@
 | 27-P | Persistence hardening I: atomic artifact/sidecar replacement, newline-stable hashing, injectable clocks, and storage protocols | `storage_protocols.py`, `artifacts.py`, `ledger.py`, `run_all.py` | Existing commands unchanged | Existing mutating stages retain append-only behavior; persistence is safer and fixed clocks are injectable for tests |
 | 28 | Persistence hardening II: explicit rerun policy, artifact-based duplicate-stage prevention, and ledger tip/fork validation | `rerun_policy.py`, `run_all.py`, `status.py`, `ledger.py` | Mutating commands with `--rerun-policy`/`--force`; `validate-ledger-tip` | Mutating reruns fail closed by default; validation is read-only and never repairs history |
 | 29 | Server/protocol hardening: expanded run-control, adapter I/O, manifest, and enum schemas; JSON Schema example validation; timestamp and versioning rules | `protocols.py`, `schema_export.py`, `protocol_validation.py`, `protocol_versioning.py`, `protocols/versioning.md`, `protocols/server-readiness.md` | `export-protocols`, `validate-protocol-examples`, `check-protocol-version` | Read-only developer-contract operations; protocol files are not run provenance or evidence |
+| 30 | Adapter-provider hardening: provider-neutral capability descriptors, shared typed adapter errors, shared HTTP/JSON utilities, and transport-failure tests | `adapters/capabilities.py`, `adapters/errors.py`, `adapters/http.py`, `adapters/registry.py` | `show-adapters`, existing gated adapter commands | Fake defaults unchanged; real adapter requests still fail closed without explicit gates; transport tests use injected fakes and make no network calls |
+| 31 | Deterministic narrative manuscript contract and paper-shape critic for central message, problem framing, novelty positioning, one-main-result focus, numerics, empirical boundaries, and appendix allocation | `narrative_contract.py`, `paper_shape.py`, `manuscript_plan.py` | `critique-paper-shape` | Read-only by default; optional reports are hashed and ledgered manuscript-quality context, not verification evidence |
 
 ## Current Boundary
 
-Milestones through 29 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 31 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
 real agents, complete scientific literature coverage, proof checking, experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
-reviews are critiques only and are not scientific validation. The protocol layer is broad enough
+reviews are critiques only and are not scientific validation. Narrative paper-shape critiques are
+also diagnostics only and cannot validate claims. The adapter registry is now
+provider-neutral enough to add future backends behind the same fail-closed gates. The protocol layer is broad enough
 for future server/Rust boundary design, but no server or Rust implementation exists yet.

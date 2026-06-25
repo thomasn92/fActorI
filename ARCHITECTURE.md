@@ -49,7 +49,7 @@ Pydantic models by `factori/schema_export.py`. Checked-in JSON Schema Draft 2020
 `protocols/jsonschema/`, with explicit version metadata and deterministic examples. Internal Python
 class names may differ from stable protocol names; each schema records its source model.
 
-Protocol version `0.2.0` exports top-level run-control, adapter I/O, manifest, output, and enum
+Protocol version `0.3.0` exports top-level run-control, adapter I/O, manifest, output, narrative, and enum
 contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
 `retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
@@ -66,13 +66,20 @@ boundaries while continuing to treat the ledger as the provenance source of trut
 
 The pipeline exposes small interfaces for candidate LLM, structural reviewer, retrieval, proof,
 experiment, prose, and human-review backends. The active registry defaults to deterministic fake adapters and
-`allow_external_calls=false`. One provider-isolated OpenAI adapter is available only for Stage A
+`allow_external_calls=false`. The registry exposes provider-neutral capability descriptors for
+available fake and gated real backends, and validates requested capabilities fail-closed. One
+provider-isolated OpenAI adapter is available only for Stage A
 candidate proposal. It cannot be selected without the `openai` backend, explicit external-call
 permission, and an API key. All retrieval, proof, experiment, prose, and human-review adapters
 remain fake except for one gated OpenAlex source-metadata adapter used by Stage B and one gated
 OpenAI Stage B structural-review adapter. Both Stage B adapters require explicit external-call
 permission and configured credentials. No subprocess, Lean,
 Docker runner, or human-review service is implemented.
+
+Adapter configuration, capability, transport, parse, and safety failures use shared typed errors.
+Transport utilities accept injected fake openers for tests, map HTTP failures to
+`AdapterTransportError`, map malformed JSON to `AdapterResponseParseError`, and redact credential
+query parameters from error strings.
 
 Adapters return typed values to existing stages. Any adapter output that changes run state must
 still be validated, written through the artifact store, and committed through the append-only
@@ -174,9 +181,18 @@ The following never count as verification evidence:
 - retrieval queries, raw responses, normalized source records, fetched metadata, and adequacy
   certificates.
 - generated protocol schemas, protocol metadata, and interoperability examples.
+- narrative manuscript contracts and paper-shape critiques.
 
 Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. They are not
 real Lean results or real scientific experiments.
+
+## Narrative Paper Shape Boundary
+
+The manuscript-quality layer checks whether the planned paper has a central message, problem
+framing, bounded literature positioning, a simple model frame, one main result, purposeful
+numerics, synthetic/empirical boundary discipline, and appendix allocation. This is diagnostic
+paper-shape feedback only. It cannot upgrade verification labels, override audit/release evidence
+rules, prove novelty, validate experiments, or create scientific truth.
 
 ## Provenance Boundary
 

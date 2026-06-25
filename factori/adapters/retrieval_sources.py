@@ -57,11 +57,14 @@ def build_retrieval_query(
 def normalize_retrieval_result(
     raw_result: dict[str, Any],
     provider: str,
+    *,
+    backend: str | None = None,
 ) -> RetrievalResult:
     """Normalize one provider result into the closed retrieval schema."""
     if not isinstance(raw_result, dict):
         raise TypeError("retrieval result must be a JSON object")
     normalized_provider = provider.strip().lower()
+    normalized_backend = (backend or normalized_provider).strip().lower()
     if normalized_provider != "openalex":
         raise ValueError(f"unknown retrieval provider: {normalized_provider}")
     source_id = _normalize_openalex_id(raw_result.get("id"))
@@ -116,6 +119,8 @@ def normalize_retrieval_result(
         source_provenance=provenance,
         snippet=(abstract[:280] if abstract else title),
         metadata={
+            "adapter_backend": normalized_backend,
+            "adapter_provider": normalized_provider,
             "provider_record_type": raw_result.get("type"),
             "cited_by_count": raw_result.get("cited_by_count"),
         },
@@ -127,6 +132,7 @@ def normalize_retrieved_document(
     raw_payload: dict[str, Any],
     provider: str,
     *,
+    backend: str | None = None,
     retrieved_at: str = NORMALIZATION_EPOCH,
 ) -> RetrievedDocument:
     """Normalize fetched provider metadata or abstract without claiming full text."""
@@ -134,7 +140,7 @@ def normalize_retrieved_document(
     enriched.setdefault("_query", "direct fetch")
     enriched.setdefault("_rank", 0)
     enriched.setdefault("_retrieved_at", retrieved_at)
-    result = normalize_retrieval_result(enriched, provider)
+    result = normalize_retrieval_result(enriched, provider, backend=backend)
     raw_hash = sha256_json(_provider_payload(raw_payload))
     text = result.abstract
     return RetrievedDocument(
@@ -142,6 +148,8 @@ def normalize_retrieved_document(
         provider=result.provider,
         title=result.title,
         metadata={
+            "adapter_backend": backend or provider,
+            "adapter_provider": provider,
             "authors": result.authors,
             "year": result.year,
             "venue": result.venue,

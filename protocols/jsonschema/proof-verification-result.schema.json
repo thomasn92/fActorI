@@ -31,7 +31,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.2.0/proof-verification-result.schema.json",
+  "$id": "https://schemas.factori.local/0.3.0/proof-verification-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Current fake proof-result shape; fake is explicit.",
@@ -90,7 +90,7 @@
   ],
   "title": "ProofVerificationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.2.0",
+  "x-factori-protocol-version": "0.3.0",
   "x-factori-source-model": "factori.schemas.FakeProofResult",
   "x-factori-verification-evidence": false
 }

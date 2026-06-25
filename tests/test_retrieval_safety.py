@@ -13,19 +13,26 @@ RETRIEVED_AT = "2026-01-02T03:04:05Z"
 
 
 def test_retrieval_validation_is_deterministic() -> None:
-    result = normalize_retrieval_result(_enriched_work(), "openalex")
+    result = normalize_retrieval_result(
+        _enriched_work(),
+        "openalex",
+        backend="provider-neutral-retrieval",
+    )
 
     first = validate_retrieval_result(result)
     second = validate_retrieval_result(result)
 
     assert first == second
     assert first.valid
+    assert result.metadata["adapter_backend"] == "provider-neutral-retrieval"
+    assert result.metadata["adapter_provider"] == "openalex"
 
 
 def test_malformed_results_are_rejected_with_parse_report() -> None:
     results, report = parse_retrieval_response(
         {"results": [{"display_name": "Missing source id"}, "not-an-object"]},
         provider="openalex",
+        backend="provider-neutral-retrieval",
         query="controlled query",
         limit=5,
         retrieved_at=RETRIEVED_AT,

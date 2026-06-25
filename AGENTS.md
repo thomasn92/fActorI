@@ -31,6 +31,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Adapter interfaces default to deterministic fake implementations. Do not enable or implement
   real adapters, external calls, credentials, network access, subprocesses, Docker, or Lean unless
   the user explicitly requests that backend and its safety gate.
+- Adapter provider metadata must remain provider-neutral where possible. Use the shared adapter
+  capability descriptors and typed errors instead of scattered string whitelists or generic
+  runtime exceptions.
 - A gated OpenAI adapter exists only for Stage A candidate proposal. It requires the explicit
   `openai` backend, `allow_external_calls=true`, and an API key. Do not extend it to review,
   retrieval, verification, experiments, synthesis, prose, or human approval unless explicitly
@@ -85,6 +88,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Use the `Clock` seam for new persistence/orchestration timestamps so tests can remain deterministic.
 - Do not silently upgrade claim labels or data regimes.
 - Do not treat generated presentation files as evidence.
+- Narrative manuscript contracts and paper-shape critiques are manuscript-quality diagnostics only.
+  They must not upgrade claim labels, override evidence rules, or be described as scientific
+  validation.
 - Protocol schemas and examples are developer contracts. They are not run provenance or scientific
   evidence.
 - Add tests in proportion to behavior and invariant risk.

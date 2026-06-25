@@ -13,7 +13,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.2.0/reviewer-report.schema.json",
+  "$id": "https://schemas.factori.local/0.3.0/reviewer-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Stage B structural review without verification authority.",
@@ -44,6 +44,11 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
     },
     "novelty_score": {
       "maximum": 1.0,
@@ -96,7 +101,7 @@
   ],
   "title": "ReviewerReport",
   "type": "object",
-  "x-factori-protocol-version": "0.2.0",
+  "x-factori-protocol-version": "0.3.0",
   "x-factori-source-model": "factori.schemas.StageBReviewerReport",
   "x-factori-verification-evidence": false
 }

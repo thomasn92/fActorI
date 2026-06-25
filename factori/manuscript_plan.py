@@ -21,6 +21,7 @@ from factori.schemas import (
     FinalNucleusType,
     ManuscriptPlan,
     ManuscriptSectionPlan,
+    NarrativeSectionRole,
     VerificationLabel,
 )
 
@@ -92,6 +93,7 @@ def build_manuscript_plan(
                     for claim_id in claims_by_section.get(section_name, [])
                 }
             ),
+            narrative_roles=_section_narrative_roles(title),
         )
         for title in titles
     ]
@@ -429,6 +431,33 @@ def _section_bullets(title: str, final_nucleus: FinalNucleus) -> list[str]:
     if title == "Limitations":
         return ["Preserve limitations and unsupported directions without label inflation."]
     return ["Keep section content constrained by the claim table."]
+
+
+def _section_narrative_roles(title: str) -> list[NarrativeSectionRole]:
+    lowered = title.lower()
+    roles: list[NarrativeSectionRole] = []
+    if "abstract" in lowered:
+        roles.append(NarrativeSectionRole.CENTRAL_MESSAGE)
+    if "introduction" in lowered:
+        roles.extend(
+            [
+                NarrativeSectionRole.PROBLEM_FRAMING,
+                NarrativeSectionRole.BACKGROUND_LITERATURE_POSITIONING,
+            ]
+        )
+    if "model" in lowered or "setup" in lowered or "method" in lowered:
+        roles.append(NarrativeSectionRole.MODEL_FRAME)
+    if "theory" in lowered or "results" in lowered:
+        roles.append(NarrativeSectionRole.MAIN_BODY_RESULT)
+    if "synthetic" in lowered or "numerical" in lowered:
+        roles.append(NarrativeSectionRole.NUMERICAL_VALIDATION)
+    if "negative" in lowered or "boundary" in lowered:
+        roles.append(NarrativeSectionRole.SYNTHETIC_BOUNDARY)
+    if "limitation" in lowered or "conclusion" in lowered:
+        roles.append(NarrativeSectionRole.LIMITATIONS_DISCUSSION)
+    if "appendix" in lowered:
+        roles.append(NarrativeSectionRole.APPENDIX_ONLY_PROOF)
+    return list(dict.fromkeys(roles))
 
 
 def _section_id(title: str) -> str:

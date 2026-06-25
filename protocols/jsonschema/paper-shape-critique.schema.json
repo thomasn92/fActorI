@@ -1,0 +1,465 @@
+{
+  "$defs": {
+    "AppendixAllocationAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of appendix allocation for technical material.",
+      "properties": {
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "technical_lemmas_in_main_body": {
+          "minimum": 0,
+          "title": "Technical Lemmas In Main Body",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed",
+        "technical_lemmas_in_main_body"
+      ],
+      "title": "AppendixAllocationAssessment",
+      "type": "object"
+    },
+    "EmpiricalBoundaryAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of synthetic/empirical boundary discipline.",
+      "properties": {
+        "empirical_section_present": {
+          "title": "Empirical Section Present",
+          "type": "boolean"
+        },
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed",
+        "empirical_section_present"
+      ],
+      "title": "EmpiricalBoundaryAssessment",
+      "type": "object"
+    },
+    "LiteraturePositioningAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of novelty and literature-positioning shape.",
+      "properties": {
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed"
+      ],
+      "title": "LiteraturePositioningAssessment",
+      "type": "object"
+    },
+    "MainMessageAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of central paper message focus.",
+      "properties": {
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed"
+      ],
+      "title": "MainMessageAssessment",
+      "type": "object"
+    },
+    "MainResultAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of one-main-result discipline.",
+      "properties": {
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "primary_main_results": {
+          "minimum": 0,
+          "title": "Primary Main Results",
+          "type": "integer"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed",
+        "primary_main_results"
+      ],
+      "title": "MainResultAssessment",
+      "type": "object"
+    },
+    "ModelNotationAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of simple model frame and notation policy.",
+      "properties": {
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed"
+      ],
+      "title": "ModelNotationAssessment",
+      "type": "object"
+    },
+    "NumericalStudyAssessment": {
+      "additionalProperties": false,
+      "description": "Assessment of numerical-study purpose.",
+      "properties": {
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "numerics_present": {
+          "title": "Numerics Present",
+          "type": "boolean"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "passed",
+        "numerics_present"
+      ],
+      "title": "NumericalStudyAssessment",
+      "type": "object"
+    },
+    "PaperShapeScore": {
+      "additionalProperties": false,
+      "description": "Weighted deterministic paper-shape score; diagnostic only.",
+      "properties": {
+        "appendix_allocation": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Appendix Allocation",
+          "type": "number"
+        },
+        "central_message": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Central Message",
+          "type": "number"
+        },
+        "empirical_boundary": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Empirical Boundary",
+          "type": "number"
+        },
+        "literature_positioning": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Literature Positioning",
+          "type": "number"
+        },
+        "main_result_focus": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Main Result Focus",
+          "type": "number"
+        },
+        "model_clarity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Model Clarity",
+          "type": "number"
+        },
+        "numerics_purpose": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Numerics Purpose",
+          "type": "number"
+        },
+        "problem_framing": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Problem Framing",
+          "type": "number"
+        },
+        "total": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Total",
+          "type": "number"
+        }
+      },
+      "required": [
+        "central_message",
+        "problem_framing",
+        "literature_positioning",
+        "model_clarity",
+        "main_result_focus",
+        "numerics_purpose",
+        "empirical_boundary",
+        "appendix_allocation",
+        "total"
+      ],
+      "title": "PaperShapeScore",
+      "type": "object"
+    },
+    "PaperShapeStatus": {
+      "description": "Diagnostic paper-shape status; not a scientific validation label.",
+      "enum": [
+        "PaperShaped",
+        "PaperShapedWithWarnings",
+        "PaperShapeWeak",
+        "NotPaperShaped"
+      ],
+      "title": "PaperShapeStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.3.0/paper-shape-critique.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic paper-shape critique; not verification evidence.",
+  "properties": {
+    "appendix_allocation_assessment": {
+      "$ref": "#/$defs/AppendixAllocationAssessment"
+    },
+    "central_message_assessment": {
+      "$ref": "#/$defs/MainMessageAssessment"
+    },
+    "contract_id": {
+      "minLength": 1,
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critique_id": {
+      "minLength": 1,
+      "title": "Critique Id",
+      "type": "string"
+    },
+    "empirical_boundary_assessment": {
+      "$ref": "#/$defs/EmpiricalBoundaryAssessment"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "literature_positioning_assessment": {
+      "$ref": "#/$defs/LiteraturePositioningAssessment"
+    },
+    "main_result_assessment": {
+      "$ref": "#/$defs/MainResultAssessment"
+    },
+    "missing_items": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Items",
+      "type": "array"
+    },
+    "model_notation_assessment": {
+      "$ref": "#/$defs/ModelNotationAssessment"
+    },
+    "numerical_study_assessment": {
+      "$ref": "#/$defs/NumericalStudyAssessment"
+    },
+    "recommended_structural_edits": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Structural Edits",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "score": {
+      "$ref": "#/$defs/PaperShapeScore"
+    },
+    "status": {
+      "$ref": "#/$defs/PaperShapeStatus"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "critique_id",
+    "run_id",
+    "contract_id",
+    "status",
+    "score",
+    "central_message_assessment",
+    "literature_positioning_assessment",
+    "model_notation_assessment",
+    "main_result_assessment",
+    "numerical_study_assessment",
+    "empirical_boundary_assessment",
+    "appendix_allocation_assessment"
+  ],
+  "title": "PaperShapeCritique",
+  "type": "object",
+  "x-factori-protocol-version": "0.3.0",
+  "x-factori-source-model": "factori.schemas.PaperShapeCritique",
+  "x-factori-verification-evidence": false
+}

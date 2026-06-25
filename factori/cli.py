@@ -42,11 +42,17 @@ from factori.hygiene_plan import (
 )
 from factori.ledger import LedgerError, ResearchLedger
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
+from factori.narrative_contract import (
+    NarrativeContractError,
+    build_narrative_contract,
+    load_narrative_inputs,
+)
 from factori.output_hygiene import (
     inspect_output_hygiene,
     summarize_output_hygiene,
     write_output_hygiene_report,
 )
+from factori.paper_shape import critique_paper_shape, write_paper_shape_reports
 from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
 from factori.protocol_validation import (
     DEFAULT_PROTOCOL_EXAMPLES_DIR,
@@ -352,6 +358,21 @@ def show_adapters_command(
     typer.echo(f"retrieval_limit={registry.config.retrieval_limit}")
     for name, class_name in registry.class_names().items():
         typer.echo(f"{name}={class_name}")
+    for descriptor in registry.provider_descriptors():
+        typer.echo(
+            "provider_descriptor="
+            f"backend={descriptor.backend_name},"
+            f"provider={descriptor.provider_name},"
+            f"kind={descriptor.adapter_kind},"
+            f"is_default={str(descriptor.is_default).lower()},"
+            f"is_fake={str(descriptor.is_fake).lower()},"
+            f"requires_external_calls={str(descriptor.requires_external_calls).lower()},"
+            f"requires_api_key={str(descriptor.requires_api_key).lower()},"
+            "supports_candidate_generation="
+            f"{str(descriptor.supports_candidate_generation).lower()},"
+            f"supports_review={str(descriptor.supports_review).lower()},"
+            f"supports_retrieval={str(descriptor.supports_retrieval).lower()}"
+        )
 
 
 @app.command("init-run")
@@ -1095,6 +1116,73 @@ def plan_manuscript_command(
     typer.echo(f"claims_blocked={claims_blocked}")
     typer.echo(f"manuscript_plan={result.markdown_artifact.path}")
     typer.echo(f"claim_table={result.claim_table_artifact.path}")
+
+
+@app.command("critique-paper-shape")
+def critique_paper_shape_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Critique manuscript narrative shape without changing scientific labels."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        inputs = load_narrative_inputs(run_id, ledger)
+    except NarrativeContractError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    contract = build_narrative_contract(
+        inputs.manuscript_plan,
+        inputs.final_nucleus,
+        inputs.claim_table,
+        run_id=run_id,
+    )
+    critique = critique_paper_shape(contract, inputs.manuscript_plan)
+    artifacts = None
+    if write_report:
+        artifacts = write_paper_shape_reports(
+            run_id=run_id,
+            contract=contract,
+            critique=critique,
+            store=store,
+            ledger=ledger,
+        )
+    if json_output:
+        payload = {
+            "contract": contract.model_dump(mode="json"),
+            "critique": critique.model_dump(mode="json"),
+            "artifacts": (
+                {
+                    "narrative_contract": artifacts.narrative_contract_artifact.model_dump(
+                        mode="json"
+                    ),
+                    "paper_shape_critique": artifacts.critique_json_artifact.model_dump(
+                        mode="json"
+                    ),
+                    "paper_shape_critique_markdown": (
+                        artifacts.critique_markdown_artifact.model_dump(mode="json")
+                    ),
+                }
+                if artifacts is not None
+                else None
+            ),
+        }
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"paper_shape_status={critique.status.value}")
+    typer.echo(f"paper_shape_score={critique.score.total:.3f}")
+    typer.echo(f"missing_items={len(critique.missing_items)}")
+    typer.echo(f"warnings={len(critique.warnings)}")
+    typer.echo(
+        "is_verification_evidence="
+        f"{str(critique.is_verification_evidence).lower()}"
+    )
+    if artifacts is not None:
+        typer.echo(f"narrative_contract={artifacts.narrative_contract_artifact.path}")
+        typer.echo(f"paper_shape_critique={artifacts.critique_markdown_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

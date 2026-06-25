@@ -10,6 +10,7 @@ from typing import Any
 from factori.adapters.config import AdapterConfig
 from factori.protocol_compat import ProtocolCompatibilityStatus
 from factori.schemas import (
+    AppendixAllocationAssessment,
     ArtifactManifest,
     ArtifactRef,
     ArtifactType,
@@ -21,6 +22,7 @@ from factori.schemas import (
     DataRequirement,
     DiagnosticReport,
     DraftSkeleton,
+    EmpiricalBoundaryAssessment,
     ExportReadinessReport,
     FakeExperimentResult,
     FakeProofResult,
@@ -32,11 +34,19 @@ from factori.schemas import (
     LedgerCommit,
     LedgerSummary,
     LedgerTipValidationReport,
+    LiteraturePositioningAssessment,
     LLMCandidateParseReport,
     LLMPromptContract,
     LLMReviewerParseResult,
+    MainMessageAssessment,
+    MainResultAssessment,
     ManuscriptPlan,
+    ModelNotationAssessment,
+    NarrativeManuscriptContract,
+    NumericalStudyAssessment,
     OutputHygieneReport,
+    PaperShapeCritique,
+    PaperShapeScore,
     PaperSkeleton,
     PipelineDryRunPlan,
     PipelineRunConfig,
@@ -69,7 +79,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.2.0"
+PROTOCOL_VERSION = "0.3.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -218,6 +228,56 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
     ProtocolDefinition("FinalNucleus", FinalNucleus, "Selected abstraction or candidate nucleus."),
     ProtocolDefinition("ManuscriptPlan", ManuscriptPlan, "Structured manuscript plan."),
+    ProtocolDefinition(
+        "NarrativeManuscriptContract",
+        NarrativeManuscriptContract,
+        "Deterministic paper narrative contract; not scientific validation.",
+    ),
+    ProtocolDefinition(
+        "PaperShapeCritique",
+        PaperShapeCritique,
+        "Deterministic paper-shape critique; not verification evidence.",
+    ),
+    ProtocolDefinition(
+        "PaperShapeScore",
+        PaperShapeScore,
+        "Weighted diagnostic paper-shape score.",
+    ),
+    ProtocolDefinition(
+        "MainMessageAssessment",
+        MainMessageAssessment,
+        "Central-message diagnostic assessment.",
+    ),
+    ProtocolDefinition(
+        "LiteraturePositioningAssessment",
+        LiteraturePositioningAssessment,
+        "Literature-positioning diagnostic assessment.",
+    ),
+    ProtocolDefinition(
+        "ModelNotationAssessment",
+        ModelNotationAssessment,
+        "Model and notation diagnostic assessment.",
+    ),
+    ProtocolDefinition(
+        "MainResultAssessment",
+        MainResultAssessment,
+        "One-main-result diagnostic assessment.",
+    ),
+    ProtocolDefinition(
+        "NumericalStudyAssessment",
+        NumericalStudyAssessment,
+        "Numerical-study purpose diagnostic assessment.",
+    ),
+    ProtocolDefinition(
+        "EmpiricalBoundaryAssessment",
+        EmpiricalBoundaryAssessment,
+        "Synthetic/empirical boundary diagnostic assessment.",
+    ),
+    ProtocolDefinition(
+        "AppendixAllocationAssessment",
+        AppendixAllocationAssessment,
+        "Appendix-allocation diagnostic assessment.",
+    ),
     ProtocolDefinition("DraftSkeleton", DraftSkeleton, "Deterministic draft scaffold."),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(

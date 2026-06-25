@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from factori.adapters.capabilities import known_retrieval_providers
 from factori.adapters.retrieval_sources import (
     normalize_doi,
     normalize_retrieval_result,
@@ -19,7 +20,7 @@ from factori.schemas import (
     RetrievalValidationResult,
 )
 
-KNOWN_RETRIEVAL_PROVIDERS = frozenset({"fake", "openalex"})
+KNOWN_RETRIEVAL_PROVIDERS = known_retrieval_providers()
 
 
 class RetrievalResponseError(ValueError):
@@ -63,6 +64,7 @@ def parse_retrieval_response(
     raw_response: Any,
     *,
     provider: str,
+    backend: str | None = None,
     query: str,
     limit: int,
     retrieved_at: str,
@@ -91,7 +93,7 @@ def parse_retrieval_response(
             "_normalized_score": max(0.0, 1.0 - 0.08 * index),
         }
         try:
-            result = normalize_retrieval_result(enriched, provider)
+            result = normalize_retrieval_result(enriched, provider, backend=backend)
         except (TypeError, ValueError, ValidationError) as exc:
             rejected.append({"index": index, "reasons": [str(exc)]})
             continue

@@ -27,6 +27,17 @@ def test_parser_accepts_valid_structured_candidate_response() -> None:
     assert first[0].symbolic_state["fake"] is False
 
 
+def test_parser_records_passed_backend_and_provider_metadata() -> None:
+    candidate = parse_llm_candidate_response(
+        {"candidates": [_candidate()]},
+        backend="provider-neutral-backend",
+        provider="provider-neutral-provider",
+    )[0]
+
+    assert candidate.symbolic_state["adapter_backend"] == "provider-neutral-backend"
+    assert candidate.symbolic_state["adapter_provider"] == "provider-neutral-provider"
+
+
 def test_parser_rejects_malformed_response() -> None:
     with pytest.raises(LLMCandidateResponseError, match="not valid JSON"):
         parse_llm_candidate_response("not-json")

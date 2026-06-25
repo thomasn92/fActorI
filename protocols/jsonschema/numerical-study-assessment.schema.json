@@ -1,0 +1,46 @@
+{
+  "$id": "https://schemas.factori.local/0.3.0/numerical-study-assessment.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Numerical-study purpose diagnostic assessment.",
+  "properties": {
+    "findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "numerics_present": {
+      "title": "Numerics Present",
+      "type": "boolean"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Score",
+      "type": "number"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "score",
+    "passed",
+    "numerics_present"
+  ],
+  "title": "NumericalStudyAssessment",
+  "type": "object",
+  "x-factori-protocol-version": "0.3.0",
+  "x-factori-source-model": "factori.schemas.NumericalStudyAssessment",
+  "x-factori-verification-evidence": false
+}

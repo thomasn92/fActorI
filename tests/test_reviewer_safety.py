@@ -21,6 +21,8 @@ def test_parser_accepts_clamps_and_normalizes_structured_reviews() -> None:
         },
         expected_candidate_id="candidate-1",
         data_requirement=DataRequirement.NO_DATA,
+        backend="provider-neutral-reviewer",
+        provider="provider-neutral-provider",
     )
 
     report = result.reports[0]
@@ -29,6 +31,8 @@ def test_parser_accepts_clamps_and_normalizes_structured_reviews() -> None:
     assert report.recommendation == ReviewerRecommendation.WEAK_ACCEPT
     assert report.fake is False
     assert report.is_verification_evidence is False
+    assert report.metadata["adapter_backend"] == "provider-neutral-reviewer"
+    assert report.metadata["adapter_provider"] == "provider-neutral-provider"
     assert validate_llm_reviewer_report(report).valid
 
 
