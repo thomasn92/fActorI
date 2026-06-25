@@ -31,6 +31,7 @@ Implemented so far:
 
 - strict Pydantic schemas for core research entities;
 - grouped schema modules with stable `factori.schemas` compatibility re-exports;
+- typed library entry points for selected CLI commands, keeping CLI output compatible;
 - a local SQLite append-only ledger with deterministic commit hashes;
 - a local filesystem artifact store under `runs/<run_id>/` with atomic replacement, UTF-8/LF
   normalization, final-byte hashing, and best-effort durability sync;

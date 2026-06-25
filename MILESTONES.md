@@ -35,10 +35,11 @@
 | 30 | Adapter-provider hardening: provider-neutral capability descriptors, shared typed adapter errors, shared HTTP/JSON utilities, and transport-failure tests | `adapters/capabilities.py`, `adapters/errors.py`, `adapters/http.py`, `adapters/registry.py` | `show-adapters`, existing gated adapter commands | Fake defaults unchanged; real adapter requests still fail closed without explicit gates; transport tests use injected fakes and make no network calls |
 | 31 | Deterministic narrative manuscript contract and paper-shape critic for central message, problem framing, novelty positioning, one-main-result focus, numerics, empirical boundaries, and appendix allocation | `narrative_contract.py`, `paper_shape.py`, `manuscript_plan.py` | `critique-paper-shape` | Read-only by default; optional reports are hashed and ledgered manuscript-quality context, not verification evidence |
 | 32 | Schema/module maintainability hardening: split the large schema monolith into a grouped `factori.schemas` package with stable compatibility re-exports | `schemas/`, `protocols.py`, `schema_export.py` | Existing commands unchanged | Refactor-only; public schema imports and protocol output remain stable |
+| 33 | CLI/library boundary hardening: extract selected CLI-owned business logic into typed library entry points | `commands/candidates.py`, `commands/artifacts.py`, `commands/questioner.py`, `commands/retrieval_demo.py`, `cli.py` | `add-candidate`, `write-artifact`, `questioner-check`, `retrieval-adequacy-demo` | Existing mutability behavior preserved; CLI output remains compatible |
 
 ## Current Boundary
 
-Milestones through 32 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 33 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
 real agents, complete scientific literature coverage, proof checking, experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
@@ -47,4 +48,5 @@ also diagnostics only and cannot validate claims. The adapter registry is now
 provider-neutral enough to add future backends behind the same fail-closed gates. The protocol layer is broad enough
 for future server/Rust boundary design, but no server or Rust implementation exists yet. Schema
 definitions are now grouped for maintainability while `from factori.schemas import X` remains the
-public compatibility path.
+public compatibility path. A small subset of CLI commands now call typed library entry points, but
+the Typer command surface remains compatible.

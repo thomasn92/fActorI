@@ -12,6 +12,10 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.adapters.config import AdapterConfig
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.artifacts import ArtifactStore
+from factori.commands.artifacts import write_artifact as write_artifact_entry
+from factori.commands.candidates import add_candidate as add_candidate_entry
+from factori.commands.questioner import run_questioner_check
+from factori.commands.retrieval_demo import run_retrieval_adequacy_demo
 from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
@@ -63,7 +67,6 @@ from factori.protocol_versioning import (
     check_protocol_version_dirs,
 )
 from factori.protocols import PROTOCOL_VERSION
-from factori.questioner import route_questions_to_action, routed_action, select_questions
 from factori.regression_diagnostics import summarize_cross_run_comparison
 from factori.replay import (
     ReplayVerificationError,
@@ -73,7 +76,6 @@ from factori.replay import (
 )
 from factori.rerun_policy import decide_stage_rerun, validate_ledger_tip
 from factori.research_object import ResearchObjectError, build_research_object
-from factori.retrieval import compute_retrieval_adequacy
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
 from factori.schema_export import (
     DEFAULT_PROTOCOL_OUTPUT_DIR,
@@ -82,11 +84,8 @@ from factori.schema_export import (
 )
 from factori.schemas import (
     ArtifactType,
-    Candidate,
-    ConstraintSet,
     ControllerActionType,
     DataRequirement,
-    LiteratureState,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
@@ -94,11 +93,9 @@ from factori.schemas import (
     PipelineStage,
     PlannedStageStatus,
     RerunPolicy,
-    ScoreVector,
     StageRerunStatus,
     StagnationEvent,
     VerificationLabel,
-    VerificationState,
 )
 from factori.stage_a import constraint_from_inputs, run_stage_a
 from factori.stage_b import StageBError, run_stage_b
@@ -405,36 +402,15 @@ def add_candidate(
     ] = DataRequirement.NO_DATA,
 ) -> None:
     """Add a deterministic example candidate and ledger it."""
-    store = ArtifactStore(root)
-    store.init_run(run_id)
-    ledger = _ledger(root, run_id)
-    candidate = Candidate(
-        id=candidate_id,
-        constraints=ConstraintSet(
-            domain=domain,
-            question=question,
-            data_requirement=data_requirement,
-        ),
+    result = add_candidate_entry(
+        run_id=run_id,
+        candidate_id=candidate_id,
+        root=root,
         domain=domain,
         question=question,
         data_requirement=data_requirement,
     )
-    artifact = store.write_json(
-        run_id=run_id,
-        artifact_id=candidate_id,
-        artifact_type=ArtifactType.CANDIDATE,
-        data=candidate,
-    )
-    commit = ledger.append_commit(
-        run_id=run_id,
-        candidate_id=candidate_id,
-        parent_hash=_latest_parent(ledger, run_id),
-        action_type=ControllerActionType.ADD_CANDIDATE,
-        payload={"candidate": candidate.model_dump(mode="json")},
-        artifact_refs=[artifact],
-    )
-    store.link_artifact_to_commit(artifact, commit.commit_hash)
-    typer.echo(f"added {candidate_id} {commit.commit_hash}")
+    typer.echo(f"added {candidate_id} {result.commit.commit_hash}")
 
 
 @app.command("show-ledger")
@@ -460,37 +436,18 @@ def write_artifact(
     content: Annotated[str | None, typer.Option("--content")] = None,
 ) -> None:
     """Write a JSON or Markdown artifact and ledger it."""
-    store = ArtifactStore(root)
-    store.init_run(run_id)
-    ledger = _ledger(root, run_id)
-
-    if format_ == "json":
-        payload = {"content": content or "deterministic artifact"}
-        artifact = store.write_json(
+    try:
+        result = write_artifact_entry(
             run_id=run_id,
             artifact_id=artifact_id,
-            artifact_type=kind,
-            data=payload,
+            root=root,
+            kind=kind,
+            format_=format_,
+            content=content,
         )
-    elif format_ in {"md", "markdown"}:
-        artifact = store.write_markdown(
-            run_id=run_id,
-            artifact_id=artifact_id,
-            artifact_type=kind,
-            markdown=content or "# Deterministic Artifact\n",
-        )
-    else:
-        raise typer.BadParameter("format must be json or markdown")
-
-    commit = ledger.append_commit(
-        run_id=run_id,
-        parent_hash=_latest_parent(ledger, run_id),
-        action_type=ControllerActionType.WRITE_ARTIFACT,
-        payload={"artifact_id": artifact_id, "kind": kind.value, "format": format_},
-        artifact_refs=[artifact],
-    )
-    store.link_artifact_to_commit(artifact, commit.commit_hash)
-    typer.echo(f"wrote {artifact.path} {commit.commit_hash}")
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(f"wrote {result.artifact.path} {result.commit.commit_hash}")
 
 
 @app.command("validate-run")
@@ -1576,61 +1533,14 @@ def questioner_check(
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
 ) -> None:
     """Run a deterministic Strategic Questioner check and ledger it."""
-    _ensure_run_initialized(root, run_id)
-    ledger = _ledger(root, run_id)
-    candidate = Candidate(
-        id=candidate_id,
-        domain="demo-domain",
-        method="demo-method",
-        question="Should the deterministic control layer continue?",
-        data_requirement=DataRequirement.SYNTHETIC_ONLY,
-    )
-    score = ScoreVector(
-        novelty=0.52,
-        feasibility=0.62,
-        verifiability=0.58,
-        reviewer=0.60,
-        difficulty=0.52,
-        diversity=0.50,
-        uncertainty=0.10,
-    )
-    literature_state = LiteratureState(
-        semantic=0.62,
-        keyword=0.60,
-        citation=0.55,
-        diversity=0.58,
-        adversarial=0.50,
-        novelty_risk=0.30,
-    )
-    verification_state = VerificationState()
-    questions = select_questions(
-        "stage_b",
-        candidate,
-        score,
-        literature_state,
-        verification_state,
-        triggers={"weak_data", "weak_baseline"},
-    )
-    action = route_questions_to_action(
-        questions,
-        candidate,
-        score,
-        literature_state,
-        verification_state,
-    )
-    commit = ledger.append_commit(
+    result = run_questioner_check(
         run_id=run_id,
         candidate_id=candidate_id,
-        parent_hash=ledger.latest_commit_hash(run_id),
-        action_type=ControllerActionType.QUESTIONER_CHECK,
-        payload={
-            "controller_action": action.model_dump(mode="json"),
-            "routed_action": routed_action(action).value,
-        },
+        root=root,
     )
-    typer.echo(f"questions={len(questions)}")
-    typer.echo(f"routed_action={routed_action(action).value}")
-    typer.echo(f"commit_hash={commit.commit_hash}")
+    typer.echo(f"questions={len(result.questions)}")
+    typer.echo(f"routed_action={result.routed_action.value}")
+    typer.echo(f"commit_hash={result.commit.commit_hash}")
 
 
 @app.command("retrieval-adequacy-demo")
@@ -1654,31 +1564,16 @@ def retrieval_adequacy_demo(
 ) -> None:
     """Print fake-default or explicitly gated bounded retrieval adequacy."""
     try:
-        registry = get_adapter_registry(
-            AdapterConfig(
-                retrieval_backend=retrieval_backend,
-                allow_external_calls=allow_external_calls,
-                retrieval_limit=retrieval_limit,
-            )
+        result = run_retrieval_adequacy_demo(
+            query=query,
+            retrieval_backend=retrieval_backend,
+            allow_external_calls=allow_external_calls,
+            retrieval_limit=retrieval_limit,
         )
     except (AdapterConfigurationError, ValueError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
-    if registry.config.retrieval_backend == "fake":
-        certificate = compute_retrieval_adequacy(
-            LiteratureState(
-                semantic=0.70,
-                keyword=0.74,
-                citation=0.66,
-                diversity=0.62,
-                adversarial=0.58,
-                novelty_risk=0.25,
-            )
-        )
-    else:
-        results = registry.retrieval.search(query, retrieval_limit)
-        certificate = registry.retrieval.build_adequacy_certificate(query, results)
-    typer.echo(json.dumps(certificate.model_dump(mode="json"), sort_keys=True))
+    typer.echo(json.dumps(result.certificate.model_dump(mode="json"), sort_keys=True))
 
 
 @app.command("stagnation-demo")

@@ -28,6 +28,10 @@ stable `factori.schemas` namespace. Public callers should continue to import fro
 the submodules exist to make schema maintenance safer without changing runtime or protocol
 contracts.
 
+Selected CLI-owned operations are also exposed through typed library entry points under
+`factori.commands`. The CLI remains the user-facing Typer surface, but extracted command functions
+own the deterministic side effects and return typed results without printing or exiting directly.
+
 ## Persistence Boundary
 
 Artifact and sidecar writes use UTF-8 with normalized LF newlines. Each write is flushed and synced

@@ -43,6 +43,17 @@ All implementation modules are under `factori/`.
   reports.
 - `cli.py`: Typer command surface for all implemented stages.
 
+## Command Entry Points
+
+- `commands/__init__.py`: shared command helpers for ledger paths, latest parents, and run
+  initialization.
+- `commands/candidates.py`: typed `add_candidate` entry point behind `factori add-candidate`.
+- `commands/artifacts.py`: typed `write_artifact` entry point behind `factori write-artifact`.
+- `commands/questioner.py`: typed `run_questioner_check` entry point behind
+  `factori questioner-check`.
+- `commands/retrieval_demo.py`: typed `run_retrieval_adequacy_demo` entry point behind
+  `factori retrieval-adequacy-demo`.
+
 ## Protocol Contracts
 
 - `protocols/README.md`: consumer guidance, alias policy, versioning, and evidence boundaries.

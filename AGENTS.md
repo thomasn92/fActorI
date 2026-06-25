@@ -52,6 +52,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Import public schema models from `factori.schemas`. Only import from
   `factori.schemas.<submodule>` when editing schema internals or adding grouped schema definitions.
   Do not bypass the compatibility re-exports without a concrete reason.
+- Prefer typed library entry points under `factori.commands` for command business logic when they
+  exist. Keep Typer command functions focused on argument parsing, output formatting, and
+  Typer-specific error conversion.
 
 ## Evidence and Provenance
 

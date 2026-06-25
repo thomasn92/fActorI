@@ -69,6 +69,9 @@ Schema package maintenance has no runtime command. Public callers should continu
 `factori.schemas`; validate schema refactors with `export-protocols --check`,
 `validate-protocol-examples`, pytest, and Ruff.
 
+Selected CLI commands now delegate to typed library entry points under `factori.commands`. The user
+commands and output remain the compatibility surface.
+
 ## Deterministic Pipeline
 
 Canonical one-command run:
