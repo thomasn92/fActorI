@@ -65,6 +65,10 @@ uv run factori check-protocol-version \
 Protocol validation, compatibility, and version checks are read-only developer-contract commands.
 They do not create run artifacts, ledger commits, or verification evidence.
 
+Schema package maintenance has no runtime command. Public callers should continue to import from
+`factori.schemas`; validate schema refactors with `export-protocols --check`,
+`validate-protocol-examples`, pytest, and Ruff.
+
 ## Deterministic Pipeline
 
 Canonical one-command run:

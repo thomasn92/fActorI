@@ -17,6 +17,10 @@ Start with:
 The LaTeX specification is reference material only and should not be read in full unless required
 by the task.
 
+Public schema imports should use `factori.schemas`. The schema definitions are internally grouped
+under `factori/schemas/`, but the package re-exports preserve existing imports such as
+`from factori.schemas import Candidate`.
+
 Language-neutral developer contracts are documented in [`protocols/README.md`](protocols/README.md).
 Compatibility rules are documented in
 [`protocols/compatibility.md`](protocols/compatibility.md), with version bump rules in
@@ -26,6 +30,7 @@ Compatibility rules are documented in
 Implemented so far:
 
 - strict Pydantic schemas for core research entities;
+- grouped schema modules with stable `factori.schemas` compatibility re-exports;
 - a local SQLite append-only ledger with deterministic commit hashes;
 - a local filesystem artifact store under `runs/<run_id>/` with atomic replacement, UTF-8/LF
   normalization, final-byte hashing, and best-effort durability sync;

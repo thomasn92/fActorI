@@ -6,7 +6,28 @@ All implementation modules are under `factori/`.
 
 - `__init__.py`: package marker and deterministic-MVP description.
 - `config.py`: repository and run-layout constants.
-- `schemas.py`: strict Pydantic models, enums, labels, and cross-stage contracts.
+- `schemas/`: strict Pydantic models, enums, labels, and cross-stage contracts grouped by domain
+  with compatibility re-exports from `factori.schemas`.
+  - `schemas/base.py`: strict model base, hash regex, schema error, and JSON parsing helper.
+  - `schemas/enums.py`: data regimes, statuses, labels, stage names, and diagnostic enums.
+  - `schemas/artifacts.py`: artifact references, artifact manifests, and ledger commit schema.
+  - `schemas/candidates.py`: constraints, candidates, scores, budgets, run state, and controller
+    actions.
+  - `schemas/retrieval.py`: retrieval queries, results, source provenance, and adequacy
+    certificate models.
+  - `schemas/control.py`: questioner/autonomy/stagnation/runtime summary models.
+  - `schemas/stages.py`: Stage B reviewer/bridge/baseline/red-team and Stage C selection reports.
+  - `schemas/verification.py`: verification state, fake proof/experiment results, and Stage C
+    verification records.
+  - `schemas/adapters.py`: adapter prompt, parse, trace, generated-section, and human-review
+    contracts.
+  - `schemas/manuscript.py`: synthesis, claim, manuscript, narrative, draft, and paper skeleton
+    models.
+  - `schemas/audit.py`: packaging, audit, release, export, replay, diagnostics, and cross-run
+    models.
+  - `schemas/pipeline.py`: pipeline, dry-run, status, rerun, file index, hygiene, and remediation
+    models.
+  - `schemas/protocol_models.py`: protocol-facing schema re-export convenience module.
 - `ledger.py`: append-only SQLite commit ledger and hash-chain validation.
 - `artifacts.py`: local artifact store and artifact-to-commit metadata links.
 - `storage_protocols.py`: runtime-checkable ledger/artifact-store/clock interfaces plus system and

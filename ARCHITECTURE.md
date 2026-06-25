@@ -23,6 +23,11 @@ Constraints
 The SQLite ledger is append-only. Artifact contents are SHA-256 hashed and linked to their
 producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
+Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
+stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
+the submodules exist to make schema maintenance safer without changing runtime or protocol
+contracts.
+
 ## Persistence Boundary
 
 Artifact and sidecar writes use UTF-8 with normalized LF newlines. Each write is flushed and synced
@@ -48,6 +53,8 @@ Stable public protocol names are registered in `factori/protocols.py` and export
 Pydantic models by `factori/schema_export.py`. Checked-in JSON Schema Draft 2020-12 files live under
 `protocols/jsonschema/`, with explicit version metadata and deterministic examples. Internal Python
 class names may differ from stable protocol names; each schema records its source model.
+The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
+protocol stability even though definitions live in grouped internal modules.
 
 Protocol version `0.3.0` exports top-level run-control, adapter I/O, manifest, output, narrative, and enum
 contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and

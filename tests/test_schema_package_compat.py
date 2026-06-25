@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+import importlib
+
+import factori.schemas as schemas
+from factori.protocols import get_protocol_definition, get_protocol_definitions
+from factori.schemas import (
+    ArtifactRef,
+    ArtifactType,
+    BranchStatus,
+    Candidate,
+    DataRequirement,
+    NarrativeManuscriptContract,
+    PaperShapeCritique,
+    PipelineRunConfig,
+    VerificationLabel,
+)
+
+
+def test_factori_schemas_imports_as_package() -> None:
+    assert schemas.__file__.endswith("factori/schemas/__init__.py")
+    assert hasattr(schemas, "__path__")
+
+
+def test_key_public_models_import_from_factori_schemas() -> None:
+    assert Candidate(id="candidate-1", question="Can schemas remain compatible?")
+    assert PipelineRunConfig(run_id="run-1", domain="human geography")
+    assert NarrativeManuscriptContract(contract_id="contract-1", run_id="run-1")
+    assert PaperShapeCritique in vars(schemas).values()
+    assert ArtifactRef in vars(schemas).values()
+
+
+def test_key_public_enums_import_from_factori_schemas() -> None:
+    assert DataRequirement.NO_DATA.value == "NoData"
+    assert VerificationLabel.CONJECTURE.value == "Conjecture"
+    assert BranchStatus.ACTIVE.value == "Active"
+    assert ArtifactType.REPORT.value == "report"
+
+
+def test_schema_all_contains_expected_public_names() -> None:
+    expected = {
+        "Candidate",
+        "PipelineRunConfig",
+        "NarrativeManuscriptContract",
+        "PaperShapeCritique",
+        "ArtifactRef",
+        "DataRequirement",
+        "VerificationLabel",
+        "assert_mvp_data_admissible",
+    }
+
+    assert expected <= set(schemas.__all__)
+    assert len(schemas.__all__) == len(set(schemas.__all__))
+
+
+def test_schema_submodules_import_without_obvious_cycles() -> None:
+    submodules = [
+        "base",
+        "enums",
+        "artifacts",
+        "candidates",
+        "stages",
+        "control",
+        "adapters",
+        "retrieval",
+        "verification",
+        "manuscript",
+        "audit",
+        "pipeline",
+        "protocol_models",
+    ]
+
+    for submodule in submodules:
+        imported = importlib.import_module(f"factori.schemas.{submodule}")
+        assert imported is not None
+
+
+def test_protocol_source_model_paths_remain_stable() -> None:
+    assert get_protocol_definition("Candidate").source_model == "factori.schemas.Candidate"
+    assert get_protocol_definition("PipelineRunReport").source_model == (
+        "factori.schemas.PipelineRunReport"
+    )
+    assert get_protocol_definition("PaperShapeCritique").source_model == (
+        "factori.schemas.PaperShapeCritique"
+    )
+    assert len(get_protocol_definitions()) == 73

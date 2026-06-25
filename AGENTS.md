@@ -49,6 +49,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
+- Import public schema models from `factori.schemas`. Only import from
+  `factori.schemas.<submodule>` when editing schema internals or adding grouped schema definitions.
+  Do not bypass the compatibility re-exports without a concrete reason.
 
 ## Evidence and Provenance
 

@@ -35,6 +35,8 @@ Public protocol names are stable even where internal Python names differ. Curren
 The generated schema records the qualified Python source model in
 `x-factori-source-model`. Fake proof and experiment result schemas retain their explicit `fake`
 field and do not imply real scientific verification.
+Schema definitions are grouped internally under `factori/schemas/`, but generated protocols keep
+the stable `factori.schemas.<ModelName>` source-model path for compatibility.
 
 ## Update And Check
 

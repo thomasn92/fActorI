@@ -2,7 +2,7 @@
 
 | Milestone | Scope | Main modules | Main CLI | Ledger behavior |
 | --- | --- | --- | --- | --- |
-| 0-2 | Foundation, schemas, SQLite ledger, artifact store, initial CLI | `schemas.py`, `ledger.py`, `artifacts.py`, `hashing.py`, `config.py`, `cli.py` | `init-run`, `add-candidate`, `write-artifact`, `show-ledger`, `validate-run` | Initialization and writes mutate; inspection and validation are read-only |
+| 0-2 | Foundation, schemas, SQLite ledger, artifact store, initial CLI | `schemas/`, `ledger.py`, `artifacts.py`, `hashing.py`, `config.py`, `cli.py` | `init-run`, `add-candidate`, `write-artifact`, `show-ledger`, `validate-run` | Initialization and writes mutate; inspection and validation are read-only |
 | 3 | Deterministic Stage 0 opportunity discovery and Stage A generation/scoring/dedup/gate | `stage0.py`, `stage_a.py`, `scoring.py`, `dedup.py` | `run-stage-a` | Mutates ledger and writes hashed artifacts |
 | 4 | Strategic Questioner, autonomy contract, stagnation, retrieval adequacy, runtime compression | `questioner.py`, `autonomy.py`, `stagnation.py`, `retrieval.py`, `runtime_summary.py` | `questioner-check`, `retrieval-adequacy-demo`, `stagnation-demo` | `questioner-check` mutates; demos and runtime compression are read-only |
 | 5 | Deterministic Stage B structural validation | `stage_b.py`, `reviewers.py`, `bridge.py`, `baselines.py`, `redteam.py` | `run-stage-b` | Mutates ledger and writes hashed artifacts |
@@ -34,14 +34,17 @@
 | 29 | Server/protocol hardening: expanded run-control, adapter I/O, manifest, and enum schemas; JSON Schema example validation; timestamp and versioning rules | `protocols.py`, `schema_export.py`, `protocol_validation.py`, `protocol_versioning.py`, `protocols/versioning.md`, `protocols/server-readiness.md` | `export-protocols`, `validate-protocol-examples`, `check-protocol-version` | Read-only developer-contract operations; protocol files are not run provenance or evidence |
 | 30 | Adapter-provider hardening: provider-neutral capability descriptors, shared typed adapter errors, shared HTTP/JSON utilities, and transport-failure tests | `adapters/capabilities.py`, `adapters/errors.py`, `adapters/http.py`, `adapters/registry.py` | `show-adapters`, existing gated adapter commands | Fake defaults unchanged; real adapter requests still fail closed without explicit gates; transport tests use injected fakes and make no network calls |
 | 31 | Deterministic narrative manuscript contract and paper-shape critic for central message, problem framing, novelty positioning, one-main-result focus, numerics, empirical boundaries, and appendix allocation | `narrative_contract.py`, `paper_shape.py`, `manuscript_plan.py` | `critique-paper-shape` | Read-only by default; optional reports are hashed and ledgered manuscript-quality context, not verification evidence |
+| 32 | Schema/module maintainability hardening: split the large schema monolith into a grouped `factori.schemas` package with stable compatibility re-exports | `schemas/`, `protocols.py`, `schema_export.py` | Existing commands unchanged | Refactor-only; public schema imports and protocol output remain stable |
 
 ## Current Boundary
 
-Milestones through 31 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 32 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
 real agents, complete scientific literature coverage, proof checking, experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
 reviews are critiques only and are not scientific validation. Narrative paper-shape critiques are
 also diagnostics only and cannot validate claims. The adapter registry is now
 provider-neutral enough to add future backends behind the same fail-closed gates. The protocol layer is broad enough
-for future server/Rust boundary design, but no server or Rust implementation exists yet.
+for future server/Rust boundary design, but no server or Rust implementation exists yet. Schema
+definitions are now grouped for maintainability while `from factori.schemas import X` remains the
+public compatibility path.
