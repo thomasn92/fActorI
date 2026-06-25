@@ -19,7 +19,10 @@ from factori.commands.retrieval_demo import run_retrieval_adequacy_demo
 from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
+    DEFAULT_ALLOW_EXTERNAL_TOOLS,
     DEFAULT_LLM_MODEL,
+    DEFAULT_PROOF_BACKEND,
+    DEFAULT_PROOF_TIMEOUT_SECONDS,
     DEFAULT_RETRIEVAL_BACKEND,
     DEFAULT_RETRIEVAL_LIMIT,
     DEFAULT_REVIEWER_BACKEND,
@@ -327,6 +330,22 @@ def show_adapters_command(
         int,
         typer.Option("--retrieval-limit"),
     ] = DEFAULT_RETRIEVAL_LIMIT,
+    proof_backend: Annotated[
+        str,
+        typer.Option("--proof-backend"),
+    ] = DEFAULT_PROOF_BACKEND,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    proof_executable: Annotated[
+        str | None,
+        typer.Option("--proof-executable"),
+    ] = None,
+    proof_timeout_seconds: Annotated[
+        int,
+        typer.Option("--proof-timeout-seconds"),
+    ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
 ) -> None:
     """Show the active adapter registry without calling any backend."""
     try:
@@ -340,6 +359,10 @@ def show_adapters_command(
                 reviewer_model=reviewer_model,
                 retrieval_backend=retrieval_backend,
                 retrieval_limit=retrieval_limit,
+                proof_backend=proof_backend,
+                allow_external_tools=allow_external_tools,
+                proof_executable=proof_executable,
+                proof_timeout_seconds=proof_timeout_seconds,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -353,6 +376,10 @@ def show_adapters_command(
     typer.echo(f"reviewer_model={registry.config.reviewer_model}")
     typer.echo(f"retrieval_backend={registry.config.retrieval_backend}")
     typer.echo(f"retrieval_limit={registry.config.retrieval_limit}")
+    typer.echo(f"proof_backend={registry.config.proof_backend}")
+    typer.echo(f"allow_external_tools={str(registry.config.allow_external_tools).lower()}")
+    typer.echo(f"proof_executable={registry.config.proof_executable or 'not_configured'}")
+    typer.echo(f"proof_timeout_seconds={registry.config.proof_timeout_seconds}")
     for name, class_name in registry.class_names().items():
         typer.echo(f"{name}={class_name}")
     for descriptor in registry.provider_descriptors():
@@ -364,11 +391,14 @@ def show_adapters_command(
             f"is_default={str(descriptor.is_default).lower()},"
             f"is_fake={str(descriptor.is_fake).lower()},"
             f"requires_external_calls={str(descriptor.requires_external_calls).lower()},"
+            f"requires_external_tools={str(descriptor.requires_external_tools).lower()},"
             f"requires_api_key={str(descriptor.requires_api_key).lower()},"
             "supports_candidate_generation="
             f"{str(descriptor.supports_candidate_generation).lower()},"
             f"supports_review={str(descriptor.supports_review).lower()},"
-            f"supports_retrieval={str(descriptor.supports_retrieval).lower()}"
+            f"supports_retrieval={str(descriptor.supports_retrieval).lower()},"
+            f"supports_proof={str(descriptor.supports_proof).lower()},"
+            f"supports_experiments={str(descriptor.supports_experiments).lower()}"
         )
 
 
@@ -614,6 +644,22 @@ def run_all_command(
         int,
         typer.Option("--reviewer-max-objections"),
     ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
+    proof_backend: Annotated[
+        str,
+        typer.Option("--proof-backend"),
+    ] = DEFAULT_PROOF_BACKEND,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    proof_executable: Annotated[
+        str | None,
+        typer.Option("--proof-executable"),
+    ] = None,
+    proof_timeout_seconds: Annotated[
+        int,
+        typer.Option("--proof-timeout-seconds"),
+    ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -648,6 +694,10 @@ def run_all_command(
         use_llm_reviewers=use_llm_reviewers,
         reviewer_model=reviewer_model,
         reviewer_max_objections=reviewer_max_objections,
+        proof_backend=proof_backend,
+        allow_external_tools=allow_external_tools,
+        proof_executable=proof_executable,
+        proof_timeout_seconds=proof_timeout_seconds,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -730,6 +780,22 @@ def plan_run_command(
         int,
         typer.Option("--reviewer-max-objections"),
     ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
+    proof_backend: Annotated[
+        str,
+        typer.Option("--proof-backend"),
+    ] = DEFAULT_PROOF_BACKEND,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    proof_executable: Annotated[
+        str | None,
+        typer.Option("--proof-executable"),
+    ] = None,
+    proof_timeout_seconds: Annotated[
+        int,
+        typer.Option("--proof-timeout-seconds"),
+    ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -763,6 +829,10 @@ def plan_run_command(
         use_llm_reviewers=use_llm_reviewers,
         reviewer_model=reviewer_model,
         reviewer_max_objections=reviewer_max_objections,
+        proof_backend=proof_backend,
+        allow_external_tools=allow_external_tools,
+        proof_executable=proof_executable,
+        proof_timeout_seconds=proof_timeout_seconds,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -966,6 +1036,22 @@ def select_stage_c_command(
 def run_stage_c_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    proof_backend: Annotated[
+        str,
+        typer.Option("--proof-backend"),
+    ] = DEFAULT_PROOF_BACKEND,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    proof_executable: Annotated[
+        str | None,
+        typer.Option("--proof-executable"),
+    ] = None,
+    proof_timeout_seconds: Annotated[
+        int,
+        typer.Option("--proof-timeout-seconds"),
+    ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
     rerun_policy: Annotated[
         str,
         typer.Option("--rerun-policy"),
@@ -981,17 +1067,42 @@ def run_stage_c_command(
         force=force,
     ):
         return
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                proof_backend=proof_backend,
+                allow_external_tools=allow_external_tools,
+                proof_executable=proof_executable,
+                proof_timeout_seconds=proof_timeout_seconds,
+            )
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     store = ArtifactStore(root)
     ledger = _ledger(root, run_id)
     try:
-        result = run_stage_c(run_id=run_id, store=store, ledger=ledger)
+        result = run_stage_c(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            proof_verifier=(
+                registry.proof_verifier
+                if registry.config.proof_backend != "fake"
+                else None
+            ),
+        )
     except StageCError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
     labels = [record.label for record in result.verification_records.values()]
+    fake_proof_runs = sum(
+        1 for proof_result in result.proof_results.values() if getattr(proof_result, "fake", False)
+    )
     typer.echo(f"stage_c_ready={len(result.stage_c_ready_candidates)}")
-    typer.echo(f"fake_proof_runs={len(result.proof_results)}")
+    typer.echo(f"fake_proof_runs={fake_proof_runs}")
+    typer.echo(f"real_proof_runs={len(result.proof_results) - fake_proof_runs}")
     typer.echo(f"fake_synthetic_experiments={len(result.experiment_results)}")
     typer.echo(f"lean_verified={labels.count(VerificationLabel.LEAN_VERIFIED)}")
     typer.echo(
@@ -1003,6 +1114,7 @@ def run_stage_c_command(
     typer.echo(f"limitations={labels.count(VerificationLabel.LIMITATION)}")
     typer.echo(f"unsupported={labels.count(VerificationLabel.UNSUPPORTED)}")
     typer.echo(f"stage_c_report={result.report_artifact.path}")
+    typer.echo(f"proof_backend={result.proof_backend_metadata['backend']}")
 
 
 @app.command("synthesize-abstract")

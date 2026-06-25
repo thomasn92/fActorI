@@ -92,11 +92,12 @@ experiment, prose, and human-review backends. The active registry defaults to de
 available fake and gated real backends, and validates requested capabilities fail-closed. One
 provider-isolated OpenAI adapter is available only for Stage A
 candidate proposal. It cannot be selected without the `openai` backend, explicit external-call
-permission, and an API key. All retrieval, proof, experiment, prose, and human-review adapters
-remain fake except for one gated OpenAlex source-metadata adapter used by Stage B and one gated
-OpenAI Stage B structural-review adapter. Both Stage B adapters require explicit external-call
-permission and configured credentials. No subprocess, Lean,
-Docker runner, or human-review service is implemented.
+permission, and an API key. Retrieval, proof, experiment, prose, and human-review adapters remain
+fake by default. The current gated real seams are OpenAlex source metadata for Stage B, OpenAI
+structural review for Stage B, and a local Lean proof adapter for Stage C mathematical branches.
+OpenAlex and OpenAI require external-call permission and configured credentials. Lean requires
+`allow_external_tools=true` plus an explicit proof executable and is never invoked by default.
+Docker runners and human-review services are not implemented.
 
 Adapter configuration, capability, transport, parse, and safety failures use shared typed errors.
 Transport utilities accept injected fake openers for tests, map HTTP failures to
@@ -128,6 +129,13 @@ artifacts, and reuses each bounded certificate across child variants. Stage C se
 Stage B certificate and does not repeat retrieval. Source metadata hashes establish provenance;
 they do not establish novelty, complete literature coverage, claim validity, or external-review
 readiness.
+
+The Lean proof adapter is a local-tool seam for Stage C mathematical branches only. Stage C writes
+proof contracts, payloads, raw traces, proof results, and safety reports as content-hashed
+artifacts. A `LeanVerified` label from this path requires a real proof backend, explicit external
+tool permission, zero tool exit code, no forbidden proof tokens, proof payload and transcript
+hashes, linked proof-evidence artifacts, and successful safety validation. LLM, reviewer,
+retrieval, Markdown, LaTeX, manuscript, and paper artifacts cannot justify proof labels.
 
 ## Mutating and Read-Only Operations
 
@@ -205,8 +213,9 @@ The following never count as verification evidence:
 - generated protocol schemas, protocol metadata, and interoperability examples.
 - narrative manuscript contracts and paper-shape critiques.
 
-Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. They are not
-real Lean results or real scientific experiments.
+Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. The gated
+Lean path is the only real-proof adapter seam, and it remains disabled unless explicitly selected.
+No real scientific experiments are implemented.
 
 ## Narrative Paper Shape Boundary
 

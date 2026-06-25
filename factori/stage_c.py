@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+from factori.adapters.proof_contracts import build_proof_verification_contract
+from factori.adapters.proof_real import LeanProofVerifier
+from factori.adapters.proof_safety import proof_label_allowed_by_result, validate_proof_result
 from factori.artifacts import ArtifactStore
 from factori.evidence import (
     PROOF_EVIDENCE_ROLE,
+    REAL_PROOF_EVIDENCE_ROLE,
     SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE,
     claim_label_allowed,
+    is_proof_evidence,
 )
 from factori.experiments_fake import run_fake_synthetic_experiment
 from factori.ledger import ResearchLedger
+from factori.persistence import ArtifactWriteSpec, persist_artifacts_with_commit
 from factori.proof_fake import run_fake_proof_validation
 from factori.reports import render_stage_c_verification_report
 from factori.schemas import (
@@ -24,10 +31,15 @@ from factori.schemas import (
     DataRequirement,
     FakeExperimentResult,
     FakeProofResult,
+    ProofVerificationContract,
+    ProofVerificationResult,
     StageCVerificationRecord,
     VerificationLabel,
     VerificationState,
 )
+
+if TYPE_CHECKING:
+    from factori.adapters.base import ProofVerifier
 
 
 class StageCError(RuntimeError):
@@ -42,11 +54,12 @@ class StageCResult:
     stage_c_ready_candidates: list[Candidate]
     verified_candidates: list[Candidate]
     verification_records: dict[str, StageCVerificationRecord]
-    proof_results: dict[str, FakeProofResult]
+    proof_results: dict[str, FakeProofResult | ProofVerificationResult]
     experiment_results: dict[str, FakeExperimentResult]
     artifacts: dict[str, list[ArtifactRef]]
     report_artifact: ArtifactRef
     report_commit_hash: str
+    proof_backend_metadata: dict[str, object]
 
 
 def load_stage_c_ready_candidates(run_id: str, ledger: ResearchLedger) -> list[Candidate]:
@@ -104,10 +117,12 @@ def run_stage_c(
     run_id: str,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    proof_verifier: ProofVerifier | None = None,
 ) -> StageCResult:
     """Run deterministic fake Stage C verification for selected candidates."""
     store.init_run(run_id)
     stage_c_ready = load_stage_c_ready_candidates(run_id, ledger)
+    proof_backend_metadata = _proof_backend_metadata(proof_verifier)
     ledger.append_commit(
         run_id=run_id,
         parent_hash=ledger.latest_commit_hash(run_id),
@@ -117,7 +132,7 @@ def run_stage_c(
 
     verified_candidates: list[Candidate] = []
     verification_records: dict[str, StageCVerificationRecord] = {}
-    proof_results: dict[str, FakeProofResult] = {}
+    proof_results: dict[str, FakeProofResult | ProofVerificationResult] = {}
     experiment_results: dict[str, FakeExperimentResult] = {}
     artifacts: dict[str, list[ArtifactRef]] = {}
 
@@ -127,11 +142,31 @@ def run_stage_c(
         record: StageCVerificationRecord
 
         if branch_type == BranchVerificationType.MATHEMATICAL:
-            proof_result = run_fake_proof_validation(candidate)
-            proof_results[candidate.id] = proof_result
-            proof_artifact = _write_fake_proof_artifact(run_id, proof_result, store, ledger)
-            artifacts[candidate.id].append(proof_artifact)
-            record = _record_from_proof(candidate, branch_type, proof_result, [proof_artifact])
+            if isinstance(proof_verifier, LeanProofVerifier):
+                proof_result, proof_artifacts, evidence_artifacts, proof_contract = (
+                    _run_real_proof_validation(
+                        run_id=run_id,
+                        candidate=candidate,
+                        proof_verifier=proof_verifier,
+                        store=store,
+                        ledger=ledger,
+                    )
+                )
+                proof_results[candidate.id] = proof_result
+                artifacts[candidate.id].extend(proof_artifacts)
+                record = _record_from_real_proof(
+                    candidate,
+                    branch_type,
+                    proof_result,
+                    proof_contract,
+                    evidence_artifacts,
+                )
+            else:
+                proof_result = run_fake_proof_validation(candidate)
+                proof_results[candidate.id] = proof_result
+                proof_artifact = _write_fake_proof_artifact(run_id, proof_result, store, ledger)
+                artifacts[candidate.id].append(proof_artifact)
+                record = _record_from_proof(candidate, branch_type, proof_result, [proof_artifact])
         elif branch_type == BranchVerificationType.SYNTHETIC_EMPIRICAL:
             experiment_result = run_fake_synthetic_experiment(candidate)
             experiment_results[candidate.id] = experiment_result
@@ -176,6 +211,7 @@ def run_stage_c(
         verification_records=verification_records,
         proof_results=proof_results,
         experiment_results=experiment_results,
+        proof_backend_metadata=proof_backend_metadata,
         store=store,
         ledger=ledger,
     )
@@ -190,6 +226,7 @@ def run_stage_c(
         artifacts=artifacts,
         report_artifact=report_artifact,
         report_commit_hash=report_commit_hash,
+        proof_backend_metadata=proof_backend_metadata,
     )
 
 
@@ -237,6 +274,182 @@ def _record_from_proof(
         proof_result=proof_result,
         reason=proof_result.reason if label == proof_result.label else "proof evidence missing",
     )
+
+
+def _record_from_real_proof(
+    candidate: Candidate,
+    branch_type: BranchVerificationType,
+    proof_result: ProofVerificationResult,
+    proof_contract: ProofVerificationContract,
+    evidence_artifacts: list[ArtifactRef],
+) -> StageCVerificationRecord:
+    label = (
+        proof_result.label
+        if proof_label_allowed_by_result(
+            proof_result,
+            proof_contract,
+            evidence_artifacts,
+        )
+        else VerificationLabel.CONJECTURE
+        if proof_result.label == VerificationLabel.LEAN_VERIFIED
+        else proof_result.label
+    )
+    return StageCVerificationRecord(
+        candidate_id=candidate.id,
+        branch_type=branch_type,
+        label=label,
+        status=_status_for_label(label),
+        evidence_artifacts=evidence_artifacts if label == proof_result.label else [],
+        proof_result=proof_result,
+        reason=proof_result.reason
+        if label == proof_result.label
+        else "real proof evidence failed safety validation",
+        fake=False,
+    )
+
+
+def _run_real_proof_validation(
+    *,
+    run_id: str,
+    candidate: Candidate,
+    proof_verifier: LeanProofVerifier,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> tuple[
+    ProofVerificationResult,
+    list[ArtifactRef],
+    list[ArtifactRef],
+    ProofVerificationContract,
+]:
+    contract = build_proof_verification_contract(
+        candidate,
+        backend=proof_verifier.backend_name,
+        timeout_seconds=proof_verifier.timeout_seconds,
+        tool_name=proof_verifier.proof_executable,
+    )
+    adapter_run = proof_verifier.verify_contract(contract)
+    contract = adapter_run.contract
+    candidate_id = candidate.id
+    contract_id = f"proof-contract-{candidate_id}"
+    payload_id = f"proof-payload-{candidate_id}"
+    trace_id = f"proof-trace-{candidate_id}"
+    result_id = f"proof-result-{candidate_id}"
+    safety_id = f"proof-safety-{candidate_id}"
+    result = adapter_run.result.model_copy(
+        update={
+            "raw_trace_artifact_id": trace_id,
+            "safety_report_artifact_id": safety_id,
+        }
+    )
+    safety = validate_proof_result(result, contract)
+    proof_evidence_enabled = safety.valid and result.label == VerificationLabel.LEAN_VERIFIED
+    evidence_metadata = (
+        {
+            "stage": "stage_c",
+            "backend": result.backend,
+            "provider": result.provider,
+            "evidence_role": REAL_PROOF_EVIDENCE_ROLE,
+            "is_verification_evidence": True,
+            "fake": False,
+        }
+        if proof_evidence_enabled
+        else {
+            "stage": "stage_c",
+            "backend": result.backend,
+            "provider": result.provider,
+            "is_verification_evidence": False,
+            "fake": False,
+        }
+    )
+    result_payload = result.model_dump(mode="json")
+    persistence = persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id=contract_id,
+                artifact_type=ArtifactType.LEAN,
+                payload=contract,
+                artifact_format="json",
+                metadata={
+                    "stage": "stage_c",
+                    "backend": contract.backend,
+                    "provider": "lean",
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+            ),
+            ArtifactWriteSpec(
+                artifact_id=payload_id,
+                artifact_type=ArtifactType.LEAN,
+                payload={
+                    "candidate_id": candidate_id,
+                    "claim_id": contract.claim_id,
+                    "proof_language": contract.proof_language,
+                    "proof_payload_text": contract.proof_payload_text,
+                    "is_verification_evidence": False,
+                },
+                artifact_format="json",
+                metadata={
+                    "stage": "stage_c",
+                    "backend": contract.backend,
+                    "provider": "lean",
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+            ),
+            ArtifactWriteSpec(
+                artifact_id=trace_id,
+                artifact_type=ArtifactType.LEAN,
+                payload=adapter_run.trace,
+                artifact_format="json",
+                metadata=evidence_metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=result_id,
+                artifact_type=ArtifactType.LEAN,
+                payload=result,
+                artifact_format="json",
+                metadata=evidence_metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=safety_id,
+                artifact_type=ArtifactType.LEAN,
+                payload={
+                    "candidate_id": candidate_id,
+                    "claim_id": contract.claim_id,
+                    "contract_valid": adapter_run.contract_validation.valid,
+                    "contract_reasons": list(adapter_run.contract_validation.reasons),
+                    "result_valid": safety.valid,
+                    "result_reasons": list(safety.reasons),
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+                artifact_format="json",
+                metadata={
+                    "stage": "stage_c",
+                    "backend": result.backend,
+                    "provider": result.provider,
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+            ),
+        ],
+        action_type=ControllerActionType.STAGE_C_PROOF_VALIDATED,
+        commit_payload={
+            **result_payload,
+            "proof_backend": result.backend,
+            "proof_provider": result.provider,
+            "proof_contract_id": contract_id,
+            "proof_result_id": result_id,
+        },
+        candidate_id=candidate_id,
+    )
+    evidence_artifacts = [
+        artifact for artifact in persistence.artifacts if is_proof_evidence(artifact)
+    ]
+    return result, persistence.artifacts, evidence_artifacts, contract
 
 
 def _record_from_experiment(
@@ -344,7 +557,11 @@ def _write_verification_decision_artifact(
         artifact_id=f"stage-c-verification-{record.candidate_id}",
         artifact_type=ArtifactType.REPORT,
         data=record,
-        metadata={"stage": "stage_c", "fake": True, "report": "verification_decision"},
+        metadata={
+            "stage": "stage_c",
+            "fake": record.fake,
+            "report": "verification_decision",
+        },
     )
     commit = ledger.append_commit(
         run_id=run_id,
@@ -362,8 +579,9 @@ def _write_stage_c_report(
     run_id: str,
     stage_c_ready: list[Candidate],
     verification_records: dict[str, StageCVerificationRecord],
-    proof_results: dict[str, FakeProofResult],
+    proof_results: dict[str, FakeProofResult | ProofVerificationResult],
     experiment_results: dict[str, FakeExperimentResult],
+    proof_backend_metadata: dict[str, object],
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> tuple[ArtifactRef, str]:
@@ -373,6 +591,7 @@ def _write_stage_c_report(
         verification_records=verification_records,
         proof_results=proof_results,
         experiment_results=experiment_results,
+        proof_backend_metadata=proof_backend_metadata,
     )
     artifact = store.write_markdown(
         run_id=run_id,
@@ -388,8 +607,16 @@ def _write_stage_c_report(
         action_type=ControllerActionType.STAGE_C_VERIFICATION_REPORT_WRITTEN,
         payload={
             "stage_c_ready": len(stage_c_ready),
-            "fake_proof_runs": len(proof_results),
+            "fake_proof_runs": sum(
+                1 for result in proof_results.values() if isinstance(result, FakeProofResult)
+            ),
+            "real_proof_runs": sum(
+                1
+                for result in proof_results.values()
+                if isinstance(result, ProofVerificationResult)
+            ),
             "fake_synthetic_experiments": len(experiment_results),
+            "proof_backend_metadata": proof_backend_metadata,
             **label_counts,
         },
         artifact_refs=[artifact],
@@ -435,6 +662,23 @@ def _label_counts(records) -> dict[str, int]:
         "conjectures": labels.count(VerificationLabel.CONJECTURE),
         "limitations": labels.count(VerificationLabel.LIMITATION),
         "unsupported": labels.count(VerificationLabel.UNSUPPORTED),
+    }
+
+
+def _proof_backend_metadata(proof_verifier: ProofVerifier | None) -> dict[str, object]:
+    if isinstance(proof_verifier, LeanProofVerifier):
+        return {
+            "backend": proof_verifier.backend_name,
+            "provider": proof_verifier.provider_name,
+            "tool_name": proof_verifier.proof_executable,
+            "allow_external_tools": proof_verifier.allow_external_tools,
+            "fake": False,
+        }
+    return {
+        "backend": "fake",
+        "provider": "fake",
+        "allow_external_tools": False,
+        "fake": True,
     }
 
 

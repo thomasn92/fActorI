@@ -9,6 +9,18 @@
       "title": "Allow External Calls",
       "type": "boolean"
     },
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
+    "allowed_imports": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Imports",
+      "type": "array"
+    },
     "backend": {
       "default": "fake",
       "title": "Backend",
@@ -19,20 +31,90 @@
       "title": "Candidate Id",
       "type": "string"
     },
+    "claim_id": {
+      "default": "claim-unspecified",
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "claim_text": {
+      "default": "",
+      "title": "Claim Text",
+      "type": "string"
+    },
+    "expected_output_type": {
+      "default": "proof_transcript",
+      "title": "Expected Output Type",
+      "type": "string"
+    },
     "fake_default": {
       "default": true,
       "title": "Fake Default",
       "type": "boolean"
+    },
+    "forbidden_tokens": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Tokens",
+      "type": "array"
     },
     "is_verification_evidence": {
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
     },
+    "proof_language": {
+      "default": "Lean",
+      "title": "Proof Language",
+      "type": "string"
+    },
     "proof_payload": {
       "additionalProperties": true,
       "title": "Proof Payload",
       "type": "object"
+    },
+    "proof_payload_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proof Payload Path"
+    },
+    "proof_payload_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proof Payload Text"
+    },
+    "timeout_seconds": {
+      "default": 10,
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    },
+    "tool_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Name"
     }
   },
   "required": [

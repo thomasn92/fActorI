@@ -1,10 +1,26 @@
 {
   "allow_external_calls": false,
+  "allow_external_tools": false,
+  "allowed_imports": [],
   "backend": "fake",
   "candidate_id": "candidate-example",
+  "claim_id": "claim-candidate-example",
+  "claim_text": "The example proof claim remains conjectural.",
+  "expected_output_type": "proof_transcript",
   "fake_default": true,
+  "forbidden_tokens": [
+    "sorry",
+    "admit",
+    "axiom",
+    "unsafe"
+  ],
   "is_verification_evidence": false,
+  "proof_language": "Lean",
   "proof_payload": {
     "attempt": "deterministic-placeholder"
-  }
+  },
+  "proof_payload_path": null,
+  "proof_payload_text": "theorem factori_example : True := by\n  trivial\n",
+  "timeout_seconds": 10,
+  "tool_name": null
 }

@@ -1,20 +1,5 @@
 {
   "$defs": {
-    "ArtifactType": {
-      "description": "Artifact categories mapped to the local run directory structure.",
-      "enum": [
-        "candidate",
-        "score",
-        "report",
-        "literature",
-        "lean",
-        "experiment",
-        "log",
-        "latex"
-      ],
-      "title": "ArtifactType",
-      "type": "string"
-    },
     "VerificationLabel": {
       "description": "Verification and epistemic labels required by the specification.",
       "enum": [
@@ -34,18 +19,42 @@
   "$id": "https://schemas.factori.local/0.3.0/proof-verification-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Current fake proof-result shape; fake is explicit.",
+  "description": "Provider-neutral proof verification result for gated real proof backends.",
   "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
     "candidate_id": {
       "minLength": 1,
       "title": "Candidate Id",
       "type": "string"
     },
-    "evidence_artifact_type": {
-      "$ref": "#/$defs/ArtifactType"
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "elapsed_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Elapsed Ms"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
     },
     "fake": {
-      "default": true,
+      "default": false,
       "title": "Fake",
       "type": "boolean"
     },
@@ -56,41 +65,98 @@
     "label": {
       "$ref": "#/$defs/VerificationLabel"
     },
-    "lean_exit_code_fake": {
-      "minimum": 0,
-      "title": "Lean Exit Code Fake",
-      "type": "integer"
-    },
-    "proof_attempt_id": {
+    "proof_language": {
       "minLength": 1,
-      "title": "Proof Attempt Id",
+      "title": "Proof Language",
       "type": "string"
     },
-    "proof_score": {
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "title": "Proof Score",
-      "type": "number"
+    "proof_payload_hash": {
+      "title": "Proof Payload Hash",
+      "type": "string"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "raw_trace_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Raw Trace Artifact Id"
     },
     "reason": {
       "minLength": 1,
       "title": "Reason",
       "type": "string"
+    },
+    "safety_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Safety Report Artifact Id"
+    },
+    "stderr_hash": {
+      "title": "Stderr Hash",
+      "type": "string"
+    },
+    "stdout_hash": {
+      "title": "Stdout Hash",
+      "type": "string"
+    },
+    "tool_name": {
+      "minLength": 1,
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "tool_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Version"
+    },
+    "verified": {
+      "title": "Verified",
+      "type": "boolean"
     }
   },
   "required": [
     "candidate_id",
-    "proof_attempt_id",
-    "lean_exit_code_fake",
+    "claim_id",
+    "backend",
+    "provider",
+    "proof_language",
+    "tool_name",
+    "exit_code",
+    "stdout_hash",
+    "stderr_hash",
+    "proof_payload_hash",
     "forbidden_tokens_present",
-    "proof_score",
+    "verified",
     "label",
-    "evidence_artifact_type",
     "reason"
   ],
   "title": "ProofVerificationResult",
   "type": "object",
   "x-factori-protocol-version": "0.3.0",
-  "x-factori-source-model": "factori.schemas.FakeProofResult",
+  "x-factori-source-model": "factori.schemas.ProofVerificationResult",
   "x-factori-verification-evidence": false
 }

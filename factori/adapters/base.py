@@ -20,10 +20,13 @@ from factori.schemas import (
     ReviewerPanelResult,
     ReviewReport,
 )
+from factori.schemas import (
+    ProofVerificationResult as RealProofVerificationResult,
+)
 
 CandidateLike = Candidate
 ReviewerLike = ReviewReport
-ProofVerificationResult = FakeProofResult
+ProofVerificationResult = FakeProofResult | RealProofVerificationResult
 ExperimentRunResult = FakeExperimentResult
 
 
@@ -93,7 +96,7 @@ class ReviewerClient(AdapterClient, Protocol):
 
 @runtime_checkable
 class ProofVerifier(AdapterClient, Protocol):
-    """Proof-verification seam; no real prover is implemented yet."""
+    """Proof-verification seam with fake defaults and explicitly gated local tools."""
 
     def verify_proof(
         self,

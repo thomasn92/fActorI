@@ -10,7 +10,10 @@ from pydantic import Field, SecretStr, field_validator
 from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
+    DEFAULT_ALLOW_EXTERNAL_TOOLS,
     DEFAULT_LLM_MODEL,
+    DEFAULT_PROOF_BACKEND,
+    DEFAULT_PROOF_TIMEOUT_SECONDS,
     DEFAULT_RETRIEVAL_BACKEND,
     DEFAULT_RETRIEVAL_LIMIT,
     DEFAULT_REVIEWER_BACKEND,
@@ -44,6 +47,10 @@ class AdapterConfig(StrictModel):
     retrieval_api_key: SecretStr | None = Field(default=None, repr=False)
     retrieval_api_key_env: str = Field(default=OPENALEX_API_KEY_ENV, min_length=1)
     retrieval_limit: int = Field(default=DEFAULT_RETRIEVAL_LIMIT, ge=1, le=100)
+    proof_backend: str = Field(default=DEFAULT_PROOF_BACKEND, min_length=1)
+    allow_external_tools: bool = DEFAULT_ALLOW_EXTERNAL_TOOLS
+    proof_executable: str | None = None
+    proof_timeout_seconds: int = Field(default=DEFAULT_PROOF_TIMEOUT_SECONDS, ge=1, le=60)
 
     @field_validator("adapter_backend")
     @classmethod
@@ -69,6 +76,14 @@ class AdapterConfig(StrictModel):
             raise ValueError("reviewer_backend must not be empty")
         return normalized
 
+    @field_validator("proof_backend")
+    @classmethod
+    def normalize_proof_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("proof_backend must not be empty")
+        return normalized
+
     @field_validator(
         "llm_model",
         "api_key_env",
@@ -82,6 +97,14 @@ class AdapterConfig(StrictModel):
         if not normalized:
             raise ValueError("adapter text configuration must not be empty")
         return normalized
+
+    @field_validator("proof_executable")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 def load_adapter_config(

@@ -34,6 +34,10 @@ def test_registry_exposes_all_required_adapters() -> None:
     }
     assert registry.provider_descriptors()[0].backend_name == "fake"
     assert registry.provider_descriptors()[0].is_default is True
+    assert any(
+        descriptor.backend_name == "lean" and descriptor.supports_proof
+        for descriptor in registry.provider_descriptors()
+    )
 
 
 def test_non_fake_backend_fails_clearly() -> None:
@@ -98,3 +102,15 @@ def test_invalid_adapter_backend_cli_fails_clearly() -> None:
 
     assert result.exit_code == 1
     assert "Adapter backend 'remote' is not implemented" in result.stderr
+
+
+def test_invalid_proof_backend_fails_clearly() -> None:
+    try:
+        get_adapter_registry(AdapterConfig(proof_backend="remote-proof"))
+    except AdapterBackendNotFound as exc:
+        message = str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("unknown proof backend unexpectedly loaded")
+
+    assert "Proof backend 'remote-proof' is not implemented." in message
+    assert "Available proof backends are: fake, lean, real_proof." in message

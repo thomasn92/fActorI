@@ -4,7 +4,12 @@ import pytest
 from pydantic import ValidationError
 
 from factori.adapters.config import AdapterConfig, load_adapter_config
-from factori.config import DEFAULT_ADAPTER_BACKEND, DEFAULT_ALLOW_EXTERNAL_CALLS
+from factori.config import (
+    DEFAULT_ADAPTER_BACKEND,
+    DEFAULT_ALLOW_EXTERNAL_CALLS,
+    DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    DEFAULT_PROOF_BACKEND,
+)
 
 
 def test_default_adapter_config_is_fake_and_external_calls_are_disabled() -> None:
@@ -12,10 +17,14 @@ def test_default_adapter_config_is_fake_and_external_calls_are_disabled() -> Non
 
     assert config.adapter_backend == "fake"
     assert config.reviewer_backend == "fake"
+    assert config.proof_backend == "fake"
     assert config.use_llm_reviewers is False
     assert config.allow_external_calls is False
+    assert config.allow_external_tools is False
     assert DEFAULT_ADAPTER_BACKEND == "fake"
+    assert DEFAULT_PROOF_BACKEND == "fake"
     assert DEFAULT_ALLOW_EXTERNAL_CALLS is False
+    assert DEFAULT_ALLOW_EXTERNAL_TOOLS is False
 
 
 def test_adapter_config_loads_and_normalizes_mapping() -> None:

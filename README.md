@@ -67,6 +67,8 @@ Implemented so far:
   hashes, ledgered context artifacts, and bounded adequacy that does not prove novelty;
 - an explicitly gated OpenAI reviewer adapter for Stage B structural critique, with strict local
   safety checks, ledgered context artifacts, and no verification or publication authority;
+- an explicitly gated local Lean proof adapter for Stage C mathematical branches, with proof
+  contracts, trace/result hashes, safety checks, and no default proof-tool execution;
 - versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
 - conservative read-only protocol compatibility and schema-change classification;
 - server-facing run-control, adapter I/O, manifest, and enum protocol exports with JSON
@@ -76,7 +78,7 @@ Implemented so far:
 - Ruff configuration.
 
 Not implemented yet: LangGraph orchestration, real LLM synthesis/writing, complete or
-claim-verifying literature coverage, Lean integration, real experiments, Docker, FastAPI, full
+claim-verifying literature coverage, always-on Lean integration, real experiments, Docker, FastAPI, full
 manuscript synthesis, LaTeX paper generation, or a frontend.
 
 ## Install
@@ -164,7 +166,8 @@ uv run factori validate-ledger-tip --run-id demo
 Default commands are local and deterministic. They do not call models, retrieval services, Lean,
 experiment runners, Docker, servers, or UI code. The gated Stage A OpenAI path described below is
 one explicit exception and is never selected by default. Stage B also has separately gated OpenAlex
-retrieval and OpenAI structural-review paths.
+retrieval and OpenAI structural-review paths. Stage C has a separately gated local Lean proof path,
+also disabled by default.
 
 `inspect-hygiene` is read-only. Its optional reports are written under
 `runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
@@ -201,8 +204,9 @@ added without changing evidence or provenance rules. A provider-isolated
 `openai` backend supports Stage A candidate proposal, and a separate explicit Stage B reviewer flag
 uses the same provider transport for structural critique only. Both require external-call permission
 plus `OPENAI_API_KEY`. A separately gated `openalex` retrieval backend supports Stage B source
-metadata and abstract context with `OPENALEX_API_KEY`. Proof, experiment, prose, and human-review
-adapters remain fake.
+metadata and abstract context with `OPENALEX_API_KEY`. A separately gated `lean` proof backend
+supports Stage C mathematical branches through a local executable only when
+`allow_external_tools=true`. Experiment, prose, and human-review adapters remain fake.
 
 LLM output is validated locally, then passes through the existing data gate, scoring, deduplication,
 artifact store, and ledger. Requests, raw responses, parse reports, and proposals are not
@@ -215,6 +219,10 @@ proof or experiment success, or turn bounded retrieval context into a literature
 OpenAlex retrieval output is normalized, source-hashed, and ledgered through Stage B. It supports
 only bounded retrieval adequacy and literature context. It does not prove novelty, complete
 coverage, claim correctness, or external-review readiness.
+
+Lean proof output is accepted only through explicit proof contracts, local-tool traces, proof
+result hashes, and safety validation. LLM output, reviewer reports, retrieval records, Markdown,
+LaTeX, and paper artifacts cannot justify `LeanVerified`.
 
 `show-adapters` prints both active adapter classes and provider capability metadata. Invalid
 backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,

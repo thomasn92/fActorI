@@ -207,6 +207,7 @@ from factori.schemas.verification import (
     FakeExperimentResult,
     FakeProofResult,
     ProofVerificationContract,
+    ProofVerificationResult,
     StageCVerificationRecord,
     VerificationState,
 )
@@ -291,6 +292,7 @@ __all__ = [
     "FakeProofResult",
     "FakeExperimentResult",
     "ProofVerificationContract",
+    "ProofVerificationResult",
     "VerificationState",
     "StageCVerificationRecord",
     "GeneratedSectionDraft",

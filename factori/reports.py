@@ -296,9 +296,15 @@ def render_stage_c_verification_report(
     verification_records: dict[str, StageCVerificationRecord],
     proof_results: dict[str, object],
     experiment_results: dict[str, object],
+    proof_backend_metadata: dict[str, object] | None = None,
 ) -> str:
     """Render the deterministic fake Stage C verification report."""
     labels = [record.label for record in verification_records.values()]
+    proof_backend = proof_backend_metadata or {"backend": "fake", "fake": True}
+    fake_proof_runs = sum(
+        1 for result in proof_results.values() if getattr(result, "fake", False)
+    )
+    real_proof_runs = len(proof_results) - fake_proof_runs
     lines = [
         "# Stage C Verification Report",
         "",
@@ -309,7 +315,9 @@ def render_stage_c_verification_report(
         "## Summary",
         "",
         f"- Stage C ready candidates: {len(stage_c_ready)}",
-        f"- Fake proof runs: {len(proof_results)}",
+        f"- Proof backend: {proof_backend.get('backend', 'fake')}",
+        f"- Fake proof runs: {fake_proof_runs}",
+        f"- Real proof runs: {real_proof_runs}",
         f"- Fake synthetic experiments: {len(experiment_results)}",
         f"- LeanVerified: {labels.count(VerificationLabel.LEAN_VERIFIED)}",
         f"- SyntheticExperimentVerified: "
@@ -336,7 +344,7 @@ def render_stage_c_verification_report(
             "",
             "## Evidence Boundary",
             "",
-            "- LeanVerified requires a linked fake proof artifact under `lean/`.",
+            "- LeanVerified requires a linked proof artifact under `lean/`.",
             "- SyntheticExperimentVerified requires a linked fake synthetic experiment artifact.",
             "- RealDataExperimentVerified is never produced in the MVP.",
             "- LaTeX and Markdown presentation artifacts are not verification evidence.",

@@ -52,18 +52,55 @@ class FakeExperimentResult(StrictModel):
 
 
 class ProofVerificationContract(StrictModel):
-    """Provider-neutral proof-verification request contract for future adapters.
+    """Provider-neutral proof-verification request contract.
 
-    The current MVP only supports deterministic fake proof validation. This contract is exported
-    for future servers and tools; it does not authorize external prover execution.
+    Fake proof validation remains the default. A real backend may consume this contract only when
+    external tool execution is explicitly enabled by the owning command configuration.
     """
 
     candidate_id: str = Field(min_length=1)
-    backend: str = "fake"
+    claim_id: str = "claim-unspecified"
+    claim_text: str = ""
+    proof_language: str = "Lean"
+    proof_payload_path: str | None = None
+    proof_payload_text: str | None = None
     proof_payload: dict[str, Any] = Field(default_factory=dict)
+    allowed_imports: list[str] = Field(default_factory=list)
+    forbidden_tokens: list[str] = Field(
+        default_factory=lambda: ["sorry", "admit", "axiom", "unsafe"]
+    )
+    timeout_seconds: int = Field(default=10, ge=1, le=60)
+    expected_output_type: str = "proof_transcript"
+    backend: str = "fake"
+    tool_name: str | None = None
     allow_external_calls: bool = False
+    allow_external_tools: bool = False
     fake_default: bool = True
     is_verification_evidence: bool = False
+
+
+class ProofVerificationResult(StrictModel):
+    """Provider-neutral proof-verification result for a gated real proof backend."""
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    proof_language: str = Field(min_length=1)
+    tool_name: str = Field(min_length=1)
+    tool_version: str | None = None
+    exit_code: int
+    stdout_hash: str
+    stderr_hash: str
+    proof_payload_hash: str
+    forbidden_tokens_present: bool
+    verified: bool
+    label: VerificationLabel
+    reason: str = Field(min_length=1)
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    raw_trace_artifact_id: str | None = None
+    safety_report_artifact_id: str | None = None
+    fake: bool = False
 
 
 class VerificationState(StrictModel):
@@ -91,7 +128,7 @@ class StageCVerificationRecord(StrictModel):
     label: VerificationLabel
     status: BranchStatus
     evidence_artifacts: list[ArtifactRef] = Field(default_factory=list)
-    proof_result: FakeProofResult | None = None
+    proof_result: FakeProofResult | ProofVerificationResult | None = None
     experiment_result: FakeExperimentResult | None = None
     reason: str = Field(min_length=1)
     fake: bool = True
@@ -100,6 +137,7 @@ __all__ = [
     "FakeProofResult",
     "FakeExperimentResult",
     "ProofVerificationContract",
+    "ProofVerificationResult",
     "VerificationState",
     "StageCVerificationRecord",
 ]

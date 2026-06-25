@@ -51,6 +51,7 @@ from factori.schemas.stages import (
 from factori.schemas.verification import (
     FakeExperimentResult,
     FakeProofResult,
+    ProofVerificationResult,
 )
 
 __all__ = [
@@ -67,6 +68,7 @@ __all__ = [
     "BridgeReport",
     "BaselineReport",
     "FakeProofResult",
+    "ProofVerificationResult",
     "FakeExperimentResult",
     "Claim",
     "ClaimTable",

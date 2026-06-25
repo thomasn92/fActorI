@@ -55,7 +55,9 @@ class AdapterRegistryDescriptor:
     active_candidate_backend: str
     active_reviewer_backend: str
     active_retrieval_backend: str
+    active_proof_backend: str
     allow_external_calls: bool
+    allow_external_tools: bool
     providers: tuple[AdapterProviderDescriptor, ...]
 
 
@@ -104,12 +106,23 @@ OPENALEX_RETRIEVAL_DESCRIPTOR = AdapterProviderDescriptor(
     requires_api_key=True,
     aliases=("real_retrieval",),
 )
+LEAN_PROOF_DESCRIPTOR = AdapterProviderDescriptor(
+    backend_name="lean",
+    provider_name="lean",
+    adapter_kind="proof",
+    supports_proof=True,
+    requires_external_calls=False,
+    requires_external_tools=True,
+    requires_api_key=False,
+    aliases=("real_proof",),
+)
 
 PROVIDER_DESCRIPTORS = (
     FAKE_DESCRIPTOR,
     OPENAI_CANDIDATE_DESCRIPTOR,
     OPENAI_REVIEWER_DESCRIPTOR,
     OPENALEX_RETRIEVAL_DESCRIPTOR,
+    LEAN_PROOF_DESCRIPTOR,
 )
 
 
@@ -169,6 +182,7 @@ __all__ = [
     "AdapterProviderDescriptor",
     "AdapterRegistryDescriptor",
     "FAKE_DESCRIPTOR",
+    "LEAN_PROOF_DESCRIPTOR",
     "OPENAI_CANDIDATE_DESCRIPTOR",
     "OPENAI_REVIEWER_DESCRIPTOR",
     "OPENALEX_RETRIEVAL_DESCRIPTOR",

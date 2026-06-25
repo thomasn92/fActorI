@@ -3,7 +3,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Proof backend enum.",
   "enum": [
-    "fake"
+    "fake",
+    "lean"
   ],
   "title": "ProofBackend",
   "type": "string",

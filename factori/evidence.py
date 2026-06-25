@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from factori.schemas import ArtifactRef, ArtifactType, VerificationLabel
 
 PROOF_EVIDENCE_ROLE = "fake_proof"
+REAL_PROOF_EVIDENCE_ROLE = "proof"
 SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE = "fake_synthetic_experiment"
 REAL_DATA_EXPERIMENT_EVIDENCE_ROLE = "real_data_experiment"
 
@@ -42,7 +43,8 @@ def is_proof_evidence(artifact: ArtifactRef) -> bool:
     """Return whether an artifact is proof evidence for this MVP."""
     return (
         artifact.type == ArtifactType.LEAN
-        and artifact.metadata.get("evidence_role") == PROOF_EVIDENCE_ROLE
+        and artifact.metadata.get("evidence_role")
+        in {PROOF_EVIDENCE_ROLE, REAL_PROOF_EVIDENCE_ROLE}
         and _artifact_is_linked_evidence(artifact)
     )
 

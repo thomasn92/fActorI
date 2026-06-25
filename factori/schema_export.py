@@ -29,7 +29,6 @@ from factori.schemas import (
     DataRequirement,
     DryRunStatus,
     FakeExperimentResult,
-    FakeProofResult,
     LedgerTipStatus,
     LedgerTipValidationReport,
     LLMCandidateParseReport,
@@ -45,6 +44,7 @@ from factori.schemas import (
     PlannedStage,
     PlannedStageStatus,
     ProofVerificationContract,
+    ProofVerificationResult,
     ResearchObjectManifest,
     ResumeValidationReport,
     ResumeValidationStatus,
@@ -255,16 +255,6 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         requires_credentials=False,
         fake=True,
     )
-    proof = FakeProofResult(
-        candidate_id=candidate.id,
-        proof_attempt_id="proof-example",
-        lean_exit_code_fake=1,
-        forbidden_tokens_present=False,
-        proof_score=0.75,
-        label=VerificationLabel.CONJECTURE,
-        evidence_artifact_type=ArtifactType.LEAN,
-        reason="Deterministic example only; no real Lean execution occurred.",
-    )
     experiment = FakeExperimentResult(
         candidate_id=candidate.id,
         experiment_id="experiment-example",
@@ -284,9 +274,31 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
     )
     proof_contract = ProofVerificationContract(
         candidate_id=candidate.id,
+        claim_id="claim-candidate-example",
+        claim_text="The example proof claim remains conjectural.",
+        proof_language="Lean",
         backend="fake",
+        proof_payload_text="theorem factori_example : True := by\n  trivial\n",
         proof_payload={"attempt": "deterministic-placeholder"},
         allow_external_calls=False,
+        allow_external_tools=False,
+    )
+    proof_result = ProofVerificationResult(
+        candidate_id=candidate.id,
+        claim_id="claim-candidate-example",
+        backend="lean",
+        provider="lean",
+        proof_language="Lean",
+        tool_name="lean",
+        exit_code=1,
+        stdout_hash=_HASH,
+        stderr_hash=_HASH,
+        proof_payload_hash=_HASH,
+        forbidden_tokens_present=False,
+        verified=False,
+        label=VerificationLabel.CONJECTURE,
+        reason="Deterministic example only; no external proof tool was executed.",
+        fake=False,
     )
     claim = Claim(
         claim_id="claim-example",
@@ -440,7 +452,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "retrieval-query.example.json": retrieval_query.model_dump(mode="json"),
         "retrieval-result.example.json": retrieval.model_dump(mode="json"),
         "proof-contract.example.json": proof_contract.model_dump(mode="json"),
-        "proof-result.example.json": proof.model_dump(mode="json"),
+        "proof-result.example.json": proof_result.model_dump(mode="json"),
         "experiment-result.example.json": experiment.model_dump(mode="json"),
         "claim.example.json": claim.model_dump(mode="json"),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),

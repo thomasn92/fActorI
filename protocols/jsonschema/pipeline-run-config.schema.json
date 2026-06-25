@@ -56,6 +56,11 @@
       "title": "Allow External Calls",
       "type": "boolean"
     },
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
     "domain": {
       "default": "",
       "title": "Domain",
@@ -86,6 +91,30 @@
       ],
       "default": null,
       "title": "Method"
+    },
+    "proof_backend": {
+      "default": "fake",
+      "title": "Proof Backend",
+      "type": "string"
+    },
+    "proof_executable": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proof Executable"
+    },
+    "proof_timeout_seconds": {
+      "default": 10,
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Proof Timeout Seconds",
+      "type": "integer"
     },
     "rerun_policy": {
       "$ref": "#/$defs/RerunPolicy",

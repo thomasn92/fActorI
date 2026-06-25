@@ -94,8 +94,14 @@ All implementation modules are under `factori/`.
 - `adapters/retrieval_safety.py`: strict provider-result validation and malformed-source rejection.
 - `adapters/retrieval_real.py`: provider-isolated OpenAlex transport and injected-transport client
   for source metadata, abstracts, and bounded retrieval adequacy.
+- `adapters/proof_contracts.py`: deterministic Stage C proof contract construction with forbidden
+  token and timeout policy.
+- `adapters/proof_safety.py`: local validation for proof contracts/results and strict rejection of
+  non-proof evidence artifacts.
+- `adapters/proof_real.py`: gated local Lean proof verifier with injected runner support; no proof
+  executable is called unless explicitly configured and enabled.
 - `adapters/registry.py`: fake-default registry, provider descriptors, and explicit gates for
-  Stage A OpenAI, Stage B OpenAI reviewer, and Stage B OpenAlex adapters.
+  Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, and Stage C Lean adapters.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -153,7 +159,8 @@ All implementation modules are under `factori/`.
 - `stage_c_selection.py`: pre-Stage-C red-team aggregation and candidate selection.
 - `uncertainty.py`: deterministic score uncertainty and conservative lower bounds.
 - `budget.py`: cost-aware Stage C budget selector.
-- `stage_c.py`: branch classification and fake Stage C verification orchestration.
+- `stage_c.py`: branch classification, fake Stage C verification orchestration, and optional gated
+  Lean proof verification artifact flow for mathematical branches.
 - `proof_fake.py`: deterministic fake proof validator.
 - `experiments_fake.py`: deterministic fake synthetic-experiment validator.
 - `evidence.py`: claim-label/evidence admissibility boundaries.

@@ -26,8 +26,9 @@ run-control and adapter contracts without importing Python.
 - No server process, request router, authentication, queue, or concurrency model exists.
 - No production idempotency lock or database transaction layer exists beyond local ledger checks.
 - Real adapters remain explicitly gated; fake adapters are still the default.
-- Real Lean, Docker experiments, polished prose generation, final LaTeX generation, and external
-  review readiness are not implemented.
+- Real Lean proof checking has only a gated local-tool adapter seam and is disabled by default.
+- Docker experiments, polished prose generation, final LaTeX generation, and external review
+  readiness are not implemented.
 
 ## Mutating vs Read-Only Operations
 
@@ -49,4 +50,6 @@ protocol validation, compatibility checks, and version checks.
 External-call flags must be explicit in any future API. Adapter outputs that affect a run must be
 validated, written through the artifact store, and ledgered by the owning stage. LLM output,
 reviewer output, retrieval output, Markdown, LaTeX, protocol schemas, export plans, diagnostics,
-and replay reports are not verification evidence.
+and replay reports are not verification evidence. A future server may expose the Lean proof
+backend only as an explicit external-tool job with the same proof contract, executable gate, and
+proof-evidence safety checks used by the CLI.

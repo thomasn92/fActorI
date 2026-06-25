@@ -25,7 +25,6 @@ from factori.schemas import (
     EmpiricalBoundaryAssessment,
     ExportReadinessReport,
     FakeExperimentResult,
-    FakeProofResult,
     FinalAuditReport,
     FinalNucleus,
     GeneratedSectionDraft,
@@ -54,6 +53,7 @@ from factori.schemas import (
     PipelineStageResult,
     PlannedStage,
     ProofVerificationContract,
+    ProofVerificationResult,
     ReleaseGateDecision,
     ReleaseGateStatus,
     ReplayVerificationReport,
@@ -107,9 +107,10 @@ class ReviewerBackend(StrEnum):
 
 
 class ProofBackend(StrEnum):
-    """Proof backend names. Only fake is available in the current MVP."""
+    """Proof backend names exposed by the protocol layer."""
 
     FAKE = "fake"
+    LEAN = "lean"
 
 
 @dataclass(frozen=True)
@@ -211,8 +212,8 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ),
     ProtocolDefinition(
         "ProofVerificationResult",
-        FakeProofResult,
-        "Current fake proof-result shape; fake is explicit.",
+        ProofVerificationResult,
+        "Provider-neutral proof verification result for gated real proof backends.",
     ),
     ProtocolDefinition(
         "ProofVerificationContract",

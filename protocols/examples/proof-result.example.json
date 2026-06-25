@@ -1,11 +1,21 @@
 {
+  "backend": "lean",
   "candidate_id": "candidate-example",
-  "evidence_artifact_type": "lean",
-  "fake": true,
+  "claim_id": "claim-candidate-example",
+  "elapsed_ms": null,
+  "exit_code": 1,
+  "fake": false,
   "forbidden_tokens_present": false,
   "label": "Conjecture",
-  "lean_exit_code_fake": 1,
-  "proof_attempt_id": "proof-example",
-  "proof_score": 0.75,
-  "reason": "Deterministic example only; no real Lean execution occurred."
+  "proof_language": "Lean",
+  "proof_payload_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "provider": "lean",
+  "raw_trace_artifact_id": null,
+  "reason": "Deterministic example only; no external proof tool was executed.",
+  "safety_report_artifact_id": null,
+  "stderr_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "stdout_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "tool_name": "lean",
+  "tool_version": null,
+  "verified": false
 }

@@ -117,7 +117,11 @@ def run_deterministic_pipeline(
 
     adapter_registry: AdapterRegistry | None = None
     if any(
-        stage in {PipelineStage.RUN_STAGE_A, PipelineStage.RUN_STAGE_B}
+        stage in {
+            PipelineStage.RUN_STAGE_A,
+            PipelineStage.RUN_STAGE_B,
+            PipelineStage.RUN_STAGE_C,
+        }
         and rerun_decisions[stage].should_run
         for stage in stages
     ):
@@ -131,6 +135,10 @@ def run_deterministic_pipeline(
                     use_llm_reviewers=config.use_llm_reviewers,
                     reviewer_model=config.reviewer_model,
                     reviewer_max_objections=config.reviewer_max_objections,
+                    proof_backend=config.proof_backend,
+                    allow_external_tools=config.allow_external_tools,
+                    proof_executable=config.proof_executable,
+                    proof_timeout_seconds=config.proof_timeout_seconds,
                 )
             )
         except AdapterConfigurationError as exc:
@@ -332,15 +340,32 @@ def _execute_stage(
             budget_deferred=len(result.budget_deferred),
         )
     if stage == PipelineStage.RUN_STAGE_C:
-        result = run_stage_c(run_id=run_id, store=store, ledger=ledger)
+        result = run_stage_c(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            proof_verifier=(
+                adapter_registry.proof_verifier
+                if adapter_registry is not None
+                and adapter_registry.config.proof_backend != "fake"
+                else None
+            ),
+        )
         artifacts = [item for values in result.artifacts.values() for item in values]
         artifacts.append(result.report_artifact)
+        fake_proof_runs = sum(
+            1
+            for proof_result in result.proof_results.values()
+            if getattr(proof_result, "fake", False)
+        )
         return _success(
             artifacts,
             verified_candidates=len(result.verified_candidates),
-            fake_proof_runs=len(result.proof_results),
+            fake_proof_runs=fake_proof_runs,
+            real_proof_runs=len(result.proof_results) - fake_proof_runs,
             fake_synthetic_experiments=len(result.experiment_results),
-            fake=True,
+            proof_backend=result.proof_backend_metadata["backend"],
+            fake=result.proof_backend_metadata["fake"],
         )
     if stage == PipelineStage.SYNTHESIZE_ABSTRACT:
         result = run_abstract_synthesis(run_id=run_id, store=store, ledger=ledger)

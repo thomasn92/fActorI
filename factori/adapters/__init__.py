@@ -44,6 +44,12 @@ from factori.adapters.llm_safety import (
     parse_llm_candidate_response,
     validate_llm_candidate,
 )
+from factori.adapters.proof_contracts import build_proof_verification_contract
+from factori.adapters.proof_real import LeanProofVerifier, ProofToolRunResult
+from factori.adapters.proof_safety import (
+    validate_proof_contract,
+    validate_proof_result,
+)
 from factori.adapters.registry import (
     AdapterRegistry,
     get_adapter_registry,
@@ -86,6 +92,7 @@ __all__ = [
     "FakeRetrievalClient",
     "FakeReviewerClient",
     "HumanReviewClient",
+    "LeanProofVerifier",
     "LLMClient",
     "OpenAILLMClient",
     "OpenAIResponsesTransport",
@@ -93,6 +100,7 @@ __all__ = [
     "OpenAlexRetrievalClient",
     "OpenAlexTransport",
     "ProofVerifier",
+    "ProofToolRunResult",
     "ProseGenerator",
     "RetrievalClient",
     "ReviewerClient",
@@ -101,11 +109,14 @@ __all__ = [
     "build_stage_a_candidate_prompt",
     "build_stage_b_reviewer_prompt",
     "build_retrieval_query",
+    "build_proof_verification_contract",
     "load_adapter_config",
     "parse_llm_candidate_response",
     "parse_llm_reviewer_response",
     "normalize_retrieval_result",
     "validate_llm_candidate",
     "validate_llm_reviewer_report",
+    "validate_proof_contract",
+    "validate_proof_result",
     "validate_retrieval_result",
 ]

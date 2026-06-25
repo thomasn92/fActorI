@@ -46,6 +46,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   retrieval-adequacy inputs. It requires the explicit `openalex` retrieval backend,
   `allow_external_calls=true`, and configured credentials. Do not treat it as novelty proof,
   complete literature coverage, claim verification, or external-review readiness.
+- A gated Lean proof adapter exists only for Stage C mathematical-branch proof checking through a
+  local proof executable. It requires `proof_backend=lean`, `allow_external_tools=true`, and an
+  explicitly configured proof executable. Do not execute Lean or any proof tool unless the user
+  explicitly requests this backend and safety gate.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -79,6 +83,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Retrieval queries, responses, normalized sources, documents, and adequacy certificates are
   literature context only. They are not proof, experiment, claim-verification, or human-approval
   evidence.
+- Real proof contracts, payloads, traces, results, and safety reports must stay candidate/claim
+  specific. Only a validated real proof result or transcript artifact with proof-evidence metadata
+  can support `LeanVerified`; LLM, reviewer, retrieval, Markdown, LaTeX, and paper artifacts cannot.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

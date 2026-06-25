@@ -22,7 +22,7 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `ArtifactRecord` generated from `ArtifactRef`;
 - `StageResult` generated from `PipelineStageResult`;
 - `ReviewerReport` generated from `StageBReviewerReport`;
-- `ProofVerificationResult` generated from `FakeProofResult`;
+- `ProofVerificationResult` generated from the provider-neutral proof result model;
 - `ExperimentRunResult` generated from `FakeExperimentResult`.
 - `RunSummary` generated from `LedgerSummary`;
 - `PipelineStagePlan` generated from `PlannedStage`;
@@ -33,8 +33,10 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `ReleaseStatus` generated from `ReleaseGateStatus`.
 
 The generated schema records the qualified Python source model in
-`x-factori-source-model`. Fake proof and experiment result schemas retain their explicit `fake`
-field and do not imply real scientific verification.
+`x-factori-source-model`. Fake proof and experiment schemas retain explicit `fake` fields where
+they are still exported or embedded. The provider-neutral proof result schema is only evidence when
+the owning run links validated proof artifacts; it does not make protocol examples scientific
+evidence.
 Schema definitions are grouped internally under `factori/schemas/`, but generated protocols keep
 the stable `factori.schemas.<ModelName>` source-model path for compatibility.
 

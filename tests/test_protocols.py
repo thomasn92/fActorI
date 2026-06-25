@@ -8,11 +8,11 @@ from factori.protocols import (
 from factori.schemas import (
     ArtifactRef,
     FakeExperimentResult,
-    FakeProofResult,
     LedgerTipValidationReport,
     LLMCandidateParseReport,
     LLMPromptContract,
     PipelineStageResult,
+    ProofVerificationResult,
     RunStatusReport,
     StageBReviewerReport,
     StageRerunDecision,
@@ -38,7 +38,7 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("StageResult").model is PipelineStageResult
     assert get_protocol_definition("ReviewerReport").model is StageBReviewerReport
     assert get_protocol_definition("StageCSelectionResult").model is StageCSelectionResult
-    assert get_protocol_definition("ProofVerificationResult").model is FakeProofResult
+    assert get_protocol_definition("ProofVerificationResult").model is ProofVerificationResult
     assert get_protocol_definition("ExperimentRunResult").model is FakeExperimentResult
     assert get_protocol_definition("AdapterConfig").model is AdapterConfig
     assert get_protocol_definition("RunStatusReport").model is RunStatusReport

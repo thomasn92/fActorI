@@ -38,12 +38,14 @@
 | 33 | CLI/library boundary hardening: extract selected CLI-owned business logic into typed library entry points | `commands/candidates.py`, `commands/artifacts.py`, `commands/questioner.py`, `commands/retrieval_demo.py`, `cli.py` | `add-candidate`, `write-artifact`, `questioner-check`, `retrieval-adequacy-demo` | Existing mutability behavior preserved; CLI output remains compatible |
 | 34 | Stage B internal phase refactor: split `run_stage_b` into deterministic internal phases while preserving the public entry point | `stage_b.py`, `stage_b_phases.py` | `run-stage-b` | Refactor-only; Stage B artifacts, report layout, scoring, gates, and ledger actions remain compatible |
 | 35 | Shared artifact persistence helpers for Stage A and Stage B output artifacts and producing commits | `persistence.py`, `stage_a.py`, `stage0.py`, `retrieval.py`, `stage_b_phases.py` | Existing commands unchanged | Refactor-only; artifact IDs, paths, reports, ledger action types, and protocol output remain compatible |
+| 36 | Gated local proof-verification adapter with fake defaults, strict proof contracts, and proof-evidence safety checks | `adapters/proof_real.py`, `adapters/proof_contracts.py`, `adapters/proof_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --proof-backend lean --allow-external-tools --proof-executable <tool>` | Fake default behavior unchanged; real proof artifacts are hashed and ledgered only after explicit local-tool opt-in |
 
 ## Current Boundary
 
-Milestones through 35 implement a deterministic scaffold plus explicitly gated external seams for
-Stage A candidate proposal, Stage B source metadata retrieval, and Stage B structural review. They do not implement autonomous
-real agents, complete scientific literature coverage, proof checking, experiments, LLM
+Milestones through 36 implement a deterministic scaffold plus explicitly gated external seams for
+Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
+Stage C local proof checking. They do not implement autonomous
+real agents, complete scientific literature coverage, Docker experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
 reviews are critiques only and are not scientific validation. Narrative paper-shape critiques are
 also diagnostics only and cannot validate claims. The adapter registry is now
@@ -54,4 +56,6 @@ public compatibility path. A small subset of CLI commands now call typed library
 the Typer command surface remains compatible. Stage B internals are phase-split for maintainability
 while `run_stage_b` remains the stable public API. Stage A and Stage B artifact persistence now
 share helpers for the normal write-artifact, append-commit, and producing-commit link sequence
-without changing stage-specific decisions or public outputs.
+without changing stage-specific decisions or public outputs. The Lean proof adapter is local,
+disabled by default, runner-injected in tests, and has no authority unless proof contracts, tool
+results, trace artifacts, and safety checks all pass.

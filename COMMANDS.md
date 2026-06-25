@@ -124,6 +124,8 @@ uv run factori run-stage-a --run-id demo --domain "human geography"
 uv run factori run-stage-b --run-id demo
 uv run factori select-stage-c --run-id demo
 uv run factori run-stage-c --run-id demo
+uv run factori run-stage-c --run-id demo \
+  --proof-backend lean --allow-external-tools --proof-executable lean
 uv run factori synthesize-abstract --run-id demo
 uv run factori plan-manuscript --run-id demo
 uv run factori critique-paper-shape --run-id demo
@@ -202,6 +204,20 @@ OPENALEX_API_KEY="<key>" uv run factori run-stage-b \
   --run-id demo --retrieval-backend openalex --allow-external-calls --retrieval-limit 5
 ```
 
+Real proof verification is separately gated and used only for Stage C mathematical branches. It
+requires an explicitly selected local proof backend, external-tool permission, and an executable.
+Default runs never execute Lean or any proof tool:
+
+```bash
+uv run factori show-adapters \
+  --proof-backend lean --allow-external-tools --proof-executable lean
+uv run factori run-stage-c \
+  --run-id demo --proof-backend lean --allow-external-tools --proof-executable lean
+uv run factori run-all \
+  --run-id proof-pipeline --domain "human geography" \
+  --proof-backend lean --allow-external-tools --proof-executable lean
+```
+
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
 `runs/demo/replay/` and does not append ledger commits or update the artifact manifest.
 
@@ -241,8 +257,10 @@ evidence and cannot change scientific labels.
 network call unless external calls are explicitly allowed and an API key is present.
 The `openalex` retrieval backend has the same fail-closed behavior and uses
 `OPENALEX_API_KEY`; retrieval artifacts remain non-verification context.
+The `lean` proof backend fails before tool execution unless external tools are explicitly allowed
+and a proof executable is configured.
 The output also includes provider-neutral capability descriptors for the fake, OpenAI candidate,
-OpenAI reviewer, and OpenAlex retrieval backends.
+OpenAI reviewer, OpenAlex retrieval, and Lean proof backends.
 
 ## Foundation and Inspection
 
@@ -276,5 +294,5 @@ normalization, storage protocol conformance, and fixed-clock pipeline timestamps
 configuration is required; normal commands continue to use the UTC system clock.
 
 Default commands do not call external APIs, real Lean, real experiments, Docker, a server, or a
-frontend. Only the explicitly gated Stage A OpenAI and Stage B OpenAlex commands above may call an
-external API.
+frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, and
+Stage C Lean commands above may call an external API or local external proof tool.

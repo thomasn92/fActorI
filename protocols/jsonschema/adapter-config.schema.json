@@ -15,6 +15,11 @@
       "title": "Allow External Calls",
       "type": "boolean"
     },
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
     "api_key": {
       "anyOf": [
         {
@@ -46,6 +51,31 @@
       "minLength": 1,
       "title": "Llm Model",
       "type": "string"
+    },
+    "proof_backend": {
+      "default": "fake",
+      "minLength": 1,
+      "title": "Proof Backend",
+      "type": "string"
+    },
+    "proof_executable": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Proof Executable"
+    },
+    "proof_timeout_seconds": {
+      "default": 10,
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Proof Timeout Seconds",
+      "type": "integer"
     },
     "retrieval_api_key": {
       "anyOf": [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -45,6 +46,7 @@ from factori.adapters.llm_real import (
     OpenAIResponsesTransport,
 )
 from factori.adapters.llm_review import FakeReviewerClient, OpenAIReviewerClient
+from factori.adapters.proof_real import LeanProofVerifier, ProofToolRunner
 from factori.adapters.retrieval_real import (
     OpenAlexRetrievalClient,
     OpenAlexTransport,
@@ -90,6 +92,7 @@ def get_adapter_registry(
     reviewer_transport: LLMTransport | None = None,
     retrieval_transport: RetrievalTransport | None = None,
     retrieval_clock: Callable[[], str] | None = None,
+    proof_runner: ProofToolRunner | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> AdapterRegistry:
     """Build fake defaults plus explicitly gated Stage A and Stage B adapters."""
@@ -194,19 +197,46 @@ def get_adapter_registry(
             allow_external_calls=True,
             **retrieval_kwargs,
         )
+    _require_backend(
+        loaded.proof_backend,
+        kind="proof",
+        capability="proof",
+        label="Proof",
+    )
+    proof_verifier: ProofVerifier = FakeProofVerifier()
+    if loaded.proof_backend in {"lean", "real_proof"}:
+        if not loaded.allow_external_tools:
+            raise AdapterExternalCallsDisabled(
+                "External proof tools are disabled. Set allow_external_tools=true to use "
+                "real proof adapters."
+            )
+        executable = loaded.proof_executable
+        if not executable or (proof_runner is None and shutil.which(executable) is None):
+            raise AdapterConfigurationError(
+                "Real proof adapter requested but proof executable is not configured or "
+                "not found."
+            )
+        proof_verifier = LeanProofVerifier(
+            proof_executable=executable,
+            runner=proof_runner,
+            timeout_seconds=loaded.proof_timeout_seconds,
+            allow_external_tools=True,
+        )
     return AdapterRegistry(
         config=loaded,
         descriptor=AdapterRegistryDescriptor(
             active_candidate_backend=loaded.adapter_backend,
             active_reviewer_backend=loaded.reviewer_backend,
             active_retrieval_backend=loaded.retrieval_backend,
+            active_proof_backend=loaded.proof_backend,
             allow_external_calls=loaded.allow_external_calls,
+            allow_external_tools=loaded.allow_external_tools,
             providers=get_provider_descriptors(),
         ),
         llm=llm,
         retrieval=retrieval,
         reviewer=reviewer,
-        proof_verifier=FakeProofVerifier(),
+        proof_verifier=proof_verifier,
         experiment_runner=FakeExperimentRunner(),
         prose_generator=FakeProseGenerator(),
         human_review=FakeHumanReviewClient(),

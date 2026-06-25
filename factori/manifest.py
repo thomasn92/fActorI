@@ -17,6 +17,7 @@ from factori.schemas import (
 )
 
 EVIDENCE_ROLES = {
+    "proof",
     "fake_proof",
     "fake_synthetic_experiment",
     "retrieval_evidence",
@@ -161,7 +162,7 @@ def _is_evidence_entry(artifact: ArtifactRef) -> bool:
         return False
     if (
         artifact.type == ArtifactType.LEAN
-        and artifact.metadata.get("evidence_role") == "fake_proof"
+        and artifact.metadata.get("evidence_role") in {"fake_proof", "proof"}
     ):
         return True
     if (

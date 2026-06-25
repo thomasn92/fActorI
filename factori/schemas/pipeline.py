@@ -61,6 +61,10 @@ class PipelineRunConfig(StrictModel):
     use_llm_reviewers: bool = False
     reviewer_model: str = "gpt-5-mini"
     reviewer_max_objections: int = Field(default=5, ge=1, le=20)
+    proof_backend: str = "fake"
+    allow_external_tools: bool = False
+    proof_executable: str | None = None
+    proof_timeout_seconds: int = Field(default=10, ge=1, le=60)
     stop_after: PipelineStage | None = None
     start_at: PipelineStage | None = None
     skip_replay: bool = False

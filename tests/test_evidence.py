@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from factori.evidence import (
     PROOF_EVIDENCE_ROLE,
+    REAL_PROOF_EVIDENCE_ROLE,
     SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE,
     claim_label_allowed,
 )
@@ -21,6 +22,16 @@ def test_proof_evidence_required_for_lean_verified() -> None:
     assert claim_label_allowed(VerificationLabel.LEAN_VERIFIED, [proof])
     assert not claim_label_allowed(VerificationLabel.LEAN_VERIFIED, [unlinked_proof])
     assert not claim_label_allowed(VerificationLabel.LEAN_VERIFIED, [])
+
+
+def test_real_proof_evidence_role_can_support_lean_verified() -> None:
+    proof = _artifact(
+        artifact_type=ArtifactType.LEAN,
+        path="runs/run-1/lean/proof-result-candidate.json",
+        metadata={"evidence_role": REAL_PROOF_EVIDENCE_ROLE},
+    )
+
+    assert claim_label_allowed(VerificationLabel.LEAN_VERIFIED, [proof])
 
 
 def test_synthetic_experiment_evidence_required_for_synthetic_verified() -> None:
