@@ -95,6 +95,7 @@ from factori.schemas.enums import (
     DiagnosticSeverity,
     DiagnosticStatus,
     DryRunStatus,
+    ExperimentKind,
     FinalNucleusType,
     LedgerTipStatus,
     NarrativeSectionRole,
@@ -204,6 +205,8 @@ from factori.schemas.stages import (
     UncertaintyEstimate,
 )
 from factori.schemas.verification import (
+    ExperimentRunContract,
+    ExperimentRunResult,
     FakeExperimentResult,
     FakeProofResult,
     ProofVerificationContract,
@@ -220,6 +223,7 @@ __all__ = [
     "DataRequirement",
     "MVP_ADMISSIBLE_DATA_REQUIREMENTS",
     "VerificationLabel",
+    "ExperimentKind",
     "NarrativeSectionRole",
     "PaperShapeStatus",
     "BranchStatus",
@@ -293,6 +297,8 @@ __all__ = [
     "FakeExperimentResult",
     "ProofVerificationContract",
     "ProofVerificationResult",
+    "ExperimentRunContract",
+    "ExperimentRunResult",
     "VerificationState",
     "StageCVerificationRecord",
     "GeneratedSectionDraft",

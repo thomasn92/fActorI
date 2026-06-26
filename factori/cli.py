@@ -20,6 +20,9 @@ from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
     DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    DEFAULT_EXPERIMENT_BACKEND,
+    DEFAULT_EXPERIMENT_REPLICATIONS,
+    DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
     DEFAULT_LLM_MODEL,
     DEFAULT_PROOF_BACKEND,
     DEFAULT_PROOF_TIMEOUT_SECONDS,
@@ -346,6 +349,22 @@ def show_adapters_command(
         int,
         typer.Option("--proof-timeout-seconds"),
     ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
+    experiment_backend: Annotated[
+        str,
+        typer.Option("--experiment-backend"),
+    ] = DEFAULT_EXPERIMENT_BACKEND,
+    experiment_runner: Annotated[
+        str | None,
+        typer.Option("--experiment-runner"),
+    ] = None,
+    experiment_timeout_seconds: Annotated[
+        int,
+        typer.Option("--experiment-timeout-seconds"),
+    ] = DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
+    experiment_replications: Annotated[
+        int,
+        typer.Option("--experiment-replications"),
+    ] = DEFAULT_EXPERIMENT_REPLICATIONS,
 ) -> None:
     """Show the active adapter registry without calling any backend."""
     try:
@@ -363,6 +382,10 @@ def show_adapters_command(
                 allow_external_tools=allow_external_tools,
                 proof_executable=proof_executable,
                 proof_timeout_seconds=proof_timeout_seconds,
+                experiment_backend=experiment_backend,
+                experiment_runner=experiment_runner,
+                experiment_timeout_seconds=experiment_timeout_seconds,
+                experiment_replications=experiment_replications,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -380,6 +403,10 @@ def show_adapters_command(
     typer.echo(f"allow_external_tools={str(registry.config.allow_external_tools).lower()}")
     typer.echo(f"proof_executable={registry.config.proof_executable or 'not_configured'}")
     typer.echo(f"proof_timeout_seconds={registry.config.proof_timeout_seconds}")
+    typer.echo(f"experiment_backend={registry.config.experiment_backend}")
+    typer.echo(f"experiment_runner={registry.config.experiment_runner or 'not_configured'}")
+    typer.echo(f"experiment_timeout_seconds={registry.config.experiment_timeout_seconds}")
+    typer.echo(f"experiment_replications={registry.config.experiment_replications}")
     for name, class_name in registry.class_names().items():
         typer.echo(f"{name}={class_name}")
     for descriptor in registry.provider_descriptors():
@@ -660,6 +687,22 @@ def run_all_command(
         int,
         typer.Option("--proof-timeout-seconds"),
     ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
+    experiment_backend: Annotated[
+        str,
+        typer.Option("--experiment-backend"),
+    ] = DEFAULT_EXPERIMENT_BACKEND,
+    experiment_runner: Annotated[
+        str | None,
+        typer.Option("--experiment-runner"),
+    ] = None,
+    experiment_timeout_seconds: Annotated[
+        int,
+        typer.Option("--experiment-timeout-seconds"),
+    ] = DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
+    experiment_replications: Annotated[
+        int,
+        typer.Option("--experiment-replications"),
+    ] = DEFAULT_EXPERIMENT_REPLICATIONS,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -698,6 +741,10 @@ def run_all_command(
         allow_external_tools=allow_external_tools,
         proof_executable=proof_executable,
         proof_timeout_seconds=proof_timeout_seconds,
+        experiment_backend=experiment_backend,
+        experiment_runner=experiment_runner,
+        experiment_timeout_seconds=experiment_timeout_seconds,
+        experiment_replications=experiment_replications,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -796,6 +843,22 @@ def plan_run_command(
         int,
         typer.Option("--proof-timeout-seconds"),
     ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
+    experiment_backend: Annotated[
+        str,
+        typer.Option("--experiment-backend"),
+    ] = DEFAULT_EXPERIMENT_BACKEND,
+    experiment_runner: Annotated[
+        str | None,
+        typer.Option("--experiment-runner"),
+    ] = None,
+    experiment_timeout_seconds: Annotated[
+        int,
+        typer.Option("--experiment-timeout-seconds"),
+    ] = DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
+    experiment_replications: Annotated[
+        int,
+        typer.Option("--experiment-replications"),
+    ] = DEFAULT_EXPERIMENT_REPLICATIONS,
     stop_after: Annotated[PipelineStage | None, typer.Option("--stop-after")] = None,
     start_at: Annotated[PipelineStage | None, typer.Option("--start-at")] = None,
     skip_replay: Annotated[bool, typer.Option("--skip-replay")] = False,
@@ -833,6 +896,10 @@ def plan_run_command(
         allow_external_tools=allow_external_tools,
         proof_executable=proof_executable,
         proof_timeout_seconds=proof_timeout_seconds,
+        experiment_backend=experiment_backend,
+        experiment_runner=experiment_runner,
+        experiment_timeout_seconds=experiment_timeout_seconds,
+        experiment_replications=experiment_replications,
         stop_after=stop_after,
         start_at=start_at,
         skip_replay=skip_replay,
@@ -1052,6 +1119,22 @@ def run_stage_c_command(
         int,
         typer.Option("--proof-timeout-seconds"),
     ] = DEFAULT_PROOF_TIMEOUT_SECONDS,
+    experiment_backend: Annotated[
+        str,
+        typer.Option("--experiment-backend"),
+    ] = DEFAULT_EXPERIMENT_BACKEND,
+    experiment_runner: Annotated[
+        str | None,
+        typer.Option("--experiment-runner"),
+    ] = None,
+    experiment_timeout_seconds: Annotated[
+        int,
+        typer.Option("--experiment-timeout-seconds"),
+    ] = DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
+    experiment_replications: Annotated[
+        int,
+        typer.Option("--experiment-replications"),
+    ] = DEFAULT_EXPERIMENT_REPLICATIONS,
     rerun_policy: Annotated[
         str,
         typer.Option("--rerun-policy"),
@@ -1074,6 +1157,10 @@ def run_stage_c_command(
                 allow_external_tools=allow_external_tools,
                 proof_executable=proof_executable,
                 proof_timeout_seconds=proof_timeout_seconds,
+                experiment_backend=experiment_backend,
+                experiment_runner=experiment_runner,
+                experiment_timeout_seconds=experiment_timeout_seconds,
+                experiment_replications=experiment_replications,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -1091,6 +1178,11 @@ def run_stage_c_command(
                 if registry.config.proof_backend != "fake"
                 else None
             ),
+            experiment_runner=(
+                registry.experiment_runner
+                if registry.config.experiment_backend != "fake"
+                else None
+            ),
         )
     except StageCError as exc:
         typer.echo(str(exc), err=True)
@@ -1103,7 +1195,16 @@ def run_stage_c_command(
     typer.echo(f"stage_c_ready={len(result.stage_c_ready_candidates)}")
     typer.echo(f"fake_proof_runs={fake_proof_runs}")
     typer.echo(f"real_proof_runs={len(result.proof_results) - fake_proof_runs}")
-    typer.echo(f"fake_synthetic_experiments={len(result.experiment_results)}")
+    fake_experiment_runs = sum(
+        1
+        for experiment_result in result.experiment_results.values()
+        if getattr(experiment_result, "fake", False)
+    )
+    typer.echo(f"fake_synthetic_experiments={fake_experiment_runs}")
+    typer.echo(
+        "real_synthetic_experiments="
+        f"{len(result.experiment_results) - fake_experiment_runs}"
+    )
     typer.echo(f"lean_verified={labels.count(VerificationLabel.LEAN_VERIFIED)}")
     typer.echo(
         "synthetic_experiment_verified="
@@ -1115,6 +1216,7 @@ def run_stage_c_command(
     typer.echo(f"unsupported={labels.count(VerificationLabel.UNSUPPORTED)}")
     typer.echo(f"stage_c_report={result.report_artifact.path}")
     typer.echo(f"proof_backend={result.proof_backend_metadata['backend']}")
+    typer.echo(f"experiment_backend={result.experiment_backend_metadata['backend']}")
 
 
 @app.command("synthesize-abstract")

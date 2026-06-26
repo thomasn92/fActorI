@@ -29,6 +29,15 @@ from factori.adapters.errors import (
     AdapterSafetyError,
     AdapterTransportError,
 )
+from factori.adapters.experiment_contracts import build_experiment_run_contract
+from factori.adapters.experiment_real import (
+    ExperimentToolRunResult,
+    LocalSyntheticExperimentRunner,
+)
+from factori.adapters.experiment_safety import (
+    validate_experiment_contract,
+    validate_experiment_result,
+)
 from factori.adapters.fake import (
     FakeExperimentRunner,
     FakeHumanReviewClient,
@@ -93,6 +102,7 @@ __all__ = [
     "FakeReviewerClient",
     "HumanReviewClient",
     "LeanProofVerifier",
+    "LocalSyntheticExperimentRunner",
     "LLMClient",
     "OpenAILLMClient",
     "OpenAIResponsesTransport",
@@ -101,6 +111,7 @@ __all__ = [
     "OpenAlexTransport",
     "ProofVerifier",
     "ProofToolRunResult",
+    "ExperimentToolRunResult",
     "ProseGenerator",
     "RetrievalClient",
     "ReviewerClient",
@@ -110,6 +121,7 @@ __all__ = [
     "build_stage_b_reviewer_prompt",
     "build_retrieval_query",
     "build_proof_verification_contract",
+    "build_experiment_run_contract",
     "load_adapter_config",
     "parse_llm_candidate_response",
     "parse_llm_reviewer_response",
@@ -118,5 +130,7 @@ __all__ = [
     "validate_llm_reviewer_report",
     "validate_proof_contract",
     "validate_proof_result",
+    "validate_experiment_contract",
+    "validate_experiment_result",
     "validate_retrieval_result",
 ]

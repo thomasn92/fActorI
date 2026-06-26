@@ -56,6 +56,7 @@ class AdapterRegistryDescriptor:
     active_reviewer_backend: str
     active_retrieval_backend: str
     active_proof_backend: str
+    active_experiment_backend: str
     allow_external_calls: bool
     allow_external_tools: bool
     providers: tuple[AdapterProviderDescriptor, ...]
@@ -116,6 +117,16 @@ LEAN_PROOF_DESCRIPTOR = AdapterProviderDescriptor(
     requires_api_key=False,
     aliases=("real_proof",),
 )
+LOCAL_SYNTHETIC_EXPERIMENT_DESCRIPTOR = AdapterProviderDescriptor(
+    backend_name="local_synthetic",
+    provider_name="local",
+    adapter_kind="experiment",
+    supports_experiments=True,
+    requires_external_calls=False,
+    requires_external_tools=True,
+    requires_api_key=False,
+    aliases=("real_experiment",),
+)
 
 PROVIDER_DESCRIPTORS = (
     FAKE_DESCRIPTOR,
@@ -123,6 +134,7 @@ PROVIDER_DESCRIPTORS = (
     OPENAI_REVIEWER_DESCRIPTOR,
     OPENALEX_RETRIEVAL_DESCRIPTOR,
     LEAN_PROOF_DESCRIPTOR,
+    LOCAL_SYNTHETIC_EXPERIMENT_DESCRIPTOR,
 )
 
 
@@ -183,6 +195,7 @@ __all__ = [
     "AdapterRegistryDescriptor",
     "FAKE_DESCRIPTOR",
     "LEAN_PROOF_DESCRIPTOR",
+    "LOCAL_SYNTHETIC_EXPERIMENT_DESCRIPTOR",
     "OPENAI_CANDIDATE_DESCRIPTOR",
     "OPENAI_REVIEWER_DESCRIPTOR",
     "OPENALEX_RETRIEVAL_DESCRIPTOR",

@@ -11,6 +11,9 @@ from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
     DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    DEFAULT_EXPERIMENT_BACKEND,
+    DEFAULT_EXPERIMENT_REPLICATIONS,
+    DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
     DEFAULT_LLM_MODEL,
     DEFAULT_PROOF_BACKEND,
     DEFAULT_PROOF_TIMEOUT_SECONDS,
@@ -51,6 +54,18 @@ class AdapterConfig(StrictModel):
     allow_external_tools: bool = DEFAULT_ALLOW_EXTERNAL_TOOLS
     proof_executable: str | None = None
     proof_timeout_seconds: int = Field(default=DEFAULT_PROOF_TIMEOUT_SECONDS, ge=1, le=60)
+    experiment_backend: str = Field(default=DEFAULT_EXPERIMENT_BACKEND, min_length=1)
+    experiment_runner: str | None = None
+    experiment_timeout_seconds: int = Field(
+        default=DEFAULT_EXPERIMENT_TIMEOUT_SECONDS,
+        ge=1,
+        le=60,
+    )
+    experiment_replications: int = Field(
+        default=DEFAULT_EXPERIMENT_REPLICATIONS,
+        ge=1,
+        le=100,
+    )
 
     @field_validator("adapter_backend")
     @classmethod
@@ -84,6 +99,14 @@ class AdapterConfig(StrictModel):
             raise ValueError("proof_backend must not be empty")
         return normalized
 
+    @field_validator("experiment_backend")
+    @classmethod
+    def normalize_experiment_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("experiment_backend must not be empty")
+        return normalized
+
     @field_validator(
         "llm_model",
         "api_key_env",
@@ -98,7 +121,7 @@ class AdapterConfig(StrictModel):
             raise ValueError("adapter text configuration must not be empty")
         return normalized
 
-    @field_validator("proof_executable")
+    @field_validator("proof_executable", "experiment_runner")
     @classmethod
     def strip_optional_text(cls, value: str | None) -> str | None:
         if value is None:

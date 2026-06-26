@@ -157,7 +157,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.3.0/run-status-report.schema.json",
+  "$id": "https://schemas.factori.local/0.4.0/run-status-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only run status report.",
@@ -337,7 +337,7 @@
   ],
   "title": "RunStatusReport",
   "type": "object",
-  "x-factori-protocol-version": "0.3.0",
+  "x-factori-protocol-version": "0.4.0",
   "x-factori-source-model": "factori.schemas.RunStatusReport",
   "x-factori-verification-evidence": false
 }

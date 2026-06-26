@@ -23,8 +23,10 @@ from factori.schemas import (
     DiagnosticReport,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
+    ExperimentKind,
+    ExperimentRunContract,
+    ExperimentRunResult,
     ExportReadinessReport,
-    FakeExperimentResult,
     FinalAuditReport,
     FinalNucleus,
     GeneratedSectionDraft,
@@ -79,7 +81,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.3.0"
+PROTOCOL_VERSION = "0.4.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -111,6 +113,13 @@ class ProofBackend(StrEnum):
 
     FAKE = "fake"
     LEAN = "lean"
+
+
+class ExperimentBackend(StrEnum):
+    """Synthetic experiment backend names exposed by the protocol layer."""
+
+    FAKE = "fake"
+    LOCAL_SYNTHETIC = "local_synthetic"
 
 
 @dataclass(frozen=True)
@@ -222,8 +231,13 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ),
     ProtocolDefinition(
         "ExperimentRunResult",
-        FakeExperimentResult,
-        "Current fake synthetic-experiment result shape.",
+        ExperimentRunResult,
+        "Provider-neutral synthetic experiment result for gated local backends.",
+    ),
+    ProtocolDefinition(
+        "ExperimentRunContract",
+        ExperimentRunContract,
+        "Provider-neutral synthetic experiment request contract.",
     ),
     ProtocolDefinition("Claim", Claim, "One label-preserving research claim."),
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
@@ -368,6 +382,8 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("RetrievalBackend", RetrievalBackend, "Retrieval backend enum."),
     ProtocolDefinition("ReviewerBackend", ReviewerBackend, "Reviewer backend enum."),
     ProtocolDefinition("ProofBackend", ProofBackend, "Proof backend enum."),
+    ProtocolDefinition("ExperimentBackend", ExperimentBackend, "Experiment backend enum."),
+    ProtocolDefinition("ExperimentKind", ExperimentKind, "Synthetic experiment kind enum."),
     ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
     ProtocolDefinition(
         "ProtocolCompatibilityStatus",
@@ -403,6 +419,8 @@ __all__ = [
     "PROTOCOL_VERSION",
     "SCHEMA_FORMAT",
     "AdapterBackend",
+    "ExperimentBackend",
+    "ExperimentKind",
     "ProofBackend",
     "ProtocolDefinition",
     "RetrievalBackend",

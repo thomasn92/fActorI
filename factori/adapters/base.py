@@ -21,13 +21,16 @@ from factori.schemas import (
     ReviewReport,
 )
 from factori.schemas import (
+    ExperimentRunResult as RealExperimentRunResult,
+)
+from factori.schemas import (
     ProofVerificationResult as RealProofVerificationResult,
 )
 
 CandidateLike = Candidate
 ReviewerLike = ReviewReport
 ProofVerificationResult = FakeProofResult | RealProofVerificationResult
-ExperimentRunResult = FakeExperimentResult
+ExperimentRunResult = FakeExperimentResult | RealExperimentRunResult
 
 
 class AdapterClient(Protocol):

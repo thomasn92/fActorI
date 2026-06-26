@@ -297,18 +297,25 @@ def render_stage_c_verification_report(
     proof_results: dict[str, object],
     experiment_results: dict[str, object],
     proof_backend_metadata: dict[str, object] | None = None,
+    experiment_backend_metadata: dict[str, object] | None = None,
 ) -> str:
     """Render the deterministic fake Stage C verification report."""
     labels = [record.label for record in verification_records.values()]
     proof_backend = proof_backend_metadata or {"backend": "fake", "fake": True}
+    experiment_backend = experiment_backend_metadata or {"backend": "fake", "fake": True}
     fake_proof_runs = sum(
         1 for result in proof_results.values() if getattr(result, "fake", False)
     )
     real_proof_runs = len(proof_results) - fake_proof_runs
+    fake_experiment_runs = sum(
+        1 for result in experiment_results.values() if getattr(result, "fake", False)
+    )
+    real_experiment_runs = len(experiment_results) - fake_experiment_runs
     lines = [
         "# Stage C Verification Report",
         "",
-        "Deterministic MVP validation only; this is not real Lean or real experiment evidence.",
+        "Deterministic MVP validation only; this is not scientific validation or "
+        "real-world empirical evidence.",
         "",
         f"Run: `{run_id}`",
         "",
@@ -316,9 +323,11 @@ def render_stage_c_verification_report(
         "",
         f"- Stage C ready candidates: {len(stage_c_ready)}",
         f"- Proof backend: {proof_backend.get('backend', 'fake')}",
+        f"- Experiment backend: {experiment_backend.get('backend', 'fake')}",
         f"- Fake proof runs: {fake_proof_runs}",
         f"- Real proof runs: {real_proof_runs}",
-        f"- Fake synthetic experiments: {len(experiment_results)}",
+        f"- Fake synthetic experiments: {fake_experiment_runs}",
+        f"- Real synthetic experiments: {real_experiment_runs}",
         f"- LeanVerified: {labels.count(VerificationLabel.LEAN_VERIFIED)}",
         f"- SyntheticExperimentVerified: "
         f"{labels.count(VerificationLabel.SYNTHETIC_EXPERIMENT_VERIFIED)}",
@@ -345,7 +354,9 @@ def render_stage_c_verification_report(
             "## Evidence Boundary",
             "",
             "- LeanVerified requires a linked proof artifact under `lean/`.",
-            "- SyntheticExperimentVerified requires a linked fake synthetic experiment artifact.",
+            "- SyntheticExperimentVerified requires a linked synthetic experiment artifact.",
+            "- Synthetic experiment evidence remains synthetic-only and cannot validate "
+            "real-world claims.",
             "- RealDataExperimentVerified is never produced in the MVP.",
             "- LaTeX and Markdown presentation artifacts are not verification evidence.",
         ]

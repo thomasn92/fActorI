@@ -39,12 +39,13 @@
 | 34 | Stage B internal phase refactor: split `run_stage_b` into deterministic internal phases while preserving the public entry point | `stage_b.py`, `stage_b_phases.py` | `run-stage-b` | Refactor-only; Stage B artifacts, report layout, scoring, gates, and ledger actions remain compatible |
 | 35 | Shared artifact persistence helpers for Stage A and Stage B output artifacts and producing commits | `persistence.py`, `stage_a.py`, `stage0.py`, `retrieval.py`, `stage_b_phases.py` | Existing commands unchanged | Refactor-only; artifact IDs, paths, reports, ledger action types, and protocol output remain compatible |
 | 36 | Gated local proof-verification adapter with fake defaults, strict proof contracts, and proof-evidence safety checks | `adapters/proof_real.py`, `adapters/proof_contracts.py`, `adapters/proof_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --proof-backend lean --allow-external-tools --proof-executable <tool>` | Fake default behavior unchanged; real proof artifacts are hashed and ledgered only after explicit local-tool opt-in |
+| 37 | Gated local synthetic experiment runner with fake defaults, strict experiment contracts, and synthetic-evidence safety checks | `adapters/experiment_real.py`, `adapters/experiment_contracts.py`, `adapters/experiment_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --experiment-backend local_synthetic --allow-external-tools --experiment-runner <tool>` | Fake default behavior unchanged; local synthetic artifacts are hashed and ledgered only after explicit local-tool opt-in and cannot support real-data validation |
 
 ## Current Boundary
 
 Milestones through 36 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
-Stage C local proof checking. They do not implement autonomous
+Stage C local proof checking, and Stage C controlled local synthetic experiment execution. They do not implement autonomous
 real agents, complete scientific literature coverage, Docker experiments, LLM
 synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
 reviews are critiques only and are not scientific validation. Narrative paper-shape critiques are
@@ -58,4 +59,6 @@ while `run_stage_b` remains the stable public API. Stage A and Stage B artifact 
 share helpers for the normal write-artifact, append-commit, and producing-commit link sequence
 without changing stage-specific decisions or public outputs. The Lean proof adapter is local,
 disabled by default, runner-injected in tests, and has no authority unless proof contracts, tool
-results, trace artifacts, and safety checks all pass.
+results, trace artifacts, and safety checks all pass. The local synthetic experiment adapter is
+also disabled by default, runner-injected in tests, and can support only SyntheticOnly claims when
+contracts, metrics, output/trace artifacts, and safety checks all pass.

@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "DataRequirement": {
+      "description": "Data access regimes from the MVP data gate.",
+      "enum": [
+        "NoData",
+        "SyntheticOnly",
+        "PublicDownload",
+        "UserProvided"
+      ],
+      "title": "DataRequirement",
+      "type": "string"
+    },
+    "ExperimentKind": {
+      "description": "Conservative synthetic experiment kinds supported by the gated MVP seam.",
+      "enum": [
+        "SyntheticSimulation",
+        "SyntheticAblation",
+        "SyntheticRobustnessCheck",
+        "NoDataSanityCheck"
+      ],
+      "title": "ExperimentKind",
+      "type": "string"
+    },
     "VerificationLabel": {
       "description": "Verification and epistemic labels required by the specification.",
       "enum": [
@@ -16,102 +38,167 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.3.0/experiment-run-result.schema.json",
+  "$id": "https://schemas.factori.local/0.4.0/experiment-run-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Current fake synthetic-experiment result shape.",
+  "description": "Provider-neutral synthetic experiment result for gated local backends.",
   "properties": {
-    "ablation_passed": {
-      "title": "Ablation Passed",
-      "type": "boolean"
+    "acceptance_criteria": {
+      "additionalProperties": true,
+      "title": "Acceptance Criteria",
+      "type": "object"
     },
-    "baseline_strong": {
-      "title": "Baseline Strong",
-      "type": "boolean"
-    },
-    "baseline_value": {
-      "title": "Baseline Value",
-      "type": "number"
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
     },
     "candidate_id": {
       "minLength": 1,
       "title": "Candidate Id",
       "type": "string"
     },
-    "delta": {
-      "title": "Delta",
-      "type": "number"
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "data_regime": {
+      "$ref": "#/$defs/DataRequirement"
+    },
+    "elapsed_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Elapsed Ms"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
     },
     "experiment_id": {
       "minLength": 1,
       "title": "Experiment Id",
       "type": "string"
     },
+    "experiment_kind": {
+      "$ref": "#/$defs/ExperimentKind"
+    },
     "fake": {
-      "default": true,
+      "default": false,
       "title": "Fake",
       "type": "boolean"
     },
-    "generator_name": {
-      "minLength": 1,
-      "title": "Generator Name",
+    "input_spec_hash": {
+      "title": "Input Spec Hash",
       "type": "string"
-    },
-    "generator_parameters": {
-      "additionalProperties": true,
-      "title": "Generator Parameters",
-      "type": "object"
     },
     "label": {
       "$ref": "#/$defs/VerificationLabel"
     },
-    "lcb_95": {
-      "title": "Lcb 95",
-      "type": "number"
+    "metrics": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Metrics",
+      "type": "object"
     },
-    "metric_name": {
-      "minLength": 1,
-      "title": "Metric Name",
+    "output_payload_hash": {
+      "title": "Output Payload Hash",
       "type": "string"
     },
-    "metric_value": {
-      "title": "Metric Value",
-      "type": "number"
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
     },
-    "predeclared_delta": {
-      "title": "Predeclared Delta",
-      "type": "number"
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "raw_trace_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Raw Trace Artifact Id"
     },
     "reason": {
       "minLength": 1,
       "title": "Reason",
       "type": "string"
     },
-    "seed": {
-      "title": "Seed",
-      "type": "integer"
+    "runner_name": {
+      "minLength": 1,
+      "title": "Runner Name",
+      "type": "string"
+    },
+    "runner_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Version"
+    },
+    "safety_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Safety Report Artifact Id"
+    },
+    "stderr_hash": {
+      "title": "Stderr Hash",
+      "type": "string"
+    },
+    "stdout_hash": {
+      "title": "Stdout Hash",
+      "type": "string"
     }
   },
   "required": [
     "candidate_id",
+    "claim_id",
     "experiment_id",
-    "generator_name",
-    "generator_parameters",
-    "seed",
-    "metric_name",
-    "metric_value",
-    "baseline_value",
-    "delta",
-    "predeclared_delta",
-    "lcb_95",
-    "ablation_passed",
-    "baseline_strong",
+    "backend",
+    "provider",
+    "experiment_kind",
+    "data_regime",
+    "runner_name",
+    "exit_code",
+    "stdout_hash",
+    "stderr_hash",
+    "input_spec_hash",
+    "output_payload_hash",
+    "passed",
     "label",
     "reason"
   ],
   "title": "ExperimentRunResult",
   "type": "object",
-  "x-factori-protocol-version": "0.3.0",
-  "x-factori-source-model": "factori.schemas.FakeExperimentResult",
+  "x-factori-protocol-version": "0.4.0",
+  "x-factori-source-model": "factori.schemas.ExperimentRunResult",
   "x-factori-verification-evidence": false
 }

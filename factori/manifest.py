@@ -20,6 +20,7 @@ EVIDENCE_ROLES = {
     "proof",
     "fake_proof",
     "fake_synthetic_experiment",
+    "synthetic_experiment",
     "retrieval_evidence",
     "literature_evidence",
 }
@@ -167,7 +168,8 @@ def _is_evidence_entry(artifact: ArtifactRef) -> bool:
         return True
     if (
         artifact.type == ArtifactType.EXPERIMENT
-        and artifact.metadata.get("evidence_role") == "fake_synthetic_experiment"
+        and artifact.metadata.get("evidence_role")
+        in {"fake_synthetic_experiment", "synthetic_experiment"}
     ):
         return True
     if artifact.type == ArtifactType.LITERATURE:

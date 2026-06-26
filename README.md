@@ -69,6 +69,8 @@ Implemented so far:
   safety checks, ledgered context artifacts, and no verification or publication authority;
 - an explicitly gated local Lean proof adapter for Stage C mathematical branches, with proof
   contracts, trace/result hashes, safety checks, and no default proof-tool execution;
+- an explicitly gated local synthetic experiment runner for Stage C SyntheticOnly branches, with
+  contracts, input/output/trace hashes, safety checks, and no default experiment-tool execution;
 - versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
 - conservative read-only protocol compatibility and schema-change classification;
 - server-facing run-control, adapter I/O, manifest, and enum protocol exports with JSON
@@ -78,7 +80,7 @@ Implemented so far:
 - Ruff configuration.
 
 Not implemented yet: LangGraph orchestration, real LLM synthesis/writing, complete or
-claim-verifying literature coverage, always-on Lean integration, real experiments, Docker, FastAPI, full
+claim-verifying literature coverage, always-on Lean integration, real empirical experiments, Docker, FastAPI, full
 manuscript synthesis, LaTeX paper generation, or a frontend.
 
 ## Install
@@ -154,7 +156,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.3.0
+  --old-version 0.1.0 --new-version 0.4.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -166,8 +168,8 @@ uv run factori validate-ledger-tip --run-id demo
 Default commands are local and deterministic. They do not call models, retrieval services, Lean,
 experiment runners, Docker, servers, or UI code. The gated Stage A OpenAI path described below is
 one explicit exception and is never selected by default. Stage B also has separately gated OpenAlex
-retrieval and OpenAI structural-review paths. Stage C has a separately gated local Lean proof path,
-also disabled by default.
+retrieval and OpenAI structural-review paths. Stage C has separately gated local Lean proof and
+local synthetic experiment paths, also disabled by default.
 
 `inspect-hygiene` is read-only. Its optional reports are written under
 `runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
@@ -206,7 +208,9 @@ uses the same provider transport for structural critique only. Both require exte
 plus `OPENAI_API_KEY`. A separately gated `openalex` retrieval backend supports Stage B source
 metadata and abstract context with `OPENALEX_API_KEY`. A separately gated `lean` proof backend
 supports Stage C mathematical branches through a local executable only when
-`allow_external_tools=true`. Experiment, prose, and human-review adapters remain fake.
+`allow_external_tools=true`. A separately gated `local_synthetic` backend supports Stage C
+SyntheticOnly branches through an explicitly configured runner only when
+`allow_external_tools=true`. Prose and human-review adapters remain fake.
 
 LLM output is validated locally, then passes through the existing data gate, scoring, deduplication,
 artifact store, and ledger. Requests, raw responses, parse reports, and proposals are not
@@ -223,6 +227,11 @@ coverage, claim correctness, or external-review readiness.
 Lean proof output is accepted only through explicit proof contracts, local-tool traces, proof
 result hashes, and safety validation. LLM output, reviewer reports, retrieval records, Markdown,
 LaTeX, and paper artifacts cannot justify `LeanVerified`.
+
+Local synthetic experiment output is accepted only through explicit experiment contracts,
+runner-input/output artifacts, local-tool traces, result hashes, and safety validation. It can
+support only `SyntheticExperimentVerified` for SyntheticOnly claims and cannot justify
+`RealDataExperimentVerified`, empirical validation, or mathematical proof labels.
 
 `show-adapters` prints both active adapter classes and provider capability metadata. Invalid
 backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,

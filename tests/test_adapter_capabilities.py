@@ -19,6 +19,7 @@ def test_provider_descriptors_are_deterministic() -> None:
         "openai",
         "openalex",
         "lean",
+        "local_synthetic",
     ]
 
 
@@ -28,6 +29,11 @@ def test_provider_descriptors_include_required_capability_flags() -> None:
     reviewer = find_descriptor("openai", kind="reviewer", capability="review")
     openalex = find_descriptor("openalex", kind="retrieval", capability="retrieval")
     lean = find_descriptor("lean", kind="proof", capability="proof")
+    experiment = find_descriptor(
+        "local_synthetic",
+        kind="experiment",
+        capability="experiments",
+    )
 
     assert fake is not None
     assert fake.is_fake is True
@@ -44,15 +50,21 @@ def test_provider_descriptors_include_required_capability_flags() -> None:
     assert lean.supports_proof is True
     assert lean.requires_external_tools is True
     assert lean.requires_external_calls is False
+    assert experiment is not None
+    assert experiment.supports_experiments is True
+    assert experiment.requires_external_tools is True
+    assert experiment.requires_external_calls is False
 
 
 def test_backend_aliases_are_available_for_supported_kinds() -> None:
     assert "real_llm" in backend_names_for_kind("llm")
     assert "real_retrieval" in backend_names_for_kind("retrieval")
     assert "real_proof" in backend_names_for_kind("proof")
+    assert "real_experiment" in backend_names_for_kind("experiment")
     assert find_descriptor("real_llm", kind="llm", capability="candidate_generation")
     assert find_descriptor("real_retrieval", kind="retrieval", capability="retrieval")
     assert find_descriptor("real_proof", kind="proof", capability="proof")
+    assert find_descriptor("real_experiment", kind="experiment", capability="experiments")
 
 
 def test_known_retrieval_providers_come_from_descriptors() -> None:

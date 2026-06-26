@@ -8,6 +8,7 @@ from factori.config import (
     DEFAULT_ADAPTER_BACKEND,
     DEFAULT_ALLOW_EXTERNAL_CALLS,
     DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    DEFAULT_EXPERIMENT_BACKEND,
     DEFAULT_PROOF_BACKEND,
 )
 
@@ -18,11 +19,13 @@ def test_default_adapter_config_is_fake_and_external_calls_are_disabled() -> Non
     assert config.adapter_backend == "fake"
     assert config.reviewer_backend == "fake"
     assert config.proof_backend == "fake"
+    assert config.experiment_backend == "fake"
     assert config.use_llm_reviewers is False
     assert config.allow_external_calls is False
     assert config.allow_external_tools is False
     assert DEFAULT_ADAPTER_BACKEND == "fake"
     assert DEFAULT_PROOF_BACKEND == "fake"
+    assert DEFAULT_EXPERIMENT_BACKEND == "fake"
     assert DEFAULT_ALLOW_EXTERNAL_CALLS is False
     assert DEFAULT_ALLOW_EXTERNAL_TOOLS is False
 

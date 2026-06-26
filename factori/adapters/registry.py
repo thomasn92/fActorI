@@ -32,6 +32,10 @@ from factori.adapters.errors import (
     AdapterExternalCallsDisabled,
     AdapterMissingCredentials,
 )
+from factori.adapters.experiment_real import (
+    ExperimentToolRunner,
+    LocalSyntheticExperimentRunner,
+)
 from factori.adapters.fake import (
     FakeExperimentRunner,
     FakeHumanReviewClient,
@@ -93,6 +97,7 @@ def get_adapter_registry(
     retrieval_transport: RetrievalTransport | None = None,
     retrieval_clock: Callable[[], str] | None = None,
     proof_runner: ProofToolRunner | None = None,
+    experiment_tool_runner: ExperimentToolRunner | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> AdapterRegistry:
     """Build fake defaults plus explicitly gated Stage A and Stage B adapters."""
@@ -222,6 +227,34 @@ def get_adapter_registry(
             timeout_seconds=loaded.proof_timeout_seconds,
             allow_external_tools=True,
         )
+    _require_backend(
+        loaded.experiment_backend,
+        kind="experiment",
+        capability="experiments",
+        label="Experiment",
+    )
+    experiment_runner: ExperimentRunner = FakeExperimentRunner()
+    if loaded.experiment_backend in {"local_synthetic", "real_experiment"}:
+        if not loaded.allow_external_tools:
+            raise AdapterExternalCallsDisabled(
+                "External experiment tools are disabled. Set allow_external_tools=true to use "
+                "real experiment adapters."
+            )
+        runner_name = loaded.experiment_runner
+        if not runner_name or (
+            experiment_tool_runner is None and shutil.which(runner_name) is None
+        ):
+            raise AdapterConfigurationError(
+                "Real experiment adapter requested but experiment runner is not configured or "
+                "not found."
+            )
+        experiment_runner = LocalSyntheticExperimentRunner(
+            runner_name=runner_name,
+            runner=experiment_tool_runner,
+            timeout_seconds=loaded.experiment_timeout_seconds,
+            replications=loaded.experiment_replications,
+            allow_external_tools=True,
+        )
     return AdapterRegistry(
         config=loaded,
         descriptor=AdapterRegistryDescriptor(
@@ -229,6 +262,7 @@ def get_adapter_registry(
             active_reviewer_backend=loaded.reviewer_backend,
             active_retrieval_backend=loaded.retrieval_backend,
             active_proof_backend=loaded.proof_backend,
+            active_experiment_backend=loaded.experiment_backend,
             allow_external_calls=loaded.allow_external_calls,
             allow_external_tools=loaded.allow_external_tools,
             providers=get_provider_descriptors(),
@@ -237,7 +271,7 @@ def get_adapter_registry(
         retrieval=retrieval,
         reviewer=reviewer,
         proof_verifier=proof_verifier,
-        experiment_runner=FakeExperimentRunner(),
+        experiment_runner=experiment_runner,
         prose_generator=FakeProseGenerator(),
         human_review=FakeHumanReviewClient(),
     )

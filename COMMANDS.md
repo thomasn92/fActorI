@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.3.0
+  --new-version 0.4.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -126,6 +126,9 @@ uv run factori select-stage-c --run-id demo
 uv run factori run-stage-c --run-id demo
 uv run factori run-stage-c --run-id demo \
   --proof-backend lean --allow-external-tools --proof-executable lean
+uv run factori run-stage-c --run-id demo \
+  --experiment-backend local_synthetic --allow-external-tools \
+  --experiment-runner local-runner
 uv run factori synthesize-abstract --run-id demo
 uv run factori plan-manuscript --run-id demo
 uv run factori critique-paper-shape --run-id demo
@@ -218,6 +221,23 @@ uv run factori run-all \
   --proof-backend lean --allow-external-tools --proof-executable lean
 ```
 
+Local synthetic experiment execution is separately gated and used only for Stage C SyntheticOnly
+branches. It requires explicit external-tool permission and an experiment runner. It never supports
+real-world empirical validation:
+
+```bash
+uv run factori show-adapters \
+  --experiment-backend local_synthetic --allow-external-tools \
+  --experiment-runner local-runner
+uv run factori run-stage-c \
+  --run-id demo --experiment-backend local_synthetic \
+  --allow-external-tools --experiment-runner local-runner
+uv run factori run-all \
+  --run-id synthetic-pipeline --domain "human geography" \
+  --experiment-backend local_synthetic --allow-external-tools \
+  --experiment-runner local-runner
+```
+
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
 `runs/demo/replay/` and does not append ledger commits or update the artifact manifest.
 
@@ -258,9 +278,10 @@ network call unless external calls are explicitly allowed and an API key is pres
 The `openalex` retrieval backend has the same fail-closed behavior and uses
 `OPENALEX_API_KEY`; retrieval artifacts remain non-verification context.
 The `lean` proof backend fails before tool execution unless external tools are explicitly allowed
-and a proof executable is configured.
+and a proof executable is configured. The `local_synthetic` experiment backend fails before tool
+execution unless external tools are explicitly allowed and an experiment runner is configured.
 The output also includes provider-neutral capability descriptors for the fake, OpenAI candidate,
-OpenAI reviewer, OpenAlex retrieval, and Lean proof backends.
+OpenAI reviewer, OpenAlex retrieval, Lean proof, and local synthetic experiment backends.
 
 ## Foundation and Inspection
 
@@ -293,6 +314,6 @@ Persistence tests cover atomic replacement, failed-write cleanup, final-byte has
 normalization, storage protocol conformance, and fixed-clock pipeline timestamps. No separate CLI
 configuration is required; normal commands continue to use the UTC system clock.
 
-Default commands do not call external APIs, real Lean, real experiments, Docker, a server, or a
+Default commands do not call external APIs, real Lean, experiment runners, Docker, a server, or a
 frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, and
-Stage C Lean commands above may call an external API or local external proof tool.
+Stage C Lean/local synthetic commands above may call an external API or local external tool.

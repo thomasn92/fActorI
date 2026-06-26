@@ -23,7 +23,7 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `StageResult` generated from `PipelineStageResult`;
 - `ReviewerReport` generated from `StageBReviewerReport`;
 - `ProofVerificationResult` generated from the provider-neutral proof result model;
-- `ExperimentRunResult` generated from `FakeExperimentResult`.
+- `ExperimentRunResult` generated from the provider-neutral synthetic experiment result model.
 - `RunSummary` generated from `LedgerSummary`;
 - `PipelineStagePlan` generated from `PlannedStage`;
 - `LLMReviewerPromptContract` generated from `ReviewerPromptContract`;
@@ -34,9 +34,9 @@ Public protocol names are stable even where internal Python names differ. Curren
 
 The generated schema records the qualified Python source model in
 `x-factori-source-model`. Fake proof and experiment schemas retain explicit `fake` fields where
-they are still exported or embedded. The provider-neutral proof result schema is only evidence when
-the owning run links validated proof artifacts; it does not make protocol examples scientific
-evidence.
+they are still exported or embedded. Provider-neutral proof and synthetic experiment result schemas
+are only evidence when the owning run links validated proof or experiment artifacts; protocol
+examples are not scientific evidence.
 Schema definitions are grouped internally under `factori/schemas/`, but generated protocols keep
 the stable `factori.schemas.<ModelName>` source-model path for compatibility.
 
@@ -71,7 +71,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.3.0
+  --new-version 0.4.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

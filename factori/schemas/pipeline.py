@@ -65,6 +65,10 @@ class PipelineRunConfig(StrictModel):
     allow_external_tools: bool = False
     proof_executable: str | None = None
     proof_timeout_seconds: int = Field(default=10, ge=1, le=60)
+    experiment_backend: str = "fake"
+    experiment_runner: str | None = None
+    experiment_timeout_seconds: int = Field(default=10, ge=1, le=60)
+    experiment_replications: int = Field(default=5, ge=1, le=100)
     stop_after: PipelineStage | None = None
     start_at: PipelineStage | None = None
     skip_replay: bool = False

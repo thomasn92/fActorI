@@ -37,6 +37,15 @@ class VerificationLabel(StrEnum):
     UNSUPPORTED = "Unsupported"
 
 
+class ExperimentKind(StrEnum):
+    """Conservative synthetic experiment kinds supported by the gated MVP seam."""
+
+    SYNTHETIC_SIMULATION = "SyntheticSimulation"
+    SYNTHETIC_ABLATION = "SyntheticAblation"
+    SYNTHETIC_ROBUSTNESS_CHECK = "SyntheticRobustnessCheck"
+    NO_DATA_SANITY_CHECK = "NoDataSanityCheck"
+
+
 class NarrativeSectionRole(StrEnum):
     """Manuscript section roles used by the narrative-quality critic."""
 

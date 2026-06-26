@@ -38,6 +38,10 @@ def test_registry_exposes_all_required_adapters() -> None:
         descriptor.backend_name == "lean" and descriptor.supports_proof
         for descriptor in registry.provider_descriptors()
     )
+    assert any(
+        descriptor.backend_name == "local_synthetic" and descriptor.supports_experiments
+        for descriptor in registry.provider_descriptors()
+    )
 
 
 def test_non_fake_backend_fails_clearly() -> None:
@@ -85,6 +89,7 @@ def test_show_adapters_cli_works() -> None:
     assert "allow_external_calls=false" in result.output
     assert "llm=FakeLLMClient" in result.output
     assert "human_review=FakeHumanReviewClient" in result.output
+    assert "experiment_backend=fake" in result.output
     assert "provider_descriptor=backend=fake,provider=fake,kind=all" in result.output
     assert "supports_candidate_generation=true" in result.output
     assert "backend=openai,provider=openai,kind=llm" in result.output
@@ -114,3 +119,15 @@ def test_invalid_proof_backend_fails_clearly() -> None:
 
     assert "Proof backend 'remote-proof' is not implemented." in message
     assert "Available proof backends are: fake, lean, real_proof." in message
+
+
+def test_invalid_experiment_backend_fails_clearly() -> None:
+    try:
+        get_adapter_registry(AdapterConfig(experiment_backend="remote-experiment"))
+    except AdapterBackendNotFound as exc:
+        message = str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("unknown experiment backend unexpectedly loaded")
+
+    assert "Experiment backend 'remote-experiment' is not implemented." in message
+    assert "Available experiment backends are: fake, local_synthetic, real_experiment." in message

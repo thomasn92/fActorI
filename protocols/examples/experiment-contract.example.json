@@ -1,0 +1,40 @@
+{
+  "acceptance_criteria": {
+    "delta": {
+      "min": 0.1
+    },
+    "lcb_95": {
+      "min": 0.0
+    }
+  },
+  "algorithm_spec": {
+    "runner": "deterministic-example"
+  },
+  "allow_external_calls": false,
+  "allow_external_tools": false,
+  "backend": "fake",
+  "candidate_id": "candidate-example",
+  "claim_id": "claim-candidate-example",
+  "data_regime": "SyntheticOnly",
+  "expected_output_type": "synthetic_experiment_result",
+  "experiment_id": "experiment-example",
+  "experiment_kind": "SyntheticSimulation",
+  "fake_default": true,
+  "forbidden_external_inputs": [],
+  "is_verification_evidence": false,
+  "metrics": [
+    "delta",
+    "lcb_95"
+  ],
+  "model_spec": {
+    "claim": "synthetic calibration behavior"
+  },
+  "random_seed": 0,
+  "replications": 3,
+  "runner_name": "fake",
+  "synthetic_data_spec": {
+    "external_data": false,
+    "samples": 16
+  },
+  "timeout_seconds": 10
+}

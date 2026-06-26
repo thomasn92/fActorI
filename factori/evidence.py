@@ -9,6 +9,7 @@ from factori.schemas import ArtifactRef, ArtifactType, VerificationLabel
 PROOF_EVIDENCE_ROLE = "fake_proof"
 REAL_PROOF_EVIDENCE_ROLE = "proof"
 SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE = "fake_synthetic_experiment"
+REAL_SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE = "synthetic_experiment"
 REAL_DATA_EXPERIMENT_EVIDENCE_ROLE = "real_data_experiment"
 
 
@@ -53,7 +54,8 @@ def is_synthetic_experiment_evidence(artifact: ArtifactRef) -> bool:
     """Return whether an artifact is synthetic experiment evidence for this MVP."""
     return (
         artifact.type == ArtifactType.EXPERIMENT
-        and artifact.metadata.get("evidence_role") == SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE
+        and artifact.metadata.get("evidence_role")
+        in {SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE, REAL_SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE}
         and _artifact_is_linked_evidence(artifact)
     )
 

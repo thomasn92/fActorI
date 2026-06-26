@@ -49,6 +49,8 @@ from factori.schemas.stages import (
     StageBReviewerReport,
 )
 from factori.schemas.verification import (
+    ExperimentRunContract,
+    ExperimentRunResult,
     FakeExperimentResult,
     FakeProofResult,
     ProofVerificationResult,
@@ -70,6 +72,8 @@ __all__ = [
     "FakeProofResult",
     "ProofVerificationResult",
     "FakeExperimentResult",
+    "ExperimentRunContract",
+    "ExperimentRunResult",
     "Claim",
     "ClaimTable",
     "FinalNucleus",

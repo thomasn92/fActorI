@@ -71,7 +71,7 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.3.0` exports top-level run-control, adapter I/O, manifest, output, narrative, and enum
+Protocol version `0.4.0` exports top-level run-control, adapter I/O, manifest, output, narrative, and enum
 contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
 `retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
@@ -94,9 +94,10 @@ provider-isolated OpenAI adapter is available only for Stage A
 candidate proposal. It cannot be selected without the `openai` backend, explicit external-call
 permission, and an API key. Retrieval, proof, experiment, prose, and human-review adapters remain
 fake by default. The current gated real seams are OpenAlex source metadata for Stage B, OpenAI
-structural review for Stage B, and a local Lean proof adapter for Stage C mathematical branches.
-OpenAlex and OpenAI require external-call permission and configured credentials. Lean requires
-`allow_external_tools=true` plus an explicit proof executable and is never invoked by default.
+structural review for Stage B, a local Lean proof adapter for Stage C mathematical branches, and a
+local synthetic experiment runner for Stage C SyntheticOnly branches. OpenAlex and OpenAI require
+external-call permission and configured credentials. Lean and local synthetic experiments require
+`allow_external_tools=true` plus an explicit executable/runner and are never invoked by default.
 Docker runners and human-review services are not implemented.
 
 Adapter configuration, capability, transport, parse, and safety failures use shared typed errors.
@@ -136,6 +137,15 @@ artifacts. A `LeanVerified` label from this path requires a real proof backend, 
 tool permission, zero tool exit code, no forbidden proof tokens, proof payload and transcript
 hashes, linked proof-evidence artifacts, and successful safety validation. LLM, reviewer,
 retrieval, Markdown, LaTeX, manuscript, and paper artifacts cannot justify proof labels.
+
+The local synthetic experiment adapter is a local-tool seam for Stage C SyntheticOnly branches only.
+Stage C writes experiment contracts, inputs, outputs, raw traces, results, and safety reports as
+content-hashed artifacts. A `SyntheticExperimentVerified` label from this path requires explicit
+external-tool permission, `data_regime == SyntheticOnly`, zero runner exit code, metrics satisfying
+declared acceptance criteria, input/output/transcript hashes, linked synthetic-experiment evidence
+artifacts, and successful safety validation. Synthetic experiment artifacts cannot justify
+`RealDataExperimentVerified`, empirical validation, mathematical proof labels, or real-world
+claims.
 
 ## Mutating and Read-Only Operations
 
@@ -214,8 +224,9 @@ The following never count as verification evidence:
 - narrative manuscript contracts and paper-shape critiques.
 
 Fake proof and synthetic-experiment artifacts exercise evidence-link mechanics only. The gated
-Lean path is the only real-proof adapter seam, and it remains disabled unless explicitly selected.
-No real scientific experiments are implemented.
+Lean path is the real-proof adapter seam, and the gated local synthetic runner is the controlled
+synthetic experiment seam. Both remain disabled unless explicitly selected. No real empirical
+scientific experiments or real-data ingestion are implemented.
 
 ## Narrative Paper Shape Boundary
 

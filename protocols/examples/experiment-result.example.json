@@ -1,20 +1,35 @@
 {
-  "ablation_passed": false,
-  "baseline_strong": true,
-  "baseline_value": 0.5,
-  "candidate_id": "candidate-example",
-  "delta": 0.05,
-  "experiment_id": "experiment-example",
-  "fake": true,
-  "generator_name": "deterministic-example-generator",
-  "generator_parameters": {
-    "samples": 16
+  "acceptance_criteria": {
+    "delta": {
+      "min": 0.1
+    },
+    "lcb_95": {
+      "min": 0.0
+    }
   },
+  "backend": "local_synthetic",
+  "candidate_id": "candidate-example",
+  "claim_id": "claim-candidate-example",
+  "data_regime": "SyntheticOnly",
+  "elapsed_ms": null,
+  "exit_code": 1,
+  "experiment_id": "experiment-example",
+  "experiment_kind": "SyntheticSimulation",
+  "fake": false,
+  "input_spec_hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "label": "NegativeResult",
-  "lcb_95": -0.01,
-  "metric_name": "example_metric",
-  "metric_value": 0.55,
-  "predeclared_delta": 0.1,
+  "metrics": {
+    "delta": 0.05,
+    "lcb_95": -0.01
+  },
+  "output_payload_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "passed": false,
+  "provider": "local",
+  "raw_trace_artifact_id": null,
   "reason": "The deterministic example does not meet its declared threshold.",
-  "seed": 0
+  "runner_name": "local_synthetic",
+  "runner_version": null,
+  "safety_report_artifact_id": null,
+  "stderr_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "stdout_hash": "0000000000000000000000000000000000000000000000000000000000000000"
 }

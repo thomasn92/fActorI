@@ -5,6 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from factori.adapters.experiment_contracts import (
+    build_experiment_run_contract,
+)
+from factori.adapters.experiment_real import LocalSyntheticExperimentRunner
+from factori.adapters.experiment_safety import (
+    experiment_label_allowed_by_result,
+    validate_experiment_result,
+)
 from factori.adapters.proof_contracts import build_proof_verification_contract
 from factori.adapters.proof_real import LeanProofVerifier
 from factori.adapters.proof_safety import proof_label_allowed_by_result, validate_proof_result
@@ -12,9 +20,11 @@ from factori.artifacts import ArtifactStore
 from factori.evidence import (
     PROOF_EVIDENCE_ROLE,
     REAL_PROOF_EVIDENCE_ROLE,
+    REAL_SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE,
     SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE,
     claim_label_allowed,
     is_proof_evidence,
+    is_synthetic_experiment_evidence,
 )
 from factori.experiments_fake import run_fake_synthetic_experiment
 from factori.ledger import ResearchLedger
@@ -29,6 +39,8 @@ from factori.schemas import (
     Candidate,
     ControllerActionType,
     DataRequirement,
+    ExperimentRunContract,
+    ExperimentRunResult,
     FakeExperimentResult,
     FakeProofResult,
     ProofVerificationContract,
@@ -39,7 +51,7 @@ from factori.schemas import (
 )
 
 if TYPE_CHECKING:
-    from factori.adapters.base import ProofVerifier
+    from factori.adapters.base import ExperimentRunner, ProofVerifier
 
 
 class StageCError(RuntimeError):
@@ -55,11 +67,12 @@ class StageCResult:
     verified_candidates: list[Candidate]
     verification_records: dict[str, StageCVerificationRecord]
     proof_results: dict[str, FakeProofResult | ProofVerificationResult]
-    experiment_results: dict[str, FakeExperimentResult]
+    experiment_results: dict[str, FakeExperimentResult | ExperimentRunResult]
     artifacts: dict[str, list[ArtifactRef]]
     report_artifact: ArtifactRef
     report_commit_hash: str
     proof_backend_metadata: dict[str, object]
+    experiment_backend_metadata: dict[str, object]
 
 
 def load_stage_c_ready_candidates(run_id: str, ledger: ResearchLedger) -> list[Candidate]:
@@ -118,11 +131,13 @@ def run_stage_c(
     store: ArtifactStore,
     ledger: ResearchLedger,
     proof_verifier: ProofVerifier | None = None,
+    experiment_runner: ExperimentRunner | None = None,
 ) -> StageCResult:
     """Run deterministic fake Stage C verification for selected candidates."""
     store.init_run(run_id)
     stage_c_ready = load_stage_c_ready_candidates(run_id, ledger)
     proof_backend_metadata = _proof_backend_metadata(proof_verifier)
+    experiment_backend_metadata = _experiment_backend_metadata(experiment_runner)
     ledger.append_commit(
         run_id=run_id,
         parent_hash=ledger.latest_commit_hash(run_id),
@@ -133,7 +148,7 @@ def run_stage_c(
     verified_candidates: list[Candidate] = []
     verification_records: dict[str, StageCVerificationRecord] = {}
     proof_results: dict[str, FakeProofResult | ProofVerificationResult] = {}
-    experiment_results: dict[str, FakeExperimentResult] = {}
+    experiment_results: dict[str, FakeExperimentResult | ExperimentRunResult] = {}
     artifacts: dict[str, list[ArtifactRef]] = {}
 
     for candidate in stage_c_ready:
@@ -168,21 +183,41 @@ def run_stage_c(
                 artifacts[candidate.id].append(proof_artifact)
                 record = _record_from_proof(candidate, branch_type, proof_result, [proof_artifact])
         elif branch_type == BranchVerificationType.SYNTHETIC_EMPIRICAL:
-            experiment_result = run_fake_synthetic_experiment(candidate)
-            experiment_results[candidate.id] = experiment_result
-            experiment_artifact = _write_fake_experiment_artifact(
-                run_id,
-                experiment_result,
-                store,
-                ledger,
-            )
-            artifacts[candidate.id].append(experiment_artifact)
-            record = _record_from_experiment(
-                candidate,
-                branch_type,
-                experiment_result,
-                [experiment_artifact],
-            )
+            if isinstance(experiment_runner, LocalSyntheticExperimentRunner):
+                experiment_result, experiment_artifacts, evidence_artifacts, contract = (
+                    _run_real_experiment_validation(
+                        run_id=run_id,
+                        candidate=candidate,
+                        experiment_runner=experiment_runner,
+                        store=store,
+                        ledger=ledger,
+                    )
+                )
+                experiment_results[candidate.id] = experiment_result
+                artifacts[candidate.id].extend(experiment_artifacts)
+                record = _record_from_real_experiment(
+                    candidate,
+                    branch_type,
+                    experiment_result,
+                    contract,
+                    evidence_artifacts,
+                )
+            else:
+                experiment_result = run_fake_synthetic_experiment(candidate)
+                experiment_results[candidate.id] = experiment_result
+                experiment_artifact = _write_fake_experiment_artifact(
+                    run_id,
+                    experiment_result,
+                    store,
+                    ledger,
+                )
+                artifacts[candidate.id].append(experiment_artifact)
+                record = _record_from_experiment(
+                    candidate,
+                    branch_type,
+                    experiment_result,
+                    [experiment_artifact],
+                )
         elif branch_type == BranchVerificationType.NO_DATA_METHODOLOGICAL:
             record = run_fake_no_data_methodological_validation(candidate)
             _commit_no_data_validation(run_id, record, ledger)
@@ -212,6 +247,7 @@ def run_stage_c(
         proof_results=proof_results,
         experiment_results=experiment_results,
         proof_backend_metadata=proof_backend_metadata,
+        experiment_backend_metadata=experiment_backend_metadata,
         store=store,
         ledger=ledger,
     )
@@ -227,6 +263,7 @@ def run_stage_c(
         report_artifact=report_artifact,
         report_commit_hash=report_commit_hash,
         proof_backend_metadata=proof_backend_metadata,
+        experiment_backend_metadata=experiment_backend_metadata,
     )
 
 
@@ -476,6 +513,188 @@ def _record_from_experiment(
     )
 
 
+def _record_from_real_experiment(
+    candidate: Candidate,
+    branch_type: BranchVerificationType,
+    experiment_result: ExperimentRunResult,
+    experiment_contract: ExperimentRunContract,
+    evidence_artifacts: list[ArtifactRef],
+) -> StageCVerificationRecord:
+    label = (
+        experiment_result.label
+        if experiment_label_allowed_by_result(
+            experiment_result,
+            experiment_contract,
+            evidence_artifacts,
+        )
+        else VerificationLabel.UNSUPPORTED
+        if experiment_result.label == VerificationLabel.SYNTHETIC_EXPERIMENT_VERIFIED
+        else experiment_result.label
+    )
+    return StageCVerificationRecord(
+        candidate_id=candidate.id,
+        branch_type=branch_type,
+        label=label,
+        status=_status_for_label(label),
+        evidence_artifacts=evidence_artifacts if label == experiment_result.label else [],
+        experiment_result=experiment_result,
+        reason=experiment_result.reason
+        if label == experiment_result.label
+        else "real synthetic experiment evidence failed safety validation",
+        fake=False,
+    )
+
+
+def _run_real_experiment_validation(
+    *,
+    run_id: str,
+    candidate: Candidate,
+    experiment_runner: LocalSyntheticExperimentRunner,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> tuple[
+    ExperimentRunResult,
+    list[ArtifactRef],
+    list[ArtifactRef],
+    ExperimentRunContract,
+]:
+    contract = build_experiment_run_contract(
+        candidate,
+        backend=experiment_runner.backend_name,
+        timeout_seconds=experiment_runner.timeout_seconds,
+        replications=experiment_runner.replications,
+        runner_name=experiment_runner.runner_name,
+    )
+    adapter_run = experiment_runner.run_contract(contract)
+    contract = adapter_run.contract
+    candidate_id = candidate.id
+    contract_id = f"experiment-contract-{candidate_id}"
+    input_id = f"experiment-input-{candidate_id}"
+    trace_id = f"experiment-trace-{candidate_id}"
+    output_id = f"experiment-output-{candidate_id}"
+    result_id = f"experiment-result-{candidate_id}"
+    safety_id = f"experiment-safety-{candidate_id}"
+    result = adapter_run.result.model_copy(
+        update={
+            "raw_trace_artifact_id": trace_id,
+            "safety_report_artifact_id": safety_id,
+        }
+    )
+    safety = validate_experiment_result(result, contract)
+    experiment_evidence_enabled = (
+        safety.valid
+        and result.label == VerificationLabel.SYNTHETIC_EXPERIMENT_VERIFIED
+    )
+    evidence_metadata = (
+        {
+            "stage": "stage_c",
+            "backend": result.backend,
+            "provider": result.provider,
+            "evidence_role": REAL_SYNTHETIC_EXPERIMENT_EVIDENCE_ROLE,
+            "is_verification_evidence": True,
+            "fake": False,
+        }
+        if experiment_evidence_enabled
+        else {
+            "stage": "stage_c",
+            "backend": result.backend,
+            "provider": result.provider,
+            "is_verification_evidence": False,
+            "fake": False,
+        }
+    )
+    result_payload = result.model_dump(mode="json")
+    persistence = persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id=contract_id,
+                artifact_type=ArtifactType.EXPERIMENT,
+                payload=contract,
+                artifact_format="json",
+                metadata={
+                    "stage": "stage_c",
+                    "backend": contract.backend,
+                    "provider": "local",
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+            ),
+            ArtifactWriteSpec(
+                artifact_id=input_id,
+                artifact_type=ArtifactType.EXPERIMENT,
+                payload=adapter_run.input_spec,
+                artifact_format="json",
+                metadata={
+                    "stage": "stage_c",
+                    "backend": contract.backend,
+                    "provider": "local",
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+            ),
+            ArtifactWriteSpec(
+                artifact_id=trace_id,
+                artifact_type=ArtifactType.EXPERIMENT,
+                payload=adapter_run.trace,
+                artifact_format="json",
+                metadata=evidence_metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=output_id,
+                artifact_type=ArtifactType.EXPERIMENT,
+                payload=adapter_run.output_payload,
+                artifact_format="json",
+                metadata=evidence_metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=result_id,
+                artifact_type=ArtifactType.EXPERIMENT,
+                payload=result,
+                artifact_format="json",
+                metadata=evidence_metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=safety_id,
+                artifact_type=ArtifactType.EXPERIMENT,
+                payload={
+                    "candidate_id": candidate_id,
+                    "claim_id": contract.claim_id,
+                    "contract_valid": adapter_run.contract_validation.valid,
+                    "contract_reasons": list(adapter_run.contract_validation.reasons),
+                    "result_valid": safety.valid,
+                    "result_reasons": list(safety.reasons),
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+                artifact_format="json",
+                metadata={
+                    "stage": "stage_c",
+                    "backend": result.backend,
+                    "provider": result.provider,
+                    "is_verification_evidence": False,
+                    "fake": False,
+                },
+            ),
+        ],
+        action_type=ControllerActionType.STAGE_C_SYNTHETIC_EXPERIMENT_RUN,
+        commit_payload={
+            **result_payload,
+            "experiment_backend": result.backend,
+            "experiment_provider": result.provider,
+            "experiment_contract_id": contract_id,
+            "experiment_result_id": result_id,
+        },
+        candidate_id=candidate_id,
+    )
+    evidence_artifacts = [
+        artifact for artifact in persistence.artifacts if is_synthetic_experiment_evidence(artifact)
+    ]
+    return result, persistence.artifacts, evidence_artifacts, contract
+
+
 def _write_fake_proof_artifact(
     run_id: str,
     proof_result: FakeProofResult,
@@ -580,8 +799,9 @@ def _write_stage_c_report(
     stage_c_ready: list[Candidate],
     verification_records: dict[str, StageCVerificationRecord],
     proof_results: dict[str, FakeProofResult | ProofVerificationResult],
-    experiment_results: dict[str, FakeExperimentResult],
+    experiment_results: dict[str, FakeExperimentResult | ExperimentRunResult],
     proof_backend_metadata: dict[str, object],
+    experiment_backend_metadata: dict[str, object],
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> tuple[ArtifactRef, str]:
@@ -592,6 +812,7 @@ def _write_stage_c_report(
         proof_results=proof_results,
         experiment_results=experiment_results,
         proof_backend_metadata=proof_backend_metadata,
+        experiment_backend_metadata=experiment_backend_metadata,
     )
     artifact = store.write_markdown(
         run_id=run_id,
@@ -615,8 +836,18 @@ def _write_stage_c_report(
                 for result in proof_results.values()
                 if isinstance(result, ProofVerificationResult)
             ),
-            "fake_synthetic_experiments": len(experiment_results),
+            "fake_synthetic_experiments": sum(
+                1
+                for result in experiment_results.values()
+                if isinstance(result, FakeExperimentResult)
+            ),
+            "real_synthetic_experiments": sum(
+                1
+                for result in experiment_results.values()
+                if isinstance(result, ExperimentRunResult)
+            ),
             "proof_backend_metadata": proof_backend_metadata,
+            "experiment_backend_metadata": experiment_backend_metadata,
             **label_counts,
         },
         artifact_refs=[artifact],
@@ -672,6 +903,25 @@ def _proof_backend_metadata(proof_verifier: ProofVerifier | None) -> dict[str, o
             "provider": proof_verifier.provider_name,
             "tool_name": proof_verifier.proof_executable,
             "allow_external_tools": proof_verifier.allow_external_tools,
+            "fake": False,
+        }
+    return {
+        "backend": "fake",
+        "provider": "fake",
+        "allow_external_tools": False,
+        "fake": True,
+    }
+
+
+def _experiment_backend_metadata(
+    experiment_runner: ExperimentRunner | None,
+) -> dict[str, object]:
+    if isinstance(experiment_runner, LocalSyntheticExperimentRunner):
+        return {
+            "backend": experiment_runner.backend_name,
+            "provider": experiment_runner.provider_name,
+            "runner_name": experiment_runner.runner_name,
+            "allow_external_tools": experiment_runner.allow_external_tools,
             "fake": False,
         }
     return {

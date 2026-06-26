@@ -139,6 +139,10 @@ def run_deterministic_pipeline(
                     allow_external_tools=config.allow_external_tools,
                     proof_executable=config.proof_executable,
                     proof_timeout_seconds=config.proof_timeout_seconds,
+                    experiment_backend=config.experiment_backend,
+                    experiment_runner=config.experiment_runner,
+                    experiment_timeout_seconds=config.experiment_timeout_seconds,
+                    experiment_replications=config.experiment_replications,
                 )
             )
         except AdapterConfigurationError as exc:
@@ -350,6 +354,12 @@ def _execute_stage(
                 and adapter_registry.config.proof_backend != "fake"
                 else None
             ),
+            experiment_runner=(
+                adapter_registry.experiment_runner
+                if adapter_registry is not None
+                and adapter_registry.config.experiment_backend != "fake"
+                else None
+            ),
         )
         artifacts = [item for values in result.artifacts.values() for item in values]
         artifacts.append(result.report_artifact)
@@ -363,8 +373,18 @@ def _execute_stage(
             verified_candidates=len(result.verified_candidates),
             fake_proof_runs=fake_proof_runs,
             real_proof_runs=len(result.proof_results) - fake_proof_runs,
-            fake_synthetic_experiments=len(result.experiment_results),
+            fake_synthetic_experiments=sum(
+                1
+                for experiment_result in result.experiment_results.values()
+                if getattr(experiment_result, "fake", False)
+            ),
+            real_synthetic_experiments=sum(
+                1
+                for experiment_result in result.experiment_results.values()
+                if not getattr(experiment_result, "fake", False)
+            ),
             proof_backend=result.proof_backend_metadata["backend"],
+            experiment_backend=result.experiment_backend_metadata["backend"],
             fake=result.proof_backend_metadata["fake"],
         )
     if stage == PipelineStage.SYNTHESIZE_ABSTRACT:

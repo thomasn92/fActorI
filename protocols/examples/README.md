@@ -5,7 +5,7 @@ small interoperability fixtures, not complete run snapshots.
 
 The examples intentionally preserve MVP boundaries:
 
-- proof and experiment examples are explicitly fake;
+- proof and experiment examples are deterministic interoperability fixtures, not evidence;
 - the proof example remains `Conjecture`;
 - the experiment example is a `NegativeResult`;
 - claim examples do not inflate labels;

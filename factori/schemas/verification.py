@@ -12,6 +12,8 @@ from factori.schemas.enums import (
     ArtifactType,
     BranchStatus,
     BranchVerificationType,
+    DataRequirement,
+    ExperimentKind,
     VerificationLabel,
 )
 
@@ -103,6 +105,64 @@ class ProofVerificationResult(StrictModel):
     fake: bool = False
 
 
+class ExperimentRunContract(StrictModel):
+    """Provider-neutral synthetic experiment request contract.
+
+    Real/local execution is disabled by default. This contract is restricted to NoData and
+    SyntheticOnly regimes in the MVP and cannot request empirical or public-download data.
+    """
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    experiment_id: str = Field(min_length=1)
+    experiment_kind: ExperimentKind = ExperimentKind.SYNTHETIC_SIMULATION
+    data_regime: DataRequirement = DataRequirement.SYNTHETIC_ONLY
+    synthetic_data_spec: dict[str, Any] = Field(default_factory=dict)
+    model_spec: dict[str, Any] = Field(default_factory=dict)
+    algorithm_spec: dict[str, Any] = Field(default_factory=dict)
+    metrics: list[str] = Field(default_factory=list)
+    acceptance_criteria: dict[str, Any] = Field(default_factory=dict)
+    random_seed: int = 0
+    replications: int = Field(default=5, ge=1, le=100)
+    timeout_seconds: int = Field(default=10, ge=1, le=60)
+    backend: str = "fake"
+    runner_name: str | None = None
+    forbidden_external_inputs: list[str] = Field(default_factory=list)
+    expected_output_type: str = "synthetic_experiment_result"
+    allow_external_calls: bool = False
+    allow_external_tools: bool = False
+    fake_default: bool = True
+    is_verification_evidence: bool = False
+
+
+class ExperimentRunResult(StrictModel):
+    """Provider-neutral synthetic experiment result for gated local runners."""
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    experiment_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    experiment_kind: ExperimentKind
+    data_regime: DataRequirement
+    runner_name: str = Field(min_length=1)
+    runner_version: str | None = None
+    exit_code: int
+    stdout_hash: str
+    stderr_hash: str
+    input_spec_hash: str
+    output_payload_hash: str
+    metrics: dict[str, float] = Field(default_factory=dict)
+    acceptance_criteria: dict[str, Any] = Field(default_factory=dict)
+    passed: bool
+    label: VerificationLabel
+    reason: str = Field(min_length=1)
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    raw_trace_artifact_id: str | None = None
+    safety_report_artifact_id: str | None = None
+    fake: bool = False
+
+
 class VerificationState(StrictModel):
     """Current verification labels and evidence artifacts."""
 
@@ -129,7 +189,7 @@ class StageCVerificationRecord(StrictModel):
     status: BranchStatus
     evidence_artifacts: list[ArtifactRef] = Field(default_factory=list)
     proof_result: FakeProofResult | ProofVerificationResult | None = None
-    experiment_result: FakeExperimentResult | None = None
+    experiment_result: FakeExperimentResult | ExperimentRunResult | None = None
     reason: str = Field(min_length=1)
     fake: bool = True
 
@@ -138,6 +198,8 @@ __all__ = [
     "FakeExperimentResult",
     "ProofVerificationContract",
     "ProofVerificationResult",
+    "ExperimentRunContract",
+    "ExperimentRunResult",
     "VerificationState",
     "StageCVerificationRecord",
 ]

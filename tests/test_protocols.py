@@ -7,7 +7,8 @@ from factori.protocols import (
 )
 from factori.schemas import (
     ArtifactRef,
-    FakeExperimentResult,
+    ExperimentRunContract,
+    ExperimentRunResult,
     LedgerTipValidationReport,
     LLMCandidateParseReport,
     LLMPromptContract,
@@ -26,9 +27,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 73
+    assert len(first) == 76
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.3.0"
+    assert PROTOCOL_VERSION == "0.4.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -39,7 +40,8 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ReviewerReport").model is StageBReviewerReport
     assert get_protocol_definition("StageCSelectionResult").model is StageCSelectionResult
     assert get_protocol_definition("ProofVerificationResult").model is ProofVerificationResult
-    assert get_protocol_definition("ExperimentRunResult").model is FakeExperimentResult
+    assert get_protocol_definition("ExperimentRunResult").model is ExperimentRunResult
+    assert get_protocol_definition("ExperimentRunContract").model is ExperimentRunContract
     assert get_protocol_definition("AdapterConfig").model is AdapterConfig
     assert get_protocol_definition("RunStatusReport").model is RunStatusReport
     assert get_protocol_definition("StageRerunDecision").model is StageRerunDecision
@@ -82,6 +84,7 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "RetrievalRunReport",
         "RetrievalParseReport",
         "ProofVerificationContract",
+        "ExperimentRunContract",
         "HumanReviewDecision",
         "GeneratedSectionDraft",
         "DataRequirement",
@@ -91,6 +94,8 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "RetrievalBackend",
         "ReviewerBackend",
         "ProofBackend",
+        "ExperimentBackend",
+        "ExperimentKind",
         "ReleaseStatus",
         "ProtocolCompatibilityStatus",
     }

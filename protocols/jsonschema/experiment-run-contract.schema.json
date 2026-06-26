@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "DataRequirement": {
+      "description": "Data access regimes from the MVP data gate.",
+      "enum": [
+        "NoData",
+        "SyntheticOnly",
+        "PublicDownload",
+        "UserProvided"
+      ],
+      "title": "DataRequirement",
+      "type": "string"
+    },
+    "ExperimentKind": {
+      "description": "Conservative synthetic experiment kinds supported by the gated MVP seam.",
+      "enum": [
+        "SyntheticSimulation",
+        "SyntheticAblation",
+        "SyntheticRobustnessCheck",
+        "NoDataSanityCheck"
+      ],
+      "title": "ExperimentKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.4.0/experiment-run-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider-neutral synthetic experiment request contract.",
+  "properties": {
+    "acceptance_criteria": {
+      "additionalProperties": true,
+      "title": "Acceptance Criteria",
+      "type": "object"
+    },
+    "algorithm_spec": {
+      "additionalProperties": true,
+      "title": "Algorithm Spec",
+      "type": "object"
+    },
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
+    "backend": {
+      "default": "fake",
+      "title": "Backend",
+      "type": "string"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "data_regime": {
+      "$ref": "#/$defs/DataRequirement",
+      "default": "SyntheticOnly"
+    },
+    "expected_output_type": {
+      "default": "synthetic_experiment_result",
+      "title": "Expected Output Type",
+      "type": "string"
+    },
+    "experiment_id": {
+      "minLength": 1,
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "experiment_kind": {
+      "$ref": "#/$defs/ExperimentKind",
+      "default": "SyntheticSimulation"
+    },
+    "fake_default": {
+      "default": true,
+      "title": "Fake Default",
+      "type": "boolean"
+    },
+    "forbidden_external_inputs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden External Inputs",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "model_spec": {
+      "additionalProperties": true,
+      "title": "Model Spec",
+      "type": "object"
+    },
+    "random_seed": {
+      "default": 0,
+      "title": "Random Seed",
+      "type": "integer"
+    },
+    "replications": {
+      "default": 5,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Replications",
+      "type": "integer"
+    },
+    "runner_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Name"
+    },
+    "synthetic_data_spec": {
+      "additionalProperties": true,
+      "title": "Synthetic Data Spec",
+      "type": "object"
+    },
+    "timeout_seconds": {
+      "default": 10,
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "claim_id",
+    "experiment_id"
+  ],
+  "title": "ExperimentRunContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.4.0",
+  "x-factori-source-model": "factori.schemas.ExperimentRunContract",
+  "x-factori-verification-evidence": false
+}

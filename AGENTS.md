@@ -50,6 +50,11 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   local proof executable. It requires `proof_backend=lean`, `allow_external_tools=true`, and an
   explicitly configured proof executable. Do not execute Lean or any proof tool unless the user
   explicitly requests this backend and safety gate.
+- A gated local synthetic experiment adapter exists only for Stage C SyntheticOnly branches. It
+  requires `experiment_backend=local_synthetic`, `allow_external_tools=true`, and an explicitly
+  configured runner. Do not execute experiment tools unless the user explicitly requests this
+  backend and safety gate. Synthetic experiment output cannot be described as real-world empirical
+  validation.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -86,6 +91,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Real proof contracts, payloads, traces, results, and safety reports must stay candidate/claim
   specific. Only a validated real proof result or transcript artifact with proof-evidence metadata
   can support `LeanVerified`; LLM, reviewer, retrieval, Markdown, LaTeX, and paper artifacts cannot.
+- Local synthetic experiment contracts, inputs, outputs, traces, results, and safety reports must
+  stay candidate/claim specific. Only a validated SyntheticOnly local experiment result with
+  experiment-evidence metadata can support `SyntheticExperimentVerified`; it can never support
+  `RealDataExperimentVerified` or empirical validation claims.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

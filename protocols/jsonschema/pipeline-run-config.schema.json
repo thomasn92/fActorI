@@ -41,7 +41,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.3.0/pipeline-run-config.schema.json",
+  "$id": "https://schemas.factori.local/0.4.0/pipeline-run-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One-command pipeline configuration.",
@@ -65,6 +65,37 @@
       "default": "",
       "title": "Domain",
       "type": "string"
+    },
+    "experiment_backend": {
+      "default": "fake",
+      "title": "Experiment Backend",
+      "type": "string"
+    },
+    "experiment_replications": {
+      "default": 5,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Experiment Replications",
+      "type": "integer"
+    },
+    "experiment_runner": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Runner"
+    },
+    "experiment_timeout_seconds": {
+      "default": 10,
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Experiment Timeout Seconds",
+      "type": "integer"
     },
     "failure_policy": {
       "$ref": "#/$defs/PipelineFailurePolicy",
@@ -201,7 +232,7 @@
   ],
   "title": "PipelineRunConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.3.0",
+  "x-factori-protocol-version": "0.4.0",
   "x-factori-source-model": "factori.schemas.PipelineRunConfig",
   "x-factori-verification-evidence": false
 }

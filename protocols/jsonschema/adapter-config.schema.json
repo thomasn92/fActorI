@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.3.0/adapter-config.schema.json",
+  "$id": "https://schemas.factori.local/0.4.0/adapter-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Fake-default adapter configuration.",
@@ -38,6 +38,38 @@
       "minLength": 1,
       "title": "Api Key Env",
       "type": "string"
+    },
+    "experiment_backend": {
+      "default": "fake",
+      "minLength": 1,
+      "title": "Experiment Backend",
+      "type": "string"
+    },
+    "experiment_replications": {
+      "default": 5,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Experiment Replications",
+      "type": "integer"
+    },
+    "experiment_runner": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Runner"
+    },
+    "experiment_timeout_seconds": {
+      "default": 10,
+      "maximum": 60,
+      "minimum": 1,
+      "title": "Experiment Timeout Seconds",
+      "type": "integer"
     },
     "llm_max_candidates": {
       "default": 4,
@@ -155,7 +187,7 @@
   },
   "title": "AdapterConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.3.0",
+  "x-factori-protocol-version": "0.4.0",
   "x-factori-source-model": "factori.adapters.config.AdapterConfig",
   "x-factori-verification-evidence": false
 }

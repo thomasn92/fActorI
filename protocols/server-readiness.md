@@ -13,7 +13,8 @@ run-control and adapter contracts without importing Python.
   `LLMReviewerPromptContract`, `LLMReviewerParseReport`, `RetrievalQuery`, `RetrievalResult`,
   `RetrievedDocument`, `RetrievalRunReport`, `RetrievalParseReport`,
   `RetrievalAdequacyCertificate`, `ProofVerificationContract`, `ProofVerificationResult`,
-  `ExperimentRunResult`, `GeneratedSectionDraft`, and `HumanReviewDecision`.
+  `ExperimentRunContract`, `ExperimentRunResult`, `GeneratedSectionDraft`, and
+  `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -26,8 +27,10 @@ run-control and adapter contracts without importing Python.
 - No server process, request router, authentication, queue, or concurrency model exists.
 - No production idempotency lock or database transaction layer exists beyond local ledger checks.
 - Real adapters remain explicitly gated; fake adapters are still the default.
-- Real Lean proof checking has only a gated local-tool adapter seam and is disabled by default.
-- Docker experiments, polished prose generation, final LaTeX generation, and external review
+- Real Lean proof checking and local synthetic experiment execution have gated local-tool adapter
+  seams and are disabled by default.
+- Docker experiments, empirical data ingestion, polished prose generation, final LaTeX generation,
+  and external review
   readiness are not implemented.
 
 ## Mutating vs Read-Only Operations
@@ -52,4 +55,6 @@ validated, written through the artifact store, and ledgered by the owning stage.
 reviewer output, retrieval output, Markdown, LaTeX, protocol schemas, export plans, diagnostics,
 and replay reports are not verification evidence. A future server may expose the Lean proof
 backend only as an explicit external-tool job with the same proof contract, executable gate, and
-proof-evidence safety checks used by the CLI.
+proof-evidence safety checks used by the CLI. It may expose the local synthetic experiment backend
+only as an explicit external-tool job with the same experiment contract, runner gate,
+SyntheticOnly data boundary, metric acceptance checks, and synthetic-evidence safety checks.

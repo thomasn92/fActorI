@@ -71,7 +71,7 @@ All implementation modules are under `factori/`.
 - `adapters/base.py`: small runtime-checkable protocols for candidate LLM, structural reviewer,
   retrieval, proof, experiment, prose, and human-review backends.
 - `adapters/capabilities.py`: provider-neutral capability descriptors for fake, OpenAI candidate,
-  OpenAI reviewer, and OpenAlex retrieval backends.
+  OpenAI reviewer, OpenAlex retrieval, Lean proof, and local synthetic experiment backends.
 - `adapters/config.py`: strict fake-default backend/model configuration with external calls
   disabled and API keys excluded from reports.
 - `adapters/errors.py`: shared adapter configuration, capability, transport, parsing, and safety
@@ -100,8 +100,15 @@ All implementation modules are under `factori/`.
   non-proof evidence artifacts.
 - `adapters/proof_real.py`: gated local Lean proof verifier with injected runner support; no proof
   executable is called unless explicitly configured and enabled.
+- `adapters/experiment_contracts.py`: deterministic Stage C synthetic experiment contract and
+  runner-input construction.
+- `adapters/experiment_safety.py`: local validation for experiment contracts/results, synthetic
+  data boundaries, and strict rejection of non-experiment evidence artifacts.
+- `adapters/experiment_real.py`: gated local synthetic experiment runner with injected runner
+  support; no experiment executable is called unless explicitly configured and enabled.
 - `adapters/registry.py`: fake-default registry, provider descriptors, and explicit gates for
-  Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, and Stage C Lean adapters.
+  Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, Stage C Lean, and Stage C local
+  synthetic experiment adapters.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -159,8 +166,9 @@ All implementation modules are under `factori/`.
 - `stage_c_selection.py`: pre-Stage-C red-team aggregation and candidate selection.
 - `uncertainty.py`: deterministic score uncertainty and conservative lower bounds.
 - `budget.py`: cost-aware Stage C budget selector.
-- `stage_c.py`: branch classification, fake Stage C verification orchestration, and optional gated
-  Lean proof verification artifact flow for mathematical branches.
+- `stage_c.py`: branch classification, fake Stage C verification orchestration, optional gated
+  Lean proof verification artifact flow for mathematical branches, and optional gated local
+  synthetic experiment artifact flow for SyntheticOnly branches.
 - `proof_fake.py`: deterministic fake proof validator.
 - `experiments_fake.py`: deterministic fake synthetic-experiment validator.
 - `evidence.py`: claim-label/evidence admissibility boundaries.
