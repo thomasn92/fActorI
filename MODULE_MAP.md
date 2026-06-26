@@ -106,9 +106,15 @@ All implementation modules are under `factori/`.
   data boundaries, and strict rejection of non-experiment evidence artifacts.
 - `adapters/experiment_real.py`: gated local synthetic experiment runner with injected runner
   support; no experiment executable is called unless explicitly configured and enabled.
+- `adapters/prose_prompts.py`: deterministic one-section prose prompt construction with claim,
+  evidence, citation, and narrative grounding instructions.
+- `adapters/prose_safety.py`: parser and safety checks for generated section drafts, including
+  label-upgrade, invented-citation, and synthetic-to-empirical boundary rejection.
+- `adapters/prose_real.py`: gated OpenAI one-section prose generator with injected transport support;
+  no network call occurs unless explicitly configured and enabled.
 - `adapters/registry.py`: fake-default registry, provider descriptors, and explicit gates for
   Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, Stage C Lean, and Stage C local
-  synthetic experiment adapters.
+  synthetic experiment, and one-section OpenAI prose adapters.
 - `adapters/__init__.py`: public adapter interface, configuration, fake, and registry exports.
 
 ## Pipeline Orchestration
@@ -196,7 +202,8 @@ All implementation modules are under `factori/`.
 - `final_audit.py`: deterministic internal-consistency audit orchestration.
 - `release_gate.py`: release status from final-audit findings.
 - `export_plan.py`: export section/claim maps, readiness, and artifact orchestration.
-- `prose_contract.py`: label-preserving future prose-generation contract.
+- `prose_contract.py`: label-preserving export prose contract plus one-section prose contract,
+  draft generation, safety validation, and optional prose artifact persistence.
 - `latex_plan.py`: safe future LaTeX-export plan without generating LaTeX.
 - `replay.py`: public read-only replay API and optional non-provenance report writer.
 - `run_verifier.py`: disk-based ledger, artifact, evidence, and decision consistency checks.

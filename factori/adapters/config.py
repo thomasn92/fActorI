@@ -17,6 +17,7 @@ from factori.config import (
     DEFAULT_LLM_MODEL,
     DEFAULT_PROOF_BACKEND,
     DEFAULT_PROOF_TIMEOUT_SECONDS,
+    DEFAULT_PROSE_BACKEND,
     DEFAULT_RETRIEVAL_BACKEND,
     DEFAULT_RETRIEVAL_LIMIT,
     DEFAULT_REVIEWER_BACKEND,
@@ -66,6 +67,10 @@ class AdapterConfig(StrictModel):
         ge=1,
         le=100,
     )
+    prose_backend: str = Field(default=DEFAULT_PROSE_BACKEND, min_length=1)
+    prose_model: str = Field(default=DEFAULT_LLM_MODEL, min_length=1)
+    prose_api_key: SecretStr | None = Field(default=None, repr=False)
+    prose_api_key_env: str = Field(default=OPENAI_API_KEY_ENV, min_length=1)
 
     @field_validator("adapter_backend")
     @classmethod
@@ -107,12 +112,22 @@ class AdapterConfig(StrictModel):
             raise ValueError("experiment_backend must not be empty")
         return normalized
 
+    @field_validator("prose_backend")
+    @classmethod
+    def normalize_prose_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("prose_backend must not be empty")
+        return normalized
+
     @field_validator(
         "llm_model",
         "api_key_env",
         "reviewer_model",
         "reviewer_api_key_env",
         "retrieval_api_key_env",
+        "prose_model",
+        "prose_api_key_env",
     )
     @classmethod
     def strip_nonempty_text(cls, value: str) -> str:

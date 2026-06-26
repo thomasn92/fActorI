@@ -59,6 +59,12 @@ from factori.adapters.proof_safety import (
     validate_proof_contract,
     validate_proof_result,
 )
+from factori.adapters.prose_prompts import build_prose_section_prompt
+from factori.adapters.prose_real import OpenAIProseGenerator
+from factori.adapters.prose_safety import (
+    parse_prose_generation_response,
+    validate_generated_section,
+)
 from factori.adapters.registry import (
     AdapterRegistry,
     get_adapter_registry,
@@ -105,6 +111,7 @@ __all__ = [
     "LocalSyntheticExperimentRunner",
     "LLMClient",
     "OpenAILLMClient",
+    "OpenAIProseGenerator",
     "OpenAIResponsesTransport",
     "OpenAIReviewerClient",
     "OpenAlexRetrievalClient",
@@ -122,9 +129,11 @@ __all__ = [
     "build_retrieval_query",
     "build_proof_verification_contract",
     "build_experiment_run_contract",
+    "build_prose_section_prompt",
     "load_adapter_config",
     "parse_llm_candidate_response",
     "parse_llm_reviewer_response",
+    "parse_prose_generation_response",
     "normalize_retrieval_result",
     "validate_llm_candidate",
     "validate_llm_reviewer_report",
@@ -132,5 +141,6 @@ __all__ = [
     "validate_proof_result",
     "validate_experiment_contract",
     "validate_experiment_result",
+    "validate_generated_section",
     "validate_retrieval_result",
 ]

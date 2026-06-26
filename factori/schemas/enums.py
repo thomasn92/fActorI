@@ -195,6 +195,7 @@ class ControllerActionType(StrEnum):
     EXPORT_CLAIM_MAP_WRITTEN = "ExportClaimMapWritten"
     EXPORT_READINESS_REPORT_WRITTEN = "ExportReadinessReportWritten"
     EXPORT_BUNDLE_MANIFEST_WRITTEN = "ExportBundleManifestWritten"
+    PROSE_SECTION_DRAFT_WRITTEN = "ProseSectionDraftWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 

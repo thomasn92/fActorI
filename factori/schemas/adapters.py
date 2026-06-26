@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import Field
 
 from factori.schemas.base import StrictModel
-from factori.schemas.enums import DataRequirement
+from factori.schemas.enums import DataRequirement, NarrativeSectionRole, VerificationLabel
 from factori.schemas.stages import StageBReviewerReport
 
 
@@ -18,9 +18,97 @@ class GeneratedSectionDraft(StrictModel):
     title: str = Field(min_length=1)
     content: str = Field(min_length=1)
     claim_ids: list[str] = Field(default_factory=list)
+    used_claim_ids: list[str] = Field(default_factory=list)
+    used_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    used_citation_ids: list[str] = Field(default_factory=list)
+    unsupported_sentences: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
     polished: bool = False
     fake: bool = True
     is_verification_evidence: bool = False
+
+
+class ProseSectionContract(StrictModel):
+    """Section-level prose contract; not a scientific evidence artifact."""
+
+    run_id: str = Field(min_length=1)
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    section_role: str = Field(min_length=1)
+    narrative_role: list[NarrativeSectionRole] = Field(default_factory=list)
+    allowed_claim_ids: list[str] = Field(default_factory=list)
+    allowed_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    allowed_citation_ids: list[str] = Field(default_factory=list)
+    forbidden_claims: list[str] = Field(default_factory=list)
+    forbidden_labels: list[VerificationLabel] = Field(default_factory=list)
+    evidence_boundary_instructions: list[str] = Field(default_factory=list)
+    style_instructions: list[str] = Field(default_factory=list)
+    max_words: int = Field(default=160, ge=1, le=5000)
+    required_subsections: list[str] = Field(default_factory=list)
+    source_contract_hashes: dict[str, str] = Field(default_factory=dict)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class ProsePromptContract(StrictModel):
+    """Deterministic prompt contract for a single manuscript section."""
+
+    run_id: str = Field(min_length=1)
+    section_id: str = Field(min_length=1)
+    backend: str = "fake"
+    provider: str = "fake"
+    section_contract: ProseSectionContract
+    allowed_claims: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_map: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    narrative_context: dict[str, Any] = Field(default_factory=dict)
+    requested_output_schema: dict[str, Any]
+    forbidden_outputs: list[str]
+    evidence_boundary_instructions: list[str]
+    prompt_text: str = Field(min_length=1)
+    fake: bool = True
+    is_verification_evidence: bool = False
+
+
+class ProseGenerationRequest(StrictModel):
+    """Provider-neutral request sent to a gated prose adapter."""
+
+    run_id: str = Field(min_length=1)
+    section_id: str = Field(min_length=1)
+    prompt_contract: ProsePromptContract
+    backend: str = "fake"
+    provider: str = "fake"
+    model: str | None = None
+    allow_external_calls: bool = False
+    fake: bool = True
+    is_verification_evidence: bool = False
+
+
+class ProseGenerationParseResult(StrictModel):
+    """Parsed single-section prose generation response."""
+
+    section_draft: GeneratedSectionDraft | None = None
+    rejected: bool = False
+    reasons: list[str] = Field(default_factory=list)
+    raw_response_type: str = Field(min_length=1)
+    fake: bool = False
+    is_verification_evidence: bool = False
+
+
+class ProseSafetyReport(StrictModel):
+    """Safety report for generated prose; diagnostic only."""
+
+    section_id: str = Field(min_length=1)
+    safe: bool
+    rejected: bool
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    used_claim_ids: list[str] = Field(default_factory=list)
+    used_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    used_citation_ids: list[str] = Field(default_factory=list)
+    created_or_upgraded_labels: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
 
 
 class HumanReviewDecision(StrictModel):
@@ -133,6 +221,11 @@ __all__ = [
     "ReviewerValidationResult",
     "LLMReviewerParseResult",
     "LLMReviewerTrace",
+    "ProseGenerationParseResult",
+    "ProseGenerationRequest",
+    "ProsePromptContract",
+    "ProseSafetyReport",
+    "ProseSectionContract",
     "LLMPromptContract",
     "CandidateValidationResult",
     "LLMCandidateParseReport",

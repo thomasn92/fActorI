@@ -14,6 +14,7 @@ from factori.schemas import (
     GeneratedSectionDraft,
     HumanReviewDecision,
     ManuscriptSectionPlan,
+    ProseSectionContract,
     RetrievalAdequacyCertificate,
     RetrievalResult,
     RetrievedDocument,
@@ -125,7 +126,7 @@ class ProseGenerator(AdapterClient, Protocol):
 
     def generate_section(
         self,
-        section_contract: ManuscriptSectionPlan | Mapping[str, Any],
+        section_contract: ManuscriptSectionPlan | ProseSectionContract | Mapping[str, Any],
         claim_table: ClaimTable,
     ) -> GeneratedSectionDraft: ...
 

@@ -1,0 +1,35 @@
+{
+  "allowed_citation_ids": [
+    "source-example"
+  ],
+  "allowed_claim_ids": [
+    "claim-example"
+  ],
+  "allowed_evidence_artifact_ids": [
+    "artifact-example"
+  ],
+  "creates_scientific_validation": false,
+  "evidence_boundary_instructions": [
+    "Use only allowed claim IDs.",
+    "Generated prose is not verification evidence."
+  ],
+  "fake": true,
+  "forbidden_claims": [],
+  "forbidden_labels": [
+    "RealDataExperimentVerified"
+  ],
+  "is_verification_evidence": false,
+  "max_words": 120,
+  "narrative_role": [],
+  "required_subsections": [],
+  "run_id": "example",
+  "section_id": "introduction",
+  "section_role": "Introduction",
+  "section_title": "Introduction",
+  "source_contract_hashes": {
+    "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "style_instructions": [
+    "Use placeholder-grade prose only."
+  ]
+}

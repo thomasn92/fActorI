@@ -1,0 +1,19 @@
+{
+  "created_or_upgraded_labels": false,
+  "creates_scientific_validation": false,
+  "is_verification_evidence": false,
+  "reasons": [],
+  "rejected": false,
+  "safe": true,
+  "section_id": "introduction",
+  "used_citation_ids": [
+    "source-example"
+  ],
+  "used_claim_ids": [
+    "claim-example"
+  ],
+  "used_evidence_artifact_ids": [
+    "artifact-example"
+  ],
+  "warnings": []
+}

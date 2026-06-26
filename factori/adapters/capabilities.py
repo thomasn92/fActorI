@@ -25,6 +25,7 @@ class AdapterProviderDescriptor:
     supports_retrieval: bool = False
     supports_proof: bool = False
     supports_experiments: bool = False
+    supports_prose_generation: bool = False
     requires_external_calls: bool = False
     requires_external_tools: bool = False
     requires_api_key: bool = False
@@ -44,6 +45,7 @@ class AdapterProviderDescriptor:
             "retrieval": self.supports_retrieval,
             "proof": self.supports_proof,
             "experiments": self.supports_experiments,
+            "prose_generation": self.supports_prose_generation,
         }
         return capability_flags.get(capability, False)
 
@@ -57,6 +59,7 @@ class AdapterRegistryDescriptor:
     active_retrieval_backend: str
     active_proof_backend: str
     active_experiment_backend: str
+    active_prose_backend: str
     allow_external_calls: bool
     allow_external_tools: bool
     providers: tuple[AdapterProviderDescriptor, ...]
@@ -71,6 +74,7 @@ FAKE_DESCRIPTOR = AdapterProviderDescriptor(
     supports_retrieval=True,
     supports_proof=True,
     supports_experiments=True,
+    supports_prose_generation=True,
     requires_external_calls=False,
     requires_external_tools=False,
     requires_api_key=False,
@@ -127,6 +131,16 @@ LOCAL_SYNTHETIC_EXPERIMENT_DESCRIPTOR = AdapterProviderDescriptor(
     requires_api_key=False,
     aliases=("real_experiment",),
 )
+OPENAI_PROSE_DESCRIPTOR = AdapterProviderDescriptor(
+    backend_name="openai",
+    provider_name="openai",
+    adapter_kind="prose",
+    supports_prose_generation=True,
+    requires_external_calls=True,
+    requires_external_tools=False,
+    requires_api_key=True,
+    aliases=("real_prose",),
+)
 
 PROVIDER_DESCRIPTORS = (
     FAKE_DESCRIPTOR,
@@ -135,6 +149,7 @@ PROVIDER_DESCRIPTORS = (
     OPENALEX_RETRIEVAL_DESCRIPTOR,
     LEAN_PROOF_DESCRIPTOR,
     LOCAL_SYNTHETIC_EXPERIMENT_DESCRIPTOR,
+    OPENAI_PROSE_DESCRIPTOR,
 )
 
 
@@ -197,6 +212,7 @@ __all__ = [
     "LEAN_PROOF_DESCRIPTOR",
     "LOCAL_SYNTHETIC_EXPERIMENT_DESCRIPTOR",
     "OPENAI_CANDIDATE_DESCRIPTOR",
+    "OPENAI_PROSE_DESCRIPTOR",
     "OPENAI_REVIEWER_DESCRIPTOR",
     "OPENALEX_RETRIEVAL_DESCRIPTOR",
     "PROVIDER_DESCRIPTORS",

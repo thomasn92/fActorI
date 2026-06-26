@@ -56,6 +56,11 @@ from factori.schemas import (
     PlannedStage,
     ProofVerificationContract,
     ProofVerificationResult,
+    ProseGenerationParseResult,
+    ProseGenerationRequest,
+    ProsePromptContract,
+    ProseSafetyReport,
+    ProseSectionContract,
     ReleaseGateDecision,
     ReleaseGateStatus,
     ReplayVerificationReport,
@@ -81,7 +86,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.4.0"
+PROTOCOL_VERSION = "0.5.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -120,6 +125,13 @@ class ExperimentBackend(StrEnum):
 
     FAKE = "fake"
     LOCAL_SYNTHETIC = "local_synthetic"
+
+
+class ProseBackend(StrEnum):
+    """Prose backend names exposed by the protocol layer."""
+
+    FAKE = "fake"
+    OPENAI = "openai"
 
 
 @dataclass(frozen=True)
@@ -243,6 +255,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
     ProtocolDefinition("FinalNucleus", FinalNucleus, "Selected abstraction or candidate nucleus."),
     ProtocolDefinition("ManuscriptPlan", ManuscriptPlan, "Structured manuscript plan."),
+    ProtocolDefinition(
+        "ProseSectionContract",
+        ProseSectionContract,
+        "Section-level prose contract with claim/evidence grounding.",
+    ),
+    ProtocolDefinition(
+        "ProsePromptContract",
+        ProsePromptContract,
+        "One-section prose prompt contract.",
+    ),
+    ProtocolDefinition(
+        "ProseGenerationRequest",
+        ProseGenerationRequest,
+        "Provider-neutral one-section prose generation request.",
+    ),
+    ProtocolDefinition(
+        "ProseGenerationParseResult",
+        ProseGenerationParseResult,
+        "Parsed one-section prose generation response.",
+    ),
+    ProtocolDefinition(
+        "ProseSafetyReport",
+        ProseSafetyReport,
+        "One-section prose safety and grounding report.",
+    ),
     ProtocolDefinition(
         "NarrativeManuscriptContract",
         NarrativeManuscriptContract,
@@ -383,6 +420,7 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("ReviewerBackend", ReviewerBackend, "Reviewer backend enum."),
     ProtocolDefinition("ProofBackend", ProofBackend, "Proof backend enum."),
     ProtocolDefinition("ExperimentBackend", ExperimentBackend, "Experiment backend enum."),
+    ProtocolDefinition("ProseBackend", ProseBackend, "Prose backend enum."),
     ProtocolDefinition("ExperimentKind", ExperimentKind, "Synthetic experiment kind enum."),
     ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
     ProtocolDefinition(
@@ -422,6 +460,7 @@ __all__ = [
     "ExperimentBackend",
     "ExperimentKind",
     "ProofBackend",
+    "ProseBackend",
     "ProtocolDefinition",
     "RetrievalBackend",
     "ReviewerBackend",

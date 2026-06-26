@@ -1,0 +1,325 @@
+{
+  "$defs": {
+    "NarrativeSectionRole": {
+      "description": "Manuscript section roles used by the narrative-quality critic.",
+      "enum": [
+        "CentralMessage",
+        "ProblemFraming",
+        "BackgroundLiteraturePositioning",
+        "ModelFrame",
+        "MainBodyResult",
+        "DerivativeOrCorollary",
+        "TechnicalLemma",
+        "AppendixOnlyProof",
+        "NumericalValidation",
+        "EmpiricalDiscussion",
+        "SyntheticBoundary",
+        "LimitationsDiscussion"
+      ],
+      "title": "NarrativeSectionRole",
+      "type": "string"
+    },
+    "ProsePromptContract": {
+      "additionalProperties": false,
+      "description": "Deterministic prompt contract for a single manuscript section.",
+      "properties": {
+        "allowed_claims": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Allowed Claims",
+          "type": "array"
+        },
+        "backend": {
+          "default": "fake",
+          "title": "Backend",
+          "type": "string"
+        },
+        "evidence_boundary_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Boundary Instructions",
+          "type": "array"
+        },
+        "evidence_map": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Evidence Map",
+          "type": "object"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "forbidden_outputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Outputs",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "narrative_context": {
+          "additionalProperties": true,
+          "title": "Narrative Context",
+          "type": "object"
+        },
+        "prompt_text": {
+          "minLength": 1,
+          "title": "Prompt Text",
+          "type": "string"
+        },
+        "provider": {
+          "default": "fake",
+          "title": "Provider",
+          "type": "string"
+        },
+        "requested_output_schema": {
+          "additionalProperties": true,
+          "title": "Requested Output Schema",
+          "type": "object"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "section_contract": {
+          "$ref": "#/$defs/ProseSectionContract"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "section_id",
+        "section_contract",
+        "requested_output_schema",
+        "forbidden_outputs",
+        "evidence_boundary_instructions",
+        "prompt_text"
+      ],
+      "title": "ProsePromptContract",
+      "type": "object"
+    },
+    "ProseSectionContract": {
+      "additionalProperties": false,
+      "description": "Section-level prose contract; not a scientific evidence artifact.",
+      "properties": {
+        "allowed_citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Citation Ids",
+          "type": "array"
+        },
+        "allowed_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "allowed_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Evidence Artifact Ids",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_boundary_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Boundary Instructions",
+          "type": "array"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "forbidden_labels": {
+          "items": {
+            "$ref": "#/$defs/VerificationLabel"
+          },
+          "title": "Forbidden Labels",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_words": {
+          "default": 160,
+          "maximum": 5000,
+          "minimum": 1,
+          "title": "Max Words",
+          "type": "integer"
+        },
+        "narrative_role": {
+          "items": {
+            "$ref": "#/$defs/NarrativeSectionRole"
+          },
+          "title": "Narrative Role",
+          "type": "array"
+        },
+        "required_subsections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Subsections",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "section_role": {
+          "minLength": 1,
+          "title": "Section Role",
+          "type": "string"
+        },
+        "section_title": {
+          "minLength": 1,
+          "title": "Section Title",
+          "type": "string"
+        },
+        "source_contract_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Source Contract Hashes",
+          "type": "object"
+        },
+        "style_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Style Instructions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "section_id",
+        "section_title",
+        "section_role"
+      ],
+      "title": "ProseSectionContract",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.5.0/prose-generation-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Provider-neutral one-section prose generation request.",
+  "properties": {
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "backend": {
+      "default": "fake",
+      "title": "Backend",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "prompt_contract": {
+      "$ref": "#/$defs/ProsePromptContract"
+    },
+    "provider": {
+      "default": "fake",
+      "title": "Provider",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "section_id",
+    "prompt_contract"
+  ],
+  "title": "ProseGenerationRequest",
+  "type": "object",
+  "x-factori-protocol-version": "0.5.0",
+  "x-factori-source-model": "factori.schemas.ProseGenerationRequest",
+  "x-factori-verification-evidence": false
+}

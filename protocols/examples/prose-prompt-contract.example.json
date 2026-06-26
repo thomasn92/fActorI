@@ -1,0 +1,77 @@
+{
+  "allowed_claims": [
+    {
+      "allowed_in_main_text": false,
+      "allowed_section": "Theory",
+      "candidate_id": "candidate-example",
+      "claim_id": "claim-example",
+      "claim_label": "Conjecture",
+      "claim_text": "The proposed relationship remains conjectural.",
+      "evidence_artifact_ids": [],
+      "evidence_types": [],
+      "reason": "No proof evidence is linked."
+    }
+  ],
+  "backend": "fake",
+  "evidence_boundary_instructions": [
+    "Draft prose only.",
+    "Do not upgrade claim labels."
+  ],
+  "evidence_map": {
+    "artifact-example": {
+      "artifact_id": "artifact-example",
+      "claim_id": "claim-example",
+      "is_verification_evidence": false
+    }
+  },
+  "fake": true,
+  "forbidden_outputs": [
+    "Do not invent citations or verification labels."
+  ],
+  "is_verification_evidence": false,
+  "narrative_context": {
+    "central_message": "Bounded example only."
+  },
+  "prompt_text": "Draft the introduction using only claim-example and artifact-example.",
+  "provider": "fake",
+  "requested_output_schema": {
+    "type": "object"
+  },
+  "run_id": "example",
+  "section_contract": {
+    "allowed_citation_ids": [
+      "source-example"
+    ],
+    "allowed_claim_ids": [
+      "claim-example"
+    ],
+    "allowed_evidence_artifact_ids": [
+      "artifact-example"
+    ],
+    "creates_scientific_validation": false,
+    "evidence_boundary_instructions": [
+      "Use only allowed claim IDs.",
+      "Generated prose is not verification evidence."
+    ],
+    "fake": true,
+    "forbidden_claims": [],
+    "forbidden_labels": [
+      "RealDataExperimentVerified"
+    ],
+    "is_verification_evidence": false,
+    "max_words": 120,
+    "narrative_role": [],
+    "required_subsections": [],
+    "run_id": "example",
+    "section_id": "introduction",
+    "section_role": "Introduction",
+    "section_title": "Introduction",
+    "source_contract_hashes": {
+      "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "style_instructions": [
+      "Use placeholder-grade prose only."
+    ]
+  },
+  "section_id": "introduction"
+}

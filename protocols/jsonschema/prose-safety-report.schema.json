@@ -1,0 +1,81 @@
+{
+  "$id": "https://schemas.factori.local/0.5.0/prose-safety-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One-section prose safety and grounding report.",
+  "properties": {
+    "created_or_upgraded_labels": {
+      "default": false,
+      "title": "Created Or Upgraded Labels",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "boolean"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "used_citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Ids",
+      "type": "array"
+    },
+    "used_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Claim Ids",
+      "type": "array"
+    },
+    "used_evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Evidence Artifact Ids",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "section_id",
+    "safe",
+    "rejected"
+  ],
+  "title": "ProseSafetyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.5.0",
+  "x-factori-source-model": "factori.schemas.ProseSafetyReport",
+  "x-factori-verification-evidence": false
+}

@@ -51,6 +51,7 @@ from factori.adapters.llm_real import (
 )
 from factori.adapters.llm_review import FakeReviewerClient, OpenAIReviewerClient
 from factori.adapters.proof_real import LeanProofVerifier, ProofToolRunner
+from factori.adapters.prose_real import OpenAIProseGenerator
 from factori.adapters.retrieval_real import (
     OpenAlexRetrievalClient,
     OpenAlexTransport,
@@ -98,6 +99,7 @@ def get_adapter_registry(
     retrieval_clock: Callable[[], str] | None = None,
     proof_runner: ProofToolRunner | None = None,
     experiment_tool_runner: ExperimentToolRunner | None = None,
+    prose_transport: LLMTransport | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> AdapterRegistry:
     """Build fake defaults plus explicitly gated Stage A and Stage B adapters."""
@@ -255,6 +257,35 @@ def get_adapter_registry(
             replications=loaded.experiment_replications,
             allow_external_tools=True,
         )
+    _require_backend(
+        loaded.prose_backend,
+        kind="prose",
+        capability="prose_generation",
+        label="Prose",
+    )
+    prose_generator: ProseGenerator = FakeProseGenerator()
+    if loaded.prose_backend in {"openai", "real_prose"}:
+        if not loaded.allow_external_calls:
+            raise AdapterExternalCallsDisabled(
+                "External calls are disabled. Set allow_external_calls=true to use real "
+                "prose adapters."
+            )
+        configured_prose_key = (
+            loaded.prose_api_key.get_secret_value()
+            if loaded.prose_api_key is not None
+            else None
+        )
+        prose_key = configured_prose_key or environment.get(loaded.prose_api_key_env)
+        if not prose_key:
+            raise AdapterMissingCredentials(
+                "Real prose adapter requested but no API key is configured."
+            )
+        prose_generator = OpenAIProseGenerator(
+            api_key=prose_key,
+            model=loaded.prose_model,
+            transport=prose_transport or OpenAIResponsesTransport(),
+            allow_external_calls=True,
+        )
     return AdapterRegistry(
         config=loaded,
         descriptor=AdapterRegistryDescriptor(
@@ -263,6 +294,7 @@ def get_adapter_registry(
             active_retrieval_backend=loaded.retrieval_backend,
             active_proof_backend=loaded.proof_backend,
             active_experiment_backend=loaded.experiment_backend,
+            active_prose_backend=loaded.prose_backend,
             allow_external_calls=loaded.allow_external_calls,
             allow_external_tools=loaded.allow_external_tools,
             providers=get_provider_descriptors(),
@@ -272,7 +304,7 @@ def get_adapter_registry(
         reviewer=reviewer,
         proof_verifier=proof_verifier,
         experiment_runner=experiment_runner,
-        prose_generator=FakeProseGenerator(),
+        prose_generator=prose_generator,
         human_review=FakeHumanReviewClient(),
     )
 

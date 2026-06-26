@@ -13,8 +13,9 @@ run-control and adapter contracts without importing Python.
   `LLMReviewerPromptContract`, `LLMReviewerParseReport`, `RetrievalQuery`, `RetrievalResult`,
   `RetrievedDocument`, `RetrievalRunReport`, `RetrievalParseReport`,
   `RetrievalAdequacyCertificate`, `ProofVerificationContract`, `ProofVerificationResult`,
-  `ExperimentRunContract`, `ExperimentRunResult`, `GeneratedSectionDraft`, and
-  `HumanReviewDecision`.
+  `ExperimentRunContract`, `ExperimentRunResult`, `ProseSectionContract`, `ProsePromptContract`,
+  `ProseGenerationRequest`, `ProseGenerationParseResult`, `ProseSafetyReport`,
+  `GeneratedSectionDraft`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -29,7 +30,8 @@ run-control and adapter contracts without importing Python.
 - Real adapters remain explicitly gated; fake adapters are still the default.
 - Real Lean proof checking and local synthetic experiment execution have gated local-tool adapter
   seams and are disabled by default.
-- Docker experiments, empirical data ingestion, polished prose generation, final LaTeX generation,
+- Docker experiments, empirical data ingestion, full manuscript drafting, polished prose generation,
+  final LaTeX generation,
   and external review
   readiness are not implemented.
 
@@ -58,3 +60,6 @@ backend only as an explicit external-tool job with the same proof contract, exec
 proof-evidence safety checks used by the CLI. It may expose the local synthetic experiment backend
 only as an explicit external-tool job with the same experiment contract, runner gate,
 SyntheticOnly data boundary, metric acceptance checks, and synthetic-evidence safety checks.
+A future server may expose one-section prose drafting only as an explicit external-call job with the
+same prose contract, allowed claim/evidence/citation lists, and safety report checks used by the CLI.
+Generated prose remains manuscript context and cannot mutate claims, evidence, citations, or labels.

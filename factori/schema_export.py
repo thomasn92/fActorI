@@ -31,6 +31,7 @@ from factori.schemas import (
     ExperimentKind,
     ExperimentRunContract,
     ExperimentRunResult,
+    GeneratedSectionDraft,
     LedgerTipStatus,
     LedgerTipValidationReport,
     LLMCandidateParseReport,
@@ -47,6 +48,11 @@ from factori.schemas import (
     PlannedStageStatus,
     ProofVerificationContract,
     ProofVerificationResult,
+    ProseGenerationParseResult,
+    ProseGenerationRequest,
+    ProsePromptContract,
+    ProseSafetyReport,
+    ProseSectionContract,
     ResearchObjectManifest,
     ResumeValidationReport,
     ResumeValidationStatus,
@@ -85,6 +91,11 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "llm-candidate-response.example.json": "LLMCandidateParseReport",
     "pipeline-dry-run-plan.example.json": "PipelineDryRunPlan",
     "pipeline-run-report.example.json": "PipelineRunReport",
+    "prose-generation-parse-result.example.json": "ProseGenerationParseResult",
+    "prose-generation-request.example.json": "ProseGenerationRequest",
+    "prose-prompt-contract.example.json": "ProsePromptContract",
+    "prose-safety-report.example.json": "ProseSafetyReport",
+    "prose-section-contract.example.json": "ProseSectionContract",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
     "research-object-manifest.example.json": "ResearchObjectManifest",
@@ -332,6 +343,75 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         allowed_section="Theory",
         reason="No proof evidence is linked.",
     )
+    prose_section_contract = ProseSectionContract(
+        run_id="example",
+        section_id="introduction",
+        section_title="Introduction",
+        section_role="Introduction",
+        allowed_claim_ids=[claim.claim_id],
+        allowed_evidence_artifact_ids=[artifact.id],
+        allowed_citation_ids=[retrieval.source_id],
+        forbidden_claims=[],
+        forbidden_labels=[VerificationLabel.REAL_DATA_EXPERIMENT_VERIFIED],
+        evidence_boundary_instructions=[
+            "Use only allowed claim IDs.",
+            "Generated prose is not verification evidence.",
+        ],
+        style_instructions=["Use placeholder-grade prose only."],
+        max_words=120,
+        source_contract_hashes={"claim_table": _HASH},
+    )
+    prose_prompt_contract = ProsePromptContract(
+        run_id="example",
+        section_id=prose_section_contract.section_id,
+        section_contract=prose_section_contract,
+        allowed_claims=[claim.model_dump(mode="json")],
+        evidence_map={
+            artifact.id: {
+                "artifact_id": artifact.id,
+                "claim_id": claim.claim_id,
+                "is_verification_evidence": False,
+            }
+        },
+        narrative_context={"central_message": "Bounded example only."},
+        requested_output_schema={"type": "object"},
+        forbidden_outputs=["Do not invent citations or verification labels."],
+        evidence_boundary_instructions=[
+            "Draft prose only.",
+            "Do not upgrade claim labels.",
+        ],
+        prompt_text="Draft the introduction using only claim-example and artifact-example.",
+    )
+    prose_request = ProseGenerationRequest(
+        run_id="example",
+        section_id=prose_section_contract.section_id,
+        prompt_contract=prose_prompt_contract,
+    )
+    generated_section = GeneratedSectionDraft(
+        section_id=prose_section_contract.section_id,
+        title=prose_section_contract.section_title,
+        content=(
+            "[FAKE PROSE DRAFT] This section summarizes claim-example using "
+            "artifact-example. No scientific label is upgraded."
+        ),
+        claim_ids=[claim.claim_id],
+        used_claim_ids=[claim.claim_id],
+        used_evidence_artifact_ids=[artifact.id],
+        used_citation_ids=[retrieval.source_id],
+    )
+    prose_parse_result = ProseGenerationParseResult(
+        section_draft=generated_section,
+        raw_response_type="dict",
+        fake=True,
+    )
+    prose_safety_report = ProseSafetyReport(
+        section_id=prose_section_contract.section_id,
+        safe=True,
+        rejected=False,
+        used_claim_ids=[claim.claim_id],
+        used_evidence_artifact_ids=[artifact.id],
+        used_citation_ids=[retrieval.source_id],
+    )
     pipeline_report = PipelineRunReport(
         run_id="example",
         domain="machine learning",
@@ -479,6 +559,11 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "experiment-contract.example.json": experiment_contract.model_dump(mode="json"),
         "experiment-result.example.json": experiment.model_dump(mode="json"),
         "claim.example.json": claim.model_dump(mode="json"),
+        "prose-section-contract.example.json": prose_section_contract.model_dump(mode="json"),
+        "prose-prompt-contract.example.json": prose_prompt_contract.model_dump(mode="json"),
+        "prose-generation-request.example.json": prose_request.model_dump(mode="json"),
+        "prose-generation-parse-result.example.json": prose_parse_result.model_dump(mode="json"),
+        "prose-safety-report.example.json": prose_safety_report.model_dump(mode="json"),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),

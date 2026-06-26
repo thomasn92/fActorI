@@ -1,0 +1,29 @@
+{
+  "fake": true,
+  "is_verification_evidence": false,
+  "raw_response_type": "dict",
+  "reasons": [],
+  "rejected": false,
+  "section_draft": {
+    "claim_ids": [
+      "claim-example"
+    ],
+    "content": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example. No scientific label is upgraded.",
+    "fake": true,
+    "is_verification_evidence": false,
+    "polished": false,
+    "section_id": "introduction",
+    "title": "Introduction",
+    "unsupported_sentences": [],
+    "used_citation_ids": [
+      "source-example"
+    ],
+    "used_claim_ids": [
+      "claim-example"
+    ],
+    "used_evidence_artifact_ids": [
+      "artifact-example"
+    ],
+    "warnings": []
+  }
+}

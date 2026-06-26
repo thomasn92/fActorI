@@ -225,7 +225,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.4.0/diagnostic-report.schema.json",
+  "$id": "https://schemas.factori.local/0.5.0/diagnostic-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only failure diagnostics.",
@@ -326,7 +326,7 @@
   ],
   "title": "DiagnosticReport",
   "type": "object",
-  "x-factori-protocol-version": "0.4.0",
+  "x-factori-protocol-version": "0.5.0",
   "x-factori-source-model": "factori.schemas.DiagnosticReport",
   "x-factori-verification-evidence": false
 }

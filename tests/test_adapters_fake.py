@@ -162,8 +162,9 @@ def test_fake_prose_generator_produces_only_placeholder_stub() -> None:
     assert draft.fake
     assert not draft.polished
     assert not draft.is_verification_evidence
-    assert "FAKE SECTION STUB" in draft.content
-    assert "polished_prose=false" in draft.content
+    assert "[FAKE PROSE DRAFT]" in draft.content
+    assert "No scientific label is created or upgraded" in draft.content
+    assert "not polished prose" in draft.warnings[0]
 
 
 def test_fake_human_review_never_claims_real_approval() -> None:

@@ -28,6 +28,9 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `PipelineStagePlan` generated from `PlannedStage`;
 - `LLMReviewerPromptContract` generated from `ReviewerPromptContract`;
 - `LLMReviewerParseReport` generated from `LLMReviewerParseResult`;
+- `ProseSectionContract`, `ProsePromptContract`, `ProseGenerationRequest`,
+  `ProseGenerationParseResult`, and `ProseSafetyReport` generated from one-section prose adapter
+  models;
 - `EvidenceType` generated from `ArtifactType`;
 - `ClaimLabel` generated from `VerificationLabel`;
 - `ReleaseStatus` generated from `ReleaseGateStatus`.
@@ -71,7 +74,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.4.0
+  --new-version 0.5.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

@@ -41,14 +41,16 @@
 | 36 | Gated local proof-verification adapter with fake defaults, strict proof contracts, and proof-evidence safety checks | `adapters/proof_real.py`, `adapters/proof_contracts.py`, `adapters/proof_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --proof-backend lean --allow-external-tools --proof-executable <tool>` | Fake default behavior unchanged; real proof artifacts are hashed and ledgered only after explicit local-tool opt-in |
 | 37 | Gated local synthetic experiment runner with fake defaults, strict experiment contracts, and synthetic-evidence safety checks | `adapters/experiment_real.py`, `adapters/experiment_contracts.py`, `adapters/experiment_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --experiment-backend local_synthetic --allow-external-tools --experiment-runner <tool>` | Fake default behavior unchanged; local synthetic artifacts are hashed and ledgered only after explicit local-tool opt-in and cannot support real-data validation |
 | 38 | Stage C maintainability hardening: split proof, experiment, evidence-classification, summary, and persistence responsibilities into deterministic internal phases | `stage_c.py`, `stage_c_phases.py` | Existing `run-stage-c` command unchanged | Refactor-only; Stage C artifacts, evidence boundaries, report layout, ledger actions, and protocol output remain compatible |
+| 39 | Gated one-section LLM prose-generation adapter with fake defaults and strict claim/evidence grounding | `adapters/prose_real.py`, `adapters/prose_prompts.py`, `adapters/prose_safety.py`, `prose_contract.py` | `generate-section-draft` | Fake default behavior unchanged; optional prose artifacts are hashed and ledgered manuscript/prose context only, not verification evidence |
 
 ## Current Boundary
 
-Milestones through 38 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 39 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
-Stage C local proof checking, and Stage C controlled local synthetic experiment execution. They do not implement autonomous
+Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
+one-section manuscript prose drafting. They do not implement autonomous
 real agents, complete scientific literature coverage, Docker experiments, LLM
-synthesis/writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
+synthesis, full-paper writing, polished prose, final LaTeX, or production orchestration frameworks. Stage B LLM
 reviews are critiques only and are not scientific validation. Narrative paper-shape critiques are
 also diagnostics only and cannot validate claims. The adapter registry is now
 provider-neutral enough to add future backends behind the same fail-closed gates. The protocol layer is broad enough
@@ -65,3 +67,6 @@ disabled by default, runner-injected in tests, and has no authority unless proof
 results, trace artifacts, and safety checks all pass. The local synthetic experiment adapter is
 also disabled by default, runner-injected in tests, and can support only SyntheticOnly claims when
 contracts, metrics, output/trace artifacts, and safety checks all pass.
+The prose adapter is disabled by default, transport-injected in tests, drafts one section from
+approved contracts only, and cannot create claims, citations, evidence, scientific validation, or
+label upgrades.

@@ -26,6 +26,7 @@ from factori.config import (
     DEFAULT_LLM_MODEL,
     DEFAULT_PROOF_BACKEND,
     DEFAULT_PROOF_TIMEOUT_SECONDS,
+    DEFAULT_PROSE_BACKEND,
     DEFAULT_RETRIEVAL_BACKEND,
     DEFAULT_RETRIEVAL_LIMIT,
     DEFAULT_REVIEWER_BACKEND,
@@ -63,6 +64,7 @@ from factori.output_hygiene import (
     write_output_hygiene_report,
 )
 from factori.paper_shape import critique_paper_shape, write_paper_shape_reports
+from factori.prose_contract import SectionDraftGenerationError, generate_section_draft
 from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
 from factori.protocol_validation import (
     DEFAULT_PROTOCOL_EXAMPLES_DIR,
@@ -365,6 +367,11 @@ def show_adapters_command(
         int,
         typer.Option("--experiment-replications"),
     ] = DEFAULT_EXPERIMENT_REPLICATIONS,
+    prose_backend: Annotated[
+        str,
+        typer.Option("--prose-backend"),
+    ] = DEFAULT_PROSE_BACKEND,
+    prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
 ) -> None:
     """Show the active adapter registry without calling any backend."""
     try:
@@ -386,6 +393,8 @@ def show_adapters_command(
                 experiment_runner=experiment_runner,
                 experiment_timeout_seconds=experiment_timeout_seconds,
                 experiment_replications=experiment_replications,
+                prose_backend=prose_backend,
+                prose_model=prose_model,
             )
         )
     except (AdapterConfigurationError, ValueError) as exc:
@@ -407,6 +416,8 @@ def show_adapters_command(
     typer.echo(f"experiment_runner={registry.config.experiment_runner or 'not_configured'}")
     typer.echo(f"experiment_timeout_seconds={registry.config.experiment_timeout_seconds}")
     typer.echo(f"experiment_replications={registry.config.experiment_replications}")
+    typer.echo(f"prose_backend={registry.config.prose_backend}")
+    typer.echo(f"prose_model={registry.config.prose_model}")
     for name, class_name in registry.class_names().items():
         typer.echo(f"{name}={class_name}")
     for descriptor in registry.provider_descriptors():
@@ -425,7 +436,9 @@ def show_adapters_command(
             f"supports_review={str(descriptor.supports_review).lower()},"
             f"supports_retrieval={str(descriptor.supports_retrieval).lower()},"
             f"supports_proof={str(descriptor.supports_proof).lower()},"
-            f"supports_experiments={str(descriptor.supports_experiments).lower()}"
+            f"supports_experiments={str(descriptor.supports_experiments).lower()},"
+            "supports_prose_generation="
+            f"{str(descriptor.supports_prose_generation).lower()}"
         )
 
 
@@ -1354,6 +1367,92 @@ def critique_paper_shape_command(
     if artifacts is not None:
         typer.echo(f"narrative_contract={artifacts.narrative_contract_artifact.path}")
         typer.echo(f"paper_shape_critique={artifacts.critique_markdown_artifact.path}")
+
+
+@app.command("generate-section-draft")
+def generate_section_draft_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    section_id: Annotated[str, typer.Option("--section-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    prose_backend: Annotated[
+        str,
+        typer.Option("--prose-backend"),
+    ] = DEFAULT_PROSE_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    max_words: Annotated[int, typer.Option("--max-words")] = 160,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Generate and validate one manuscript section draft."""
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                prose_backend=prose_backend,
+                allow_external_calls=allow_external_calls,
+                prose_model=prose_model,
+            )
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = generate_section_draft(
+            run_id=run_id,
+            section_id=section_id,
+            store=store,
+            ledger=ledger,
+            prose_generator=registry.prose_generator,
+            write_report=write_report,
+            max_words=max_words,
+        )
+    except SectionDraftGenerationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "section_contract": result.section_contract.model_dump(mode="json"),
+                    "draft": result.draft.model_dump(mode="json"),
+                    "safety_report": result.safety_report.model_dump(mode="json"),
+                    "artifacts": {
+                        "request": result.request_artifact.model_dump(mode="json")
+                        if result.request_artifact
+                        else None,
+                        "response": result.response_artifact.model_dump(mode="json")
+                        if result.response_artifact
+                        else None,
+                        "draft": result.draft_artifact.model_dump(mode="json")
+                        if result.draft_artifact
+                        else None,
+                        "safety": result.safety_artifact.model_dump(mode="json")
+                        if result.safety_artifact
+                        else None,
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"section_id={result.section_contract.section_id}")
+    typer.echo(f"prose_backend={registry.config.prose_backend}")
+    typer.echo(f"used_claims={len(result.safety_report.used_claim_ids)}")
+    typer.echo(f"used_evidence={len(result.safety_report.used_evidence_artifact_ids)}")
+    typer.echo(f"safe={str(result.safety_report.safe).lower()}")
+    typer.echo(f"rejected={str(result.safety_report.rejected).lower()}")
+    typer.echo(f"warnings={len(result.safety_report.warnings)}")
+    if result.draft_artifact is not None:
+        typer.echo(f"section_draft={result.draft_artifact.path}")
+    if result.safety_artifact is not None:
+        typer.echo(f"section_safety={result.safety_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

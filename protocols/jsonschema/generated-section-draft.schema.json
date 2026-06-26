@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.4.0/generated-section-draft.schema.json",
+  "$id": "https://schemas.factori.local/0.5.0/generated-section-draft.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Future prose adapter section draft placeholder.",
@@ -40,6 +40,41 @@
       "minLength": 1,
       "title": "Title",
       "type": "string"
+    },
+    "unsupported_sentences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsupported Sentences",
+      "type": "array"
+    },
+    "used_citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Ids",
+      "type": "array"
+    },
+    "used_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Claim Ids",
+      "type": "array"
+    },
+    "used_evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Evidence Artifact Ids",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
     }
   },
   "required": [
@@ -49,7 +84,7 @@
   ],
   "title": "GeneratedSectionDraft",
   "type": "object",
-  "x-factori-protocol-version": "0.4.0",
+  "x-factori-protocol-version": "0.5.0",
   "x-factori-source-model": "factori.schemas.GeneratedSectionDraft",
   "x-factori-verification-evidence": false
 }

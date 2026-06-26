@@ -55,6 +55,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   configured runner. Do not execute experiment tools unless the user explicitly requests this
   backend and safety gate. Synthetic experiment output cannot be described as real-world empirical
   validation.
+- A gated OpenAI prose adapter exists only for one-section manuscript drafting from approved prose
+  contracts, claim tables, evidence maps, and narrative contracts. It requires `prose_backend=openai`,
+  `allow_external_calls=true`, and an API key. Do not use it for full-paper generation, polished
+  prose, LaTeX export, claim creation, citation invention, or label/evidence changes.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -99,6 +103,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   stay candidate/claim specific. Only a validated SyntheticOnly local experiment result with
   experiment-evidence metadata can support `SyntheticExperimentVerified`; it can never support
   `RealDataExperimentVerified` or empirical validation claims.
+- Prose prompts, generated section drafts, and prose safety reports are manuscript/prose context
+  only. They are not proof, experiment, retrieval, literature, human-review, or scientific-validation
+  evidence and must never create or upgrade claim labels, evidence links, or citation records.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

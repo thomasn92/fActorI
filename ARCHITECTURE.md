@@ -77,7 +77,7 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.4.0` exports top-level run-control, adapter I/O, manifest, output, narrative, and enum
+Protocol version `0.5.0` exports top-level run-control, adapter I/O, manifest, output, narrative, prose, and enum
 contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
 `retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
@@ -101,10 +101,12 @@ candidate proposal. It cannot be selected without the `openai` backend, explicit
 permission, and an API key. Retrieval, proof, experiment, prose, and human-review adapters remain
 fake by default. The current gated real seams are OpenAlex source metadata for Stage B, OpenAI
 structural review for Stage B, a local Lean proof adapter for Stage C mathematical branches, and a
-local synthetic experiment runner for Stage C SyntheticOnly branches. OpenAlex and OpenAI require
+local synthetic experiment runner for Stage C SyntheticOnly branches, plus one-section OpenAI prose
+drafting from approved manuscript contracts. OpenAlex and OpenAI require
 external-call permission and configured credentials. Lean and local synthetic experiments require
 `allow_external_tools=true` plus an explicit executable/runner and are never invoked by default.
-Docker runners and human-review services are not implemented.
+Full manuscript generation, polished prose generation, LaTeX export, Docker runners, and
+human-review services are not implemented.
 
 Adapter configuration, capability, transport, parse, and safety failures use shared typed errors.
 Transport utilities accept injected fake openers for tests, map HTTP failures to
@@ -152,6 +154,13 @@ declared acceptance criteria, input/output/transcript hashes, linked synthetic-e
 artifacts, and successful safety validation. Synthetic experiment artifacts cannot justify
 `RealDataExperimentVerified`, empirical validation, mathematical proof labels, or real-world
 claims.
+
+The prose adapter is a one-section manuscript-drafting seam only. It consumes section-level prose
+contracts, claim tables, evidence maps, and narrative contracts, then validates the generated draft
+against allowed claim IDs, evidence artifact IDs, citation IDs, labels, and word limits. Prose
+request, response, draft, and safety artifacts are manuscript/prose context only. They cannot create
+scientific claims, invent citations, upgrade labels, modify claim/evidence tables, or justify proof,
+experiment, retrieval, human-review, or scientific-validation evidence.
 
 ## Mutating and Read-Only Operations
 
@@ -219,7 +228,7 @@ The following never count as verification evidence:
 - research-object Markdown;
 - manuscript plans and checklists;
 - final audit and release reports;
-- export plans and prose contracts;
+- export plans, prose contracts, generated section drafts, and prose safety reports;
 - runtime summaries and manifests;
 - replay reports and diagnostics reports.
 - LLM requests, responses, parse reports, and candidate proposals.

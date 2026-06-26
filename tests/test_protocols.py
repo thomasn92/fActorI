@@ -14,6 +14,11 @@ from factori.schemas import (
     LLMPromptContract,
     PipelineStageResult,
     ProofVerificationResult,
+    ProseGenerationParseResult,
+    ProseGenerationRequest,
+    ProsePromptContract,
+    ProseSafetyReport,
+    ProseSectionContract,
     RunStatusReport,
     StageBReviewerReport,
     StageRerunDecision,
@@ -27,9 +32,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 76
+    assert len(first) == 82
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.4.0"
+    assert PROTOCOL_VERSION == "0.5.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -48,6 +53,11 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("LedgerTipValidationReport").model is LedgerTipValidationReport
     assert get_protocol_definition("LLMPromptContract").model is LLMPromptContract
     assert get_protocol_definition("LLMCandidateParseReport").model is LLMCandidateParseReport
+    assert get_protocol_definition("ProseSectionContract").model is ProseSectionContract
+    assert get_protocol_definition("ProsePromptContract").model is ProsePromptContract
+    assert get_protocol_definition("ProseGenerationRequest").model is ProseGenerationRequest
+    assert get_protocol_definition("ProseGenerationParseResult").model is ProseGenerationParseResult
+    assert get_protocol_definition("ProseSafetyReport").model is ProseSafetyReport
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -80,6 +90,11 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "LLMCandidateParseReport",
         "LLMReviewerPromptContract",
         "LLMReviewerParseReport",
+        "ProseSectionContract",
+        "ProsePromptContract",
+        "ProseGenerationRequest",
+        "ProseGenerationParseResult",
+        "ProseSafetyReport",
         "RetrievalQuery",
         "RetrievalRunReport",
         "RetrievalParseReport",
@@ -95,6 +110,7 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "ReviewerBackend",
         "ProofBackend",
         "ExperimentBackend",
+        "ProseBackend",
         "ExperimentKind",
         "ReleaseStatus",
         "ProtocolCompatibilityStatus",

@@ -19,6 +19,7 @@ from factori.schemas import (
     HumanReviewDecision,
     LiteratureState,
     ManuscriptSectionPlan,
+    ProseSectionContract,
     RetrievalAdequacyCertificate,
     RetrievalResult,
     RetrievedDocument,
@@ -230,31 +231,61 @@ class FakeProseGenerator:
 
     def generate_section(
         self,
-        section_contract: ManuscriptSectionPlan | Mapping[str, Any],
+        section_contract: ManuscriptSectionPlan | ProseSectionContract | Mapping[str, Any],
         claim_table: ClaimTable,
     ) -> GeneratedSectionDraft:
-        if isinstance(section_contract, ManuscriptSectionPlan):
+        evidence_ids: list[str] = []
+        if isinstance(section_contract, ProseSectionContract):
+            section_id = section_contract.section_id
+            title = section_contract.section_title
+            requested_claim_ids = section_contract.allowed_claim_ids
+            evidence_ids = list(section_contract.allowed_evidence_artifact_ids)
+        elif isinstance(section_contract, ManuscriptSectionPlan):
             section_id = section_contract.section_id
             title = section_contract.title
             requested_claim_ids = section_contract.allowed_claim_ids
         else:
             section_id = str(section_contract.get("section_id", "section-stub"))
-            title = str(section_contract.get("title", "Section Stub"))
+            title = str(
+                section_contract.get(
+                    "section_title",
+                    section_contract.get("title", "Section Stub"),
+                )
+            )
             requested_claim_ids = [
                 str(value) for value in section_contract.get("allowed_claim_ids", [])
+            ]
+            evidence_ids = [
+                str(value) for value in section_contract.get("allowed_evidence_artifact_ids", [])
             ]
         known_claim_ids = {claim.claim_id for claim in claim_table.claims}
         claim_ids = sorted(
             claim_id for claim_id in requested_claim_ids if claim_id in known_claim_ids
         )
+        if not evidence_ids:
+            evidence_ids = sorted(
+                {
+                    evidence_id
+                    for claim in claim_table.claims
+                    if claim.claim_id in set(claim_ids)
+                    for evidence_id in claim.evidence_artifact_ids
+                }
+            )
         return GeneratedSectionDraft(
             section_id=section_id,
             title=title,
             content=(
-                f"[FAKE SECTION STUB: section_id={section_id}; "
-                f"claims={','.join(claim_ids) or 'none'}; polished_prose=false]"
+                "[FAKE PROSE DRAFT] "
+                f"section_id={section_id}; claims={','.join(claim_ids) or 'none'}; "
+                f"evidence={','.join(evidence_ids) or 'none'}; "
+                "No scientific label is created or upgraded."
             ),
             claim_ids=claim_ids,
+            used_claim_ids=claim_ids,
+            used_evidence_artifact_ids=evidence_ids,
+            used_citation_ids=[],
+            unsupported_sentences=[],
+            warnings=["Fake prose draft is a deterministic placeholder, not polished prose."],
         )
 
 

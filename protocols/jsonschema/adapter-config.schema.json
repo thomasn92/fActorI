@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.4.0/adapter-config.schema.json",
+  "$id": "https://schemas.factori.local/0.5.0/adapter-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Fake-default adapter configuration.",
@@ -109,6 +109,37 @@
       "title": "Proof Timeout Seconds",
       "type": "integer"
     },
+    "prose_api_key": {
+      "anyOf": [
+        {
+          "type": "string",
+          "x-factori-sensitive": true
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prose Api Key"
+    },
+    "prose_api_key_env": {
+      "default": "OPENAI_API_KEY",
+      "minLength": 1,
+      "title": "Prose Api Key Env",
+      "type": "string"
+    },
+    "prose_backend": {
+      "default": "fake",
+      "minLength": 1,
+      "title": "Prose Backend",
+      "type": "string"
+    },
+    "prose_model": {
+      "default": "gpt-5-mini",
+      "minLength": 1,
+      "title": "Prose Model",
+      "type": "string"
+    },
     "retrieval_api_key": {
       "anyOf": [
         {
@@ -187,7 +218,7 @@
   },
   "title": "AdapterConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.4.0",
+  "x-factori-protocol-version": "0.5.0",
   "x-factori-source-model": "factori.adapters.config.AdapterConfig",
   "x-factori-verification-evidence": false
 }
