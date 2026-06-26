@@ -110,6 +110,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   assembly reports, and prose safety reports are manuscript/prose context only. They are not proof,
   experiment, retrieval, literature, human-review, or scientific-validation evidence and must never
   create or upgrade claim labels, evidence links, or citation records.
+- Citation registries, citation-safety reports, bibliography placeholders, and literature-positioning
+  reports are retrieval/manuscript context only. They must not be described as exhaustive literature
+  coverage, novelty proof, claim verification, proof evidence, experiment evidence, human approval,
+  or scientific validation.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

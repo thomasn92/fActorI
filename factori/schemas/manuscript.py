@@ -285,6 +285,143 @@ class PaperShapeCritique(StrictModel):
     creates_scientific_validation: bool = False
 
 
+class CitationKey(StrictModel):
+    """Deterministic citation-key assignment for one retrieval source."""
+
+    citation_id: str = Field(min_length=1)
+    citation_key: str = Field(min_length=1)
+    source_id: str = Field(min_length=1)
+    disambiguator: str | None = None
+
+
+class CitationRecord(StrictModel):
+    """Source metadata allowed for citation-safe literature positioning only."""
+
+    citation_id: str = Field(min_length=1)
+    citation_key: str = Field(min_length=1)
+    source_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    authors: list[str] = Field(default_factory=list)
+    year: int | None = Field(default=None, ge=0)
+    venue: str | None = None
+    doi: str | None = None
+    url: str | None = None
+    provider: str = Field(min_length=1)
+    retrieved_at: str = Field(min_length=1)
+    raw_metadata_hash: str = Field(min_length=1)
+    source_artifact_id: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+    claims_literature_coverage: bool = False
+
+
+class BibliographyEntry(StrictModel):
+    """Deterministic Markdown bibliography entry backed by source provenance."""
+
+    citation_id: str = Field(min_length=1)
+    citation_key: str = Field(min_length=1)
+    source_id: str = Field(min_length=1)
+    markdown: str = Field(min_length=1)
+    has_source_provenance: bool
+    warnings: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+
+
+class CitationRegistry(StrictModel):
+    """Run-level citation registry derived from retrieval metadata."""
+
+    run_id: str = Field(min_length=1)
+    citations: list[CitationRecord] = Field(default_factory=list)
+    bibliography: list[BibliographyEntry] = Field(default_factory=list)
+    citation_key_policy: str = Field(min_length=1)
+    source_registry_hash: str = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+    claims_literature_coverage: bool = False
+
+
+class CitationUsage(StrictModel):
+    """Observed citation markers in a manuscript draft."""
+
+    citation_key: str = Field(min_length=1)
+    count: int = Field(ge=0)
+    known: bool
+    citation_id: str | None = None
+
+
+class CitationSafetyReport(StrictModel):
+    """Safety report for citation use in a manuscript draft."""
+
+    run_id: str = Field(min_length=1)
+    safe: bool
+    rejected: bool
+    citation_usages: list[CitationUsage] = Field(default_factory=list)
+    unknown_citation_keys: list[str] = Field(default_factory=list)
+    invented_bibliography_keys: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    used_citation_keys: list[str] = Field(default_factory=list)
+    used_citation_ids: list[str] = Field(default_factory=list)
+    bibliography_entries_count: int = Field(default=0, ge=0)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    proves_novelty: bool = False
+
+
+class LiteratureGapStatement(StrictModel):
+    """Bounded literature-gap statement with explicit limitations."""
+
+    statement_id: str = Field(min_length=1)
+    problem_context: str = Field(min_length=1)
+    statement: str = Field(min_length=1)
+    citation_ids: list[str] = Field(default_factory=list)
+    citation_keys: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    non_exhaustive: bool = True
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+
+
+class LiteraturePositioningContract(StrictModel):
+    """Bounded literature-positioning contract for manuscript drafting."""
+
+    run_id: str = Field(min_length=1)
+    contract_id: str = Field(min_length=1)
+    problem_context: str = Field(min_length=1)
+    retrieval_queries_used: list[str] = Field(default_factory=list)
+    included_citation_ids: list[str] = Field(default_factory=list)
+    excluded_or_deferred_sources: list[str] = Field(default_factory=list)
+    literature_gap_statement: str = Field(min_length=1)
+    novelty_positioning_statement: str = Field(min_length=1)
+    coverage_limitations: list[str] = Field(default_factory=list)
+    non_exhaustiveness_disclaimer: str = Field(min_length=1)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+    claims_literature_coverage: bool = False
+
+
+class LiteraturePositioningReport(StrictModel):
+    """Citation-safe literature-positioning report; not novelty proof."""
+
+    run_id: str = Field(min_length=1)
+    citation_registry_id: str = Field(min_length=1)
+    contract: LiteraturePositioningContract
+    gap_statement: LiteratureGapStatement
+    markdown_intro_paragraph: str = Field(min_length=1)
+    literature_limitations_paragraph: str = Field(min_length=1)
+    citation_keys_used: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    proves_novelty: bool = False
+    claims_literature_coverage: bool = False
+
+
 class SectionDraftingTask(StrictModel):
     """One planned section drafting task with an explicit prose contract."""
 
@@ -295,6 +432,7 @@ class SectionDraftingTask(StrictModel):
     allowed_claim_ids: list[str] = Field(default_factory=list)
     allowed_evidence_artifact_ids: list[str] = Field(default_factory=list)
     allowed_citation_ids: list[str] = Field(default_factory=list)
+    allowed_citation_keys: list[str] = Field(default_factory=list)
     source_contract_hashes: dict[str, str] = Field(default_factory=dict)
     prose_contract: ProseSectionContract
     fake: bool = True
@@ -331,6 +469,7 @@ class SectionDraftSafetySummary(StrictModel):
     used_claim_ids: list[str] = Field(default_factory=list)
     used_evidence_artifact_ids: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
+    used_citation_keys: list[str] = Field(default_factory=list)
     unsupported_sentences: list[str] = Field(default_factory=list)
     created_or_upgraded_labels: bool = False
     is_verification_evidence: bool = False
@@ -348,6 +487,7 @@ class SectionDraftingResult(StrictModel):
     used_claim_ids: list[str] = Field(default_factory=list)
     used_evidence_artifact_ids: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
+    used_citation_keys: list[str] = Field(default_factory=list)
     safety_status: str = Field(min_length=1)
     warnings: list[str] = Field(default_factory=list)
     unsupported_sentences: list[str] = Field(default_factory=list)
@@ -372,6 +512,9 @@ class CompleteMarkdownDraft(StrictModel):
     unsafe_section_ids: list[str] = Field(default_factory=list)
     claim_evidence_appendix: str = Field(min_length=1)
     provenance_appendix: str = Field(min_length=1)
+    bibliography_markdown: str = ""
+    literature_limitations: str = ""
+    citation_registry_id: str | None = None
     warnings: list[str] = Field(default_factory=list)
     fake: bool = True
     is_verification_evidence: bool = False
@@ -388,6 +531,7 @@ class ManuscriptAssemblyReport(StrictModel):
     warnings: list[str] = Field(default_factory=list)
     draft_status: ManuscriptDraftStatus
     complete_markdown_artifact_id: str | None = None
+    citation_safety_report_artifact_id: str | None = None
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
 
@@ -406,6 +550,9 @@ class ManuscriptDraftingReport(StrictModel):
     warnings: list[str] = Field(default_factory=list)
     manuscript_draft_artifact_id: str | None = None
     assembly_report_artifact_id: str | None = None
+    citation_registry_artifact_id: str | None = None
+    literature_positioning_artifact_id: str | None = None
+    citation_safety_artifact_id: str | None = None
     fake: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
@@ -536,6 +683,15 @@ __all__ = [
     "AppendixAllocationAssessment",
     "PaperShapeScore",
     "PaperShapeCritique",
+    "CitationKey",
+    "CitationRecord",
+    "CitationRegistry",
+    "BibliographyEntry",
+    "CitationUsage",
+    "CitationSafetyReport",
+    "LiteratureGapStatement",
+    "LiteraturePositioningContract",
+    "LiteraturePositioningReport",
     "SectionDraftingTask",
     "ManuscriptDraftingPlan",
     "SectionDraftSafetySummary",

@@ -17,7 +17,9 @@ run-control and adapter contracts without importing Python.
   `ProseGenerationRequest`, `ProseGenerationParseResult`, `ProseSafetyReport`,
   `GeneratedSectionDraft`, `ManuscriptDraftingPlan`, `SectionDraftingTask`,
   `SectionDraftingResult`, `CompleteMarkdownDraft`, `ManuscriptDraftingReport`,
-  `ManuscriptAssemblyReport`, and `HumanReviewDecision`.
+  `ManuscriptAssemblyReport`, `CitationRecord`, `CitationRegistry`, `BibliographyEntry`,
+  `CitationUsage`, `CitationSafetyReport`, `LiteratureGapStatement`,
+  `LiteraturePositioningContract`, `LiteraturePositioningReport`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -64,3 +66,7 @@ A future server may expose section-level or complete Markdown prose drafting onl
 external-call jobs with the same prose contracts, allowed claim/evidence/citation lists, and safety
 report checks used by the CLI. Generated prose and Markdown drafts remain manuscript context and
 cannot mutate claims, evidence, citations, or labels.
+Citation-registry and literature-positioning operations may be exposed as manuscript-context jobs
+only. They must preserve deterministic citation keys, reject unknown/invented citations, and avoid
+claiming exhaustive coverage, novelty proof, proof evidence, experiment evidence, human approval, or
+scientific validation.

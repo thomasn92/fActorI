@@ -206,6 +206,7 @@ class ControllerActionType(StrEnum):
     EXPORT_BUNDLE_MANIFEST_WRITTEN = "ExportBundleManifestWritten"
     PROSE_SECTION_DRAFT_WRITTEN = "ProseSectionDraftWritten"
     MANUSCRIPT_DRAFT_WRITTEN = "ManuscriptDraftWritten"
+    CITATION_REGISTRY_WRITTEN = "CitationRegistryWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 

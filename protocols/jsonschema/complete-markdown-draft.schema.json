@@ -1,9 +1,26 @@
 {
-  "$id": "https://schemas.factori.local/0.6.0/complete-markdown-draft.schema.json",
+  "$id": "https://schemas.factori.local/0.7.0/complete-markdown-draft.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Assembled Markdown manuscript draft; presentation context only.",
   "properties": {
+    "bibliography_markdown": {
+      "default": "",
+      "title": "Bibliography Markdown",
+      "type": "string"
+    },
+    "citation_registry_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Citation Registry Id"
+    },
     "claim_evidence_appendix": {
       "minLength": 1,
       "title": "Claim Evidence Appendix",
@@ -23,6 +40,11 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "literature_limitations": {
+      "default": "",
+      "title": "Literature Limitations",
+      "type": "string"
     },
     "markdown": {
       "minLength": 1,
@@ -75,7 +97,7 @@
   ],
   "title": "CompleteMarkdownDraft",
   "type": "object",
-  "x-factori-protocol-version": "0.6.0",
+  "x-factori-protocol-version": "0.7.0",
   "x-factori-source-model": "factori.schemas.CompleteMarkdownDraft",
   "x-factori-verification-evidence": false
 }

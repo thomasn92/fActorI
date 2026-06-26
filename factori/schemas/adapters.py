@@ -21,6 +21,7 @@ class GeneratedSectionDraft(StrictModel):
     used_claim_ids: list[str] = Field(default_factory=list)
     used_evidence_artifact_ids: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
+    used_citation_keys: list[str] = Field(default_factory=list)
     unsupported_sentences: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     polished: bool = False
@@ -39,9 +40,12 @@ class ProseSectionContract(StrictModel):
     allowed_claim_ids: list[str] = Field(default_factory=list)
     allowed_evidence_artifact_ids: list[str] = Field(default_factory=list)
     allowed_citation_ids: list[str] = Field(default_factory=list)
+    allowed_citation_keys: list[str] = Field(default_factory=list)
     forbidden_claims: list[str] = Field(default_factory=list)
     forbidden_labels: list[VerificationLabel] = Field(default_factory=list)
     evidence_boundary_instructions: list[str] = Field(default_factory=list)
+    citation_boundary_instructions: list[str] = Field(default_factory=list)
+    literature_positioning_context: dict[str, Any] | None = None
     style_instructions: list[str] = Field(default_factory=list)
     max_words: int = Field(default=160, ge=1, le=5000)
     required_subsections: list[str] = Field(default_factory=list)
@@ -106,6 +110,7 @@ class ProseSafetyReport(StrictModel):
     used_claim_ids: list[str] = Field(default_factory=list)
     used_evidence_artifact_ids: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
+    used_citation_keys: list[str] = Field(default_factory=list)
     created_or_upgraded_labels: bool = False
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False

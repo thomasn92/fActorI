@@ -17,7 +17,7 @@ Constraints
   -> Paper skeleton
   -> Final audit and release gate
   -> Export contracts and maps
-  -> Optional section-by-section Markdown manuscript draft
+  -> Optional citation-safe section-by-section Markdown manuscript draft
   -> Read-only replay verification
 ```
 
@@ -78,8 +78,8 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.6.0` exports top-level run-control, adapter I/O, manifest, output, narrative, prose, manuscript drafting, and enum
-contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
+Protocol version `0.7.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+prose, citation/literature-positioning, manuscript drafting, and enum contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
 `retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
 Examples are validated against generated schemas by `factori validate-protocol-examples`.
@@ -140,6 +140,11 @@ Stage B certificate and does not repeat retrieval. Source metadata hashes establ
 they do not establish novelty, complete literature coverage, claim validity, or external-review
 readiness.
 
+Citation registries and literature-positioning reports derived from retrieval metadata are
+manuscript context only. Citation markers and bibliography entries cannot create proof,
+experiment, human-review, verification, publication, empirical-validation, or novelty-proof
+authority.
+
 The Lean proof adapter is a local-tool seam for Stage C mathematical branches only. Stage C writes
 proof contracts, payloads, raw traces, proof results, and safety reports as content-hashed
 artifacts. A `LeanVerified` label from this path requires a real proof backend, explicit external
@@ -165,6 +170,10 @@ response, draft, complete Markdown draft, drafting report, assembly report, and 
 manuscript/prose context only. They cannot create scientific claims, invent citations, upgrade
 labels, modify claim/evidence tables, or justify proof, experiment, retrieval, human-review, or
 scientific-validation evidence.
+
+When citation support is requested, section contracts also carry allowed citation keys and bounded
+literature-positioning context. The citation-safety layer rejects unknown citation keys, invented
+bibliography entries, exhaustive-coverage claims, and retrieval-as-novelty-proof language.
 
 ## Mutating and Read-Only Operations
 

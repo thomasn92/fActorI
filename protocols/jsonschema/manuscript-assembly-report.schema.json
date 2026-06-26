@@ -12,7 +12,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.6.0/manuscript-assembly-report.schema.json",
+  "$id": "https://schemas.factori.local/0.7.0/manuscript-assembly-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Markdown manuscript assembly report.",
@@ -21,6 +21,18 @@
       "minimum": 0,
       "title": "Assembled Sections",
       "type": "integer"
+    },
+    "citation_safety_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Citation Safety Report Artifact Id"
     },
     "complete_markdown_artifact_id": {
       "anyOf": [
@@ -81,7 +93,7 @@
   ],
   "title": "ManuscriptAssemblyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.6.0",
+  "x-factori-protocol-version": "0.7.0",
   "x-factori-source-model": "factori.schemas.ManuscriptAssemblyReport",
   "x-factori-verification-evidence": false
 }

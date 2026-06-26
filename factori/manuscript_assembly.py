@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from factori.schemas import (
+    CitationRegistry,
     ClaimTable,
     CompleteMarkdownDraft,
+    LiteraturePositioningReport,
     ManuscriptAssemblyReport,
     ManuscriptDraftStatus,
     ManuscriptPlan,
@@ -37,6 +39,8 @@ def assemble_complete_markdown_draft(
     paper_shape_critique: PaperShapeCritique,
     claim_table: ClaimTable,
     section_results: list[SectionDraftingResult],
+    citation_registry: CitationRegistry | None = None,
+    literature_positioning_report: LiteraturePositioningReport | None = None,
 ) -> tuple[CompleteMarkdownDraft, ManuscriptAssemblyReport]:
     """Assemble a full Markdown manuscript from safety-checked section drafts."""
     results_by_id = {result.section_id: result for result in section_results}
@@ -65,14 +69,18 @@ def assemble_complete_markdown_draft(
             "Empirical results are unavailable in this MVP draft; no real-world "
             "validation is claimed."
         )
+    if literature_positioning_report is not None:
+        warnings.extend(literature_positioning_report.warnings)
 
     claim_appendix = _claim_evidence_appendix(claim_table)
+    bibliography = _bibliography_markdown(citation_registry)
     provenance_appendix = _provenance_appendix(
         run_id=run_id,
         manuscript_plan=manuscript_plan,
         narrative_contract=narrative_contract,
         paper_shape_critique=paper_shape_critique,
         section_results=section_results,
+        citation_registry=citation_registry,
     )
     markdown = _render_markdown(
         run_id=run_id,
@@ -81,7 +89,9 @@ def assemble_complete_markdown_draft(
         claim_table=claim_table,
         results_by_id=results_by_id,
         claim_appendix=claim_appendix,
+        bibliography=bibliography,
         provenance_appendix=provenance_appendix,
+        literature_positioning_report=literature_positioning_report,
     )
     status = _draft_status(
         section_results=section_results,
@@ -96,6 +106,17 @@ def assemble_complete_markdown_draft(
         unsafe_section_ids=unsafe_ids,
         claim_evidence_appendix=claim_appendix,
         provenance_appendix=provenance_appendix,
+        bibliography_markdown=bibliography,
+        literature_limitations=(
+            literature_positioning_report.literature_limitations_paragraph
+            if literature_positioning_report is not None
+            else ""
+        ),
+        citation_registry_id=(
+            literature_positioning_report.citation_registry_id
+            if literature_positioning_report is not None
+            else None
+        ),
         warnings=warnings,
     )
     report = ManuscriptAssemblyReport(
@@ -106,6 +127,9 @@ def assemble_complete_markdown_draft(
         warnings=warnings,
         draft_status=status,
         complete_markdown_artifact_id="complete-manuscript-draft",
+        citation_safety_report_artifact_id=(
+            "citation-safety-report" if citation_registry is not None else None
+        ),
     )
     return complete, report
 
@@ -118,7 +142,9 @@ def _render_markdown(
     claim_table: ClaimTable,
     results_by_id: dict[str, SectionDraftingResult],
     claim_appendix: str,
+    bibliography: str,
     provenance_appendix: str,
+    literature_positioning_report: LiteraturePositioningReport | None,
 ) -> str:
     buckets = _bucket_safe_results(manuscript_plan.sections, results_by_id)
     lines = [
@@ -150,14 +176,36 @@ def _render_markdown(
         if section_texts:
             for text in section_texts:
                 lines.extend([text, ""])
+            if heading == "Introduction" and literature_positioning_report is not None:
+                lines.extend(
+                    [
+                        literature_positioning_report.markdown_intro_paragraph,
+                        "",
+                        literature_positioning_report.literature_limitations_paragraph,
+                        "",
+                    ]
+                )
         else:
             lines.extend([_unavailable_text(heading), ""])
+            if heading == "Introduction" and literature_positioning_report is not None:
+                lines.extend(
+                    [
+                        literature_positioning_report.markdown_intro_paragraph,
+                        "",
+                        literature_positioning_report.literature_limitations_paragraph,
+                        "",
+                    ]
+                )
 
     lines.extend(
         [
             "## Claim/Evidence Appendix",
             "",
             claim_appendix,
+            "",
+            "## Bibliography",
+            "",
+            bibliography,
             "",
             "## Provenance Appendix",
             "",
@@ -170,6 +218,7 @@ def _render_markdown(
             "- Markdown drafting cannot create proof, experiment, retrieval, or "
             "human-review evidence.",
             "- Citations and empirical results are not invented by this draft engine.",
+            "- Retrieval-backed citations are bounded literature context, not novelty proof.",
         ]
     )
     return "\n".join(lines).rstrip() + "\n"
@@ -247,6 +296,7 @@ def _provenance_appendix(
     narrative_contract: NarrativeManuscriptContract,
     paper_shape_critique: PaperShapeCritique,
     section_results: list[SectionDraftingResult],
+    citation_registry: CitationRegistry | None = None,
 ) -> str:
     lines = [
         f"- Run ID: `{run_id}`",
@@ -256,7 +306,23 @@ def _provenance_appendix(
         f"- Drafted sections: {len(section_results)}",
         "- Draft artifacts are presentation/context only.",
     ]
+    if citation_registry is not None:
+        lines.extend(
+            [
+                f"- Citation registry: `{citation_registry.source_registry_hash}`",
+                f"- Citations available: {len(citation_registry.citations)}",
+                "- Citation artifacts are literature context only.",
+            ]
+        )
     return "\n".join(lines)
+
+
+def _bibliography_markdown(citation_registry: CitationRegistry | None) -> str:
+    if citation_registry is None:
+        return "- No citation registry was requested for this draft."
+    if not citation_registry.bibliography:
+        return "- No retrieval-backed citations are available for this draft."
+    return "\n".join(entry.markdown for entry in citation_registry.bibliography)
 
 
 def _unavailable_text(heading: str) -> str:

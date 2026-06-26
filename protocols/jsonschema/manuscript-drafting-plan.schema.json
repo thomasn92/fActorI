@@ -30,6 +30,13 @@
           "title": "Allowed Citation Ids",
           "type": "array"
         },
+        "allowed_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Citation Keys",
+          "type": "array"
+        },
         "allowed_claim_ids": {
           "items": {
             "type": "string"
@@ -42,6 +49,13 @@
             "type": "string"
           },
           "title": "Allowed Evidence Artifact Ids",
+          "type": "array"
+        },
+        "citation_boundary_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Boundary Instructions",
           "type": "array"
         },
         "creates_scientific_validation": {
@@ -79,6 +93,19 @@
           "default": false,
           "title": "Is Verification Evidence",
           "type": "boolean"
+        },
+        "literature_positioning_context": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Literature Positioning Context"
         },
         "max_words": {
           "default": 160,
@@ -154,6 +181,13 @@
             "type": "string"
           },
           "title": "Allowed Citation Ids",
+          "type": "array"
+        },
+        "allowed_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Citation Keys",
           "type": "array"
         },
         "allowed_claim_ids": {
@@ -243,7 +277,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.6.0/manuscript-drafting-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.7.0/manuscript-drafting-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Section-by-section manuscript drafting plan.",
@@ -324,7 +358,7 @@
   ],
   "title": "ManuscriptDraftingPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.6.0",
+  "x-factori-protocol-version": "0.7.0",
   "x-factori-source-model": "factori.schemas.ManuscriptDraftingPlan",
   "x-factori-verification-evidence": false
 }

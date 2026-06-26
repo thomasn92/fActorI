@@ -43,10 +43,11 @@
 | 38 | Stage C maintainability hardening: split proof, experiment, evidence-classification, summary, and persistence responsibilities into deterministic internal phases | `stage_c.py`, `stage_c_phases.py` | Existing `run-stage-c` command unchanged | Refactor-only; Stage C artifacts, evidence boundaries, report layout, ledger actions, and protocol output remain compatible |
 | 39 | Gated one-section LLM prose-generation adapter with fake defaults and strict claim/evidence grounding | `adapters/prose_real.py`, `adapters/prose_prompts.py`, `adapters/prose_safety.py`, `prose_contract.py` | `generate-section-draft` | Fake default behavior unchanged; optional prose artifacts are hashed and ledgered manuscript/prose context only, not verification evidence |
 | 40 | Section-by-section Markdown manuscript drafting with fake-default prose, strict safety validation, and complete draft assembly | `manuscript_drafting.py`, `manuscript_assembly.py`, `prose_contract.py`, `adapters/prose_safety.py` | `draft-manuscript` | Optional draft artifacts are hashed and ledgered manuscript/prose/presentation context only, not verification evidence |
+| 41 | Citation registry and bounded literature-positioning integration for Markdown manuscript drafts | `citations.py`, `literature_positioning.py`, `manuscript_drafting.py`, `manuscript_assembly.py`, `adapters/prose_safety.py` | `build-citation-registry`, `draft-manuscript --include-citations` | Optional citation/literature artifacts are hashed and ledgered manuscript/context artifacts only; citations are not proof, experiment, human approval, scientific validation, or novelty proof |
 
 ## Current Boundary
 
-Milestones through 40 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 41 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. They do not implement autonomous
@@ -70,5 +71,6 @@ also disabled by default, runner-injected in tests, and can support only Synthet
 contracts, metrics, output/trace artifacts, and safety checks all pass.
 The prose adapter is disabled by default, transport-injected in tests, drafts one section from
 approved contracts only, and the manuscript drafting engine uses it section by section to assemble
-a complete Markdown presentation draft. Neither path can create claims, citations, evidence,
-scientific validation, or label upgrades.
+a complete Markdown presentation draft. Citation registries and literature positioning can be added
+from retrieval metadata, but they remain bounded context and cannot create claims, evidence,
+scientific validation, novelty proof, or label upgrades.

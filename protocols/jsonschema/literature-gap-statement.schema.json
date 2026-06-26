@@ -1,0 +1,69 @@
+{
+  "$id": "https://schemas.factori.local/0.7.0/literature-gap-statement.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded literature-gap statement; not novelty proof.",
+  "properties": {
+    "citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Ids",
+      "type": "array"
+    },
+    "citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Keys",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "non_exhaustive": {
+      "default": true,
+      "title": "Non Exhaustive",
+      "type": "boolean"
+    },
+    "problem_context": {
+      "minLength": 1,
+      "title": "Problem Context",
+      "type": "string"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "statement": {
+      "minLength": 1,
+      "title": "Statement",
+      "type": "string"
+    },
+    "statement_id": {
+      "minLength": 1,
+      "title": "Statement Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "statement_id",
+    "problem_context",
+    "statement"
+  ],
+  "title": "LiteratureGapStatement",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.LiteratureGapStatement",
+  "x-factori-verification-evidence": false
+}

@@ -1,10 +1,13 @@
 {
   "assembly_report_artifact_id": "manuscript-assembly-report",
+  "citation_registry_artifact_id": null,
+  "citation_safety_artifact_id": null,
   "creates_scientific_validation": false,
   "draft_status": "DraftCompleteWithWarnings",
   "drafting_plan_id": "manuscript-drafting-plan-example",
   "fake": true,
   "is_verification_evidence": false,
+  "literature_positioning_artifact_id": null,
   "manuscript_draft_artifact_id": "complete-manuscript-draft",
   "prose_backend": "fake",
   "run_id": "example",
@@ -20,7 +23,10 @@
       "section_id": "introduction",
       "unsupported_sentences": [],
       "used_citation_ids": [
-        "source-example"
+        "citation-source-example"
+      ],
+      "used_citation_keys": [
+        "Author1970SyntheticCalibrationContext"
       ],
       "used_claim_ids": [
         "claim-example"

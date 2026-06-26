@@ -48,6 +48,8 @@ Implemented so far:
 - deterministic narrative manuscript contract and paper-shape critique;
 - deterministic draft skeleton and manuscript checklist generation;
 - deterministic section-by-section Markdown manuscript drafting with strict prose safety checks;
+- deterministic citation registry and bounded literature-positioning integration for Markdown
+  drafts, with citation-safety checks and no novelty-proof authority;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
@@ -135,6 +137,9 @@ uv run factori generate-section-draft --run-id demo --section-id introduction
 uv run factori generate-section-draft --run-id demo --section-id introduction --write-report
 uv run factori draft-manuscript --run-id demo
 uv run factori draft-manuscript --run-id demo --write-report
+uv run factori build-citation-registry --run-id demo
+uv run factori build-citation-registry --run-id demo --write-report
+uv run factori draft-manuscript --run-id demo --include-citations
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -164,7 +169,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.6.0
+  --old-version 0.1.0 --new-version 0.7.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -235,6 +240,11 @@ OpenAlex retrieval output is normalized, source-hashed, and ledgered through Sta
 only bounded retrieval adequacy and literature context. It does not prove novelty, complete
 coverage, claim correctness, or external-review readiness.
 
+Citation registries and literature-positioning reports are built from retrieval metadata.
+Citation markers are allowed only when they match registry records. Bibliography entries are
+placeholders backed by source provenance; they are not proof evidence, experiment evidence, human
+approval, scientific validation, or novelty proof.
+
 Lean proof output is accepted only through explicit proof contracts, local-tool traces, proof
 result hashes, and safety validation. LLM output, reviewer reports, retrieval records, Markdown,
 LaTeX, and paper artifacts cannot justify `LeanVerified`.
@@ -246,8 +256,8 @@ support only `SyntheticExperimentVerified` for SyntheticOnly claims and cannot j
 
 Generated section prose and complete Markdown drafts are accepted only as manuscript/prose context.
 They may be written as hashed, ledgered drafting artifacts, but they cannot create claims,
-citations, proof evidence, experiment evidence, retrieval evidence, human approval, empirical
-validation, or verification-label upgrades.
+invent citations or bibliography entries, create proof evidence, experiment evidence, retrieval
+evidence, human approval, empirical validation, novelty proof, or verification-label upgrades.
 
 `show-adapters` prints both active adapter classes and provider capability metadata. Invalid
 backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,

@@ -1,0 +1,61 @@
+{
+  "$id": "https://schemas.factori.local/0.7.0/bibliography-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic bibliography entry backed by source provenance.",
+  "properties": {
+    "citation_id": {
+      "minLength": 1,
+      "title": "Citation Id",
+      "type": "string"
+    },
+    "citation_key": {
+      "minLength": 1,
+      "title": "Citation Key",
+      "type": "string"
+    },
+    "has_source_provenance": {
+      "title": "Has Source Provenance",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "markdown": {
+      "minLength": 1,
+      "title": "Markdown",
+      "type": "string"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "source_id": {
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "citation_id",
+    "citation_key",
+    "source_id",
+    "markdown",
+    "has_source_provenance"
+  ],
+  "title": "BibliographyEntry",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.BibliographyEntry",
+  "x-factori-verification-evidence": false
+}

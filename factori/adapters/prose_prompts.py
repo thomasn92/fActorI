@@ -23,6 +23,7 @@ PROSE_OUTPUT_SCHEMA: dict[str, Any] = {
         "used_claim_ids",
         "used_evidence_artifact_ids",
         "used_citation_ids",
+        "used_citation_keys",
         "unsupported_sentences",
         "warnings",
     ],
@@ -33,6 +34,7 @@ PROSE_OUTPUT_SCHEMA: dict[str, Any] = {
         "used_claim_ids": {"type": "array", "items": {"type": "string"}},
         "used_evidence_artifact_ids": {"type": "array", "items": {"type": "string"}},
         "used_citation_ids": {"type": "array", "items": {"type": "string"}},
+        "used_citation_keys": {"type": "array", "items": {"type": "string"}},
         "unsupported_sentences": {"type": "array", "items": {"type": "string"}},
         "warnings": {"type": "array", "items": {"type": "string"}},
     },
@@ -45,6 +47,9 @@ FORBIDDEN_PROSE_OUTPUTS = [
     "Do not invent proof results.",
     "Do not invent experiment results.",
     "Do not invent bibliography keys or citations.",
+    "Do not claim exhaustive literature coverage.",
+    "Do not claim retrieval proves novelty.",
+    "Do not use citations as proof or experiment evidence.",
     "Do not claim empirical or real-world validation from synthetic evidence.",
     "Do not edit the claim table or evidence classification.",
 ]
@@ -54,6 +59,7 @@ EVIDENCE_BOUNDARY_INSTRUCTIONS = [
     "Generated prose is not experiment evidence.",
     "Generated prose is not retrieval evidence.",
     "Use only allowed claim IDs and evidence artifact IDs.",
+    "Use only allowed citation IDs and citation keys.",
     "Preserve all claim labels exactly.",
 ]
 
@@ -104,6 +110,10 @@ def build_prose_section_prompt(
             if key in set(section_contract.allowed_evidence_artifact_ids)
         },
         "narrative_context": narrative_context,
+        "literature_positioning_context": (
+            section_contract.literature_positioning_context or {}
+        ),
+        "allowed_citation_keys": list(section_contract.allowed_citation_keys),
         "forbidden_outputs": FORBIDDEN_PROSE_OUTPUTS,
         "evidence_boundary_instructions": EVIDENCE_BOUNDARY_INSTRUCTIONS,
         "requested_output_schema": PROSE_OUTPUT_SCHEMA,

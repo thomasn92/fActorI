@@ -4,7 +4,7 @@
     "claim_ids": [
       "claim-example"
     ],
-    "content": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example. No scientific label is upgraded.",
+    "content": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example and [@Author1970SyntheticCalibrationContext]. No scientific label is upgraded.",
     "fake": true,
     "is_verification_evidence": false,
     "polished": false,
@@ -12,7 +12,10 @@
     "title": "Introduction",
     "unsupported_sentences": [],
     "used_citation_ids": [
-      "source-example"
+      "citation-source-example"
+    ],
+    "used_citation_keys": [
+      "Author1970SyntheticCalibrationContext"
     ],
     "used_claim_ids": [
       "claim-example"
@@ -22,7 +25,7 @@
     ],
     "warnings": []
   },
-  "draft_markdown": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example. No scientific label is upgraded.",
+  "draft_markdown": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example and [@Author1970SyntheticCalibrationContext]. No scientific label is upgraded.",
   "fake": true,
   "is_verification_evidence": false,
   "narrative_role": [],
@@ -38,7 +41,10 @@
     "safe": true,
     "section_id": "introduction",
     "used_citation_ids": [
-      "source-example"
+      "citation-source-example"
+    ],
+    "used_citation_keys": [
+      "Author1970SyntheticCalibrationContext"
     ],
     "used_claim_ids": [
       "claim-example"
@@ -57,7 +63,10 @@
   },
   "unsupported_sentences": [],
   "used_citation_ids": [
-    "source-example"
+    "citation-source-example"
+  ],
+  "used_citation_keys": [
+    "Author1970SyntheticCalibrationContext"
   ],
   "used_claim_ids": [
     "claim-example"

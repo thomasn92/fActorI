@@ -1,0 +1,148 @@
+{
+  "$id": "https://schemas.factori.local/0.7.0/citation-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Retrieval-backed citation metadata for literature context only.",
+  "properties": {
+    "authors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Authors",
+      "type": "array"
+    },
+    "citation_id": {
+      "minLength": 1,
+      "title": "Citation Id",
+      "type": "string"
+    },
+    "citation_key": {
+      "minLength": 1,
+      "title": "Citation Key",
+      "type": "string"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "doi": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Doi"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "raw_metadata_hash": {
+      "minLength": 1,
+      "title": "Raw Metadata Hash",
+      "type": "string"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "source_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Artifact Id"
+    },
+    "source_id": {
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Url"
+    },
+    "venue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Venue"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "year": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Year"
+    }
+  },
+  "required": [
+    "citation_id",
+    "citation_key",
+    "source_id",
+    "title",
+    "provider",
+    "retrieved_at",
+    "raw_metadata_hash"
+  ],
+  "title": "CitationRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.CitationRecord",
+  "x-factori-verification-evidence": false
+}

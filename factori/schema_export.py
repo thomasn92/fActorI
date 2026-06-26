@@ -23,7 +23,12 @@ from factori.schemas import (
     ArtifactManifestEntry,
     ArtifactRef,
     ArtifactType,
+    BibliographyEntry,
     Candidate,
+    CitationRecord,
+    CitationRegistry,
+    CitationSafetyReport,
+    CitationUsage,
     Claim,
     CompleteMarkdownDraft,
     ConstraintSet,
@@ -35,6 +40,9 @@ from factori.schemas import (
     GeneratedSectionDraft,
     LedgerTipStatus,
     LedgerTipValidationReport,
+    LiteratureGapStatement,
+    LiteraturePositioningContract,
+    LiteraturePositioningReport,
     LLMCandidateParseReport,
     LLMPromptContract,
     ManuscriptAssemblyReport,
@@ -91,6 +99,8 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "artifact.example.json": "ArtifactRecord",
     "artifact-manifest.example.json": "ArtifactManifest",
     "candidate.example.json": "Candidate",
+    "citation-registry.example.json": "CitationRegistry",
+    "citation-safety-report.example.json": "CitationSafetyReport",
     "claim.example.json": "Claim",
     "experiment-result.example.json": "ExperimentRunResult",
     "experiment-contract.example.json": "ExperimentRunContract",
@@ -104,6 +114,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "prose-prompt-contract.example.json": "ProsePromptContract",
     "prose-safety-report.example.json": "ProseSafetyReport",
     "prose-section-contract.example.json": "ProseSectionContract",
+    "literature-positioning-report.example.json": "LiteraturePositioningReport",
     "manuscript-drafting-plan.example.json": "ManuscriptDraftingPlan",
     "section-drafting-result.example.json": "SectionDraftingResult",
     "complete-markdown-draft.example.json": "CompleteMarkdownDraft",
@@ -272,6 +283,96 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         source_provenance=provenance,
         fake=True,
     )
+    citation_record = CitationRecord(
+        citation_id="citation-source-example",
+        citation_key="Author1970SyntheticCalibrationContext",
+        source_id=retrieval.source_id,
+        title=retrieval.title,
+        authors=retrieval.authors,
+        year=retrieval.year,
+        venue=retrieval.venue,
+        doi=retrieval.doi,
+        url=retrieval.url,
+        provider=retrieval.provider,
+        retrieved_at=retrieval.retrieved_at,
+        raw_metadata_hash=retrieval.raw_metadata_hash,
+        source_artifact_id="retrieval-normalized-results-example",
+    )
+    bibliography_entry = BibliographyEntry(
+        citation_id=citation_record.citation_id,
+        citation_key=citation_record.citation_key,
+        source_id=citation_record.source_id,
+        markdown=(
+            "- [@Author1970SyntheticCalibrationContext] Example Author (1970). "
+            "Synthetic calibration context. Source: `source-example`."
+        ),
+        has_source_provenance=True,
+    )
+    citation_registry = CitationRegistry(
+        run_id="example",
+        citations=[citation_record],
+        bibliography=[bibliography_entry],
+        citation_key_policy=(
+            "FirstAuthorYearShortTitle; duplicate keys receive deterministic letters."
+        ),
+        source_registry_hash=_HASH,
+    )
+    citation_safety_report = CitationSafetyReport(
+        run_id="example",
+        safe=True,
+        rejected=False,
+        citation_usages=[
+            CitationUsage(
+                citation_key=citation_record.citation_key,
+                count=1,
+                known=True,
+                citation_id=citation_record.citation_id,
+            )
+        ],
+        used_citation_keys=[citation_record.citation_key],
+        used_citation_ids=[citation_record.citation_id],
+        bibliography_entries_count=1,
+    )
+    literature_contract = LiteraturePositioningContract(
+        run_id="example",
+        contract_id="literature-positioning-example",
+        problem_context="Bounded calibration context.",
+        retrieval_queries_used=["calibration synthetic shift"],
+        included_citation_ids=[citation_record.citation_id],
+        literature_gap_statement="The example frames a bounded gap without claiming coverage.",
+        novelty_positioning_statement=(
+            "Retrieval metadata may frame context but cannot prove novelty."
+        ),
+        coverage_limitations=[
+            "Retrieval is bounded context, not exhaustive literature coverage.",
+        ],
+        non_exhaustiveness_disclaimer=(
+            "Retrieval is bounded context, not exhaustive literature coverage; "
+            "retrieval adequacy is not proof of novelty."
+        ),
+    )
+    literature_gap = LiteratureGapStatement(
+        statement_id="literature-gap-example",
+        problem_context=literature_contract.problem_context,
+        statement=literature_contract.literature_gap_statement,
+        citation_ids=[citation_record.citation_id],
+        citation_keys=[citation_record.citation_key],
+        limitations=literature_contract.coverage_limitations,
+    )
+    literature_positioning_report = LiteraturePositioningReport(
+        run_id="example",
+        citation_registry_id="citation-registry-example",
+        contract=literature_contract,
+        gap_statement=literature_gap,
+        markdown_intro_paragraph=(
+            "This draft uses bounded retrieval context "
+            "[@Author1970SyntheticCalibrationContext]. Retrieval is not novelty proof."
+        ),
+        literature_limitations_paragraph=(
+            "Literature positioning is bounded context, not exhaustive coverage."
+        ),
+        citation_keys_used=[citation_record.citation_key],
+    )
     retrieval_query = RetrievalQuery(
         query_id="query-example",
         query="calibration synthetic shift",
@@ -363,13 +464,21 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         section_role="Introduction",
         allowed_claim_ids=[claim.claim_id],
         allowed_evidence_artifact_ids=[artifact.id],
-        allowed_citation_ids=[retrieval.source_id],
+        allowed_citation_ids=[citation_record.citation_id],
+        allowed_citation_keys=[citation_record.citation_key],
         forbidden_claims=[],
         forbidden_labels=[VerificationLabel.REAL_DATA_EXPERIMENT_VERIFIED],
         evidence_boundary_instructions=[
             "Use only allowed claim IDs.",
             "Generated prose is not verification evidence.",
         ],
+        citation_boundary_instructions=[
+            "Use only allowed citation keys.",
+            "Do not claim retrieval proves novelty.",
+        ],
+        literature_positioning_context=literature_positioning_report.model_dump(
+            mode="json"
+        ),
         style_instructions=["Use placeholder-grade prose only."],
         max_words=120,
         source_contract_hashes={"claim_table": _HASH},
@@ -405,12 +514,14 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         title=prose_section_contract.section_title,
         content=(
             "[FAKE PROSE DRAFT] This section summarizes claim-example using "
-            "artifact-example. No scientific label is upgraded."
+            "artifact-example and [@Author1970SyntheticCalibrationContext]. "
+            "No scientific label is upgraded."
         ),
         claim_ids=[claim.claim_id],
         used_claim_ids=[claim.claim_id],
         used_evidence_artifact_ids=[artifact.id],
-        used_citation_ids=[retrieval.source_id],
+        used_citation_ids=[citation_record.citation_id],
+        used_citation_keys=[citation_record.citation_key],
     )
     prose_parse_result = ProseGenerationParseResult(
         section_draft=generated_section,
@@ -423,7 +534,8 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         rejected=False,
         used_claim_ids=[claim.claim_id],
         used_evidence_artifact_ids=[artifact.id],
-        used_citation_ids=[retrieval.source_id],
+        used_citation_ids=[citation_record.citation_id],
+        used_citation_keys=[citation_record.citation_key],
     )
     section_task = SectionDraftingTask(
         section_id=prose_section_contract.section_id,
@@ -433,6 +545,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         allowed_claim_ids=prose_section_contract.allowed_claim_ids,
         allowed_evidence_artifact_ids=prose_section_contract.allowed_evidence_artifact_ids,
         allowed_citation_ids=prose_section_contract.allowed_citation_ids,
+        allowed_citation_keys=prose_section_contract.allowed_citation_keys,
         source_contract_hashes=prose_section_contract.source_contract_hashes,
         prose_contract=prose_section_contract,
     )
@@ -455,6 +568,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         used_claim_ids=generated_section.used_claim_ids,
         used_evidence_artifact_ids=generated_section.used_evidence_artifact_ids,
         used_citation_ids=generated_section.used_citation_ids,
+        used_citation_keys=generated_section.used_citation_keys,
         safety_status="Safe",
         warnings=generated_section.warnings,
         unsupported_sentences=generated_section.unsupported_sentences,
@@ -508,6 +622,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
                 used_claim_ids=generated_section.used_claim_ids,
                 used_evidence_artifact_ids=generated_section.used_evidence_artifact_ids,
                 used_citation_ids=generated_section.used_citation_ids,
+                used_citation_keys=generated_section.used_citation_keys,
             )
         ],
         warnings=["Fake prose draft is a deterministic placeholder."],
@@ -646,6 +761,10 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
+        "citation-registry.example.json": citation_registry.model_dump(mode="json"),
+        "citation-safety-report.example.json": citation_safety_report.model_dump(
+            mode="json"
+        ),
         "artifact.example.json": artifact.model_dump(mode="json"),
         "artifact-manifest.example.json": artifact_manifest.model_dump(mode="json"),
         "stage-result.example.json": stage_result.model_dump(mode="json"),
@@ -662,6 +781,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "experiment-result.example.json": experiment.model_dump(mode="json"),
         "claim.example.json": claim.model_dump(mode="json"),
         "prose-section-contract.example.json": prose_section_contract.model_dump(mode="json"),
+        "literature-positioning-report.example.json": (
+            literature_positioning_report.model_dump(mode="json")
+        ),
         "prose-prompt-contract.example.json": prose_prompt_contract.model_dump(mode="json"),
         "prose-generation-request.example.json": prose_request.model_dump(mode="json"),
         "prose-generation-parse-result.example.json": prose_parse_result.model_dump(mode="json"),

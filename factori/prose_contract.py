@@ -18,10 +18,12 @@ from factori.persistence import ArtifactWriteSpec, persist_artifacts_with_commit
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    CitationRegistry,
     ClaimTable,
     ControllerActionType,
     FinalAuditReport,
     GeneratedSectionDraft,
+    LiteraturePositioningReport,
     ManuscriptPlan,
     NarrativeManuscriptContract,
     PaperSkeleton,
@@ -152,6 +154,8 @@ def build_prose_section_contract(
     manuscript_plan: ManuscriptPlan,
     claim_table: ClaimTable,
     narrative_contract: NarrativeManuscriptContract,
+    citation_registry: CitationRegistry | None = None,
+    literature_positioning_report: LiteraturePositioningReport | None = None,
     max_words: int = 160,
 ) -> ProseSectionContract:
     """Build a deterministic section-level prose contract."""
@@ -180,6 +184,15 @@ def build_prose_section_contract(
         "claim_table": sha256_json(claim_table.model_dump(mode="json")),
         "narrative_contract": sha256_json(narrative_contract.model_dump(mode="json")),
     }
+    allowed_citations = _allowed_citations_for_section(section, citation_registry)
+    if citation_registry is not None:
+        source_hashes["citation_registry"] = sha256_json(
+            citation_registry.model_dump(mode="json")
+        )
+    if literature_positioning_report is not None:
+        source_hashes["literature_positioning_report"] = sha256_json(
+            literature_positioning_report.model_dump(mode="json")
+        )
     contract = ProseSectionContract(
         run_id=run_id,
         section_id=section.section_id,
@@ -188,7 +201,8 @@ def build_prose_section_contract(
         narrative_role=section.narrative_roles,
         allowed_claim_ids=allowed_claim_ids,
         allowed_evidence_artifact_ids=evidence_ids,
-        allowed_citation_ids=[],
+        allowed_citation_ids=[record.citation_id for record in allowed_citations],
+        allowed_citation_keys=[record.citation_key for record in allowed_citations],
         forbidden_claims=sorted(set(manuscript_plan.blocked_claim_ids)),
         evidence_boundary_instructions=[
             "Use only allowed claim IDs.",
@@ -196,6 +210,19 @@ def build_prose_section_contract(
             "Generated prose is not verification evidence.",
             "Do not invent citations, proofs, experiment results, or empirical validation.",
         ],
+        citation_boundary_instructions=[
+            "Use only allowed citation keys.",
+            "Citation markers are literature context only.",
+            "Do not claim exhaustive literature coverage.",
+            "Do not claim retrieval proves novelty.",
+            "Do not use citations as proof or experiment evidence.",
+        ],
+        literature_positioning_context=(
+            literature_positioning_report.model_dump(mode="json")
+            if literature_positioning_report is not None
+            and allowed_citations
+            else None
+        ),
         style_instructions=[
             "Use placeholder-grade manuscript prose, not polished final prose.",
             "Preserve uncertainty, limitations, and fake-validator disclaimers.",
@@ -208,6 +235,21 @@ def build_prose_section_contract(
             "forbidden_labels": forbidden_labels_for_section(contract, claim_table),
         }
     )
+
+
+def _allowed_citations_for_section(section, citation_registry: CitationRegistry | None):
+    if citation_registry is None:
+        return []
+    role_names = {role.value for role in section.narrative_roles}
+    title = section.title.lower()
+    if (
+        "Introduction" in section.title
+        or "literature" in title
+        or "background" in title
+        or "BackgroundLiteraturePositioning" in role_names
+    ):
+        return list(citation_registry.citations)
+    return []
 
 
 def build_prose_evidence_map(claim_table: ClaimTable) -> dict[str, dict[str, Any]]:

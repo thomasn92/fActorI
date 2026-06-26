@@ -1,0 +1,241 @@
+{
+  "$defs": {
+    "LiteratureGapStatement": {
+      "additionalProperties": false,
+      "description": "Bounded literature-gap statement with explicit limitations.",
+      "properties": {
+        "citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Ids",
+          "type": "array"
+        },
+        "citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Keys",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "non_exhaustive": {
+          "default": true,
+          "title": "Non Exhaustive",
+          "type": "boolean"
+        },
+        "problem_context": {
+          "minLength": 1,
+          "title": "Problem Context",
+          "type": "string"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "statement_id": {
+          "minLength": 1,
+          "title": "Statement Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "statement_id",
+        "problem_context",
+        "statement"
+      ],
+      "title": "LiteratureGapStatement",
+      "type": "object"
+    },
+    "LiteraturePositioningContract": {
+      "additionalProperties": false,
+      "description": "Bounded literature-positioning contract for manuscript drafting.",
+      "properties": {
+        "claims_literature_coverage": {
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "contract_id": {
+          "minLength": 1,
+          "title": "Contract Id",
+          "type": "string"
+        },
+        "coverage_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Coverage Limitations",
+          "type": "array"
+        },
+        "excluded_or_deferred_sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Excluded Or Deferred Sources",
+          "type": "array"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "included_citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Included Citation Ids",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "literature_gap_statement": {
+          "minLength": 1,
+          "title": "Literature Gap Statement",
+          "type": "string"
+        },
+        "non_exhaustiveness_disclaimer": {
+          "minLength": 1,
+          "title": "Non Exhaustiveness Disclaimer",
+          "type": "string"
+        },
+        "novelty_positioning_statement": {
+          "minLength": 1,
+          "title": "Novelty Positioning Statement",
+          "type": "string"
+        },
+        "problem_context": {
+          "minLength": 1,
+          "title": "Problem Context",
+          "type": "string"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "retrieval_queries_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Retrieval Queries Used",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "contract_id",
+        "problem_context",
+        "literature_gap_statement",
+        "novelty_positioning_statement",
+        "non_exhaustiveness_disclaimer"
+      ],
+      "title": "LiteraturePositioningContract",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.7.0/literature-positioning-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Citation-safe literature-positioning report.",
+  "properties": {
+    "citation_keys_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Keys Used",
+      "type": "array"
+    },
+    "citation_registry_id": {
+      "minLength": 1,
+      "title": "Citation Registry Id",
+      "type": "string"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "contract": {
+      "$ref": "#/$defs/LiteraturePositioningContract"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "gap_statement": {
+      "$ref": "#/$defs/LiteratureGapStatement"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "literature_limitations_paragraph": {
+      "minLength": 1,
+      "title": "Literature Limitations Paragraph",
+      "type": "string"
+    },
+    "markdown_intro_paragraph": {
+      "minLength": 1,
+      "title": "Markdown Intro Paragraph",
+      "type": "string"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "citation_registry_id",
+    "contract",
+    "gap_statement",
+    "markdown_intro_paragraph",
+    "literature_limitations_paragraph"
+  ],
+  "title": "LiteraturePositioningReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.LiteraturePositioningReport",
+  "x-factori-verification-evidence": false
+}

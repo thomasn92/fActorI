@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.6.0/section-draft-safety-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.7.0/section-draft-safety-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Compact section prose safety summary.",
@@ -58,6 +58,13 @@
       "title": "Used Citation Ids",
       "type": "array"
     },
+    "used_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Keys",
+      "type": "array"
+    },
     "used_claim_ids": {
       "items": {
         "type": "string"
@@ -88,7 +95,7 @@
   ],
   "title": "SectionDraftSafetySummary",
   "type": "object",
-  "x-factori-protocol-version": "0.6.0",
+  "x-factori-protocol-version": "0.7.0",
   "x-factori-source-model": "factori.schemas.SectionDraftSafetySummary",
   "x-factori-verification-evidence": false
 }

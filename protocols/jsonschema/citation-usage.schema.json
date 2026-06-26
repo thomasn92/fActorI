@@ -1,0 +1,44 @@
+{
+  "$id": "https://schemas.factori.local/0.7.0/citation-usage.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Observed citation-key usage in a manuscript draft.",
+  "properties": {
+    "citation_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Citation Id"
+    },
+    "citation_key": {
+      "minLength": 1,
+      "title": "Citation Key",
+      "type": "string"
+    },
+    "count": {
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+    },
+    "known": {
+      "title": "Known",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "citation_key",
+    "count",
+    "known"
+  ],
+  "title": "CitationUsage",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.CitationUsage",
+  "x-factori-verification-evidence": false
+}

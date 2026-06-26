@@ -88,6 +88,66 @@ def test_safety_rejects_invented_citation_ids() -> None:
     assert any("citation IDs" in reason for reason in safety.reasons)
 
 
+def test_safety_rejects_unknown_citation_keys() -> None:
+    safety = validate_generated_section(
+        _draft(content="This section cites [@Invented2026].", citation_keys=["Invented2026"]),
+        _section_contract(),
+        _claim_table(),
+        _evidence_map(),
+    )
+
+    assert safety.rejected
+    assert any("citation keys" in reason for reason in safety.reasons)
+
+
+def test_safety_accepts_allowed_citation_keys() -> None:
+    safety = validate_generated_section(
+        _draft(content="This section cites bounded context [@SourceA2024]."),
+        _section_contract(),
+        _claim_table(),
+        _evidence_map(),
+    )
+
+    assert safety.safe
+    assert safety.used_citation_keys == ["SourceA2024"]
+
+
+def test_safety_rejects_invented_citations_from_markdown_markers() -> None:
+    safety = validate_generated_section(
+        _draft(content="This section cites [@MadeUp2026]."),
+        _section_contract(),
+        _claim_table(),
+        _evidence_map(),
+    )
+
+    assert safety.rejected
+    assert any("citation keys" in reason for reason in safety.reasons)
+
+
+def test_safety_rejects_exhaustive_literature_coverage_claims() -> None:
+    safety = validate_generated_section(
+        _draft(content="This section covers all prior work [@SourceA2024]."),
+        _section_contract(),
+        _claim_table(),
+        _evidence_map(),
+    )
+
+    assert safety.rejected
+    assert any("exhaustive literature" in reason for reason in safety.reasons)
+
+
+def test_safety_rejects_retrieval_as_novelty_proof() -> None:
+    safety = validate_generated_section(
+        _draft(content="Retrieval proves novelty for claim-main [@SourceA2024]."),
+        _section_contract(),
+        _claim_table(),
+        _evidence_map(),
+    )
+
+    assert safety.rejected
+    assert any("retrieval or citations" in reason for reason in safety.reasons)
+
+
 def test_safety_rejects_lean_verified_text_when_claim_is_not_lean_verified() -> None:
     safety = validate_generated_section(
         _draft(content="This section says the claim is LeanVerified."),
@@ -160,6 +220,7 @@ def _raw_response() -> dict[str, object]:
         "used_claim_ids": ["claim-main"],
         "used_evidence_artifact_ids": ["evidence-a"],
         "used_citation_ids": ["source-a"],
+        "used_citation_keys": ["SourceA2024"],
         "unsupported_sentences": [],
         "warnings": [],
     }
@@ -171,6 +232,7 @@ def _draft(
     claim_ids: list[str] | None = None,
     evidence_ids: list[str] | None = None,
     citation_ids: list[str] | None = None,
+    citation_keys: list[str] | None = None,
 ) -> GeneratedSectionDraft:
     used_claim_ids = claim_ids or ["claim-main"]
     return GeneratedSectionDraft(
@@ -181,6 +243,7 @@ def _draft(
         used_claim_ids=used_claim_ids,
         used_evidence_artifact_ids=evidence_ids or ["evidence-a"],
         used_citation_ids=citation_ids or ["source-a"],
+        used_citation_keys=citation_keys or [],
         unsupported_sentences=[],
         warnings=[],
         fake=False,
@@ -201,6 +264,7 @@ def _section_contract(
         allowed_claim_ids=["claim-main"],
         allowed_evidence_artifact_ids=["evidence-a"],
         allowed_citation_ids=["source-a"],
+        allowed_citation_keys=["SourceA2024"],
         forbidden_labels=forbidden_labels
         or [VerificationLabel.REAL_DATA_EXPERIMENT_VERIFIED],
         evidence_boundary_instructions=["Generated prose is not evidence."],

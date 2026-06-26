@@ -1,8 +1,11 @@
 {
+  "bibliography_markdown": "",
+  "citation_registry_id": null,
   "claim_evidence_appendix": "- `claim-example`: artifact-example",
   "creates_scientific_validation": false,
   "fake": true,
   "is_verification_evidence": false,
+  "literature_limitations": "",
   "markdown": "# Deterministic example manuscript draft\n\n## Introduction\n\n[FAKE PROSE DRAFT] This section summarizes claim-example.\n\n## Claim/Evidence Appendix\n\n- `claim-example`: artifact-example\n\n## Provenance Appendix\n\n- Draft artifacts are presentation/context only.\n",
   "provenance_appendix": "- Draft artifacts are presentation/context only.",
   "run_id": "example",

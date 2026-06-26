@@ -1,0 +1,99 @@
+{
+  "$id": "https://schemas.factori.local/0.7.0/literature-positioning-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded literature-positioning contract.",
+  "properties": {
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "contract_id": {
+      "minLength": 1,
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "coverage_limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Coverage Limitations",
+      "type": "array"
+    },
+    "excluded_or_deferred_sources": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Excluded Or Deferred Sources",
+      "type": "array"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "included_citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Included Citation Ids",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "literature_gap_statement": {
+      "minLength": 1,
+      "title": "Literature Gap Statement",
+      "type": "string"
+    },
+    "non_exhaustiveness_disclaimer": {
+      "minLength": 1,
+      "title": "Non Exhaustiveness Disclaimer",
+      "type": "string"
+    },
+    "novelty_positioning_statement": {
+      "minLength": 1,
+      "title": "Novelty Positioning Statement",
+      "type": "string"
+    },
+    "problem_context": {
+      "minLength": 1,
+      "title": "Problem Context",
+      "type": "string"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "retrieval_queries_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Retrieval Queries Used",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "contract_id",
+    "problem_context",
+    "literature_gap_statement",
+    "novelty_positioning_statement",
+    "non_exhaustiveness_disclaimer"
+  ],
+  "title": "LiteraturePositioningContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.LiteraturePositioningContract",
+  "x-factori-verification-evidence": false
+}

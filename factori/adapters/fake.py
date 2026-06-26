@@ -235,11 +235,15 @@ class FakeProseGenerator:
         claim_table: ClaimTable,
     ) -> GeneratedSectionDraft:
         evidence_ids: list[str] = []
+        citation_ids: list[str] = []
+        citation_keys: list[str] = []
         if isinstance(section_contract, ProseSectionContract):
             section_id = section_contract.section_id
             title = section_contract.section_title
             requested_claim_ids = section_contract.allowed_claim_ids
             evidence_ids = list(section_contract.allowed_evidence_artifact_ids)
+            citation_ids = list(section_contract.allowed_citation_ids)
+            citation_keys = list(section_contract.allowed_citation_keys)
         elif isinstance(section_contract, ManuscriptSectionPlan):
             section_id = section_contract.section_id
             title = section_contract.title
@@ -257,6 +261,12 @@ class FakeProseGenerator:
             ]
             evidence_ids = [
                 str(value) for value in section_contract.get("allowed_evidence_artifact_ids", [])
+            ]
+            citation_ids = [
+                str(value) for value in section_contract.get("allowed_citation_ids", [])
+            ]
+            citation_keys = [
+                str(value) for value in section_contract.get("allowed_citation_keys", [])
             ]
         known_claim_ids = {claim.claim_id for claim in claim_table.claims}
         claim_ids = sorted(
@@ -283,7 +293,8 @@ class FakeProseGenerator:
             claim_ids=claim_ids,
             used_claim_ids=claim_ids,
             used_evidence_artifact_ids=evidence_ids,
-            used_citation_ids=[],
+            used_citation_ids=sorted(citation_ids),
+            used_citation_keys=sorted(citation_keys),
             unsupported_sentences=[],
             warnings=["Fake prose draft is a deterministic placeholder, not polished prose."],
         )

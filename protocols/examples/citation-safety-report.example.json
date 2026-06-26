@@ -1,0 +1,27 @@
+{
+  "bibliography_entries_count": 1,
+  "citation_usages": [
+    {
+      "citation_id": "citation-source-example",
+      "citation_key": "Author1970SyntheticCalibrationContext",
+      "count": 1,
+      "known": true
+    }
+  ],
+  "creates_scientific_validation": false,
+  "invented_bibliography_keys": [],
+  "is_verification_evidence": false,
+  "proves_novelty": false,
+  "reasons": [],
+  "rejected": false,
+  "run_id": "example",
+  "safe": true,
+  "unknown_citation_keys": [],
+  "used_citation_ids": [
+    "citation-source-example"
+  ],
+  "used_citation_keys": [
+    "Author1970SyntheticCalibrationContext"
+  ],
+  "warnings": []
+}

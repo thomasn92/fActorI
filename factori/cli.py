@@ -12,6 +12,11 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.adapters.config import AdapterConfig
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.artifacts import ArtifactStore
+from factori.citations import (
+    build_citation_registry_from_ledger,
+    validate_citation_usage,
+    write_citation_registry_reports,
+)
 from factori.commands.artifacts import write_artifact as write_artifact_entry
 from factori.commands.candidates import add_candidate as add_candidate_entry
 from factori.commands.questioner import run_questioner_check
@@ -52,7 +57,12 @@ from factori.hygiene_plan import (
     write_hygiene_remediation_plan,
 )
 from factori.ledger import LedgerError, ResearchLedger
-from factori.manuscript_drafting import ManuscriptDraftingError, draft_manuscript
+from factori.literature_positioning import build_literature_positioning_report
+from factori.manuscript_drafting import (
+    ManuscriptDraftingError,
+    draft_manuscript,
+    load_manuscript_drafting_inputs,
+)
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.narrative_contract import (
     NarrativeContractError,
@@ -1470,6 +1480,7 @@ def draft_manuscript_command(
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
     max_words: Annotated[int, typer.Option("--max-words")] = 160,
+    include_citations: Annotated[bool, typer.Option("--include-citations")] = False,
     write_report: Annotated[bool, typer.Option("--write-report")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -1494,6 +1505,7 @@ def draft_manuscript_command(
             ledger=ledger,
             prose_generator=registry.prose_generator,
             write_report=write_report,
+            include_citations=include_citations,
             max_words=max_words,
         )
     except ManuscriptDraftingError as exc:
@@ -1507,6 +1519,21 @@ def draft_manuscript_command(
                     "drafting_report": result.drafting_report.model_dump(mode="json"),
                     "complete_draft": result.complete_draft.model_dump(mode="json"),
                     "assembly_report": result.assembly_report.model_dump(mode="json"),
+                    "citation_registry": (
+                        result.citation_registry.model_dump(mode="json")
+                        if result.citation_registry
+                        else None
+                    ),
+                    "literature_positioning_report": (
+                        result.literature_positioning_report.model_dump(mode="json")
+                        if result.literature_positioning_report
+                        else None
+                    ),
+                    "citation_safety_report": (
+                        result.citation_safety_report.model_dump(mode="json")
+                        if result.citation_safety_report
+                        else None
+                    ),
                     "artifacts": {
                         "plan": result.plan_artifact.model_dump(mode="json")
                         if result.plan_artifact
@@ -1526,6 +1553,21 @@ def draft_manuscript_command(
                             if result.assembly_report_artifact
                             else None
                         ),
+                        "citation_registry": (
+                            result.citation_registry_artifact.model_dump(mode="json")
+                            if result.citation_registry_artifact
+                            else None
+                        ),
+                        "literature_positioning": (
+                            result.literature_positioning_artifact.model_dump(mode="json")
+                            if result.literature_positioning_artifact
+                            else None
+                        ),
+                        "citation_safety": (
+                            result.citation_safety_artifact.model_dump(mode="json")
+                            if result.citation_safety_artifact
+                            else None
+                        ),
                     },
                 },
                 indent=2,
@@ -1539,11 +1581,94 @@ def draft_manuscript_command(
     typer.echo(f"safe_sections={result.drafting_report.sections_safe}")
     typer.echo(f"unsafe_sections={result.drafting_report.sections_unsafe}")
     typer.echo(f"draft_status={result.drafting_report.draft_status.value}")
+    typer.echo(f"include_citations={str(include_citations).lower()}")
+    if result.citation_registry is not None:
+        typer.echo(f"citations={len(result.citation_registry.citations)}")
+        typer.echo(
+            "citation_safety="
+            f"{str(result.citation_safety_report.safe).lower()}"
+            if result.citation_safety_report is not None
+            else "citation_safety=missing"
+        )
     typer.echo(f"warnings={len(result.drafting_report.warnings)}")
     if result.markdown_artifact is not None:
         typer.echo(f"complete_manuscript_draft={result.markdown_artifact.path}")
     if result.drafting_report_artifact is not None:
         typer.echo(f"manuscript_drafting_report={result.drafting_report_artifact.path}")
+
+
+@app.command("build-citation-registry")
+def build_citation_registry_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build citation and literature-positioning reports from retrieval metadata."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        inputs = load_manuscript_drafting_inputs(run_id, ledger)
+    except ManuscriptDraftingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    registry = build_citation_registry_from_ledger(run_id, ledger)
+    positioning = build_literature_positioning_report(
+        run_id=run_id,
+        citation_registry=registry,
+        narrative_contract=inputs.narrative_contract,
+    )
+    safety = validate_citation_usage(positioning.markdown_intro_paragraph, registry)
+    artifacts = None
+    if write_report:
+        artifacts = write_citation_registry_reports(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            citation_registry=registry,
+            literature_positioning_report=positioning,
+            citation_safety_report=safety,
+        )
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "citation_registry": registry.model_dump(mode="json"),
+                    "literature_positioning_report": positioning.model_dump(mode="json"),
+                    "citation_safety_report": safety.model_dump(mode="json"),
+                    "artifacts": (
+                        {
+                            "citation_registry": (
+                                artifacts.citation_registry_artifact.model_dump(mode="json")
+                            ),
+                            "literature_positioning": (
+                                artifacts.literature_positioning_artifact.model_dump(
+                                    mode="json"
+                                )
+                            ),
+                            "citation_safety": (
+                                artifacts.citation_safety_artifact.model_dump(mode="json")
+                            ),
+                        }
+                        if artifacts is not None
+                        else None
+                    ),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"citations={len(registry.citations)}")
+    typer.echo(f"warnings={len(registry.warnings) + len(safety.warnings)}")
+    typer.echo(f"citation_safety={str(safety.safe).lower()}")
+    typer.echo("is_verification_evidence=false")
+    typer.echo("proves_novelty=false")
+    if artifacts is not None:
+        typer.echo(f"citation_registry={artifacts.citation_registry_artifact.path}")
+        typer.echo(f"literature_positioning={artifacts.literature_positioning_artifact.path}")
+        typer.echo(f"citation_safety={artifacts.citation_safety_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

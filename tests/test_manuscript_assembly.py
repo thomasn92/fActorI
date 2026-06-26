@@ -4,11 +4,17 @@ from factori.manuscript_assembly import assemble_complete_markdown_draft
 from factori.paper_shape import critique_paper_shape
 from factori.schemas import (
     ArtifactType,
+    BibliographyEntry,
+    CitationRecord,
+    CitationRegistry,
     Claim,
     ClaimEvidenceLink,
     ClaimTable,
     CompleteMarkdownDraft,
     GeneratedSectionDraft,
+    LiteratureGapStatement,
+    LiteraturePositioningContract,
+    LiteraturePositioningReport,
     ManuscriptDraftStatus,
     ManuscriptPlan,
     ManuscriptSectionPlan,
@@ -52,6 +58,28 @@ def test_empirical_section_is_marked_unavailable_when_empirical_evidence_absent(
 
     assert "Empirical results are unavailable" in draft.markdown
     assert any("Empirical results are unavailable" in warning for warning in report.warnings)
+
+
+def test_assembly_includes_citation_bibliography_and_literature_limitations() -> None:
+    narrative = _narrative_contract()
+    registry = _citation_registry()
+    report = _literature_positioning_report(registry)
+
+    draft, _assembly = assemble_complete_markdown_draft(
+        run_id="run-1",
+        manuscript_plan=_manuscript_plan(),
+        narrative_contract=narrative,
+        paper_shape_critique=critique_paper_shape(narrative, _manuscript_plan()),
+        claim_table=_claim_table(),
+        section_results=_section_results(),
+        citation_registry=registry,
+        literature_positioning_report=report,
+    )
+
+    assert "[@Smith2024BoundedContext]" in draft.markdown
+    assert "## Bibliography" in draft.markdown
+    assert "Literature positioning is bounded context" in draft.markdown
+    assert draft.citation_registry_id == report.citation_registry_id
 
 
 def test_unsafe_section_is_omitted_or_marked_in_markdown() -> None:
@@ -285,4 +313,64 @@ def _narrative_contract() -> NarrativeManuscriptContract:
         main_result_id="claim-main",
         main_result_in_words="The example remains bounded by its label.",
         appendix_policy="Move details to the appendix.",
+    )
+
+
+def _citation_registry() -> CitationRegistry:
+    record = CitationRecord(
+        citation_id="citation-source-a",
+        citation_key="Smith2024BoundedContext",
+        source_id="source-a",
+        title="Bounded context",
+        authors=["Ada Smith"],
+        year=2024,
+        provider="fake",
+        retrieved_at="1970-01-01T00:00:00.000000Z",
+        raw_metadata_hash="0" * 64,
+    )
+    entry = BibliographyEntry(
+        citation_id=record.citation_id,
+        citation_key=record.citation_key,
+        source_id=record.source_id,
+        markdown="- [@Smith2024BoundedContext] Ada Smith (2024). Bounded context.",
+        has_source_provenance=True,
+    )
+    return CitationRegistry(
+        run_id="run-1",
+        citations=[record],
+        bibliography=[entry],
+        citation_key_policy="deterministic",
+        source_registry_hash="0" * 64,
+    )
+
+
+def _literature_positioning_report(registry: CitationRegistry) -> LiteraturePositioningReport:
+    contract = LiteraturePositioningContract(
+        run_id="run-1",
+        contract_id="literature-positioning",
+        problem_context="Bounded context",
+        included_citation_ids=[registry.citations[0].citation_id],
+        literature_gap_statement="A bounded gap is stated.",
+        novelty_positioning_statement="Retrieval does not prove novelty.",
+        coverage_limitations=["Retrieval is not exhaustive coverage."],
+        non_exhaustiveness_disclaimer="Retrieval is bounded context, not novelty proof.",
+    )
+    gap = LiteratureGapStatement(
+        statement_id="literature-gap",
+        problem_context=contract.problem_context,
+        statement=contract.literature_gap_statement,
+        citation_ids=[registry.citations[0].citation_id],
+        citation_keys=[registry.citations[0].citation_key],
+        limitations=contract.coverage_limitations,
+    )
+    return LiteraturePositioningReport(
+        run_id="run-1",
+        citation_registry_id="citation-registry-example",
+        contract=contract,
+        gap_statement=gap,
+        markdown_intro_paragraph="Bounded context [@Smith2024BoundedContext].",
+        literature_limitations_paragraph=(
+            "Literature positioning is bounded context, not exhaustive coverage."
+        ),
+        citation_keys_used=[registry.citations[0].citation_key],
     )

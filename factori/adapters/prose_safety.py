@@ -31,6 +31,27 @@ _ASSERTIVE_CLAIM_PHRASES = (
     "we demonstrate",
     "we establish",
 )
+_CITATION_MARKER_RE = re.compile(r"\[@([A-Za-z0-9][A-Za-z0-9_.:-]*)\]")
+_EXHAUSTIVE_LITERATURE_PHRASES = (
+    "exhaustive literature coverage",
+    "complete literature coverage",
+    "covers all prior work",
+    "all prior work",
+    "comprehensive literature review",
+    "exhaustive review",
+)
+_RETRIEVAL_AS_PROOF_PHRASES = (
+    "retrieval proves novelty",
+    "retrieval proves",
+    "citations prove novelty",
+    "citation proves novelty",
+    "novelty is proven by retrieval",
+    "novelty is proven",
+    "retrieval as proof",
+    "citation as proof",
+    "citations are proof evidence",
+    "citations are experiment evidence",
+)
 
 
 def parse_prose_generation_response(raw_response: Any) -> ProseGenerationParseResult:
@@ -74,6 +95,9 @@ def parse_prose_generation_response(raw_response: Any) -> ProseGenerationParseRe
                 str(value) for value in payload.get("used_evidence_artifact_ids", [])
             ],
             used_citation_ids=[str(value) for value in payload.get("used_citation_ids", [])],
+            used_citation_keys=[
+                str(value) for value in payload.get("used_citation_keys", [])
+            ],
             unsupported_sentences=[
                 str(value) for value in payload.get("unsupported_sentences", [])
             ],
@@ -108,9 +132,12 @@ def validate_generated_section(
     allowed_claim_ids = set(section_contract.allowed_claim_ids)
     allowed_evidence_ids = set(section_contract.allowed_evidence_artifact_ids)
     allowed_citation_ids = set(section_contract.allowed_citation_ids)
+    allowed_citation_keys = set(section_contract.allowed_citation_keys)
     used_claim_ids = sorted(set(section_draft.used_claim_ids or section_draft.claim_ids))
     used_evidence_ids = sorted(set(section_draft.used_evidence_artifact_ids))
     used_citation_ids = sorted(set(section_draft.used_citation_ids))
+    marker_keys = set(_CITATION_MARKER_RE.findall(section_draft.content))
+    used_citation_keys = sorted(set(section_draft.used_citation_keys) | marker_keys)
 
     unknown_claim_ids = sorted(set(used_claim_ids) - allowed_claim_ids)
     if unknown_claim_ids:
@@ -130,6 +157,11 @@ def validate_generated_section(
     unknown_citation_ids = sorted(set(used_citation_ids) - allowed_citation_ids)
     if unknown_citation_ids:
         reasons.append(f"unknown or invented citation IDs: {', '.join(unknown_citation_ids)}")
+    unknown_citation_keys = sorted(set(used_citation_keys) - allowed_citation_keys)
+    if unknown_citation_keys:
+        reasons.append(
+            f"unknown or invented citation keys: {', '.join(unknown_citation_keys)}"
+        )
     if section_draft.unsupported_sentences:
         reasons.append("generated prose contains unsupported sentences")
 
@@ -152,6 +184,10 @@ def validate_generated_section(
         reasons.append("invented theorem or proposition numbering is not allowed")
     if not used_claim_ids and any(phrase in lowered for phrase in _ASSERTIVE_CLAIM_PHRASES):
         reasons.append("assertive scientific prose appears without a linked claim_id")
+    if _contains_unbounded_claim(lowered, _EXHAUSTIVE_LITERATURE_PHRASES):
+        reasons.append("generated prose claims exhaustive literature coverage")
+    if _contains_unbounded_claim(lowered, _RETRIEVAL_AS_PROOF_PHRASES):
+        reasons.append("generated prose treats retrieval or citations as novelty/proof evidence")
     words = [word for word in text.split() if word.strip()]
     if len(words) > section_contract.max_words:
         warnings.append(
@@ -173,6 +209,7 @@ def validate_generated_section(
         used_claim_ids=used_claim_ids,
         used_evidence_artifact_ids=used_evidence_ids,
         used_citation_ids=used_citation_ids,
+        used_citation_keys=used_citation_keys,
         created_or_upgraded_labels=created_or_upgraded,
     )
 
@@ -231,6 +268,15 @@ def _numbering_allowed(text: str, section_contract: ProseSectionContract) -> boo
     allowed = " ".join(section_contract.required_subsections).lower()
     match = _NUMBERED_THEOREM_RE.search(text)
     return bool(match and match.group(0).lower() in allowed)
+
+
+def _contains_unbounded_claim(text: str, phrases: tuple[str, ...]) -> bool:
+    return any(
+        phrase in text
+        and f"not {phrase}" not in text
+        and f"not proof of {phrase}" not in text
+        for phrase in phrases
+    )
 
 
 __all__ = [

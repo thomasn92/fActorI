@@ -40,13 +40,20 @@
   "run_id": "example",
   "section_contract": {
     "allowed_citation_ids": [
-      "source-example"
+      "citation-source-example"
+    ],
+    "allowed_citation_keys": [
+      "Author1970SyntheticCalibrationContext"
     ],
     "allowed_claim_ids": [
       "claim-example"
     ],
     "allowed_evidence_artifact_ids": [
       "artifact-example"
+    ],
+    "citation_boundary_instructions": [
+      "Use only allowed citation keys.",
+      "Do not claim retrieval proves novelty."
     ],
     "creates_scientific_validation": false,
     "evidence_boundary_instructions": [
@@ -59,6 +66,59 @@
       "RealDataExperimentVerified"
     ],
     "is_verification_evidence": false,
+    "literature_positioning_context": {
+      "citation_keys_used": [
+        "Author1970SyntheticCalibrationContext"
+      ],
+      "citation_registry_id": "citation-registry-example",
+      "claims_literature_coverage": false,
+      "contract": {
+        "claims_literature_coverage": false,
+        "contract_id": "literature-positioning-example",
+        "coverage_limitations": [
+          "Retrieval is bounded context, not exhaustive literature coverage."
+        ],
+        "excluded_or_deferred_sources": [],
+        "fake": true,
+        "included_citation_ids": [
+          "citation-source-example"
+        ],
+        "is_verification_evidence": false,
+        "literature_gap_statement": "The example frames a bounded gap without claiming coverage.",
+        "non_exhaustiveness_disclaimer": "Retrieval is bounded context, not exhaustive literature coverage; retrieval adequacy is not proof of novelty.",
+        "novelty_positioning_statement": "Retrieval metadata may frame context but cannot prove novelty.",
+        "problem_context": "Bounded calibration context.",
+        "proves_novelty": false,
+        "retrieval_queries_used": [
+          "calibration synthetic shift"
+        ],
+        "run_id": "example"
+      },
+      "creates_scientific_validation": false,
+      "gap_statement": {
+        "citation_ids": [
+          "citation-source-example"
+        ],
+        "citation_keys": [
+          "Author1970SyntheticCalibrationContext"
+        ],
+        "is_verification_evidence": false,
+        "limitations": [
+          "Retrieval is bounded context, not exhaustive literature coverage."
+        ],
+        "non_exhaustive": true,
+        "problem_context": "Bounded calibration context.",
+        "proves_novelty": false,
+        "statement": "The example frames a bounded gap without claiming coverage.",
+        "statement_id": "literature-gap-example"
+      },
+      "is_verification_evidence": false,
+      "literature_limitations_paragraph": "Literature positioning is bounded context, not exhaustive coverage.",
+      "markdown_intro_paragraph": "This draft uses bounded retrieval context [@Author1970SyntheticCalibrationContext]. Retrieval is not novelty proof.",
+      "proves_novelty": false,
+      "run_id": "example",
+      "warnings": []
+    },
     "max_words": 120,
     "narrative_role": [],
     "required_subsections": [],

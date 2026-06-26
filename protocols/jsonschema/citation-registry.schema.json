@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "BibliographyEntry": {
+      "additionalProperties": false,
+      "description": "Deterministic Markdown bibliography entry backed by source provenance.",
+      "properties": {
+        "citation_id": {
+          "minLength": 1,
+          "title": "Citation Id",
+          "type": "string"
+        },
+        "citation_key": {
+          "minLength": 1,
+          "title": "Citation Key",
+          "type": "string"
+        },
+        "has_source_provenance": {
+          "title": "Has Source Provenance",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "markdown": {
+          "minLength": 1,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "citation_id",
+        "citation_key",
+        "source_id",
+        "markdown",
+        "has_source_provenance"
+      ],
+      "title": "BibliographyEntry",
+      "type": "object"
+    },
+    "CitationRecord": {
+      "additionalProperties": false,
+      "description": "Source metadata allowed for citation-safe literature positioning only.",
+      "properties": {
+        "authors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Authors",
+          "type": "array"
+        },
+        "citation_id": {
+          "minLength": 1,
+          "title": "Citation Id",
+          "type": "string"
+        },
+        "citation_key": {
+          "minLength": 1,
+          "title": "Citation Key",
+          "type": "string"
+        },
+        "claims_literature_coverage": {
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "proves_novelty": {
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "raw_metadata_hash": {
+          "minLength": 1,
+          "title": "Raw Metadata Hash",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "source_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Artifact Id"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "venue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Venue"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        }
+      },
+      "required": [
+        "citation_id",
+        "citation_key",
+        "source_id",
+        "title",
+        "provider",
+        "retrieved_at",
+        "raw_metadata_hash"
+      ],
+      "title": "CitationRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.7.0/citation-registry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic citation registry; not novelty or verification proof.",
+  "properties": {
+    "bibliography": {
+      "items": {
+        "$ref": "#/$defs/BibliographyEntry"
+      },
+      "title": "Bibliography",
+      "type": "array"
+    },
+    "citation_key_policy": {
+      "minLength": 1,
+      "title": "Citation Key Policy",
+      "type": "string"
+    },
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/CitationRecord"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_registry_hash": {
+      "minLength": 1,
+      "title": "Source Registry Hash",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "citation_key_policy",
+    "source_registry_hash"
+  ],
+  "title": "CitationRegistry",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.CitationRegistry",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "CitationUsage": {
+      "additionalProperties": false,
+      "description": "Observed citation markers in a manuscript draft.",
+      "properties": {
+        "citation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation Id"
+        },
+        "citation_key": {
+          "minLength": 1,
+          "title": "Citation Key",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "known": {
+          "title": "Known",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "citation_key",
+        "count",
+        "known"
+      ],
+      "title": "CitationUsage",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.7.0/citation-safety-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Citation-safety report for manuscript drafts.",
+  "properties": {
+    "bibliography_entries_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Bibliography Entries Count",
+      "type": "integer"
+    },
+    "citation_usages": {
+      "items": {
+        "$ref": "#/$defs/CitationUsage"
+      },
+      "title": "Citation Usages",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "invented_bibliography_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Invented Bibliography Keys",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "unknown_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknown Citation Keys",
+      "type": "array"
+    },
+    "used_citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Ids",
+      "type": "array"
+    },
+    "used_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Keys",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "safe",
+    "rejected"
+  ],
+  "title": "CitationSafetyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.7.0",
+  "x-factori-source-model": "factori.schemas.CitationSafetyReport",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,45 @@
+{
+  "bibliography": [
+    {
+      "citation_id": "citation-source-example",
+      "citation_key": "Author1970SyntheticCalibrationContext",
+      "has_source_provenance": true,
+      "is_verification_evidence": false,
+      "markdown": "- [@Author1970SyntheticCalibrationContext] Example Author (1970). Synthetic calibration context. Source: `source-example`.",
+      "proves_novelty": false,
+      "source_id": "source-example",
+      "warnings": []
+    }
+  ],
+  "citation_key_policy": "FirstAuthorYearShortTitle; duplicate keys receive deterministic letters.",
+  "citations": [
+    {
+      "authors": [
+        "Example Author"
+      ],
+      "citation_id": "citation-source-example",
+      "citation_key": "Author1970SyntheticCalibrationContext",
+      "claims_literature_coverage": false,
+      "doi": null,
+      "is_verification_evidence": false,
+      "proves_novelty": false,
+      "provider": "fake",
+      "raw_metadata_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "retrieved_at": "1970-01-01T00:00:00.000000Z",
+      "source_artifact_id": "retrieval-normalized-results-example",
+      "source_id": "source-example",
+      "title": "Synthetic calibration context",
+      "url": null,
+      "venue": null,
+      "warnings": [],
+      "year": 1970
+    }
+  ],
+  "claims_literature_coverage": false,
+  "fake": true,
+  "is_verification_evidence": false,
+  "proves_novelty": false,
+  "run_id": "example",
+  "source_registry_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "warnings": []
+}

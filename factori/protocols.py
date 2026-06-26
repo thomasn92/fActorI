@@ -15,8 +15,13 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     BaselineReport,
+    BibliographyEntry,
     BridgeReport,
     Candidate,
+    CitationRecord,
+    CitationRegistry,
+    CitationSafetyReport,
+    CitationUsage,
     Claim,
     ClaimTable,
     CompleteMarkdownDraft,
@@ -36,7 +41,10 @@ from factori.schemas import (
     LedgerCommit,
     LedgerSummary,
     LedgerTipValidationReport,
+    LiteratureGapStatement,
     LiteraturePositioningAssessment,
+    LiteraturePositioningContract,
+    LiteraturePositioningReport,
     LLMCandidateParseReport,
     LLMPromptContract,
     LLMReviewerParseResult,
@@ -94,7 +102,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.6.0"
+PROTOCOL_VERSION = "0.7.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -261,6 +269,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ),
     ProtocolDefinition("Claim", Claim, "One label-preserving research claim."),
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
+    ProtocolDefinition(
+        "CitationRecord",
+        CitationRecord,
+        "Retrieval-backed citation metadata for literature context only.",
+    ),
+    ProtocolDefinition(
+        "CitationRegistry",
+        CitationRegistry,
+        "Deterministic citation registry; not novelty or verification proof.",
+    ),
+    ProtocolDefinition(
+        "BibliographyEntry",
+        BibliographyEntry,
+        "Deterministic bibliography entry backed by source provenance.",
+    ),
+    ProtocolDefinition(
+        "CitationUsage",
+        CitationUsage,
+        "Observed citation-key usage in a manuscript draft.",
+    ),
+    ProtocolDefinition(
+        "CitationSafetyReport",
+        CitationSafetyReport,
+        "Citation-safety report for manuscript drafts.",
+    ),
+    ProtocolDefinition(
+        "LiteratureGapStatement",
+        LiteratureGapStatement,
+        "Bounded literature-gap statement; not novelty proof.",
+    ),
+    ProtocolDefinition(
+        "LiteraturePositioningContract",
+        LiteraturePositioningContract,
+        "Bounded literature-positioning contract.",
+    ),
+    ProtocolDefinition(
+        "LiteraturePositioningReport",
+        LiteraturePositioningReport,
+        "Citation-safe literature-positioning report.",
+    ),
     ProtocolDefinition("FinalNucleus", FinalNucleus, "Selected abstraction or candidate nucleus."),
     ProtocolDefinition("ManuscriptPlan", ManuscriptPlan, "Structured manuscript plan."),
     ProtocolDefinition(
