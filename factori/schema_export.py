@@ -25,6 +25,7 @@ from factori.schemas import (
     ArtifactType,
     Candidate,
     Claim,
+    CompleteMarkdownDraft,
     ConstraintSet,
     DataRequirement,
     DryRunStatus,
@@ -36,6 +37,10 @@ from factori.schemas import (
     LedgerTipValidationReport,
     LLMCandidateParseReport,
     LLMPromptContract,
+    ManuscriptAssemblyReport,
+    ManuscriptDraftingPlan,
+    ManuscriptDraftingReport,
+    ManuscriptDraftStatus,
     NextStageRecommendation,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
@@ -60,6 +65,9 @@ from factori.schemas import (
     RetrievalResult,
     RunCompletenessStatus,
     RunStatusReport,
+    SectionDraftingResult,
+    SectionDraftingTask,
+    SectionDraftSafetySummary,
     SourceProvenance,
     StageCheckpoint,
     StagePrerequisite,
@@ -96,6 +104,11 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "prose-prompt-contract.example.json": "ProsePromptContract",
     "prose-safety-report.example.json": "ProseSafetyReport",
     "prose-section-contract.example.json": "ProseSectionContract",
+    "manuscript-drafting-plan.example.json": "ManuscriptDraftingPlan",
+    "section-drafting-result.example.json": "SectionDraftingResult",
+    "complete-markdown-draft.example.json": "CompleteMarkdownDraft",
+    "manuscript-drafting-report.example.json": "ManuscriptDraftingReport",
+    "manuscript-assembly-report.example.json": "ManuscriptAssemblyReport",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
     "research-object-manifest.example.json": "ResearchObjectManifest",
@@ -412,6 +425,95 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         used_evidence_artifact_ids=[artifact.id],
         used_citation_ids=[retrieval.source_id],
     )
+    section_task = SectionDraftingTask(
+        section_id=prose_section_contract.section_id,
+        section_title=prose_section_contract.section_title,
+        section_role=prose_section_contract.section_role,
+        narrative_role=prose_section_contract.narrative_role,
+        allowed_claim_ids=prose_section_contract.allowed_claim_ids,
+        allowed_evidence_artifact_ids=prose_section_contract.allowed_evidence_artifact_ids,
+        allowed_citation_ids=prose_section_contract.allowed_citation_ids,
+        source_contract_hashes=prose_section_contract.source_contract_hashes,
+        prose_contract=prose_section_contract,
+    )
+    manuscript_drafting_plan = ManuscriptDraftingPlan(
+        run_id="example",
+        plan_id="manuscript-drafting-plan-example",
+        manuscript_plan_id="manuscript-plan-example",
+        narrative_contract_id="narrative-contract-example",
+        paper_shape_critique_id="paper-shape-critique-example",
+        sections_count=1,
+        tasks=[section_task],
+        warnings=["Fake prose draft is a deterministic placeholder."],
+    )
+    section_drafting_result = SectionDraftingResult(
+        section_id=generated_section.section_id,
+        section_title=generated_section.title,
+        section_role=prose_section_contract.section_role,
+        narrative_role=prose_section_contract.narrative_role,
+        draft_markdown=generated_section.content,
+        used_claim_ids=generated_section.used_claim_ids,
+        used_evidence_artifact_ids=generated_section.used_evidence_artifact_ids,
+        used_citation_ids=generated_section.used_citation_ids,
+        safety_status="Safe",
+        warnings=generated_section.warnings,
+        unsupported_sentences=generated_section.unsupported_sentences,
+        source_contract_hashes=prose_section_contract.source_contract_hashes,
+        safe=True,
+        rejected=False,
+        safety_reasons=[],
+        draft=generated_section,
+        safety_report=prose_safety_report,
+    )
+    complete_markdown_draft = CompleteMarkdownDraft(
+        run_id="example",
+        title="Deterministic example manuscript draft",
+        markdown=(
+            "# Deterministic example manuscript draft\n\n"
+            "## Introduction\n\n"
+            "[FAKE PROSE DRAFT] This section summarizes claim-example.\n\n"
+            "## Claim/Evidence Appendix\n\n"
+            "- `claim-example`: artifact-example\n\n"
+            "## Provenance Appendix\n\n"
+            "- Draft artifacts are presentation/context only.\n"
+        ),
+        section_ids=[generated_section.section_id],
+        claim_evidence_appendix="- `claim-example`: artifact-example",
+        provenance_appendix="- Draft artifacts are presentation/context only.",
+        warnings=["Fake prose draft is a deterministic placeholder."],
+    )
+    manuscript_assembly_report = ManuscriptAssemblyReport(
+        run_id="example",
+        assembled_sections=1,
+        omitted_sections=[],
+        unsafe_section_ids=[],
+        warnings=["Fake prose draft is a deterministic placeholder."],
+        draft_status=ManuscriptDraftStatus.DRAFT_COMPLETE_WITH_WARNINGS,
+        complete_markdown_artifact_id="complete-manuscript-draft",
+    )
+    manuscript_drafting_report = ManuscriptDraftingReport(
+        run_id="example",
+        drafting_plan_id=manuscript_drafting_plan.plan_id,
+        sections_total=1,
+        sections_safe=1,
+        sections_unsafe=0,
+        draft_status=ManuscriptDraftStatus.DRAFT_COMPLETE_WITH_WARNINGS,
+        section_summaries=[
+            SectionDraftSafetySummary(
+                section_id=generated_section.section_id,
+                safety_status="Safe",
+                safe=True,
+                rejected=False,
+                warnings=generated_section.warnings,
+                used_claim_ids=generated_section.used_claim_ids,
+                used_evidence_artifact_ids=generated_section.used_evidence_artifact_ids,
+                used_citation_ids=generated_section.used_citation_ids,
+            )
+        ],
+        warnings=["Fake prose draft is a deterministic placeholder."],
+        manuscript_draft_artifact_id="complete-manuscript-draft",
+        assembly_report_artifact_id="manuscript-assembly-report",
+    )
     pipeline_report = PipelineRunReport(
         run_id="example",
         domain="machine learning",
@@ -564,6 +666,21 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "prose-generation-request.example.json": prose_request.model_dump(mode="json"),
         "prose-generation-parse-result.example.json": prose_parse_result.model_dump(mode="json"),
         "prose-safety-report.example.json": prose_safety_report.model_dump(mode="json"),
+        "manuscript-drafting-plan.example.json": manuscript_drafting_plan.model_dump(
+            mode="json"
+        ),
+        "section-drafting-result.example.json": section_drafting_result.model_dump(
+            mode="json"
+        ),
+        "complete-markdown-draft.example.json": complete_markdown_draft.model_dump(
+            mode="json"
+        ),
+        "manuscript-drafting-report.example.json": manuscript_drafting_report.model_dump(
+            mode="json"
+        ),
+        "manuscript-assembly-report.example.json": manuscript_assembly_report.model_dump(
+            mode="json"
+        ),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),

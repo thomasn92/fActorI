@@ -9,7 +9,9 @@ from factori.schemas import (
     ArtifactType,
     BranchStatus,
     Candidate,
+    CompleteMarkdownDraft,
     DataRequirement,
+    ManuscriptDraftingPlan,
     NarrativeManuscriptContract,
     PaperShapeCritique,
     PipelineRunConfig,
@@ -27,6 +29,8 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert PipelineRunConfig(run_id="run-1", domain="human geography")
     assert NarrativeManuscriptContract(contract_id="contract-1", run_id="run-1")
     assert PaperShapeCritique in vars(schemas).values()
+    assert ManuscriptDraftingPlan in vars(schemas).values()
+    assert CompleteMarkdownDraft in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -43,6 +47,8 @@ def test_schema_all_contains_expected_public_names() -> None:
         "PipelineRunConfig",
         "NarrativeManuscriptContract",
         "PaperShapeCritique",
+        "ManuscriptDraftingPlan",
+        "CompleteMarkdownDraft",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -83,4 +89,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 82
+    assert len(get_protocol_definitions()) == 90

@@ -72,6 +72,15 @@ class PaperShapeStatus(StrEnum):
     NOT_PAPER_SHAPED = "NotPaperShaped"
 
 
+class ManuscriptDraftStatus(StrEnum):
+    """Section-by-section manuscript draft status; not scientific validation."""
+
+    DRAFT_COMPLETE = "DraftComplete"
+    DRAFT_COMPLETE_WITH_WARNINGS = "DraftCompleteWithWarnings"
+    DRAFT_INCOMPLETE_UNSAFE_SECTIONS = "DraftIncompleteUnsafeSections"
+    DRAFT_FAILED = "DraftFailed"
+
+
 class BranchStatus(StrEnum):
     """Branch and run status labels for the MVP."""
 
@@ -196,6 +205,7 @@ class ControllerActionType(StrEnum):
     EXPORT_READINESS_REPORT_WRITTEN = "ExportReadinessReportWritten"
     EXPORT_BUNDLE_MANIFEST_WRITTEN = "ExportBundleManifestWritten"
     PROSE_SECTION_DRAFT_WRITTEN = "ProseSectionDraftWritten"
+    MANUSCRIPT_DRAFT_WRITTEN = "ManuscriptDraftWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 

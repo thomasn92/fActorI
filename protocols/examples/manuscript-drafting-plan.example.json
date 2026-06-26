@@ -1,0 +1,73 @@
+{
+  "creates_scientific_validation": false,
+  "fake": true,
+  "is_verification_evidence": false,
+  "manuscript_plan_id": "manuscript-plan-example",
+  "narrative_contract_id": "narrative-contract-example",
+  "paper_shape_critique_id": "paper-shape-critique-example",
+  "plan_id": "manuscript-drafting-plan-example",
+  "prose_backend": "fake",
+  "run_id": "example",
+  "sections_count": 1,
+  "tasks": [
+    {
+      "allowed_citation_ids": [
+        "source-example"
+      ],
+      "allowed_claim_ids": [
+        "claim-example"
+      ],
+      "allowed_evidence_artifact_ids": [
+        "artifact-example"
+      ],
+      "creates_scientific_validation": false,
+      "fake": true,
+      "is_verification_evidence": false,
+      "narrative_role": [],
+      "prose_contract": {
+        "allowed_citation_ids": [
+          "source-example"
+        ],
+        "allowed_claim_ids": [
+          "claim-example"
+        ],
+        "allowed_evidence_artifact_ids": [
+          "artifact-example"
+        ],
+        "creates_scientific_validation": false,
+        "evidence_boundary_instructions": [
+          "Use only allowed claim IDs.",
+          "Generated prose is not verification evidence."
+        ],
+        "fake": true,
+        "forbidden_claims": [],
+        "forbidden_labels": [
+          "RealDataExperimentVerified"
+        ],
+        "is_verification_evidence": false,
+        "max_words": 120,
+        "narrative_role": [],
+        "required_subsections": [],
+        "run_id": "example",
+        "section_id": "introduction",
+        "section_role": "Introduction",
+        "section_title": "Introduction",
+        "source_contract_hashes": {
+          "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "style_instructions": [
+          "Use placeholder-grade prose only."
+        ]
+      },
+      "section_id": "introduction",
+      "section_role": "Introduction",
+      "section_title": "Introduction",
+      "source_contract_hashes": {
+        "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "warnings": [
+    "Fake prose draft is a deterministic placeholder."
+  ]
+}

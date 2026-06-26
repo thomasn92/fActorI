@@ -1,0 +1,249 @@
+{
+  "$defs": {
+    "NarrativeSectionRole": {
+      "description": "Manuscript section roles used by the narrative-quality critic.",
+      "enum": [
+        "CentralMessage",
+        "ProblemFraming",
+        "BackgroundLiteraturePositioning",
+        "ModelFrame",
+        "MainBodyResult",
+        "DerivativeOrCorollary",
+        "TechnicalLemma",
+        "AppendixOnlyProof",
+        "NumericalValidation",
+        "EmpiricalDiscussion",
+        "SyntheticBoundary",
+        "LimitationsDiscussion"
+      ],
+      "title": "NarrativeSectionRole",
+      "type": "string"
+    },
+    "ProseSectionContract": {
+      "additionalProperties": false,
+      "description": "Section-level prose contract; not a scientific evidence artifact.",
+      "properties": {
+        "allowed_citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Citation Ids",
+          "type": "array"
+        },
+        "allowed_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "allowed_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Evidence Artifact Ids",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_boundary_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Boundary Instructions",
+          "type": "array"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "forbidden_labels": {
+          "items": {
+            "$ref": "#/$defs/VerificationLabel"
+          },
+          "title": "Forbidden Labels",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_words": {
+          "default": 160,
+          "maximum": 5000,
+          "minimum": 1,
+          "title": "Max Words",
+          "type": "integer"
+        },
+        "narrative_role": {
+          "items": {
+            "$ref": "#/$defs/NarrativeSectionRole"
+          },
+          "title": "Narrative Role",
+          "type": "array"
+        },
+        "required_subsections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Subsections",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "section_role": {
+          "minLength": 1,
+          "title": "Section Role",
+          "type": "string"
+        },
+        "section_title": {
+          "minLength": 1,
+          "title": "Section Title",
+          "type": "string"
+        },
+        "source_contract_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Source Contract Hashes",
+          "type": "object"
+        },
+        "style_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Style Instructions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "section_id",
+        "section_title",
+        "section_role"
+      ],
+      "title": "ProseSectionContract",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.6.0/section-drafting-task.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One planned section drafting task.",
+  "properties": {
+    "allowed_citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Citation Ids",
+      "type": "array"
+    },
+    "allowed_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Claim Ids",
+      "type": "array"
+    },
+    "allowed_evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Evidence Artifact Ids",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "narrative_role": {
+      "items": {
+        "$ref": "#/$defs/NarrativeSectionRole"
+      },
+      "title": "Narrative Role",
+      "type": "array"
+    },
+    "prose_contract": {
+      "$ref": "#/$defs/ProseSectionContract"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "section_role": {
+      "minLength": 1,
+      "title": "Section Role",
+      "type": "string"
+    },
+    "section_title": {
+      "minLength": 1,
+      "title": "Section Title",
+      "type": "string"
+    },
+    "source_contract_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Source Contract Hashes",
+      "type": "object"
+    }
+  },
+  "required": [
+    "section_id",
+    "section_title",
+    "section_role",
+    "prose_contract"
+  ],
+  "title": "SectionDraftingTask",
+  "type": "object",
+  "x-factori-protocol-version": "0.6.0",
+  "x-factori-source-model": "factori.schemas.SectionDraftingTask",
+  "x-factori-verification-evidence": false
+}

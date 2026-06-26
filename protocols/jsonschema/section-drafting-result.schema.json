@@ -1,0 +1,322 @@
+{
+  "$defs": {
+    "GeneratedSectionDraft": {
+      "additionalProperties": false,
+      "description": "Deterministic placeholder from a prose adapter, never polished prose.",
+      "properties": {
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "polished": {
+          "default": false,
+          "title": "Polished",
+          "type": "boolean"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "unsupported_sentences": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Sentences",
+          "type": "array"
+        },
+        "used_citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Citation Ids",
+          "type": "array"
+        },
+        "used_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Claim Ids",
+          "type": "array"
+        },
+        "used_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Evidence Artifact Ids",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "content"
+      ],
+      "title": "GeneratedSectionDraft",
+      "type": "object"
+    },
+    "NarrativeSectionRole": {
+      "description": "Manuscript section roles used by the narrative-quality critic.",
+      "enum": [
+        "CentralMessage",
+        "ProblemFraming",
+        "BackgroundLiteraturePositioning",
+        "ModelFrame",
+        "MainBodyResult",
+        "DerivativeOrCorollary",
+        "TechnicalLemma",
+        "AppendixOnlyProof",
+        "NumericalValidation",
+        "EmpiricalDiscussion",
+        "SyntheticBoundary",
+        "LimitationsDiscussion"
+      ],
+      "title": "NarrativeSectionRole",
+      "type": "string"
+    },
+    "ProseSafetyReport": {
+      "additionalProperties": false,
+      "description": "Safety report for generated prose; diagnostic only.",
+      "properties": {
+        "created_or_upgraded_labels": {
+          "default": false,
+          "title": "Created Or Upgraded Labels",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "rejected": {
+          "title": "Rejected",
+          "type": "boolean"
+        },
+        "safe": {
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "used_citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Citation Ids",
+          "type": "array"
+        },
+        "used_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Claim Ids",
+          "type": "array"
+        },
+        "used_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Evidence Artifact Ids",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_id",
+        "safe",
+        "rejected"
+      ],
+      "title": "ProseSafetyReport",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.6.0/section-drafting-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One safety-checked section draft result.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "draft": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GeneratedSectionDraft"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "draft_markdown": {
+      "default": "",
+      "title": "Draft Markdown",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "narrative_role": {
+      "items": {
+        "$ref": "#/$defs/NarrativeSectionRole"
+      },
+      "title": "Narrative Role",
+      "type": "array"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "boolean"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "safety_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Reasons",
+      "type": "array"
+    },
+    "safety_report": {
+      "$ref": "#/$defs/ProseSafetyReport"
+    },
+    "safety_status": {
+      "minLength": 1,
+      "title": "Safety Status",
+      "type": "string"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "section_role": {
+      "minLength": 1,
+      "title": "Section Role",
+      "type": "string"
+    },
+    "section_title": {
+      "minLength": 1,
+      "title": "Section Title",
+      "type": "string"
+    },
+    "source_contract_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Source Contract Hashes",
+      "type": "object"
+    },
+    "unsupported_sentences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsupported Sentences",
+      "type": "array"
+    },
+    "used_citation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Ids",
+      "type": "array"
+    },
+    "used_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Claim Ids",
+      "type": "array"
+    },
+    "used_evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Evidence Artifact Ids",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "section_id",
+    "section_title",
+    "section_role",
+    "safety_status",
+    "safe",
+    "rejected",
+    "safety_report"
+  ],
+  "title": "SectionDraftingResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.6.0",
+  "x-factori-source-model": "factori.schemas.SectionDraftingResult",
+  "x-factori-verification-evidence": false
+}

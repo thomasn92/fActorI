@@ -1,0 +1,69 @@
+{
+  "creates_scientific_validation": false,
+  "draft": {
+    "claim_ids": [
+      "claim-example"
+    ],
+    "content": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example. No scientific label is upgraded.",
+    "fake": true,
+    "is_verification_evidence": false,
+    "polished": false,
+    "section_id": "introduction",
+    "title": "Introduction",
+    "unsupported_sentences": [],
+    "used_citation_ids": [
+      "source-example"
+    ],
+    "used_claim_ids": [
+      "claim-example"
+    ],
+    "used_evidence_artifact_ids": [
+      "artifact-example"
+    ],
+    "warnings": []
+  },
+  "draft_markdown": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example. No scientific label is upgraded.",
+  "fake": true,
+  "is_verification_evidence": false,
+  "narrative_role": [],
+  "rejected": false,
+  "safe": true,
+  "safety_reasons": [],
+  "safety_report": {
+    "created_or_upgraded_labels": false,
+    "creates_scientific_validation": false,
+    "is_verification_evidence": false,
+    "reasons": [],
+    "rejected": false,
+    "safe": true,
+    "section_id": "introduction",
+    "used_citation_ids": [
+      "source-example"
+    ],
+    "used_claim_ids": [
+      "claim-example"
+    ],
+    "used_evidence_artifact_ids": [
+      "artifact-example"
+    ],
+    "warnings": []
+  },
+  "safety_status": "Safe",
+  "section_id": "introduction",
+  "section_role": "Introduction",
+  "section_title": "Introduction",
+  "source_contract_hashes": {
+    "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "unsupported_sentences": [],
+  "used_citation_ids": [
+    "source-example"
+  ],
+  "used_claim_ids": [
+    "claim-example"
+  ],
+  "used_evidence_artifact_ids": [
+    "artifact-example"
+  ],
+  "warnings": []
+}

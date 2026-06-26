@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.factori.local/0.6.0/manuscript-draft-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Manuscript draft status enum.",
+  "enum": [
+    "DraftComplete",
+    "DraftCompleteWithWarnings",
+    "DraftIncompleteUnsafeSections",
+    "DraftFailed"
+  ],
+  "title": "ManuscriptDraftStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.6.0",
+  "x-factori-source-model": "factori.schemas.ManuscriptDraftStatus",
+  "x-factori-verification-evidence": false
+}

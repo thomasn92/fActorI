@@ -1,0 +1,13 @@
+{
+  "assembled_sections": 1,
+  "complete_markdown_artifact_id": "complete-manuscript-draft",
+  "creates_scientific_validation": false,
+  "draft_status": "DraftCompleteWithWarnings",
+  "is_verification_evidence": false,
+  "omitted_sections": [],
+  "run_id": "example",
+  "unsafe_section_ids": [],
+  "warnings": [
+    "Fake prose draft is a deterministic placeholder."
+  ]
+}

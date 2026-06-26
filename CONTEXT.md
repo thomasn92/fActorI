@@ -26,6 +26,7 @@ Stage A candidate generation
   -> Paper skeleton assembly
   -> Final audit
   -> Export preparation
+  -> Optional Markdown manuscript drafting
   -> Replay verification
 ```
 
@@ -42,7 +43,8 @@ completed run from disk and checks consistency without changing provenance.
 - fake reviewer, bridge, baseline, red-team, proof, and synthetic-experiment checks;
 - conservative uncertainty, retrieval-adequacy, and budget gates;
 - verification-label and evidence-boundary enforcement;
-- deterministic abstraction, claim planning, draft scaffolding, and paper-shaped assembly;
+- deterministic abstraction, claim planning, draft scaffolding, paper-shaped assembly, and
+  presentation-only Markdown manuscript drafting;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 

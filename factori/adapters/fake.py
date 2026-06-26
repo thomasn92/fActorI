@@ -276,8 +276,8 @@ class FakeProseGenerator:
             title=title,
             content=(
                 "[FAKE PROSE DRAFT] "
-                f"section_id={section_id}; claims={','.join(claim_ids) or 'none'}; "
-                f"evidence={','.join(evidence_ids) or 'none'}; "
+                f"section_stub={len(section_id)}; claim_count={len(claim_ids)}; "
+                f"evidence_count={len(evidence_ids)}; "
                 "No scientific label is created or upgraded."
             ),
             claim_ids=claim_ids,

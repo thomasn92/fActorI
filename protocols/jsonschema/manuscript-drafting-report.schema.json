@@ -1,0 +1,210 @@
+{
+  "$defs": {
+    "ManuscriptDraftStatus": {
+      "description": "Section-by-section manuscript draft status; not scientific validation.",
+      "enum": [
+        "DraftComplete",
+        "DraftCompleteWithWarnings",
+        "DraftIncompleteUnsafeSections",
+        "DraftFailed"
+      ],
+      "title": "ManuscriptDraftStatus",
+      "type": "string"
+    },
+    "SectionDraftSafetySummary": {
+      "additionalProperties": false,
+      "description": "Compact safety status for one generated section draft.",
+      "properties": {
+        "created_or_upgraded_labels": {
+          "default": false,
+          "title": "Created Or Upgraded Labels",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "rejected": {
+          "title": "Rejected",
+          "type": "boolean"
+        },
+        "safe": {
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "safety_status": {
+          "minLength": 1,
+          "title": "Safety Status",
+          "type": "string"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "unsupported_sentences": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Sentences",
+          "type": "array"
+        },
+        "used_citation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Citation Ids",
+          "type": "array"
+        },
+        "used_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Claim Ids",
+          "type": "array"
+        },
+        "used_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Evidence Artifact Ids",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "section_id",
+        "safety_status",
+        "safe",
+        "rejected"
+      ],
+      "title": "SectionDraftSafetySummary",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.6.0/manuscript-drafting-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Machine-readable section drafting report.",
+  "properties": {
+    "assembly_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assembly Report Artifact Id"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "draft_status": {
+      "$ref": "#/$defs/ManuscriptDraftStatus"
+    },
+    "drafting_plan_id": {
+      "minLength": 1,
+      "title": "Drafting Plan Id",
+      "type": "string"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manuscript_draft_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Manuscript Draft Artifact Id"
+    },
+    "prose_backend": {
+      "default": "fake",
+      "title": "Prose Backend",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_summaries": {
+      "items": {
+        "$ref": "#/$defs/SectionDraftSafetySummary"
+      },
+      "title": "Section Summaries",
+      "type": "array"
+    },
+    "sections_safe": {
+      "minimum": 0,
+      "title": "Sections Safe",
+      "type": "integer"
+    },
+    "sections_total": {
+      "minimum": 0,
+      "title": "Sections Total",
+      "type": "integer"
+    },
+    "sections_unsafe": {
+      "minimum": 0,
+      "title": "Sections Unsafe",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "drafting_plan_id",
+    "sections_total",
+    "sections_safe",
+    "sections_unsafe",
+    "draft_status",
+    "section_summaries"
+  ],
+  "title": "ManuscriptDraftingReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.6.0",
+  "x-factori-source-model": "factori.schemas.ManuscriptDraftingReport",
+  "x-factori-verification-evidence": false
+}

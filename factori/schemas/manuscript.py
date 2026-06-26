@@ -6,12 +6,14 @@ from typing import Any
 
 from pydantic import Field
 
+from factori.schemas.adapters import GeneratedSectionDraft, ProseSafetyReport, ProseSectionContract
 from factori.schemas.artifacts import ArtifactRef
 from factori.schemas.base import StrictModel
 from factori.schemas.enums import (
     ArtifactType,
     ChecklistCategory,
     FinalNucleusType,
+    ManuscriptDraftStatus,
     NarrativeSectionRole,
     PaperShapeStatus,
     VerificationLabel,
@@ -283,6 +285,132 @@ class PaperShapeCritique(StrictModel):
     creates_scientific_validation: bool = False
 
 
+class SectionDraftingTask(StrictModel):
+    """One planned section drafting task with an explicit prose contract."""
+
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    section_role: str = Field(min_length=1)
+    narrative_role: list[NarrativeSectionRole] = Field(default_factory=list)
+    allowed_claim_ids: list[str] = Field(default_factory=list)
+    allowed_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    allowed_citation_ids: list[str] = Field(default_factory=list)
+    source_contract_hashes: dict[str, str] = Field(default_factory=dict)
+    prose_contract: ProseSectionContract
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class ManuscriptDraftingPlan(StrictModel):
+    """Plan for section-by-section manuscript drafting; not evidence."""
+
+    run_id: str = Field(min_length=1)
+    plan_id: str = Field(min_length=1)
+    manuscript_plan_id: str = Field(min_length=1)
+    narrative_contract_id: str = Field(min_length=1)
+    paper_shape_critique_id: str = Field(min_length=1)
+    prose_backend: str = "fake"
+    sections_count: int = Field(ge=0)
+    tasks: list[SectionDraftingTask]
+    warnings: list[str] = Field(default_factory=list)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class SectionDraftSafetySummary(StrictModel):
+    """Compact safety status for one generated section draft."""
+
+    section_id: str = Field(min_length=1)
+    safety_status: str = Field(min_length=1)
+    safe: bool
+    rejected: bool
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    used_claim_ids: list[str] = Field(default_factory=list)
+    used_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    used_citation_ids: list[str] = Field(default_factory=list)
+    unsupported_sentences: list[str] = Field(default_factory=list)
+    created_or_upgraded_labels: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class SectionDraftingResult(StrictModel):
+    """Generated and safety-checked section draft."""
+
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    section_role: str = Field(min_length=1)
+    narrative_role: list[NarrativeSectionRole] = Field(default_factory=list)
+    draft_markdown: str = ""
+    used_claim_ids: list[str] = Field(default_factory=list)
+    used_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    used_citation_ids: list[str] = Field(default_factory=list)
+    safety_status: str = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
+    unsupported_sentences: list[str] = Field(default_factory=list)
+    source_contract_hashes: dict[str, str] = Field(default_factory=dict)
+    safe: bool
+    rejected: bool
+    safety_reasons: list[str] = Field(default_factory=list)
+    draft: GeneratedSectionDraft | None = None
+    safety_report: ProseSafetyReport
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class CompleteMarkdownDraft(StrictModel):
+    """Complete assembled Markdown manuscript draft; presentation context only."""
+
+    run_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    markdown: str = Field(min_length=1)
+    section_ids: list[str] = Field(default_factory=list)
+    unsafe_section_ids: list[str] = Field(default_factory=list)
+    claim_evidence_appendix: str = Field(min_length=1)
+    provenance_appendix: str = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class ManuscriptAssemblyReport(StrictModel):
+    """Report for Markdown manuscript assembly; not scientific validation."""
+
+    run_id: str = Field(min_length=1)
+    assembled_sections: int = Field(ge=0)
+    omitted_sections: list[str] = Field(default_factory=list)
+    unsafe_section_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    draft_status: ManuscriptDraftStatus
+    complete_markdown_artifact_id: str | None = None
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class ManuscriptDraftingReport(StrictModel):
+    """Machine-readable report for section-by-section manuscript drafting."""
+
+    run_id: str = Field(min_length=1)
+    drafting_plan_id: str = Field(min_length=1)
+    prose_backend: str = "fake"
+    sections_total: int = Field(ge=0)
+    sections_safe: int = Field(ge=0)
+    sections_unsafe: int = Field(ge=0)
+    draft_status: ManuscriptDraftStatus
+    section_summaries: list[SectionDraftSafetySummary]
+    warnings: list[str] = Field(default_factory=list)
+    manuscript_draft_artifact_id: str | None = None
+    assembly_report_artifact_id: str | None = None
+    fake: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
 class ChecklistItem(StrictModel):
     """One deterministic manuscript checklist item."""
 
@@ -408,6 +536,13 @@ __all__ = [
     "AppendixAllocationAssessment",
     "PaperShapeScore",
     "PaperShapeCritique",
+    "SectionDraftingTask",
+    "ManuscriptDraftingPlan",
+    "SectionDraftSafetySummary",
+    "SectionDraftingResult",
+    "CompleteMarkdownDraft",
+    "ManuscriptDraftingReport",
+    "ManuscriptAssemblyReport",
     "ChecklistItem",
     "ManuscriptChecklist",
     "DraftSection",

@@ -15,7 +15,9 @@ run-control and adapter contracts without importing Python.
   `RetrievalAdequacyCertificate`, `ProofVerificationContract`, `ProofVerificationResult`,
   `ExperimentRunContract`, `ExperimentRunResult`, `ProseSectionContract`, `ProsePromptContract`,
   `ProseGenerationRequest`, `ProseGenerationParseResult`, `ProseSafetyReport`,
-  `GeneratedSectionDraft`, and `HumanReviewDecision`.
+  `GeneratedSectionDraft`, `ManuscriptDraftingPlan`, `SectionDraftingTask`,
+  `SectionDraftingResult`, `CompleteMarkdownDraft`, `ManuscriptDraftingReport`,
+  `ManuscriptAssemblyReport`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -30,10 +32,8 @@ run-control and adapter contracts without importing Python.
 - Real adapters remain explicitly gated; fake adapters are still the default.
 - Real Lean proof checking and local synthetic experiment execution have gated local-tool adapter
   seams and are disabled by default.
-- Docker experiments, empirical data ingestion, full manuscript drafting, polished prose generation,
-  final LaTeX generation,
-  and external review
-  readiness are not implemented.
+- Docker experiments, empirical data ingestion, polished prose generation, final LaTeX generation,
+  PDF generation, and external review readiness are not implemented.
 
 ## Mutating vs Read-Only Operations
 
@@ -60,6 +60,7 @@ backend only as an explicit external-tool job with the same proof contract, exec
 proof-evidence safety checks used by the CLI. It may expose the local synthetic experiment backend
 only as an explicit external-tool job with the same experiment contract, runner gate,
 SyntheticOnly data boundary, metric acceptance checks, and synthetic-evidence safety checks.
-A future server may expose one-section prose drafting only as an explicit external-call job with the
-same prose contract, allowed claim/evidence/citation lists, and safety report checks used by the CLI.
-Generated prose remains manuscript context and cannot mutate claims, evidence, citations, or labels.
+A future server may expose section-level or complete Markdown prose drafting only as explicit
+external-call jobs with the same prose contracts, allowed claim/evidence/citation lists, and safety
+report checks used by the CLI. Generated prose and Markdown drafts remain manuscript context and
+cannot mutate claims, evidence, citations, or labels.

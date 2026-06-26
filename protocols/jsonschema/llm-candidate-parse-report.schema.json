@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.5.0/llm-candidate-parse-report.schema.json",
+  "$id": "https://schemas.factori.local/0.6.0/llm-candidate-parse-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Stage A LLM candidate parse and safety report.",
@@ -45,7 +45,7 @@
   ],
   "title": "LLMCandidateParseReport",
   "type": "object",
-  "x-factori-protocol-version": "0.5.0",
+  "x-factori-protocol-version": "0.6.0",
   "x-factori-source-model": "factori.schemas.LLMCandidateParseReport",
   "x-factori-verification-evidence": false
 }

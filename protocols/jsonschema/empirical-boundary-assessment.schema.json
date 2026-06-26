@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.5.0/empirical-boundary-assessment.schema.json",
+  "$id": "https://schemas.factori.local/0.6.0/empirical-boundary-assessment.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Synthetic/empirical boundary diagnostic assessment.",
@@ -40,7 +40,7 @@
   ],
   "title": "EmpiricalBoundaryAssessment",
   "type": "object",
-  "x-factori-protocol-version": "0.5.0",
+  "x-factori-protocol-version": "0.6.0",
   "x-factori-source-model": "factori.schemas.EmpiricalBoundaryAssessment",
   "x-factori-verification-evidence": false
 }

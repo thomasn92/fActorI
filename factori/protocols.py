@@ -19,6 +19,7 @@ from factori.schemas import (
     Candidate,
     Claim,
     ClaimTable,
+    CompleteMarkdownDraft,
     DataRequirement,
     DiagnosticReport,
     DraftSkeleton,
@@ -41,6 +42,10 @@ from factori.schemas import (
     LLMReviewerParseResult,
     MainMessageAssessment,
     MainResultAssessment,
+    ManuscriptAssemblyReport,
+    ManuscriptDraftingPlan,
+    ManuscriptDraftingReport,
+    ManuscriptDraftStatus,
     ManuscriptPlan,
     ModelNotationAssessment,
     NarrativeManuscriptContract,
@@ -78,6 +83,9 @@ from factori.schemas import (
     ReviewerPromptContract,
     RunStatusReport,
     ScoreVector,
+    SectionDraftingResult,
+    SectionDraftingTask,
+    SectionDraftSafetySummary,
     StageBReviewerReport,
     StageCheckpoint,
     StageRerunDecision,
@@ -86,7 +94,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.5.0"
+PROTOCOL_VERSION = "0.6.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -331,6 +339,41 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "Appendix-allocation diagnostic assessment.",
     ),
     ProtocolDefinition("DraftSkeleton", DraftSkeleton, "Deterministic draft scaffold."),
+    ProtocolDefinition(
+        "ManuscriptDraftingPlan",
+        ManuscriptDraftingPlan,
+        "Section-by-section manuscript drafting plan.",
+    ),
+    ProtocolDefinition(
+        "SectionDraftingTask",
+        SectionDraftingTask,
+        "One planned section drafting task.",
+    ),
+    ProtocolDefinition(
+        "SectionDraftingResult",
+        SectionDraftingResult,
+        "One safety-checked section draft result.",
+    ),
+    ProtocolDefinition(
+        "SectionDraftSafetySummary",
+        SectionDraftSafetySummary,
+        "Compact section prose safety summary.",
+    ),
+    ProtocolDefinition(
+        "CompleteMarkdownDraft",
+        CompleteMarkdownDraft,
+        "Assembled Markdown manuscript draft; presentation context only.",
+    ),
+    ProtocolDefinition(
+        "ManuscriptDraftingReport",
+        ManuscriptDraftingReport,
+        "Machine-readable section drafting report.",
+    ),
+    ProtocolDefinition(
+        "ManuscriptAssemblyReport",
+        ManuscriptAssemblyReport,
+        "Markdown manuscript assembly report.",
+    ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(
         "ResearchObjectManifest",
@@ -421,6 +464,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("ProofBackend", ProofBackend, "Proof backend enum."),
     ProtocolDefinition("ExperimentBackend", ExperimentBackend, "Experiment backend enum."),
     ProtocolDefinition("ProseBackend", ProseBackend, "Prose backend enum."),
+    ProtocolDefinition(
+        "ManuscriptDraftStatus",
+        ManuscriptDraftStatus,
+        "Manuscript draft status enum.",
+    ),
     ProtocolDefinition("ExperimentKind", ExperimentKind, "Synthetic experiment kind enum."),
     ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
     ProtocolDefinition(

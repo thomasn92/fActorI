@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.5.0
+  --new-version 0.6.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -137,6 +137,9 @@ uv run factori critique-paper-shape --run-id demo --json
 uv run factori generate-section-draft --run-id demo --section-id introduction
 uv run factori generate-section-draft --run-id demo --section-id introduction --write-report
 uv run factori generate-section-draft --run-id demo --section-id introduction --json
+uv run factori draft-manuscript --run-id demo
+uv run factori draft-manuscript --run-id demo --write-report
+uv run factori draft-manuscript --run-id demo --json
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -197,18 +200,22 @@ OPENAI_API_KEY="<key>" uv run factori run-all \
   --allow-external-calls --reviewer-model gpt-5-mini
 ```
 
-One-section prose drafting is separately gated. The fake backend is default and produces placeholder
-section text from approved manuscript contracts. The OpenAI prose backend can draft one section only;
-it cannot create claims, citations, evidence, labels, full papers, polished prose, or LaTeX:
+Prose drafting is separately gated. The fake backend is default and produces placeholder section
+text from approved manuscript contracts. `generate-section-draft` drafts one section. `draft-manuscript`
+uses the same prose adapter section by section and assembles a complete Markdown draft. Neither
+command can create claims, citations, evidence, labels, polished prose, or LaTeX:
 
 ```bash
 uv run factori generate-section-draft \
   --run-id demo --section-id introduction
 uv run factori generate-section-draft \
   --run-id demo --section-id introduction --write-report
+uv run factori draft-manuscript --run-id demo --write-report
 OPENAI_API_KEY="<key>" uv run factori generate-section-draft \
   --run-id demo --section-id introduction \
   --prose-backend openai --allow-external-calls --prose-model gpt-5-mini
+OPENAI_API_KEY="<key>" uv run factori draft-manuscript \
+  --run-id demo --prose-backend openai --allow-external-calls --prose-model gpt-5-mini
 ```
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and

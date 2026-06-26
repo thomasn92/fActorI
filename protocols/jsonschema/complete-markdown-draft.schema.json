@@ -1,0 +1,81 @@
+{
+  "$id": "https://schemas.factori.local/0.6.0/complete-markdown-draft.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Assembled Markdown manuscript draft; presentation context only.",
+  "properties": {
+    "claim_evidence_appendix": {
+      "minLength": 1,
+      "title": "Claim Evidence Appendix",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fake": {
+      "default": true,
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "markdown": {
+      "minLength": 1,
+      "title": "Markdown",
+      "type": "string"
+    },
+    "provenance_appendix": {
+      "minLength": 1,
+      "title": "Provenance Appendix",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Section Ids",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "unsafe_section_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsafe Section Ids",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "title",
+    "markdown",
+    "claim_evidence_appendix",
+    "provenance_appendix"
+  ],
+  "title": "CompleteMarkdownDraft",
+  "type": "object",
+  "x-factori-protocol-version": "0.6.0",
+  "x-factori-source-model": "factori.schemas.CompleteMarkdownDraft",
+  "x-factori-verification-evidence": false
+}

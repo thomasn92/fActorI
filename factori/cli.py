@@ -52,6 +52,7 @@ from factori.hygiene_plan import (
     write_hygiene_remediation_plan,
 )
 from factori.ledger import LedgerError, ResearchLedger
+from factori.manuscript_drafting import ManuscriptDraftingError, draft_manuscript
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
 from factori.narrative_contract import (
     NarrativeContractError,
@@ -1453,6 +1454,96 @@ def generate_section_draft_command(
         typer.echo(f"section_draft={result.draft_artifact.path}")
     if result.safety_artifact is not None:
         typer.echo(f"section_safety={result.safety_artifact.path}")
+
+
+@app.command("draft-manuscript")
+def draft_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    prose_backend: Annotated[
+        str,
+        typer.Option("--prose-backend"),
+    ] = DEFAULT_PROSE_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    max_words: Annotated[int, typer.Option("--max-words")] = 160,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Draft all manuscript sections and assemble a Markdown manuscript."""
+    try:
+        registry = get_adapter_registry(
+            AdapterConfig(
+                prose_backend=prose_backend,
+                allow_external_calls=allow_external_calls,
+                prose_model=prose_model,
+            )
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = draft_manuscript(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            prose_generator=registry.prose_generator,
+            write_report=write_report,
+            max_words=max_words,
+        )
+    except ManuscriptDraftingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "drafting_plan": result.drafting_plan.model_dump(mode="json"),
+                    "drafting_report": result.drafting_report.model_dump(mode="json"),
+                    "complete_draft": result.complete_draft.model_dump(mode="json"),
+                    "assembly_report": result.assembly_report.model_dump(mode="json"),
+                    "artifacts": {
+                        "plan": result.plan_artifact.model_dump(mode="json")
+                        if result.plan_artifact
+                        else None,
+                        "drafting_report": (
+                            result.drafting_report_artifact.model_dump(mode="json")
+                            if result.drafting_report_artifact
+                            else None
+                        ),
+                        "complete_draft": (
+                            result.markdown_artifact.model_dump(mode="json")
+                            if result.markdown_artifact
+                            else None
+                        ),
+                        "assembly_report": (
+                            result.assembly_report_artifact.model_dump(mode="json")
+                            if result.assembly_report_artifact
+                            else None
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"prose_backend={registry.config.prose_backend}")
+    typer.echo(f"sections={result.drafting_report.sections_total}")
+    typer.echo(f"safe_sections={result.drafting_report.sections_safe}")
+    typer.echo(f"unsafe_sections={result.drafting_report.sections_unsafe}")
+    typer.echo(f"draft_status={result.drafting_report.draft_status.value}")
+    typer.echo(f"warnings={len(result.drafting_report.warnings)}")
+    if result.markdown_artifact is not None:
+        typer.echo(f"complete_manuscript_draft={result.markdown_artifact.path}")
+    if result.drafting_report_artifact is not None:
+        typer.echo(f"manuscript_drafting_report={result.drafting_report_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

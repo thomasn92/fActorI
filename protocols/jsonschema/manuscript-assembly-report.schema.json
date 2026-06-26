@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "ManuscriptDraftStatus": {
+      "description": "Section-by-section manuscript draft status; not scientific validation.",
+      "enum": [
+        "DraftComplete",
+        "DraftCompleteWithWarnings",
+        "DraftIncompleteUnsafeSections",
+        "DraftFailed"
+      ],
+      "title": "ManuscriptDraftStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.6.0/manuscript-assembly-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Markdown manuscript assembly report.",
+  "properties": {
+    "assembled_sections": {
+      "minimum": 0,
+      "title": "Assembled Sections",
+      "type": "integer"
+    },
+    "complete_markdown_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Complete Markdown Artifact Id"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "draft_status": {
+      "$ref": "#/$defs/ManuscriptDraftStatus"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "omitted_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Omitted Sections",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "unsafe_section_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsafe Section Ids",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "assembled_sections",
+    "draft_status"
+  ],
+  "title": "ManuscriptAssemblyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.6.0",
+  "x-factori-source-model": "factori.schemas.ManuscriptAssemblyReport",
+  "x-factori-verification-evidence": false
+}

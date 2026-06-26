@@ -31,6 +31,9 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `ProseSectionContract`, `ProsePromptContract`, `ProseGenerationRequest`,
   `ProseGenerationParseResult`, and `ProseSafetyReport` generated from one-section prose adapter
   models;
+- `ManuscriptDraftingPlan`, `SectionDraftingTask`, `SectionDraftingResult`,
+  `CompleteMarkdownDraft`, `ManuscriptDraftingReport`, and `ManuscriptAssemblyReport` generated
+  from manuscript drafting models;
 - `EvidenceType` generated from `ArtifactType`;
 - `ClaimLabel` generated from `VerificationLabel`;
 - `ReleaseStatus` generated from `ReleaseGateStatus`.
@@ -74,7 +77,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.5.0
+  --new-version 0.6.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

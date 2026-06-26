@@ -7,11 +7,15 @@ from factori.protocols import (
 )
 from factori.schemas import (
     ArtifactRef,
+    CompleteMarkdownDraft,
     ExperimentRunContract,
     ExperimentRunResult,
     LedgerTipValidationReport,
     LLMCandidateParseReport,
     LLMPromptContract,
+    ManuscriptAssemblyReport,
+    ManuscriptDraftingPlan,
+    ManuscriptDraftingReport,
     PipelineStageResult,
     ProofVerificationResult,
     ProseGenerationParseResult,
@@ -20,6 +24,8 @@ from factori.schemas import (
     ProseSafetyReport,
     ProseSectionContract,
     RunStatusReport,
+    SectionDraftingResult,
+    SectionDraftingTask,
     StageBReviewerReport,
     StageRerunDecision,
 )
@@ -32,9 +38,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 82
+    assert len(first) == 90
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.5.0"
+    assert PROTOCOL_VERSION == "0.6.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -58,6 +64,12 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ProseGenerationRequest").model is ProseGenerationRequest
     assert get_protocol_definition("ProseGenerationParseResult").model is ProseGenerationParseResult
     assert get_protocol_definition("ProseSafetyReport").model is ProseSafetyReport
+    assert get_protocol_definition("ManuscriptDraftingPlan").model is ManuscriptDraftingPlan
+    assert get_protocol_definition("SectionDraftingTask").model is SectionDraftingTask
+    assert get_protocol_definition("SectionDraftingResult").model is SectionDraftingResult
+    assert get_protocol_definition("CompleteMarkdownDraft").model is CompleteMarkdownDraft
+    assert get_protocol_definition("ManuscriptDraftingReport").model is ManuscriptDraftingReport
+    assert get_protocol_definition("ManuscriptAssemblyReport").model is ManuscriptAssemblyReport
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -95,6 +107,12 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "ProseGenerationRequest",
         "ProseGenerationParseResult",
         "ProseSafetyReport",
+        "ManuscriptDraftingPlan",
+        "SectionDraftingTask",
+        "SectionDraftingResult",
+        "CompleteMarkdownDraft",
+        "ManuscriptDraftingReport",
+        "ManuscriptAssemblyReport",
         "RetrievalQuery",
         "RetrievalRunReport",
         "RetrievalParseReport",

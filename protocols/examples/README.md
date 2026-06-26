@@ -8,7 +8,8 @@ The examples intentionally preserve MVP boundaries:
 - proof and experiment examples are deterministic interoperability fixtures, not evidence;
 - the proof example remains `Conjecture`;
 - the experiment example is a `NegativeResult`;
-- prose examples are section-drafting contracts and safety fixtures, not manuscript evidence;
+- prose and Markdown draft examples are section-drafting and manuscript-assembly fixtures, not
+  manuscript evidence;
 - claim examples do not inflate labels;
 - artifact and protocol files are not verification evidence.
 

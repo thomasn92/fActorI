@@ -21,8 +21,8 @@ All implementation modules are under `factori/`.
     verification records.
   - `schemas/adapters.py`: adapter prompt, parse, trace, generated-section, and human-review
     contracts.
-  - `schemas/manuscript.py`: synthesis, claim, manuscript, narrative, draft, and paper skeleton
-    models.
+  - `schemas/manuscript.py`: synthesis, claim, manuscript, narrative, draft, complete Markdown
+    drafting, and paper skeleton models.
   - `schemas/audit.py`: packaging, audit, release, export, replay, diagnostics, and cross-run
     models.
   - `schemas/pipeline.py`: pipeline, dry-run, status, rerun, file index, hygiene, and remediation
@@ -190,6 +190,10 @@ All implementation modules are under `factori/`.
   contract construction.
 - `paper_shape.py`: deterministic paper-shape critique and optional manuscript-quality report
   writing.
+- `manuscript_drafting.py`: section-by-section manuscript drafting engine using the prose adapter,
+  prose safety checks, and optional ledgered draft/report persistence.
+- `manuscript_assembly.py`: pure Markdown assembly of safe section drafts into a complete
+  paper-shaped presentation draft with claim/evidence and provenance appendices.
 - `draft_skeleton.py`: deterministic Markdown/JSON draft scaffold generation.
 - `checklist.py`: manuscript checklist generation.
 - `final_paper.py`: assembled paper-shaped skeleton and assembly readiness report.

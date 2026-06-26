@@ -47,6 +47,7 @@ Implemented so far:
 - deterministic manuscript planning skeleton with claim/evidence tables;
 - deterministic narrative manuscript contract and paper-shape critique;
 - deterministic draft skeleton and manuscript checklist generation;
+- deterministic section-by-section Markdown manuscript drafting with strict prose safety checks;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
@@ -71,8 +72,9 @@ Implemented so far:
   contracts, trace/result hashes, safety checks, and no default proof-tool execution;
 - an explicitly gated local synthetic experiment runner for Stage C SyntheticOnly branches, with
   contracts, input/output/trace hashes, safety checks, and no default experiment-tool execution;
-- an explicitly gated OpenAI one-section prose adapter, with section contracts, safety checks,
-  ledgered non-evidence prose artifacts when requested, and no default network access;
+- an explicitly gated OpenAI prose adapter, with section contracts, safety checks, optional complete
+  Markdown draft assembly, ledgered non-evidence prose artifacts when requested, and no default
+  network access;
 - versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
 - conservative read-only protocol compatibility and schema-change classification;
 - server-facing run-control, adapter I/O, manifest, and enum protocol exports with JSON
@@ -81,9 +83,9 @@ Implemented so far:
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
-Not implemented yet: LangGraph orchestration, real LLM synthesis, full-paper writing, complete or
-claim-verifying literature coverage, always-on Lean integration, real empirical experiments, Docker,
-FastAPI, polished prose generation, LaTeX paper generation, or a frontend.
+Not implemented yet: LangGraph orchestration, real LLM synthesis, polished full-paper writing,
+complete or claim-verifying literature coverage, always-on Lean integration, real empirical
+experiments, Docker, FastAPI, LaTeX paper generation, PDF generation, or a frontend.
 
 ## Install
 
@@ -131,6 +133,8 @@ uv run factori critique-paper-shape --run-id demo
 uv run factori critique-paper-shape --run-id demo --write-report
 uv run factori generate-section-draft --run-id demo --section-id introduction
 uv run factori generate-section-draft --run-id demo --section-id introduction --write-report
+uv run factori draft-manuscript --run-id demo
+uv run factori draft-manuscript --run-id demo --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -160,7 +164,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.5.0
+  --old-version 0.1.0 --new-version 0.6.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -173,7 +177,7 @@ Default commands are local and deterministic. They do not call models, retrieval
 experiment runners, Docker, servers, or UI code. The gated Stage A OpenAI path described below is
 one explicit exception and is never selected by default. Stage B also has separately gated OpenAlex
 retrieval and OpenAI structural-review paths. Stage C has separately gated local Lean proof and
-local synthetic experiment paths. One-section OpenAI prose drafting is also separately gated. All
+local synthetic experiment paths. OpenAI prose drafting is also separately gated. All
 are disabled by default.
 
 `inspect-hygiene` is read-only. Its optional reports are written under
@@ -215,8 +219,8 @@ metadata and abstract context with `OPENALEX_API_KEY`. A separately gated `lean`
 supports Stage C mathematical branches through a local executable only when
 `allow_external_tools=true`. A separately gated `local_synthetic` backend supports Stage C
 SyntheticOnly branches through an explicitly configured runner only when
-`allow_external_tools=true`. A separately gated `openai` prose backend drafts one planned section
-from approved contracts only when `allow_external_calls=true` and `OPENAI_API_KEY` is present.
+`allow_external_tools=true`. A separately gated `openai` prose backend drafts planned sections from
+approved contracts only when `allow_external_calls=true` and `OPENAI_API_KEY` is present.
 Human-review adapters remain fake.
 
 LLM output is validated locally, then passes through the existing data gate, scoring, deduplication,
@@ -240,9 +244,10 @@ runner-input/output artifacts, local-tool traces, result hashes, and safety vali
 support only `SyntheticExperimentVerified` for SyntheticOnly claims and cannot justify
 `RealDataExperimentVerified`, empirical validation, or mathematical proof labels.
 
-Generated section prose is accepted only as manuscript/prose context. It may be written as hashed,
-ledgered request/response/draft/safety artifacts, but it cannot create claims, citations, proof
-evidence, experiment evidence, retrieval evidence, human approval, or verification-label upgrades.
+Generated section prose and complete Markdown drafts are accepted only as manuscript/prose context.
+They may be written as hashed, ledgered drafting artifacts, but they cannot create claims,
+citations, proof evidence, experiment evidence, retrieval evidence, human approval, empirical
+validation, or verification-label upgrades.
 
 `show-adapters` prints both active adapter classes and provider capability metadata. Invalid
 backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,

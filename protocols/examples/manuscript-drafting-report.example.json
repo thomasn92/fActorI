@@ -1,0 +1,40 @@
+{
+  "assembly_report_artifact_id": "manuscript-assembly-report",
+  "creates_scientific_validation": false,
+  "draft_status": "DraftCompleteWithWarnings",
+  "drafting_plan_id": "manuscript-drafting-plan-example",
+  "fake": true,
+  "is_verification_evidence": false,
+  "manuscript_draft_artifact_id": "complete-manuscript-draft",
+  "prose_backend": "fake",
+  "run_id": "example",
+  "section_summaries": [
+    {
+      "created_or_upgraded_labels": false,
+      "creates_scientific_validation": false,
+      "is_verification_evidence": false,
+      "reasons": [],
+      "rejected": false,
+      "safe": true,
+      "safety_status": "Safe",
+      "section_id": "introduction",
+      "unsupported_sentences": [],
+      "used_citation_ids": [
+        "source-example"
+      ],
+      "used_claim_ids": [
+        "claim-example"
+      ],
+      "used_evidence_artifact_ids": [
+        "artifact-example"
+      ],
+      "warnings": []
+    }
+  ],
+  "sections_safe": 1,
+  "sections_total": 1,
+  "sections_unsafe": 0,
+  "warnings": [
+    "Fake prose draft is a deterministic placeholder."
+  ]
+}
