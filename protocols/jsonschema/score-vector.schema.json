@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.7.0/score-vector.schema.json",
+  "$id": "https://schemas.factori.local/0.8.0/score-vector.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Structured candidate score vector.",
@@ -58,7 +58,7 @@
   ],
   "title": "ScoreVector",
   "type": "object",
-  "x-factori-protocol-version": "0.7.0",
+  "x-factori-protocol-version": "0.8.0",
   "x-factori-source-model": "factori.schemas.ScoreVector",
   "x-factori-verification-evidence": false
 }

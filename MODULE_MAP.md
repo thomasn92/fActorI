@@ -23,8 +23,8 @@ All implementation modules are under `factori/`.
     contracts.
   - `schemas/manuscript.py`: synthesis, claim, citation, literature-positioning, manuscript,
     narrative, draft, complete Markdown drafting, and paper skeleton models.
-  - `schemas/audit.py`: packaging, audit, release, export, replay, diagnostics, and cross-run
-    models.
+  - `schemas/audit.py`: packaging, audit, release, export, LaTeX export/render, replay,
+    diagnostics, and cross-run models.
   - `schemas/pipeline.py`: pipeline, dry-run, status, rerun, file index, hygiene, and remediation
     models.
   - `schemas/protocol_models.py`: protocol-facing schema re-export convenience module.
@@ -212,7 +212,12 @@ All implementation modules are under `factori/`.
 - `export_plan.py`: export section/claim maps, readiness, and artifact orchestration.
 - `prose_contract.py`: label-preserving export prose contract plus one-section prose contract,
   draft generation, safety validation, and optional prose artifact persistence.
-- `latex_plan.py`: safe future LaTeX-export plan without generating LaTeX.
+- `latex_plan.py`: safe pre-export LaTeX readiness plan without generating source files.
+- `latex_export.py`: deterministic Markdown-to-LaTeX export, bibliography placeholder generation,
+  source-map construction, and optional ledgered export artifact persistence.
+- `latex_safety.py`: citation, source-map, label, novelty-proof, and synthetic/empirical boundary
+  checks for LaTeX export artifacts.
+- `latex_render.py`: optional gated LaTeX render/check scaffold with injected runner support.
 - `replay.py`: public read-only replay API and optional non-provenance report writer.
 - `run_verifier.py`: disk-based ledger, artifact, evidence, and decision consistency checks.
 - `failure_explainer.py`: explicit root-cause mappings and deterministic rerun recommendations.

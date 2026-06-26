@@ -19,7 +19,9 @@ run-control and adapter contracts without importing Python.
   `SectionDraftingResult`, `CompleteMarkdownDraft`, `ManuscriptDraftingReport`,
   `ManuscriptAssemblyReport`, `CitationRecord`, `CitationRegistry`, `BibliographyEntry`,
   `CitationUsage`, `CitationSafetyReport`, `LiteratureGapStatement`,
-  `LiteraturePositioningContract`, `LiteraturePositioningReport`, and `HumanReviewDecision`.
+  `LiteraturePositioningContract`, `LiteraturePositioningReport`, `LatexExportContract`,
+  `LatexSourceMap`, `LatexSafetyReport`, `LatexRenderConfig`, `LatexRenderResult`,
+  `LatexCompileCheckReport`, `LatexExportResult`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -34,8 +36,8 @@ run-control and adapter contracts without importing Python.
 - Real adapters remain explicitly gated; fake adapters are still the default.
 - Real Lean proof checking and local synthetic experiment execution have gated local-tool adapter
   seams and are disabled by default.
-- Docker experiments, empirical data ingestion, polished prose generation, final LaTeX generation,
-  PDF generation, and external review readiness are not implemented.
+- Docker experiments, empirical data ingestion, polished prose generation, hard PDF-generation
+  dependencies, publication-ready LaTeX, and external review readiness are not implemented.
 
 ## Mutating vs Read-Only Operations
 
@@ -70,3 +72,8 @@ Citation-registry and literature-positioning operations may be exposed as manusc
 only. They must preserve deterministic citation keys, reject unknown/invented citations, and avoid
 claiming exhaustive coverage, novelty proof, proof evidence, experiment evidence, human approval, or
 scientific validation.
+LaTeX export may be exposed as a presentation/export job. Render checks must be modeled as gated
+external-tool jobs with explicit executable configuration. LaTeX source, bibliography placeholders,
+source maps, render reports, and rendered PDFs remain presentation artifacts only and cannot imply
+publication readiness or create proof, experiment, retrieval, human-review, or scientific-validation
+evidence.

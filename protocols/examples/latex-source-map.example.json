@@ -1,0 +1,35 @@
+{
+  "covers_all_major_sections": true,
+  "creates_scientific_validation": false,
+  "entries": [
+    {
+      "citation_keys": [
+        "Author1970SyntheticCalibrationContext"
+      ],
+      "claim_ids": [
+        "claim-example"
+      ],
+      "evidence_artifact_ids": [
+        "artifact-example"
+      ],
+      "latex_block_id": "latex-block-001",
+      "latex_line_range": [
+        7,
+        10
+      ],
+      "markdown_line_range": [
+        1,
+        4
+      ],
+      "section_id": "introduction",
+      "section_title": "Introduction",
+      "source_contract_hashes": {
+        "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "is_verification_evidence": false,
+  "missing_sections": [],
+  "run_id": "example",
+  "source_map_policy": "Each generated LaTeX section maps back to manuscript sections, claims, evidence artifacts, and citation keys."
+}

@@ -38,6 +38,14 @@ from factori.schemas import (
     GeneratedSectionDraft,
     HumanReviewDecision,
     HygieneRemediationPlan,
+    LatexCompileCheckReport,
+    LatexExportContract,
+    LatexExportResult,
+    LatexRenderConfig,
+    LatexRenderResult,
+    LatexSafetyReport,
+    LatexSourceMap,
+    LatexSourceMapEntry,
     LedgerCommit,
     LedgerSummary,
     LedgerTipValidationReport,
@@ -102,7 +110,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.7.0"
+PROTOCOL_VERSION = "0.8.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -421,6 +429,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ManuscriptAssemblyReport",
         ManuscriptAssemblyReport,
         "Markdown manuscript assembly report.",
+    ),
+    ProtocolDefinition(
+        "LatexExportContract",
+        LatexExportContract,
+        "Markdown-to-LaTeX export contract; presentation only.",
+    ),
+    ProtocolDefinition(
+        "LatexSourceMapEntry",
+        LatexSourceMapEntry,
+        "One LaTeX source-map entry.",
+    ),
+    ProtocolDefinition(
+        "LatexSourceMap",
+        LatexSourceMap,
+        "LaTeX source map back to manuscript, claim, evidence, and citation sources.",
+    ),
+    ProtocolDefinition(
+        "LatexSafetyReport",
+        LatexSafetyReport,
+        "LaTeX export safety report.",
+    ),
+    ProtocolDefinition(
+        "LatexRenderConfig",
+        LatexRenderConfig,
+        "Optional gated LaTeX render/check configuration.",
+    ),
+    ProtocolDefinition(
+        "LatexRenderResult",
+        LatexRenderResult,
+        "Optional gated LaTeX render/check result.",
+    ),
+    ProtocolDefinition(
+        "LatexCompileCheckReport",
+        LatexCompileCheckReport,
+        "Optional LaTeX compile/check aggregate report.",
+    ),
+    ProtocolDefinition(
+        "LatexExportResult",
+        LatexExportResult,
+        "Complete LaTeX export report; presentation only.",
     ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(

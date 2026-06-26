@@ -207,6 +207,7 @@ class ControllerActionType(StrEnum):
     PROSE_SECTION_DRAFT_WRITTEN = "ProseSectionDraftWritten"
     MANUSCRIPT_DRAFT_WRITTEN = "ManuscriptDraftWritten"
     CITATION_REGISTRY_WRITTEN = "CitationRegistryWritten"
+    LATEX_EXPORT_WRITTEN = "LatexExportWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 

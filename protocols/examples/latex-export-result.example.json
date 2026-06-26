@@ -1,0 +1,156 @@
+{
+  "bibliography_artifact_id": null,
+  "compile_check_report": {
+    "config": {
+      "allow_external_tools": false,
+      "backend": "local_latex",
+      "latex_executable": null,
+      "render_check_enabled": false,
+      "run_id": "example",
+      "timeout_seconds": 30
+    },
+    "creates_scientific_validation": false,
+    "implies_publication_readiness": false,
+    "is_verification_evidence": false,
+    "passed": true,
+    "reasons": [],
+    "render_result": {
+      "backend": "local_latex",
+      "creates_scientific_validation": false,
+      "exit_code": 0,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "passed": true,
+      "pdf_hash": null,
+      "reason": "Render check skipped.",
+      "rendered_pdf_artifact_id": null,
+      "run_id": "example",
+      "stderr_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "stdout_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "tex_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "tool_name": "not_configured",
+      "tool_version": null,
+      "warnings": [
+        "LaTeX render check was not requested."
+      ]
+    },
+    "run_id": "example",
+    "warnings": [
+      "LaTeX render check was not requested."
+    ]
+  },
+  "contract": {
+    "allowed_citation_keys": [
+      "Author1970SyntheticCalibrationContext"
+    ],
+    "allowed_claim_ids": [
+      "claim-example"
+    ],
+    "allowed_evidence_artifact_ids": [
+      "artifact-example"
+    ],
+    "bibliography_style": "plain",
+    "citation_registry_artifact_id": "citation-registry",
+    "creates_scientific_validation": false,
+    "document_class": "article",
+    "forbidden_labels": [
+      "RealDataExperimentVerified"
+    ],
+    "is_verification_evidence": false,
+    "manuscript_draft_artifact_id": "complete-manuscript-draft",
+    "packages": [],
+    "render_check_enabled": false,
+    "run_id": "example",
+    "section_order": [
+      "Introduction"
+    ],
+    "source_map_policy": "Each generated LaTeX section maps back to manuscript sections, claims, evidence artifacts, and citation keys."
+  },
+  "creates_scientific_validation": false,
+  "export_report_artifact_id": null,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "latex_artifact_id": null,
+  "paper_tex": "\\documentclass{article}\n\\usepackage{hyperref}\n\\title{Deterministic example manuscript draft}\n\\begin{document}\n\\maketitle\n\\section{Introduction}\nThis draft cites bounded context \\cite{Author1970SyntheticCalibrationContext}.\n\\bibliography{references}\n\\end{document}\n",
+  "references_bib": "@misc{Author1970SyntheticCalibrationContext,\n  title = {Synthetic calibration context}\n}\n",
+  "render_result": {
+    "backend": "local_latex",
+    "creates_scientific_validation": false,
+    "exit_code": 0,
+    "implies_publication_readiness": false,
+    "is_verification_evidence": false,
+    "passed": true,
+    "pdf_hash": null,
+    "reason": "Render check skipped.",
+    "rendered_pdf_artifact_id": null,
+    "run_id": "example",
+    "stderr_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "stdout_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "tex_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "tool_name": "not_configured",
+    "tool_version": null,
+    "warnings": [
+      "LaTeX render check was not requested."
+    ]
+  },
+  "run_id": "example",
+  "safety_report": {
+    "creates_scientific_validation": false,
+    "implies_publication_readiness": false,
+    "is_verification_evidence": false,
+    "latex_is_presentation_only": true,
+    "missing_source_map_sections": [],
+    "reasons": [],
+    "rejected": false,
+    "run_id": "example",
+    "safe": true,
+    "source_map_sections": [
+      "introduction"
+    ],
+    "unknown_citation_keys": [],
+    "used_citation_keys": [
+      "Author1970SyntheticCalibrationContext"
+    ],
+    "warnings": []
+  },
+  "safety_report_artifact_id": null,
+  "source_map": {
+    "covers_all_major_sections": true,
+    "creates_scientific_validation": false,
+    "entries": [
+      {
+        "citation_keys": [
+          "Author1970SyntheticCalibrationContext"
+        ],
+        "claim_ids": [
+          "claim-example"
+        ],
+        "evidence_artifact_ids": [
+          "artifact-example"
+        ],
+        "latex_block_id": "latex-block-001",
+        "latex_line_range": [
+          7,
+          10
+        ],
+        "markdown_line_range": [
+          1,
+          4
+        ],
+        "section_id": "introduction",
+        "section_title": "Introduction",
+        "source_contract_hashes": {
+          "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      }
+    ],
+    "is_verification_evidence": false,
+    "missing_sections": [],
+    "run_id": "example",
+    "source_map_policy": "Each generated LaTeX section maps back to manuscript sections, claims, evidence artifacts, and citation keys."
+  },
+  "source_map_artifact_id": null,
+  "warnings": [
+    "LaTeX export is presentation/context only."
+  ]
+}

@@ -9,7 +9,7 @@ from typing import Any, Literal
 from factori.schemas import ArtifactRef, ArtifactType, ControllerActionType, LedgerCommit
 from factori.storage_protocols import ArtifactStoreProtocol, Clock, LedgerProtocol
 
-ArtifactFormat = Literal["json", "markdown"]
+ArtifactFormat = Literal["json", "markdown", "latex", "bib", "text"]
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,8 @@ class ArtifactWriteSpec:
     payload: Any
     artifact_format: ArtifactFormat
     metadata: Mapping[str, Any] | None = None
+    extension: str | None = None
+    format_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -178,13 +180,45 @@ def _write_artifact(
         )
     if not isinstance(spec.payload, str):
         raise TypeError("markdown artifact payload must be a string")
-    return store.write_markdown(
-        run_id=run_id,
-        artifact_id=spec.artifact_id,
-        artifact_type=spec.artifact_type,
-        markdown=spec.payload,
-        metadata=metadata,
-    )
+    if spec.artifact_format == "markdown":
+        return store.write_markdown(
+            run_id=run_id,
+            artifact_id=spec.artifact_id,
+            artifact_type=spec.artifact_type,
+            markdown=spec.payload,
+            metadata=metadata,
+        )
+    if spec.artifact_format == "latex":
+        return store.write_text(
+            run_id=run_id,
+            artifact_id=spec.artifact_id,
+            artifact_type=spec.artifact_type,
+            text=spec.payload,
+            extension=spec.extension or "tex",
+            format_label=spec.format_label or "latex",
+            metadata=metadata,
+        )
+    if spec.artifact_format == "bib":
+        return store.write_text(
+            run_id=run_id,
+            artifact_id=spec.artifact_id,
+            artifact_type=spec.artifact_type,
+            text=spec.payload,
+            extension=spec.extension or "bib",
+            format_label=spec.format_label or "bibtex",
+            metadata=metadata,
+        )
+    if spec.artifact_format == "text":
+        return store.write_text(
+            run_id=run_id,
+            artifact_id=spec.artifact_id,
+            artifact_type=spec.artifact_type,
+            text=spec.payload,
+            extension=spec.extension or "txt",
+            format_label=spec.format_label or "text",
+            metadata=metadata,
+        )
+    raise ValueError(f"unsupported artifact format: {spec.artifact_format}")
 
 
 __all__ = [

@@ -1,0 +1,75 @@
+{
+  "$id": "https://schemas.factori.local/0.8.0/latex-source-map-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One LaTeX source-map entry.",
+  "properties": {
+    "citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Keys",
+      "type": "array"
+    },
+    "claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claim Ids",
+      "type": "array"
+    },
+    "evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Artifact Ids",
+      "type": "array"
+    },
+    "latex_block_id": {
+      "minLength": 1,
+      "title": "Latex Block Id",
+      "type": "string"
+    },
+    "latex_line_range": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Latex Line Range",
+      "type": "array"
+    },
+    "markdown_line_range": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Markdown Line Range",
+      "type": "array"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "section_title": {
+      "minLength": 1,
+      "title": "Section Title",
+      "type": "string"
+    },
+    "source_contract_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Source Contract Hashes",
+      "type": "object"
+    }
+  },
+  "required": [
+    "latex_block_id",
+    "section_id",
+    "section_title"
+  ],
+  "title": "LatexSourceMapEntry",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexSourceMapEntry",
+  "x-factori-verification-evidence": false
+}

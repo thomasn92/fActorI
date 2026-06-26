@@ -18,6 +18,7 @@ Constraints
   -> Final audit and release gate
   -> Export contracts and maps
   -> Optional citation-safe section-by-section Markdown manuscript draft
+  -> Optional LaTeX export with source maps and gated render diagnostics
   -> Read-only replay verification
 ```
 
@@ -78,8 +79,9 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.7.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
-prose, citation/literature-positioning, manuscript drafting, and enum contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
+Protocol version `0.8.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+prose, citation/literature-positioning, manuscript drafting, LaTeX export/render, and enum
+contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
 `retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
 Examples are validated against generated schemas by `factori validate-protocol-examples`.
@@ -106,7 +108,7 @@ local synthetic experiment runner for Stage C SyntheticOnly branches, plus OpenA
 from approved manuscript contracts. OpenAlex and OpenAI require
 external-call permission and configured credentials. Lean and local synthetic experiments require
 `allow_external_tools=true` plus an explicit executable/runner and are never invoked by default.
-Polished full-paper writing, LaTeX export, PDF generation, Docker runners, and human-review
+Polished full-paper writing, hard PDF-generation dependencies, Docker runners, and human-review
 services are not implemented.
 
 Adapter configuration, capability, transport, parse, and safety failures use shared typed errors.
@@ -175,10 +177,24 @@ When citation support is requested, section contracts also carry allowed citatio
 literature-positioning context. The citation-safety layer rejects unknown citation keys, invented
 bibliography entries, exhaustive-coverage claims, and retrieval-as-novelty-proof language.
 
+The LaTeX export layer converts complete Markdown manuscript drafts into deterministic
+presentation/export artifacts: `paper.tex`, bibliography placeholders, source maps, safety reports,
+and optional render diagnostics. Source maps preserve links from LaTeX blocks to manuscript
+sections, claim IDs, evidence artifact IDs, citation keys, and source contract hashes. Render checks
+are disabled by default and require explicit external-tool permission plus a configured LaTeX
+executable. LaTeX sources, source maps, bibliography placeholders, render reports, and rendered PDFs
+cannot create or upgrade labels, mutate claim/evidence tables, prove publication readiness, or
+justify proof, experiment, retrieval, human-review, or scientific-validation evidence.
+
 ## Mutating and Read-Only Operations
 
 Pipeline stages from Stage A through export preparation mutate run state. Every such stage must
 append ledger commits for state-changing decisions and write content-hashed artifacts.
+
+`export-latex --write-report` is a separate mutating presentation/export command that writes
+content-hashed LaTeX artifacts and a source map. It is not part of default `run-all`. Without
+`--write-report`, it computes and reports export readiness without writing artifacts. Optional
+render checks remain gated by `allow_external_tools=true`.
 
 Inspection commands such as `show-ledger` and `validate-run` are read-only. Replay verification is
 strictly read-only. `replay-verify --write-report` may write under `runs/<run_id>/replay/`, but those
@@ -237,12 +253,14 @@ derived artifacts cannot justify verification labels.
 The following never count as verification evidence:
 
 - Markdown and LaTeX files;
+- rendered PDFs and LaTeX render reports;
 - paper and draft skeletons;
 - research-object Markdown;
 - manuscript plans and checklists;
 - final audit and release reports;
 - export plans, prose contracts, generated section drafts, complete Markdown drafts, drafting
-  reports, assembly reports, and prose safety reports;
+  reports, assembly reports, prose safety reports, LaTeX source maps, LaTeX export reports, and
+  LaTeX safety reports;
 - runtime summaries and manifests;
 - replay reports and diagnostics reports.
 - LLM requests, responses, parse reports, and candidate proposals.

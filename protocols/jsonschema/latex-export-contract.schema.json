@@ -1,0 +1,131 @@
+{
+  "$defs": {
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.8.0/latex-export-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Markdown-to-LaTeX export contract; presentation only.",
+  "properties": {
+    "allowed_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Citation Keys",
+      "type": "array"
+    },
+    "allowed_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Claim Ids",
+      "type": "array"
+    },
+    "allowed_evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Evidence Artifact Ids",
+      "type": "array"
+    },
+    "bibliography_style": {
+      "default": "plain",
+      "minLength": 1,
+      "title": "Bibliography Style",
+      "type": "string"
+    },
+    "citation_registry_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Citation Registry Artifact Id"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "document_class": {
+      "default": "article",
+      "minLength": 1,
+      "title": "Document Class",
+      "type": "string"
+    },
+    "forbidden_labels": {
+      "items": {
+        "$ref": "#/$defs/VerificationLabel"
+      },
+      "title": "Forbidden Labels",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manuscript_draft_artifact_id": {
+      "minLength": 1,
+      "title": "Manuscript Draft Artifact Id",
+      "type": "string"
+    },
+    "packages": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Packages",
+      "type": "array"
+    },
+    "render_check_enabled": {
+      "default": false,
+      "title": "Render Check Enabled",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_order": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Section Order",
+      "type": "array"
+    },
+    "source_map_policy": {
+      "minLength": 1,
+      "title": "Source Map Policy",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "manuscript_draft_artifact_id",
+    "source_map_policy"
+  ],
+  "title": "LatexExportContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexExportContract",
+  "x-factori-verification-evidence": false
+}

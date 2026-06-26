@@ -50,6 +50,8 @@ Implemented so far:
 - deterministic section-by-section Markdown manuscript drafting with strict prose safety checks;
 - deterministic citation registry and bounded literature-positioning integration for Markdown
   drafts, with citation-safety checks and no novelty-proof authority;
+- deterministic LaTeX export from complete Markdown drafts, with bibliography placeholders,
+  source maps, safety checks, and optional gated render diagnostics;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
@@ -87,7 +89,8 @@ Implemented so far:
 
 Not implemented yet: LangGraph orchestration, real LLM synthesis, polished full-paper writing,
 complete or claim-verifying literature coverage, always-on Lean integration, real empirical
-experiments, Docker, FastAPI, LaTeX paper generation, PDF generation, or a frontend.
+experiments, Docker, FastAPI, hard PDF-generation dependencies, publication-ready LaTeX, or a
+frontend.
 
 ## Install
 
@@ -140,6 +143,11 @@ uv run factori draft-manuscript --run-id demo --write-report
 uv run factori build-citation-registry --run-id demo
 uv run factori build-citation-registry --run-id demo --write-report
 uv run factori draft-manuscript --run-id demo --include-citations
+uv run factori export-latex --run-id demo
+uv run factori export-latex --run-id demo --write-report
+uv run factori export-latex --run-id demo --json
+uv run factori export-latex --run-id demo --render-check \
+  --allow-external-tools --latex-executable pdflatex
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -169,7 +177,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.7.0
+  --old-version 0.1.0 --new-version 0.8.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -258,6 +266,13 @@ Generated section prose and complete Markdown drafts are accepted only as manusc
 They may be written as hashed, ledgered drafting artifacts, but they cannot create claims,
 invent citations or bibliography entries, create proof evidence, experiment evidence, retrieval
 evidence, human approval, empirical validation, novelty proof, or verification-label upgrades.
+
+LaTeX export is accepted only as presentation/export context. `export-latex --write-report` writes
+content-hashed LaTeX source, bibliography placeholders, source maps, export reports, and safety
+reports. `--render-check` is optional and requires `--allow-external-tools` plus a configured LaTeX
+executable. LaTeX files and rendered PDFs cannot create claims, mutate claim/evidence tables,
+upgrade labels, prove publication readiness, or justify proof, experiment, retrieval, human-review,
+or scientific-validation evidence.
 
 `show-adapters` prints both active adapter classes and provider capability metadata. Invalid
 backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,

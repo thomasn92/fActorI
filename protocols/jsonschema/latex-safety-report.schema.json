@@ -1,0 +1,93 @@
+{
+  "$id": "https://schemas.factori.local/0.8.0/latex-safety-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "LaTeX export safety report.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latex_is_presentation_only": {
+      "default": true,
+      "title": "Latex Is Presentation Only",
+      "type": "boolean"
+    },
+    "missing_source_map_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Source Map Sections",
+      "type": "array"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "source_map_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Map Sections",
+      "type": "array"
+    },
+    "unknown_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknown Citation Keys",
+      "type": "array"
+    },
+    "used_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Used Citation Keys",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "safe",
+    "rejected"
+  ],
+  "title": "LatexSafetyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexSafetyReport",
+  "x-factori-verification-evidence": false
+}

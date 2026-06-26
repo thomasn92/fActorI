@@ -1,0 +1,125 @@
+{
+  "$id": "https://schemas.factori.local/0.8.0/latex-render-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Optional gated LaTeX render/check result.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "pdf_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pdf Hash"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "rendered_pdf_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rendered Pdf Artifact Id"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stderr_hash": {
+      "minLength": 1,
+      "title": "Stderr Hash",
+      "type": "string"
+    },
+    "stdout_hash": {
+      "minLength": 1,
+      "title": "Stdout Hash",
+      "type": "string"
+    },
+    "tex_hash": {
+      "minLength": 1,
+      "title": "Tex Hash",
+      "type": "string"
+    },
+    "tool_name": {
+      "minLength": 1,
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "tool_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Version"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "backend",
+    "tool_name",
+    "exit_code",
+    "stdout_hash",
+    "stderr_hash",
+    "tex_hash",
+    "passed",
+    "reason"
+  ],
+  "title": "LatexRenderResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexRenderResult",
+  "x-factori-verification-evidence": false
+}

@@ -28,7 +28,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.7.0
+  --new-version 0.8.0
 ```
 
 Unknown changes fail by default. `--allow-unknown` is an explicit human-review override for the

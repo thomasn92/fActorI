@@ -1,0 +1,20 @@
+{
+  "backend": "local_latex",
+  "creates_scientific_validation": false,
+  "exit_code": 0,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "passed": true,
+  "pdf_hash": null,
+  "reason": "Render check skipped.",
+  "rendered_pdf_artifact_id": null,
+  "run_id": "example",
+  "stderr_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "stdout_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "tex_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "tool_name": "not_configured",
+  "tool_version": null,
+  "warnings": [
+    "LaTeX render check was not requested."
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$id": "https://schemas.factori.local/0.8.0/latex-render-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Optional gated LaTeX render/check configuration.",
+  "properties": {
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
+    "backend": {
+      "default": "local_latex",
+      "title": "Backend",
+      "type": "string"
+    },
+    "latex_executable": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Executable"
+    },
+    "render_check_enabled": {
+      "default": false,
+      "title": "Render Check Enabled",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "timeout_seconds": {
+      "default": 30,
+      "maximum": 600,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "LatexRenderConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexRenderConfig",
+  "x-factori-verification-evidence": false
+}

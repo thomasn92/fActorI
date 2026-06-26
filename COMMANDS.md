@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.7.0
+  --new-version 0.8.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -144,6 +144,11 @@ uv run factori build-citation-registry --run-id demo
 uv run factori build-citation-registry --run-id demo --write-report
 uv run factori build-citation-registry --run-id demo --json
 uv run factori draft-manuscript --run-id demo --include-citations
+uv run factori export-latex --run-id demo
+uv run factori export-latex --run-id demo --write-report
+uv run factori export-latex --run-id demo --json
+uv run factori export-latex --run-id demo \
+  --render-check --allow-external-tools --latex-executable pdflatex
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -208,7 +213,7 @@ Prose drafting is separately gated. The fake backend is default and produces pla
 text from approved manuscript contracts. `generate-section-draft` drafts one section. `draft-manuscript`
 uses the same prose adapter section by section and assembles a complete Markdown draft. Neither
 command can create claims, invent citations or bibliography entries, create evidence, upgrade
-labels, generate polished prose, or produce LaTeX:
+labels, generate polished prose, produce LaTeX evidence, or claim publication readiness:
 
 ```bash
 uv run factori generate-section-draft \
@@ -223,6 +228,18 @@ OPENAI_API_KEY="<key>" uv run factori generate-section-draft \
   --prose-backend openai --allow-external-calls --prose-model gpt-5-mini
 OPENAI_API_KEY="<key>" uv run factori draft-manuscript \
   --run-id demo --prose-backend openai --allow-external-calls --prose-model gpt-5-mini
+```
+
+LaTeX export is presentation/export only. It converts a complete Markdown manuscript draft into
+`paper.tex`, bibliography placeholders, a source map, and safety/export reports when
+`--write-report` is used. Render checks are optional and fail closed unless external tools are
+explicitly enabled and a LaTeX executable is configured:
+
+```bash
+uv run factori export-latex --run-id demo --write-report
+uv run factori export-latex --run-id demo --json
+uv run factori export-latex --run-id demo \
+  --render-check --allow-external-tools --latex-executable pdflatex
 ```
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and

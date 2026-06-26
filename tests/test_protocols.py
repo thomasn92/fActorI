@@ -10,6 +10,11 @@ from factori.schemas import (
     CompleteMarkdownDraft,
     ExperimentRunContract,
     ExperimentRunResult,
+    LatexExportContract,
+    LatexExportResult,
+    LatexRenderResult,
+    LatexSafetyReport,
+    LatexSourceMap,
     LedgerTipValidationReport,
     LLMCandidateParseReport,
     LLMPromptContract,
@@ -38,9 +43,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 98
+    assert len(first) == 106
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.7.0"
+    assert PROTOCOL_VERSION == "0.8.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -70,6 +75,11 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("CompleteMarkdownDraft").model is CompleteMarkdownDraft
     assert get_protocol_definition("ManuscriptDraftingReport").model is ManuscriptDraftingReport
     assert get_protocol_definition("ManuscriptAssemblyReport").model is ManuscriptAssemblyReport
+    assert get_protocol_definition("LatexExportContract").model is LatexExportContract
+    assert get_protocol_definition("LatexSourceMap").model is LatexSourceMap
+    assert get_protocol_definition("LatexSafetyReport").model is LatexSafetyReport
+    assert get_protocol_definition("LatexRenderResult").model is LatexRenderResult
+    assert get_protocol_definition("LatexExportResult").model is LatexExportResult
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -113,6 +123,14 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "CompleteMarkdownDraft",
         "ManuscriptDraftingReport",
         "ManuscriptAssemblyReport",
+        "LatexExportContract",
+        "LatexSourceMapEntry",
+        "LatexSourceMap",
+        "LatexSafetyReport",
+        "LatexRenderConfig",
+        "LatexRenderResult",
+        "LatexCompileCheckReport",
+        "LatexExportResult",
         "CitationRecord",
         "CitationRegistry",
         "BibliographyEntry",

@@ -98,6 +98,19 @@ class ArtifactStoreProtocol(Protocol):
         producing_commit_hash: str | None = None,
     ) -> ArtifactRef: ...
 
+    def write_text(
+        self,
+        *,
+        run_id: str,
+        artifact_id: str,
+        artifact_type: ArtifactType,
+        text: str,
+        extension: str,
+        format_label: str,
+        metadata: dict[str, Any] | None = None,
+        producing_commit_hash: str | None = None,
+    ) -> ArtifactRef: ...
+
     def link_artifact_to_commit(
         self,
         artifact: ArtifactRef,

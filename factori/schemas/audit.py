@@ -241,6 +241,138 @@ class LatexExportPlan(StrictModel):
     is_verification_evidence: bool = False
 
 
+class LatexExportContract(StrictModel):
+    """Contract for deterministic Markdown-to-LaTeX export; not evidence."""
+
+    run_id: str = Field(min_length=1)
+    manuscript_draft_artifact_id: str = Field(min_length=1)
+    citation_registry_artifact_id: str | None = None
+    bibliography_style: str = Field(default="plain", min_length=1)
+    document_class: str = Field(default="article", min_length=1)
+    packages: list[str] = Field(default_factory=list)
+    section_order: list[str] = Field(default_factory=list)
+    source_map_policy: str = Field(min_length=1)
+    allowed_citation_keys: list[str] = Field(default_factory=list)
+    allowed_claim_ids: list[str] = Field(default_factory=list)
+    allowed_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    forbidden_labels: list[VerificationLabel] = Field(default_factory=list)
+    render_check_enabled: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class LatexSourceMapEntry(StrictModel):
+    """Trace one LaTeX block back to manuscript, claim, evidence, and citation sources."""
+
+    latex_block_id: str = Field(min_length=1)
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_artifact_ids: list[str] = Field(default_factory=list)
+    citation_keys: list[str] = Field(default_factory=list)
+    markdown_line_range: list[int] = Field(default_factory=list)
+    latex_line_range: list[int] = Field(default_factory=list)
+    source_contract_hashes: dict[str, str] = Field(default_factory=dict)
+
+
+class LatexSourceMap(StrictModel):
+    """Source map from generated LaTeX back to manuscript drafting inputs."""
+
+    run_id: str = Field(min_length=1)
+    entries: list[LatexSourceMapEntry] = Field(default_factory=list)
+    source_map_policy: str = Field(min_length=1)
+    covers_all_major_sections: bool
+    missing_sections: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class LatexSafetyReport(StrictModel):
+    """Safety report for deterministic LaTeX export; not scientific validation."""
+
+    run_id: str = Field(min_length=1)
+    safe: bool
+    rejected: bool
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    used_citation_keys: list[str] = Field(default_factory=list)
+    unknown_citation_keys: list[str] = Field(default_factory=list)
+    source_map_sections: list[str] = Field(default_factory=list)
+    missing_source_map_sections: list[str] = Field(default_factory=list)
+    latex_is_presentation_only: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class LatexRenderConfig(StrictModel):
+    """Configuration for an optional gated LaTeX render/check."""
+
+    run_id: str = Field(min_length=1)
+    render_check_enabled: bool = False
+    allow_external_tools: bool = False
+    latex_executable: str | None = None
+    timeout_seconds: int = Field(default=30, ge=1, le=600)
+    backend: str = "local_latex"
+
+
+class LatexRenderResult(StrictModel):
+    """Result of an optional LaTeX render/check; presentation only."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    tool_name: str = Field(min_length=1)
+    tool_version: str | None = None
+    exit_code: int
+    stdout_hash: str = Field(min_length=1)
+    stderr_hash: str = Field(min_length=1)
+    tex_hash: str = Field(min_length=1)
+    pdf_hash: str | None = None
+    rendered_pdf_artifact_id: str | None = None
+    passed: bool
+    warnings: list[str] = Field(default_factory=list)
+    reason: str = Field(min_length=1)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class LatexCompileCheckReport(StrictModel):
+    """Aggregate render/check report; not evidence or publication readiness."""
+
+    run_id: str = Field(min_length=1)
+    config: LatexRenderConfig
+    render_result: LatexRenderResult | None = None
+    passed: bool
+    warnings: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class LatexExportResult(StrictModel):
+    """Complete deterministic LaTeX export payload; presentation context only."""
+
+    run_id: str = Field(min_length=1)
+    contract: LatexExportContract
+    paper_tex: str = Field(min_length=1)
+    references_bib: str = ""
+    source_map: LatexSourceMap
+    safety_report: LatexSafetyReport
+    render_result: LatexRenderResult | None = None
+    compile_check_report: LatexCompileCheckReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    latex_artifact_id: str | None = None
+    bibliography_artifact_id: str | None = None
+    source_map_artifact_id: str | None = None
+    export_report_artifact_id: str | None = None
+    safety_report_artifact_id: str | None = None
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
 class ExportReadinessReport(StrictModel):
     """Readiness report for deterministic export preparation."""
 
@@ -487,6 +619,14 @@ __all__ = [
     "ExportClaimMap",
     "ProseGenerationContract",
     "LatexExportPlan",
+    "LatexExportContract",
+    "LatexSourceMapEntry",
+    "LatexSourceMap",
+    "LatexSafetyReport",
+    "LatexRenderConfig",
+    "LatexRenderResult",
+    "LatexCompileCheckReport",
+    "LatexExportResult",
     "ExportReadinessReport",
     "ExportBundleManifest",
     "ReplayFinding",

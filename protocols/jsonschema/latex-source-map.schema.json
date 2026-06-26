@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "LatexSourceMapEntry": {
+      "additionalProperties": false,
+      "description": "Trace one LaTeX block back to manuscript, claim, evidence, and citation sources.",
+      "properties": {
+        "citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Keys",
+          "type": "array"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "latex_block_id": {
+          "minLength": 1,
+          "title": "Latex Block Id",
+          "type": "string"
+        },
+        "latex_line_range": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Latex Line Range",
+          "type": "array"
+        },
+        "markdown_line_range": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Markdown Line Range",
+          "type": "array"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "section_title": {
+          "minLength": 1,
+          "title": "Section Title",
+          "type": "string"
+        },
+        "source_contract_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Source Contract Hashes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "latex_block_id",
+        "section_id",
+        "section_title"
+      ],
+      "title": "LatexSourceMapEntry",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.8.0/latex-source-map.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "LaTeX source map back to manuscript, claim, evidence, and citation sources.",
+  "properties": {
+    "covers_all_major_sections": {
+      "title": "Covers All Major Sections",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/LatexSourceMapEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "missing_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Sections",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_map_policy": {
+      "minLength": 1,
+      "title": "Source Map Policy",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "source_map_policy",
+    "covers_all_major_sections"
+  ],
+  "title": "LatexSourceMap",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexSourceMap",
+  "x-factori-verification-evidence": false
+}

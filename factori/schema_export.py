@@ -38,6 +38,14 @@ from factori.schemas import (
     ExperimentRunContract,
     ExperimentRunResult,
     GeneratedSectionDraft,
+    LatexCompileCheckReport,
+    LatexExportContract,
+    LatexExportResult,
+    LatexRenderConfig,
+    LatexRenderResult,
+    LatexSafetyReport,
+    LatexSourceMap,
+    LatexSourceMapEntry,
     LedgerTipStatus,
     LedgerTipValidationReport,
     LiteratureGapStatement,
@@ -120,6 +128,9 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "complete-markdown-draft.example.json": "CompleteMarkdownDraft",
     "manuscript-drafting-report.example.json": "ManuscriptDraftingReport",
     "manuscript-assembly-report.example.json": "ManuscriptAssemblyReport",
+    "latex-source-map.example.json": "LatexSourceMap",
+    "latex-render-result.example.json": "LatexRenderResult",
+    "latex-export-result.example.json": "LatexExportResult",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
     "research-object-manifest.example.json": "ResearchObjectManifest",
@@ -629,6 +640,94 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         manuscript_draft_artifact_id="complete-manuscript-draft",
         assembly_report_artifact_id="manuscript-assembly-report",
     )
+    latex_contract = LatexExportContract(
+        run_id="example",
+        manuscript_draft_artifact_id="complete-manuscript-draft",
+        citation_registry_artifact_id="citation-registry",
+        section_order=["Introduction"],
+        source_map_policy=(
+            "Each generated LaTeX section maps back to manuscript sections, "
+            "claims, evidence artifacts, and citation keys."
+        ),
+        allowed_citation_keys=[citation_record.citation_key],
+        allowed_claim_ids=[claim.claim_id],
+        allowed_evidence_artifact_ids=[artifact.id],
+        forbidden_labels=[VerificationLabel.REAL_DATA_EXPERIMENT_VERIFIED],
+    )
+    latex_source_entry = LatexSourceMapEntry(
+        latex_block_id="latex-block-001",
+        section_id="introduction",
+        section_title="Introduction",
+        claim_ids=[claim.claim_id],
+        evidence_artifact_ids=[artifact.id],
+        citation_keys=[citation_record.citation_key],
+        markdown_line_range=[1, 4],
+        latex_line_range=[7, 10],
+        source_contract_hashes={"claim_table": _HASH},
+    )
+    latex_source_map = LatexSourceMap(
+        run_id="example",
+        entries=[latex_source_entry],
+        source_map_policy=latex_contract.source_map_policy,
+        covers_all_major_sections=True,
+    )
+    latex_safety_report = LatexSafetyReport(
+        run_id="example",
+        safe=True,
+        rejected=False,
+        used_citation_keys=[citation_record.citation_key],
+        source_map_sections=["introduction"],
+    )
+    latex_render_config = LatexRenderConfig(
+        run_id="example",
+        render_check_enabled=False,
+        allow_external_tools=False,
+        latex_executable=None,
+    )
+    latex_render_result = LatexRenderResult(
+        run_id="example",
+        backend="local_latex",
+        tool_name="not_configured",
+        exit_code=0,
+        stdout_hash=_HASH,
+        stderr_hash=_HASH,
+        tex_hash=_HASH,
+        passed=True,
+        warnings=["LaTeX render check was not requested."],
+        reason="Render check skipped.",
+    )
+    latex_compile_check = LatexCompileCheckReport(
+        run_id="example",
+        config=latex_render_config,
+        render_result=latex_render_result,
+        passed=True,
+        warnings=latex_render_result.warnings,
+    )
+    latex_export_result = LatexExportResult(
+        run_id="example",
+        contract=latex_contract,
+        paper_tex=(
+            "\\documentclass{article}\n"
+            "\\usepackage{hyperref}\n"
+            "\\title{Deterministic example manuscript draft}\n"
+            "\\begin{document}\n"
+            "\\maketitle\n"
+            "\\section{Introduction}\n"
+            "This draft cites bounded context \\cite{Author1970SyntheticCalibrationContext}.\n"
+            "\\bibliography{references}\n"
+            "\\end{document}\n"
+        ),
+        references_bib=(
+            "@misc{Author1970SyntheticCalibrationContext,\n"
+            "  title = {Synthetic calibration context}\n"
+            "}\n"
+        ),
+        source_map=latex_source_map,
+        safety_report=latex_safety_report,
+        render_result=latex_render_result,
+        compile_check_report=latex_compile_check,
+        warnings=["LaTeX export is presentation/context only."],
+    )
     pipeline_report = PipelineRunReport(
         run_id="example",
         domain="machine learning",
@@ -803,6 +902,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "manuscript-assembly-report.example.json": manuscript_assembly_report.model_dump(
             mode="json"
         ),
+        "latex-source-map.example.json": latex_source_map.model_dump(mode="json"),
+        "latex-render-result.example.json": latex_render_result.model_dump(mode="json"),
+        "latex-export-result.example.json": latex_export_result.model_dump(mode="json"),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),

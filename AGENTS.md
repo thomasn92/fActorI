@@ -62,6 +62,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - The complete Markdown manuscript drafting engine uses the prose adapter section by section and
   assembles a presentation draft. It must not be treated as polished prose, final paper generation,
   LaTeX export, citation resolution, evidence creation, or scientific validation.
+- The LaTeX export layer deterministically converts complete Markdown drafts into presentation
+  artifacts with bibliography placeholders and source maps. Optional render checks require
+  `allow_external_tools=true` and an explicit LaTeX executable. Do not treat LaTeX or rendered PDF
+  output as scientific validation, verification evidence, human approval, or publication readiness.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -114,6 +118,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   reports are retrieval/manuscript context only. They must not be described as exhaustive literature
   coverage, novelty proof, claim verification, proof evidence, experiment evidence, human approval,
   or scientific validation.
+- LaTeX source, bibliography placeholders, source maps, export reports, render reports, and rendered
+  PDFs are presentation/export context only. They must not create or upgrade claim labels, mutate
+  claim/evidence tables, prove publication readiness, or justify proof, experiment, retrieval, or
+  human-review evidence.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

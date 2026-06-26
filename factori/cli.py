@@ -56,6 +56,8 @@ from factori.hygiene_plan import (
     summarize_hygiene_remediation_plan,
     write_hygiene_remediation_plan,
 )
+from factori.latex_export import LatexExportError, export_latex_from_run
+from factori.latex_render import LatexRenderError
 from factori.ledger import LedgerError, ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
 from factori.manuscript_drafting import (
@@ -1669,6 +1671,108 @@ def build_citation_registry_command(
         typer.echo(f"citation_registry={artifacts.citation_registry_artifact.path}")
         typer.echo(f"literature_positioning={artifacts.literature_positioning_artifact.path}")
         typer.echo(f"citation_safety={artifacts.citation_safety_artifact.path}")
+
+
+@app.command("export-latex")
+def export_latex_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    render_check: Annotated[bool, typer.Option("--render-check")] = False,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    latex_executable: Annotated[
+        str | None,
+        typer.Option("--latex-executable"),
+    ] = None,
+) -> None:
+    """Export a complete Markdown manuscript draft to LaTeX presentation artifacts."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = export_latex_from_run(
+            run_id=run_id,
+            store=store,
+            ledger=ledger,
+            root=root,
+            write_report=write_report,
+            render_check=render_check,
+            allow_external_tools=allow_external_tools,
+            latex_executable=latex_executable,
+        )
+    except (LatexExportError, LatexRenderError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    export_result = result.export_result
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "latex_export_result": export_result.model_dump(mode="json"),
+                    "artifacts": {
+                        "paper": result.paper_artifact.model_dump(mode="json")
+                        if result.paper_artifact
+                        else None,
+                        "references": (
+                            result.bibliography_artifact.model_dump(mode="json")
+                            if result.bibliography_artifact
+                            else None
+                        ),
+                        "source_map": (
+                            result.source_map_artifact.model_dump(mode="json")
+                            if result.source_map_artifact
+                            else None
+                        ),
+                        "export_report": (
+                            result.export_report_artifact.model_dump(mode="json")
+                            if result.export_report_artifact
+                            else None
+                        ),
+                        "safety_report": (
+                            result.safety_report_artifact.model_dump(mode="json")
+                            if result.safety_report_artifact
+                            else None
+                        ),
+                        "compile_check": (
+                            result.compile_check_artifact.model_dump(mode="json")
+                            if result.compile_check_artifact
+                            else None
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"latex_safe={str(export_result.safety_report.safe).lower()}")
+    typer.echo(f"latex_rejected={str(export_result.safety_report.rejected).lower()}")
+    typer.echo(f"source_map_entries={len(export_result.source_map.entries)}")
+    typer.echo(f"citations_used={len(export_result.safety_report.used_citation_keys)}")
+    typer.echo(f"warnings={len(export_result.warnings)}")
+    typer.echo(f"render_check={str(render_check).lower()}")
+    typer.echo(
+        "render_passed="
+        + (
+            str(export_result.render_result.passed).lower()
+            if export_result.render_result is not None
+            else "not_run"
+        )
+    )
+    typer.echo("is_verification_evidence=false")
+    typer.echo("creates_scientific_validation=false")
+    if result.paper_artifact is not None:
+        typer.echo(f"paper_tex={result.paper_artifact.path}")
+    if result.bibliography_artifact is not None:
+        typer.echo(f"references_bib={result.bibliography_artifact.path}")
+    if result.source_map_artifact is not None:
+        typer.echo(f"latex_source_map={result.source_map_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

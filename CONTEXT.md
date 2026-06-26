@@ -27,6 +27,7 @@ Stage A candidate generation
   -> Final audit
   -> Export preparation
   -> Optional Markdown manuscript drafting
+  -> Optional LaTeX export and gated render checks
   -> Replay verification
 ```
 
@@ -45,6 +46,8 @@ completed run from disk and checks consistency without changing provenance.
 - verification-label and evidence-boundary enforcement;
 - deterministic abstraction, claim planning, draft scaffolding, paper-shaped assembly, and
   presentation-only Markdown manuscript drafting;
+- deterministic citation-safe LaTeX export from complete Markdown drafts, with source maps and
+  optional gated render diagnostics;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 
@@ -57,20 +60,21 @@ or external review readiness.
 The following are intentionally not implemented:
 
 ```text
-real LLM calls
-real retrieval
-real Lean
-real experiments
+ungated real LLM calls
+ungated real retrieval
+ungated real Lean
+ungated real experiments
 real literature coverage
 polished prose generation
-final LaTeX generation
+production PDF generation
+publication-ready LaTeX generation
 external review readiness
 production orchestration
 ```
 
-Presentation and planning artifacts are not verification evidence. Fake proof and experiment
-adapters remain deterministic test doubles and must not be presented as real scientific
-validation.
+Presentation, Markdown, LaTeX, render, and planning artifacts are not verification evidence. Fake
+proof and experiment adapters remain deterministic test doubles and must not be presented as real
+scientific validation.
 
 ## Source of Truth
 

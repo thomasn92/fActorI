@@ -44,15 +44,17 @@
 | 39 | Gated one-section LLM prose-generation adapter with fake defaults and strict claim/evidence grounding | `adapters/prose_real.py`, `adapters/prose_prompts.py`, `adapters/prose_safety.py`, `prose_contract.py` | `generate-section-draft` | Fake default behavior unchanged; optional prose artifacts are hashed and ledgered manuscript/prose context only, not verification evidence |
 | 40 | Section-by-section Markdown manuscript drafting with fake-default prose, strict safety validation, and complete draft assembly | `manuscript_drafting.py`, `manuscript_assembly.py`, `prose_contract.py`, `adapters/prose_safety.py` | `draft-manuscript` | Optional draft artifacts are hashed and ledgered manuscript/prose/presentation context only, not verification evidence |
 | 41 | Citation registry and bounded literature-positioning integration for Markdown manuscript drafts | `citations.py`, `literature_positioning.py`, `manuscript_drafting.py`, `manuscript_assembly.py`, `adapters/prose_safety.py` | `build-citation-registry`, `draft-manuscript --include-citations` | Optional citation/literature artifacts are hashed and ledgered manuscript/context artifacts only; citations are not proof, experiment, human approval, scientific validation, or novelty proof |
+| 42 | LaTeX export, bibliography placeholders, source-map preservation, safety checks, and optional gated render diagnostics from complete Markdown drafts | `latex_export.py`, `latex_safety.py`, `latex_render.py`, `manuscript_assembly.py`, `citations.py` | `export-latex` | Optional LaTeX/export artifacts are hashed and ledgered presentation/export context only; render checks are gated and never imply scientific validation or publication readiness |
 
 ## Current Boundary
 
-Milestones through 41 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 42 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. They do not implement autonomous
 real agents, complete scientific literature coverage, Docker experiments, LLM
-synthesis, polished full-paper writing, final LaTeX, PDF generation, or production orchestration frameworks. Stage B LLM
+synthesis, polished full-paper writing, hard PDF-generation dependencies, publication-ready LaTeX,
+or production orchestration frameworks. Stage B LLM
 reviews are critiques only and are not scientific validation. Narrative paper-shape critiques are
 also diagnostics only and cannot validate claims. The adapter registry is now
 provider-neutral enough to add future backends behind the same fail-closed gates. The protocol layer is broad enough
@@ -73,4 +75,6 @@ The prose adapter is disabled by default, transport-injected in tests, drafts on
 approved contracts only, and the manuscript drafting engine uses it section by section to assemble
 a complete Markdown presentation draft. Citation registries and literature positioning can be added
 from retrieval metadata, but they remain bounded context and cannot create claims, evidence,
-scientific validation, novelty proof, or label upgrades.
+scientific validation, novelty proof, or label upgrades. Complete Markdown drafts can now be
+exported to LaTeX source, bibliography placeholders, source maps, and optional gated render
+diagnostics, but those artifacts remain presentation/export context only.

@@ -99,6 +99,37 @@ class ArtifactStore:
             producing_commit_hash=producing_commit_hash,
         )
 
+    def write_text(
+        self,
+        *,
+        run_id: str,
+        artifact_id: str,
+        artifact_type: ArtifactType,
+        text: str,
+        extension: str,
+        format_label: str,
+        metadata: dict[str, Any] | None = None,
+        producing_commit_hash: str | None = None,
+    ) -> ArtifactRef:
+        """Write a generic text artifact and return its reference."""
+        if not extension or "/" in extension or "\\" in extension:
+            raise ArtifactError("text artifact extension must be a simple suffix")
+        self.init_run(run_id)
+        path = self._artifact_path(
+            run_id,
+            artifact_type,
+            artifact_id,
+            extension.removeprefix("."),
+        )
+        self._atomic_write_text(path, text)
+        return self._ref(
+            artifact_id=artifact_id,
+            artifact_type=artifact_type,
+            path=path,
+            metadata={"format": format_label, **(metadata or {})},
+            producing_commit_hash=producing_commit_hash,
+        )
+
     def link_artifact_to_commit(self, artifact: ArtifactRef, commit_hash: str) -> ArtifactRef:
         """Return and persist an artifact reference linked to its producing commit."""
         linked = artifact.model_copy(update={"producing_commit_hash": commit_hash})

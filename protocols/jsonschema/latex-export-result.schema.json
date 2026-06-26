@@ -1,0 +1,718 @@
+{
+  "$defs": {
+    "LatexCompileCheckReport": {
+      "additionalProperties": false,
+      "description": "Aggregate render/check report; not evidence or publication readiness.",
+      "properties": {
+        "config": {
+          "$ref": "#/$defs/LatexRenderConfig"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "render_result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LatexRenderResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "config",
+        "passed"
+      ],
+      "title": "LatexCompileCheckReport",
+      "type": "object"
+    },
+    "LatexExportContract": {
+      "additionalProperties": false,
+      "description": "Contract for deterministic Markdown-to-LaTeX export; not evidence.",
+      "properties": {
+        "allowed_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Citation Keys",
+          "type": "array"
+        },
+        "allowed_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "allowed_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Evidence Artifact Ids",
+          "type": "array"
+        },
+        "bibliography_style": {
+          "default": "plain",
+          "minLength": 1,
+          "title": "Bibliography Style",
+          "type": "string"
+        },
+        "citation_registry_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation Registry Artifact Id"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "document_class": {
+          "default": "article",
+          "minLength": 1,
+          "title": "Document Class",
+          "type": "string"
+        },
+        "forbidden_labels": {
+          "items": {
+            "$ref": "#/$defs/VerificationLabel"
+          },
+          "title": "Forbidden Labels",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "manuscript_draft_artifact_id": {
+          "minLength": 1,
+          "title": "Manuscript Draft Artifact Id",
+          "type": "string"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Packages",
+          "type": "array"
+        },
+        "render_check_enabled": {
+          "default": false,
+          "title": "Render Check Enabled",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "section_order": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Section Order",
+          "type": "array"
+        },
+        "source_map_policy": {
+          "minLength": 1,
+          "title": "Source Map Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "manuscript_draft_artifact_id",
+        "source_map_policy"
+      ],
+      "title": "LatexExportContract",
+      "type": "object"
+    },
+    "LatexRenderConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for an optional gated LaTeX render/check.",
+      "properties": {
+        "allow_external_tools": {
+          "default": false,
+          "title": "Allow External Tools",
+          "type": "boolean"
+        },
+        "backend": {
+          "default": "local_latex",
+          "title": "Backend",
+          "type": "string"
+        },
+        "latex_executable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Executable"
+        },
+        "render_check_enabled": {
+          "default": false,
+          "title": "Render Check Enabled",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 30,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "LatexRenderConfig",
+      "type": "object"
+    },
+    "LatexRenderResult": {
+      "additionalProperties": false,
+      "description": "Result of an optional LaTeX render/check; presentation only.",
+      "properties": {
+        "backend": {
+          "minLength": 1,
+          "title": "Backend",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "exit_code": {
+          "title": "Exit Code",
+          "type": "integer"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "pdf_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pdf Hash"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "rendered_pdf_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rendered Pdf Artifact Id"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "stderr_hash": {
+          "minLength": 1,
+          "title": "Stderr Hash",
+          "type": "string"
+        },
+        "stdout_hash": {
+          "minLength": 1,
+          "title": "Stdout Hash",
+          "type": "string"
+        },
+        "tex_hash": {
+          "minLength": 1,
+          "title": "Tex Hash",
+          "type": "string"
+        },
+        "tool_name": {
+          "minLength": 1,
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "tool_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tool Version"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "backend",
+        "tool_name",
+        "exit_code",
+        "stdout_hash",
+        "stderr_hash",
+        "tex_hash",
+        "passed",
+        "reason"
+      ],
+      "title": "LatexRenderResult",
+      "type": "object"
+    },
+    "LatexSafetyReport": {
+      "additionalProperties": false,
+      "description": "Safety report for deterministic LaTeX export; not scientific validation.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "latex_is_presentation_only": {
+          "default": true,
+          "title": "Latex Is Presentation Only",
+          "type": "boolean"
+        },
+        "missing_source_map_sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Source Map Sections",
+          "type": "array"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "rejected": {
+          "title": "Rejected",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "safe": {
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "source_map_sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Map Sections",
+          "type": "array"
+        },
+        "unknown_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unknown Citation Keys",
+          "type": "array"
+        },
+        "used_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used Citation Keys",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "safe",
+        "rejected"
+      ],
+      "title": "LatexSafetyReport",
+      "type": "object"
+    },
+    "LatexSourceMap": {
+      "additionalProperties": false,
+      "description": "Source map from generated LaTeX back to manuscript drafting inputs.",
+      "properties": {
+        "covers_all_major_sections": {
+          "title": "Covers All Major Sections",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/LatexSourceMapEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "missing_sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Sections",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_map_policy": {
+          "minLength": 1,
+          "title": "Source Map Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "source_map_policy",
+        "covers_all_major_sections"
+      ],
+      "title": "LatexSourceMap",
+      "type": "object"
+    },
+    "LatexSourceMapEntry": {
+      "additionalProperties": false,
+      "description": "Trace one LaTeX block back to manuscript, claim, evidence, and citation sources.",
+      "properties": {
+        "citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Keys",
+          "type": "array"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "latex_block_id": {
+          "minLength": 1,
+          "title": "Latex Block Id",
+          "type": "string"
+        },
+        "latex_line_range": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Latex Line Range",
+          "type": "array"
+        },
+        "markdown_line_range": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Markdown Line Range",
+          "type": "array"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "section_title": {
+          "minLength": 1,
+          "title": "Section Title",
+          "type": "string"
+        },
+        "source_contract_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Source Contract Hashes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "latex_block_id",
+        "section_id",
+        "section_title"
+      ],
+      "title": "LatexSourceMapEntry",
+      "type": "object"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.8.0/latex-export-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Complete LaTeX export report; presentation only.",
+  "properties": {
+    "bibliography_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bibliography Artifact Id"
+    },
+    "compile_check_report": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LatexCompileCheckReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "contract": {
+      "$ref": "#/$defs/LatexExportContract"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "export_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Export Report Artifact Id"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latex_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Artifact Id"
+    },
+    "paper_tex": {
+      "minLength": 1,
+      "title": "Paper Tex",
+      "type": "string"
+    },
+    "references_bib": {
+      "default": "",
+      "title": "References Bib",
+      "type": "string"
+    },
+    "render_result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LatexRenderResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_report": {
+      "$ref": "#/$defs/LatexSafetyReport"
+    },
+    "safety_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Safety Report Artifact Id"
+    },
+    "source_map": {
+      "$ref": "#/$defs/LatexSourceMap"
+    },
+    "source_map_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Map Artifact Id"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "contract",
+    "paper_tex",
+    "source_map",
+    "safety_report"
+  ],
+  "title": "LatexExportResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.8.0",
+  "x-factori-source-model": "factori.schemas.LatexExportResult",
+  "x-factori-verification-evidence": false
+}
