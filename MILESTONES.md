@@ -40,10 +40,11 @@
 | 35 | Shared artifact persistence helpers for Stage A and Stage B output artifacts and producing commits | `persistence.py`, `stage_a.py`, `stage0.py`, `retrieval.py`, `stage_b_phases.py` | Existing commands unchanged | Refactor-only; artifact IDs, paths, reports, ledger action types, and protocol output remain compatible |
 | 36 | Gated local proof-verification adapter with fake defaults, strict proof contracts, and proof-evidence safety checks | `adapters/proof_real.py`, `adapters/proof_contracts.py`, `adapters/proof_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --proof-backend lean --allow-external-tools --proof-executable <tool>` | Fake default behavior unchanged; real proof artifacts are hashed and ledgered only after explicit local-tool opt-in |
 | 37 | Gated local synthetic experiment runner with fake defaults, strict experiment contracts, and synthetic-evidence safety checks | `adapters/experiment_real.py`, `adapters/experiment_contracts.py`, `adapters/experiment_safety.py`, `stage_c.py`, `evidence.py` | `run-stage-c --experiment-backend local_synthetic --allow-external-tools --experiment-runner <tool>` | Fake default behavior unchanged; local synthetic artifacts are hashed and ledgered only after explicit local-tool opt-in and cannot support real-data validation |
+| 38 | Stage C maintainability hardening: split proof, experiment, evidence-classification, summary, and persistence responsibilities into deterministic internal phases | `stage_c.py`, `stage_c_phases.py` | Existing `run-stage-c` command unchanged | Refactor-only; Stage C artifacts, evidence boundaries, report layout, ledger actions, and protocol output remain compatible |
 
 ## Current Boundary
 
-Milestones through 36 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 38 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, and Stage C controlled local synthetic experiment execution. They do not implement autonomous
 real agents, complete scientific literature coverage, Docker experiments, LLM
@@ -57,7 +58,9 @@ public compatibility path. A small subset of CLI commands now call typed library
 the Typer command surface remains compatible. Stage B internals are phase-split for maintainability
 while `run_stage_b` remains the stable public API. Stage A and Stage B artifact persistence now
 share helpers for the normal write-artifact, append-commit, and producing-commit link sequence
-without changing stage-specific decisions or public outputs. The Lean proof adapter is local,
+without changing stage-specific decisions or public outputs. Stage C internals are also phase-split
+for proof, experiment, evidence-classification, and persistence maintainability while
+`run_stage_c` remains the stable public API. The Lean proof adapter is local,
 disabled by default, runner-injected in tests, and has no authority unless proof contracts, tool
 results, trace artifacts, and safety checks all pass. The local synthetic experiment adapter is
 also disabled by default, runner-injected in tests, and can support only SyntheticOnly claims when

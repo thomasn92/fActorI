@@ -38,6 +38,12 @@ input loading, optional retrieval, child expansion, per-child structural process
 classification, survivor selection, and report persistence without changing Stage B artifacts,
 reports, scoring, gates, or ledger actions.
 
+Stage C keeps `factori.stage_c.run_stage_c` as the stable public entry point, but proof,
+synthetic-experiment, evidence-classification, summary, and persistence responsibilities are split
+into deterministic internal phases in `factori.stage_c_phases`. The phase split does not change
+Stage C branch labels, proof or experiment evidence boundaries, artifact IDs, report layout, fake
+defaults, gated-tool requirements, or ledger actions.
+
 ## Persistence Boundary
 
 Artifact and sidecar writes use UTF-8 with normalized LF newlines. Each write is flushed and synced

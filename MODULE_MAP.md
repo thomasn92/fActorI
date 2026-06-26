@@ -166,9 +166,10 @@ All implementation modules are under `factori/`.
 - `stage_c_selection.py`: pre-Stage-C red-team aggregation and candidate selection.
 - `uncertainty.py`: deterministic score uncertainty and conservative lower bounds.
 - `budget.py`: cost-aware Stage C budget selector.
-- `stage_c.py`: branch classification, fake Stage C verification orchestration, optional gated
-  Lean proof verification artifact flow for mathematical branches, and optional gated local
-  synthetic experiment artifact flow for SyntheticOnly branches.
+- `stage_c.py`: stable public Stage C entry point and `StageCResult` assembly.
+- `stage_c_phases.py`: internal deterministic Stage C phases for input loading, proof
+  verification, synthetic experiment verification, evidence classification, summary construction,
+  and report/artifact persistence.
 - `proof_fake.py`: deterministic fake proof validator.
 - `experiments_fake.py`: deterministic fake synthetic-experiment validator.
 - `evidence.py`: claim-label/evidence admissibility boundaries.

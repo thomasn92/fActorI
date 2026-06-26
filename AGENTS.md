@@ -67,6 +67,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Keep `factori.stage_b.run_stage_b` as the public Stage B entry point. Stage B internals are split
   into deterministic phases in `factori.stage_b_phases`; edit those phases for Stage B internals
   without changing the public result shape, artifact IDs, report layout, or ledger action sequence.
+- Keep `factori.stage_c.run_stage_c` as the public Stage C entry point. Stage C internals are split
+  into deterministic phases in `factori.stage_c_phases`; edit those phases for proof,
+  experiment, evidence-classification, and persistence internals without changing artifact IDs,
+  report layout, evidence rules, or ledger action sequence.
 
 ## Evidence and Provenance
 
