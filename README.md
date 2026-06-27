@@ -324,9 +324,49 @@ OPENAI_API_KEY="<key>" uv run factori run-llm-paper \
   --run-id llm-real --domain "human geography" \
   --allow-external-calls \
   --candidate-backend openai --reviewer-backend openai --prose-backend openai \
+  --candidate-model gpt-5-mini --reviewer-model gpt-5-mini --prose-model gpt-5-mini \
   --max-total-calls 50 --max-estimated-cost-usd 5.00 --rate-limit-per-minute 10 \
   --apply-safe-fake-revision --write-report
 ```
+
+Recommended live-smoke ladder:
+
+```bash
+export OPENAI_API_KEY="..."
+
+uv run factori run-llm-paper \
+  --run-id live-smoke-preflight \
+  --domain "human geography" \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
+  --prose-backend openai --prose-model gpt-5.4-mini \
+  --allow-external-calls \
+  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --preflight-only --json
+
+uv run factori run-llm-paper \
+  --run-id live-candidate-smoke-001 \
+  --domain "human geography" \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend fake --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 1 --max-estimated-cost-usd 0.20 \
+  --write-report --json
+
+uv run factori run-llm-paper \
+  --run-id live-smoke-002 \
+  --domain "human geography" \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
+  --prose-backend openai --prose-model gpt-5.4-mini \
+  --allow-external-calls \
+  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --generate-paper --evaluate-release --write-report --json
+```
+
+OpenAI 4xx/5xx diagnostics include status, operation, backend/provider, redacted URL, selected
+model, request/prompt hashes, and a sanitized truncated error-body excerpt. They never include API
+keys or Authorization headers.
 
 The orchestration report, budget report, call accounting, and safety report are context/audit
 artifacts only. They cannot create evidence, upgrade labels, or imply publication readiness.

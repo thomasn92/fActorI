@@ -329,10 +329,49 @@ OPENAI_API_KEY="<key>" uv run factori run-llm-paper \
   --run-id llm-real --domain "human geography" \
   --allow-external-calls \
   --candidate-backend openai --reviewer-backend openai --prose-backend openai \
-  --llm-model gpt-5-mini --reviewer-model gpt-5-mini --prose-model gpt-5-mini \
+  --candidate-model gpt-5-mini --reviewer-model gpt-5-mini --prose-model gpt-5-mini \
   --max-total-calls 50 --max-estimated-cost-usd 5.00 --rate-limit-per-minute 10 \
   --apply-safe-fake-revision --write-report
 ```
+
+Live-smoke ladder for OpenAI diagnostics:
+
+```bash
+export OPENAI_API_KEY="..."
+
+uv run factori run-llm-paper \
+  --run-id live-smoke-preflight \
+  --domain "human geography" \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
+  --prose-backend openai --prose-model gpt-5.4-mini \
+  --allow-external-calls \
+  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --preflight-only --json
+
+uv run factori run-llm-paper \
+  --run-id live-candidate-smoke-001 \
+  --domain "human geography" \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend fake --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 1 --max-estimated-cost-usd 0.20 \
+  --write-report --json
+
+uv run factori run-llm-paper \
+  --run-id live-smoke-002 \
+  --domain "human geography" \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
+  --prose-backend openai --prose-model gpt-5.4-mini \
+  --allow-external-calls \
+  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --generate-paper --evaluate-release --write-report --json
+```
+
+`--preflight-only` validates gates, credentials, selected backends/models, and explicit budget
+without network calls or run mutation. OpenAI transport diagnostics include sanitized truncated
+HTTP error bodies, redacted URLs, selected model, and request hashes; they do not include secrets.
 
 LLM orchestration artifacts are accounting/context/audit artifacts only. They cannot create or
 upgrade evidence labels, turn LLM output into proof/experiment/retrieval evidence, or imply

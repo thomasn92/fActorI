@@ -12,9 +12,11 @@ from factori.adapters.errors import (
     AdapterResponseParseError,
 )
 from factori.adapters.llm_real import (
+    OPENAI_RESPONSES_URL,
     LLMTransport,
     OpenAIResponsesTransport,
     _extract_output_text,
+    build_openai_request_diagnostics,
 )
 from factori.adapters.prose_prompts import build_prose_section_prompt
 from factori.adapters.prose_safety import parse_prose_generation_response
@@ -42,6 +44,7 @@ class OpenAIProseGenerator:
     provider_name: str = field(default="openai", init=False)
     is_fake: bool = field(default=False, init=False)
     generation_requests: list[ProseGenerationRequest] = field(default_factory=list, init=False)
+    request_diagnostics: list[dict[str, Any]] = field(default_factory=list, init=False)
     parse_results: list[ProseGenerationParseResult] = field(default_factory=list, init=False)
     raw_responses: list[Any] = field(default_factory=list, init=False)
 
@@ -141,6 +144,14 @@ class OpenAIProseGenerator:
             parsed_input = sanitized
         parse_result = parse_prose_generation_response(parsed_input)
         self.generation_requests.append(request)
+        self.request_diagnostics.append(
+            build_openai_request_diagnostics(
+                model=self.model,
+                prompt=prompt_contract.prompt_text,
+                response_schema=prompt_contract.requested_output_schema,
+                endpoint=getattr(self.transport, "endpoint", OPENAI_RESPONSES_URL),
+            )
+        )
         self.raw_responses.append(sanitized)
         self.parse_results.append(parse_result)
         return parse_result

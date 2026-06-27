@@ -84,7 +84,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   requires explicit OpenAI candidate/reviewer/prose backends, `allow_external_calls=true`,
   configured credentials, and an explicit budget. Its reports are accounting/context/audit artifacts
   only and cannot create evidence, upgrade labels, authorize publication readiness, or bypass
-  existing stage safety checks.
+  existing stage safety checks. Use `--preflight-only` for read-only live-smoke validation, keep
+  candidate/reviewer/prose model choices explicit, and ensure OpenAI diagnostics remain sanitized:
+  no API keys, Authorization headers, or raw secrets in errors, reports, JSON, or artifacts.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.

@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+from factori.adapters.errors import AdapterTransportError
 from factori.cli import app
 from factori.evidence import is_proof_evidence, is_synthetic_experiment_evidence
 from factori.full_paper_generation import FullPaperGenerationStatus
@@ -23,6 +24,7 @@ from factori.schemas import (
     ArtifactType,
     ControllerActionType,
     LLMBudgetConfig,
+    LLMCallStatus,
     LLMOrchestrationConfig,
     LLMOrchestrationReport,
     LLMOrchestrationStatus,
@@ -114,6 +116,12 @@ def test_run_llm_paper_cli_works_in_fake_mode_and_json_is_valid(tmp_path) -> Non
             "fake",
             "--prose-backend",
             "fake",
+            "--candidate-model",
+            "candidate-test-model",
+            "--reviewer-model",
+            "reviewer-test-model",
+            "--prose-model",
+            "prose-test-model",
             "--write-report",
             "--json",
         ],
@@ -124,11 +132,14 @@ def test_run_llm_paper_cli_works_in_fake_mode_and_json_is_valid(tmp_path) -> Non
     report = payload["llm_orchestration_result"]["report"]
     assert report["publication_ready"] is False
     assert report["is_verification_evidence"] is False
-    assert report["selected_backends"] == {
-        "candidate_backend": "fake",
-        "prose_backend": "fake",
-        "reviewer_backend": "fake",
-    }
+    assert report["selected_backends"]["candidate_backend"] == "fake"
+    assert report["selected_backends"]["candidate_model"] == "candidate-test-model"
+    assert report["selected_backends"]["reviewer_backend"] == "fake"
+    assert report["selected_backends"]["reviewer_model"] == "reviewer-test-model"
+    assert report["selected_backends"]["prose_backend"] == "fake"
+    assert report["selected_backends"]["prose_model"] == "prose-test-model"
+    assert report["selected_backends"]["preflight_status"] == "Succeeded"
+    assert payload["preflight_summary"]["candidate_model"] == "candidate-test-model"
     assert payload["artifacts"]["llm_orchestration_report"] is not None
 
 
@@ -267,14 +278,91 @@ def test_real_orchestration_uses_injected_transports_without_network(tmp_path) -
         LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED,
         LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS,
     }
-    assert result.report.selected_backends == {
-        "candidate_backend": "openai",
-        "reviewer_backend": "openai",
-        "prose_backend": "openai",
-    }
+    assert result.report.selected_backends["candidate_backend"] == "openai"
+    assert result.report.selected_backends["candidate_model"] == "gpt-5-mini"
+    assert result.report.selected_backends["reviewer_backend"] == "openai"
+    assert result.report.selected_backends["reviewer_model"] == "gpt-5-mini"
+    assert result.report.selected_backends["prose_backend"] == "openai"
+    assert result.report.selected_backends["prose_model"] == "gpt-5-mini"
     assert any(record.external_call_performed for record in result.report.call_accounting)
     assert all(record.contains_secret is False for record in result.report.call_accounting)
     assert "test-key" not in result.report.model_dump_json()
+
+
+def test_run_llm_paper_preflight_only_validates_without_mutation(tmp_path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "preflight",
+            "--domain",
+            "human geography",
+            "--candidate-backend",
+            "openai",
+            "--candidate-model",
+            "candidate-live-model",
+            "--reviewer-backend",
+            "openai",
+            "--reviewer-model",
+            "reviewer-live-model",
+            "--prose-backend",
+            "openai",
+            "--prose-model",
+            "prose-live-model",
+            "--allow-external-calls",
+            "--max-total-calls",
+            "5",
+            "--max-estimated-cost-usd",
+            "1.0",
+            "--preflight-only",
+            "--json",
+        ],
+        env={"OPENAI_API_KEY": "test-key"},
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["preflight_summary"]["candidate_model"] == "candidate-live-model"
+    assert payload["preflight_summary"]["reviewer_model"] == "reviewer-live-model"
+    assert payload["preflight_summary"]["prose_model"] == "prose-live-model"
+    report = payload["llm_orchestration_result"]["report"]
+    assert [step["step_name"] for step in report["steps"]] == ["preflight"]
+    assert report["selected_backends"]["preflight_status"] == "Succeeded"
+    assert payload["artifacts"]["llm_orchestration_report"] is None
+    assert not (tmp_path / "runs" / "preflight").exists()
+
+
+def test_pipeline_transport_error_reports_sanitized_openai_body(tmp_path) -> None:
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="transport-error",
+            domain="human geography",
+            candidate_backend="openai",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            allow_external_calls=True,
+            generate_paper=False,
+            evaluate_release=False,
+            budget=LLMBudgetConfig(max_total_calls=1, max_estimated_cost_usd=0.2),
+        ),
+        root=tmp_path,
+        llm_transport=FailingTransport(),
+        environ={"OPENAI_API_KEY": "test-key"},
+    )
+
+    assert result.report.orchestration_status == LLMOrchestrationStatus.ORCHESTRATION_FAILED
+    assert "Unsupported parameter" in result.report.model_dump_json()
+    assert "sk-live-secret" not in result.report.model_dump_json()
+    failed_records = [
+        record
+        for record in result.report.call_accounting
+        if record.status == LLMCallStatus.FAILED
+    ]
+    assert failed_records
+    assert failed_records[0].error_type == "AdapterTransportError"
 
 
 def test_release_blocking_status_blocks_orchestration_success(monkeypatch, tmp_path) -> None:
@@ -324,6 +412,20 @@ def _assert_non_evidence_artifact(tmp_path, ref: ArtifactRef) -> None:
     assert linked.metadata["is_verification_evidence"] is False
     assert linked.metadata["creates_scientific_validation"] is False
     assert linked.metadata["implies_publication_readiness"] is False
+
+
+class FailingTransport:
+    def create_response(self, **kwargs: Any) -> dict[str, object]:
+        del kwargs
+        raise AdapterTransportError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            status_code=400,
+            url="https://api.openai.com/v1/responses?api_key=sk-live-secret",
+            message='HTTP 400; body={"error":{"message":"Unsupported parameter"}}',
+            response_body_excerpt='{"error":{"message":"Unsupported parameter"}}',
+        )
 
 
 @dataclass

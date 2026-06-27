@@ -75,15 +75,17 @@ All implementation modules are under `factori/`.
 - `adapters/config.py`: strict fake-default backend/model configuration with external calls
   disabled and API keys excluded from reports.
 - `adapters/errors.py`: shared adapter configuration, capability, transport, parsing, and safety
-  errors with secret-safe string rendering.
+  errors with secret-safe string rendering and structured HTTP body excerpts.
 - `adapters/fake.py`: deterministic local implementations that delegate to current templates and
   fake validators without network, subprocess, Lean, Docker, or human access.
-- `adapters/http.py`: minimal injectable HTTP/JSON request helpers used by gated real transports.
+- `adapters/http.py`: minimal injectable HTTP/JSON request helpers used by gated real transports,
+  including redacted URL and sanitized truncated HTTP error-body diagnostics.
 - `adapters/llm_prompts.py`: deterministic Stage A candidate prompt and structured-output contract.
 - `adapters/llm_safety.py`: strict parsing, candidate validation, label-inflation checks, and MVP
   data-boundary enforcement for untrusted LLM output.
-- `adapters/llm_real.py`: provider-isolated OpenAI Responses transport and injected-transport
-  Stage A LLM client; no network call occurs unless explicitly enabled and invoked.
+- `adapters/llm_real.py`: provider-isolated OpenAI Responses transport, secret-free request
+  diagnostics, and injected-transport Stage A LLM client; no network call occurs unless explicitly
+  enabled and invoked.
 - `adapters/reviewer_prompts.py`: deterministic Stage B reviewer prompt and structured panel schema.
 - `adapters/reviewer_safety.py`: score normalization and rejection of reviewer verification,
   publication, exhaustive-literature, and synthetic-to-real-world authority claims.
@@ -127,8 +129,8 @@ All implementation modules are under `factori/`.
 - `llm_budget.py`: explicit preflight LLM call/cost budget decisions and secret-safe call
   accounting records for gated end-to-end LLM orchestration.
 - `llm_orchestration.py`: explicit `run-llm-paper` orchestration over existing Stage A, Stage B,
-  manuscript prose, full-paper generation, and release evaluation with fake defaults and real-mode
-  gates.
+  manuscript prose, full-paper generation, and release evaluation with fake defaults, real-mode
+  gates, read-only preflight summaries, and secret-safe transport-failure reporting.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
 - `rerun_policy.py`: artifact-based mutating-stage rerun decisions plus read-only ledger tip,

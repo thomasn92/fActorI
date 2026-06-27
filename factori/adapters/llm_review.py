@@ -12,7 +12,12 @@ from factori.adapters.errors import (
     AdapterMissingCredentials,
     AdapterResponseParseError,
 )
-from factori.adapters.llm_real import LLMTransport, OpenAIResponsesTransport
+from factori.adapters.llm_real import (
+    OPENAI_RESPONSES_URL,
+    LLMTransport,
+    OpenAIResponsesTransport,
+    build_openai_request_diagnostics,
+)
 from factori.adapters.reviewer_prompts import build_stage_b_reviewer_prompt
 from factori.adapters.reviewer_safety import (
     LLMReviewerResponseError,
@@ -136,6 +141,12 @@ class OpenAIReviewerClient:
                 request={
                     "backend": self.backend_name,
                     "model": self.model,
+                    "request_diagnostics": build_openai_request_diagnostics(
+                        model=self.model,
+                        prompt=contract.prompt_text,
+                        response_schema=contract.requested_output_schema,
+                        endpoint=getattr(self.transport, "endpoint", OPENAI_RESPONSES_URL),
+                    ),
                     "prompt_contract": contract.model_dump(mode="json"),
                     "external_calls_enabled": True,
                     "api_key_recorded": False,

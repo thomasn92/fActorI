@@ -11,6 +11,7 @@ from factori.adapters.errors import (
     AdapterExternalCallsDisabled,
     AdapterMissingCredentials,
     AdapterResponseParseError,
+    AdapterTransportError,
 )
 from factori.adapters.http import URLOpener, request_json
 from factori.adapters.llm_prompts import build_stage_a_candidate_prompt
@@ -18,6 +19,7 @@ from factori.adapters.llm_safety import (
     LLMCandidateResponseError,
     parse_llm_candidate_response_with_report,
 )
+from factori.hashing import sha256_json
 from factori.schemas import (
     Candidate,
     ConstraintSet,
@@ -58,33 +60,36 @@ class OpenAIResponsesTransport:
         prompt: str,
         response_schema: dict[str, Any],
     ) -> Any:
-        payload = {
-            "model": model,
-            "input": prompt,
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "factori_stage_a_candidates",
-                    "strict": True,
-                    "schema": response_schema,
-                }
-            },
-        }
-        body = request_json(
-            self.endpoint,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": "factori/0.1",
-            },
-            payload=payload,
-            timeout_seconds=self.timeout_seconds,
-            backend="openai",
-            provider="openai",
-            operation="responses.create",
-            opener=self.opener,
-        )
+        schema_name = "factori_stage_a_candidates"
+        payload = _responses_payload(model, prompt, response_schema, schema_name)
+        try:
+            body = request_json(
+                self.endpoint,
+                method="POST",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "factori/0.1",
+                },
+                payload=payload,
+                timeout_seconds=self.timeout_seconds,
+                backend="openai",
+                provider="openai",
+                operation="responses.create",
+                opener=self.opener,
+            )
+        except AdapterTransportError as exc:
+            _annotate_openai_transport_error(
+                exc,
+                build_openai_request_diagnostics(
+                    model=model,
+                    prompt=prompt,
+                    response_schema=response_schema,
+                    endpoint=self.endpoint,
+                    schema_name=schema_name,
+                ),
+            )
+            raise
         return _extract_output_text(body)
 
 
@@ -160,6 +165,12 @@ class OpenAILLMClient:
                 request={
                     "backend": self.backend_name,
                     "model": self.model,
+                    "request_diagnostics": build_openai_request_diagnostics(
+                        model=self.model,
+                        prompt=contract.prompt_text,
+                        response_schema=contract.requested_output_schema,
+                        endpoint=getattr(self.transport, "endpoint", OPENAI_RESPONSES_URL),
+                    ),
                     "prompt_contract": contract.model_dump(mode="json"),
                     "external_calls_enabled": True,
                     "api_key_recorded": False,
@@ -215,6 +226,63 @@ def _extract_output_text(response_body: Any) -> str:
     )
 
 
+def _responses_payload(
+    model: str,
+    prompt: str,
+    response_schema: dict[str, Any],
+    schema_name: str,
+) -> dict[str, Any]:
+    return {
+        "model": model,
+        "input": prompt,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": schema_name,
+                "strict": True,
+                "schema": response_schema,
+            }
+        },
+    }
+
+
+def build_openai_request_diagnostics(
+    *,
+    model: str,
+    prompt: str,
+    response_schema: dict[str, Any],
+    endpoint: str = OPENAI_RESPONSES_URL,
+    schema_name: str = "factori_stage_a_candidates",
+) -> dict[str, Any]:
+    """Return secret-free metadata for diagnosing Responses request failures."""
+    return {
+        "endpoint": endpoint,
+        "operation": "responses.create",
+        "model": model,
+        "response_format": {
+            "type": "json_schema",
+            "name": schema_name,
+            "strict": True,
+        },
+        "prompt_hash": sha256_json({"prompt": prompt}),
+        "request_payload_hash": sha256_json(
+            _responses_payload(model, prompt, response_schema, schema_name)
+        ),
+    }
+
+
+def _annotate_openai_transport_error(
+    error: AdapterTransportError,
+    diagnostics: dict[str, Any],
+) -> None:
+    error.message = (
+        f"{error.message}; model={diagnostics['model']}; "
+        f"response_format={diagnostics['response_format']['type']}; "
+        f"prompt_hash={diagnostics['prompt_hash']}; "
+        f"request_payload_hash={diagnostics['request_payload_hash']}"
+    )
+
+
 def _json_compatible(value: Any) -> Any:
     try:
         return json.loads(json.dumps(value, ensure_ascii=False))
@@ -233,4 +301,5 @@ __all__ = [
     "OPENAI_RESPONSES_URL",
     "OpenAILLMClient",
     "OpenAIResponsesTransport",
+    "build_openai_request_diagnostics",
 ]

@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from factori.adapters.config import AdapterConfig
-from factori.adapters.errors import AdapterConfigurationError
+from factori.adapters.errors import (
+    AdapterConfigurationError,
+    AdapterTransportError,
+    error_payload,
+)
 from factori.adapters.llm_real import LLMTransport
 from factori.adapters.registry import AdapterRegistry, get_adapter_registry
 from factori.artifacts import ArtifactStore
@@ -95,6 +99,7 @@ def run_llm_paper_orchestration(
     prose_transport: LLMTransport | None = None,
     environ: dict[str, str] | None = None,
     clock: Clock | None = None,
+    preflight_only: bool = False,
 ) -> LLMOrchestrationRunResult:
     """Run the explicitly gated LLM-assisted paper-generation workflow."""
     root_path = Path(root)
@@ -129,10 +134,41 @@ def run_llm_paper_orchestration(
     except (AdapterConfigurationError, ValueError) as exc:
         raise LLMOrchestrationError(str(exc)) from exc
 
+    preflight_started = clock.now()
+    preflight_step = _step(
+        "preflight",
+        (
+            LLMOrchestrationStepStatus.SUCCEEDED_WITH_WARNINGS
+            if budget_decision.warnings
+            else LLMOrchestrationStepStatus.SUCCEEDED
+        ),
+        "Validated LLM orchestration gates, credentials, adapters, models, and budget.",
+        preflight_started,
+        clock.now(),
+        warnings=budget_decision.warnings,
+    )
+    if preflight_only:
+        report = _build_report(
+            config=config,
+            status=(
+                LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS
+                if budget_decision.warnings
+                else LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED
+            ),
+            steps=[preflight_step],
+            budget_decision=budget_decision,
+            call_accounting=_accounting_records(registry, clock),
+            warnings=list(budget_decision.warnings),
+            blocking=[],
+            generation_result=None,
+            release_result=None,
+        )
+        return LLMOrchestrationRunResult(run_id=config.run_id, report=report)
+
     store = store or ArtifactStore(root_path)
     ledger = ledger or ResearchLedger(root_path / "runs" / config.run_id / "ledger.sqlite")
-    steps: list[LLMOrchestrationStep] = []
-    warnings: list[str] = []
+    steps: list[LLMOrchestrationStep] = [preflight_step]
+    warnings: list[str] = list(budget_decision.warnings)
     blocking: list[str] = []
     pipeline_report = None
     generation_result = None
@@ -145,7 +181,9 @@ def run_llm_paper_orchestration(
             clock=clock,
             adapter_registry=registry,
         )
-    except PipelineRunError as exc:
+    except (PipelineRunError, AdapterTransportError) as exc:
+        transport_error = _find_transport_error(exc)
+        error_text = _failure_message(exc, transport_error)
         steps.append(
             _step(
                 "run-all",
@@ -153,16 +191,26 @@ def run_llm_paper_orchestration(
                 "Pipeline execution failed.",
                 pipeline_started,
                 clock.now(),
-                error=str(exc),
+                error=error_text,
             )
         )
-        blocking.append(str(exc))
+        blocking.append(error_text)
+        records = _accounting_records(registry, clock)
+        if transport_error is not None:
+            records.append(
+                _failed_transport_record(
+                    step_name="run-all",
+                    error=transport_error,
+                    config=config,
+                    clock=clock,
+                )
+            )
         report = _build_report(
             config=config,
             status=LLMOrchestrationStatus.ORCHESTRATION_FAILED,
             steps=steps,
             budget_decision=budget_decision,
-            call_accounting=_accounting_records(registry, clock),
+            call_accounting=records,
             warnings=warnings,
             blocking=blocking,
             generation_result=None,
@@ -341,6 +389,27 @@ def llm_orchestration_result_model(
     )
 
 
+def build_llm_orchestration_preflight_summary(
+    config: LLMOrchestrationConfig,
+) -> dict[str, Any]:
+    """Return deterministic, secret-free preflight metadata for CLI/reporting."""
+    planned = _planned_usage(config)
+    return {
+        "candidate_backend": config.candidate_backend,
+        "candidate_model": config.llm_model,
+        "reviewer_backend": config.reviewer_backend,
+        "reviewer_model": config.reviewer_model,
+        "prose_backend": config.prose_backend,
+        "prose_model": config.prose_model,
+        "allow_external_calls": config.allow_external_calls,
+        "budget_limits": config.budget.model_dump(mode="json"),
+        "estimated_max_calls": planned.total_calls,
+        "write_report": config.write_report,
+        "generate_paper": config.generate_paper,
+        "evaluate_release": config.evaluate_release,
+    }
+
+
 def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
     return any(
         backend.strip().lower() != _FAKE_BACKEND
@@ -509,8 +578,17 @@ def _accounting_records(
     )
     prose_requests = list(getattr(registry.prose_generator, "generation_requests", []))
     prose_responses = list(getattr(registry.prose_generator, "raw_responses", []))
+    prose_diagnostics = list(
+        getattr(registry.prose_generator, "request_diagnostics", [])
+    )
     for index, request in enumerate(prose_requests):
         response = prose_responses[index] if index < len(prose_responses) else None
+        request_payload: Any = request.model_dump(mode="json")
+        if index < len(prose_diagnostics):
+            request_payload = {
+                "request": request_payload,
+                "request_diagnostics": prose_diagnostics[index],
+            }
         records.append(
             build_call_accounting_record(
                 step_name="llm-prose-generation",
@@ -521,7 +599,7 @@ def _accounting_records(
                     registry.config.prose_backend,
                 ),
                 model=registry.config.prose_model,
-                request_payload=request.model_dump(mode="json"),
+                request_payload=request_payload,
                 response_payload=response,
                 started_at=clock.now(),
                 completed_at=clock.now(),
@@ -595,6 +673,76 @@ def _fake_skipped_records(
     return records
 
 
+def _find_transport_error(error: BaseException) -> AdapterTransportError | None:
+    seen: set[int] = set()
+    stack: list[BaseException | None] = [error]
+    while stack:
+        current = stack.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, AdapterTransportError):
+            return current
+        stack.append(current.__cause__)
+        stack.append(current.__context__)
+    return None
+
+
+def _failure_message(
+    error: BaseException,
+    transport_error: AdapterTransportError | None,
+) -> str:
+    if transport_error is None:
+        return str(error)
+    return f"{error}; transport_error={transport_error}"
+
+
+def _failed_transport_record(
+    *,
+    step_name: str,
+    error: AdapterTransportError,
+    config: LLMOrchestrationConfig,
+    clock: Clock,
+) -> LLMCallAccountingRecord:
+    payload = error_payload(error)
+    return build_call_accounting_record(
+        step_name=step_name,
+        backend=error.backend,
+        provider=error.provider,
+        model=_model_for_transport_error(error, config),
+        request_payload={
+            "failure_stage": step_name,
+            "backend": error.backend,
+            "provider": error.provider,
+            "operation": error.operation,
+            "status_code": error.status_code,
+            "url": payload.get("url"),
+            "message": payload.get("message"),
+        },
+        response_payload=payload,
+        started_at=clock.now(),
+        completed_at=clock.now(),
+        status=LLMCallStatus.FAILED,
+        error_type=type(error).__name__,
+        external_call_performed=True,
+    )
+
+
+def _model_for_transport_error(
+    error: AdapterTransportError,
+    config: LLMOrchestrationConfig,
+) -> str | None:
+    if error.backend != "openai":
+        return None
+    if config.candidate_backend == "openai":
+        return config.llm_model
+    if config.reviewer_backend == "openai":
+        return config.reviewer_model
+    if config.prose_backend == "openai":
+        return config.prose_model
+    return None
+
+
 def _orchestration_status(
     steps: list[LLMOrchestrationStep],
     blocking: list[str],
@@ -648,8 +796,21 @@ def _build_report(
         safety_report=safety,
         selected_backends={
             "candidate_backend": config.candidate_backend,
+            "candidate_model": config.llm_model,
             "reviewer_backend": config.reviewer_backend,
+            "reviewer_model": config.reviewer_model,
             "prose_backend": config.prose_backend,
+            "prose_model": config.prose_model,
+            "preflight_status": (
+                next(
+                    (
+                        step.status.value
+                        for step in steps
+                        if step.step_name == "preflight"
+                    ),
+                    "NotRecorded",
+                )
+            ),
         },
         generate_paper_status=(
             generation_result.report.generation_status.value
@@ -774,6 +935,7 @@ def _budget_error_message(decision: LLMBudgetDecision) -> str:
 __all__ = [
     "LLMOrchestrationError",
     "LLMOrchestrationRunResult",
+    "build_llm_orchestration_preflight_summary",
     "llm_orchestration_result_model",
     "run_llm_paper_orchestration",
 ]

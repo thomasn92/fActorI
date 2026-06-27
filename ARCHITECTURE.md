@@ -218,7 +218,11 @@ manuscript text equality and cannot establish scientific correctness or publicat
 The LLM orchestration layer is an explicit command over existing Stage A, Stage B, prose drafting,
 full-paper generation, and generated-paper release evaluation. Fake orchestration remains local.
 Real orchestration requires explicit OpenAI candidate/reviewer/prose backends, external-call
-permission, credentials, and budget limits before any network-capable adapter can be constructed.
+permission, credentials, selected candidate/reviewer/prose models, and budget limits before any
+network-capable adapter can be constructed. A read-only preflight mode validates those gates without
+network calls or run mutation. OpenAI transport failures carry sanitized truncated error-body
+excerpts, redacted URLs, selected model metadata, and request hashes so live-smoke 4xx/5xx failures
+are diagnosable without leaking secrets.
 Its configuration, budget, accounting, orchestration, and safety reports are audit/context
 artifacts only. They cannot create evidence, upgrade labels, imply publication readiness, or bypass
 the existing stage validators and release gate.

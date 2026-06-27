@@ -71,6 +71,7 @@ from factori.ledger import LedgerError, ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
 from factori.llm_orchestration import (
     LLMOrchestrationError,
+    build_llm_orchestration_preflight_summary,
     llm_orchestration_result_model,
     run_llm_paper_orchestration,
 )
@@ -2209,7 +2210,10 @@ def run_llm_paper_command(
         bool,
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
-    llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    candidate_model: Annotated[
+        str,
+        typer.Option("--candidate-model", "--llm-model"),
+    ] = DEFAULT_LLM_MODEL,
     reviewer_model: Annotated[
         str,
         typer.Option("--reviewer-model"),
@@ -2302,6 +2306,7 @@ def run_llm_paper_command(
         typer.Option("--latex-executable"),
     ] = None,
     write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    preflight_only: Annotated[bool, typer.Option("--preflight-only")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     rerun_policy: Annotated[
         str,
@@ -2318,7 +2323,7 @@ def run_llm_paper_command(
         reviewer_backend=reviewer_backend,
         prose_backend=prose_backend,
         allow_external_calls=allow_external_calls,
-        llm_model=llm_model,
+        llm_model=candidate_model,
         reviewer_model=reviewer_model,
         prose_model=prose_model,
         reviewer_max_objections=reviewer_max_objections,
@@ -2350,8 +2355,13 @@ def run_llm_paper_command(
             fail_on_budget_unknown=fail_on_budget_unknown,
         ),
     )
+    preflight_summary = build_llm_orchestration_preflight_summary(config)
     try:
-        result = run_llm_paper_orchestration(config=config, root=root)
+        result = run_llm_paper_orchestration(
+            config=config,
+            root=root,
+            preflight_only=preflight_only,
+        )
     except LLMOrchestrationError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
@@ -2360,6 +2370,7 @@ def run_llm_paper_command(
         typer.echo(
             json.dumps(
                 {
+                    "preflight_summary": preflight_summary,
                     "llm_orchestration_result": result_model.model_dump(mode="json"),
                     "artifacts": {
                         "llm_orchestration_config": (
@@ -2398,9 +2409,14 @@ def run_llm_paper_command(
     typer.echo(f"run_id={run_id}")
     typer.echo(f"llm_orchestration_status={report.orchestration_status.value}")
     typer.echo(f"candidate_backend={candidate_backend}")
+    typer.echo(f"candidate_model={candidate_model}")
     typer.echo(f"reviewer_backend={reviewer_backend}")
+    typer.echo(f"reviewer_model={reviewer_model}")
     typer.echo(f"prose_backend={prose_backend}")
+    typer.echo(f"prose_model={prose_model}")
     typer.echo(f"allow_external_calls={str(allow_external_calls).lower()}")
+    typer.echo(f"preflight_only={str(preflight_only).lower()}")
+    typer.echo(f"estimated_max_calls={preflight_summary['estimated_max_calls']}")
     typer.echo(f"budget_status={report.budget_decision.decision_status.value}")
     typer.echo(f"total_llm_calls={report.budget_usage.total_calls}")
     typer.echo(f"rate_limit_per_minute={rate_limit_per_minute or 'none'}")

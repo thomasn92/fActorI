@@ -78,6 +78,7 @@ The following are intentionally not implemented:
 ```text
 ungated real LLM calls
 unbudgeted real LLM orchestration
+secret-leaking OpenAI diagnostics
 ungated real retrieval
 ungated real Lean
 ungated real experiments

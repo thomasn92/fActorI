@@ -50,10 +50,11 @@
 | 45 | Deterministic full-paper bundle release/readiness gate for human-review readiness, artifact completeness, citation/LaTeX safety, critic thresholds, evidence boundaries, and provenance consistency | `full_paper_release.py`, `paper_critic.py`, `citations.py`, `latex_safety.py`, `evidence.py` | `evaluate-paper-release` | Read-only by default; optional readiness reports are hashed and ledgered audit/context artifacts that cannot create evidence or imply publication readiness |
 | 46 | Deterministic end-to-end paper-generation golden fixture covering full pipeline, safe fake revision, LaTeX re-export, human-review readiness, replay, hygiene, audit, rerun safety, and protocol/example stability | `tests/test_end_to_end_paper_generation_golden.py`, `protocols/examples/full-paper-golden-bundle.example.json` | Documented golden smoke sequence | Regression-only; creates no new runtime behavior, adapters, evidence authority, or publication-readiness claim |
 | 47 | Explicit gated end-to-end LLM-assisted paper orchestration with fake smoke mode, real-backend gates, budget/rate metadata, call accounting, paper generation, and release evaluation | `llm_orchestration.py`, `llm_budget.py`, `run_all.py`, `full_paper_generation.py`, `full_paper_release.py` | `run-llm-paper` | Real LLM mode fails closed without external-call permission, credentials, and explicit budget; orchestration/budget/accounting reports are non-evidence audit/context artifacts |
+| 48a | OpenAI live-smoke diagnostics and model-flag hardening for gated LLM orchestration | `adapters/http.py`, `adapters/errors.py`, `adapters/llm_real.py`, `adapters/llm_review.py`, `adapters/prose_real.py`, `llm_orchestration.py`, `cli.py` | `run-llm-paper --preflight-only`, `run-llm-paper --candidate-model ... --reviewer-model ... --prose-model ...` | OpenAI 4xx/5xx failures now preserve sanitized truncated response bodies and request/model hashes; preflight validates gates without network or run mutation |
 
 ## Current Boundary
 
-Milestones through 47 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 48a implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -101,3 +102,6 @@ scientific validation, acceptance, or publication readiness.
 The golden paper-generation fixture now pins the stable 24-artifact paper bundle, final mutating
 ledger-action suffix, human-review readiness status, replay result, clean hygiene result, audit
 compatibility, and protocol/example counts without asserting brittle full manuscript text.
+The LLM orchestration live-smoke path now exposes separate candidate/reviewer/prose model flags,
+read-only `--preflight-only`, and secret-safe OpenAI transport diagnostics with sanitized error-body
+excerpts and request hashes for actionable 4xx/5xx debugging.

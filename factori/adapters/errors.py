@@ -75,6 +75,7 @@ class AdapterTransportError(AdapterError):
     message: str
     status_code: int | None = None
     url: str | None = None
+    response_body_excerpt: str | None = None
     cause: BaseException | None = None
 
     def __str__(self) -> str:
@@ -89,7 +90,10 @@ class AdapterTransportError(AdapterError):
         redacted = redact_url(self.url)
         if redacted is not None:
             parts.append(f"url={redacted}")
-        parts.append(f"message={_clean_message(self.message)}")
+        cleaned_message = _clean_message(self.message)
+        parts.append(f"message={cleaned_message}")
+        if self.response_body_excerpt and "body=" not in cleaned_message:
+            parts.append(f"body={_clean_message(self.response_body_excerpt)}")
         return "; ".join(parts)
 
 
@@ -133,6 +137,11 @@ def error_payload(error: AdapterError) -> dict[str, Any]:
             "status_code": error.status_code,
             "url": redact_url(error.url),
             "message": _clean_message(error.message),
+            "response_body_excerpt": (
+                _clean_message(error.response_body_excerpt)
+                if error.response_body_excerpt
+                else None
+            ),
         }
     if isinstance(error, AdapterResponseParseError):
         return {
