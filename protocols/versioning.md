@@ -18,6 +18,8 @@ Breaking changes include removed schemas, removed properties, added required fie
 types, removed enum values, and stricter constraints. Non-breaking changes include new schemas, new
 optional fields, added enum values, and less restrictive constraints. Documentation-only changes
 include title, description, comments, examples, and generated metadata.
+Adding or refining a separate example may keep the same version when every exported JSON Schema is
+byte-for-byte unchanged; examples remain validated developer fixtures rather than schema changes.
 
 ## Checks
 

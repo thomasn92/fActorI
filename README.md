@@ -302,6 +302,21 @@ uv run factori evaluate-paper-release --run-id demo --write-report
 `ReadyForHumanReview` is not peer review, acceptance, scientific validation, verification
 evidence, or publication readiness.
 
+The deterministic golden smoke workflow exercises the complete scaffold without network or
+external tools:
+
+```bash
+uv run factori run-all --run-id golden-paper --domain "human geography"
+uv run factori generate-paper --run-id golden-paper \
+  --apply-safe-fake-revision --reexport-latex-after-revision --write-report
+uv run factori evaluate-paper-release --run-id golden-paper --write-report
+uv run factori export-protocols --check
+uv run factori validate-protocol-examples
+```
+
+The corresponding test pins structural outputs, replay, hygiene, audit, and protocol compatibility.
+It is a regression fixture, not scientific validation or publication readiness.
+
 LaTeX export is accepted only as presentation/export context. `export-latex --write-report` writes
 content-hashed LaTeX source, bibliography placeholders, source maps, export reports, and safety
 reports. `--render-check` is optional and requires `--allow-external-tools` plus a configured LaTeX

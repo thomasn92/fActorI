@@ -297,6 +297,20 @@ uv run factori evaluate-paper-release --run-id demo \
   --max-major-findings 0 --require-latex-export --require-citations
 ```
 
+Deterministic golden paper-generation smoke sequence:
+
+```bash
+uv run factori run-all --run-id golden-paper --domain "human geography"
+uv run factori generate-paper --run-id golden-paper \
+  --apply-safe-fake-revision --reexport-latex-after-revision --write-report
+uv run factori evaluate-paper-release --run-id golden-paper --write-report
+uv run factori export-protocols --check
+uv run factori validate-protocol-examples
+```
+
+This sequence uses fake defaults, performs no render check, and asserts structural regression
+behavior only. It does not imply scientific validation or publication readiness.
+
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:
 

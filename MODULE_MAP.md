@@ -240,3 +240,9 @@ All implementation modules are under `factori/`.
   diagnostics, cross-run comparison, pipeline run, output hygiene, remediation-plan, and
   paper-shape critique reports.
   These rendered reports are presentation artifacts, not verification evidence.
+
+## End-to-End Regression
+
+- `tests/test_end_to_end_paper_generation_golden.py`: deterministic full pipeline through safe
+  fake paper revision/re-export, human-review readiness, replay, hygiene, final-audit rebuild,
+  rerun safety, and protocol/example validation using structural assertions.

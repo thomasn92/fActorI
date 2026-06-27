@@ -14,6 +14,8 @@ The examples intentionally preserve MVP boundaries:
   readiness or verification evidence;
 - full-paper release examples express internal human-review readiness only, not acceptance,
   scientific validation, human approval, or publication readiness;
+- the full-paper golden bundle example pins artifact structure only, not manuscript text,
+  scientific correctness, or publication readiness;
 - claim examples do not inflate labels;
 - artifact and protocol files are not verification evidence.
 

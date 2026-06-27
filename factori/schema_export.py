@@ -161,6 +161,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "paper-critic-report.example.json": "PaperCriticReport",
     "paper-revision-result.example.json": "PaperRevisionResult",
     "full-paper-generation-result.example.json": "FullPaperGenerationResult",
+    "full-paper-golden-bundle.example.json": "FullPaperArtifactBundle",
     "full-paper-release-report.example.json": "FullPaperReleaseReport",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
@@ -912,6 +913,41 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         report=full_paper_report,
         artifact_bundle=full_paper_bundle,
     )
+    full_paper_golden_bundle = full_paper_bundle.model_copy(
+        update={
+            "run_id": "golden-paper",
+            "revised_references_artifact_id": "revised-references",
+            "revised_latex_source_map_artifact_id": "revised-latex-source-map",
+            "revised_latex_export_report_artifact_id": "revised-latex-export-report",
+            "revised_latex_safety_report_artifact_id": "revised-latex-safety-report",
+            "artifact_ids": [
+                "citation-registry",
+                "citation-safety-report",
+                "complete-manuscript-draft",
+                "full-paper-artifact-bundle",
+                "full-paper-generation-report",
+                "latex-export-report",
+                "latex-safety-report",
+                "latex-source-map",
+                "literature-positioning-report",
+                "manuscript-assembly-report",
+                "manuscript-drafting-plan",
+                "manuscript-drafting-report",
+                "paper",
+                "paper-critic-report",
+                "paper-revision-plan",
+                "paper-revision-result",
+                "references",
+                "revised-latex-export-report",
+                "revised-latex-safety-report",
+                "revised-latex-source-map",
+                "revised-manuscript-draft",
+                "revised-paper",
+                "revised-references",
+                "revision-safety-report",
+            ],
+        }
+    )
     full_paper_release_config = FullPaperReleaseGateConfig(run_id="example")
     full_paper_completeness = FullPaperBundleCompletenessReport(
         run_id="example",
@@ -1130,6 +1166,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "paper-critic-report.example.json": paper_critic_report.model_dump(mode="json"),
         "paper-revision-result.example.json": paper_revision_result.model_dump(mode="json"),
         "full-paper-generation-result.example.json": full_paper_result.model_dump(
+            mode="json"
+        ),
+        "full-paper-golden-bundle.example.json": full_paper_golden_bundle.model_dump(
             mode="json"
         ),
         "full-paper-release-report.example.json": full_paper_release_report.model_dump(

@@ -17,6 +17,10 @@ verification evidence, or a replacement for the append-only research ledger.
 - `versioning.md`: semantic version bump rules for protocol changes.
 - `server-readiness.md`: current future-server contract boundary.
 
+`full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
+existing `FullPaperArtifactBundle` schema. It adds no schema and does not change protocol version
+`0.11.0`.
+
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
 - `ArtifactRecord` generated from `ArtifactRef`;

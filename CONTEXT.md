@@ -58,6 +58,8 @@ completed run from disk and checks consistency without changing provenance.
   publication-readiness authority;
 - deterministic generated-paper bundle readiness checks for human-review handoff without peer
   review, scientific-validation, evidence, label, or publication-readiness authority;
+- deterministic golden regression coverage from the full pipeline through paper generation,
+  release evaluation, replay, hygiene, audit, and protocol validation;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 

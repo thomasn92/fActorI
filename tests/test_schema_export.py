@@ -196,7 +196,7 @@ def test_protocol_export_does_not_touch_run_provenance(tmp_path: Path) -> None:
 
 def test_checked_in_protocol_files_are_current() -> None:
     assert require_protocols_current().up_to_date
-    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 40
+    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 41
 
 
 def test_timestamp_fields_are_exported_with_date_time_format(tmp_path: Path) -> None:

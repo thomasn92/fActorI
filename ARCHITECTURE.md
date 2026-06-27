@@ -209,6 +209,11 @@ content hashes, ledger links, citation and LaTeX safety, current critic findings
 appendix coverage, and evidence-boundary language. `ReadyForHumanReview` is an internal handoff
 status only. It does not mean accepted, scientifically validated, verified, or publication ready.
 
+The end-to-end golden paper fixture is a structural regression contract over this workflow. It
+pins artifact IDs, paths, types, non-evidence metadata, ledger action ordering, readiness status,
+source-map size, replay, hygiene, audit, and protocol validation. It intentionally avoids long
+manuscript text equality and cannot establish scientific correctness or publication readiness.
+
 ## Mutating and Read-Only Operations
 
 Pipeline stages from Stage A through export preparation mutate run state. Every such stage must

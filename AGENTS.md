@@ -77,6 +77,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - The full-paper release gate evaluates generated bundles for human-review readiness only. It is
   not peer review, human approval, scientific validation, accepted-paper status, or publication
   readiness, and its reports cannot create evidence or upgrade labels.
+- The end-to-end golden paper fixture is a structural regression test only. Stable artifacts,
+  replay, hygiene, audit, and readiness results do not establish scientific validation, human
+  approval, acceptance, or publication readiness.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.

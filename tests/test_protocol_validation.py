@@ -18,8 +18,8 @@ def test_protocol_examples_validate_against_json_schema(tmp_path: Path) -> None:
     second = validate_protocol_examples(output_dir, output_dir.parent / "examples")
 
     assert first == second
-    assert first.examples_checked == 40
-    assert first.examples_valid == 40
+    assert first.examples_checked == 41
+    assert first.examples_valid == 41
     assert first.examples_invalid == 0
 
 
@@ -70,7 +70,7 @@ def test_validate_protocol_examples_cli_and_json_mode_work(tmp_path: Path) -> No
     assert "examples_invalid=0" in text.output
     assert json_result.exit_code == 0, json_result.output
     payload = json.loads(json_result.output)
-    assert payload["examples_checked"] == 40
+    assert payload["examples_checked"] == 41
     assert payload["examples_invalid"] == 0
 
 
