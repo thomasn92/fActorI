@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.10.0
+  --new-version 0.11.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -285,6 +285,17 @@ uv run factori generate-paper --run-id demo \
 Generated paper packages are manuscript/presentation/export context only. They cannot create or
 upgrade evidence labels, mutate claim/evidence tables, invent citations, or imply publication
 readiness.
+
+Evaluate a generated bundle for internal human-review handoff readiness. This is not publication
+readiness, peer review, scientific validation, or evidence:
+
+```bash
+uv run factori evaluate-paper-release --run-id demo
+uv run factori evaluate-paper-release --run-id demo --json
+uv run factori evaluate-paper-release --run-id demo --write-report
+uv run factori evaluate-paper-release --run-id demo \
+  --max-major-findings 0 --require-latex-export --require-citations
+```
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:

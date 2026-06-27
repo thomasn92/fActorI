@@ -47,10 +47,11 @@
 | 42 | LaTeX export, bibliography placeholders, source-map preservation, safety checks, and optional gated render diagnostics from complete Markdown drafts | `latex_export.py`, `latex_safety.py`, `latex_render.py`, `manuscript_assembly.py`, `citations.py` | `export-latex` | Optional LaTeX/export artifacts are hashed and ledgered presentation/export context only; render checks are gated and never imply scientific validation or publication readiness |
 | 43 | Paper critic and deterministic safe fake revision loop over Markdown/LaTeX artifacts | `paper_critic.py`, `paper_revision.py`, `paper_shape.py`, `latex_safety.py` | `critique-paper`, `revise-paper` | Critique is read-only by default; optional revision artifacts are hashed and ledgered manuscript/revision context only and cannot create evidence, labels, citations, or publication readiness |
 | 44 | End-to-end full-paper generation command chaining citation registry, manuscript drafting, LaTeX export, paper critique, and optional safe fake revision/re-export | `full_paper_generation.py`, `citations.py`, `manuscript_drafting.py`, `latex_export.py`, `paper_critic.py`, `paper_revision.py` | `generate-paper` | Mutating orchestration over presentation/context artifacts; revision and render checks are gated and generated paper packages cannot create evidence, labels, citations, or publication readiness |
+| 45 | Deterministic full-paper bundle release/readiness gate for human-review readiness, artifact completeness, citation/LaTeX safety, critic thresholds, evidence boundaries, and provenance consistency | `full_paper_release.py`, `paper_critic.py`, `citations.py`, `latex_safety.py`, `evidence.py` | `evaluate-paper-release` | Read-only by default; optional readiness reports are hashed and ledgered audit/context artifacts that cannot create evidence or imply publication readiness |
 
 ## Current Boundary
 
-Milestones through 44 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 45 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. They do not implement autonomous
@@ -89,3 +90,7 @@ full-paper package: citation registry/literature positioning, complete Markdown 
 export/source map, critic report, and optional safe fake revision and re-export. This orchestration
 still does not create scientific evidence, label upgrades, citations beyond the registry, or
 publication readiness.
+The `evaluate-paper-release` command validates generated paper bundles for internal human-review
+handoff across required artifacts, hashes, ledger links, citation and LaTeX safety, current critic
+findings, revision status, appendices, and evidence-boundary language. It is not peer review,
+scientific validation, acceptance, or publication readiness.

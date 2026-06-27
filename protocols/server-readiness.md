@@ -25,7 +25,10 @@ run-control and adapter contracts without importing Python.
   `PaperReleaseReadinessPreview`, `SectionRevisionPlan`, `PaperRevisionPlan`,
   `PaperRevisionPatch`, `RevisionSafetyReport`, `PaperRevisionResult`,
   `FullPaperGenerationConfig`, `FullPaperGenerationStep`, `FullPaperArtifactBundle`,
-  `FullPaperGenerationReport`, `FullPaperGenerationResult`, and `HumanReviewDecision`.
+  `FullPaperGenerationReport`, `FullPaperGenerationResult`, `FullPaperReleaseGateConfig`,
+  `FullPaperReleaseCheck`, `FullPaperReleaseFinding`, `FullPaperBundleCompletenessReport`,
+  `FullPaperEvidenceBoundaryReport`, `FullPaperReadinessDecision`, `FullPaperReleaseReport`, and
+  `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -92,3 +95,7 @@ must keep revision and render checks explicitly gated, preserve rerun policy, an
 paper packages as context/export artifacts only. Full-paper generation cannot invent upstream
 content, create or upgrade evidence labels, mutate claim/evidence tables, invent citations, or imply
 publication readiness.
+Full-paper release evaluation may be exposed as a read-only human-review handoff check, with an
+optional explicit report-write job. Servers must preserve the distinction between
+`ReadyForHumanReview` and publication readiness, acceptance, scientific validation, or human
+approval.

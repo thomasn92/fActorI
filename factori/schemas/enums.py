@@ -149,6 +149,29 @@ class FullPaperGenerationStepStatus(StrEnum):
     FAILED = "Failed"
 
 
+class FullPaperReleaseStatus(StrEnum):
+    """Human-review readiness status for a generated paper bundle."""
+
+    READY_FOR_HUMAN_REVIEW = "ReadyForHumanReview"
+    READY_FOR_HUMAN_REVIEW_WITH_WARNINGS = "ReadyForHumanReviewWithWarnings"
+    BLOCKED_MISSING_ARTIFACTS = "BlockedMissingArtifacts"
+    BLOCKED_EVIDENCE_BOUNDARY_VIOLATION = "BlockedEvidenceBoundaryViolation"
+    BLOCKED_CITATION_SAFETY_VIOLATION = "BlockedCitationSafetyViolation"
+    BLOCKED_LATEX_SAFETY_VIOLATION = "BlockedLatexSafetyViolation"
+    BLOCKED_CRITIC_FINDINGS = "BlockedCriticFindings"
+    BLOCKED_INCONSISTENT_PROVENANCE = "BlockedInconsistentProvenance"
+    RELEASE_GATE_FAILED = "ReleaseGateFailed"
+
+
+class FullPaperReleaseFindingSeverity(StrEnum):
+    """Severity of one generated-paper readiness finding."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    MAJOR = "Major"
+    BLOCKING = "Blocking"
+
+
 class BranchStatus(StrEnum):
     """Branch and run status labels for the MVP."""
 
@@ -279,6 +302,7 @@ class ControllerActionType(StrEnum):
     PAPER_CRITIC_REPORT_WRITTEN = "PaperCriticReportWritten"
     PAPER_REVISION_WRITTEN = "PaperRevisionWritten"
     FULL_PAPER_GENERATION_WRITTEN = "FullPaperGenerationWritten"
+    FULL_PAPER_RELEASE_EVALUATED = "FullPaperReleaseEvaluated"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 
@@ -700,6 +724,8 @@ __all__ = [
     "VerificationLabel",
     "NarrativeSectionRole",
     "PaperShapeStatus",
+    "FullPaperReleaseStatus",
+    "FullPaperReleaseFindingSeverity",
     "BranchStatus",
     "ArtifactType",
     "ControllerActionType",

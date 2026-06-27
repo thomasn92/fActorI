@@ -47,6 +47,10 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `FullPaperGenerationConfig`, `FullPaperGenerationStep`, `FullPaperArtifactBundle`,
   `FullPaperGenerationReport`, and `FullPaperGenerationResult` generated from end-to-end
   non-evidence paper-package orchestration models;
+- `FullPaperReleaseGateConfig`, `FullPaperReleaseCheck`, `FullPaperReleaseFinding`,
+  `FullPaperBundleCompletenessReport`, `FullPaperEvidenceBoundaryReport`,
+  `FullPaperReadinessDecision`, and `FullPaperReleaseReport` generated from the human-review-only
+  generated-paper bundle readiness gate;
 - `EvidenceType` generated from `ArtifactType`;
 - `ClaimLabel` generated from `VerificationLabel`;
 - `ReleaseStatus` generated from `ReleaseGateStatus`.
@@ -90,7 +94,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.10.0
+  --new-version 0.11.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

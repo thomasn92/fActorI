@@ -21,6 +21,7 @@ from factori.schemas import (
     ExportReadinessReport,
     FinalAuditReport,
     FinalNucleus,
+    FullPaperReleaseReport,
     HygieneRemediationPlan,
     LedgerSummary,
     ManuscriptChecklist,
@@ -137,6 +138,33 @@ def render_stage_a_report(
     else:
         lines.append("- none")
 
+    return "\n".join(lines) + "\n"
+
+
+def render_full_paper_release_summary(report: FullPaperReleaseReport) -> str:
+    """Render a human-review readiness summary without publication claims."""
+    lines = [
+        "# Full-Paper Human-Review Readiness",
+        "",
+        f"Run: `{report.run_id}`",
+        f"Status: `{report.decision.status.value}`",
+        f"Ready for human review: `{str(report.decision.ready_for_human_review).lower()}`",
+        "Publication ready: `false`",
+        "",
+        "This report is an internal manuscript-bundle audit. It is not peer review, "
+        "scientific validation, verification evidence, or publication readiness.",
+        "",
+        "## Checks",
+        "",
+    ]
+    lines.extend(
+        f"- {'PASS' if check.passed else 'FAIL'} `{check.check_id}`: {check.message}"
+        for check in report.checks
+    )
+    lines.extend(["", "## Blocking Reasons", ""])
+    lines.extend([f"- {reason}" for reason in report.decision.blocking_reasons] or ["- none"])
+    lines.extend(["", "## Warnings", ""])
+    lines.extend([f"- {warning}" for warning in report.decision.warnings] or ["- none"])
     return "\n".join(lines) + "\n"
 
 

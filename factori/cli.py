@@ -56,6 +56,10 @@ from factori.full_paper_generation import (
     full_paper_generation_result_model,
     generate_full_paper,
 )
+from factori.full_paper_release import (
+    FullPaperReleaseError,
+    run_full_paper_release_gate,
+)
 from factori.hygiene_plan import (
     build_hygiene_remediation_plan,
     summarize_hygiene_remediation_plan,
@@ -115,6 +119,7 @@ from factori.schemas import (
     ControllerActionType,
     DataRequirement,
     FullPaperGenerationConfig,
+    FullPaperReleaseGateConfig,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
@@ -2088,6 +2093,91 @@ def generate_paper_command(
         typer.echo(f"full_paper_generation_report={result.report_artifact.path}")
     if result.bundle_artifact is not None:
         typer.echo(f"full_paper_artifact_bundle={result.bundle_artifact.path}")
+
+
+@app.command("evaluate-paper-release")
+def evaluate_paper_release_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    max_major_findings: Annotated[int, typer.Option("--max-major-findings")] = 0,
+    allow_warnings: Annotated[bool, typer.Option("--allow-warnings")] = True,
+    require_latex_export: Annotated[
+        bool,
+        typer.Option("--require-latex-export"),
+    ] = True,
+    require_citations: Annotated[bool, typer.Option("--require-citations")] = False,
+    require_revision_status: Annotated[
+        bool,
+        typer.Option("--require-revision-status"),
+    ] = False,
+) -> None:
+    """Evaluate generated-paper readiness for human review only."""
+    config = FullPaperReleaseGateConfig(
+        run_id=run_id,
+        max_major_findings=max_major_findings,
+        allow_warnings=allow_warnings,
+        require_latex_export=require_latex_export,
+        require_citations=require_citations,
+        require_revision_status=require_revision_status,
+        write_report=write_report,
+    )
+    try:
+        result = run_full_paper_release_gate(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            config=config,
+        )
+    except FullPaperReleaseError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "full_paper_release_report": result.report.model_dump(mode="json"),
+                    "artifacts": {
+                        "release_report": (
+                            result.report_artifact.model_dump(mode="json")
+                            if result.report_artifact
+                            else None
+                        ),
+                        "completeness_report": (
+                            result.completeness_artifact.model_dump(mode="json")
+                            if result.completeness_artifact
+                            else None
+                        ),
+                        "evidence_boundary_report": (
+                            result.evidence_boundary_artifact.model_dump(mode="json")
+                            if result.evidence_boundary_artifact
+                            else None
+                        ),
+                        "summary": (
+                            result.summary_artifact.model_dump(mode="json")
+                            if result.summary_artifact
+                            else None
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    report = result.report
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"paper_release_status={report.decision.status.value}")
+    typer.echo(f"ready_for_human_review={str(report.decision.ready_for_human_review).lower()}")
+    typer.echo(f"blocking_findings={len(report.decision.blocking_reasons)}")
+    typer.echo(f"warnings={len(report.decision.warnings)}")
+    typer.echo(f"revision_status={report.revision_status or 'unknown'}")
+    typer.echo("publication_ready=false")
+    typer.echo("is_verification_evidence=false")
+    if result.report_artifact is not None:
+        typer.echo(f"full_paper_release_report={result.report_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

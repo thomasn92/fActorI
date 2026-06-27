@@ -1,0 +1,52 @@
+{
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-release-gate-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Policy for generated-paper human-review readiness.",
+  "properties": {
+    "allow_warnings": {
+      "default": true,
+      "title": "Allow Warnings",
+      "type": "boolean"
+    },
+    "max_major_findings": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Max Major Findings",
+      "type": "integer"
+    },
+    "require_citations": {
+      "default": false,
+      "title": "Require Citations",
+      "type": "boolean"
+    },
+    "require_latex_export": {
+      "default": true,
+      "title": "Require Latex Export",
+      "type": "boolean"
+    },
+    "require_revision_status": {
+      "default": false,
+      "title": "Require Revision Status",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "write_report": {
+      "default": false,
+      "title": "Write Report",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "FullPaperReleaseGateConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperReleaseGateConfig",
+  "x-factori-verification-evidence": false
+}

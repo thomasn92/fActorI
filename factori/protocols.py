@@ -36,12 +36,21 @@ from factori.schemas import (
     FinalAuditReport,
     FinalNucleus,
     FullPaperArtifactBundle,
+    FullPaperBundleCompletenessReport,
+    FullPaperEvidenceBoundaryReport,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
     FullPaperGenerationResult,
     FullPaperGenerationStatus,
     FullPaperGenerationStep,
     FullPaperGenerationStepStatus,
+    FullPaperReadinessDecision,
+    FullPaperReleaseCheck,
+    FullPaperReleaseFinding,
+    FullPaperReleaseFindingSeverity,
+    FullPaperReleaseGateConfig,
+    FullPaperReleaseReport,
+    FullPaperReleaseStatus,
     GeneratedSectionDraft,
     HumanReviewDecision,
     HygieneRemediationPlan,
@@ -125,7 +134,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.10.0"
+PROTOCOL_VERSION = "0.11.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -550,6 +559,41 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         FullPaperGenerationResult,
         "Typed result for full-paper generation commands.",
     ),
+    ProtocolDefinition(
+        "FullPaperReleaseGateConfig",
+        FullPaperReleaseGateConfig,
+        "Policy for generated-paper human-review readiness.",
+    ),
+    ProtocolDefinition(
+        "FullPaperReleaseCheck",
+        FullPaperReleaseCheck,
+        "One deterministic generated-paper readiness check.",
+    ),
+    ProtocolDefinition(
+        "FullPaperReleaseFinding",
+        FullPaperReleaseFinding,
+        "One generated-paper readiness finding.",
+    ),
+    ProtocolDefinition(
+        "FullPaperBundleCompletenessReport",
+        FullPaperBundleCompletenessReport,
+        "Artifact completeness and provenance report for a paper bundle.",
+    ),
+    ProtocolDefinition(
+        "FullPaperEvidenceBoundaryReport",
+        FullPaperEvidenceBoundaryReport,
+        "Evidence-boundary report for generated paper text.",
+    ),
+    ProtocolDefinition(
+        "FullPaperReadinessDecision",
+        FullPaperReadinessDecision,
+        "Human-review-only readiness decision.",
+    ),
+    ProtocolDefinition(
+        "FullPaperReleaseReport",
+        FullPaperReleaseReport,
+        "End-to-end generated-paper readiness report.",
+    ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(
         "ResearchObjectManifest",
@@ -655,6 +699,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         FullPaperGenerationStepStatus,
         "Full-paper generation step status enum.",
     ),
+    ProtocolDefinition(
+        "FullPaperReleaseStatus",
+        FullPaperReleaseStatus,
+        "Generated-paper human-review readiness status enum.",
+    ),
+    ProtocolDefinition(
+        "FullPaperReleaseFindingSeverity",
+        FullPaperReleaseFindingSeverity,
+        "Generated-paper readiness finding severity enum.",
+    ),
     ProtocolDefinition("ExperimentKind", ExperimentKind, "Synthetic experiment kind enum."),
     ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
     ProtocolDefinition(
@@ -695,6 +749,8 @@ __all__ = [
     "ExperimentKind",
     "FullPaperGenerationStatus",
     "FullPaperGenerationStepStatus",
+    "FullPaperReleaseStatus",
+    "FullPaperReleaseFindingSeverity",
     "ProofBackend",
     "ProseBackend",
     "ProtocolDefinition",

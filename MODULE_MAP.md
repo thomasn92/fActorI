@@ -205,6 +205,8 @@ All implementation modules are under `factori/`.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.
+- `full_paper_release.py`: generated-paper bundle completeness, provenance, citation/LaTeX safety,
+  evidence-boundary, critic-threshold, and human-review readiness gate.
 - `draft_skeleton.py`: deterministic Markdown/JSON draft scaffold generation.
 - `checklist.py`: manuscript checklist generation.
 - `final_paper.py`: assembled paper-shaped skeleton and assembly readiness report.

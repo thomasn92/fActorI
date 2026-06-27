@@ -12,6 +12,8 @@ The examples intentionally preserve MVP boundaries:
   manuscript evidence;
 - full-paper generation examples are manuscript/package orchestration fixtures, not publication
   readiness or verification evidence;
+- full-paper release examples express internal human-review readiness only, not acceptance,
+  scientific validation, human approval, or publication readiness;
 - claim examples do not inflate labels;
 - artifact and protocol files are not verification evidence.
 

@@ -1,0 +1,76 @@
+{
+  "checks": [
+    {
+      "artifact_ids": [
+        "complete-manuscript-draft",
+        "paper"
+      ],
+      "check_id": "required_artifacts",
+      "message": "Required generated-paper artifacts are present.",
+      "passed": true,
+      "severity": "Blocking"
+    }
+  ],
+  "completeness": {
+    "complete": true,
+    "hash_mismatch_artifact_ids": [],
+    "missing_artifact_ids": [],
+    "missing_ledger_link_artifact_ids": [],
+    "present_artifact_ids": [
+      "complete-manuscript-draft",
+      "paper"
+    ],
+    "required_artifact_ids": [
+      "complete-manuscript-draft",
+      "paper"
+    ],
+    "run_id": "example"
+  },
+  "config": {
+    "allow_warnings": true,
+    "max_major_findings": 0,
+    "require_citations": false,
+    "require_latex_export": true,
+    "require_revision_status": false,
+    "run_id": "example",
+    "write_report": false
+  },
+  "creates_scientific_validation": false,
+  "critic_blocking_findings": 0,
+  "critic_major_findings": 0,
+  "critic_warning_findings": 0,
+  "decision": {
+    "blocking_reasons": [],
+    "is_verification_evidence": false,
+    "publication_ready": false,
+    "ready_for_human_review": true,
+    "run_id": "example",
+    "scientifically_validated": false,
+    "status": "ReadyForHumanReviewWithWarnings",
+    "warnings": [
+      "Human review remains required."
+    ]
+  },
+  "evidence_boundary": {
+    "claim_table_unchanged": true,
+    "creates_or_upgrades_labels": false,
+    "creates_scientific_validation": false,
+    "evidence_classification_unchanged": true,
+    "implies_publication_readiness": false,
+    "is_verification_evidence": false,
+    "reasons": [],
+    "run_id": "example",
+    "safe": true,
+    "unsupported_labels": [],
+    "warnings": [
+      "Human-review readiness is not publication readiness."
+    ]
+  },
+  "findings": [],
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "publication_ready": false,
+  "report_id": "full-paper-release-report-example",
+  "revision_status": "NotApplied",
+  "run_id": "example"
+}

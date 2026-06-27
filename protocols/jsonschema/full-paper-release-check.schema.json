@@ -1,0 +1,56 @@
+{
+  "$defs": {
+    "FullPaperReleaseFindingSeverity": {
+      "description": "Severity of one generated-paper readiness finding.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Major",
+        "Blocking"
+      ],
+      "title": "FullPaperReleaseFindingSeverity",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-release-check.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic generated-paper readiness check.",
+  "properties": {
+    "artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "check_id": {
+      "minLength": 1,
+      "title": "Check Id",
+      "type": "string"
+    },
+    "message": {
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "severity": {
+      "$ref": "#/$defs/FullPaperReleaseFindingSeverity"
+    }
+  },
+  "required": [
+    "check_id",
+    "passed",
+    "severity",
+    "message"
+  ],
+  "title": "FullPaperReleaseCheck",
+  "type": "object",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperReleaseCheck",
+  "x-factori-verification-evidence": false
+}

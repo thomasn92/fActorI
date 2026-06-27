@@ -74,6 +74,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   paper critique, and optional safe fake revision/re-export steps. It is manuscript/package
   orchestration only and must not be treated as peer review, publication readiness, scientific
   validation, evidence creation, citation creation, or label authority.
+- The full-paper release gate evaluates generated bundles for human-review readiness only. It is
+  not peer review, human approval, scientific validation, accepted-paper status, or publication
+  readiness, and its reports cannot create evidence or upgrade labels.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -138,6 +141,9 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   manuscript/presentation/export/revision context only. They must not create or upgrade claim
   labels, mutate claim/evidence tables, invent citations, prove publication readiness, or justify
   proof, experiment, retrieval, human-review, or scientific-validation evidence.
+- Full-paper release/readiness reports are audit/context artifacts only. `ReadyForHumanReview`
+  means only that configured internal checks passed; it is not publication readiness, acceptance,
+  scientific validation, verification evidence, or human approval.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

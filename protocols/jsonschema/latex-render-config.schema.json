@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.10.0/latex-render-config.schema.json",
+  "$id": "https://schemas.factori.local/0.11.0/latex-render-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Optional gated LaTeX render/check configuration.",
@@ -49,7 +49,7 @@
   ],
   "title": "LatexRenderConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.10.0",
+  "x-factori-protocol-version": "0.11.0",
   "x-factori-source-model": "factori.schemas.LatexRenderConfig",
   "x-factori-verification-evidence": false
 }

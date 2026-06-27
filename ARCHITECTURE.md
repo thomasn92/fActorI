@@ -21,6 +21,7 @@ Constraints
   -> Optional LaTeX export with source maps and gated render diagnostics
   -> Optional paper critique and safe fake revision pass
   -> Optional full-paper package generation over the manuscript/export workflow
+  -> Optional generated-paper human-review readiness gate
   -> Read-only replay verification
 ```
 
@@ -81,7 +82,7 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.10.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+Protocol version `0.11.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
 prose, citation/literature-positioning, manuscript drafting, LaTeX export/render,
 paper-critic/revision, full-paper generation, and enum contracts. Timestamp fields such as `timestamp`, `started_at`,
 `finished_at`, `created_at`, and `retrieved_at` are emitted with JSON Schema `format: date-time`.
@@ -203,6 +204,11 @@ drafts, LaTeX export artifacts, critic reports, and optional safe fake revision/
 It does not invent missing upstream content, mutate claim/evidence tables, create scientific
 evidence, upgrade labels, or imply publication readiness.
 
+The full-paper release layer is a separate manuscript-bundle gate. It rechecks artifact presence,
+content hashes, ledger links, citation and LaTeX safety, current critic findings, revision status,
+appendix coverage, and evidence-boundary language. `ReadyForHumanReview` is an internal handoff
+status only. It does not mean accepted, scientifically validated, verified, or publication ready.
+
 ## Mutating and Read-Only Operations
 
 Pipeline stages from Stage A through export preparation mutate run state. Every such stage must
@@ -222,6 +228,10 @@ default `run-all`; it writes content-hashed full-paper report/bundle artifacts o
 `--write-report` is supplied, reuses existing manuscript/export artifacts when possible, gates
 revision behind `--apply-safe-fake-revision`, and gates render checks behind
 `allow_external_tools=true`.
+
+`evaluate-paper-release` is read-only by default. With `--write-report`, it writes content-hashed,
+ledgered release/readiness context reports. Those reports remain non-evidence and cannot imply
+publication readiness or human approval.
 
 Inspection commands such as `show-ledger` and `validate-run` are read-only. Replay verification is
 strictly read-only. `replay-verify --write-report` may write under `runs/<run_id>/replay/`, but those

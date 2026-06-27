@@ -38,12 +38,20 @@ from factori.schemas import (
     ExperimentRunContract,
     ExperimentRunResult,
     FullPaperArtifactBundle,
+    FullPaperBundleCompletenessReport,
+    FullPaperEvidenceBoundaryReport,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
     FullPaperGenerationResult,
     FullPaperGenerationStatus,
     FullPaperGenerationStep,
     FullPaperGenerationStepStatus,
+    FullPaperReadinessDecision,
+    FullPaperReleaseCheck,
+    FullPaperReleaseFindingSeverity,
+    FullPaperReleaseGateConfig,
+    FullPaperReleaseReport,
+    FullPaperReleaseStatus,
     GeneratedSectionDraft,
     LatexCompileCheckReport,
     LatexExportContract,
@@ -153,6 +161,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "paper-critic-report.example.json": "PaperCriticReport",
     "paper-revision-result.example.json": "PaperRevisionResult",
     "full-paper-generation-result.example.json": "FullPaperGenerationResult",
+    "full-paper-release-report.example.json": "FullPaperReleaseReport",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
     "research-object-manifest.example.json": "ResearchObjectManifest",
@@ -903,6 +912,44 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         report=full_paper_report,
         artifact_bundle=full_paper_bundle,
     )
+    full_paper_release_config = FullPaperReleaseGateConfig(run_id="example")
+    full_paper_completeness = FullPaperBundleCompletenessReport(
+        run_id="example",
+        required_artifact_ids=["complete-manuscript-draft", "paper"],
+        present_artifact_ids=["complete-manuscript-draft", "paper"],
+        complete=True,
+    )
+    full_paper_evidence_boundary = FullPaperEvidenceBoundaryReport(
+        run_id="example",
+        safe=True,
+        warnings=["Human-review readiness is not publication readiness."],
+        claim_table_unchanged=True,
+        evidence_classification_unchanged=True,
+    )
+    full_paper_release_decision = FullPaperReadinessDecision(
+        run_id="example",
+        status=FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS,
+        ready_for_human_review=True,
+        warnings=["Human review remains required."],
+    )
+    full_paper_release_report = FullPaperReleaseReport(
+        report_id="full-paper-release-report-example",
+        run_id="example",
+        config=full_paper_release_config,
+        checks=[
+            FullPaperReleaseCheck(
+                check_id="required_artifacts",
+                passed=True,
+                severity=FullPaperReleaseFindingSeverity.BLOCKING,
+                message="Required generated-paper artifacts are present.",
+                artifact_ids=["complete-manuscript-draft", "paper"],
+            )
+        ],
+        completeness=full_paper_completeness,
+        evidence_boundary=full_paper_evidence_boundary,
+        decision=full_paper_release_decision,
+        revision_status="NotApplied",
+    )
     pipeline_report = PipelineRunReport(
         run_id="example",
         domain="machine learning",
@@ -1083,6 +1130,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "paper-critic-report.example.json": paper_critic_report.model_dump(mode="json"),
         "paper-revision-result.example.json": paper_revision_result.model_dump(mode="json"),
         "full-paper-generation-result.example.json": full_paper_result.model_dump(
+            mode="json"
+        ),
+        "full-paper-release-report.example.json": full_paper_release_report.model_dump(
             mode="json"
         ),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),

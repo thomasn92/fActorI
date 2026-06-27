@@ -17,6 +17,8 @@ from factori.schemas.enums import (
     ControllerActionType,
     DiagnosticSeverity,
     DiagnosticStatus,
+    FullPaperReleaseFindingSeverity,
+    FullPaperReleaseStatus,
     RegressionCategory,
     RegressionSeverity,
     RegressionStatus,
@@ -165,6 +167,100 @@ class ReleaseGateDecision(StrictModel):
     warnings: list[str] = Field(default_factory=list)
     audit_checks: int = Field(ge=0)
     certifies_scientific_validity: bool = False
+
+
+class FullPaperReleaseGateConfig(StrictModel):
+    """Conservative policy for generated-paper human-review readiness."""
+
+    run_id: str = Field(min_length=1)
+    max_major_findings: int = Field(default=0, ge=0)
+    allow_warnings: bool = True
+    require_latex_export: bool = True
+    require_citations: bool = False
+    require_revision_status: bool = False
+    write_report: bool = False
+
+
+class FullPaperReleaseCheck(StrictModel):
+    """One deterministic generated-paper bundle readiness check."""
+
+    check_id: str = Field(min_length=1)
+    passed: bool
+    severity: FullPaperReleaseFindingSeverity
+    message: str = Field(min_length=1)
+    artifact_ids: list[str] = Field(default_factory=list)
+
+
+class FullPaperReleaseFinding(StrictModel):
+    """One actionable finding from the generated-paper readiness gate."""
+
+    finding_id: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    severity: FullPaperReleaseFindingSeverity
+    message: str = Field(min_length=1)
+    artifact_ids: list[str] = Field(default_factory=list)
+
+
+class FullPaperBundleCompletenessReport(StrictModel):
+    """Artifact and provenance completeness for one generated paper bundle."""
+
+    run_id: str = Field(min_length=1)
+    required_artifact_ids: list[str] = Field(default_factory=list)
+    present_artifact_ids: list[str] = Field(default_factory=list)
+    missing_artifact_ids: list[str] = Field(default_factory=list)
+    hash_mismatch_artifact_ids: list[str] = Field(default_factory=list)
+    missing_ledger_link_artifact_ids: list[str] = Field(default_factory=list)
+    complete: bool
+
+
+class FullPaperEvidenceBoundaryReport(StrictModel):
+    """Non-mutating evidence-boundary assessment of generated paper text."""
+
+    run_id: str = Field(min_length=1)
+    safe: bool
+    unsupported_labels: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    claim_table_unchanged: bool
+    evidence_classification_unchanged: bool
+    creates_or_upgrades_labels: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class FullPaperReadinessDecision(StrictModel):
+    """Human-review-only readiness decision for a generated paper bundle."""
+
+    run_id: str = Field(min_length=1)
+    status: FullPaperReleaseStatus
+    ready_for_human_review: bool
+    blocking_reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    scientifically_validated: bool = False
+    is_verification_evidence: bool = False
+
+
+class FullPaperReleaseReport(StrictModel):
+    """End-to-end generated-paper readiness report; not peer review or evidence."""
+
+    report_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    config: FullPaperReleaseGateConfig
+    checks: list[FullPaperReleaseCheck] = Field(default_factory=list)
+    findings: list[FullPaperReleaseFinding] = Field(default_factory=list)
+    completeness: FullPaperBundleCompletenessReport
+    evidence_boundary: FullPaperEvidenceBoundaryReport
+    decision: FullPaperReadinessDecision
+    revision_status: str | None = None
+    critic_blocking_findings: int = Field(default=0, ge=0)
+    critic_major_findings: int = Field(default=0, ge=0)
+    critic_warning_findings: int = Field(default=0, ge=0)
+    publication_ready: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class ExportEvidencePlaceholder(StrictModel):
@@ -614,6 +710,13 @@ __all__ = [
     "AuditCheck",
     "FinalAuditReport",
     "ReleaseGateDecision",
+    "FullPaperReleaseGateConfig",
+    "FullPaperReleaseCheck",
+    "FullPaperReleaseFinding",
+    "FullPaperBundleCompletenessReport",
+    "FullPaperEvidenceBoundaryReport",
+    "FullPaperReadinessDecision",
+    "FullPaperReleaseReport",
     "ExportEvidencePlaceholder",
     "ExportSectionMap",
     "ExportClaimMap",

@@ -189,7 +189,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.10.0
+  --old-version 0.1.0 --new-version 0.11.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -291,6 +291,16 @@ citations, literature positioning, Markdown drafting, LaTeX export, and paper cr
 Revision and render diagnostics remain explicitly gated. Full-paper generation artifacts are
 presentation/context/export artifacts only; they cannot create or upgrade evidence labels, mutate
 claim/evidence tables, invent citations, or claim publication readiness.
+
+`evaluate-paper-release` checks a generated bundle for internal human-review handoff readiness:
+
+```bash
+uv run factori evaluate-paper-release --run-id demo
+uv run factori evaluate-paper-release --run-id demo --write-report
+```
+
+`ReadyForHumanReview` is not peer review, acceptance, scientific validation, verification
+evidence, or publication readiness.
 
 LaTeX export is accepted only as presentation/export context. `export-latex --write-report` writes
 content-hashed LaTeX source, bibliography placeholders, source maps, export reports, and safety

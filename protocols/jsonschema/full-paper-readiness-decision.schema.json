@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "FullPaperReleaseStatus": {
+      "description": "Human-review readiness status for a generated paper bundle.",
+      "enum": [
+        "ReadyForHumanReview",
+        "ReadyForHumanReviewWithWarnings",
+        "BlockedMissingArtifacts",
+        "BlockedEvidenceBoundaryViolation",
+        "BlockedCitationSafetyViolation",
+        "BlockedLatexSafetyViolation",
+        "BlockedCriticFindings",
+        "BlockedInconsistentProvenance",
+        "ReleaseGateFailed"
+      ],
+      "title": "FullPaperReleaseStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-readiness-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Human-review-only readiness decision.",
+  "properties": {
+    "blocking_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Reasons",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "ready_for_human_review": {
+      "title": "Ready For Human Review",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scientifically_validated": {
+      "default": false,
+      "title": "Scientifically Validated",
+      "type": "boolean"
+    },
+    "status": {
+      "$ref": "#/$defs/FullPaperReleaseStatus"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "status",
+    "ready_for_human_review"
+  ],
+  "title": "FullPaperReadinessDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperReadinessDecision",
+  "x-factori-verification-evidence": false
+}

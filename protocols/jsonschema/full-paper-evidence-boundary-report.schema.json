@@ -1,0 +1,77 @@
+{
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-evidence-boundary-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Evidence-boundary report for generated paper text.",
+  "properties": {
+    "claim_table_unchanged": {
+      "title": "Claim Table Unchanged",
+      "type": "boolean"
+    },
+    "creates_or_upgrades_labels": {
+      "default": false,
+      "title": "Creates Or Upgrades Labels",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_classification_unchanged": {
+      "title": "Evidence Classification Unchanged",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "unsupported_labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsupported Labels",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "safe",
+    "claim_table_unchanged",
+    "evidence_classification_unchanged"
+  ],
+  "title": "FullPaperEvidenceBoundaryReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperEvidenceBoundaryReport",
+  "x-factori-verification-evidence": false
+}

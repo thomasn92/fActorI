@@ -1,0 +1,442 @@
+{
+  "$defs": {
+    "FullPaperBundleCompletenessReport": {
+      "additionalProperties": false,
+      "description": "Artifact and provenance completeness for one generated paper bundle.",
+      "properties": {
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "hash_mismatch_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hash Mismatch Artifact Ids",
+          "type": "array"
+        },
+        "missing_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Artifact Ids",
+          "type": "array"
+        },
+        "missing_ledger_link_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Ledger Link Artifact Ids",
+          "type": "array"
+        },
+        "present_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Present Artifact Ids",
+          "type": "array"
+        },
+        "required_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Artifact Ids",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "complete"
+      ],
+      "title": "FullPaperBundleCompletenessReport",
+      "type": "object"
+    },
+    "FullPaperEvidenceBoundaryReport": {
+      "additionalProperties": false,
+      "description": "Non-mutating evidence-boundary assessment of generated paper text.",
+      "properties": {
+        "claim_table_unchanged": {
+          "title": "Claim Table Unchanged",
+          "type": "boolean"
+        },
+        "creates_or_upgrades_labels": {
+          "default": false,
+          "title": "Creates Or Upgrades Labels",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_classification_unchanged": {
+          "title": "Evidence Classification Unchanged",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "safe": {
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "unsupported_labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Labels",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "safe",
+        "claim_table_unchanged",
+        "evidence_classification_unchanged"
+      ],
+      "title": "FullPaperEvidenceBoundaryReport",
+      "type": "object"
+    },
+    "FullPaperReadinessDecision": {
+      "additionalProperties": false,
+      "description": "Human-review-only readiness decision for a generated paper bundle.",
+      "properties": {
+        "blocking_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking Reasons",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "ready_for_human_review": {
+          "title": "Ready For Human Review",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "scientifically_validated": {
+          "default": false,
+          "title": "Scientifically Validated",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/FullPaperReleaseStatus"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "status",
+        "ready_for_human_review"
+      ],
+      "title": "FullPaperReadinessDecision",
+      "type": "object"
+    },
+    "FullPaperReleaseCheck": {
+      "additionalProperties": false,
+      "description": "One deterministic generated-paper bundle readiness check.",
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "check_id": {
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/FullPaperReleaseFindingSeverity"
+        }
+      },
+      "required": [
+        "check_id",
+        "passed",
+        "severity",
+        "message"
+      ],
+      "title": "FullPaperReleaseCheck",
+      "type": "object"
+    },
+    "FullPaperReleaseFinding": {
+      "additionalProperties": false,
+      "description": "One actionable finding from the generated-paper readiness gate.",
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "category": {
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/FullPaperReleaseFindingSeverity"
+        }
+      },
+      "required": [
+        "finding_id",
+        "category",
+        "severity",
+        "message"
+      ],
+      "title": "FullPaperReleaseFinding",
+      "type": "object"
+    },
+    "FullPaperReleaseFindingSeverity": {
+      "description": "Severity of one generated-paper readiness finding.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Major",
+        "Blocking"
+      ],
+      "title": "FullPaperReleaseFindingSeverity",
+      "type": "string"
+    },
+    "FullPaperReleaseGateConfig": {
+      "additionalProperties": false,
+      "description": "Conservative policy for generated-paper human-review readiness.",
+      "properties": {
+        "allow_warnings": {
+          "default": true,
+          "title": "Allow Warnings",
+          "type": "boolean"
+        },
+        "max_major_findings": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Max Major Findings",
+          "type": "integer"
+        },
+        "require_citations": {
+          "default": false,
+          "title": "Require Citations",
+          "type": "boolean"
+        },
+        "require_latex_export": {
+          "default": true,
+          "title": "Require Latex Export",
+          "type": "boolean"
+        },
+        "require_revision_status": {
+          "default": false,
+          "title": "Require Revision Status",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "write_report": {
+          "default": false,
+          "title": "Write Report",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "FullPaperReleaseGateConfig",
+      "type": "object"
+    },
+    "FullPaperReleaseStatus": {
+      "description": "Human-review readiness status for a generated paper bundle.",
+      "enum": [
+        "ReadyForHumanReview",
+        "ReadyForHumanReviewWithWarnings",
+        "BlockedMissingArtifacts",
+        "BlockedEvidenceBoundaryViolation",
+        "BlockedCitationSafetyViolation",
+        "BlockedLatexSafetyViolation",
+        "BlockedCriticFindings",
+        "BlockedInconsistentProvenance",
+        "ReleaseGateFailed"
+      ],
+      "title": "FullPaperReleaseStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-release-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "End-to-end generated-paper readiness report.",
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/FullPaperReleaseCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "completeness": {
+      "$ref": "#/$defs/FullPaperBundleCompletenessReport"
+    },
+    "config": {
+      "$ref": "#/$defs/FullPaperReleaseGateConfig"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_blocking_findings": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Critic Blocking Findings",
+      "type": "integer"
+    },
+    "critic_major_findings": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Critic Major Findings",
+      "type": "integer"
+    },
+    "critic_warning_findings": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Critic Warning Findings",
+      "type": "integer"
+    },
+    "decision": {
+      "$ref": "#/$defs/FullPaperReadinessDecision"
+    },
+    "evidence_boundary": {
+      "$ref": "#/$defs/FullPaperEvidenceBoundaryReport"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/FullPaperReleaseFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "revision_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revision Status"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "run_id",
+    "config",
+    "completeness",
+    "evidence_boundary",
+    "decision"
+  ],
+  "title": "FullPaperReleaseReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperReleaseReport",
+  "x-factori-verification-evidence": false
+}

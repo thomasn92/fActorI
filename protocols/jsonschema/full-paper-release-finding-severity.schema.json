@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-release-finding-severity.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Generated-paper readiness finding severity enum.",
+  "enum": [
+    "Info",
+    "Warning",
+    "Major",
+    "Blocking"
+  ],
+  "title": "FullPaperReleaseFindingSeverity",
+  "type": "string",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperReleaseFindingSeverity",
+  "x-factori-verification-evidence": false
+}

@@ -30,6 +30,7 @@ Stage A candidate generation
   -> Optional LaTeX export and gated render checks
   -> Optional paper critique and safe fake revision
   -> Optional full-paper package generation
+  -> Optional generated-paper human-review readiness gate
   -> Replay verification
 ```
 
@@ -55,6 +56,8 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic full-paper package generation over citation, manuscript drafting, LaTeX export,
   paper critique, and optional safe fake revision artifacts without evidence, label, citation, or
   publication-readiness authority;
+- deterministic generated-paper bundle readiness checks for human-review handoff without peer
+  review, scientific-validation, evidence, label, or publication-readiness authority;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 

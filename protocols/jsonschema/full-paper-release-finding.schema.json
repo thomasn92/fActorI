@@ -1,0 +1,57 @@
+{
+  "$defs": {
+    "FullPaperReleaseFindingSeverity": {
+      "description": "Severity of one generated-paper readiness finding.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Major",
+        "Blocking"
+      ],
+      "title": "FullPaperReleaseFindingSeverity",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.11.0/full-paper-release-finding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One generated-paper readiness finding.",
+  "properties": {
+    "artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "category": {
+      "minLength": 1,
+      "title": "Category",
+      "type": "string"
+    },
+    "finding_id": {
+      "minLength": 1,
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "message": {
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/FullPaperReleaseFindingSeverity"
+    }
+  },
+  "required": [
+    "finding_id",
+    "category",
+    "severity",
+    "message"
+  ],
+  "title": "FullPaperReleaseFinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.11.0",
+  "x-factori-source-model": "factori.schemas.FullPaperReleaseFinding",
+  "x-factori-verification-evidence": false
+}

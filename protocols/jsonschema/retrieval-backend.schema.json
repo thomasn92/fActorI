@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.10.0/retrieval-backend.schema.json",
+  "$id": "https://schemas.factori.local/0.11.0/retrieval-backend.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Retrieval backend enum.",
   "enum": [
@@ -8,7 +8,7 @@
   ],
   "title": "RetrievalBackend",
   "type": "string",
-  "x-factori-protocol-version": "0.10.0",
+  "x-factori-protocol-version": "0.11.0",
   "x-factori-source-model": "factori.protocols.RetrievalBackend",
   "x-factori-verification-evidence": false
 }
