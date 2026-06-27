@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.factori.local/0.12.0/llm-orchestration-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "LLM paper orchestration aggregate status enum.",
+  "enum": [
+    "LLMOrchestrationSucceeded",
+    "LLMOrchestrationSucceededWithWarnings",
+    "LLMOrchestrationBlocked",
+    "LLMOrchestrationFailed"
+  ],
+  "title": "LLMOrchestrationStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.12.0",
+  "x-factori-source-model": "factori.schemas.LLMOrchestrationStatus",
+  "x-factori-verification-evidence": false
+}

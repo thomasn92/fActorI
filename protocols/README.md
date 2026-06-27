@@ -18,8 +18,8 @@ verification evidence, or a replacement for the append-only research ledger.
 - `server-readiness.md`: current future-server contract boundary.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
-existing `FullPaperArtifactBundle` schema. It adds no schema and does not change protocol version
-`0.11.0`.
+existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
+version is `0.12.0`.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -55,6 +55,10 @@ Public protocol names are stable even where internal Python names differ. Curren
   `FullPaperBundleCompletenessReport`, `FullPaperEvidenceBoundaryReport`,
   `FullPaperReadinessDecision`, and `FullPaperReleaseReport` generated from the human-review-only
   generated-paper bundle readiness gate;
+- `LLMBudgetConfig`, `LLMBudgetUsage`, `LLMBudgetDecision`, `LLMCallAccountingRecord`,
+  `LLMRunSafetyReport`, `LLMOrchestrationConfig`, `LLMOrchestrationStep`,
+  `LLMOrchestrationReport`, and `LLMOrchestrationResult` generated from explicit gated
+  LLM-assisted paper orchestration models;
 - `EvidenceType` generated from `ArtifactType`;
 - `ClaimLabel` generated from `VerificationLabel`;
 - `ReleaseStatus` generated from `ReleaseGateStatus`.
@@ -98,7 +102,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.11.0
+  --new-version 0.12.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

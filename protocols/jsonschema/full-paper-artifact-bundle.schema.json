@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.11.0/full-paper-artifact-bundle.schema.json",
+  "$id": "https://schemas.factori.local/0.12.0/full-paper-artifact-bundle.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Artifact IDs that make up one generated paper package.",
@@ -337,7 +337,7 @@
   ],
   "title": "FullPaperArtifactBundle",
   "type": "object",
-  "x-factori-protocol-version": "0.11.0",
+  "x-factori-protocol-version": "0.12.0",
   "x-factori-source-model": "factori.schemas.FullPaperArtifactBundle",
   "x-factori-verification-evidence": false
 }

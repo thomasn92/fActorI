@@ -1,0 +1,184 @@
+{
+  "creates_scientific_validation": false,
+  "full_paper_generation_status": "PaperGenerationSucceededWithWarnings",
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "orchestration_status": "LLMOrchestrationSucceededWithWarnings",
+  "paper_release_status": "ReadyForHumanReviewWithWarnings",
+  "report": {
+    "blocking_issues": [],
+    "budget_decision": {
+      "allowed": true,
+      "budget_config": {
+        "creates_scientific_validation": false,
+        "fail_on_budget_unknown": false,
+        "is_verification_evidence": false,
+        "max_candidate_generation_calls": null,
+        "max_estimated_cost_usd": 1.0,
+        "max_prose_calls": null,
+        "max_retries_per_call": 0,
+        "max_review_calls": null,
+        "max_total_calls": 10,
+        "max_total_input_tokens": null,
+        "max_total_output_tokens": null,
+        "max_wallclock_seconds": null,
+        "rate_limit_per_minute": 6
+      },
+      "creates_scientific_validation": false,
+      "decision_status": "AllowedWithWarnings",
+      "is_verification_evidence": false,
+      "planned_usage": {
+        "candidate_generation_calls": 0,
+        "creates_scientific_validation": false,
+        "estimated_cost_usd": null,
+        "is_verification_evidence": false,
+        "prose_calls": 0,
+        "rate_limit_per_minute": 6,
+        "review_calls": 0,
+        "total_calls": 0,
+        "total_input_tokens": null,
+        "total_output_tokens": null,
+        "unknown_cost": false,
+        "unknown_token_usage": false
+      },
+      "rate_limit_per_minute": 6,
+      "reasons": [],
+      "warnings": [
+        "Fake orchestration performs no external LLM calls."
+      ]
+    },
+    "budget_usage": {
+      "candidate_generation_calls": 0,
+      "creates_scientific_validation": false,
+      "estimated_cost_usd": null,
+      "is_verification_evidence": false,
+      "prose_calls": 0,
+      "rate_limit_per_minute": 6,
+      "review_calls": 0,
+      "total_calls": 0,
+      "total_input_tokens": null,
+      "total_output_tokens": null,
+      "unknown_cost": false,
+      "unknown_token_usage": false
+    },
+    "call_accounting": [
+      {
+        "backend": "fake",
+        "completed_at": "1970-01-01T00:00:00.000000Z",
+        "contains_secret": false,
+        "creates_scientific_validation": false,
+        "error_type": null,
+        "estimated_cost_usd": null,
+        "external_call_performed": false,
+        "input_token_estimate": null,
+        "is_verification_evidence": false,
+        "model": "gpt-5-mini",
+        "output_token_estimate": null,
+        "provider": "fake",
+        "request_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "response_hash": null,
+        "retry_status": "retry_not_enabled",
+        "started_at": "1970-01-01T00:00:00.000000Z",
+        "status": "Skipped",
+        "step_name": "llm-candidate-generation"
+      }
+    ],
+    "config": {
+      "allow_external_calls": false,
+      "allow_external_tools": false,
+      "apply_safe_fake_revision": false,
+      "budget": {
+        "creates_scientific_validation": false,
+        "fail_on_budget_unknown": false,
+        "is_verification_evidence": false,
+        "max_candidate_generation_calls": null,
+        "max_estimated_cost_usd": 1.0,
+        "max_prose_calls": null,
+        "max_retries_per_call": 0,
+        "max_review_calls": null,
+        "max_total_calls": 10,
+        "max_total_input_tokens": null,
+        "max_total_output_tokens": null,
+        "max_wallclock_seconds": null,
+        "rate_limit_per_minute": 6
+      },
+      "candidate_backend": "fake",
+      "creates_scientific_validation": false,
+      "critique": true,
+      "domain": "machine learning",
+      "evaluate_release": true,
+      "export_latex": true,
+      "force": false,
+      "generate_paper": true,
+      "implies_publication_readiness": false,
+      "include_citations": true,
+      "is_verification_evidence": false,
+      "latex_executable": null,
+      "llm_model": "gpt-5-mini",
+      "method": null,
+      "prose_backend": "fake",
+      "prose_model": "gpt-5-mini",
+      "reexport_latex_after_revision": false,
+      "render_check": false,
+      "rerun_policy": "fail-if-exists",
+      "reviewer_backend": "fake",
+      "reviewer_max_objections": 5,
+      "reviewer_model": "gpt-5-mini",
+      "revise": false,
+      "run_id": "example",
+      "write_report": true
+    },
+    "creates_scientific_validation": false,
+    "generate_paper_status": null,
+    "implies_publication_readiness": false,
+    "is_verification_evidence": false,
+    "orchestration_status": "LLMOrchestrationSucceededWithWarnings",
+    "publication_ready": false,
+    "release_status": null,
+    "report_id": "llm-orchestration-report-example",
+    "run_id": "example",
+    "safety_report": {
+      "created_or_upgraded_labels": false,
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "llm_outputs_are_verification_evidence": false,
+      "llm_prose_is_experiment_evidence": false,
+      "llm_prose_is_proof_evidence": false,
+      "llm_prose_is_retrieval_evidence": false,
+      "llm_reviews_are_proof_evidence": false,
+      "reasons": [],
+      "release_status_is_publication_readiness": false,
+      "run_id": "example",
+      "safe": true,
+      "warnings": [
+        "LLM outputs are not verification evidence."
+      ]
+    },
+    "selected_backends": {
+      "candidate_backend": "fake",
+      "prose_backend": "fake",
+      "reviewer_backend": "fake"
+    },
+    "steps": [
+      {
+        "artifact_ids": [
+          "pipeline-run-report"
+        ],
+        "completed_at": "1970-01-01T00:00:01.000000Z",
+        "creates_scientific_validation": false,
+        "error_message": null,
+        "is_verification_evidence": false,
+        "started_at": "1970-01-01T00:00:00.000000Z",
+        "status": "Succeeded",
+        "step_name": "run-all",
+        "summary": "Deterministic pipeline completed with fake LLM seams.",
+        "warnings": []
+      }
+    ],
+    "warnings": [
+      "Fake orchestration performs no external LLM calls."
+    ]
+  },
+  "run_id": "example"
+}

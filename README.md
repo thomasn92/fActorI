@@ -57,6 +57,8 @@ Implemented so far:
   revision planning;
 - deterministic full-paper package generation that chains citation registry construction,
   manuscript drafting, LaTeX export, paper critique, and optional safe fake revision/re-export;
+- explicit gated end-to-end LLM-assisted paper orchestration with call/cost budget checks,
+  secret-safe accounting, and fake smoke mode;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
@@ -92,7 +94,7 @@ Implemented so far:
 - pytest coverage for the MVP invariants;
 - Ruff configuration.
 
-Not implemented yet: LangGraph orchestration, real LLM synthesis, polished full-paper writing,
+Not implemented yet: LangGraph orchestration, autonomous real-LLM research synthesis, polished full-paper writing,
 complete or claim-verifying literature coverage, always-on Lean integration, real empirical
 experiments, Docker, FastAPI, hard PDF-generation dependencies, publication-ready LaTeX, or a
 frontend.
@@ -160,6 +162,9 @@ uv run factori revise-paper --run-id demo --apply-safe-fake-revision --write-rep
 uv run factori generate-paper --run-id demo
 uv run factori generate-paper --run-id demo --write-report
 uv run factori generate-paper --run-id demo --apply-safe-fake-revision --write-report
+uv run factori run-llm-paper --run-id llm-fake --domain "human geography" \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --apply-safe-fake-revision --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -189,7 +194,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.11.0
+  --old-version 0.1.0 --new-version 0.12.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -301,6 +306,30 @@ uv run factori evaluate-paper-release --run-id demo --write-report
 
 `ReadyForHumanReview` is not peer review, acceptance, scientific validation, verification
 evidence, or publication readiness.
+
+`run-llm-paper` is the explicit end-to-end LLM-assisted orchestration command. Fake mode remains
+local and deterministic:
+
+```bash
+uv run factori run-llm-paper --run-id llm-fake --domain "human geography" \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --apply-safe-fake-revision --write-report
+```
+
+Real mode requires explicit OpenAI backends, `--allow-external-calls`, credentials, and a budget
+before any network call can be attempted:
+
+```bash
+OPENAI_API_KEY="<key>" uv run factori run-llm-paper \
+  --run-id llm-real --domain "human geography" \
+  --allow-external-calls \
+  --candidate-backend openai --reviewer-backend openai --prose-backend openai \
+  --max-total-calls 50 --max-estimated-cost-usd 5.00 --rate-limit-per-minute 10 \
+  --apply-safe-fake-revision --write-report
+```
+
+The orchestration report, budget report, call accounting, and safety report are context/audit
+artifacts only. They cannot create evidence, upgrade labels, or imply publication readiness.
 
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:

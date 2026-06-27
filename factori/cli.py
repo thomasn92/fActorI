@@ -69,6 +69,11 @@ from factori.latex_export import LatexExportError, export_latex_from_run
 from factori.latex_render import LatexRenderError
 from factori.ledger import LedgerError, ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
+from factori.llm_orchestration import (
+    LLMOrchestrationError,
+    llm_orchestration_result_model,
+    run_llm_paper_orchestration,
+)
 from factori.manuscript_drafting import (
     ManuscriptDraftingError,
     draft_manuscript,
@@ -120,6 +125,8 @@ from factori.schemas import (
     DataRequirement,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
+    LLMBudgetConfig,
+    LLMOrchestrationConfig,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
@@ -2178,6 +2185,238 @@ def evaluate_paper_release_command(
     typer.echo("is_verification_evidence=false")
     if result.report_artifact is not None:
         typer.echo(f"full_paper_release_report={result.report_artifact.path}")
+
+
+@app.command("run-llm-paper")
+def run_llm_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    domain: Annotated[str, typer.Option("--domain")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    method: Annotated[str | None, typer.Option("--method")] = None,
+    candidate_backend: Annotated[
+        str,
+        typer.Option("--candidate-backend"),
+    ] = DEFAULT_ADAPTER_BACKEND,
+    reviewer_backend: Annotated[
+        str,
+        typer.Option("--reviewer-backend"),
+    ] = DEFAULT_REVIEWER_BACKEND,
+    prose_backend: Annotated[
+        str,
+        typer.Option("--prose-backend"),
+    ] = DEFAULT_PROSE_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    llm_model: Annotated[str, typer.Option("--llm-model")] = DEFAULT_LLM_MODEL,
+    reviewer_model: Annotated[
+        str,
+        typer.Option("--reviewer-model"),
+    ] = DEFAULT_LLM_MODEL,
+    prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    reviewer_max_objections: Annotated[
+        int,
+        typer.Option("--reviewer-max-objections"),
+    ] = DEFAULT_REVIEWER_MAX_OBJECTIONS,
+    max_total_calls: Annotated[
+        int | None,
+        typer.Option("--max-total-calls"),
+    ] = None,
+    max_candidate_generation_calls: Annotated[
+        int | None,
+        typer.Option("--max-candidate-generation-calls"),
+    ] = None,
+    max_review_calls: Annotated[
+        int | None,
+        typer.Option("--max-review-calls"),
+    ] = None,
+    max_prose_calls: Annotated[
+        int | None,
+        typer.Option("--max-prose-calls"),
+    ] = None,
+    max_total_input_tokens: Annotated[
+        int | None,
+        typer.Option("--max-total-input-tokens"),
+    ] = None,
+    max_total_output_tokens: Annotated[
+        int | None,
+        typer.Option("--max-total-output-tokens"),
+    ] = None,
+    max_estimated_cost_usd: Annotated[
+        float | None,
+        typer.Option("--max-estimated-cost-usd"),
+    ] = None,
+    max_wallclock_seconds: Annotated[
+        int | None,
+        typer.Option("--max-wallclock-seconds"),
+    ] = None,
+    max_retries_per_call: Annotated[
+        int,
+        typer.Option("--max-retries-per-call"),
+    ] = 0,
+    rate_limit_per_minute: Annotated[
+        int | None,
+        typer.Option("--rate-limit-per-minute"),
+    ] = None,
+    fail_on_budget_unknown: Annotated[
+        bool,
+        typer.Option("--fail-on-budget-unknown/--allow-unknown-budget"),
+    ] = True,
+    generate_paper: Annotated[
+        bool,
+        typer.Option("--generate-paper/--skip-generate-paper"),
+    ] = True,
+    evaluate_release: Annotated[
+        bool,
+        typer.Option("--evaluate-release/--skip-evaluate-release"),
+    ] = True,
+    include_citations: Annotated[
+        bool,
+        typer.Option("--include-citations/--no-citations"),
+    ] = True,
+    export_latex: Annotated[
+        bool,
+        typer.Option("--export-latex/--skip-export-latex"),
+    ] = True,
+    critique: Annotated[
+        bool,
+        typer.Option("--critique/--skip-critique"),
+    ] = True,
+    revise: Annotated[bool, typer.Option("--revise")] = False,
+    apply_safe_fake_revision: Annotated[
+        bool,
+        typer.Option("--apply-safe-fake-revision"),
+    ] = False,
+    reexport_latex_after_revision: Annotated[
+        bool,
+        typer.Option("--reexport-latex-after-revision"),
+    ] = False,
+    render_check: Annotated[bool, typer.Option("--render-check")] = False,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    latex_executable: Annotated[
+        str | None,
+        typer.Option("--latex-executable"),
+    ] = None,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
+) -> None:
+    """Run explicit gated LLM-assisted paper generation orchestration."""
+    config = LLMOrchestrationConfig(
+        run_id=run_id,
+        domain=domain,
+        method=method,
+        candidate_backend=candidate_backend,
+        reviewer_backend=reviewer_backend,
+        prose_backend=prose_backend,
+        allow_external_calls=allow_external_calls,
+        llm_model=llm_model,
+        reviewer_model=reviewer_model,
+        prose_model=prose_model,
+        reviewer_max_objections=reviewer_max_objections,
+        generate_paper=generate_paper,
+        evaluate_release=evaluate_release,
+        include_citations=include_citations,
+        export_latex=export_latex,
+        critique=critique,
+        revise=revise,
+        apply_safe_fake_revision=apply_safe_fake_revision,
+        reexport_latex_after_revision=reexport_latex_after_revision,
+        render_check=render_check,
+        allow_external_tools=allow_external_tools,
+        latex_executable=latex_executable,
+        write_report=write_report,
+        rerun_policy=rerun_policy,
+        force=force,
+        budget=LLMBudgetConfig(
+            max_total_calls=max_total_calls,
+            max_candidate_generation_calls=max_candidate_generation_calls,
+            max_review_calls=max_review_calls,
+            max_prose_calls=max_prose_calls,
+            max_total_input_tokens=max_total_input_tokens,
+            max_total_output_tokens=max_total_output_tokens,
+            max_estimated_cost_usd=max_estimated_cost_usd,
+            max_wallclock_seconds=max_wallclock_seconds,
+            max_retries_per_call=max_retries_per_call,
+            rate_limit_per_minute=rate_limit_per_minute,
+            fail_on_budget_unknown=fail_on_budget_unknown,
+        ),
+    )
+    try:
+        result = run_llm_paper_orchestration(config=config, root=root)
+    except LLMOrchestrationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    result_model = llm_orchestration_result_model(result)
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "llm_orchestration_result": result_model.model_dump(mode="json"),
+                    "artifacts": {
+                        "llm_orchestration_config": (
+                            result.config_artifact.model_dump(mode="json")
+                            if result.config_artifact
+                            else None
+                        ),
+                        "llm_budget_report": (
+                            result.budget_artifact.model_dump(mode="json")
+                            if result.budget_artifact
+                            else None
+                        ),
+                        "llm_call_accounting": (
+                            result.accounting_artifact.model_dump(mode="json")
+                            if result.accounting_artifact
+                            else None
+                        ),
+                        "llm_orchestration_report": (
+                            result.report_artifact.model_dump(mode="json")
+                            if result.report_artifact
+                            else None
+                        ),
+                        "llm_run_safety_report": (
+                            result.safety_artifact.model_dump(mode="json")
+                            if result.safety_artifact
+                            else None
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    report = result.report
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"llm_orchestration_status={report.orchestration_status.value}")
+    typer.echo(f"candidate_backend={candidate_backend}")
+    typer.echo(f"reviewer_backend={reviewer_backend}")
+    typer.echo(f"prose_backend={prose_backend}")
+    typer.echo(f"allow_external_calls={str(allow_external_calls).lower()}")
+    typer.echo(f"budget_status={report.budget_decision.decision_status.value}")
+    typer.echo(f"total_llm_calls={report.budget_usage.total_calls}")
+    typer.echo(f"rate_limit_per_minute={rate_limit_per_minute or 'none'}")
+    typer.echo(f"generate_paper_status={report.generate_paper_status or 'skipped'}")
+    typer.echo(f"release_status={report.release_status or 'skipped'}")
+    typer.echo(f"warnings={len(report.warnings)}")
+    typer.echo(f"blocking_issues={len(report.blocking_issues)}")
+    typer.echo("publication_ready=false")
+    typer.echo("is_verification_evidence=false")
+    typer.echo("creates_scientific_validation=false")
+    if result.report_artifact is not None:
+        typer.echo(f"llm_orchestration_report={result.report_artifact.path}")
+    if result.budget_artifact is not None:
+        typer.echo(f"llm_budget_report={result.budget_artifact.path}")
+    if result.accounting_artifact is not None:
+        typer.echo(f"llm_call_accounting={result.accounting_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

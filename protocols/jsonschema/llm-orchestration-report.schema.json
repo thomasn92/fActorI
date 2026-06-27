@@ -1,0 +1,973 @@
+{
+  "$defs": {
+    "LLMBudgetConfig": {
+      "additionalProperties": false,
+      "description": "Explicit budget limits for gated end-to-end LLM orchestration.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "fail_on_budget_unknown": {
+          "default": true,
+          "title": "Fail On Budget Unknown",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_candidate_generation_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Candidate Generation Calls"
+        },
+        "max_estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Estimated Cost Usd"
+        },
+        "max_prose_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Prose Calls"
+        },
+        "max_retries_per_call": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Max Retries Per Call",
+          "type": "integer"
+        },
+        "max_review_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Review Calls"
+        },
+        "max_total_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Calls"
+        },
+        "max_total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Input Tokens"
+        },
+        "max_total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Output Tokens"
+        },
+        "max_wallclock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wallclock Seconds"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        }
+      },
+      "title": "LLMBudgetConfig",
+      "type": "object"
+    },
+    "LLMBudgetDecision": {
+      "additionalProperties": false,
+      "description": "Preflight budget decision for a gated LLM orchestration request.",
+      "properties": {
+        "allowed": {
+          "title": "Allowed",
+          "type": "boolean"
+        },
+        "budget_config": {
+          "$ref": "#/$defs/LLMBudgetConfig"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "decision_status": {
+          "$ref": "#/$defs/LLMBudgetDecisionStatus"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "planned_usage": {
+          "$ref": "#/$defs/LLMBudgetUsage"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "decision_status",
+        "allowed",
+        "budget_config",
+        "planned_usage"
+      ],
+      "title": "LLMBudgetDecision",
+      "type": "object"
+    },
+    "LLMBudgetDecisionStatus": {
+      "description": "Budget decision status for a planned LLM-assisted run.",
+      "enum": [
+        "Allowed",
+        "AllowedWithWarnings",
+        "Blocked"
+      ],
+      "title": "LLMBudgetDecisionStatus",
+      "type": "string"
+    },
+    "LLMBudgetUsage": {
+      "additionalProperties": false,
+      "description": "Deterministic planned or observed LLM usage accounting.",
+      "properties": {
+        "candidate_generation_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Candidate Generation Calls",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Cost Usd"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "prose_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Prose Calls",
+          "type": "integer"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        },
+        "review_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Review Calls",
+          "type": "integer"
+        },
+        "total_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Calls",
+          "type": "integer"
+        },
+        "total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Input Tokens"
+        },
+        "total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Output Tokens"
+        },
+        "unknown_cost": {
+          "default": false,
+          "title": "Unknown Cost",
+          "type": "boolean"
+        },
+        "unknown_token_usage": {
+          "default": false,
+          "title": "Unknown Token Usage",
+          "type": "boolean"
+        }
+      },
+      "title": "LLMBudgetUsage",
+      "type": "object"
+    },
+    "LLMCallAccountingRecord": {
+      "additionalProperties": false,
+      "description": "Secret-safe accounting record for one planned or observed LLM call.",
+      "properties": {
+        "backend": {
+          "minLength": 1,
+          "title": "Backend",
+          "type": "string"
+        },
+        "completed_at": {
+          "minLength": 1,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "contains_secret": {
+          "default": false,
+          "title": "Contains Secret",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "error_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Type"
+        },
+        "estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Cost Usd"
+        },
+        "external_call_performed": {
+          "default": false,
+          "title": "External Call Performed",
+          "type": "boolean"
+        },
+        "input_token_estimate": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Token Estimate"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "output_token_estimate": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Token Estimate"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "request_hash": {
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Request Hash",
+          "type": "string"
+        },
+        "response_hash": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Hash"
+        },
+        "retry_status": {
+          "default": "retry_not_enabled",
+          "title": "Retry Status",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/LLMCallStatus"
+        },
+        "step_name": {
+          "minLength": 1,
+          "title": "Step Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_name",
+        "backend",
+        "provider",
+        "request_hash",
+        "started_at",
+        "completed_at",
+        "status"
+      ],
+      "title": "LLMCallAccountingRecord",
+      "type": "object"
+    },
+    "LLMCallStatus": {
+      "description": "Accounting status for one planned or observed LLM call.",
+      "enum": [
+        "Planned",
+        "Skipped",
+        "Succeeded",
+        "Failed"
+      ],
+      "title": "LLMCallStatus",
+      "type": "string"
+    },
+    "LLMOrchestrationConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for explicit end-to-end LLM-assisted paper orchestration.",
+      "properties": {
+        "allow_external_calls": {
+          "default": false,
+          "title": "Allow External Calls",
+          "type": "boolean"
+        },
+        "allow_external_tools": {
+          "default": false,
+          "title": "Allow External Tools",
+          "type": "boolean"
+        },
+        "apply_safe_fake_revision": {
+          "default": false,
+          "title": "Apply Safe Fake Revision",
+          "type": "boolean"
+        },
+        "budget": {
+          "$ref": "#/$defs/LLMBudgetConfig"
+        },
+        "candidate_backend": {
+          "default": "fake",
+          "title": "Candidate Backend",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "critique": {
+          "default": true,
+          "title": "Critique",
+          "type": "boolean"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "evaluate_release": {
+          "default": true,
+          "title": "Evaluate Release",
+          "type": "boolean"
+        },
+        "export_latex": {
+          "default": true,
+          "title": "Export Latex",
+          "type": "boolean"
+        },
+        "force": {
+          "default": false,
+          "title": "Force",
+          "type": "boolean"
+        },
+        "generate_paper": {
+          "default": true,
+          "title": "Generate Paper",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "include_citations": {
+          "default": true,
+          "title": "Include Citations",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "latex_executable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Executable"
+        },
+        "llm_model": {
+          "default": "gpt-5-mini",
+          "title": "Llm Model",
+          "type": "string"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "prose_backend": {
+          "default": "fake",
+          "title": "Prose Backend",
+          "type": "string"
+        },
+        "prose_model": {
+          "default": "gpt-5-mini",
+          "title": "Prose Model",
+          "type": "string"
+        },
+        "reexport_latex_after_revision": {
+          "default": false,
+          "title": "Reexport Latex After Revision",
+          "type": "boolean"
+        },
+        "render_check": {
+          "default": false,
+          "title": "Render Check",
+          "type": "boolean"
+        },
+        "rerun_policy": {
+          "default": "fail-if-exists",
+          "title": "Rerun Policy",
+          "type": "string"
+        },
+        "reviewer_backend": {
+          "default": "fake",
+          "title": "Reviewer Backend",
+          "type": "string"
+        },
+        "reviewer_max_objections": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Reviewer Max Objections",
+          "type": "integer"
+        },
+        "reviewer_model": {
+          "default": "gpt-5-mini",
+          "title": "Reviewer Model",
+          "type": "string"
+        },
+        "revise": {
+          "default": false,
+          "title": "Revise",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "write_report": {
+          "default": false,
+          "title": "Write Report",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "run_id",
+        "domain"
+      ],
+      "title": "LLMOrchestrationConfig",
+      "type": "object"
+    },
+    "LLMOrchestrationStatus": {
+      "description": "Aggregate status for gated LLM-assisted paper orchestration.",
+      "enum": [
+        "LLMOrchestrationSucceeded",
+        "LLMOrchestrationSucceededWithWarnings",
+        "LLMOrchestrationBlocked",
+        "LLMOrchestrationFailed"
+      ],
+      "title": "LLMOrchestrationStatus",
+      "type": "string"
+    },
+    "LLMOrchestrationStep": {
+      "additionalProperties": false,
+      "description": "One step in the explicit LLM-assisted paper workflow.",
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "completed_at": {
+          "minLength": 1,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "started_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/LLMOrchestrationStepStatus"
+        },
+        "step_name": {
+          "minLength": 1,
+          "title": "Step Name",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step_name",
+        "status",
+        "summary",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "LLMOrchestrationStep",
+      "type": "object"
+    },
+    "LLMOrchestrationStepStatus": {
+      "description": "Status for one gated LLM orchestration step.",
+      "enum": [
+        "Pending",
+        "Skipped",
+        "Succeeded",
+        "SucceededWithWarnings",
+        "Blocked",
+        "Failed"
+      ],
+      "title": "LLMOrchestrationStepStatus",
+      "type": "string"
+    },
+    "LLMRunSafetyReport": {
+      "additionalProperties": false,
+      "description": "Evidence-boundary report for gated LLM orchestration outputs.",
+      "properties": {
+        "created_or_upgraded_labels": {
+          "default": false,
+          "title": "Created Or Upgraded Labels",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "llm_outputs_are_verification_evidence": {
+          "default": false,
+          "title": "Llm Outputs Are Verification Evidence",
+          "type": "boolean"
+        },
+        "llm_prose_is_experiment_evidence": {
+          "default": false,
+          "title": "Llm Prose Is Experiment Evidence",
+          "type": "boolean"
+        },
+        "llm_prose_is_proof_evidence": {
+          "default": false,
+          "title": "Llm Prose Is Proof Evidence",
+          "type": "boolean"
+        },
+        "llm_prose_is_retrieval_evidence": {
+          "default": false,
+          "title": "Llm Prose Is Retrieval Evidence",
+          "type": "boolean"
+        },
+        "llm_reviews_are_proof_evidence": {
+          "default": false,
+          "title": "Llm Reviews Are Proof Evidence",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "release_status_is_publication_readiness": {
+          "default": false,
+          "title": "Release Status Is Publication Readiness",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "safe": {
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "safe"
+      ],
+      "title": "LLMRunSafetyReport",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.12.0/llm-orchestration-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Report for gated end-to-end LLM paper orchestration.",
+  "properties": {
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "budget_decision": {
+      "$ref": "#/$defs/LLMBudgetDecision"
+    },
+    "budget_usage": {
+      "$ref": "#/$defs/LLMBudgetUsage"
+    },
+    "call_accounting": {
+      "items": {
+        "$ref": "#/$defs/LLMCallAccountingRecord"
+      },
+      "title": "Call Accounting",
+      "type": "array"
+    },
+    "config": {
+      "$ref": "#/$defs/LLMOrchestrationConfig"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "generate_paper_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Generate Paper Status"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "orchestration_status": {
+      "$ref": "#/$defs/LLMOrchestrationStatus"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "release_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Release Status"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_report": {
+      "$ref": "#/$defs/LLMRunSafetyReport"
+    },
+    "selected_backends": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Selected Backends",
+      "type": "object"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/LLMOrchestrationStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "report_id",
+    "run_id",
+    "config",
+    "orchestration_status",
+    "budget_decision",
+    "budget_usage",
+    "safety_report"
+  ],
+  "title": "LLMOrchestrationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.12.0",
+  "x-factori-source-model": "factori.schemas.LLMOrchestrationReport",
+  "x-factori-verification-evidence": false
+}

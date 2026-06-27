@@ -80,6 +80,11 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - The end-to-end golden paper fixture is a structural regression test only. Stable artifacts,
   replay, hygiene, audit, and readiness results do not establish scientific validation, human
   approval, acceptance, or publication readiness.
+- The end-to-end LLM orchestration command is explicitly gated. Fake mode remains local; real mode
+  requires explicit OpenAI candidate/reviewer/prose backends, `allow_external_calls=true`,
+  configured credentials, and an explicit budget. Its reports are accounting/context/audit artifacts
+  only and cannot create evidence, upgrade labels, authorize publication readiness, or bypass
+  existing stage safety checks.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -147,6 +152,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
 - Full-paper release/readiness reports are audit/context artifacts only. `ReadyForHumanReview`
   means only that configured internal checks passed; it is not publication readiness, acceptance,
   scientific validation, verification evidence, or human approval.
+- LLM orchestration configuration, budget, call-accounting, orchestration, and run-safety reports
+  are accounting/context/audit artifacts only. They must not store secrets, create proof evidence,
+  experiment evidence, retrieval evidence, scientific validation, human approval, or publication
+  readiness.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

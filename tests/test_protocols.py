@@ -21,7 +21,15 @@ from factori.schemas import (
     LatexSafetyReport,
     LatexSourceMap,
     LedgerTipValidationReport,
+    LLMBudgetConfig,
+    LLMBudgetDecision,
+    LLMBudgetUsage,
+    LLMCallAccountingRecord,
     LLMCandidateParseReport,
+    LLMOrchestrationConfig,
+    LLMOrchestrationReport,
+    LLMOrchestrationResult,
+    LLMOrchestrationStep,
     LLMPromptContract,
     ManuscriptAssemblyReport,
     ManuscriptDraftingPlan,
@@ -56,9 +64,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 130
+    assert len(first) == 143
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.11.0"
+    assert PROTOCOL_VERSION == "0.12.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -115,6 +123,24 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     )
     assert get_protocol_definition("FullPaperGenerationResult").model is (
         FullPaperGenerationResult
+    )
+    assert get_protocol_definition("LLMBudgetConfig").model is LLMBudgetConfig
+    assert get_protocol_definition("LLMBudgetUsage").model is LLMBudgetUsage
+    assert get_protocol_definition("LLMBudgetDecision").model is LLMBudgetDecision
+    assert get_protocol_definition("LLMCallAccountingRecord").model is (
+        LLMCallAccountingRecord
+    )
+    assert get_protocol_definition("LLMOrchestrationConfig").model is (
+        LLMOrchestrationConfig
+    )
+    assert get_protocol_definition("LLMOrchestrationStep").model is (
+        LLMOrchestrationStep
+    )
+    assert get_protocol_definition("LLMOrchestrationReport").model is (
+        LLMOrchestrationReport
+    )
+    assert get_protocol_definition("LLMOrchestrationResult").model is (
+        LLMOrchestrationResult
     )
 
 
@@ -180,6 +206,15 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "FullPaperArtifactBundle",
         "FullPaperGenerationReport",
         "FullPaperGenerationResult",
+        "LLMBudgetConfig",
+        "LLMBudgetUsage",
+        "LLMBudgetDecision",
+        "LLMCallAccountingRecord",
+        "LLMRunSafetyReport",
+        "LLMOrchestrationConfig",
+        "LLMOrchestrationStep",
+        "LLMOrchestrationReport",
+        "LLMOrchestrationResult",
         "CitationRecord",
         "CitationRegistry",
         "BibliographyEntry",
@@ -207,6 +242,10 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "ExperimentKind",
         "FullPaperGenerationStatus",
         "FullPaperGenerationStepStatus",
+        "LLMOrchestrationStatus",
+        "LLMOrchestrationStepStatus",
+        "LLMBudgetDecisionStatus",
+        "LLMCallStatus",
         "ReleaseStatus",
         "ProtocolCompatibilityStatus",
     }

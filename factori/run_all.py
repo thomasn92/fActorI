@@ -80,6 +80,7 @@ def run_deterministic_pipeline(
     config: PipelineRunConfig,
     *,
     clock: Clock | None = None,
+    adapter_registry: AdapterRegistry | None = None,
 ) -> PipelineRunReport:
     """Execute selected deterministic stages directly and write a ledgered pipeline report."""
     clock = clock or SystemClock()
@@ -115,8 +116,7 @@ def run_deterministic_pipeline(
             f"Cannot run {blocked_decision.stage_name.value}: {blocked_decision.reason}"
         )
 
-    adapter_registry: AdapterRegistry | None = None
-    if any(
+    if adapter_registry is None and any(
         stage in {
             PipelineStage.RUN_STAGE_A,
             PipelineStage.RUN_STAGE_B,

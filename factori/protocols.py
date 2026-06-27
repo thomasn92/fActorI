@@ -69,9 +69,22 @@ from factori.schemas import (
     LiteraturePositioningAssessment,
     LiteraturePositioningContract,
     LiteraturePositioningReport,
+    LLMBudgetConfig,
+    LLMBudgetDecision,
+    LLMBudgetDecisionStatus,
+    LLMBudgetUsage,
+    LLMCallAccountingRecord,
+    LLMCallStatus,
     LLMCandidateParseReport,
+    LLMOrchestrationConfig,
+    LLMOrchestrationReport,
+    LLMOrchestrationResult,
+    LLMOrchestrationStatus,
+    LLMOrchestrationStep,
+    LLMOrchestrationStepStatus,
     LLMPromptContract,
     LLMReviewerParseResult,
+    LLMRunSafetyReport,
     MainMessageAssessment,
     MainResultAssessment,
     ManuscriptAssemblyReport,
@@ -134,7 +147,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.11.0"
+PROTOCOL_VERSION = "0.12.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -656,6 +669,51 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ),
     ProtocolDefinition("AdapterConfig", AdapterConfig, "Fake-default adapter configuration."),
     ProtocolDefinition(
+        "LLMBudgetConfig",
+        LLMBudgetConfig,
+        "Explicit budget limits for gated LLM paper orchestration.",
+    ),
+    ProtocolDefinition(
+        "LLMBudgetUsage",
+        LLMBudgetUsage,
+        "Planned or observed LLM usage accounting.",
+    ),
+    ProtocolDefinition(
+        "LLMBudgetDecision",
+        LLMBudgetDecision,
+        "Preflight LLM budget decision.",
+    ),
+    ProtocolDefinition(
+        "LLMCallAccountingRecord",
+        LLMCallAccountingRecord,
+        "Secret-safe accounting record for one LLM call.",
+    ),
+    ProtocolDefinition(
+        "LLMRunSafetyReport",
+        LLMRunSafetyReport,
+        "Evidence-boundary report for LLM orchestration.",
+    ),
+    ProtocolDefinition(
+        "LLMOrchestrationConfig",
+        LLMOrchestrationConfig,
+        "Configuration for gated end-to-end LLM paper orchestration.",
+    ),
+    ProtocolDefinition(
+        "LLMOrchestrationStep",
+        LLMOrchestrationStep,
+        "One step in the gated LLM paper workflow.",
+    ),
+    ProtocolDefinition(
+        "LLMOrchestrationReport",
+        LLMOrchestrationReport,
+        "Report for gated end-to-end LLM paper orchestration.",
+    ),
+    ProtocolDefinition(
+        "LLMOrchestrationResult",
+        LLMOrchestrationResult,
+        "Typed result for gated LLM paper orchestration commands.",
+    ),
+    ProtocolDefinition(
         "LLMPromptContract",
         LLMPromptContract,
         "Stage A candidate-generation prompt contract.",
@@ -709,6 +767,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         FullPaperReleaseFindingSeverity,
         "Generated-paper readiness finding severity enum.",
     ),
+    ProtocolDefinition(
+        "LLMOrchestrationStatus",
+        LLMOrchestrationStatus,
+        "LLM paper orchestration aggregate status enum.",
+    ),
+    ProtocolDefinition(
+        "LLMOrchestrationStepStatus",
+        LLMOrchestrationStepStatus,
+        "LLM paper orchestration step status enum.",
+    ),
+    ProtocolDefinition(
+        "LLMBudgetDecisionStatus",
+        LLMBudgetDecisionStatus,
+        "LLM budget decision status enum.",
+    ),
+    ProtocolDefinition(
+        "LLMCallStatus",
+        LLMCallStatus,
+        "LLM call accounting status enum.",
+    ),
     ProtocolDefinition("ExperimentKind", ExperimentKind, "Synthetic experiment kind enum."),
     ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
     ProtocolDefinition(
@@ -751,6 +829,10 @@ __all__ = [
     "FullPaperGenerationStepStatus",
     "FullPaperReleaseStatus",
     "FullPaperReleaseFindingSeverity",
+    "LLMBudgetDecisionStatus",
+    "LLMCallStatus",
+    "LLMOrchestrationStatus",
+    "LLMOrchestrationStepStatus",
     "ProofBackend",
     "ProseBackend",
     "ProtocolDefinition",

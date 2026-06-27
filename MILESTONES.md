@@ -49,13 +49,16 @@
 | 44 | End-to-end full-paper generation command chaining citation registry, manuscript drafting, LaTeX export, paper critique, and optional safe fake revision/re-export | `full_paper_generation.py`, `citations.py`, `manuscript_drafting.py`, `latex_export.py`, `paper_critic.py`, `paper_revision.py` | `generate-paper` | Mutating orchestration over presentation/context artifacts; revision and render checks are gated and generated paper packages cannot create evidence, labels, citations, or publication readiness |
 | 45 | Deterministic full-paper bundle release/readiness gate for human-review readiness, artifact completeness, citation/LaTeX safety, critic thresholds, evidence boundaries, and provenance consistency | `full_paper_release.py`, `paper_critic.py`, `citations.py`, `latex_safety.py`, `evidence.py` | `evaluate-paper-release` | Read-only by default; optional readiness reports are hashed and ledgered audit/context artifacts that cannot create evidence or imply publication readiness |
 | 46 | Deterministic end-to-end paper-generation golden fixture covering full pipeline, safe fake revision, LaTeX re-export, human-review readiness, replay, hygiene, audit, rerun safety, and protocol/example stability | `tests/test_end_to_end_paper_generation_golden.py`, `protocols/examples/full-paper-golden-bundle.example.json` | Documented golden smoke sequence | Regression-only; creates no new runtime behavior, adapters, evidence authority, or publication-readiness claim |
+| 47 | Explicit gated end-to-end LLM-assisted paper orchestration with fake smoke mode, real-backend gates, budget/rate metadata, call accounting, paper generation, and release evaluation | `llm_orchestration.py`, `llm_budget.py`, `run_all.py`, `full_paper_generation.py`, `full_paper_release.py` | `run-llm-paper` | Real LLM mode fails closed without external-call permission, credentials, and explicit budget; orchestration/budget/accounting reports are non-evidence audit/context artifacts |
 
 ## Current Boundary
 
-Milestones through 46 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 47 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
-manuscript prose drafting. They do not implement autonomous
+manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
+candidate/reviewer/prose seams with full-paper generation and human-review readiness evaluation
+only when external calls, credentials, and explicit budgets are configured. They do not implement autonomous
 real agents, complete scientific literature coverage, Docker experiments, LLM
 synthesis, polished full-paper writing, hard PDF-generation dependencies, publication-ready LaTeX,
 or production orchestration frameworks. Stage B LLM

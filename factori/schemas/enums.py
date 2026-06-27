@@ -172,6 +172,43 @@ class FullPaperReleaseFindingSeverity(StrEnum):
     BLOCKING = "Blocking"
 
 
+class LLMOrchestrationStatus(StrEnum):
+    """Aggregate status for gated LLM-assisted paper orchestration."""
+
+    ORCHESTRATION_SUCCEEDED = "LLMOrchestrationSucceeded"
+    ORCHESTRATION_SUCCEEDED_WITH_WARNINGS = "LLMOrchestrationSucceededWithWarnings"
+    ORCHESTRATION_BLOCKED = "LLMOrchestrationBlocked"
+    ORCHESTRATION_FAILED = "LLMOrchestrationFailed"
+
+
+class LLMOrchestrationStepStatus(StrEnum):
+    """Status for one gated LLM orchestration step."""
+
+    PENDING = "Pending"
+    SKIPPED = "Skipped"
+    SUCCEEDED = "Succeeded"
+    SUCCEEDED_WITH_WARNINGS = "SucceededWithWarnings"
+    BLOCKED = "Blocked"
+    FAILED = "Failed"
+
+
+class LLMBudgetDecisionStatus(StrEnum):
+    """Budget decision status for a planned LLM-assisted run."""
+
+    ALLOWED = "Allowed"
+    ALLOWED_WITH_WARNINGS = "AllowedWithWarnings"
+    BLOCKED = "Blocked"
+
+
+class LLMCallStatus(StrEnum):
+    """Accounting status for one planned or observed LLM call."""
+
+    PLANNED = "Planned"
+    SKIPPED = "Skipped"
+    SUCCEEDED = "Succeeded"
+    FAILED = "Failed"
+
+
 class BranchStatus(StrEnum):
     """Branch and run status labels for the MVP."""
 
@@ -303,6 +340,7 @@ class ControllerActionType(StrEnum):
     PAPER_REVISION_WRITTEN = "PaperRevisionWritten"
     FULL_PAPER_GENERATION_WRITTEN = "FullPaperGenerationWritten"
     FULL_PAPER_RELEASE_EVALUATED = "FullPaperReleaseEvaluated"
+    LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 
@@ -726,6 +764,10 @@ __all__ = [
     "PaperShapeStatus",
     "FullPaperReleaseStatus",
     "FullPaperReleaseFindingSeverity",
+    "LLMOrchestrationStatus",
+    "LLMOrchestrationStepStatus",
+    "LLMBudgetDecisionStatus",
+    "LLMCallStatus",
     "BranchStatus",
     "ArtifactType",
     "ControllerActionType",

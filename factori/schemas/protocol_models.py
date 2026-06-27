@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+from factori.schemas.adapters import (
+    LLMBudgetConfig,
+    LLMBudgetDecision,
+    LLMBudgetUsage,
+    LLMCallAccountingRecord,
+    LLMOrchestrationConfig,
+    LLMOrchestrationReport,
+    LLMOrchestrationResult,
+    LLMOrchestrationStep,
+    LLMRunSafetyReport,
+)
 from factori.schemas.artifacts import (
     ArtifactManifest,
     ArtifactRef,
@@ -98,6 +109,15 @@ __all__ = [
     "LedgerCommit",
     "ArtifactRef",
     "ArtifactManifest",
+    "LLMBudgetConfig",
+    "LLMBudgetUsage",
+    "LLMBudgetDecision",
+    "LLMCallAccountingRecord",
+    "LLMRunSafetyReport",
+    "LLMOrchestrationConfig",
+    "LLMOrchestrationStep",
+    "LLMOrchestrationReport",
+    "LLMOrchestrationResult",
     "PipelineStageResult",
     "RetrievalResult",
     "RetrievedDocument",

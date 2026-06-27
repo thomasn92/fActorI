@@ -1,0 +1,90 @@
+{
+  "$id": "https://schemas.factori.local/0.12.0/llm-run-safety-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Evidence-boundary report for LLM orchestration.",
+  "properties": {
+    "created_or_upgraded_labels": {
+      "default": false,
+      "title": "Created Or Upgraded Labels",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "llm_outputs_are_verification_evidence": {
+      "default": false,
+      "title": "Llm Outputs Are Verification Evidence",
+      "type": "boolean"
+    },
+    "llm_prose_is_experiment_evidence": {
+      "default": false,
+      "title": "Llm Prose Is Experiment Evidence",
+      "type": "boolean"
+    },
+    "llm_prose_is_proof_evidence": {
+      "default": false,
+      "title": "Llm Prose Is Proof Evidence",
+      "type": "boolean"
+    },
+    "llm_prose_is_retrieval_evidence": {
+      "default": false,
+      "title": "Llm Prose Is Retrieval Evidence",
+      "type": "boolean"
+    },
+    "llm_reviews_are_proof_evidence": {
+      "default": false,
+      "title": "Llm Reviews Are Proof Evidence",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "release_status_is_publication_readiness": {
+      "default": false,
+      "title": "Release Status Is Publication Readiness",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "safe"
+  ],
+  "title": "LLMRunSafetyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.12.0",
+  "x-factori-source-model": "factori.schemas.LLMRunSafetyReport",
+  "x-factori-verification-evidence": false
+}

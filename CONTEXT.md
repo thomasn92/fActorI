@@ -31,6 +31,7 @@ Stage A candidate generation
   -> Optional paper critique and safe fake revision
   -> Optional full-paper package generation
   -> Optional generated-paper human-review readiness gate
+  -> Optional explicitly budgeted LLM-assisted paper orchestration
   -> Replay verification
 ```
 
@@ -60,6 +61,9 @@ completed run from disk and checks consistency without changing provenance.
   review, scientific-validation, evidence, label, or publication-readiness authority;
 - deterministic golden regression coverage from the full pipeline through paper generation,
   release evaluation, replay, hygiene, audit, and protocol validation;
+- explicit fail-closed LLM-assisted paper orchestration over existing Stage A, Stage B, prose,
+  full-paper generation, and release-gate paths, with fake mode, budget checks, call accounting,
+  and no evidence authority;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 
@@ -73,6 +77,7 @@ The following are intentionally not implemented:
 
 ```text
 ungated real LLM calls
+unbudgeted real LLM orchestration
 ungated real retrieval
 ungated real Lean
 ungated real experiments

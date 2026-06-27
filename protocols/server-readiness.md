@@ -27,8 +27,10 @@ run-control and adapter contracts without importing Python.
   `FullPaperGenerationConfig`, `FullPaperGenerationStep`, `FullPaperArtifactBundle`,
   `FullPaperGenerationReport`, `FullPaperGenerationResult`, `FullPaperReleaseGateConfig`,
   `FullPaperReleaseCheck`, `FullPaperReleaseFinding`, `FullPaperBundleCompletenessReport`,
-  `FullPaperEvidenceBoundaryReport`, `FullPaperReadinessDecision`, `FullPaperReleaseReport`, and
-  `HumanReviewDecision`.
+  `FullPaperEvidenceBoundaryReport`, `FullPaperReadinessDecision`, `FullPaperReleaseReport`,
+  `LLMBudgetConfig`, `LLMBudgetUsage`, `LLMBudgetDecision`, `LLMCallAccountingRecord`,
+  `LLMRunSafetyReport`, `LLMOrchestrationConfig`, `LLMOrchestrationStep`,
+  `LLMOrchestrationReport`, `LLMOrchestrationResult`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -99,3 +101,9 @@ Full-paper release evaluation may be exposed as a read-only human-review handoff
 optional explicit report-write job. Servers must preserve the distinction between
 `ReadyForHumanReview` and publication readiness, acceptance, scientific validation, or human
 approval.
+End-to-end LLM orchestration may be exposed only as an explicit external-call job over the existing
+Stage A, Stage B reviewer, prose drafting, full-paper generation, and paper-release paths. Servers
+must require external-call permission, configured credentials, explicit call/cost budgets, and
+secret-safe accounting. LLM orchestration reports remain context/audit artifacts and cannot create
+evidence, upgrade labels, mutate claim/evidence tables outside existing validated paths, or imply
+publication readiness.

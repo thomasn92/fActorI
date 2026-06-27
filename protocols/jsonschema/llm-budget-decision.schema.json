@@ -1,0 +1,332 @@
+{
+  "$defs": {
+    "LLMBudgetConfig": {
+      "additionalProperties": false,
+      "description": "Explicit budget limits for gated end-to-end LLM orchestration.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "fail_on_budget_unknown": {
+          "default": true,
+          "title": "Fail On Budget Unknown",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_candidate_generation_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Candidate Generation Calls"
+        },
+        "max_estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Estimated Cost Usd"
+        },
+        "max_prose_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Prose Calls"
+        },
+        "max_retries_per_call": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Max Retries Per Call",
+          "type": "integer"
+        },
+        "max_review_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Review Calls"
+        },
+        "max_total_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Calls"
+        },
+        "max_total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Input Tokens"
+        },
+        "max_total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Output Tokens"
+        },
+        "max_wallclock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wallclock Seconds"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        }
+      },
+      "title": "LLMBudgetConfig",
+      "type": "object"
+    },
+    "LLMBudgetDecisionStatus": {
+      "description": "Budget decision status for a planned LLM-assisted run.",
+      "enum": [
+        "Allowed",
+        "AllowedWithWarnings",
+        "Blocked"
+      ],
+      "title": "LLMBudgetDecisionStatus",
+      "type": "string"
+    },
+    "LLMBudgetUsage": {
+      "additionalProperties": false,
+      "description": "Deterministic planned or observed LLM usage accounting.",
+      "properties": {
+        "candidate_generation_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Candidate Generation Calls",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Cost Usd"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "prose_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Prose Calls",
+          "type": "integer"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        },
+        "review_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Review Calls",
+          "type": "integer"
+        },
+        "total_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Calls",
+          "type": "integer"
+        },
+        "total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Input Tokens"
+        },
+        "total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Output Tokens"
+        },
+        "unknown_cost": {
+          "default": false,
+          "title": "Unknown Cost",
+          "type": "boolean"
+        },
+        "unknown_token_usage": {
+          "default": false,
+          "title": "Unknown Token Usage",
+          "type": "boolean"
+        }
+      },
+      "title": "LLMBudgetUsage",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.12.0/llm-budget-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Preflight LLM budget decision.",
+  "properties": {
+    "allowed": {
+      "title": "Allowed",
+      "type": "boolean"
+    },
+    "budget_config": {
+      "$ref": "#/$defs/LLMBudgetConfig"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "decision_status": {
+      "$ref": "#/$defs/LLMBudgetDecisionStatus"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "planned_usage": {
+      "$ref": "#/$defs/LLMBudgetUsage"
+    },
+    "rate_limit_per_minute": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rate Limit Per Minute"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "decision_status",
+    "allowed",
+    "budget_config",
+    "planned_usage"
+  ],
+  "title": "LLMBudgetDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.12.0",
+  "x-factori-source-model": "factori.schemas.LLMBudgetDecision",
+  "x-factori-verification-evidence": false
+}

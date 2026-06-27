@@ -66,8 +66,21 @@ from factori.schemas import (
     LiteratureGapStatement,
     LiteraturePositioningContract,
     LiteraturePositioningReport,
+    LLMBudgetConfig,
+    LLMBudgetDecision,
+    LLMBudgetDecisionStatus,
+    LLMBudgetUsage,
+    LLMCallAccountingRecord,
+    LLMCallStatus,
     LLMCandidateParseReport,
+    LLMOrchestrationConfig,
+    LLMOrchestrationReport,
+    LLMOrchestrationResult,
+    LLMOrchestrationStatus,
+    LLMOrchestrationStep,
+    LLMOrchestrationStepStatus,
     LLMPromptContract,
+    LLMRunSafetyReport,
     ManuscriptAssemblyReport,
     ManuscriptDraftingPlan,
     ManuscriptDraftingReport,
@@ -140,6 +153,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "experiment-result.example.json": "ExperimentRunResult",
     "experiment-contract.example.json": "ExperimentRunContract",
     "ledger-tip-validation-report.example.json": "LedgerTipValidationReport",
+    "llm-orchestration-result.example.json": "LLMOrchestrationResult",
     "llm-candidate-request.example.json": "LLMPromptContract",
     "llm-candidate-response.example.json": "LLMCandidateParseReport",
     "pipeline-dry-run-plan.example.json": "PipelineDryRunPlan",
@@ -1083,6 +1097,88 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         truncated=False,
         fake=True,
     )
+    llm_budget = LLMBudgetConfig(
+        max_total_calls=10,
+        max_estimated_cost_usd=1.0,
+        rate_limit_per_minute=6,
+        fail_on_budget_unknown=False,
+    )
+    llm_usage = LLMBudgetUsage(
+        total_calls=0,
+        candidate_generation_calls=0,
+        review_calls=0,
+        prose_calls=0,
+        unknown_token_usage=False,
+        unknown_cost=False,
+        rate_limit_per_minute=6,
+    )
+    llm_budget_decision = LLMBudgetDecision(
+        decision_status=LLMBudgetDecisionStatus.ALLOWED_WITH_WARNINGS,
+        allowed=True,
+        budget_config=llm_budget,
+        planned_usage=llm_usage,
+        warnings=["Fake orchestration performs no external LLM calls."],
+        rate_limit_per_minute=6,
+    )
+    llm_call_record = LLMCallAccountingRecord(
+        step_name="llm-candidate-generation",
+        backend="fake",
+        provider="fake",
+        model="gpt-5-mini",
+        request_hash=_HASH,
+        started_at="1970-01-01T00:00:00.000000Z",
+        completed_at="1970-01-01T00:00:00.000000Z",
+        status=LLMCallStatus.SKIPPED,
+        external_call_performed=False,
+    )
+    llm_orchestration_config = LLMOrchestrationConfig(
+        run_id="example",
+        domain="machine learning",
+        candidate_backend="fake",
+        reviewer_backend="fake",
+        prose_backend="fake",
+        write_report=True,
+        budget=llm_budget,
+    )
+    llm_orchestration_step = LLMOrchestrationStep(
+        step_name="run-all",
+        status=LLMOrchestrationStepStatus.SUCCEEDED,
+        summary="Deterministic pipeline completed with fake LLM seams.",
+        artifact_ids=["pipeline-run-report"],
+        started_at="1970-01-01T00:00:00.000000Z",
+        completed_at="1970-01-01T00:00:01.000000Z",
+    )
+    llm_safety_report = LLMRunSafetyReport(
+        run_id="example",
+        safe=True,
+        warnings=["LLM outputs are not verification evidence."],
+    )
+    llm_orchestration_report = LLMOrchestrationReport(
+        report_id="llm-orchestration-report-example",
+        run_id="example",
+        config=llm_orchestration_config,
+        orchestration_status=(
+            LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS
+        ),
+        steps=[llm_orchestration_step],
+        budget_decision=llm_budget_decision,
+        budget_usage=llm_usage,
+        call_accounting=[llm_call_record],
+        safety_report=llm_safety_report,
+        selected_backends={
+            "candidate_backend": "fake",
+            "reviewer_backend": "fake",
+            "prose_backend": "fake",
+        },
+        warnings=["Fake orchestration performs no external LLM calls."],
+    )
+    llm_orchestration_result = LLMOrchestrationResult(
+        run_id="example",
+        orchestration_status=llm_orchestration_report.orchestration_status,
+        report=llm_orchestration_report,
+        full_paper_generation_status="PaperGenerationSucceededWithWarnings",
+        paper_release_status="ReadyForHumanReviewWithWarnings",
+    )
     planned_output = PlannedOutput(
         output_kind="stage_a_report",
         path="runs/example/reports/stage-a-report.md",
@@ -1128,6 +1224,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "run-status-report.example.json": run_status.model_dump(mode="json"),
         "resume-validation-report.example.json": resume_validation.model_dump(mode="json"),
         "ledger-tip-validation-report.example.json": ledger_tip.model_dump(mode="json"),
+        "llm-orchestration-result.example.json": llm_orchestration_result.model_dump(
+            mode="json"
+        ),
         "llm-candidate-request.example.json": llm_prompt.model_dump(mode="json"),
         "llm-candidate-response.example.json": llm_response.model_dump(mode="json"),
         "retrieval-query.example.json": retrieval_query.model_dump(mode="json"),

@@ -22,6 +22,7 @@ Constraints
   -> Optional paper critique and safe fake revision pass
   -> Optional full-paper package generation over the manuscript/export workflow
   -> Optional generated-paper human-review readiness gate
+  -> Optional explicitly budgeted LLM-assisted paper orchestration
   -> Read-only replay verification
 ```
 
@@ -82,9 +83,9 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.11.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+Protocol version `0.12.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
 prose, citation/literature-positioning, manuscript drafting, LaTeX export/render,
-paper-critic/revision, full-paper generation, and enum contracts. Timestamp fields such as `timestamp`, `started_at`,
+paper-critic/revision, full-paper generation/release, LLM orchestration/budget accounting, and enum contracts. Timestamp fields such as `timestamp`, `started_at`,
 `finished_at`, `created_at`, and `retrieved_at` are emitted with JSON Schema `format: date-time`.
 Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
@@ -214,6 +215,14 @@ pins artifact IDs, paths, types, non-evidence metadata, ledger action ordering, 
 source-map size, replay, hygiene, audit, and protocol validation. It intentionally avoids long
 manuscript text equality and cannot establish scientific correctness or publication readiness.
 
+The LLM orchestration layer is an explicit command over existing Stage A, Stage B, prose drafting,
+full-paper generation, and generated-paper release evaluation. Fake orchestration remains local.
+Real orchestration requires explicit OpenAI candidate/reviewer/prose backends, external-call
+permission, credentials, and budget limits before any network-capable adapter can be constructed.
+Its configuration, budget, accounting, orchestration, and safety reports are audit/context
+artifacts only. They cannot create evidence, upgrade labels, imply publication readiness, or bypass
+the existing stage validators and release gate.
+
 ## Mutating and Read-Only Operations
 
 Pipeline stages from Stage A through export preparation mutate run state. Every such stage must
@@ -237,6 +246,11 @@ revision behind `--apply-safe-fake-revision`, and gates render checks behind
 `evaluate-paper-release` is read-only by default. With `--write-report`, it writes content-hashed,
 ledgered release/readiness context reports. Those reports remain non-evidence and cannot imply
 publication readiness or human approval.
+
+`run-llm-paper` is a separate mutating orchestration command. It is not part of default `run-all`.
+Fake mode can exercise the workflow without external calls. Real mode fails closed unless
+`allow_external_calls=true`, required credentials are present, and an explicit LLM budget permits
+the run. Report artifacts remain non-evidence accounting/context artifacts.
 
 Inspection commands such as `show-ledger` and `validate-run` are read-only. Replay verification is
 strictly read-only. `replay-verify --write-report` may write under `runs/<run_id>/replay/`, but those

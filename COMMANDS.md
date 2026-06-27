@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.11.0
+  --new-version 0.12.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -160,6 +160,10 @@ uv run factori generate-paper --run-id demo
 uv run factori generate-paper --run-id demo --write-report
 uv run factori generate-paper --run-id demo --json
 uv run factori generate-paper --run-id demo \
+  --apply-safe-fake-revision --write-report
+uv run factori run-llm-paper \
+  --run-id llm-fake --domain "human geography" \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
   --apply-safe-fake-revision --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
@@ -311,6 +315,29 @@ uv run factori validate-protocol-examples
 This sequence uses fake defaults, performs no render check, and asserts structural regression
 behavior only. It does not imply scientific validation or publication readiness.
 
+End-to-end LLM-assisted paper orchestration is separate from default `run-all`. Fake mode is a
+local smoke path. Real mode requires explicit real backends, `--allow-external-calls`, API
+credentials, and an explicit budget before any network call can be attempted:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id llm-fake --domain "human geography" \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --apply-safe-fake-revision --write-report
+
+OPENAI_API_KEY="<key>" uv run factori run-llm-paper \
+  --run-id llm-real --domain "human geography" \
+  --allow-external-calls \
+  --candidate-backend openai --reviewer-backend openai --prose-backend openai \
+  --llm-model gpt-5-mini --reviewer-model gpt-5-mini --prose-model gpt-5-mini \
+  --max-total-calls 50 --max-estimated-cost-usd 5.00 --rate-limit-per-minute 10 \
+  --apply-safe-fake-revision --write-report
+```
+
+LLM orchestration artifacts are accounting/context/audit artifacts only. They cannot create or
+upgrade evidence labels, turn LLM output into proof/experiment/retrieval evidence, or imply
+publication readiness. `--render-check` remains separately gated by `--allow-external-tools`.
+
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:
 
@@ -434,5 +461,5 @@ configuration is required; normal commands continue to use the UTC system clock.
 
 Default commands do not call external APIs, real Lean, experiment runners, LaTeX tools, Docker, a
 server, or a frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI reviewer, Stage B
-OpenAlex, OpenAI prose, Stage C Lean/local synthetic, and LaTeX render-check commands above may
-call an external API or local external tool.
+OpenAlex, OpenAI prose, end-to-end LLM orchestration, Stage C Lean/local synthetic, and LaTeX
+render-check commands above may call an external API or local external tool.

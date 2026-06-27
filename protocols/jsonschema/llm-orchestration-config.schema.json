@@ -1,0 +1,325 @@
+{
+  "$defs": {
+    "LLMBudgetConfig": {
+      "additionalProperties": false,
+      "description": "Explicit budget limits for gated end-to-end LLM orchestration.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "fail_on_budget_unknown": {
+          "default": true,
+          "title": "Fail On Budget Unknown",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_candidate_generation_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Candidate Generation Calls"
+        },
+        "max_estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Estimated Cost Usd"
+        },
+        "max_prose_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Prose Calls"
+        },
+        "max_retries_per_call": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Max Retries Per Call",
+          "type": "integer"
+        },
+        "max_review_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Review Calls"
+        },
+        "max_total_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Calls"
+        },
+        "max_total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Input Tokens"
+        },
+        "max_total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total Output Tokens"
+        },
+        "max_wallclock_seconds": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Wallclock Seconds"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        }
+      },
+      "title": "LLMBudgetConfig",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.12.0/llm-orchestration-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Configuration for gated end-to-end LLM paper orchestration.",
+  "properties": {
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
+    "apply_safe_fake_revision": {
+      "default": false,
+      "title": "Apply Safe Fake Revision",
+      "type": "boolean"
+    },
+    "budget": {
+      "$ref": "#/$defs/LLMBudgetConfig"
+    },
+    "candidate_backend": {
+      "default": "fake",
+      "title": "Candidate Backend",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critique": {
+      "default": true,
+      "title": "Critique",
+      "type": "boolean"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "evaluate_release": {
+      "default": true,
+      "title": "Evaluate Release",
+      "type": "boolean"
+    },
+    "export_latex": {
+      "default": true,
+      "title": "Export Latex",
+      "type": "boolean"
+    },
+    "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+    },
+    "generate_paper": {
+      "default": true,
+      "title": "Generate Paper",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "include_citations": {
+      "default": true,
+      "title": "Include Citations",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latex_executable": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Executable"
+    },
+    "llm_model": {
+      "default": "gpt-5-mini",
+      "title": "Llm Model",
+      "type": "string"
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method"
+    },
+    "prose_backend": {
+      "default": "fake",
+      "title": "Prose Backend",
+      "type": "string"
+    },
+    "prose_model": {
+      "default": "gpt-5-mini",
+      "title": "Prose Model",
+      "type": "string"
+    },
+    "reexport_latex_after_revision": {
+      "default": false,
+      "title": "Reexport Latex After Revision",
+      "type": "boolean"
+    },
+    "render_check": {
+      "default": false,
+      "title": "Render Check",
+      "type": "boolean"
+    },
+    "rerun_policy": {
+      "default": "fail-if-exists",
+      "title": "Rerun Policy",
+      "type": "string"
+    },
+    "reviewer_backend": {
+      "default": "fake",
+      "title": "Reviewer Backend",
+      "type": "string"
+    },
+    "reviewer_max_objections": {
+      "default": 5,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Reviewer Max Objections",
+      "type": "integer"
+    },
+    "reviewer_model": {
+      "default": "gpt-5-mini",
+      "title": "Reviewer Model",
+      "type": "string"
+    },
+    "revise": {
+      "default": false,
+      "title": "Revise",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "write_report": {
+      "default": false,
+      "title": "Write Report",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id",
+    "domain"
+  ],
+  "title": "LLMOrchestrationConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.12.0",
+  "x-factori-source-model": "factori.schemas.LLMOrchestrationConfig",
+  "x-factori-verification-evidence": false
+}

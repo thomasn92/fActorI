@@ -283,7 +283,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.11.0/prose-generation-request.schema.json",
+  "$id": "https://schemas.factori.local/0.12.0/prose-generation-request.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider-neutral one-section prose generation request.",
@@ -346,7 +346,7 @@
   ],
   "title": "ProseGenerationRequest",
   "type": "object",
-  "x-factori-protocol-version": "0.11.0",
+  "x-factori-protocol-version": "0.12.0",
   "x-factori-source-model": "factori.schemas.ProseGenerationRequest",
   "x-factori-verification-evidence": false
 }

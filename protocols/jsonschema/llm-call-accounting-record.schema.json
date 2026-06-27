@@ -1,0 +1,172 @@
+{
+  "$defs": {
+    "LLMCallStatus": {
+      "description": "Accounting status for one planned or observed LLM call.",
+      "enum": [
+        "Planned",
+        "Skipped",
+        "Succeeded",
+        "Failed"
+      ],
+      "title": "LLMCallStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.12.0/llm-call-accounting-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Secret-safe accounting record for one LLM call.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "completed_at": {
+      "minLength": 1,
+      "title": "Completed At",
+      "type": "string"
+    },
+    "contains_secret": {
+      "default": false,
+      "title": "Contains Secret",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "error_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Type"
+    },
+    "estimated_cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Estimated Cost Usd"
+    },
+    "external_call_performed": {
+      "default": false,
+      "title": "External Call Performed",
+      "type": "boolean"
+    },
+    "input_token_estimate": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Token Estimate"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "output_token_estimate": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Token Estimate"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "request_hash": {
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Request Hash",
+      "type": "string"
+    },
+    "response_hash": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Response Hash"
+    },
+    "retry_status": {
+      "default": "retry_not_enabled",
+      "title": "Retry Status",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/LLMCallStatus"
+    },
+    "step_name": {
+      "minLength": 1,
+      "title": "Step Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "step_name",
+    "backend",
+    "provider",
+    "request_hash",
+    "started_at",
+    "completed_at",
+    "status"
+  ],
+  "title": "LLMCallAccountingRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.12.0",
+  "x-factori-source-model": "factori.schemas.LLMCallAccountingRecord",
+  "x-factori-verification-evidence": false
+}
