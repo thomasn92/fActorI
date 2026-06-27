@@ -14,6 +14,8 @@ from factori.schemas import (
     LatexExportResult,
     ManuscriptDraftingPlan,
     NarrativeManuscriptContract,
+    PaperCriticReport,
+    PaperRevisionResult,
     PaperShapeCritique,
     PipelineRunConfig,
     VerificationLabel,
@@ -33,6 +35,8 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert ManuscriptDraftingPlan in vars(schemas).values()
     assert CompleteMarkdownDraft in vars(schemas).values()
     assert LatexExportResult in vars(schemas).values()
+    assert PaperCriticReport in vars(schemas).values()
+    assert PaperRevisionResult in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -52,6 +56,8 @@ def test_schema_all_contains_expected_public_names() -> None:
         "ManuscriptDraftingPlan",
         "CompleteMarkdownDraft",
         "LatexExportResult",
+        "PaperCriticReport",
+        "PaperRevisionResult",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -92,4 +98,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 106
+    assert len(get_protocol_definitions()) == 114

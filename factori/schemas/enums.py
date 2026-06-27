@@ -81,6 +81,54 @@ class ManuscriptDraftStatus(StrEnum):
     DRAFT_FAILED = "DraftFailed"
 
 
+class PaperCriticFindingSeverity(StrEnum):
+    """Paper critic finding severity; manuscript-quality diagnostic only."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    MAJOR = "Major"
+    BLOCKING = "Blocking"
+
+
+class PaperCriticFindingType(StrEnum):
+    """Deterministic paper critic finding categories."""
+
+    NARRATIVE_SHAPE_FINDING = "NarrativeShapeFinding"
+    CITATION_SAFETY_FINDING = "CitationSafetyFinding"
+    EVIDENCE_BOUNDARY_FINDING = "EvidenceBoundaryFinding"
+    LATEX_SAFETY_FINDING = "LatexSafetyFinding"
+    SOURCE_MAP_FINDING = "SourceMapFinding"
+    SECTION_COHERENCE_FINDING = "SectionCoherenceFinding"
+    EMPIRICAL_BOUNDARY_FINDING = "EmpiricalBoundaryFinding"
+    APPENDIX_ALLOCATION_FINDING = "AppendixAllocationFinding"
+
+
+class PaperRevisionActionKind(StrEnum):
+    """Conservative deterministic revision actions."""
+
+    ADD_CENTRAL_MESSAGE = "AddCentralMessage"
+    CLARIFY_PROBLEM_STATEMENT = "ClarifyProblemStatement"
+    ADD_BOUNDED_LITERATURE_GAP = "AddBoundedLiteratureGap"
+    DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE = "DowngradeUnsupportedClaimLanguage"
+    REMOVE_INVENTED_CITATION = "RemoveInventedCitation"
+    ADD_CITATION_LIMITATION = "AddCitationLimitation"
+    MOVE_TECHNICAL_LEMMA_TO_APPENDIX = "MoveTechnicalLemmaToAppendix"
+    CLARIFY_SYNTHETIC_ONLY_BOUNDARY = "ClarifySyntheticOnlyBoundary"
+    ADD_MISSING_LIMITATION = "AddMissingLimitation"
+    ADD_SOURCE_MAP_WARNING = "AddSourceMapWarning"
+    NO_ACTION_NEEDED = "NoActionNeeded"
+
+
+class PaperRevisionStatus(StrEnum):
+    """Status of one deterministic paper revision pass."""
+
+    REVISION_APPLIED = "RevisionApplied"
+    REVISION_APPLIED_WITH_WARNINGS = "RevisionAppliedWithWarnings"
+    REVISION_BLOCKED_UNSAFE = "RevisionBlockedUnsafe"
+    NO_REVISION_NEEDED = "NoRevisionNeeded"
+    REVISION_FAILED = "RevisionFailed"
+
+
 class BranchStatus(StrEnum):
     """Branch and run status labels for the MVP."""
 
@@ -208,6 +256,8 @@ class ControllerActionType(StrEnum):
     MANUSCRIPT_DRAFT_WRITTEN = "ManuscriptDraftWritten"
     CITATION_REGISTRY_WRITTEN = "CitationRegistryWritten"
     LATEX_EXPORT_WRITTEN = "LatexExportWritten"
+    PAPER_CRITIC_REPORT_WRITTEN = "PaperCriticReportWritten"
+    PAPER_REVISION_WRITTEN = "PaperRevisionWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 

@@ -28,6 +28,7 @@ Stage A candidate generation
   -> Export preparation
   -> Optional Markdown manuscript drafting
   -> Optional LaTeX export and gated render checks
+  -> Optional paper critique and safe fake revision
   -> Replay verification
 ```
 
@@ -48,6 +49,8 @@ completed run from disk and checks consistency without changing provenance.
   presentation-only Markdown manuscript drafting;
 - deterministic citation-safe LaTeX export from complete Markdown drafts, with source maps and
   optional gated render diagnostics;
+- deterministic paper critique and conservative fake revision over generated Markdown/LaTeX
+  artifacts without evidence, label, citation, or publication-readiness authority;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 
@@ -72,9 +75,9 @@ external review readiness
 production orchestration
 ```
 
-Presentation, Markdown, LaTeX, render, and planning artifacts are not verification evidence. Fake
-proof and experiment adapters remain deterministic test doubles and must not be presented as real
-scientific validation.
+Presentation, Markdown, LaTeX, render, revision, and planning artifacts are not verification
+evidence. Fake proof and experiment adapters remain deterministic test doubles and must not be
+presented as real scientific validation.
 
 ## Source of Truth
 

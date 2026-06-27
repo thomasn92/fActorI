@@ -15,6 +15,10 @@ from factori.schemas.enums import (
     FinalNucleusType,
     ManuscriptDraftStatus,
     NarrativeSectionRole,
+    PaperCriticFindingSeverity,
+    PaperCriticFindingType,
+    PaperRevisionActionKind,
+    PaperRevisionStatus,
     PaperShapeStatus,
     VerificationLabel,
 )
@@ -283,6 +287,141 @@ class PaperShapeCritique(StrictModel):
     fake: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+
+
+class PaperCriticFinding(StrictModel):
+    """One deterministic paper-level manuscript-quality finding; not evidence."""
+
+    finding_id: str = Field(min_length=1)
+    finding_type: PaperCriticFindingType
+    severity: PaperCriticFindingSeverity
+    section_id: str | None = None
+    section_title: str | None = None
+    message: str = Field(min_length=1)
+    recommended_action: PaperRevisionActionKind
+    source: str = Field(min_length=1)
+    blocking: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class PaperReleaseReadinessPreview(StrictModel):
+    """Non-authoritative readiness preview from manuscript-quality checks only."""
+
+    run_id: str = Field(min_length=1)
+    ready_for_revision_review: bool
+    blocking_findings: int = Field(ge=0)
+    major_findings: int = Field(ge=0)
+    warning_findings: int = Field(ge=0)
+    publication_ready: bool = False
+    reasons: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class PaperCriticReport(StrictModel):
+    """Paper-level critique over Markdown/LaTeX artifacts; not scientific validation."""
+
+    report_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    manuscript_draft_artifact_id: str | None = None
+    latex_artifact_id: str | None = None
+    source_map_artifact_id: str | None = None
+    findings: list[PaperCriticFinding] = Field(default_factory=list)
+    findings_count: int = Field(ge=0)
+    blocking_findings: int = Field(ge=0)
+    major_findings: int = Field(ge=0)
+    warning_findings: int = Field(ge=0)
+    info_findings: int = Field(ge=0)
+    paper_shape_status: PaperShapeStatus | None = None
+    citation_safe: bool | None = None
+    latex_safe: bool | None = None
+    source_map_covered: bool | None = None
+    release_readiness_preview: PaperReleaseReadinessPreview
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class SectionRevisionPlan(StrictModel):
+    """Safe deterministic revision actions for one section."""
+
+    section_id: str = Field(min_length=1)
+    section_title: str = Field(min_length=1)
+    actions: list[PaperRevisionActionKind] = Field(default_factory=list)
+    finding_ids: list[str] = Field(default_factory=list)
+    safe_to_apply: bool = True
+    notes: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class PaperRevisionPlan(StrictModel):
+    """A deterministic non-authoritative paper revision plan."""
+
+    plan_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    critic_report_id: str = Field(min_length=1)
+    actions: list[PaperRevisionActionKind] = Field(default_factory=list)
+    section_plans: list[SectionRevisionPlan] = Field(default_factory=list)
+    blocking_actions: list[PaperRevisionActionKind] = Field(default_factory=list)
+    safe_to_apply: bool
+    warnings: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class PaperRevisionPatch(StrictModel):
+    """One deterministic text patch from the safe fake revision pass."""
+
+    patch_id: str = Field(min_length=1)
+    action: PaperRevisionActionKind
+    target_section_id: str | None = None
+    before_snippet: str = ""
+    after_snippet: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    safe: bool = True
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class RevisionSafetyReport(StrictModel):
+    """Safety report for a revised manuscript draft; not evidence."""
+
+    run_id: str = Field(min_length=1)
+    safe: bool
+    rejected: bool
+    reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    invented_citation_keys: list[str] = Field(default_factory=list)
+    known_citation_keys_preserved: list[str] = Field(default_factory=list)
+    created_or_upgraded_labels: bool = False
+    mutated_claim_table: bool = False
+    mutated_evidence_map: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class PaperRevisionResult(StrictModel):
+    """Result of one deterministic fake paper revision pass."""
+
+    run_id: str = Field(min_length=1)
+    revision_status: PaperRevisionStatus
+    critic_report_id: str = Field(min_length=1)
+    revision_plan_id: str = Field(min_length=1)
+    revised_markdown: str = ""
+    patches: list[PaperRevisionPatch] = Field(default_factory=list)
+    safety_report: RevisionSafetyReport
+    critic_report_artifact_id: str | None = None
+    revision_plan_artifact_id: str | None = None
+    revision_safety_artifact_id: str | None = None
+    revised_markdown_artifact_id: str | None = None
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class CitationKey(StrictModel):
@@ -683,6 +822,14 @@ __all__ = [
     "AppendixAllocationAssessment",
     "PaperShapeScore",
     "PaperShapeCritique",
+    "PaperCriticFinding",
+    "PaperCriticReport",
+    "PaperReleaseReadinessPreview",
+    "SectionRevisionPlan",
+    "PaperRevisionPlan",
+    "PaperRevisionPatch",
+    "RevisionSafetyReport",
+    "PaperRevisionResult",
     "CitationKey",
     "CitationRecord",
     "CitationRegistry",

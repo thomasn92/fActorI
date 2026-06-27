@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.8.0
+  --new-version 0.9.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -149,6 +149,13 @@ uv run factori export-latex --run-id demo --write-report
 uv run factori export-latex --run-id demo --json
 uv run factori export-latex --run-id demo \
   --render-check --allow-external-tools --latex-executable pdflatex
+uv run factori critique-paper --run-id demo
+uv run factori critique-paper --run-id demo --write-report
+uv run factori critique-paper --run-id demo --json
+uv run factori revise-paper --run-id demo
+uv run factori revise-paper --run-id demo --json
+uv run factori revise-paper --run-id demo \
+  --apply-safe-fake-revision --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -240,6 +247,19 @@ uv run factori export-latex --run-id demo --write-report
 uv run factori export-latex --run-id demo --json
 uv run factori export-latex --run-id demo \
   --render-check --allow-external-tools --latex-executable pdflatex
+```
+
+Paper critique and revision are manuscript-quality operations. `critique-paper` is read-only by
+default. `revise-paper` plans revisions by default; it writes a revised draft only with
+`--apply-safe-fake-revision --write-report`. Revision artifacts are presentation/context only and
+cannot invent citations, mutate claim/evidence tables, create verification evidence, upgrade
+labels, or imply publication readiness:
+
+```bash
+uv run factori critique-paper --run-id demo --write-report
+uv run factori revise-paper --run-id demo --json
+uv run factori revise-paper --run-id demo \
+  --apply-safe-fake-revision --write-report
 ```
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and

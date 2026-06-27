@@ -45,10 +45,11 @@
 | 40 | Section-by-section Markdown manuscript drafting with fake-default prose, strict safety validation, and complete draft assembly | `manuscript_drafting.py`, `manuscript_assembly.py`, `prose_contract.py`, `adapters/prose_safety.py` | `draft-manuscript` | Optional draft artifacts are hashed and ledgered manuscript/prose/presentation context only, not verification evidence |
 | 41 | Citation registry and bounded literature-positioning integration for Markdown manuscript drafts | `citations.py`, `literature_positioning.py`, `manuscript_drafting.py`, `manuscript_assembly.py`, `adapters/prose_safety.py` | `build-citation-registry`, `draft-manuscript --include-citations` | Optional citation/literature artifacts are hashed and ledgered manuscript/context artifacts only; citations are not proof, experiment, human approval, scientific validation, or novelty proof |
 | 42 | LaTeX export, bibliography placeholders, source-map preservation, safety checks, and optional gated render diagnostics from complete Markdown drafts | `latex_export.py`, `latex_safety.py`, `latex_render.py`, `manuscript_assembly.py`, `citations.py` | `export-latex` | Optional LaTeX/export artifacts are hashed and ledgered presentation/export context only; render checks are gated and never imply scientific validation or publication readiness |
+| 43 | Paper critic and deterministic safe fake revision loop over Markdown/LaTeX artifacts | `paper_critic.py`, `paper_revision.py`, `paper_shape.py`, `latex_safety.py` | `critique-paper`, `revise-paper` | Critique is read-only by default; optional revision artifacts are hashed and ledgered manuscript/revision context only and cannot create evidence, labels, citations, or publication readiness |
 
 ## Current Boundary
 
-Milestones through 42 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 43 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. They do not implement autonomous
@@ -78,3 +79,7 @@ from retrieval metadata, but they remain bounded context and cannot create claim
 scientific validation, novelty proof, or label upgrades. Complete Markdown drafts can now be
 exported to LaTeX source, bibliography placeholders, source maps, and optional gated render
 diagnostics, but those artifacts remain presentation/export context only.
+Generated paper critiques and safe fake revision passes can identify and downgrade unsafe
+manuscript language, add missing limitations or source-map warnings, and preserve known citations,
+but they cannot create evidence, mutate claim/evidence tables, invent bibliography entries, upgrade
+labels, or imply publication readiness.

@@ -1,0 +1,296 @@
+{
+  "$defs": {
+    "PaperRevisionActionKind": {
+      "description": "Conservative deterministic revision actions.",
+      "enum": [
+        "AddCentralMessage",
+        "ClarifyProblemStatement",
+        "AddBoundedLiteratureGap",
+        "DowngradeUnsupportedClaimLanguage",
+        "RemoveInventedCitation",
+        "AddCitationLimitation",
+        "MoveTechnicalLemmaToAppendix",
+        "ClarifySyntheticOnlyBoundary",
+        "AddMissingLimitation",
+        "AddSourceMapWarning",
+        "NoActionNeeded"
+      ],
+      "title": "PaperRevisionActionKind",
+      "type": "string"
+    },
+    "PaperRevisionPatch": {
+      "additionalProperties": false,
+      "description": "One deterministic text patch from the safe fake revision pass.",
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/PaperRevisionActionKind"
+        },
+        "after_snippet": {
+          "minLength": 1,
+          "title": "After Snippet",
+          "type": "string"
+        },
+        "before_snippet": {
+          "default": "",
+          "title": "Before Snippet",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "patch_id": {
+          "minLength": 1,
+          "title": "Patch Id",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "safe": {
+          "default": true,
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "target_section_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Section Id"
+        }
+      },
+      "required": [
+        "patch_id",
+        "action",
+        "after_snippet",
+        "rationale"
+      ],
+      "title": "PaperRevisionPatch",
+      "type": "object"
+    },
+    "PaperRevisionStatus": {
+      "description": "Status of one deterministic paper revision pass.",
+      "enum": [
+        "RevisionApplied",
+        "RevisionAppliedWithWarnings",
+        "RevisionBlockedUnsafe",
+        "NoRevisionNeeded",
+        "RevisionFailed"
+      ],
+      "title": "PaperRevisionStatus",
+      "type": "string"
+    },
+    "RevisionSafetyReport": {
+      "additionalProperties": false,
+      "description": "Safety report for a revised manuscript draft; not evidence.",
+      "properties": {
+        "created_or_upgraded_labels": {
+          "default": false,
+          "title": "Created Or Upgraded Labels",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "invented_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Invented Citation Keys",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "known_citation_keys_preserved": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Known Citation Keys Preserved",
+          "type": "array"
+        },
+        "mutated_claim_table": {
+          "default": false,
+          "title": "Mutated Claim Table",
+          "type": "boolean"
+        },
+        "mutated_evidence_map": {
+          "default": false,
+          "title": "Mutated Evidence Map",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "rejected": {
+          "title": "Rejected",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "safe": {
+          "title": "Safe",
+          "type": "boolean"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "safe",
+        "rejected"
+      ],
+      "title": "RevisionSafetyReport",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.9.0/paper-revision-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Result of one deterministic fake paper revision pass.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_report_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Critic Report Artifact Id"
+    },
+    "critic_report_id": {
+      "minLength": 1,
+      "title": "Critic Report Id",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "patches": {
+      "items": {
+        "$ref": "#/$defs/PaperRevisionPatch"
+      },
+      "title": "Patches",
+      "type": "array"
+    },
+    "revised_markdown": {
+      "default": "",
+      "title": "Revised Markdown",
+      "type": "string"
+    },
+    "revised_markdown_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revised Markdown Artifact Id"
+    },
+    "revision_plan_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revision Plan Artifact Id"
+    },
+    "revision_plan_id": {
+      "minLength": 1,
+      "title": "Revision Plan Id",
+      "type": "string"
+    },
+    "revision_safety_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revision Safety Artifact Id"
+    },
+    "revision_status": {
+      "$ref": "#/$defs/PaperRevisionStatus"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_report": {
+      "$ref": "#/$defs/RevisionSafetyReport"
+    }
+  },
+  "required": [
+    "run_id",
+    "revision_status",
+    "critic_report_id",
+    "revision_plan_id",
+    "safety_report"
+  ],
+  "title": "PaperRevisionResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.PaperRevisionResult",
+  "x-factori-verification-evidence": false
+}

@@ -87,7 +87,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.8.0/retrieval-result.schema.json",
+  "$id": "https://schemas.factori.local/0.9.0/retrieval-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Normalized retrieval source result.",
@@ -256,7 +256,7 @@
   ],
   "title": "RetrievalResult",
   "type": "object",
-  "x-factori-protocol-version": "0.8.0",
+  "x-factori-protocol-version": "0.9.0",
   "x-factori-source-model": "factori.schemas.RetrievalResult",
   "x-factori-verification-evidence": false
 }

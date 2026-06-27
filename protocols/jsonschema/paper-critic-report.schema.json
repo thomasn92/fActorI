@@ -1,0 +1,368 @@
+{
+  "$defs": {
+    "PaperCriticFinding": {
+      "additionalProperties": false,
+      "description": "One deterministic paper-level manuscript-quality finding; not evidence.",
+      "properties": {
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "finding_type": {
+          "$ref": "#/$defs/PaperCriticFindingType"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "recommended_action": {
+          "$ref": "#/$defs/PaperRevisionActionKind"
+        },
+        "section_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Id"
+        },
+        "section_title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Section Title"
+        },
+        "severity": {
+          "$ref": "#/$defs/PaperCriticFindingSeverity"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "finding_type",
+        "severity",
+        "message",
+        "recommended_action",
+        "source"
+      ],
+      "title": "PaperCriticFinding",
+      "type": "object"
+    },
+    "PaperCriticFindingSeverity": {
+      "description": "Paper critic finding severity; manuscript-quality diagnostic only.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Major",
+        "Blocking"
+      ],
+      "title": "PaperCriticFindingSeverity",
+      "type": "string"
+    },
+    "PaperCriticFindingType": {
+      "description": "Deterministic paper critic finding categories.",
+      "enum": [
+        "NarrativeShapeFinding",
+        "CitationSafetyFinding",
+        "EvidenceBoundaryFinding",
+        "LatexSafetyFinding",
+        "SourceMapFinding",
+        "SectionCoherenceFinding",
+        "EmpiricalBoundaryFinding",
+        "AppendixAllocationFinding"
+      ],
+      "title": "PaperCriticFindingType",
+      "type": "string"
+    },
+    "PaperReleaseReadinessPreview": {
+      "additionalProperties": false,
+      "description": "Non-authoritative readiness preview from manuscript-quality checks only.",
+      "properties": {
+        "blocking_findings": {
+          "minimum": 0,
+          "title": "Blocking Findings",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "major_findings": {
+          "minimum": 0,
+          "title": "Major Findings",
+          "type": "integer"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "ready_for_revision_review": {
+          "title": "Ready For Revision Review",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "warning_findings": {
+          "minimum": 0,
+          "title": "Warning Findings",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "run_id",
+        "ready_for_revision_review",
+        "blocking_findings",
+        "major_findings",
+        "warning_findings"
+      ],
+      "title": "PaperReleaseReadinessPreview",
+      "type": "object"
+    },
+    "PaperRevisionActionKind": {
+      "description": "Conservative deterministic revision actions.",
+      "enum": [
+        "AddCentralMessage",
+        "ClarifyProblemStatement",
+        "AddBoundedLiteratureGap",
+        "DowngradeUnsupportedClaimLanguage",
+        "RemoveInventedCitation",
+        "AddCitationLimitation",
+        "MoveTechnicalLemmaToAppendix",
+        "ClarifySyntheticOnlyBoundary",
+        "AddMissingLimitation",
+        "AddSourceMapWarning",
+        "NoActionNeeded"
+      ],
+      "title": "PaperRevisionActionKind",
+      "type": "string"
+    },
+    "PaperShapeStatus": {
+      "description": "Diagnostic paper-shape status; not a scientific validation label.",
+      "enum": [
+        "PaperShaped",
+        "PaperShapedWithWarnings",
+        "PaperShapeWeak",
+        "NotPaperShaped"
+      ],
+      "title": "PaperShapeStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.9.0/paper-critic-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Paper-level critique over Markdown/LaTeX artifacts; not scientific validation.",
+  "properties": {
+    "blocking_findings": {
+      "minimum": 0,
+      "title": "Blocking Findings",
+      "type": "integer"
+    },
+    "citation_safe": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Citation Safe"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/PaperCriticFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "findings_count": {
+      "minimum": 0,
+      "title": "Findings Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "info_findings": {
+      "minimum": 0,
+      "title": "Info Findings",
+      "type": "integer"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latex_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Artifact Id"
+    },
+    "latex_safe": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Safe"
+    },
+    "major_findings": {
+      "minimum": 0,
+      "title": "Major Findings",
+      "type": "integer"
+    },
+    "manuscript_draft_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Manuscript Draft Artifact Id"
+    },
+    "paper_shape_status": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PaperShapeStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "release_readiness_preview": {
+      "$ref": "#/$defs/PaperReleaseReadinessPreview"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_map_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Map Artifact Id"
+    },
+    "source_map_covered": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Map Covered"
+    },
+    "warning_findings": {
+      "minimum": 0,
+      "title": "Warning Findings",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "report_id",
+    "run_id",
+    "findings_count",
+    "blocking_findings",
+    "major_findings",
+    "warning_findings",
+    "info_findings",
+    "release_readiness_preview"
+  ],
+  "title": "PaperCriticReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.PaperCriticReport",
+  "x-factori-verification-evidence": false
+}

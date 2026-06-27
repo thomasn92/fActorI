@@ -1,0 +1,541 @@
+"""Deterministic safe fake revision pass for generated paper drafts."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from factori.artifacts import ArtifactStore
+from factori.citations import CITATION_MARKER_RE
+from factori.ledger import ResearchLedger
+from factori.paper_critic import (
+    RETRIEVAL_NOVELTY_CLAIMS,
+    SYNTHETIC_AS_REAL_CLAIMS,
+    build_paper_revision_plan,
+    critique_paper_from_run,
+)
+from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.schemas import (
+    ArtifactRef,
+    ArtifactType,
+    CitationRegistry,
+    ControllerActionType,
+    PaperCriticReport,
+    PaperRevisionActionKind,
+    PaperRevisionPatch,
+    PaperRevisionPlan,
+    PaperRevisionResult,
+    PaperRevisionStatus,
+    RevisionSafetyReport,
+)
+
+REVISION_CONTEXT_WARNING = (
+    "Paper revision artifacts are manuscript/revision context only and cannot create "
+    "evidence, upgrade labels, or imply publication readiness."
+)
+
+
+@dataclass(frozen=True)
+class PaperRevisionRunResult:
+    """Result of read-only planning or one persisted fake revision pass."""
+
+    run_id: str
+    critic_report: PaperCriticReport
+    revision_plan: PaperRevisionPlan
+    revision_result: PaperRevisionResult | None = None
+    critic_report_artifact: ArtifactRef | None = None
+    revision_plan_artifact: ArtifactRef | None = None
+    revision_safety_artifact: ArtifactRef | None = None
+    revised_markdown_artifact: ArtifactRef | None = None
+    commit_hash: str | None = None
+
+
+def apply_safe_fake_revision(
+    *,
+    run_id: str,
+    markdown: str,
+    revision_plan: PaperRevisionPlan,
+    citation_registry: CitationRegistry | None = None,
+) -> PaperRevisionResult:
+    """Apply one deterministic conservative text-only revision pass."""
+    revised = markdown
+    patches: list[PaperRevisionPatch] = []
+    for action in revision_plan.actions:
+        if action == PaperRevisionActionKind.NO_ACTION_NEEDED:
+            continue
+        revised, action_patches = _apply_action(
+            revised,
+            action,
+            citation_registry=citation_registry,
+        )
+        patches.extend(action_patches)
+    safety = validate_revision_safety(
+        run_id=run_id,
+        original_markdown=markdown,
+        revised_markdown=revised,
+        citation_registry=citation_registry,
+    )
+    status = _revision_status(patches, safety)
+    return PaperRevisionResult(
+        run_id=run_id,
+        revision_status=status,
+        critic_report_id=revision_plan.critic_report_id,
+        revision_plan_id=revision_plan.plan_id,
+        revised_markdown=revised,
+        patches=_with_patch_ids(patches),
+        safety_report=safety,
+    )
+
+
+def validate_revision_safety(
+    *,
+    run_id: str,
+    original_markdown: str,
+    revised_markdown: str,
+    citation_registry: CitationRegistry | None = None,
+) -> RevisionSafetyReport:
+    """Validate that a revised draft did not invent evidence, labels, or citations."""
+    reasons: list[str] = []
+    warnings = [REVISION_CONTEXT_WARNING]
+    allowed_citations = (
+        {record.citation_key for record in citation_registry.citations}
+        if citation_registry is not None
+        else set()
+    )
+    original_keys = set(CITATION_MARKER_RE.findall(original_markdown))
+    revised_keys = set(CITATION_MARKER_RE.findall(revised_markdown))
+    invented = (
+        sorted(revised_keys - allowed_citations)
+        if citation_registry
+        else sorted(revised_keys)
+    )
+    if invented:
+        reasons.append(
+            "revision introduced or retained unknown citation keys: "
+            + ", ".join(invented)
+        )
+    lower = _normalized(revised_markdown)
+    if any(phrase in lower for phrase in RETRIEVAL_NOVELTY_CLAIMS):
+        reasons.append("revision still describes retrieval or citations as novelty/proof evidence")
+    if any(phrase in lower for phrase in SYNTHETIC_AS_REAL_CLAIMS):
+        reasons.append("revision still describes synthetic evidence as real-world validation")
+    forbidden_labels = [
+        "leanverified",
+        "syntheticexperimentverified",
+        "realdataexperimentverified",
+        "empiricallyvalidated",
+        "realworldvalidated",
+    ]
+    created_or_upgraded = any(label in lower for label in forbidden_labels)
+    if created_or_upgraded:
+        reasons.append("revision contains unsupported verification-label language")
+    if "publication ready" in lower or "publication-ready" in lower:
+        reasons.append("revision implies publication readiness")
+    known_preserved = sorted(original_keys & revised_keys & allowed_citations)
+    return RevisionSafetyReport(
+        run_id=run_id,
+        safe=not reasons,
+        rejected=bool(reasons),
+        reasons=sorted(set(reasons)),
+        warnings=warnings,
+        invented_citation_keys=invented,
+        known_citation_keys_preserved=known_preserved,
+        created_or_upgraded_labels=created_or_upgraded,
+        mutated_claim_table=False,
+        mutated_evidence_map=False,
+    )
+
+
+def revise_paper_from_run(
+    *,
+    run_id: str,
+    root: str | Path,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    apply_safe_fake_revision_flag: bool = False,
+    write_report: bool = False,
+) -> PaperRevisionRunResult:
+    """Plan or apply one safe fake paper revision pass for the latest draft."""
+    critic = critique_paper_from_run(
+        run_id=run_id,
+        root=root,
+        store=store,
+        ledger=ledger,
+        write_report=False,
+    )
+    plan = build_paper_revision_plan(critic.critic_report)
+    if not apply_safe_fake_revision_flag:
+        return PaperRevisionRunResult(
+            run_id=run_id,
+            critic_report=critic.critic_report,
+            revision_plan=plan,
+        )
+    revision_result = apply_safe_fake_revision(
+        run_id=run_id,
+        markdown=critic.inputs.markdown,
+        revision_plan=plan,
+        citation_registry=critic.inputs.citation_registry,
+    )
+    result = PaperRevisionRunResult(
+        run_id=run_id,
+        critic_report=critic.critic_report,
+        revision_plan=plan,
+        revision_result=revision_result,
+    )
+    if not write_report:
+        return result
+    persistence = write_paper_revision_artifacts(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        critic_report=critic.critic_report,
+        revision_plan=plan,
+        revision_result=revision_result,
+    )
+    return _with_persisted_artifacts(result, persistence)
+
+
+def write_paper_revision_artifacts(
+    *,
+    run_id: str,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    critic_report: PaperCriticReport,
+    revision_plan: PaperRevisionPlan,
+    revision_result: PaperRevisionResult,
+) -> PersistenceResult:
+    """Persist critic, plan, safety, and revised draft artifacts as context only."""
+    metadata = _paper_revision_metadata()
+    revision_result = revision_result.model_copy(
+        update={
+            "critic_report_artifact_id": "paper-critic-report",
+            "revision_plan_artifact_id": "paper-revision-plan",
+            "revision_safety_artifact_id": "revision-safety-report",
+            "revised_markdown_artifact_id": "revised-manuscript-draft",
+        }
+    )
+    return persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id="paper-critic-report",
+                artifact_type=ArtifactType.REPORT,
+                payload=critic_report,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id="paper-revision-plan",
+                artifact_type=ArtifactType.REPORT,
+                payload=revision_plan,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id="revision-safety-report",
+                artifact_type=ArtifactType.REPORT,
+                payload=revision_result.safety_report,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id="revised-manuscript-draft",
+                artifact_type=ArtifactType.REPORT,
+                payload=revision_result.revised_markdown,
+                artifact_format="markdown",
+                metadata={**metadata, "artifact_role": "paper_revision_presentation_draft"},
+            ),
+            ArtifactWriteSpec(
+                artifact_id="paper-revision-result",
+                artifact_type=ArtifactType.REPORT,
+                payload=revision_result,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+        ],
+        action_type=ControllerActionType.PAPER_REVISION_WRITTEN,
+        commit_payload={
+            "run_id": run_id,
+            "revision_status": revision_result.revision_status.value,
+            "patches": len(revision_result.patches),
+            "safe": revision_result.safety_report.safe,
+            "is_verification_evidence": False,
+            "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
+        },
+    )
+
+
+def _apply_action(
+    markdown: str,
+    action: PaperRevisionActionKind,
+    *,
+    citation_registry: CitationRegistry | None,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    if action == PaperRevisionActionKind.ADD_CENTRAL_MESSAGE:
+        return _ensure_section(
+            markdown,
+            heading="Central Message",
+            body=(
+                "This deterministic revision adds a placeholder central message. "
+                "It does not create evidence or upgrade any claim label."
+            ),
+            action=action,
+        )
+    if action == PaperRevisionActionKind.CLARIFY_PROBLEM_STATEMENT:
+        return _insert_after_heading(
+            markdown,
+            "Introduction",
+            "Problem framing is stated as a deterministic placeholder for revision only.",
+            action,
+        )
+    if action in {
+        PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP,
+        PaperRevisionActionKind.ADD_CITATION_LIMITATION,
+    }:
+        return _insert_after_heading(
+            markdown,
+            "Introduction",
+            (
+                "Literature positioning is bounded by the retrieved citation metadata and is "
+                "non-exhaustive; it does not prove novelty."
+            ),
+            action,
+        )
+    if action == PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE:
+        return _replace_unsafe_claim_language(markdown, action)
+    if action == PaperRevisionActionKind.REMOVE_INVENTED_CITATION:
+        return _remove_unknown_citations(markdown, citation_registry, action)
+    if action == PaperRevisionActionKind.CLARIFY_SYNTHETIC_ONLY_BOUNDARY:
+        return _clarify_synthetic_boundary(markdown, action)
+    if action == PaperRevisionActionKind.ADD_MISSING_LIMITATION:
+        return _ensure_section(
+            markdown,
+            heading="Limitations",
+            body=(
+                "This deterministic revision records missing limitations. Presentation drafts "
+                "do not create evidence, empirical validation, or publication readiness."
+            ),
+            action=action,
+        )
+    if action == PaperRevisionActionKind.ADD_SOURCE_MAP_WARNING:
+        return _ensure_section(
+            markdown,
+            heading="Source Map Notes",
+            body=(
+                "LaTeX source-map coverage should be regenerated from the revised Markdown "
+                "before presentation review."
+            ),
+            action=action,
+        )
+    if action == PaperRevisionActionKind.MOVE_TECHNICAL_LEMMA_TO_APPENDIX:
+        return _ensure_section(
+            markdown,
+            heading="Appendix",
+            body="Technical lemmas should be allocated here rather than expanded in the main body.",
+            action=action,
+        )
+    return markdown, []
+
+
+def _ensure_section(
+    markdown: str,
+    *,
+    heading: str,
+    body: str,
+    action: PaperRevisionActionKind,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    if f"## {heading}".lower() in markdown.lower():
+        return markdown, []
+    insertion = f"\n\n## {heading}\n\n{body}\n"
+    target = "## Claim/Evidence Appendix"
+    if target in markdown:
+        revised = markdown.replace(target, insertion.strip() + "\n\n" + target, 1)
+    else:
+        revised = markdown.rstrip() + insertion
+    return revised, [_patch(action, "", insertion.strip(), f"inserted {heading} section")]
+
+
+def _insert_after_heading(
+    markdown: str,
+    heading: str,
+    text: str,
+    action: PaperRevisionActionKind,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    marker = f"## {heading}"
+    if text in markdown:
+        return markdown, []
+    if marker not in markdown:
+        return _ensure_section(markdown, heading=heading, body=text, action=action)
+    revised = markdown.replace(marker, f"{marker}\n\n{text}", 1)
+    return revised, [_patch(action, marker, f"{marker}\n\n{text}", f"inserted {heading} note")]
+
+
+def _replace_unsafe_claim_language(
+    markdown: str,
+    action: PaperRevisionActionKind,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    replacements = {
+        "retrieval proves novelty": (
+            "retrieval provides bounded context relative to retrieved sources"
+        ),
+        "citations prove novelty": (
+            "citations provide bounded context relative to retrieved sources"
+        ),
+        "novelty is proven by retrieval": (
+            "novelty is positioned only relative to retrieved sources"
+        ),
+        "novelty is proven": "novelty is framed as a bounded positioning claim",
+        "LeanVerified": "proof-supported only with linked proof evidence",
+        "SyntheticExperimentVerified": (
+            "synthetic-experiment-supported only with linked synthetic evidence"
+        ),
+        "RealDataExperimentVerified": "real-data validation unavailable in this MVP",
+        "EmpiricallyValidated": "validation limited to stated non-empirical evidence",
+        "RealWorldValidated": "real-world validation unavailable in this MVP",
+    }
+    revised = markdown
+    patches: list[PaperRevisionPatch] = []
+    for before, after in replacements.items():
+        if before.lower() in revised.lower():
+            revised = _replace_case_insensitive(revised, before, after)
+            patches.append(_patch(action, before, after, "downgraded unsupported claim language"))
+    return revised, patches
+
+
+def _clarify_synthetic_boundary(
+    markdown: str,
+    action: PaperRevisionActionKind,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    replacements = {
+        "empirically validated": "validated only in the stated synthetic setting",
+        "real-world validation": "synthetic-only validation boundary",
+        "real world validation": "synthetic-only validation boundary",
+        "real-world validated": "validated only in the stated synthetic setting",
+        "validated on real data": "validated only in the stated synthetic setting",
+    }
+    revised = markdown
+    patches: list[PaperRevisionPatch] = []
+    for before, after in replacements.items():
+        if before in revised.lower():
+            revised = _replace_case_insensitive(revised, before, after)
+            patches.append(_patch(action, before, after, "clarified synthetic-only boundary"))
+    return revised, patches
+
+
+def _remove_unknown_citations(
+    markdown: str,
+    citation_registry: CitationRegistry | None,
+    action: PaperRevisionActionKind,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    allowed = (
+        {record.citation_key for record in citation_registry.citations}
+        if citation_registry is not None
+        else set()
+    )
+    revised = markdown
+    patches: list[PaperRevisionPatch] = []
+    for key in sorted(set(CITATION_MARKER_RE.findall(markdown))):
+        if key in allowed:
+            continue
+        before = f"[@{key}]"
+        after = f"[citation removed: {key} was not in the citation registry]"
+        revised = revised.replace(before, after)
+        patches.append(_patch(action, before, after, "removed invented citation marker"))
+    return revised, patches
+
+
+def _replace_case_insensitive(text: str, before: str, after: str) -> str:
+    import re
+
+    return re.sub(re.escape(before), after, text, flags=re.IGNORECASE)
+
+
+def _patch(
+    action: PaperRevisionActionKind,
+    before: str,
+    after: str,
+    rationale: str,
+) -> PaperRevisionPatch:
+    return PaperRevisionPatch(
+        patch_id="pending",
+        action=action,
+        before_snippet=before,
+        after_snippet=after,
+        rationale=rationale,
+    )
+
+
+def _with_patch_ids(patches: list[PaperRevisionPatch]) -> list[PaperRevisionPatch]:
+    return [
+        patch.model_copy(update={"patch_id": f"paper-revision-patch-{index:03d}"})
+        for index, patch in enumerate(patches, start=1)
+    ]
+
+
+def _revision_status(
+    patches: list[PaperRevisionPatch],
+    safety: RevisionSafetyReport,
+) -> PaperRevisionStatus:
+    if safety.rejected:
+        return PaperRevisionStatus.REVISION_BLOCKED_UNSAFE
+    if not patches:
+        return PaperRevisionStatus.NO_REVISION_NEEDED
+    if safety.warnings:
+        return PaperRevisionStatus.REVISION_APPLIED_WITH_WARNINGS
+    return PaperRevisionStatus.REVISION_APPLIED
+
+
+def _paper_revision_metadata() -> dict[str, object]:
+    return {
+        "stage": "paper_revision",
+        "artifact_role": "paper_revision_manuscript_context",
+        "is_verification_evidence": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+    }
+
+
+def _with_persisted_artifacts(
+    result: PaperRevisionRunResult,
+    persistence: PersistenceResult,
+) -> PaperRevisionRunResult:
+    artifacts = {artifact.id: artifact for artifact in persistence.artifacts}
+    revision_result = result.revision_result
+    if revision_result is not None:
+        revision_result = revision_result.model_copy(
+            update={
+                "critic_report_artifact_id": "paper-critic-report",
+                "revision_plan_artifact_id": "paper-revision-plan",
+                "revision_safety_artifact_id": "revision-safety-report",
+                "revised_markdown_artifact_id": "revised-manuscript-draft",
+            }
+        )
+    return PaperRevisionRunResult(
+        run_id=result.run_id,
+        critic_report=result.critic_report,
+        revision_plan=result.revision_plan,
+        revision_result=revision_result,
+        critic_report_artifact=artifacts.get("paper-critic-report"),
+        revision_plan_artifact=artifacts.get("paper-revision-plan"),
+        revision_safety_artifact=artifacts.get("revision-safety-report"),
+        revised_markdown_artifact=artifacts.get("revised-manuscript-draft"),
+        commit_hash=persistence.commit.commit_hash,
+    )
+
+
+def _normalized(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+__all__ = [
+    "REVISION_CONTEXT_WARNING",
+    "PaperRevisionRunResult",
+    "apply_safe_fake_revision",
+    "build_paper_revision_plan",
+    "revise_paper_from_run",
+    "validate_revision_safety",
+    "write_paper_revision_artifacts",
+]

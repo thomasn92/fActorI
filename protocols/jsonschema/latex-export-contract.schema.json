@@ -16,7 +16,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.8.0/latex-export-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.9.0/latex-export-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Markdown-to-LaTeX export contract; presentation only.",
@@ -125,7 +125,7 @@
   ],
   "title": "LatexExportContract",
   "type": "object",
-  "x-factori-protocol-version": "0.8.0",
+  "x-factori-protocol-version": "0.9.0",
   "x-factori-source-model": "factori.schemas.LatexExportContract",
   "x-factori-verification-evidence": false
 }

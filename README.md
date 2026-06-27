@@ -52,6 +52,9 @@ Implemented so far:
   drafts, with citation-safety checks and no novelty-proof authority;
 - deterministic LaTeX export from complete Markdown drafts, with bibliography placeholders,
   source maps, safety checks, and optional gated render diagnostics;
+- deterministic paper critic and one safe fake revision pass over Markdown/LaTeX artifacts,
+  covering paper shape, citation safety, evidence boundaries, source maps, and section-level
+  revision planning;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
@@ -148,6 +151,10 @@ uv run factori export-latex --run-id demo --write-report
 uv run factori export-latex --run-id demo --json
 uv run factori export-latex --run-id demo --render-check \
   --allow-external-tools --latex-executable pdflatex
+uv run factori critique-paper --run-id demo
+uv run factori critique-paper --run-id demo --write-report
+uv run factori revise-paper --run-id demo
+uv run factori revise-paper --run-id demo --apply-safe-fake-revision --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -177,7 +184,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.8.0
+  --old-version 0.1.0 --new-version 0.9.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -266,6 +273,13 @@ Generated section prose and complete Markdown drafts are accepted only as manusc
 They may be written as hashed, ledgered drafting artifacts, but they cannot create claims,
 invent citations or bibliography entries, create proof evidence, experiment evidence, retrieval
 evidence, human approval, empirical validation, novelty proof, or verification-label upgrades.
+
+Paper critic and revision artifacts are manuscript-quality context only. `critique-paper` checks
+paper shape, citation safety, evidence-boundary language, LaTeX/source-map coverage, and appendix
+presence. `revise-paper --apply-safe-fake-revision --write-report` can write a deterministic
+conservative revision that downgrades unsafe language and inserts missing warnings/placeholders.
+It cannot invent citations, mutate claim/evidence tables, create evidence, upgrade labels, or
+claim publication readiness.
 
 LaTeX export is accepted only as presentation/export context. `export-latex --write-report` writes
 content-hashed LaTeX source, bibliography placeholders, source maps, export reports, and safety

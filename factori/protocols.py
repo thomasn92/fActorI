@@ -67,6 +67,12 @@ from factori.schemas import (
     NarrativeManuscriptContract,
     NumericalStudyAssessment,
     OutputHygieneReport,
+    PaperCriticFinding,
+    PaperCriticReport,
+    PaperReleaseReadinessPreview,
+    PaperRevisionPatch,
+    PaperRevisionPlan,
+    PaperRevisionResult,
     PaperShapeCritique,
     PaperShapeScore,
     PaperSkeleton,
@@ -97,11 +103,13 @@ from factori.schemas import (
     RetrievalRunReport,
     RetrievedDocument,
     ReviewerPromptContract,
+    RevisionSafetyReport,
     RunStatusReport,
     ScoreVector,
     SectionDraftingResult,
     SectionDraftingTask,
     SectionDraftSafetySummary,
+    SectionRevisionPlan,
     StageBReviewerReport,
     StageCheckpoint,
     StageRerunDecision,
@@ -110,7 +118,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.8.0"
+PROTOCOL_VERSION = "0.9.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -469,6 +477,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "LatexExportResult",
         LatexExportResult,
         "Complete LaTeX export report; presentation only.",
+    ),
+    ProtocolDefinition(
+        "PaperCriticFinding",
+        PaperCriticFinding,
+        "One deterministic paper critic finding; not evidence.",
+    ),
+    ProtocolDefinition(
+        "PaperCriticReport",
+        PaperCriticReport,
+        "Paper-level critique over Markdown/LaTeX artifacts; not scientific validation.",
+    ),
+    ProtocolDefinition(
+        "PaperReleaseReadinessPreview",
+        PaperReleaseReadinessPreview,
+        "Non-authoritative manuscript-quality readiness preview.",
+    ),
+    ProtocolDefinition(
+        "SectionRevisionPlan",
+        SectionRevisionPlan,
+        "Safe deterministic revision plan for one manuscript section.",
+    ),
+    ProtocolDefinition(
+        "PaperRevisionPlan",
+        PaperRevisionPlan,
+        "Deterministic non-authoritative paper revision plan.",
+    ),
+    ProtocolDefinition(
+        "PaperRevisionPatch",
+        PaperRevisionPatch,
+        "One deterministic safe fake revision patch.",
+    ),
+    ProtocolDefinition(
+        "RevisionSafetyReport",
+        RevisionSafetyReport,
+        "Safety report for a revised manuscript draft.",
+    ),
+    ProtocolDefinition(
+        "PaperRevisionResult",
+        PaperRevisionResult,
+        "Result of one deterministic fake paper revision pass.",
     ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(

@@ -198,6 +198,10 @@ All implementation modules are under `factori/`.
   retrieval metadata, citation usage validation, and optional ledgered context-report persistence.
 - `literature_positioning.py`: bounded literature-positioning contracts, gap statements, and
   draft-ready limitation text that does not claim exhaustive coverage or novelty proof.
+- `paper_critic.py`: deterministic generated-paper critique across narrative shape, citation
+  safety, evidence-boundary language, LaTeX source maps, and appendix presence.
+- `paper_revision.py`: deterministic conservative fake revision planning/application that
+  downgrades unsafe language and preserves claim/evidence/citation boundaries.
 - `draft_skeleton.py`: deterministic Markdown/JSON draft scaffold generation.
 - `checklist.py`: manuscript checklist generation.
 - `final_paper.py`: assembled paper-shaped skeleton and assembly readiness report.

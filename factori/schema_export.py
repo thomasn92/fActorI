@@ -58,6 +58,16 @@ from factori.schemas import (
     ManuscriptDraftingReport,
     ManuscriptDraftStatus,
     NextStageRecommendation,
+    PaperCriticFinding,
+    PaperCriticFindingSeverity,
+    PaperCriticFindingType,
+    PaperCriticReport,
+    PaperReleaseReadinessPreview,
+    PaperRevisionActionKind,
+    PaperRevisionPatch,
+    PaperRevisionPlan,
+    PaperRevisionResult,
+    PaperRevisionStatus,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunReport,
@@ -79,11 +89,13 @@ from factori.schemas import (
     ResumeValidationStatus,
     RetrievalQuery,
     RetrievalResult,
+    RevisionSafetyReport,
     RunCompletenessStatus,
     RunStatusReport,
     SectionDraftingResult,
     SectionDraftingTask,
     SectionDraftSafetySummary,
+    SectionRevisionPlan,
     SourceProvenance,
     StageCheckpoint,
     StagePrerequisite,
@@ -131,6 +143,8 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "latex-source-map.example.json": "LatexSourceMap",
     "latex-render-result.example.json": "LatexRenderResult",
     "latex-export-result.example.json": "LatexExportResult",
+    "paper-critic-report.example.json": "PaperCriticReport",
+    "paper-revision-result.example.json": "PaperRevisionResult",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
     "research-object-manifest.example.json": "ResearchObjectManifest",
@@ -728,6 +742,91 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         compile_check_report=latex_compile_check,
         warnings=["LaTeX export is presentation/context only."],
     )
+    paper_critic_finding = PaperCriticFinding(
+        finding_id="paper-finding-001",
+        finding_type=PaperCriticFindingType.NARRATIVE_SHAPE_FINDING,
+        severity=PaperCriticFindingSeverity.WARNING,
+        section_id="introduction",
+        section_title="Introduction",
+        message="bounded literature disclaimer is missing",
+        recommended_action=PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP,
+        source="markdown",
+    )
+    paper_readiness_preview = PaperReleaseReadinessPreview(
+        run_id="example",
+        ready_for_revision_review=True,
+        blocking_findings=0,
+        major_findings=0,
+        warning_findings=1,
+        publication_ready=False,
+        reasons=["Paper critic preview is not publication readiness."],
+    )
+    paper_critic_report = PaperCriticReport(
+        report_id="paper-critic-report-example",
+        run_id="example",
+        manuscript_draft_artifact_id="complete-manuscript-draft",
+        latex_artifact_id="paper",
+        source_map_artifact_id="latex-source-map",
+        findings=[paper_critic_finding],
+        findings_count=1,
+        blocking_findings=0,
+        major_findings=0,
+        warning_findings=1,
+        info_findings=0,
+        citation_safe=True,
+        latex_safe=True,
+        source_map_covered=True,
+        release_readiness_preview=paper_readiness_preview,
+    )
+    section_revision_plan = SectionRevisionPlan(
+        section_id="introduction",
+        section_title="Introduction",
+        actions=[PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP],
+        finding_ids=[paper_critic_finding.finding_id],
+        notes=[paper_critic_finding.message],
+    )
+    paper_revision_plan = PaperRevisionPlan(
+        plan_id="paper-revision-plan-example",
+        run_id="example",
+        critic_report_id=paper_critic_report.report_id,
+        actions=[PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP],
+        section_plans=[section_revision_plan],
+        safe_to_apply=True,
+        warnings=["Revision plan is not publication readiness."],
+    )
+    paper_revision_patch = PaperRevisionPatch(
+        patch_id="paper-revision-patch-001",
+        action=PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP,
+        target_section_id="introduction",
+        before_snippet="## Introduction",
+        after_snippet=(
+            "## Introduction\n\nLiterature positioning is bounded and non-exhaustive."
+        ),
+        rationale="inserted bounded literature disclaimer",
+    )
+    revision_safety_report = RevisionSafetyReport(
+        run_id="example",
+        safe=True,
+        rejected=False,
+        warnings=[
+            "Paper revision artifacts are manuscript/revision context only and cannot "
+            "create evidence."
+        ],
+        known_citation_keys_preserved=[citation_record.citation_key],
+    )
+    paper_revision_result = PaperRevisionResult(
+        run_id="example",
+        revision_status=PaperRevisionStatus.REVISION_APPLIED_WITH_WARNINGS,
+        critic_report_id=paper_critic_report.report_id,
+        revision_plan_id=paper_revision_plan.plan_id,
+        revised_markdown=(
+            "# Deterministic example manuscript draft\n\n"
+            "## Introduction\n\n"
+            "Literature positioning is bounded and non-exhaustive.\n"
+        ),
+        patches=[paper_revision_patch],
+        safety_report=revision_safety_report,
+    )
     pipeline_report = PipelineRunReport(
         run_id="example",
         domain="machine learning",
@@ -905,6 +1004,8 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "latex-source-map.example.json": latex_source_map.model_dump(mode="json"),
         "latex-render-result.example.json": latex_render_result.model_dump(mode="json"),
         "latex-export-result.example.json": latex_export_result.model_dump(mode="json"),
+        "paper-critic-report.example.json": paper_critic_report.model_dump(mode="json"),
+        "paper-revision-result.example.json": paper_revision_result.model_dump(mode="json"),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),

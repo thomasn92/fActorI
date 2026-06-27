@@ -1,0 +1,71 @@
+{
+  "$id": "https://schemas.factori.local/0.9.0/paper-release-readiness-preview.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-authoritative manuscript-quality readiness preview.",
+  "properties": {
+    "blocking_findings": {
+      "minimum": 0,
+      "title": "Blocking Findings",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "major_findings": {
+      "minimum": 0,
+      "title": "Major Findings",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "ready_for_revision_review": {
+      "title": "Ready For Revision Review",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warning_findings": {
+      "minimum": 0,
+      "title": "Warning Findings",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "ready_for_revision_review",
+    "blocking_findings",
+    "major_findings",
+    "warning_findings"
+  ],
+  "title": "PaperReleaseReadinessPreview",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.PaperReleaseReadinessPreview",
+  "x-factori-verification-evidence": false
+}

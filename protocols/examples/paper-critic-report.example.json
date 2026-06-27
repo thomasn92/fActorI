@@ -1,0 +1,48 @@
+{
+  "blocking_findings": 0,
+  "citation_safe": true,
+  "creates_scientific_validation": false,
+  "findings": [
+    {
+      "blocking": false,
+      "creates_scientific_validation": false,
+      "finding_id": "paper-finding-001",
+      "finding_type": "NarrativeShapeFinding",
+      "is_verification_evidence": false,
+      "message": "bounded literature disclaimer is missing",
+      "recommended_action": "AddBoundedLiteratureGap",
+      "section_id": "introduction",
+      "section_title": "Introduction",
+      "severity": "Warning",
+      "source": "markdown"
+    }
+  ],
+  "findings_count": 1,
+  "implies_publication_readiness": false,
+  "info_findings": 0,
+  "is_verification_evidence": false,
+  "latex_artifact_id": "paper",
+  "latex_safe": true,
+  "major_findings": 0,
+  "manuscript_draft_artifact_id": "complete-manuscript-draft",
+  "paper_shape_status": null,
+  "release_readiness_preview": {
+    "blocking_findings": 0,
+    "creates_scientific_validation": false,
+    "implies_publication_readiness": false,
+    "is_verification_evidence": false,
+    "major_findings": 0,
+    "publication_ready": false,
+    "ready_for_revision_review": true,
+    "reasons": [
+      "Paper critic preview is not publication readiness."
+    ],
+    "run_id": "example",
+    "warning_findings": 1
+  },
+  "report_id": "paper-critic-report-example",
+  "run_id": "example",
+  "source_map_artifact_id": "latex-source-map",
+  "source_map_covered": true,
+  "warning_findings": 1
+}

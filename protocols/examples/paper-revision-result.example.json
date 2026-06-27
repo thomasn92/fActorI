@@ -1,0 +1,46 @@
+{
+  "creates_scientific_validation": false,
+  "critic_report_artifact_id": null,
+  "critic_report_id": "paper-critic-report-example",
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "patches": [
+    {
+      "action": "AddBoundedLiteratureGap",
+      "after_snippet": "## Introduction\n\nLiterature positioning is bounded and non-exhaustive.",
+      "before_snippet": "## Introduction",
+      "creates_scientific_validation": false,
+      "is_verification_evidence": false,
+      "patch_id": "paper-revision-patch-001",
+      "rationale": "inserted bounded literature disclaimer",
+      "safe": true,
+      "target_section_id": "introduction"
+    }
+  ],
+  "revised_markdown": "# Deterministic example manuscript draft\n\n## Introduction\n\nLiterature positioning is bounded and non-exhaustive.\n",
+  "revised_markdown_artifact_id": null,
+  "revision_plan_artifact_id": null,
+  "revision_plan_id": "paper-revision-plan-example",
+  "revision_safety_artifact_id": null,
+  "revision_status": "RevisionAppliedWithWarnings",
+  "run_id": "example",
+  "safety_report": {
+    "created_or_upgraded_labels": false,
+    "creates_scientific_validation": false,
+    "implies_publication_readiness": false,
+    "invented_citation_keys": [],
+    "is_verification_evidence": false,
+    "known_citation_keys_preserved": [
+      "Author1970SyntheticCalibrationContext"
+    ],
+    "mutated_claim_table": false,
+    "mutated_evidence_map": false,
+    "reasons": [],
+    "rejected": false,
+    "run_id": "example",
+    "safe": true,
+    "warnings": [
+      "Paper revision artifacts are manuscript/revision context only and cannot create evidence."
+    ]
+  }
+}

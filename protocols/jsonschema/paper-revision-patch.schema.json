@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "PaperRevisionActionKind": {
+      "description": "Conservative deterministic revision actions.",
+      "enum": [
+        "AddCentralMessage",
+        "ClarifyProblemStatement",
+        "AddBoundedLiteratureGap",
+        "DowngradeUnsupportedClaimLanguage",
+        "RemoveInventedCitation",
+        "AddCitationLimitation",
+        "MoveTechnicalLemmaToAppendix",
+        "ClarifySyntheticOnlyBoundary",
+        "AddMissingLimitation",
+        "AddSourceMapWarning",
+        "NoActionNeeded"
+      ],
+      "title": "PaperRevisionActionKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.9.0/paper-revision-patch.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic safe fake revision patch.",
+  "properties": {
+    "action": {
+      "$ref": "#/$defs/PaperRevisionActionKind"
+    },
+    "after_snippet": {
+      "minLength": 1,
+      "title": "After Snippet",
+      "type": "string"
+    },
+    "before_snippet": {
+      "default": "",
+      "title": "Before Snippet",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "patch_id": {
+      "minLength": 1,
+      "title": "Patch Id",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "safe": {
+      "default": true,
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "target_section_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section Id"
+    }
+  },
+  "required": [
+    "patch_id",
+    "action",
+    "after_snippet",
+    "rationale"
+  ],
+  "title": "PaperRevisionPatch",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.PaperRevisionPatch",
+  "x-factori-verification-evidence": false
+}

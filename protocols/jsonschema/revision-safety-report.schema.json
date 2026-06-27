@@ -1,0 +1,89 @@
+{
+  "$id": "https://schemas.factori.local/0.9.0/revision-safety-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Safety report for a revised manuscript draft.",
+  "properties": {
+    "created_or_upgraded_labels": {
+      "default": false,
+      "title": "Created Or Upgraded Labels",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "invented_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Invented Citation Keys",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "known_citation_keys_preserved": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Known Citation Keys Preserved",
+      "type": "array"
+    },
+    "mutated_claim_table": {
+      "default": false,
+      "title": "Mutated Claim Table",
+      "type": "boolean"
+    },
+    "mutated_evidence_map": {
+      "default": false,
+      "title": "Mutated Evidence Map",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safe": {
+      "title": "Safe",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "safe",
+    "rejected"
+  ],
+  "title": "RevisionSafetyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.RevisionSafetyReport",
+  "x-factori-verification-evidence": false
+}

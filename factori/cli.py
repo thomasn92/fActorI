@@ -76,6 +76,8 @@ from factori.output_hygiene import (
     summarize_output_hygiene,
     write_output_hygiene_report,
 )
+from factori.paper_critic import PaperCriticError, critique_paper_from_run
+from factori.paper_revision import revise_paper_from_run
 from factori.paper_shape import critique_paper_shape, write_paper_shape_reports
 from factori.prose_contract import SectionDraftGenerationError, generate_section_draft
 from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
@@ -1773,6 +1775,158 @@ def export_latex_command(
         typer.echo(f"references_bib={result.bibliography_artifact.path}")
     if result.source_map_artifact is not None:
         typer.echo(f"latex_source_map={result.source_map_artifact.path}")
+
+
+@app.command("critique-paper")
+def critique_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Critique generated Markdown/LaTeX paper artifacts without scientific authority."""
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = critique_paper_from_run(
+            run_id=run_id,
+            root=root,
+            store=store,
+            ledger=ledger,
+            write_report=write_report,
+        )
+    except PaperCriticError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    report = result.critic_report
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "paper_critic_report": report.model_dump(mode="json"),
+                    "artifacts": {
+                        "paper_critic_report": (
+                            result.critic_report_artifact.model_dump(mode="json")
+                            if result.critic_report_artifact
+                            else None
+                        )
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"findings={report.findings_count}")
+    typer.echo(f"blocking_findings={report.blocking_findings}")
+    typer.echo(f"major_findings={report.major_findings}")
+    typer.echo(f"warning_findings={report.warning_findings}")
+    typer.echo("publication_ready=false")
+    typer.echo("is_verification_evidence=false")
+    typer.echo("creates_scientific_validation=false")
+    if result.critic_report_artifact is not None:
+        typer.echo(f"paper_critic_report={result.critic_report_artifact.path}")
+
+
+@app.command("revise-paper")
+def revise_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    apply_safe_fake_revision: Annotated[
+        bool,
+        typer.Option("--apply-safe-fake-revision"),
+    ] = False,
+) -> None:
+    """Plan or apply one deterministic safe fake revision pass."""
+    if write_report and not apply_safe_fake_revision:
+        typer.echo(
+            "revise-paper --write-report requires --apply-safe-fake-revision",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    try:
+        result = revise_paper_from_run(
+            run_id=run_id,
+            root=root,
+            store=store,
+            ledger=ledger,
+            apply_safe_fake_revision_flag=apply_safe_fake_revision,
+            write_report=write_report,
+        )
+    except PaperCriticError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    revision_result = result.revision_result
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "paper_critic_report": result.critic_report.model_dump(mode="json"),
+                    "paper_revision_plan": result.revision_plan.model_dump(mode="json"),
+                    "paper_revision_result": (
+                        revision_result.model_dump(mode="json")
+                        if revision_result is not None
+                        else None
+                    ),
+                    "artifacts": {
+                        "paper_critic_report": (
+                            result.critic_report_artifact.model_dump(mode="json")
+                            if result.critic_report_artifact
+                            else None
+                        ),
+                        "paper_revision_plan": (
+                            result.revision_plan_artifact.model_dump(mode="json")
+                            if result.revision_plan_artifact
+                            else None
+                        ),
+                        "revision_safety_report": (
+                            result.revision_safety_artifact.model_dump(mode="json")
+                            if result.revision_safety_artifact
+                            else None
+                        ),
+                        "revised_manuscript_draft": (
+                            result.revised_markdown_artifact.model_dump(mode="json")
+                            if result.revised_markdown_artifact
+                            else None
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"actions={len(result.revision_plan.actions)}")
+    typer.echo(f"safe_to_apply={str(result.revision_plan.safe_to_apply).lower()}")
+    typer.echo(
+        "revision_status="
+        + (
+            revision_result.revision_status.value
+            if revision_result is not None
+            else "planning_only"
+        )
+    )
+    typer.echo(
+        "patches="
+        + (str(len(revision_result.patches)) if revision_result is not None else "0")
+    )
+    typer.echo("publication_ready=false")
+    typer.echo("is_verification_evidence=false")
+    typer.echo("creates_scientific_validation=false")
+    if result.revision_plan_artifact is not None:
+        typer.echo(f"paper_revision_plan={result.revision_plan_artifact.path}")
+    if result.revision_safety_artifact is not None:
+        typer.echo(f"revision_safety_report={result.revision_safety_artifact.path}")
+    if result.revised_markdown_artifact is not None:
+        typer.echo(f"revised_manuscript_draft={result.revised_markdown_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

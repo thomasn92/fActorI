@@ -19,6 +19,7 @@ Constraints
   -> Export contracts and maps
   -> Optional citation-safe section-by-section Markdown manuscript draft
   -> Optional LaTeX export with source maps and gated render diagnostics
+  -> Optional paper critique and safe fake revision pass
   -> Read-only replay verification
 ```
 
@@ -79,10 +80,11 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.8.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
-prose, citation/literature-positioning, manuscript drafting, LaTeX export/render, and enum
-contracts. Timestamp fields such as `timestamp`, `started_at`, `finished_at`, `created_at`, and
-`retrieved_at` are emitted with JSON Schema `format: date-time`. Python-specific path and secret
+Protocol version `0.9.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+prose, citation/literature-positioning, manuscript drafting, LaTeX export/render,
+paper-critic/revision, and enum contracts. Timestamp fields such as `timestamp`, `started_at`,
+`finished_at`, `created_at`, and `retrieved_at` are emitted with JSON Schema `format: date-time`.
+Python-specific path and secret
 annotations are normalized with explicit `x-factori-*` metadata for cross-language consumers.
 Examples are validated against generated schemas by `factori validate-protocol-examples`.
 Version movement is checked by `factori check-protocol-version` using the MAJOR/MINOR/PATCH rules
@@ -186,6 +188,14 @@ executable. LaTeX sources, source maps, bibliography placeholders, render report
 cannot create or upgrade labels, mutate claim/evidence tables, prove publication readiness, or
 justify proof, experiment, retrieval, human-review, or scientific-validation evidence.
 
+The paper critic and revision layer inspects generated Markdown/LaTeX artifacts for paper shape,
+citation safety, evidence-boundary language, source-map coverage, and appendix/limitations
+presence. `critique-paper` is read-only by default. `revise-paper` plans revisions by default and
+only writes artifacts with an explicit safe fake revision flag. Revision artifacts are
+manuscript/revision context only: they may downgrade unsafe wording and add missing disclaimers or
+placeholders, but they cannot invent citations, mutate claim/evidence tables, create evidence,
+upgrade labels, or imply publication readiness.
+
 ## Mutating and Read-Only Operations
 
 Pipeline stages from Stage A through export preparation mutate run state. Every such stage must
@@ -195,6 +205,10 @@ append ledger commits for state-changing decisions and write content-hashed arti
 content-hashed LaTeX artifacts and a source map. It is not part of default `run-all`. Without
 `--write-report`, it computes and reports export readiness without writing artifacts. Optional
 render checks remain gated by `allow_external_tools=true`.
+
+`critique-paper` is read-only unless `--write-report` is supplied. `revise-paper` is read-only in
+planning mode; `--apply-safe-fake-revision --write-report` writes content-hashed
+manuscript/revision context artifacts without changing claim/evidence tables or evidence labels.
 
 Inspection commands such as `show-ledger` and `validate-run` are read-only. Replay verification is
 strictly read-only. `replay-verify --write-report` may write under `runs/<run_id>/replay/`, but those

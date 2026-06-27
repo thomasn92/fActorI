@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "PaperRevisionActionKind": {
+      "description": "Conservative deterministic revision actions.",
+      "enum": [
+        "AddCentralMessage",
+        "ClarifyProblemStatement",
+        "AddBoundedLiteratureGap",
+        "DowngradeUnsupportedClaimLanguage",
+        "RemoveInventedCitation",
+        "AddCitationLimitation",
+        "MoveTechnicalLemmaToAppendix",
+        "ClarifySyntheticOnlyBoundary",
+        "AddMissingLimitation",
+        "AddSourceMapWarning",
+        "NoActionNeeded"
+      ],
+      "title": "PaperRevisionActionKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.9.0/section-revision-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Safe deterministic revision plan for one manuscript section.",
+  "properties": {
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/PaperRevisionActionKind"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "finding_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Finding Ids",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    },
+    "safe_to_apply": {
+      "default": true,
+      "title": "Safe To Apply",
+      "type": "boolean"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "section_title": {
+      "minLength": 1,
+      "title": "Section Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "section_id",
+    "section_title"
+  ],
+  "title": "SectionRevisionPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.SectionRevisionPlan",
+  "x-factori-verification-evidence": false
+}

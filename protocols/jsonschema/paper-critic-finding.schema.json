@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "PaperCriticFindingSeverity": {
+      "description": "Paper critic finding severity; manuscript-quality diagnostic only.",
+      "enum": [
+        "Info",
+        "Warning",
+        "Major",
+        "Blocking"
+      ],
+      "title": "PaperCriticFindingSeverity",
+      "type": "string"
+    },
+    "PaperCriticFindingType": {
+      "description": "Deterministic paper critic finding categories.",
+      "enum": [
+        "NarrativeShapeFinding",
+        "CitationSafetyFinding",
+        "EvidenceBoundaryFinding",
+        "LatexSafetyFinding",
+        "SourceMapFinding",
+        "SectionCoherenceFinding",
+        "EmpiricalBoundaryFinding",
+        "AppendixAllocationFinding"
+      ],
+      "title": "PaperCriticFindingType",
+      "type": "string"
+    },
+    "PaperRevisionActionKind": {
+      "description": "Conservative deterministic revision actions.",
+      "enum": [
+        "AddCentralMessage",
+        "ClarifyProblemStatement",
+        "AddBoundedLiteratureGap",
+        "DowngradeUnsupportedClaimLanguage",
+        "RemoveInventedCitation",
+        "AddCitationLimitation",
+        "MoveTechnicalLemmaToAppendix",
+        "ClarifySyntheticOnlyBoundary",
+        "AddMissingLimitation",
+        "AddSourceMapWarning",
+        "NoActionNeeded"
+      ],
+      "title": "PaperRevisionActionKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.9.0/paper-critic-finding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic paper critic finding; not evidence.",
+  "properties": {
+    "blocking": {
+      "default": false,
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "finding_id": {
+      "minLength": 1,
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "finding_type": {
+      "$ref": "#/$defs/PaperCriticFindingType"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "message": {
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "recommended_action": {
+      "$ref": "#/$defs/PaperRevisionActionKind"
+    },
+    "section_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Section Id"
+    },
+    "section_title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Section Title"
+    },
+    "severity": {
+      "$ref": "#/$defs/PaperCriticFindingSeverity"
+    },
+    "source": {
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "finding_id",
+    "finding_type",
+    "severity",
+    "message",
+    "recommended_action",
+    "source"
+  ],
+  "title": "PaperCriticFinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.9.0",
+  "x-factori-source-model": "factori.schemas.PaperCriticFinding",
+  "x-factori-verification-evidence": false
+}

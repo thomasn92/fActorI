@@ -21,7 +21,9 @@ run-control and adapter contracts without importing Python.
   `CitationUsage`, `CitationSafetyReport`, `LiteratureGapStatement`,
   `LiteraturePositioningContract`, `LiteraturePositioningReport`, `LatexExportContract`,
   `LatexSourceMap`, `LatexSafetyReport`, `LatexRenderConfig`, `LatexRenderResult`,
-  `LatexCompileCheckReport`, `LatexExportResult`, and `HumanReviewDecision`.
+  `LatexCompileCheckReport`, `LatexExportResult`, `PaperCriticFinding`, `PaperCriticReport`,
+  `PaperReleaseReadinessPreview`, `SectionRevisionPlan`, `PaperRevisionPlan`,
+  `PaperRevisionPatch`, `RevisionSafetyReport`, `PaperRevisionResult`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -51,8 +53,8 @@ current rerun policy:
 - read-only operations remain rerunnable and must not create ledger commits.
 
 Read-only operations include status, resume validation, dry-run planning, replay verification,
-diagnostics, cross-run comparison, hygiene inspection, remediation planning, protocol export,
-protocol validation, compatibility checks, and version checks.
+diagnostics, cross-run comparison, hygiene inspection, remediation planning, paper critique,
+protocol export, protocol validation, compatibility checks, and version checks.
 
 ## Adapter and Evidence Rules
 
@@ -77,3 +79,8 @@ external-tool jobs with explicit executable configuration. LaTeX source, bibliog
 source maps, render reports, and rendered PDFs remain presentation artifacts only and cannot imply
 publication readiness or create proof, experiment, retrieval, human-review, or scientific-validation
 evidence.
+Paper critique may be exposed as a read-only manuscript-quality job. Paper revision must be exposed
+as an explicit manuscript/revision job that preserves claim/evidence tables, citation registries,
+and labels. Revision artifacts remain context/presentation artifacts only and cannot imply peer
+review, publication readiness, proof evidence, experiment evidence, retrieval evidence, human
+approval, or scientific validation.

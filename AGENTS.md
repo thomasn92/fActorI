@@ -66,6 +66,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   artifacts with bibliography placeholders and source maps. Optional render checks require
   `allow_external_tools=true` and an explicit LaTeX executable. Do not treat LaTeX or rendered PDF
   output as scientific validation, verification evidence, human approval, or publication readiness.
+- The paper critic and deterministic fake revision layer inspects generated Markdown/LaTeX
+  manuscript artifacts and may write conservative revision artifacts only with an explicit apply
+  flag. It must not be treated as peer review, publication readiness, scientific validation,
+  evidence creation, citation creation, or label authority.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -122,6 +126,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   PDFs are presentation/export context only. They must not create or upgrade claim labels, mutate
   claim/evidence tables, prove publication readiness, or justify proof, experiment, retrieval, or
   human-review evidence.
+- Paper critic reports, revision plans, revision safety reports, revised Markdown drafts, and
+  revised LaTeX artifacts are manuscript/revision context only. They must not create or upgrade
+  claim labels, mutate claim/evidence tables, invent citations, prove publication readiness, or
+  justify proof, experiment, retrieval, human-review, or scientific-validation evidence.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

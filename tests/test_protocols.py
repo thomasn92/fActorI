@@ -21,6 +21,12 @@ from factori.schemas import (
     ManuscriptAssemblyReport,
     ManuscriptDraftingPlan,
     ManuscriptDraftingReport,
+    PaperCriticFinding,
+    PaperCriticReport,
+    PaperReleaseReadinessPreview,
+    PaperRevisionPatch,
+    PaperRevisionPlan,
+    PaperRevisionResult,
     PipelineStageResult,
     ProofVerificationResult,
     ProseGenerationParseResult,
@@ -28,9 +34,11 @@ from factori.schemas import (
     ProsePromptContract,
     ProseSafetyReport,
     ProseSectionContract,
+    RevisionSafetyReport,
     RunStatusReport,
     SectionDraftingResult,
     SectionDraftingTask,
+    SectionRevisionPlan,
     StageBReviewerReport,
     StageRerunDecision,
 )
@@ -43,9 +51,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 106
+    assert len(first) == 114
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.8.0"
+    assert PROTOCOL_VERSION == "0.9.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -80,6 +88,16 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("LatexSafetyReport").model is LatexSafetyReport
     assert get_protocol_definition("LatexRenderResult").model is LatexRenderResult
     assert get_protocol_definition("LatexExportResult").model is LatexExportResult
+    assert get_protocol_definition("PaperCriticFinding").model is PaperCriticFinding
+    assert get_protocol_definition("PaperCriticReport").model is PaperCriticReport
+    assert get_protocol_definition("PaperReleaseReadinessPreview").model is (
+        PaperReleaseReadinessPreview
+    )
+    assert get_protocol_definition("SectionRevisionPlan").model is SectionRevisionPlan
+    assert get_protocol_definition("PaperRevisionPlan").model is PaperRevisionPlan
+    assert get_protocol_definition("PaperRevisionPatch").model is PaperRevisionPatch
+    assert get_protocol_definition("RevisionSafetyReport").model is RevisionSafetyReport
+    assert get_protocol_definition("PaperRevisionResult").model is PaperRevisionResult
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -131,6 +149,14 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "LatexRenderResult",
         "LatexCompileCheckReport",
         "LatexExportResult",
+        "PaperCriticFinding",
+        "PaperCriticReport",
+        "PaperReleaseReadinessPreview",
+        "SectionRevisionPlan",
+        "PaperRevisionPlan",
+        "PaperRevisionPatch",
+        "RevisionSafetyReport",
+        "PaperRevisionResult",
         "CitationRecord",
         "CitationRegistry",
         "BibliographyEntry",
