@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "RerunPolicy": {
+      "description": "Explicit policy for invoking a stage against existing completion artifacts.",
+      "enum": [
+        "FailIfExists",
+        "SkipIfComplete",
+        "AllowIfForced",
+        "ReadOnlyOnly"
+      ],
+      "title": "RerunPolicy",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.10.0/full-paper-generation-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Configuration for end-to-end non-evidence paper generation.",
+  "properties": {
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "allow_external_tools": {
+      "default": false,
+      "title": "Allow External Tools",
+      "type": "boolean"
+    },
+    "apply_safe_fake_revision": {
+      "default": false,
+      "title": "Apply Safe Fake Revision",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critique": {
+      "default": true,
+      "title": "Critique",
+      "type": "boolean"
+    },
+    "export_latex": {
+      "default": true,
+      "title": "Export Latex",
+      "type": "boolean"
+    },
+    "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "include_citations": {
+      "default": true,
+      "title": "Include Citations",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latex_executable": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Executable"
+    },
+    "prose_backend": {
+      "default": "fake",
+      "title": "Prose Backend",
+      "type": "string"
+    },
+    "prose_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prose Model"
+    },
+    "reexport_latex_after_revision": {
+      "default": false,
+      "title": "Reexport Latex After Revision",
+      "type": "boolean"
+    },
+    "render_check": {
+      "default": false,
+      "title": "Render Check",
+      "type": "boolean"
+    },
+    "rerun_policy": {
+      "$ref": "#/$defs/RerunPolicy",
+      "default": "FailIfExists"
+    },
+    "revise": {
+      "default": false,
+      "title": "Revise",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "write_report": {
+      "default": false,
+      "title": "Write Report",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "FullPaperGenerationConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.10.0",
+  "x-factori-source-model": "factori.schemas.FullPaperGenerationConfig",
+  "x-factori-verification-evidence": false
+}

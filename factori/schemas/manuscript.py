@@ -13,6 +13,8 @@ from factori.schemas.enums import (
     ArtifactType,
     ChecklistCategory,
     FinalNucleusType,
+    FullPaperGenerationStatus,
+    FullPaperGenerationStepStatus,
     ManuscriptDraftStatus,
     NarrativeSectionRole,
     PaperCriticFindingSeverity,
@@ -20,6 +22,7 @@ from factori.schemas.enums import (
     PaperRevisionActionKind,
     PaperRevisionStatus,
     PaperShapeStatus,
+    RerunPolicy,
     VerificationLabel,
 )
 
@@ -419,6 +422,109 @@ class PaperRevisionResult(StrictModel):
     revision_plan_artifact_id: str | None = None
     revision_safety_artifact_id: str | None = None
     revised_markdown_artifact_id: str | None = None
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class FullPaperGenerationConfig(StrictModel):
+    """Configuration for the non-evidence full-paper generation workflow."""
+
+    run_id: str = Field(min_length=1)
+    include_citations: bool = True
+    export_latex: bool = True
+    critique: bool = True
+    revise: bool = False
+    apply_safe_fake_revision: bool = False
+    reexport_latex_after_revision: bool = False
+    render_check: bool = False
+    allow_external_tools: bool = False
+    latex_executable: str | None = None
+    prose_backend: str = "fake"
+    allow_external_calls: bool = False
+    prose_model: str | None = None
+    write_report: bool = False
+    rerun_policy: RerunPolicy = RerunPolicy.FAIL_IF_EXISTS
+    force: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class FullPaperGenerationStep(StrictModel):
+    """One deterministic full-paper workflow step."""
+
+    step_name: str = Field(min_length=1)
+    status: FullPaperGenerationStepStatus
+    summary: str = Field(min_length=1)
+    artifact_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    error_message: str | None = None
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+
+
+class FullPaperArtifactBundle(StrictModel):
+    """Artifact IDs that make up one generated paper package."""
+
+    run_id: str = Field(min_length=1)
+    citation_registry_artifact_id: str | None = None
+    literature_positioning_report_artifact_id: str | None = None
+    citation_safety_report_artifact_id: str | None = None
+    manuscript_drafting_plan_artifact_id: str | None = None
+    manuscript_drafting_report_artifact_id: str | None = None
+    complete_manuscript_draft_artifact_id: str | None = None
+    manuscript_assembly_report_artifact_id: str | None = None
+    latex_artifact_id: str | None = None
+    references_artifact_id: str | None = None
+    latex_source_map_artifact_id: str | None = None
+    latex_export_report_artifact_id: str | None = None
+    latex_safety_report_artifact_id: str | None = None
+    latex_compile_check_report_artifact_id: str | None = None
+    paper_critic_report_artifact_id: str | None = None
+    paper_revision_plan_artifact_id: str | None = None
+    revision_safety_report_artifact_id: str | None = None
+    revised_manuscript_draft_artifact_id: str | None = None
+    paper_revision_result_artifact_id: str | None = None
+    revised_latex_artifact_id: str | None = None
+    revised_references_artifact_id: str | None = None
+    revised_latex_source_map_artifact_id: str | None = None
+    revised_latex_export_report_artifact_id: str | None = None
+    revised_latex_safety_report_artifact_id: str | None = None
+    full_paper_generation_report_artifact_id: str | None = None
+    full_paper_artifact_bundle_artifact_id: str | None = None
+    artifact_ids: list[str] = Field(default_factory=list)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class FullPaperGenerationReport(StrictModel):
+    """Summary report for generated-paper package orchestration."""
+
+    report_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    config: FullPaperGenerationConfig
+    generation_status: FullPaperGenerationStatus
+    steps: list[FullPaperGenerationStep] = Field(default_factory=list)
+    artifact_bundle: FullPaperArtifactBundle
+    warnings: list[str] = Field(default_factory=list)
+    blocking_issues: list[str] = Field(default_factory=list)
+    revision_applied: bool = False
+    render_check_requested: bool = False
+    publication_ready: bool = False
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class FullPaperGenerationResult(StrictModel):
+    """Typed result for full-paper generation commands and protocol consumers."""
+
+    run_id: str = Field(min_length=1)
+    generation_status: FullPaperGenerationStatus
+    report: FullPaperGenerationReport
+    artifact_bundle: FullPaperArtifactBundle
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -830,6 +936,11 @@ __all__ = [
     "PaperRevisionPatch",
     "RevisionSafetyReport",
     "PaperRevisionResult",
+    "FullPaperGenerationConfig",
+    "FullPaperGenerationStep",
+    "FullPaperArtifactBundle",
+    "FullPaperGenerationReport",
+    "FullPaperGenerationResult",
     "CitationKey",
     "CitationRecord",
     "CitationRegistry",

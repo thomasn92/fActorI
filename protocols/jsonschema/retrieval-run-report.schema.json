@@ -516,7 +516,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.9.0/retrieval-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.10.0/retrieval-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded retrieval run report; not proof of novelty.",
@@ -583,7 +583,7 @@
   ],
   "title": "RetrievalRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.9.0",
+  "x-factori-protocol-version": "0.10.0",
   "x-factori-source-model": "factori.schemas.RetrievalRunReport",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.9.0/experiment-kind.schema.json",
+  "$id": "https://schemas.factori.local/0.10.0/experiment-kind.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Synthetic experiment kind enum.",
   "enum": [
@@ -10,7 +10,7 @@
   ],
   "title": "ExperimentKind",
   "type": "string",
-  "x-factori-protocol-version": "0.9.0",
+  "x-factori-protocol-version": "0.10.0",
   "x-factori-source-model": "factori.schemas.ExperimentKind",
   "x-factori-verification-evidence": false
 }

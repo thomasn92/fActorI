@@ -10,6 +10,11 @@ from factori.schemas import (
     CompleteMarkdownDraft,
     ExperimentRunContract,
     ExperimentRunResult,
+    FullPaperArtifactBundle,
+    FullPaperGenerationConfig,
+    FullPaperGenerationReport,
+    FullPaperGenerationResult,
+    FullPaperGenerationStep,
     LatexExportContract,
     LatexExportResult,
     LatexRenderResult,
@@ -51,9 +56,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 114
+    assert len(first) == 121
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.9.0"
+    assert PROTOCOL_VERSION == "0.10.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -98,6 +103,19 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("PaperRevisionPatch").model is PaperRevisionPatch
     assert get_protocol_definition("RevisionSafetyReport").model is RevisionSafetyReport
     assert get_protocol_definition("PaperRevisionResult").model is PaperRevisionResult
+    assert get_protocol_definition("FullPaperGenerationConfig").model is (
+        FullPaperGenerationConfig
+    )
+    assert get_protocol_definition("FullPaperGenerationStep").model is (
+        FullPaperGenerationStep
+    )
+    assert get_protocol_definition("FullPaperArtifactBundle").model is FullPaperArtifactBundle
+    assert get_protocol_definition("FullPaperGenerationReport").model is (
+        FullPaperGenerationReport
+    )
+    assert get_protocol_definition("FullPaperGenerationResult").model is (
+        FullPaperGenerationResult
+    )
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -157,6 +175,11 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "PaperRevisionPatch",
         "RevisionSafetyReport",
         "PaperRevisionResult",
+        "FullPaperGenerationConfig",
+        "FullPaperGenerationStep",
+        "FullPaperArtifactBundle",
+        "FullPaperGenerationReport",
+        "FullPaperGenerationResult",
         "CitationRecord",
         "CitationRegistry",
         "BibliographyEntry",
@@ -182,6 +205,8 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "ExperimentBackend",
         "ProseBackend",
         "ExperimentKind",
+        "FullPaperGenerationStatus",
+        "FullPaperGenerationStepStatus",
         "ReleaseStatus",
         "ProtocolCompatibilityStatus",
     }

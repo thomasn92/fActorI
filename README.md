@@ -55,6 +55,8 @@ Implemented so far:
 - deterministic paper critic and one safe fake revision pass over Markdown/LaTeX artifacts,
   covering paper shape, citation safety, evidence boundaries, source maps, and section-level
   revision planning;
+- deterministic full-paper package generation that chains citation registry construction,
+  manuscript drafting, LaTeX export, paper critique, and optional safe fake revision/re-export;
 - deterministic research object packaging and audit manifests;
 - deterministic final-paper assembly skeleton;
 - deterministic final audit and release gate;
@@ -155,6 +157,9 @@ uv run factori critique-paper --run-id demo
 uv run factori critique-paper --run-id demo --write-report
 uv run factori revise-paper --run-id demo
 uv run factori revise-paper --run-id demo --apply-safe-fake-revision --write-report
+uv run factori generate-paper --run-id demo
+uv run factori generate-paper --run-id demo --write-report
+uv run factori generate-paper --run-id demo --apply-safe-fake-revision --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
 uv run factori assemble-paper-skeleton --run-id demo
@@ -184,7 +189,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.9.0
+  --old-version 0.1.0 --new-version 0.10.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -280,6 +285,12 @@ presence. `revise-paper --apply-safe-fake-revision --write-report` can write a d
 conservative revision that downgrades unsafe language and inserts missing warnings/placeholders.
 It cannot invent citations, mutate claim/evidence tables, create evidence, upgrade labels, or
 claim publication readiness.
+
+`generate-paper` chains the existing non-evidence manuscript workflow for an existing run:
+citations, literature positioning, Markdown drafting, LaTeX export, and paper critique by default.
+Revision and render diagnostics remain explicitly gated. Full-paper generation artifacts are
+presentation/context/export artifacts only; they cannot create or upgrade evidence labels, mutate
+claim/evidence tables, invent citations, or claim publication readiness.
 
 LaTeX export is accepted only as presentation/export context. `export-latex --write-report` writes
 content-hashed LaTeX source, bibliography placeholders, source maps, export reports, and safety

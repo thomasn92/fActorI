@@ -1,0 +1,18 @@
+{
+  "$id": "https://schemas.factori.local/0.10.0/full-paper-generation-step-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Full-paper generation step status enum.",
+  "enum": [
+    "Pending",
+    "Skipped",
+    "Succeeded",
+    "SucceededWithWarnings",
+    "Blocked",
+    "Failed"
+  ],
+  "title": "FullPaperGenerationStepStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.10.0",
+  "x-factori-source-model": "factori.schemas.FullPaperGenerationStepStatus",
+  "x-factori-verification-evidence": false
+}

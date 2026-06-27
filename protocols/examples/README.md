@@ -10,6 +10,8 @@ The examples intentionally preserve MVP boundaries:
 - the experiment example is a `NegativeResult`;
 - prose and Markdown draft examples are section-drafting and manuscript-assembly fixtures, not
   manuscript evidence;
+- full-paper generation examples are manuscript/package orchestration fixtures, not publication
+  readiness or verification evidence;
 - claim examples do not inflate labels;
 - artifact and protocol files are not verification evidence.
 

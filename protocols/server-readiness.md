@@ -23,7 +23,9 @@ run-control and adapter contracts without importing Python.
   `LatexSourceMap`, `LatexSafetyReport`, `LatexRenderConfig`, `LatexRenderResult`,
   `LatexCompileCheckReport`, `LatexExportResult`, `PaperCriticFinding`, `PaperCriticReport`,
   `PaperReleaseReadinessPreview`, `SectionRevisionPlan`, `PaperRevisionPlan`,
-  `PaperRevisionPatch`, `RevisionSafetyReport`, `PaperRevisionResult`, and `HumanReviewDecision`.
+  `PaperRevisionPatch`, `RevisionSafetyReport`, `PaperRevisionResult`,
+  `FullPaperGenerationConfig`, `FullPaperGenerationStep`, `FullPaperArtifactBundle`,
+  `FullPaperGenerationReport`, `FullPaperGenerationResult`, and `HumanReviewDecision`.
 - Manifests and outputs: `ArtifactManifest`, `ResearchObjectManifest`,
   `ReproducibilityManifest`, `RunSummary`, `ResearchObject`, `PaperSkeleton`,
   `FinalAuditReport`, `ReleaseGateDecision`, `ExportReadinessReport`,
@@ -84,3 +86,9 @@ as an explicit manuscript/revision job that preserves claim/evidence tables, cit
 and labels. Revision artifacts remain context/presentation artifacts only and cannot imply peer
 review, publication readiness, proof evidence, experiment evidence, retrieval evidence, human
 approval, or scientific validation.
+Full-paper generation may be exposed as a mutating manuscript-package orchestration job over
+existing citation, drafting, LaTeX export, critique, and optional safe fake revision steps. A server
+must keep revision and render checks explicitly gated, preserve rerun policy, and report generated
+paper packages as context/export artifacts only. Full-paper generation cannot invent upstream
+content, create or upgrade evidence labels, mutate claim/evidence tables, invent citations, or imply
+publication readiness.

@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.9.0
+  --new-version 0.10.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -155,6 +155,11 @@ uv run factori critique-paper --run-id demo --json
 uv run factori revise-paper --run-id demo
 uv run factori revise-paper --run-id demo --json
 uv run factori revise-paper --run-id demo \
+  --apply-safe-fake-revision --write-report
+uv run factori generate-paper --run-id demo
+uv run factori generate-paper --run-id demo --write-report
+uv run factori generate-paper --run-id demo --json
+uv run factori generate-paper --run-id demo \
   --apply-safe-fake-revision --write-report
 uv run factori build-draft-skeleton --run-id demo
 uv run factori package-research-object --run-id demo
@@ -261,6 +266,25 @@ uv run factori revise-paper --run-id demo --json
 uv run factori revise-paper --run-id demo \
   --apply-safe-fake-revision --write-report
 ```
+
+Full-paper generation is an orchestration over the existing non-evidence manuscript workflow. By
+default it builds or reuses citation registry/literature positioning artifacts, drafts the Markdown
+manuscript, exports LaTeX, and runs the paper critic. Revision requires
+`--apply-safe-fake-revision`; render diagnostics require `--render-check --allow-external-tools`
+and an explicit LaTeX executable:
+
+```bash
+uv run factori generate-paper --run-id demo --write-report
+uv run factori generate-paper --run-id demo --json
+uv run factori generate-paper --run-id demo \
+  --apply-safe-fake-revision --reexport-latex-after-revision --write-report
+uv run factori generate-paper --run-id demo \
+  --render-check --allow-external-tools --latex-executable pdflatex
+```
+
+Generated paper packages are manuscript/presentation/export context only. They cannot create or
+upgrade evidence labels, mutate claim/evidence tables, invent citations, or imply publication
+readiness.
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:
@@ -383,6 +407,7 @@ Persistence tests cover atomic replacement, failed-write cleanup, final-byte has
 normalization, storage protocol conformance, and fixed-clock pipeline timestamps. No separate CLI
 configuration is required; normal commands continue to use the UTC system clock.
 
-Default commands do not call external APIs, real Lean, experiment runners, Docker, a server, or a
-frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI reviewer, Stage B OpenAlex, and
-Stage C Lean/local synthetic commands above may call an external API or local external tool.
+Default commands do not call external APIs, real Lean, experiment runners, LaTeX tools, Docker, a
+server, or a frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI reviewer, Stage B
+OpenAlex, OpenAI prose, Stage C Lean/local synthetic, and LaTeX render-check commands above may
+call an external API or local external tool.

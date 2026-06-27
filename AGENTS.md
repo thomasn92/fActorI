@@ -70,6 +70,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   manuscript artifacts and may write conservative revision artifacts only with an explicit apply
   flag. It must not be treated as peer review, publication readiness, scientific validation,
   evidence creation, citation creation, or label authority.
+- The full-paper generation command chains existing citation, manuscript drafting, LaTeX export,
+  paper critique, and optional safe fake revision/re-export steps. It is manuscript/package
+  orchestration only and must not be treated as peer review, publication readiness, scientific
+  validation, evidence creation, citation creation, or label authority.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.
@@ -130,6 +134,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   revised LaTeX artifacts are manuscript/revision context only. They must not create or upgrade
   claim labels, mutate claim/evidence tables, invent citations, prove publication readiness, or
   justify proof, experiment, retrieval, human-review, or scientific-validation evidence.
+- Full-paper generation reports, artifact bundles, and generated paper-package artifacts are
+  manuscript/presentation/export/revision context only. They must not create or upgrade claim
+  labels, mutate claim/evidence tables, invent citations, prove publication readiness, or justify
+  proof, experiment, retrieval, human-review, or scientific-validation evidence.
 - Replay and diagnostics must be read-only and must not create ledger commits.
 - Runtime summaries, manifests, replay reports, and diagnostics reports are derived views. They must
   not replace the append-only ledger as provenance.

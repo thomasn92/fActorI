@@ -37,6 +37,13 @@ from factori.schemas import (
     ExperimentKind,
     ExperimentRunContract,
     ExperimentRunResult,
+    FullPaperArtifactBundle,
+    FullPaperGenerationConfig,
+    FullPaperGenerationReport,
+    FullPaperGenerationResult,
+    FullPaperGenerationStatus,
+    FullPaperGenerationStep,
+    FullPaperGenerationStepStatus,
     GeneratedSectionDraft,
     LatexCompileCheckReport,
     LatexExportContract,
@@ -145,6 +152,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "latex-export-result.example.json": "LatexExportResult",
     "paper-critic-report.example.json": "PaperCriticReport",
     "paper-revision-result.example.json": "PaperRevisionResult",
+    "full-paper-generation-result.example.json": "FullPaperGenerationResult",
     "proof-contract.example.json": "ProofVerificationContract",
     "proof-result.example.json": "ProofVerificationResult",
     "research-object-manifest.example.json": "ResearchObjectManifest",
@@ -827,6 +835,74 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         patches=[paper_revision_patch],
         safety_report=revision_safety_report,
     )
+    full_paper_config = FullPaperGenerationConfig(
+        run_id="example",
+        include_citations=True,
+        export_latex=True,
+        critique=True,
+        revise=True,
+        apply_safe_fake_revision=True,
+        reexport_latex_after_revision=True,
+        prose_backend="fake",
+        write_report=True,
+    )
+    full_paper_step = FullPaperGenerationStep(
+        step_name="draft-manuscript",
+        status=FullPaperGenerationStepStatus.SUCCEEDED_WITH_WARNINGS,
+        summary="Manuscript draft artifacts were generated.",
+        artifact_ids=["complete-manuscript-draft"],
+        warnings=["Generated paper artifacts are not evidence."],
+    )
+    full_paper_bundle = FullPaperArtifactBundle(
+        run_id="example",
+        citation_registry_artifact_id="citation-registry",
+        literature_positioning_report_artifact_id="literature-positioning-report",
+        citation_safety_report_artifact_id="citation-safety-report",
+        manuscript_drafting_plan_artifact_id="manuscript-drafting-plan",
+        manuscript_drafting_report_artifact_id="manuscript-drafting-report",
+        complete_manuscript_draft_artifact_id="complete-manuscript-draft",
+        manuscript_assembly_report_artifact_id="manuscript-assembly-report",
+        latex_artifact_id="paper",
+        references_artifact_id="references",
+        latex_source_map_artifact_id="latex-source-map",
+        latex_export_report_artifact_id="latex-export-report",
+        latex_safety_report_artifact_id="latex-safety-report",
+        paper_critic_report_artifact_id="paper-critic-report",
+        paper_revision_plan_artifact_id="paper-revision-plan",
+        revision_safety_report_artifact_id="revision-safety-report",
+        revised_manuscript_draft_artifact_id="revised-manuscript-draft",
+        paper_revision_result_artifact_id="paper-revision-result",
+        revised_latex_artifact_id="revised-paper",
+        full_paper_generation_report_artifact_id="full-paper-generation-report",
+        full_paper_artifact_bundle_artifact_id="full-paper-artifact-bundle",
+        artifact_ids=[
+            "citation-registry",
+            "complete-manuscript-draft",
+            "paper",
+            "paper-critic-report",
+            "revised-manuscript-draft",
+            "full-paper-generation-report",
+        ],
+    )
+    full_paper_report = FullPaperGenerationReport(
+        report_id="full-paper-generation-report-example",
+        run_id="example",
+        config=full_paper_config,
+        generation_status=(
+            FullPaperGenerationStatus.PAPER_GENERATION_SUCCEEDED_WITH_WARNINGS
+        ),
+        steps=[full_paper_step],
+        artifact_bundle=full_paper_bundle,
+        warnings=["Full-paper generation is not publication readiness."],
+        revision_applied=True,
+        render_check_requested=False,
+    )
+    full_paper_result = FullPaperGenerationResult(
+        run_id="example",
+        generation_status=full_paper_report.generation_status,
+        report=full_paper_report,
+        artifact_bundle=full_paper_bundle,
+    )
     pipeline_report = PipelineRunReport(
         run_id="example",
         domain="machine learning",
@@ -1006,6 +1082,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "latex-export-result.example.json": latex_export_result.model_dump(mode="json"),
         "paper-critic-report.example.json": paper_critic_report.model_dump(mode="json"),
         "paper-revision-result.example.json": paper_revision_result.model_dump(mode="json"),
+        "full-paper-generation-result.example.json": full_paper_result.model_dump(
+            mode="json"
+        ),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),

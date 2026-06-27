@@ -29,6 +29,7 @@ Stage A candidate generation
   -> Optional Markdown manuscript drafting
   -> Optional LaTeX export and gated render checks
   -> Optional paper critique and safe fake revision
+  -> Optional full-paper package generation
   -> Replay verification
 ```
 
@@ -51,6 +52,9 @@ completed run from disk and checks consistency without changing provenance.
   optional gated render diagnostics;
 - deterministic paper critique and conservative fake revision over generated Markdown/LaTeX
   artifacts without evidence, label, citation, or publication-readiness authority;
+- deterministic full-paper package generation over citation, manuscript drafting, LaTeX export,
+  paper critique, and optional safe fake revision artifacts without evidence, label, citation, or
+  publication-readiness authority;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 

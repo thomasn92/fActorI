@@ -35,6 +35,13 @@ from factori.schemas import (
     ExportReadinessReport,
     FinalAuditReport,
     FinalNucleus,
+    FullPaperArtifactBundle,
+    FullPaperGenerationConfig,
+    FullPaperGenerationReport,
+    FullPaperGenerationResult,
+    FullPaperGenerationStatus,
+    FullPaperGenerationStep,
+    FullPaperGenerationStepStatus,
     GeneratedSectionDraft,
     HumanReviewDecision,
     HygieneRemediationPlan,
@@ -118,7 +125,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.9.0"
+PROTOCOL_VERSION = "0.10.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -518,6 +525,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         PaperRevisionResult,
         "Result of one deterministic fake paper revision pass.",
     ),
+    ProtocolDefinition(
+        "FullPaperGenerationConfig",
+        FullPaperGenerationConfig,
+        "Configuration for end-to-end non-evidence paper generation.",
+    ),
+    ProtocolDefinition(
+        "FullPaperGenerationStep",
+        FullPaperGenerationStep,
+        "One step in the full-paper generation workflow.",
+    ),
+    ProtocolDefinition(
+        "FullPaperArtifactBundle",
+        FullPaperArtifactBundle,
+        "Artifact IDs that make up one generated paper package.",
+    ),
+    ProtocolDefinition(
+        "FullPaperGenerationReport",
+        FullPaperGenerationReport,
+        "Summary report for full-paper package generation.",
+    ),
+    ProtocolDefinition(
+        "FullPaperGenerationResult",
+        FullPaperGenerationResult,
+        "Typed result for full-paper generation commands.",
+    ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(
         "ResearchObjectManifest",
@@ -613,6 +645,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         ManuscriptDraftStatus,
         "Manuscript draft status enum.",
     ),
+    ProtocolDefinition(
+        "FullPaperGenerationStatus",
+        FullPaperGenerationStatus,
+        "Full-paper generation aggregate status enum.",
+    ),
+    ProtocolDefinition(
+        "FullPaperGenerationStepStatus",
+        FullPaperGenerationStepStatus,
+        "Full-paper generation step status enum.",
+    ),
     ProtocolDefinition("ExperimentKind", ExperimentKind, "Synthetic experiment kind enum."),
     ProtocolDefinition("ReleaseStatus", ReleaseGateStatus, "Release status enum."),
     ProtocolDefinition(
@@ -651,6 +693,8 @@ __all__ = [
     "AdapterBackend",
     "ExperimentBackend",
     "ExperimentKind",
+    "FullPaperGenerationStatus",
+    "FullPaperGenerationStepStatus",
     "ProofBackend",
     "ProseBackend",
     "ProtocolDefinition",

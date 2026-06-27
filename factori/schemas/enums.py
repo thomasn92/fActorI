@@ -129,6 +129,26 @@ class PaperRevisionStatus(StrEnum):
     REVISION_FAILED = "RevisionFailed"
 
 
+class FullPaperGenerationStatus(StrEnum):
+    """Status of the non-evidence full-paper generation workflow."""
+
+    PAPER_GENERATION_SUCCEEDED = "PaperGenerationSucceeded"
+    PAPER_GENERATION_SUCCEEDED_WITH_WARNINGS = "PaperGenerationSucceededWithWarnings"
+    PAPER_GENERATION_BLOCKED = "PaperGenerationBlocked"
+    PAPER_GENERATION_FAILED = "PaperGenerationFailed"
+
+
+class FullPaperGenerationStepStatus(StrEnum):
+    """Status of one full-paper generation orchestration step."""
+
+    PENDING = "Pending"
+    SKIPPED = "Skipped"
+    SUCCEEDED = "Succeeded"
+    SUCCEEDED_WITH_WARNINGS = "SucceededWithWarnings"
+    BLOCKED = "Blocked"
+    FAILED = "Failed"
+
+
 class BranchStatus(StrEnum):
     """Branch and run status labels for the MVP."""
 
@@ -258,6 +278,7 @@ class ControllerActionType(StrEnum):
     LATEX_EXPORT_WRITTEN = "LatexExportWritten"
     PAPER_CRITIC_REPORT_WRITTEN = "PaperCriticReportWritten"
     PAPER_REVISION_WRITTEN = "PaperRevisionWritten"
+    FULL_PAPER_GENERATION_WRITTEN = "FullPaperGenerationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
 

@@ -44,6 +44,9 @@ Public protocol names are stable even where internal Python names differ. Curren
   `SectionRevisionPlan`, `PaperRevisionPlan`, `PaperRevisionPatch`, `RevisionSafetyReport`, and
   `PaperRevisionResult` generated from generated-paper critique and deterministic fake revision
   models;
+- `FullPaperGenerationConfig`, `FullPaperGenerationStep`, `FullPaperArtifactBundle`,
+  `FullPaperGenerationReport`, and `FullPaperGenerationResult` generated from end-to-end
+  non-evidence paper-package orchestration models;
 - `EvidenceType` generated from `ArtifactType`;
 - `ClaimLabel` generated from `VerificationLabel`;
 - `ReleaseStatus` generated from `ReleaseGateStatus`.
@@ -87,7 +90,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.9.0
+  --new-version 0.10.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

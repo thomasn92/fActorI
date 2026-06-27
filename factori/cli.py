@@ -51,6 +51,11 @@ from factori.dry_run import build_pipeline_dry_run_plan
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
+from factori.full_paper_generation import (
+    FullPaperGenerationError,
+    full_paper_generation_result_model,
+    generate_full_paper,
+)
 from factori.hygiene_plan import (
     build_hygiene_remediation_plan,
     summarize_hygiene_remediation_plan,
@@ -109,6 +114,7 @@ from factori.schemas import (
     ArtifactType,
     ControllerActionType,
     DataRequirement,
+    FullPaperGenerationConfig,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
@@ -1927,6 +1933,161 @@ def revise_paper_command(
         typer.echo(f"revision_safety_report={result.revision_safety_artifact.path}")
     if result.revised_markdown_artifact is not None:
         typer.echo(f"revised_manuscript_draft={result.revised_markdown_artifact.path}")
+
+
+@app.command("generate-paper")
+def generate_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+    include_citations: Annotated[bool, typer.Option("--include-citations")] = True,
+    export_latex: Annotated[bool, typer.Option("--export-latex")] = True,
+    critique: Annotated[bool, typer.Option("--critique")] = True,
+    revise: Annotated[bool, typer.Option("--revise")] = False,
+    apply_safe_fake_revision: Annotated[
+        bool,
+        typer.Option("--apply-safe-fake-revision"),
+    ] = False,
+    reexport_latex_after_revision: Annotated[
+        bool,
+        typer.Option("--reexport-latex-after-revision"),
+    ] = False,
+    render_check: Annotated[bool, typer.Option("--render-check")] = False,
+    allow_external_tools: Annotated[
+        bool,
+        typer.Option("--allow-external-tools"),
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    latex_executable: Annotated[
+        str | None,
+        typer.Option("--latex-executable"),
+    ] = None,
+    prose_backend: Annotated[
+        str,
+        typer.Option("--prose-backend"),
+    ] = DEFAULT_PROSE_BACKEND,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
+    prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    rerun_policy: Annotated[
+        str,
+        typer.Option("--rerun-policy"),
+    ] = "fail-if-exists",
+    force: Annotated[bool, typer.Option("--force")] = False,
+) -> None:
+    """Generate a complete non-evidence paper package from an existing run."""
+    try:
+        policy = _parse_rerun_policy(rerun_policy)
+        registry = get_adapter_registry(
+            AdapterConfig(
+                prose_backend=prose_backend,
+                allow_external_calls=allow_external_calls,
+                prose_model=prose_model,
+            )
+        )
+    except (AdapterConfigurationError, ValueError, typer.BadParameter) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    store = ArtifactStore(root)
+    ledger = _ledger(root, run_id)
+    config = FullPaperGenerationConfig(
+        run_id=run_id,
+        include_citations=include_citations,
+        export_latex=export_latex,
+        critique=critique,
+        revise=revise,
+        apply_safe_fake_revision=apply_safe_fake_revision,
+        reexport_latex_after_revision=reexport_latex_after_revision,
+        render_check=render_check,
+        allow_external_tools=allow_external_tools,
+        latex_executable=latex_executable,
+        prose_backend=prose_backend,
+        allow_external_calls=allow_external_calls,
+        prose_model=prose_model,
+        write_report=write_report,
+        rerun_policy=policy,
+        force=force,
+    )
+    try:
+        result = generate_full_paper(
+            run_id=run_id,
+            root=root,
+            store=store,
+            ledger=ledger,
+            prose_generator=registry.prose_generator,
+            config=config,
+        )
+    except FullPaperGenerationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    result_model = full_paper_generation_result_model(result)
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "full_paper_generation_result": result_model.model_dump(mode="json"),
+                    "artifacts": {
+                        "full_paper_generation_report": (
+                            result.report_artifact.model_dump(mode="json")
+                            if result.report_artifact
+                            else None
+                        ),
+                        "full_paper_artifact_bundle": (
+                            result.bundle_artifact.model_dump(mode="json")
+                            if result.bundle_artifact
+                            else None
+                        ),
+                        "revised_paper": (
+                            result.revised_latex_artifact.model_dump(mode="json")
+                            if result.revised_latex_artifact
+                            else None
+                        ),
+                        "revised_references": (
+                            result.revised_references_artifact.model_dump(mode="json")
+                            if result.revised_references_artifact
+                            else None
+                        ),
+                        "revised_source_map": (
+                            result.revised_source_map_artifact.model_dump(mode="json")
+                            if result.revised_source_map_artifact
+                            else None
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    report = result.report
+    bundle = result.artifact_bundle
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"paper_generation_status={report.generation_status.value}")
+    typer.echo(f"steps={len(report.steps)}")
+    typer.echo(f"warnings={len(report.warnings)}")
+    typer.echo(f"blocking_issues={len(report.blocking_issues)}")
+    typer.echo(f"include_citations={str(include_citations).lower()}")
+    typer.echo(f"export_latex={str(export_latex).lower()}")
+    typer.echo(f"revision_applied={str(report.revision_applied).lower()}")
+    typer.echo(f"render_check={str(render_check).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo("is_verification_evidence=false")
+    typer.echo("creates_scientific_validation=false")
+    typer.echo(f"citation_registry={bundle.citation_registry_artifact_id or 'missing'}")
+    typer.echo(
+        "complete_manuscript_draft="
+        f"{bundle.complete_manuscript_draft_artifact_id or 'missing'}"
+    )
+    typer.echo(f"latex_artifact={bundle.latex_artifact_id or 'missing'}")
+    typer.echo(f"paper_critic_report={bundle.paper_critic_report_artifact_id or 'missing'}")
+    if bundle.revised_manuscript_draft_artifact_id is not None:
+        typer.echo(f"revised_manuscript_draft={bundle.revised_manuscript_draft_artifact_id}")
+    if result.report_artifact is not None:
+        typer.echo(f"full_paper_generation_report={result.report_artifact.path}")
+    if result.bundle_artifact is not None:
+        typer.echo(f"full_paper_artifact_bundle={result.bundle_artifact.path}")
 
 
 @app.command("build-draft-skeleton")

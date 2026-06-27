@@ -1,0 +1,646 @@
+{
+  "$defs": {
+    "FullPaperArtifactBundle": {
+      "additionalProperties": false,
+      "description": "Artifact IDs that make up one generated paper package.",
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "citation_registry_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation Registry Artifact Id"
+        },
+        "citation_safety_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Citation Safety Report Artifact Id"
+        },
+        "complete_manuscript_draft_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Complete Manuscript Draft Artifact Id"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "full_paper_artifact_bundle_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Full Paper Artifact Bundle Artifact Id"
+        },
+        "full_paper_generation_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Full Paper Generation Report Artifact Id"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "latex_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Artifact Id"
+        },
+        "latex_compile_check_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Compile Check Report Artifact Id"
+        },
+        "latex_export_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Export Report Artifact Id"
+        },
+        "latex_safety_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Safety Report Artifact Id"
+        },
+        "latex_source_map_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Source Map Artifact Id"
+        },
+        "literature_positioning_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Literature Positioning Report Artifact Id"
+        },
+        "manuscript_assembly_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manuscript Assembly Report Artifact Id"
+        },
+        "manuscript_drafting_plan_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manuscript Drafting Plan Artifact Id"
+        },
+        "manuscript_drafting_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manuscript Drafting Report Artifact Id"
+        },
+        "paper_critic_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Critic Report Artifact Id"
+        },
+        "paper_revision_plan_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Revision Plan Artifact Id"
+        },
+        "paper_revision_result_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paper Revision Result Artifact Id"
+        },
+        "references_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "References Artifact Id"
+        },
+        "revised_latex_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revised Latex Artifact Id"
+        },
+        "revised_latex_export_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revised Latex Export Report Artifact Id"
+        },
+        "revised_latex_safety_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revised Latex Safety Report Artifact Id"
+        },
+        "revised_latex_source_map_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revised Latex Source Map Artifact Id"
+        },
+        "revised_manuscript_draft_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revised Manuscript Draft Artifact Id"
+        },
+        "revised_references_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revised References Artifact Id"
+        },
+        "revision_safety_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision Safety Report Artifact Id"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "FullPaperArtifactBundle",
+      "type": "object"
+    },
+    "FullPaperGenerationConfig": {
+      "additionalProperties": false,
+      "description": "Configuration for the non-evidence full-paper generation workflow.",
+      "properties": {
+        "allow_external_calls": {
+          "default": false,
+          "title": "Allow External Calls",
+          "type": "boolean"
+        },
+        "allow_external_tools": {
+          "default": false,
+          "title": "Allow External Tools",
+          "type": "boolean"
+        },
+        "apply_safe_fake_revision": {
+          "default": false,
+          "title": "Apply Safe Fake Revision",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "critique": {
+          "default": true,
+          "title": "Critique",
+          "type": "boolean"
+        },
+        "export_latex": {
+          "default": true,
+          "title": "Export Latex",
+          "type": "boolean"
+        },
+        "force": {
+          "default": false,
+          "title": "Force",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "include_citations": {
+          "default": true,
+          "title": "Include Citations",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "latex_executable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Executable"
+        },
+        "prose_backend": {
+          "default": "fake",
+          "title": "Prose Backend",
+          "type": "string"
+        },
+        "prose_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prose Model"
+        },
+        "reexport_latex_after_revision": {
+          "default": false,
+          "title": "Reexport Latex After Revision",
+          "type": "boolean"
+        },
+        "render_check": {
+          "default": false,
+          "title": "Render Check",
+          "type": "boolean"
+        },
+        "rerun_policy": {
+          "$ref": "#/$defs/RerunPolicy",
+          "default": "FailIfExists"
+        },
+        "revise": {
+          "default": false,
+          "title": "Revise",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "write_report": {
+          "default": false,
+          "title": "Write Report",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "FullPaperGenerationConfig",
+      "type": "object"
+    },
+    "FullPaperGenerationStatus": {
+      "description": "Status of the non-evidence full-paper generation workflow.",
+      "enum": [
+        "PaperGenerationSucceeded",
+        "PaperGenerationSucceededWithWarnings",
+        "PaperGenerationBlocked",
+        "PaperGenerationFailed"
+      ],
+      "title": "FullPaperGenerationStatus",
+      "type": "string"
+    },
+    "FullPaperGenerationStep": {
+      "additionalProperties": false,
+      "description": "One deterministic full-paper workflow step.",
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/FullPaperGenerationStepStatus"
+        },
+        "step_name": {
+          "minLength": 1,
+          "title": "Step Name",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step_name",
+        "status",
+        "summary"
+      ],
+      "title": "FullPaperGenerationStep",
+      "type": "object"
+    },
+    "FullPaperGenerationStepStatus": {
+      "description": "Status of one full-paper generation orchestration step.",
+      "enum": [
+        "Pending",
+        "Skipped",
+        "Succeeded",
+        "SucceededWithWarnings",
+        "Blocked",
+        "Failed"
+      ],
+      "title": "FullPaperGenerationStepStatus",
+      "type": "string"
+    },
+    "RerunPolicy": {
+      "description": "Explicit policy for invoking a stage against existing completion artifacts.",
+      "enum": [
+        "FailIfExists",
+        "SkipIfComplete",
+        "AllowIfForced",
+        "ReadOnlyOnly"
+      ],
+      "title": "RerunPolicy",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.10.0/full-paper-generation-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Summary report for full-paper package generation.",
+  "properties": {
+    "artifact_bundle": {
+      "$ref": "#/$defs/FullPaperArtifactBundle"
+    },
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "config": {
+      "$ref": "#/$defs/FullPaperGenerationConfig"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "generation_status": {
+      "$ref": "#/$defs/FullPaperGenerationStatus"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "render_check_requested": {
+      "default": false,
+      "title": "Render Check Requested",
+      "type": "boolean"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "revision_applied": {
+      "default": false,
+      "title": "Revision Applied",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/FullPaperGenerationStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "report_id",
+    "run_id",
+    "config",
+    "generation_status",
+    "artifact_bundle"
+  ],
+  "title": "FullPaperGenerationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.10.0",
+  "x-factori-source-model": "factori.schemas.FullPaperGenerationReport",
+  "x-factori-verification-evidence": false
+}

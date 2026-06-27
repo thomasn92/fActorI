@@ -22,7 +22,7 @@ All implementation modules are under `factori/`.
   - `schemas/adapters.py`: adapter prompt, parse, trace, generated-section, and human-review
     contracts.
   - `schemas/manuscript.py`: synthesis, claim, citation, literature-positioning, manuscript,
-    narrative, draft, complete Markdown drafting, and paper skeleton models.
+    narrative, draft, complete Markdown drafting, full-paper generation, and paper skeleton models.
   - `schemas/audit.py`: packaging, audit, release, export, LaTeX export/render, replay,
     diagnostics, and cross-run models.
   - `schemas/pipeline.py`: pipeline, dry-run, status, rerun, file index, hygiene, and remediation
@@ -202,6 +202,9 @@ All implementation modules are under `factori/`.
   safety, evidence-boundary language, LaTeX source maps, and appendix presence.
 - `paper_revision.py`: deterministic conservative fake revision planning/application that
   downgrades unsafe language and preserves claim/evidence/citation boundaries.
+- `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
+  registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
+  revision/re-export.
 - `draft_skeleton.py`: deterministic Markdown/JSON draft scaffold generation.
 - `checklist.py`: manuscript checklist generation.
 - `final_paper.py`: assembled paper-shaped skeleton and assembly readiness report.
