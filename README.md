@@ -434,6 +434,16 @@ uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001 --json
 The inspection command reads persisted LLM reports only and summarizes call counts, release status,
 current warnings, budget blocks, and paper artifact paths.
 
+Inspect generated paper bundle artifacts without rerunning stages or creating artifacts:
+
+```bash
+uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001
+uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --json
+```
+
+This compact summary prefers revised Markdown/LaTeX artifacts when present and reports section,
+word, citation, warning, blocking, safe-repair, and artifact-path details.
+
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:
 

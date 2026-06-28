@@ -53,8 +53,10 @@ from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.full_paper_generation import (
     FullPaperGenerationError,
+    PaperBundleInspectionError,
     full_paper_generation_result_model,
     generate_full_paper,
+    inspect_paper_bundle_summary,
 )
 from factori.full_paper_release import (
     FullPaperReleaseError,
@@ -2552,6 +2554,70 @@ def _print_llm_run_summary(summary: dict[str, object]) -> None:
         typer.echo("Artifacts:")
         for key, path in sorted(artifact_paths.items()):
             typer.echo(f"- {key}: {path}")
+
+
+@app.command("inspect-paper-bundle")
+def inspect_paper_bundle_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect generated paper bundle artifacts without mutation."""
+    try:
+        summary = inspect_paper_bundle_summary(run_id=run_id, root=root)
+    except PaperBundleInspectionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    _print_paper_bundle_summary(summary)
+
+
+def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
+    artifacts = dict(summary.get("artifacts") or {})
+    primary = str(summary.get("primary_artifact_to_read") or "none")
+    primary_name = Path(primary).name if primary != "none" else "none"
+    release = summary.get("release_status") or "unknown"
+    safe_repair = "present" if summary.get("safe_repair_report_exists") else "absent"
+    citations = "present" if summary.get("citations_present") else "absent"
+    blocking_count = int(summary.get("blocking_issue_count") or 0)
+    warning_count = int(summary.get("warning_count") or 0)
+    typer.echo(f"Paper bundle: {summary['run_id']}")
+    typer.echo(f"Primary draft: {primary_name}")
+    typer.echo(f"Release: {release}")
+    typer.echo(f"Safe repair: {safe_repair}")
+    typer.echo(f"Sections: {summary.get('section_count', 0)}")
+    typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
+    typer.echo(f"Citations: {citations}")
+    typer.echo(f"Blocking issues: {blocking_count if blocking_count else 'none'}")
+    typer.echo(f"Warnings: {warning_count}")
+    typer.echo(f"Title: {summary.get('title_detected') or 'unknown'}")
+    typer.echo(
+        "Abstract: "
+        f"{'present' if summary.get('abstract_detected') else 'absent'}"
+    )
+    if artifacts:
+        typer.echo("Artifacts:")
+        _echo_named_artifact(artifacts, "revised manuscript", "revised_manuscript_draft")
+        _echo_named_artifact(artifacts, "complete manuscript", "complete_manuscript_draft")
+        _echo_named_artifact(artifacts, "revised latex", "revised_paper")
+        _echo_named_artifact(artifacts, "latex", "paper")
+        _echo_named_artifact(artifacts, "source map", "revised_latex_source_map")
+        _echo_named_artifact(artifacts, "source map", "latex_source_map")
+        _echo_named_artifact(artifacts, "generation report", "generation_report")
+        _echo_named_artifact(artifacts, "release report", "release_report")
+        _echo_named_artifact(artifacts, "safe repair report", "safe_repair_report")
+
+
+def _echo_named_artifact(
+    artifacts: dict[object, object],
+    label: str,
+    key: str,
+) -> None:
+    path = artifacts.get(key)
+    if path is not None:
+        typer.echo(f"- {label}: {path}")
 
 
 @app.command("build-draft-skeleton")

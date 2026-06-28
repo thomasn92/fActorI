@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from factori.artifacts import ArtifactStore
 from factori.citations import (
@@ -46,6 +49,7 @@ from factori.schemas import (
     FullPaperGenerationStatus,
     FullPaperGenerationStep,
     FullPaperGenerationStepStatus,
+    FullPaperReleaseReport,
     PaperCriticReport,
     RerunPolicy,
 )
@@ -53,6 +57,10 @@ from factori.schemas import (
 
 class FullPaperGenerationError(RuntimeError):
     """Raised when full-paper generation is blocked or fails closed."""
+
+
+class PaperBundleInspectionError(RuntimeError):
+    """Raised when a generated paper bundle cannot be inspected read-only."""
 
 
 @dataclass(frozen=True)
@@ -370,11 +378,221 @@ def generate_full_paper(
     )
 
 
+def inspect_paper_bundle_summary(
+    *,
+    run_id: str,
+    root: str | Path = ".",
+) -> dict[str, Any]:
+    """Inspect generated paper bundle artifacts without mutating the run."""
+    root_path = Path(root)
+    run_path = root_path / "runs" / run_id
+    if not run_path.is_dir():
+        raise PaperBundleInspectionError(f"No run directory found for run_id={run_id}.")
+    paths = _paper_bundle_paths(run_path)
+    existing = {
+        name: path.relative_to(root_path).as_posix()
+        for name, path in sorted(paths.items())
+        if path.is_file()
+    }
+    primary_draft = (
+        paths["revised_manuscript_draft"]
+        if paths["revised_manuscript_draft"].is_file()
+        else paths["complete_manuscript_draft"]
+        if paths["complete_manuscript_draft"].is_file()
+        else None
+    )
+    primary_latex = (
+        paths["revised_paper"]
+        if paths["revised_paper"].is_file()
+        else paths["paper"]
+        if paths["paper"].is_file()
+        else None
+    )
+    primary_source_map = (
+        paths["revised_latex_source_map"]
+        if paths["revised_latex_source_map"].is_file()
+        else paths["latex_source_map"]
+        if paths["latex_source_map"].is_file()
+        else None
+    )
+    manuscript_stats = (
+        _manuscript_stats(primary_draft.read_text(encoding="utf-8"))
+        if primary_draft is not None
+        else _empty_manuscript_stats()
+    )
+    generation_report = _read_generation_report(paths["generation_report"])
+    release_report = _read_release_report(paths["release_report"])
+    safe_repair_report = _read_json_optional(paths["safe_repair_report"])
+    generation_warning_count = (
+        len(generation_report.warnings) if generation_report is not None else 0
+    )
+    release_warning_count = (
+        len(release_report.decision.warnings) if release_report is not None else 0
+    )
+    generation_blocking_count = (
+        len(generation_report.blocking_issues) if generation_report is not None else 0
+    )
+    release_blocking_count = (
+        len(release_report.decision.blocking_reasons)
+        if release_report is not None
+        else 0
+    )
+    return {
+        "run_id": run_id,
+        "paper_exists": paths["paper"].is_file(),
+        "revised_paper_exists": paths["revised_paper"].is_file(),
+        "complete_manuscript_draft_exists": paths["complete_manuscript_draft"].is_file(),
+        "revised_manuscript_draft_exists": paths["revised_manuscript_draft"].is_file(),
+        "latex_exists": paths["paper"].is_file(),
+        "revised_latex_exists": paths["revised_paper"].is_file(),
+        "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
+        "release_report_exists": paths["release_report"].is_file(),
+        "generation_report_exists": paths["generation_report"].is_file(),
+        "primary_artifact_to_read": (
+            primary_draft.relative_to(root_path).as_posix()
+            if primary_draft is not None
+            else primary_latex.relative_to(root_path).as_posix()
+            if primary_latex is not None
+            else None
+        ),
+        "primary_latex_to_read": (
+            primary_latex.relative_to(root_path).as_posix()
+            if primary_latex is not None
+            else None
+        ),
+        "primary_source_map_to_read": (
+            primary_source_map.relative_to(root_path).as_posix()
+            if primary_source_map is not None
+            else None
+        ),
+        **manuscript_stats,
+        "warning_counts": {
+            "generation": generation_warning_count,
+            "release": release_warning_count,
+            "total": generation_warning_count + release_warning_count,
+        },
+        "blocking_issue_counts": {
+            "generation": generation_blocking_count,
+            "release": release_blocking_count,
+            "total": generation_blocking_count + release_blocking_count,
+        },
+        "warning_count": generation_warning_count + release_warning_count,
+        "blocking_issue_count": generation_blocking_count + release_blocking_count,
+        "release_status": (
+            release_report.decision.status.value if release_report is not None else None
+        ),
+        "generation_status": (
+            generation_report.generation_status.value
+            if generation_report is not None
+            else None
+        ),
+        "safe_repair_applied_count": (
+            int(safe_repair_report.get("repairs_applied", 0))
+            if isinstance(safe_repair_report, dict)
+            else 0
+        ),
+        "artifacts": existing,
+        "is_verification_evidence": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+    }
+
+
 def _validate_upstream_prerequisites(run_id: str, ledger: ResearchLedger) -> None:
     try:
         load_manuscript_drafting_inputs(run_id, ledger)
     except ManuscriptDraftingError as exc:
         raise FullPaperGenerationError(_clear_manuscript_error(str(exc))) from exc
+
+
+def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
+    return {
+        "complete_manuscript_draft": run_path
+        / "reports"
+        / "complete-manuscript-draft.md",
+        "revised_manuscript_draft": run_path
+        / "reports"
+        / "revised-manuscript-draft.md",
+        "paper": run_path / "latex" / "paper.tex",
+        "revised_paper": run_path / "latex" / "revised-paper.tex",
+        "latex_source_map": run_path / "latex" / "latex-source-map.json",
+        "revised_latex_source_map": run_path
+        / "latex"
+        / "revised-latex-source-map.json",
+        "generation_report": run_path / "reports" / "full-paper-generation-report.json",
+        "release_report": run_path / "reports" / "full-paper-release-report.json",
+        "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
+    }
+
+
+def _manuscript_stats(markdown: str) -> dict[str, Any]:
+    headings = _markdown_headings(markdown)
+    title = _markdown_title(markdown)
+    abstract_detected = any(
+        heading.lower() == "abstract" for heading in headings
+    )
+    citation_marker_count = len(re.findall(r"\[@[A-Za-z0-9][A-Za-z0-9_.:-]*\]", markdown))
+    return {
+        "line_count": len(markdown.splitlines()),
+        "word_count": len(re.findall(r"[A-Za-z0-9][A-Za-z0-9'_-]*", markdown)),
+        "section_headings_detected": headings,
+        "section_count": len(headings),
+        "title_detected": title,
+        "abstract_detected": abstract_detected,
+        "citations_present": citation_marker_count > 0,
+        "citation_marker_count": citation_marker_count,
+    }
+
+
+def _empty_manuscript_stats() -> dict[str, Any]:
+    return {
+        "line_count": 0,
+        "word_count": 0,
+        "section_headings_detected": [],
+        "section_count": 0,
+        "title_detected": None,
+        "abstract_detected": False,
+        "citations_present": False,
+        "citation_marker_count": 0,
+    }
+
+
+def _markdown_headings(markdown: str) -> list[str]:
+    headings = []
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            continue
+        heading = stripped.lstrip("#").strip()
+        if heading:
+            headings.append(heading)
+    return headings
+
+
+def _markdown_title(markdown: str) -> str | None:
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped[2:].strip() or None
+    return None
+
+
+def _read_generation_report(path: Path) -> FullPaperGenerationReport | None:
+    if not path.is_file():
+        return None
+    return FullPaperGenerationReport.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _read_release_report(path: Path) -> FullPaperReleaseReport | None:
+    if not path.is_file():
+        return None
+    return FullPaperReleaseReport.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _read_json_optional(path: Path) -> Any | None:
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _ensure_citation_artifacts(
@@ -951,6 +1169,8 @@ def _clear_manuscript_error(message: str) -> str:
 __all__ = [
     "FullPaperGenerationError",
     "FullPaperGenerationRunResult",
+    "PaperBundleInspectionError",
     "full_paper_generation_result_model",
     "generate_full_paper",
+    "inspect_paper_bundle_summary",
 ]

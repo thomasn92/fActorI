@@ -500,6 +500,17 @@ uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001 --json
 The compact summary reports orchestration and release status, current warnings, call counts,
 estimated cost, runtime budget blocks, safe-repair presence, and paper/report artifact paths.
 
+Inspect generated paper bundle artifacts without rerunning stages, calling APIs, or mutating run
+artifacts:
+
+```bash
+uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001
+uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --json
+```
+
+The compact summary prefers revised Markdown/LaTeX artifacts when present and reports section,
+word, citation, warning, blocking, safe-repair, and artifact-path details.
+
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:
 

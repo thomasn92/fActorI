@@ -57,10 +57,11 @@
 | 48e | Full-paper prose-call planning and clean runtime prose-budget handling | `llm_orchestration.py`, `manuscript_plan.py` | Existing `run-llm-paper --llm-scope full-paper` | Preflight counts every deterministic manuscript section task; runtime prose budget exhaustion returns a blocked orchestration report with a non-external blocked accounting record instead of a traceback |
 | 48f | Bounded deterministic safe repair for generated-paper textual boundary violations and post-repair warning separation | `paper_revision.py`, `full_paper_generation.py`, `llm_orchestration.py` | `run-llm-paper --enable-safe-repair` | Optional one-pass repair removes or downgrades explicit unsafe text, writes a hashed non-evidence audit report with pre/repaired/post warning buckets, re-exports revised LaTeX, and reruns critic/release checks without inventing citations or evidence |
 | 49 | Compact read-only LLM run inspection summary for persisted orchestration reports | `llm_orchestration.py`, `cli.py` | `inspect-llm-run` | Reads existing LLM reports only; summarizes status, calls, budget blocks, warnings, safe-repair presence, and paper paths without mutating runs or creating evidence |
+| 50 | Compact read-only generated paper bundle inspection summary | `full_paper_generation.py`, `cli.py` | `inspect-paper-bundle` | Reads existing Markdown/LaTeX/report artifacts only; prefers revised artifacts and summarizes sections, words, citations, warnings, blockers, safe-repair presence, and paths without mutating runs or creating evidence |
 
 ## Current Boundary
 
-Milestones through 49 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 50 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
