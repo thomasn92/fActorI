@@ -154,7 +154,7 @@ def test_generate_section_draft_cli_works_with_fake_backend_and_json(tmp_path) -
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
-    assert payload["section_contract"]["section_id"] == "introduction"
+    assert payload["section_contract"]["section_id"] == "introduction-and-problem-framing"
     assert payload["draft"]["is_verification_evidence"] is False
     assert payload["safety_report"]["is_verification_evidence"] is False
     assert payload["safety_report"]["creates_scientific_validation"] is False

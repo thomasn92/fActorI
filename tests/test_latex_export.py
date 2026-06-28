@@ -46,7 +46,7 @@ def test_latex_export_from_simple_markdown_is_deterministic() -> None:
     second = _export()
 
     assert first == second
-    assert "\\section{Introduction}" in first.paper_tex
+    assert "\\section{Introduction and Problem Framing}" in first.paper_tex
     assert "\\cite{Smith2024BoundedContext}" in first.paper_tex
     assert first.safety_report.safe
 
@@ -82,7 +82,7 @@ def test_source_map_contains_sections_claims_evidence_and_citations() -> None:
     result = _export()
     entry = result.source_map.entries[0]
 
-    assert entry.section_id == "introduction"
+    assert entry.section_id == "introduction-and-problem-framing"
     assert entry.claim_ids == ["claim-main"]
     assert entry.evidence_artifact_ids == ["evidence-a"]
     assert entry.citation_keys == ["Smith2024BoundedContext"]
@@ -216,7 +216,7 @@ def _export(markdown: str | None = None) -> LatexExportResult:
 def _markdown() -> str:
     return (
         "# Demo manuscript\n\n"
-        "## Introduction\n\n"
+        "## Introduction and Problem Framing\n\n"
         "This draft cites bounded retrieval context [@Smith2024BoundedContext].\n\n"
         "## Claim/Evidence Appendix\n\n"
         "- `claim-main`: evidence-a\n"
@@ -226,9 +226,9 @@ def _markdown() -> str:
 def _drafting_plan() -> ManuscriptDraftingPlan:
     contract = ProseSectionContract(
         run_id="run-1",
-        section_id="introduction",
-        section_title="Introduction",
-        section_role="Introduction",
+        section_id="introduction-and-problem-framing",
+        section_title="Introduction and Problem Framing",
+        section_role="Introduction and Problem Framing",
         allowed_claim_ids=["claim-main"],
         allowed_evidence_artifact_ids=["evidence-a"],
         allowed_citation_ids=["citation-source-1"],
@@ -248,9 +248,9 @@ def _drafting_plan() -> ManuscriptDraftingPlan:
         sections_count=1,
         tasks=[
             SectionDraftingTask(
-                section_id="introduction",
-                section_title="Introduction",
-                section_role="Introduction",
+                section_id="introduction-and-problem-framing",
+                section_title="Introduction and Problem Framing",
+                section_role="Introduction and Problem Framing",
                 allowed_claim_ids=["claim-main"],
                 allowed_evidence_artifact_ids=["evidence-a"],
                 allowed_citation_ids=["citation-source-1"],
@@ -272,7 +272,7 @@ def _drafting_report() -> ManuscriptDraftingReport:
         draft_status=ManuscriptDraftStatus.DRAFT_COMPLETE,
         section_summaries=[
             SectionDraftSafetySummary(
-                section_id="introduction",
+                section_id="introduction-and-problem-framing",
                 safety_status="Safe",
                 safe=True,
                 rejected=False,

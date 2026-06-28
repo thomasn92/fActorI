@@ -297,6 +297,12 @@ Revision and render diagnostics remain explicitly gated. Full-paper generation a
 presentation/context/export artifacts only; they cannot create or upgrade evidence labels, mutate
 claim/evidence tables, invent citations, or claim publication readiness.
 
+The default generated-paper drafting profile is quality-aware but still deterministic: it uses a
+compact paper-shaped outline, derives a non-placeholder title from the selected branch/problem
+context when possible, gives each prose section target word-range guidance, omits empirical-results
+sections when no experiment evidence exists, and omits bibliography output when there are no
+retrieval-backed citation records.
+
 `evaluate-paper-release` checks a generated bundle for internal human-review handoff readiness:
 
 ```bash

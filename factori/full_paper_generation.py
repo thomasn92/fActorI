@@ -126,7 +126,7 @@ def generate_full_paper(
     prose_generator,
     config: FullPaperGenerationConfig,
     renderer: LatexRenderer | None = None,
-    max_words: int = 160,
+    max_words: int = 260,
     enable_safe_repair: bool = False,
 ) -> FullPaperGenerationRunResult:
     """Generate a complete manuscript package from existing deterministic run artifacts."""
@@ -571,7 +571,7 @@ def lint_paper_bundle_summary(
     citation_marker_count = int(bundle.get("citation_marker_count") or 0)
     citations_present = citation_marker_count > 0
     sections = _markdown_sections(markdown)
-    body_sections = _body_sections(sections, title_text)
+    body_sections = _major_body_sections(_body_sections(sections, title_text))
     sections_too_short = [
         {"heading": section["heading"], "word_count": section["word_count"]}
         for section in body_sections
@@ -827,6 +827,23 @@ def _body_sections(
             section["level"] == 1
             and title_key
             and str(section["heading"]).casefold() == title_key
+        )
+    ]
+
+
+def _major_body_sections(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    skipped_fragments = (
+        "appendix",
+        "bibliography",
+        "references",
+        "draft invariants",
+    )
+    return [
+        section
+        for section in sections
+        if not any(
+            fragment in str(section["heading"]).casefold()
+            for fragment in skipped_fragments
         )
     ]
 

@@ -111,7 +111,7 @@ def build_manuscript_plan(
         plan_id=f"manuscript-plan-{final_nucleus.id}",
         final_nucleus_id=final_nucleus.id,
         nucleus_type=final_nucleus.nucleus_type,
-        title=_plan_title(final_nucleus),
+        title=_plan_title(final_nucleus, claim_table),
         sections=sections,
         allowed_claim_ids=allowed_claim_ids,
         blocked_claim_ids=omitted_claim_ids,
@@ -376,30 +376,24 @@ def _suggested_section(claim: Claim) -> str | None:
 
 
 _ABSTRACT_NUCLEUS_SECTIONS = (
-        "Title",
-        "Abstract",
-        "Introduction",
-        "General Model",
-        "Instantiations / Special Cases",
-        "Theory or Synthetic Experiments",
-        "Negative Results or Boundary Cases",
-        "Limitations",
-        "Conclusion",
-        "Appendix",
+    "Abstract",
+    "Introduction and Problem Framing",
+    "Method and Model",
+    "Claim and Evidence Boundaries",
+    "Demonstration Status",
+    "Limitations",
+    "Conclusion",
 )
 
 
 _BRANCH_NUCLEUS_SECTIONS = (
-    "Title",
     "Abstract",
-    "Introduction",
-    "Problem Setup",
-    "Method",
-    "Theory or Synthetic Experiments",
-    "Results",
+    "Introduction and Problem Framing",
+    "Method and Model",
+    "Claim and Evidence Boundaries",
+    "Demonstration Status",
     "Limitations",
     "Conclusion",
-    "Appendix",
 )
 
 
@@ -423,27 +417,41 @@ def _branch_nucleus_sections() -> list[str]:
 
 def _claim_sections_for_title(title: str) -> list[str]:
     return {
-        "General Model": ["Model"],
-        "Instantiations / Special Cases": ["Results"],
-        "Theory or Synthetic Experiments": ["Theory", "Synthetic Experiments"],
-        "Negative Results or Boundary Cases": ["Negative Results"],
-        "Problem Setup": ["Model"],
-        "Method": ["Model"],
-        "Appendix": ["Appendix"],
+        "Introduction and Problem Framing": ["Introduction"],
+        "Method and Model": ["Model"],
+        "Claim and Evidence Boundaries": [
+            "Theory",
+            "Synthetic Experiments",
+            "Results",
+            "Negative Results",
+            "Limitations",
+            "Appendix",
+        ],
+        "Demonstration Status": ["Synthetic Experiments", "Results"],
+        "Limitations": ["Limitations", "Future Work"],
     }.get(title, [title])
 
 
 def _section_bullets(title: str, final_nucleus: FinalNucleus) -> list[str]:
-    if title == "Title":
-        return [_plan_title(final_nucleus)]
     if title == "Abstract":
         return ["State only claims admitted by the claim/evidence table."]
-    if title in {"General Model", "Problem Setup", "Model"}:
+    if title == "Introduction and Problem Framing":
+        return [
+            "Make the problem framing explicit.",
+            "Do not cite sources unless a citation registry supplies them.",
+        ]
+    if title == "Method and Model":
         return ["Define objects, assumptions, and admissible claim labels."]
-    if title in {"Theory or Synthetic Experiments", "Results"}:
-        return ["Place verified or explicitly labeled claims with evidence links."]
-    if "Negative" in title:
-        return ["Frame negative results as boundary cases, not positive evidence."]
+    if title == "Claim and Evidence Boundaries":
+        return [
+            "Place admitted claims with their evidence links.",
+            "Do not upgrade conjectures, fake validators, or presentation artifacts.",
+        ]
+    if title == "Demonstration Status":
+        return [
+            "Describe only available synthetic or MVP demonstration status.",
+            "Do not claim empirical validation without real experiment evidence.",
+        ]
     if title == "Limitations":
         return ["Preserve limitations and unsupported directions without label inflation."]
     return ["Keep section content constrained by the claim table."]
@@ -454,7 +462,7 @@ def _section_narrative_roles(title: str) -> list[NarrativeSectionRole]:
     roles: list[NarrativeSectionRole] = []
     if "abstract" in lowered:
         roles.append(NarrativeSectionRole.CENTRAL_MESSAGE)
-    if "introduction" in lowered:
+    if "introduction" in lowered or "problem framing" in lowered:
         roles.extend(
             [
                 NarrativeSectionRole.PROBLEM_FRAMING,
@@ -463,11 +471,11 @@ def _section_narrative_roles(title: str) -> list[NarrativeSectionRole]:
         )
     if "model" in lowered or "setup" in lowered or "method" in lowered:
         roles.append(NarrativeSectionRole.MODEL_FRAME)
-    if "theory" in lowered or "results" in lowered:
+    if "claim" in lowered or "evidence" in lowered or "theory" in lowered:
         roles.append(NarrativeSectionRole.MAIN_BODY_RESULT)
-    if "synthetic" in lowered or "numerical" in lowered:
+    if "demonstration" in lowered or "synthetic" in lowered or "numerical" in lowered:
         roles.append(NarrativeSectionRole.NUMERICAL_VALIDATION)
-    if "negative" in lowered or "boundary" in lowered:
+    if "negative" in lowered or "boundary" in lowered or "limitation" in lowered:
         roles.append(NarrativeSectionRole.SYNTHETIC_BOUNDARY)
     if "limitation" in lowered or "conclusion" in lowered:
         roles.append(NarrativeSectionRole.LIMITATIONS_DISCUSSION)
@@ -481,10 +489,75 @@ def _section_id(title: str) -> str:
     return "-".join(part for part in normalized.split("-") if part)
 
 
-def _plan_title(final_nucleus: FinalNucleus) -> str:
+def _plan_title(final_nucleus: FinalNucleus, claim_table: ClaimTable | None = None) -> str:
     if final_nucleus.nucleus_type == FinalNucleusType.ABSTRACT_NUCLEUS:
-        return "Deterministic Abstract Synthesis Manuscript Plan"
-    return "Deterministic Branch Manuscript Plan"
+        if final_nucleus.abstract_model is not None:
+            mechanism = final_nucleus.abstract_model.mechanism
+            return _safe_title(f"Bounded Synthesis of {mechanism}")
+        return "Bounded Abstract Synthesis"
+    claim_text = ""
+    if claim_table is not None and claim_table.claims:
+        claim_text = sorted(claim_table.claims, key=lambda item: item.claim_id)[0].claim_text
+    if not claim_text:
+        return _safe_title(f"Bounded Study of {final_nucleus.id}")
+    return _safe_title(f"Bounded Study of {_claim_title_fragment(claim_text)}")
+
+
+def _claim_title_fragment(claim_text: str) -> str:
+    fragment = claim_text.split(":")[-1].strip()
+    words = [
+        word.strip(".,;:()[]{}").lower()
+        for word in fragment.replace("/", " ").split()
+        if word.strip(".,;:()[]{}")
+    ]
+    stopwords = {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "can",
+        "for",
+        "how",
+        "in",
+        "is",
+        "of",
+        "on",
+        "or",
+        "the",
+        "to",
+        "with",
+    }
+    excluded_label_words = {
+        "conjecture",
+        "conjectural",
+        "form",
+        "leanverified",
+        "syntheticexperimentverified",
+        "theorem",
+        "verified",
+    }
+    content_words = [
+        word
+        for word in words
+        if word not in stopwords and word.casefold() not in excluded_label_words
+    ]
+    selected = content_words[:8] or words[:8] or ["selected", "branch"]
+    return " ".join(word.capitalize() for word in selected)
+
+
+def _safe_title(title: str) -> str:
+    forbidden = {
+        "deterministic branch manuscript plan",
+        "untitled",
+        "placeholder",
+        "draft",
+        "paper",
+    }
+    normalized = " ".join(title.split())
+    if not normalized or normalized.casefold() in forbidden:
+        return "Bounded Study of Selected Branch"
+    return normalized
 
 
 def _is_real_world_claim(text: str) -> bool:

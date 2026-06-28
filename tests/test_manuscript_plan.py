@@ -57,8 +57,10 @@ def test_abstract_nucleus_produces_general_model_outline() -> None:
 
     titles = [section.title for section in plan.sections]
 
-    assert "General Model" in titles
-    assert "Instantiations / Special Cases" in titles
+    assert "Method and Model" in titles
+    assert "Claim and Evidence Boundaries" in titles
+    assert "Deterministic" not in plan.title
+    assert "Manuscript Plan" not in plan.title
 
 
 def test_branch_nucleus_produces_focused_branch_outline() -> None:
@@ -67,8 +69,10 @@ def test_branch_nucleus_produces_focused_branch_outline() -> None:
     plan = build_manuscript_plan(final_nucleus, _claim_table())
     titles = [section.title for section in plan.sections]
 
-    assert "Problem Setup" in titles
-    assert "Method" in titles
+    assert "Introduction and Problem Framing" in titles
+    assert "Method and Model" in titles
+    assert "Claim and Evidence Boundaries" in titles
+    assert len(titles) == 7
     assert "General Model" not in titles
 
 
@@ -98,6 +102,46 @@ def test_section_plans_include_allowed_claim_ids_only() -> None:
     assert "claim-ok" in section_claim_ids
     assert "claim-bad" not in section_claim_ids
     assert "claim-bad" in plan.blocked_claim_ids
+
+
+def test_quality_aware_plan_avoids_placeholder_title() -> None:
+    final_nucleus = _branch_nucleus()
+    claim_table = ClaimTable(
+        final_nucleus_id=final_nucleus.id,
+        claims=[
+            _claim(
+                "claim-ok",
+                VerificationLabel.CONJECTURE,
+                "Theory",
+                [],
+                text=(
+                    "For the selected branch, candidate candidate-a remains a conjecture: "
+                    "How can transport costs bound neighborhood flows?"
+                ),
+            )
+        ],
+    )
+
+    plan = build_manuscript_plan(final_nucleus, claim_table)
+
+    assert plan.title == "Bounded Study of Transport Costs Bound Neighborhood Flows?"
+    assert plan.title not in {
+        "Deterministic Branch Manuscript Plan",
+        "Untitled",
+        "Placeholder",
+        "Draft",
+        "Paper",
+    }
+
+
+def test_quality_aware_plan_reduces_section_count_for_no_evidence_drafts() -> None:
+    plan = build_manuscript_plan(_branch_nucleus(), _claim_table())
+    titles = [section.title for section in plan.sections]
+
+    assert len(titles) == 7
+    assert "Empirical Results" not in titles
+    assert "Bibliography" not in titles
+    assert "Demonstration Status" in titles
 
 
 def test_blocked_claims_are_deterministic_and_cover_required_failure_modes() -> None:

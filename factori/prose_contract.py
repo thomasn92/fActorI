@@ -159,10 +159,7 @@ def build_prose_section_contract(
     max_words: int = 160,
 ) -> ProseSectionContract:
     """Build a deterministic section-level prose contract."""
-    section = next(
-        (item for item in manuscript_plan.sections if item.section_id == section_id),
-        None,
-    )
+    section = _find_manuscript_section(manuscript_plan, section_id)
     if section is None:
         known = ", ".join(sorted(item.section_id for item in manuscript_plan.sections))
         raise SectionDraftGenerationError(
@@ -193,6 +190,10 @@ def build_prose_section_contract(
         source_hashes["literature_positioning_report"] = sha256_json(
             literature_positioning_report.model_dump(mode="json")
         )
+    target_min_words, target_max_words = _target_word_range(section.title, max_words)
+    has_experiment_evidence = _has_experiment_evidence(claim_table)
+    has_empirical_evidence = _has_empirical_evidence(claim_table)
+    has_citation_sources = bool(citation_registry and citation_registry.citations)
     contract = ProseSectionContract(
         run_id=run_id,
         section_id=section.section_id,
@@ -209,6 +210,24 @@ def build_prose_section_contract(
             "Use only allowed evidence artifact IDs.",
             "Generated prose is not verification evidence.",
             "Do not invent citations, proofs, experiment results, or empirical validation.",
+            "Do not use theorem, conjecture, verified, LeanVerified, "
+            "SyntheticExperimentVerified, or RealDataExperimentVerified wording unless the "
+            "linked claim and evidence contract explicitly allow it.",
+            *(
+                [
+                    "No real proof or experiment evidence is available for this section; "
+                    "state that limitation instead of implying validation."
+                ]
+                if not has_experiment_evidence
+                else []
+            ),
+            *(
+                [
+                    "Real-world empirical validation is unavailable for this MVP section."
+                ]
+                if not has_empirical_evidence
+                else []
+            ),
         ],
         citation_boundary_instructions=[
             "Use only allowed citation keys.",
@@ -216,6 +235,14 @@ def build_prose_section_contract(
             "Do not claim exhaustive literature coverage.",
             "Do not claim retrieval proves novelty.",
             "Do not use citations as proof or experiment evidence.",
+            *(
+                [
+                    "Do not include citation markers because no citation registry sources "
+                    "are available for this section."
+                ]
+                if not has_citation_sources
+                else []
+            ),
         ],
         literature_positioning_context=(
             literature_positioning_report.model_dump(mode="json")
@@ -224,16 +251,45 @@ def build_prose_section_contract(
             else None
         ),
         style_instructions=[
-            "Use placeholder-grade manuscript prose, not polished final prose.",
+            f"Target word range: {target_min_words}-{target_max_words} words.",
+            "Use manuscript-draft prose, not final publication-ready prose.",
             "Preserve uncertainty, limitations, and fake-validator disclaimers.",
+            "Avoid placeholder headings, placeholder body text, and generic section filler.",
+            *(_section_specific_style_instructions(section.title, has_citation_sources)),
         ],
         max_words=max_words,
+        required_subsections=_required_subsections(
+            section.title,
+            has_experiment_evidence=has_experiment_evidence,
+            has_citation_sources=has_citation_sources,
+        ),
         source_contract_hashes=source_hashes,
     )
     return contract.model_copy(
         update={
             "forbidden_labels": forbidden_labels_for_section(contract, claim_table),
         }
+    )
+
+
+def _find_manuscript_section(
+    manuscript_plan: ManuscriptPlan,
+    section_id: str,
+):
+    aliases = {
+        "introduction": "introduction-and-problem-framing",
+        "problem-framing": "introduction-and-problem-framing",
+        "method": "method-and-model",
+        "model": "method-and-model",
+        "evidence-boundaries": "claim-and-evidence-boundaries",
+        "claim-boundaries": "claim-and-evidence-boundaries",
+        "demonstration": "demonstration-status",
+    }
+    normalized = section_id.strip().lower()
+    accepted = {normalized, aliases.get(normalized, normalized)}
+    return next(
+        (item for item in manuscript_plan.sections if item.section_id in accepted),
+        None,
     )
 
 
@@ -250,6 +306,80 @@ def _allowed_citations_for_section(section, citation_registry: CitationRegistry 
     ):
         return list(citation_registry.citations)
     return []
+
+
+def _target_word_range(section_title: str, max_words: int) -> tuple[int, int]:
+    lower = section_title.lower()
+    minimum = 120
+    if "abstract" in lower or "conclusion" in lower:
+        minimum = 120
+    elif "limitation" in lower:
+        minimum = 140
+    maximum = max(minimum, max_words)
+    return minimum, maximum
+
+
+def _section_specific_style_instructions(
+    section_title: str,
+    has_citation_sources: bool,
+) -> list[str]:
+    lower = section_title.lower()
+    instructions: list[str] = []
+    if "introduction" in lower or "problem framing" in lower:
+        instructions.append("Make the problem framing explicit in the first paragraph.")
+        if has_citation_sources:
+            instructions.append("Use only allowed citation markers for bounded context.")
+        else:
+            instructions.append(
+                "State that no retrieval-backed citations are available rather than "
+                "inventing citations."
+            )
+    if "demonstration" in lower or "result" in lower:
+        instructions.append(
+            "Describe demonstration status as non-evidence unless linked experiment "
+            "evidence exists."
+        )
+    if "limitation" in lower:
+        instructions.append("Include no-evidence and MVP-boundary limitations explicitly.")
+    return instructions
+
+
+def _required_subsections(
+    section_title: str,
+    *,
+    has_experiment_evidence: bool,
+    has_citation_sources: bool,
+) -> list[str]:
+    lower = section_title.lower()
+    required: list[str] = []
+    if "introduction" in lower or "problem framing" in lower:
+        required.append("Problem framing")
+        required.append(
+            "Bounded literature context"
+            if has_citation_sources
+            else "No retrieval-backed citations available"
+        )
+    if ("demonstration" in lower or "result" in lower) and not has_experiment_evidence:
+        required.append("No experiment evidence limitation")
+    if "limitation" in lower:
+        required.append("No publication-readiness claim")
+    return required
+
+
+def _has_experiment_evidence(claim_table: ClaimTable) -> bool:
+    return any(
+        "experiment" in evidence_type.lower()
+        for claim in claim_table.claims
+        for evidence_type in claim.evidence_types
+    )
+
+
+def _has_empirical_evidence(claim_table: ClaimTable) -> bool:
+    return any(
+        "real" in evidence_type.lower()
+        for claim in claim_table.claims
+        for evidence_type in claim.evidence_types
+    )
 
 
 def build_prose_evidence_map(claim_table: ClaimTable) -> dict[str, dict[str, Any]]:

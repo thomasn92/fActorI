@@ -289,6 +289,10 @@ uv run factori generate-paper --run-id demo \
 Generated paper packages are manuscript/presentation/export context only. They cannot create or
 upgrade evidence labels, mutate claim/evidence tables, invent citations, or imply publication
 readiness.
+The default drafting profile is quality-aware: it derives a non-placeholder title when possible,
+uses a compact 7-section paper-shaped outline, gives prose contracts target word ranges and
+no-evidence boundary instructions, omits empirical-results sections without experiment evidence,
+and omits bibliography output when no retrieval-backed citations exist.
 
 Evaluate a generated bundle for internal human-review handoff readiness. This is not publication
 readiness, peer review, scientific validation, or evidence:

@@ -770,20 +770,30 @@ def _canonical_heading(title: str, roles: list[NarrativeSectionRole]) -> str:
         return "Title"
     if "abstract" in lowered:
         return "Abstract"
-    if "introduction" in lowered:
-        return "Introduction"
-    if NarrativeSectionRole.MODEL_FRAME in role_set or "model" in lowered:
-        return "Model and Preliminary Results"
+    if "introduction" in lowered or "problem framing" in lowered:
+        return "Introduction and Problem Framing"
+    if (
+        NarrativeSectionRole.MODEL_FRAME in role_set
+        or "model" in lowered
+        or "method" in lowered
+    ):
+        return "Method and Model"
     if (
         NarrativeSectionRole.MAIN_BODY_RESULT in role_set
         or NarrativeSectionRole.DERIVATIVE_COROLLARY in role_set
+        or "claim" in lowered
+        or "evidence" in lowered
         or "result" in lowered
     ):
-        return "Main Result and Derivatives"
-    if NarrativeSectionRole.NUMERICAL_VALIDATION in role_set or "numerical" in lowered:
-        return "Numerical Study"
+        return "Claim and Evidence Boundaries"
+    if (
+        NarrativeSectionRole.NUMERICAL_VALIDATION in role_set
+        or "demonstration" in lowered
+        or "numerical" in lowered
+    ):
+        return "Demonstration Status"
     if NarrativeSectionRole.EMPIRICAL_DISCUSSION in role_set or "empirical" in lowered:
-        return "Empirical Results and Discussion"
+        return "Demonstration Status"
     if NarrativeSectionRole.LIMITATIONS_DISCUSSION in role_set or "limitation" in lowered:
         return "Limitations"
     if "conclusion" in lowered:

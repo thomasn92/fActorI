@@ -20,14 +20,12 @@ from factori.schemas import (
 
 CANONICAL_MAIN_SECTIONS = [
     "Abstract",
-    "Introduction",
-    "Model and Preliminary Results",
-    "Main Result and Derivatives",
-    "Numerical Study",
-    "Empirical Results and Discussion",
+    "Introduction and Problem Framing",
+    "Method and Model",
+    "Claim and Evidence Boundaries",
+    "Demonstration Status",
     "Limitations",
     "Conclusion",
-    "Appendix",
 ]
 
 
@@ -68,6 +66,10 @@ def assemble_complete_markdown_draft(
         warnings.append(
             "Empirical results are unavailable in this MVP draft; no real-world "
             "validation is claimed."
+        )
+    if citation_registry is not None and not citation_registry.citations:
+        warnings.append(
+            "No retrieval-backed citation sources are available; citation markers are omitted."
         )
     if literature_positioning_report is not None:
         warnings.extend(literature_positioning_report.warnings)
@@ -154,29 +156,35 @@ def _render_markdown(
         "proof evidence, experiment evidence, retrieval evidence, human approval, or "
         "scientific validation.",
         "",
-        "## Central Message",
-        "",
-        narrative_contract.central_message or "Central message unavailable in the contract.",
+        "**Central message.** "
+        + (narrative_contract.central_message or "Central message unavailable in the contract."),
         "",
     ]
     for heading in CANONICAL_MAIN_SECTIONS:
         lines.extend([f"## {heading}", ""])
-        if heading == "Empirical Results and Discussion" and not _has_empirical_evidence(
+        if heading == "Demonstration Status" and not _has_any_experiment_evidence(
             claim_table
         ):
             lines.extend(
                 [
-                    "Empirical results are unavailable and out of scope for this MVP run. "
-                    "No real-world validation is claimed.",
+                    "No real proof, real experiment, or empirical validation artifact is "
+                    "available for this MVP run. This section records demonstration status "
+                    "only and does not create evidence.",
                     "",
                 ]
             )
+            section_texts = buckets.get(heading, [])
+            for text in section_texts:
+                lines.extend([text, ""])
             continue
         section_texts = buckets.get(heading, [])
         if section_texts:
             for text in section_texts:
                 lines.extend([text, ""])
-            if heading == "Introduction" and literature_positioning_report is not None:
+            if (
+                heading == "Introduction and Problem Framing"
+                and literature_positioning_report is not None
+            ):
                 lines.extend(
                     [
                         literature_positioning_report.markdown_intro_paragraph,
@@ -187,7 +195,10 @@ def _render_markdown(
                 )
         else:
             lines.extend([_unavailable_text(heading), ""])
-            if heading == "Introduction" and literature_positioning_report is not None:
+            if (
+                heading == "Introduction and Problem Framing"
+                and literature_positioning_report is not None
+            ):
                 lines.extend(
                     [
                         literature_positioning_report.markdown_intro_paragraph,
@@ -203,15 +214,9 @@ def _render_markdown(
             "",
             claim_appendix,
             "",
-            "## Bibliography",
-            "",
-            bibliography,
-            "",
             "## Provenance Appendix",
             "",
             provenance_appendix,
-            "",
-            "## Draft Invariants",
             "",
             f"- Run: `{run_id}`",
             "- Markdown drafting cannot create or upgrade scientific labels.",
@@ -221,6 +226,15 @@ def _render_markdown(
             "- Retrieval-backed citations are bounded literature context, not novelty proof.",
         ]
     )
+    if bibliography:
+        insertion = [
+            "## Bibliography",
+            "",
+            bibliography,
+            "",
+        ]
+        provenance_index = lines.index("## Provenance Appendix")
+        lines[provenance_index:provenance_index] = insertion
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -253,21 +267,26 @@ def _canonical_heading(title: str, roles: list[NarrativeSectionRole]) -> str:
         return "Title"
     if "abstract" in lowered:
         return "Abstract"
-    if "introduction" in lowered:
-        return "Introduction"
+    if "introduction" in lowered or "problem framing" in lowered:
+        return "Introduction and Problem Framing"
     if (
         NarrativeSectionRole.MODEL_FRAME in role_set
         or "model" in lowered
         or "setup" in lowered
         or "method" in lowered
     ):
-        return "Model and Preliminary Results"
-    if "synthetic" in lowered or "numerical" in lowered:
-        return "Numerical Study"
-    if NarrativeSectionRole.MAIN_BODY_RESULT in role_set or "result" in lowered:
-        return "Main Result and Derivatives"
+        return "Method and Model"
+    if "demonstration" in lowered or "synthetic" in lowered or "numerical" in lowered:
+        return "Demonstration Status"
+    if (
+        NarrativeSectionRole.MAIN_BODY_RESULT in role_set
+        or "claim" in lowered
+        or "evidence" in lowered
+        or "result" in lowered
+    ):
+        return "Claim and Evidence Boundaries"
     if "empirical" in lowered or "discussion" in lowered:
-        return "Empirical Results and Discussion"
+        return "Demonstration Status"
     if "limitation" in lowered or "negative" in lowered or "boundary" in lowered:
         return "Limitations"
     if "conclusion" in lowered:
@@ -319,9 +338,9 @@ def _provenance_appendix(
 
 def _bibliography_markdown(citation_registry: CitationRegistry | None) -> str:
     if citation_registry is None:
-        return "- No citation registry was requested for this draft."
+        return ""
     if not citation_registry.bibliography:
-        return "- No retrieval-backed citations are available for this draft."
+        return ""
     return "\n".join(entry.markdown for entry in citation_registry.bibliography)
 
 
@@ -335,6 +354,14 @@ def _unavailable_text(heading: str) -> str:
 def _has_empirical_evidence(claim_table: ClaimTable) -> bool:
     return any(
         "real" in evidence_type.lower()
+        for claim in claim_table.claims
+        for evidence_type in claim.evidence_types
+    )
+
+
+def _has_any_experiment_evidence(claim_table: ClaimTable) -> bool:
+    return any(
+        "experiment" in evidence_type.lower()
         for claim in claim_table.claims
         for evidence_type in claim.evidence_types
     )

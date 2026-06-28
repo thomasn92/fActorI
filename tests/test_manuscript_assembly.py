@@ -32,16 +32,15 @@ def test_assembled_markdown_includes_expected_section_headings() -> None:
     assert report.draft_status == ManuscriptDraftStatus.DRAFT_COMPLETE_WITH_WARNINGS
     for heading in (
         "## Abstract",
-        "## Introduction",
-        "## Model and Preliminary Results",
-        "## Main Result and Derivatives",
-        "## Numerical Study",
-        "## Empirical Results and Discussion",
+        "## Introduction and Problem Framing",
+        "## Method and Model",
+        "## Claim and Evidence Boundaries",
+        "## Demonstration Status",
         "## Limitations",
         "## Conclusion",
-        "## Appendix",
     ):
         assert heading in draft.markdown
+    assert "## Empirical Results and Discussion" not in draft.markdown
 
 
 def test_assembled_markdown_includes_claim_evidence_and_provenance_appendices() -> None:
@@ -56,8 +55,16 @@ def test_assembled_markdown_includes_claim_evidence_and_provenance_appendices() 
 def test_empirical_section_is_marked_unavailable_when_empirical_evidence_absent() -> None:
     draft, report = _assemble(_section_results())
 
-    assert "Empirical results are unavailable" in draft.markdown
+    assert "No real proof, real experiment, or empirical validation artifact" in draft.markdown
     assert any("Empirical results are unavailable" in warning for warning in report.warnings)
+
+
+def test_no_fake_bibliography_is_rendered_without_retrieval_sources() -> None:
+    draft, _report = _assemble(_section_results())
+
+    assert "## Bibliography" not in draft.markdown
+    assert "No citation registry was requested" not in draft.markdown
+    assert "No retrieval-backed citations are available" not in draft.markdown
 
 
 def test_assembly_includes_citation_bibliography_and_literature_limitations() -> None:

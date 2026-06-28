@@ -19,6 +19,7 @@ from factori.llm_orchestration import (
     inspect_llm_run_summary,
     run_llm_paper_orchestration,
 )
+from factori.manuscript_plan import planned_manuscript_section_count
 from factori.output_hygiene import inspect_output_hygiene
 from factori.replay import replay_verify_run
 from factori.schemas import (
@@ -214,28 +215,23 @@ def test_safe_repair_filters_pre_repair_warnings_from_orchestration_report(tmp_p
     repair_ref = result.generation_result.revision_result.safe_repair_report_artifact
     assert repair_ref is not None
     repair_payload = json.loads((tmp_path / repair_ref.path).read_text(encoding="utf-8"))
-    repaired_warning = (
-        "synthetic or MVP evidence is described as real-world empirical validation"
-    )
     assert any(
         warning.startswith("forbidden label appears in generated prose:")
         for warning in repair_payload["pre_repair_warnings"]
     )
-    assert repaired_warning in repair_payload["pre_repair_warnings"]
-    assert repaired_warning in repair_payload["repaired_warnings"]
-    assert repaired_warning not in repair_payload["post_repair_warnings"]
-    assert repaired_warning not in result.report.warnings
-    assert all(
-        "synthetic or MVP evidence is described as real-world empirical validation"
-        not in warning
-        for warning in result.report.warnings
-    )
+    assert repair_payload["repaired_warnings"]
+    for repaired_warning in repair_payload["repaired_warnings"]:
+        assert repaired_warning in repair_payload["pre_repair_warnings"]
+        assert repaired_warning not in repair_payload["post_repair_warnings"]
+        assert repaired_warning not in result.report.warnings
     assert any("No citation markers were used" in warning for warning in result.report.warnings)
     assert result.report.release_status == ReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS
 
 
 def test_inspect_llm_run_json_and_human_output_are_compact_and_read_only(tmp_path) -> None:
     run_id = "inspect-integrated"
+    prose_calls = planned_manuscript_section_count()
+    total_calls = 3 + 16 + prose_calls
     run_llm_paper_orchestration(
         config=LLMOrchestrationConfig(
             run_id=run_id,
@@ -249,7 +245,7 @@ def test_inspect_llm_run_json_and_human_output_are_compact_and_read_only(tmp_pat
                 max_total_calls=40,
                 max_candidate_generation_calls=3,
                 max_review_calls=16,
-                max_prose_calls=10,
+                max_prose_calls=prose_calls,
                 max_estimated_cost_usd=5.0,
             ),
         ),
@@ -284,9 +280,9 @@ def test_inspect_llm_run_json_and_human_output_are_compact_and_read_only(tmp_pat
     assert payload["safety_report_safe"] is True
     assert payload["candidate_generation_calls"] == 3
     assert payload["review_calls"] == 16
-    assert payload["prose_calls"] == 10
-    assert payload["total_calls"] == 29
-    assert payload["external_call_count"] == 29
+    assert payload["prose_calls"] == prose_calls
+    assert payload["total_calls"] == total_calls
+    assert payload["external_call_count"] == total_calls
     assert payload["failed_call_count"] == 0
     assert payload["blocked_call_count"] == 0
     assert payload["safe_repair_report_present"] is True
@@ -306,7 +302,10 @@ def test_inspect_llm_run_json_and_human_output_are_compact_and_read_only(tmp_pat
     assert "Release: ReadyForHumanReviewWithWarnings" in human_result.output
     assert "Publication ready: false" in human_result.output
     assert "Safety: safe" in human_result.output
-    assert "Calls: 29 total = 3 candidate + 16 review + 10 prose" in human_result.output
+    assert (
+        f"Calls: {total_calls} total = 3 candidate + 16 review + {prose_calls} prose"
+        in human_result.output
+    )
     assert "Runtime budget blocked: false" in human_result.output
     assert "Safe repair: present" in human_result.output
     assert "- No citation markers were used in the draft." in human_result.output
@@ -546,7 +545,7 @@ def test_real_orchestration_uses_injected_transports_without_network(tmp_path) -
 
     assert candidate_transport.calls
     assert reviewer_transport.calls
-    assert len(prose_transport.calls) == 10
+    assert len(prose_transport.calls) == planned_manuscript_section_count()
     assert result.report.orchestration_status in {
         LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED,
         LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS,
@@ -727,6 +726,7 @@ def test_reviewer_only_scope_plans_complete_stage_b_review_workload() -> None:
 
 
 def test_full_paper_preflight_plans_all_manuscript_prose_tasks() -> None:
+    prose_calls = planned_manuscript_section_count()
     config = LLMOrchestrationConfig(
         run_id="prose-preflight",
         domain="human geography",
@@ -735,8 +735,8 @@ def test_full_paper_preflight_plans_all_manuscript_prose_tasks() -> None:
         prose_backend="openai",
         allow_external_calls=True,
         budget=LLMBudgetConfig(
-            max_total_calls=10,
-            max_prose_calls=10,
+            max_total_calls=prose_calls,
+            max_prose_calls=prose_calls,
             max_estimated_cost_usd=1.0,
         ),
     )
@@ -745,11 +745,12 @@ def test_full_paper_preflight_plans_all_manuscript_prose_tasks() -> None:
 
     assert summary["candidate_generation_calls"] == 0
     assert summary["review_calls"] == 0
-    assert summary["prose_calls"] == 10
-    assert summary["estimated_max_calls"] == 10
+    assert summary["prose_calls"] == prose_calls
+    assert summary["estimated_max_calls"] == prose_calls
 
 
 def test_full_paper_preflight_blocks_low_prose_budget_before_mutation(tmp_path) -> None:
+    low_budget = planned_manuscript_section_count() - 1
     with pytest.raises(LLMOrchestrationError, match="max_prose_calls exceeded"):
         run_llm_paper_orchestration(
             config=LLMOrchestrationConfig(
@@ -760,8 +761,8 @@ def test_full_paper_preflight_blocks_low_prose_budget_before_mutation(tmp_path) 
                 prose_backend="openai",
                 allow_external_calls=True,
                 budget=LLMBudgetConfig(
-                    max_total_calls=8,
-                    max_prose_calls=8,
+                    max_total_calls=low_budget,
+                    max_prose_calls=low_budget,
                     max_estimated_cost_usd=1.0,
                 ),
             ),
@@ -963,6 +964,7 @@ def test_cli_json_catches_runtime_prose_budget_failure(monkeypatch, tmp_path) ->
     original_planned_usage = module._planned_usage
     real_orchestration = module.run_llm_paper_orchestration
     prose_transport = ProseTransport()
+    low_budget = planned_manuscript_section_count() - 1
 
     def undercounted_usage(config, *, llm_scope="full-paper"):
         usage = original_planned_usage(config, llm_scope=llm_scope)
@@ -1008,9 +1010,9 @@ def test_cli_json_catches_runtime_prose_budget_failure(monkeypatch, tmp_path) ->
             "openai",
             "--allow-external-calls",
             "--max-total-calls",
-            "8",
+            str(low_budget),
             "--max-prose-calls",
-            "8",
+            str(low_budget),
             "--max-estimated-cost-usd",
             "1.0",
             "--skip-evaluate-release",
@@ -1035,7 +1037,7 @@ def test_cli_json_catches_runtime_prose_budget_failure(monkeypatch, tmp_path) ->
     assert blocked[0]["step_name"] == "llm-prose-generation"
     assert blocked[0]["error_type"] == "BudgetExceeded"
     assert blocked[0]["external_call_performed"] is False
-    assert len(prose_transport.calls) == 8
+    assert len(prose_transport.calls) == low_budget
     assert payload["artifacts"]["llm_orchestration_report"] is not None
 
 

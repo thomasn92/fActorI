@@ -829,14 +829,25 @@ def _human_escalation_policy_check(commits: list[LedgerCommit]) -> AuditCheck:
 
 def _paper_required_sections_check(paper_skeleton: PaperSkeleton) -> AuditCheck:
     titles = {section.title for section in paper_skeleton.sections}
-    required = {"Abstract", "Introduction", "Limitations", "Conclusion"}
-    model_ok = bool(titles & {"General Model", "Problem Setup"})
-    result_ok = bool(titles & {"Results", "Negative Results or Boundary Cases"})
+    required = {"Abstract", "Limitations", "Conclusion"}
+    introduction_ok = bool(titles & {"Introduction", "Introduction and Problem Framing"})
+    model_ok = bool(titles & {"General Model", "Problem Setup", "Method and Model"})
+    result_ok = bool(
+        titles
+        & {
+            "Results",
+            "Negative Results or Boundary Cases",
+            "Claim and Evidence Boundaries",
+            "Demonstration Status",
+        }
+    )
     missing = sorted(required - titles)
+    if not introduction_ok:
+        missing.append("Introduction or Problem Framing")
     if not model_ok:
-        missing.append("General Model or Problem Setup")
+        missing.append("General Model, Problem Setup, or Method and Model")
     if not result_ok:
-        missing.append("Results or Negative Results")
+        missing.append("Results, Evidence Boundaries, or Demonstration Status")
     return _check(
         "paper_required_sections",
         AuditCategory.PAPER_SKELETON_CONSISTENCY,

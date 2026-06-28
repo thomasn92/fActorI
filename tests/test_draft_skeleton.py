@@ -220,7 +220,7 @@ def test_cli_build_draft_skeleton_works_after_full_flow(tmp_path) -> None:
     assert synthesize.exit_code == 0
     assert plan.exit_code == 0
     assert draft.exit_code == 0
-    assert "sections=10" in draft.output
+    assert "sections=7" in draft.output
     assert "claim_placeholders=1" in draft.output
     assert "draft_skeleton=runs/run-1/reports/draft-skeleton.md" in draft.output
     assert "manuscript_checklist=runs/run-1/reports/manuscript-checklist.md" in draft.output

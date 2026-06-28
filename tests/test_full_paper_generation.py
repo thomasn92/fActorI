@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.cli import app
-from factori.full_paper_generation import generate_full_paper
+from factori.full_paper_generation import generate_full_paper, lint_paper_bundle_summary
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.run_all import run_deterministic_pipeline
@@ -259,13 +259,12 @@ def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:
     repair_ref = result.revision_result.safe_repair_report_artifact
     assert repair_ref is not None
     payload = json.loads((tmp_path / repair_ref.path).read_text(encoding="utf-8"))
-    repaired_warning = (
-        "synthetic or MVP evidence is described as real-world empirical validation"
-    )
-    assert repaired_warning in payload["pre_repair_warnings"]
-    assert repaired_warning in payload["repaired_warnings"]
-    assert repaired_warning not in payload["post_repair_warnings"]
-    assert repaired_warning not in result.report.warnings
+    assert payload["pre_repair_warnings"]
+    assert payload["repaired_warnings"]
+    for repaired_warning in payload["repaired_warnings"]:
+        assert repaired_warning in payload["pre_repair_warnings"]
+        assert repaired_warning not in payload["post_repair_warnings"]
+        assert repaired_warning not in result.report.warnings
     assert all(
         "synthetic or MVP evidence is described as real-world empirical validation"
         not in warning
@@ -398,6 +397,36 @@ def test_full_paper_generation_does_not_mutate_claim_or_evidence_tables(tmp_path
     assert ControllerActionType.FULL_PAPER_GENERATION_WRITTEN in actions
 
 
+def test_quality_aware_generation_improves_lint_on_safe_fixture(tmp_path) -> None:
+    _prepare_run(tmp_path, run_id="run-quality-aware")
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs/run-quality-aware/ledger.sqlite")
+
+    result = generate_full_paper(
+        run_id="run-quality-aware",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=_QualityProseGenerator(),
+        config=FullPaperGenerationConfig(run_id="run-quality-aware", write_report=True),
+    )
+
+    markdown_path = tmp_path / "runs/run-quality-aware/reports/complete-manuscript-draft.md"
+    markdown = markdown_path.read_text(encoding="utf-8")
+    lint = lint_paper_bundle_summary(run_id="run-quality-aware", root=tmp_path)
+
+    assert result.report.publication_ready is False
+    assert lint["paper_release_status"] is None
+    assert lint["release_status_unchanged"] is True
+    assert lint["quality_status"] in {"DraftQualityPass", "DraftQualityWarnings"}
+    assert lint["word_count"] >= 1500
+    assert 7 <= lint["section_count"] <= 10
+    assert lint["title_is_placeholder"] is False
+    assert "## Empirical Results and Discussion" not in markdown
+    assert "## Bibliography" not in markdown
+    assert "## Demonstration Status" in markdown
+
+
 def _prepare_run(tmp_path, *, run_id: str) -> None:
     run_deterministic_pipeline(
         PipelineRunConfig(
@@ -446,6 +475,78 @@ class _UnsafeFirstProseGenerator:
                 ],
             }
         )
+
+
+class _QualityProseGenerator:
+    backend_name = "fake"
+    is_fake = True
+    external_calls_enabled = False
+
+    def generate_section(self, section_contract, claim_table) -> GeneratedSectionDraft:
+        del claim_table
+        title = section_contract.section_title
+        allowed_claim_ids = list(section_contract.allowed_claim_ids)
+        evidence_ids = list(section_contract.allowed_evidence_artifact_ids)
+        content = _quality_section_text(title)
+        return GeneratedSectionDraft(
+            section_id=section_contract.section_id,
+            title=title,
+            content=content,
+            claim_ids=allowed_claim_ids,
+            used_claim_ids=allowed_claim_ids,
+            used_evidence_artifact_ids=evidence_ids,
+            used_citation_ids=[],
+            used_citation_keys=[],
+            unsupported_sentences=[],
+            warnings=[],
+        )
+
+
+def _quality_section_text(title: str) -> str:
+    lower = title.lower()
+    if "introduction" in lower:
+        seed = (
+            "The problem framing is explicit: this manuscript studies the selected "
+            "branch as a bounded internal research object, not as a verified result. "
+            "No retrieval-backed citations are available, so the introduction does "
+            "not invent citation markers or bibliography entries."
+        )
+    elif "method" in lower:
+        seed = (
+            "The method and model summary describes the deterministic scaffold, the "
+            "claim table, and the evidence links as audit objects. The approach keeps "
+            "presentation artifacts separate from verification evidence."
+        )
+    elif "claim" in lower:
+        seed = (
+            "The claim and evidence boundary section lists only admitted claim IDs "
+            "and preserves their labels. It does not transform conjectural, fake, or "
+            "presentation material into proof or experiment evidence."
+        )
+    elif "demonstration" in lower:
+        seed = (
+            "The demonstration status is a non-evidence MVP account. No real proof, "
+            "real experiment, real-world empirical validation, or publication-ready "
+            "claim is available from this generated paper package."
+        )
+    elif "limitation" in lower:
+        seed = (
+            "The limitations section states that fake validators, LLM prose, citation "
+            "absence, and LaTeX export are context only. The draft remains suitable "
+            "only for internal human review."
+        )
+    elif "conclusion" in lower:
+        seed = (
+            "The conclusion summarizes the bounded contribution and repeats that the "
+            "generated manuscript cannot create evidence, upgrade labels, invent "
+            "citations, or imply publication readiness."
+        )
+    else:
+        seed = (
+            "The abstract states the central message and keeps the scientific status "
+            "bounded by the claim table, evidence map, and release warnings."
+        )
+    return " ".join(seed for _ in range(10))
 
 
 def _claim_table_snapshot(tmp_path, run_id: str) -> bytes:

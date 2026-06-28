@@ -130,7 +130,7 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
     assert release.report.is_verification_evidence is False
     assert release.report.critic_blocking_findings == 0
     assert release.report.critic_major_findings == 0
-    assert release.report.critic_warning_findings == 0
+    assert release.report.critic_warning_findings == 1
     assert release.report.findings == []
 
     bundle = generation.artifact_bundle
@@ -214,7 +214,7 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
         (tmp_path / refs["revised-latex-source-map"].path).read_text(encoding="utf-8")
     )
     assert source_map.covers_all_major_sections is True
-    assert len(source_map.entries) == 14
+    assert len(source_map.entries) == 10
 
     replay = replay_verify_run(run_id, tmp_path)
     assert replay.replay_status == ReplayStatus.REPLAY_VERIFIED

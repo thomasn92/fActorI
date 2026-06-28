@@ -59,6 +59,7 @@
 | 49 | Compact read-only LLM run inspection summary for persisted orchestration reports | `llm_orchestration.py`, `cli.py` | `inspect-llm-run` | Reads existing LLM reports only; summarizes status, calls, budget blocks, warnings, safe-repair presence, and paper paths without mutating runs or creating evidence |
 | 50 | Compact read-only generated paper bundle inspection summary | `full_paper_generation.py`, `cli.py` | `inspect-paper-bundle` | Reads existing Markdown/LaTeX/report artifacts only; prefers revised artifacts and summarizes sections, words, citations, warnings, blockers, safe-repair presence, and paths without mutating runs or creating evidence |
 | 51 | Deterministic read-only generated paper bundle quality lint | `full_paper_generation.py`, `cli.py` | `lint-paper-bundle` | Reads existing preferred Markdown draft artifacts only; reports draft-quality failures/warnings separately from release readiness and never mutates runs, creates evidence, or implies publication readiness |
+| 52 | Quality-aware manuscript planning and drafting constraints for less placeholder-like generated bundles | `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py` | `generate-paper`, `lint-paper-bundle` | Full-paper generation now uses a compact 7-section quality-aware plan, deterministic non-placeholder titles, no-evidence section pruning, and prose length/boundary guidance without changing release gates or evidence authority |
 
 ## Current Boundary
 
@@ -126,3 +127,9 @@ Generated paper bundle inspection now has two read-only views: `inspect-paper-bu
 artifact structure and `lint-paper-bundle` for deterministic draft-quality diagnostics such as
 short manuscripts, placeholder titles, missing citations, and missing appendices. Neither view
 changes release/safety status, evidence labels, or publication-readiness flags.
+Full-paper generation now uses quality-aware manuscript planning by default: generated bundles use
+deterministic non-placeholder titles where possible, a smaller 7-section paper-shaped outline,
+section-level prose length guidance, no empirical-results section without experiment evidence, and
+no bibliography section when no retrieval-backed citation sources exist. These constraints improve
+draft usefulness only; they do not weaken release/safety gates, create citations, or imply
+publication readiness.

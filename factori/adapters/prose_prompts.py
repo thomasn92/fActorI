@@ -150,6 +150,10 @@ def forbidden_labels_for_section(
         VerificationLabel.EXPERIMENT_VERIFIED,
     ]
     forbidden.extend(label for label in VerificationLabel if label not in allowed)
+    if "limitation" in section_contract.section_title.lower():
+        forbidden = [
+            label for label in forbidden if label != VerificationLabel.LIMITATION
+        ]
     return list(dict.fromkeys(forbidden))
 
 

@@ -64,6 +64,36 @@ def test_each_section_contract_contains_allowed_claims_and_evidence() -> None:
     assert task.prose_contract.is_verification_evidence is False
 
 
+def test_prose_contracts_include_quality_target_word_ranges_and_limits() -> None:
+    task = _drafting_plan().tasks[0]
+    contract = task.prose_contract
+
+    assert contract.max_words == 160
+    assert any(
+        instruction.startswith("Target word range: 120-160 words")
+        for instruction in contract.style_instructions
+    )
+    assert any("theorem, conjecture, verified" in instruction for instruction in (
+        contract.evidence_boundary_instructions
+    ))
+
+
+def test_prose_contracts_preserve_no_evidence_limitations() -> None:
+    plan = _drafting_plan(claim_table=_claim_table(label=VerificationLabel.CONJECTURE))
+    demonstration_task = next(task for task in plan.tasks if task.section_id == "results")
+    contract = demonstration_task.prose_contract
+
+    assert any(
+        "No real proof or experiment evidence is available" in instruction
+        for instruction in contract.evidence_boundary_instructions
+    )
+    assert any(
+        "Do not include citation markers" in instruction
+        for instruction in contract.citation_boundary_instructions
+    )
+    assert "No experiment evidence limitation" in contract.required_subsections
+
+
 def test_fake_manuscript_section_drafting_applies_safety_to_every_section() -> None:
     results = draft_manuscript_sections(
         drafting_plan=_drafting_plan(),
