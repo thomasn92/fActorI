@@ -128,11 +128,12 @@ All implementation modules are under `factori/`.
 - `run_all.py`: explicit direct orchestration of existing stages plus the hashed, ledgered pipeline
   run report. It accepts an optional clock; replay and diagnostics are checked for ledger
   immutability around their execution.
-- `llm_budget.py`: explicit preflight LLM call/cost budget decisions and secret-safe call
-  accounting records for gated end-to-end LLM orchestration.
+- `llm_budget.py`: explicit preflight and runtime LLM call/cost budget decisions, budget-blocked
+  call records, and secret-safe accounting records for gated LLM orchestration.
 - `llm_orchestration.py`: explicit `run-llm-paper` orchestration over existing Stage A, Stage B,
   manuscript prose, full-paper generation, and release evaluation with fake defaults, real-mode
-  gates, read-only preflight summaries, and secret-safe transport-failure reporting.
+  gates, live-smoke scope isolation, read-only preflight summaries, runtime budget guards, and
+  secret-safe transport-failure reporting.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
 - `rerun_policy.py`: artifact-based mutating-stage rerun decisions plus read-only ledger tip,

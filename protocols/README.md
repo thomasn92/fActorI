@@ -19,7 +19,7 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.12.0`.
+version is `0.13.0`.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -102,7 +102,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.12.0
+  --new-version 0.13.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

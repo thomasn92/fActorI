@@ -55,7 +55,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.12.0
+  --new-version 0.13.0
 uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
@@ -350,17 +350,31 @@ uv run factori run-llm-paper \
   --preflight-only --json
 
 uv run factori run-llm-paper \
-  --run-id live-candidate-smoke-001 \
+  --run-id live-candidate-smoke-004 \
   --domain "human geography" \
+  --llm-scope candidate-only \
   --candidate-backend openai --candidate-model gpt-5.4-mini \
   --reviewer-backend fake --prose-backend fake \
   --allow-external-calls \
-  --max-total-calls 1 --max-estimated-cost-usd 0.20 \
+  --max-total-calls 3 --max-candidate-generation-calls 3 \
+  --max-estimated-cost-usd 0.20 \
+  --write-report --json
+
+uv run factori run-llm-paper \
+  --run-id live-candidate-budget-block \
+  --domain "human geography" \
+  --llm-scope candidate-only \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend fake --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 1 --max-candidate-generation-calls 1 \
+  --max-estimated-cost-usd 0.20 \
   --write-report --json
 
 uv run factori run-llm-paper \
   --run-id live-smoke-002 \
   --domain "human geography" \
+  --llm-scope full-paper \
   --candidate-backend openai --candidate-model gpt-5.4-mini \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
@@ -375,19 +389,26 @@ HTTP error bodies, redacted URLs, selected model, and request hashes; they do no
 OpenAI structured-output transport schemas are adapter-local strict copies. Every object property is
 listed in `required`, optional values are nullable, and public fActorI protocol schemas are not
 rewritten for OpenAI-specific compatibility.
+Use `--llm-scope candidate-only` for isolated Stage A smoke tests. That scope never runs Stage B,
+Stage C, `generate-paper`, or `evaluate-paper-release`, and it forces LaTeX export, critique, and
+revision options off. Runtime budget guards authorize each real LLM transport call before the
+external request; budget-blocked attempts are accounting records with `status=Blocked` and
+`external_call_performed=false`.
 
-Post-strict-schema candidate smoke:
+Current candidate-only live smoke:
 
 ```bash
 uv run factori run-llm-paper \
-  --run-id live-candidate-smoke-002 \
+  --run-id live-candidate-smoke-004 \
   --domain "human geography" \
+  --llm-scope candidate-only \
   --candidate-backend openai \
   --candidate-model gpt-5.4-mini \
   --reviewer-backend fake \
   --prose-backend fake \
   --allow-external-calls \
-  --max-total-calls 1 \
+  --max-total-calls 3 \
+  --max-candidate-generation-calls 3 \
   --max-estimated-cost-usd 0.20 \
   --write-report \
   --json

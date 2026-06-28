@@ -194,7 +194,7 @@ uv run factori export-protocols --check
 uv run factori validate-protocol-examples
 uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
 uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.12.0
+  --old-version 0.1.0 --new-version 0.13.0
 uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
@@ -345,17 +345,31 @@ uv run factori run-llm-paper \
   --preflight-only --json
 
 uv run factori run-llm-paper \
-  --run-id live-candidate-smoke-001 \
+  --run-id live-candidate-smoke-004 \
   --domain "human geography" \
+  --llm-scope candidate-only \
   --candidate-backend openai --candidate-model gpt-5.4-mini \
   --reviewer-backend fake --prose-backend fake \
   --allow-external-calls \
-  --max-total-calls 1 --max-estimated-cost-usd 0.20 \
+  --max-total-calls 3 --max-candidate-generation-calls 3 \
+  --max-estimated-cost-usd 0.20 \
+  --write-report --json
+
+uv run factori run-llm-paper \
+  --run-id live-candidate-budget-block \
+  --domain "human geography" \
+  --llm-scope candidate-only \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend fake --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 1 --max-candidate-generation-calls 1 \
+  --max-estimated-cost-usd 0.20 \
   --write-report --json
 
 uv run factori run-llm-paper \
   --run-id live-smoke-002 \
   --domain "human geography" \
+  --llm-scope full-paper \
   --candidate-backend openai --candidate-model gpt-5.4-mini \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
@@ -369,19 +383,25 @@ model, request/prompt hashes, and a sanitized truncated error-body excerpt. They
 keys or Authorization headers.
 OpenAI structured outputs use an adapter-local strict schema copy: every object property is listed
 in `required`, optional values are nullable, and public fActorI protocol schemas remain separate.
+`--llm-scope candidate-only` is an isolated live-smoke path: it runs Stage A candidate generation
+only and forces paper generation, LaTeX export, critique/revision, and release evaluation off.
+Runtime LLM budget guards authorize each candidate/reviewer/prose transport call before the
+external request; a blocked call is recorded as `Blocked` with `external_call_performed=false`.
 
-Post-strict-schema candidate smoke:
+Current candidate-only live smoke:
 
 ```bash
 uv run factori run-llm-paper \
-  --run-id live-candidate-smoke-002 \
+  --run-id live-candidate-smoke-004 \
   --domain "human geography" \
+  --llm-scope candidate-only \
   --candidate-backend openai \
   --candidate-model gpt-5.4-mini \
   --reviewer-backend fake \
   --prose-backend fake \
   --allow-external-calls \
-  --max-total-calls 1 \
+  --max-total-calls 3 \
+  --max-candidate-generation-calls 3 \
   --max-estimated-cost-usd 0.20 \
   --write-report \
   --json

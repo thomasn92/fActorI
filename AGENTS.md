@@ -89,6 +89,10 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   no API keys, Authorization headers, or raw secrets in errors, reports, JSON, or artifacts.
   OpenAI strict structured-output schemas are adapter-local transport copies; do not rewrite public
   protocol schemas just to satisfy OpenAI API-specific `required`/nullable rules.
+  Use `--llm-scope candidate-only` for isolated Stage A live smoke: it must not run Stage B,
+  Stage C, full-paper generation, or paper-release evaluation. Runtime LLM budgets must be
+  enforced before each external transport call, and budget-blocked attempts are diagnostic
+  accounting records only.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.

@@ -257,7 +257,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.12.0/replay-verification-report.schema.json",
+  "$id": "https://schemas.factori.local/0.13.0/replay-verification-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only replay consistency report.",
@@ -370,7 +370,7 @@
   ],
   "title": "ReplayVerificationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.12.0",
+  "x-factori-protocol-version": "0.13.0",
   "x-factori-source-model": "factori.schemas.ReplayVerificationReport",
   "x-factori-verification-evidence": false
 }

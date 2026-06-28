@@ -2206,6 +2206,10 @@ def run_llm_paper_command(
         str,
         typer.Option("--prose-backend"),
     ] = DEFAULT_PROSE_BACKEND,
+    llm_scope: Annotated[
+        str,
+        typer.Option("--llm-scope"),
+    ] = "full-paper",
     allow_external_calls: Annotated[
         bool,
         typer.Option("--allow-external-calls"),
@@ -2355,12 +2359,20 @@ def run_llm_paper_command(
             fail_on_budget_unknown=fail_on_budget_unknown,
         ),
     )
-    preflight_summary = build_llm_orchestration_preflight_summary(config)
+    try:
+        preflight_summary = build_llm_orchestration_preflight_summary(
+            config,
+            llm_scope=llm_scope,
+        )
+    except LLMOrchestrationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     try:
         result = run_llm_paper_orchestration(
             config=config,
             root=root,
             preflight_only=preflight_only,
+            llm_scope=llm_scope,
         )
     except LLMOrchestrationError as exc:
         typer.echo(str(exc), err=True)
@@ -2408,6 +2420,7 @@ def run_llm_paper_command(
     report = result.report
     typer.echo(f"run_id={run_id}")
     typer.echo(f"llm_orchestration_status={report.orchestration_status.value}")
+    typer.echo(f"llm_scope={preflight_summary['llm_scope']}")
     typer.echo(f"candidate_backend={candidate_backend}")
     typer.echo(f"candidate_model={candidate_model}")
     typer.echo(f"reviewer_backend={reviewer_backend}")
@@ -2417,6 +2430,18 @@ def run_llm_paper_command(
     typer.echo(f"allow_external_calls={str(allow_external_calls).lower()}")
     typer.echo(f"preflight_only={str(preflight_only).lower()}")
     typer.echo(f"estimated_max_calls={preflight_summary['estimated_max_calls']}")
+    typer.echo(
+        "generate_paper_effective="
+        f"{str(preflight_summary['generate_paper_effective']).lower()}"
+    )
+    typer.echo(
+        "evaluate_release_effective="
+        f"{str(preflight_summary['evaluate_release_effective']).lower()}"
+    )
+    typer.echo(
+        "export_latex_effective="
+        f"{str(preflight_summary['export_latex_effective']).lower()}"
+    )
     typer.echo(f"budget_status={report.budget_decision.decision_status.value}")
     typer.echo(f"total_llm_calls={report.budget_usage.total_calls}")
     typer.echo(f"rate_limit_per_minute={rate_limit_per_minute or 'none'}")

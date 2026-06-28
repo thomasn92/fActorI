@@ -83,7 +83,7 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.12.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+Protocol version `0.13.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
 prose, citation/literature-positioning, manuscript drafting, LaTeX export/render,
 paper-critic/revision, full-paper generation/release, LLM orchestration/budget accounting, and enum contracts. Timestamp fields such as `timestamp`, `started_at`,
 `finished_at`, `created_at`, and `retrieved_at` are emitted with JSON Schema `format: date-time`.
@@ -227,6 +227,11 @@ OpenAI structured-output schemas are API-specific transport formats, not public 
 The adapter layer converts requested output schemas into OpenAI strict-compatible copies where every
 object property is required and optional values are nullable. The generated fActorI protocol schemas
 remain the cross-language contracts for Python/server/Rust consumers.
+Live-smoke scopes isolate risk. `candidate-only` runs only Stage A candidate generation with the
+configured candidate backend and forces full-paper generation, LaTeX export, critique/revision, and
+release evaluation off; `full-paper` preserves the end-to-end orchestration path. A runtime budget
+guard authorizes every real candidate/reviewer/prose transport call before the request is made, so
+over-budget attempts are blocked with `external_call_performed=false`.
 Its configuration, budget, accounting, orchestration, and safety reports are audit/context
 artifacts only. They cannot create evidence, upgrade labels, imply publication readiness, or bypass
 the existing stage validators and release gate.
@@ -258,7 +263,8 @@ publication readiness or human approval.
 `run-llm-paper` is a separate mutating orchestration command. It is not part of default `run-all`.
 Fake mode can exercise the workflow without external calls. Real mode fails closed unless
 `allow_external_calls=true`, required credentials are present, and an explicit LLM budget permits
-the run. Report artifacts remain non-evidence accounting/context artifacts.
+the run. Scope-specific effective flags and runtime budget-blocked calls are recorded in the
+orchestration report. Report artifacts remain non-evidence accounting/context artifacts.
 
 Inspection commands such as `show-ledger` and `validate-run` are read-only. Replay verification is
 strictly read-only. `replay-verify --write-report` may write under `runs/<run_id>/replay/`, but those

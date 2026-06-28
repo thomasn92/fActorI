@@ -262,7 +262,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.12.0/llm-budget-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.13.0/llm-budget-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Preflight LLM budget decision.",
@@ -326,7 +326,7 @@
   ],
   "title": "LLMBudgetDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.12.0",
+  "x-factori-protocol-version": "0.13.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetDecision",
   "x-factori-verification-evidence": false
 }

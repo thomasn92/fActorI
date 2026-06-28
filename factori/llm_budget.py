@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from factori.hashing import sha256_json
@@ -20,6 +21,175 @@ _FAKE_BACKENDS = {"fake"}
 
 class LLMBudgetError(RuntimeError):
     """Raised when a requested LLM orchestration budget is unsafe or exhausted."""
+
+
+@dataclass
+class LLMBudgetExceeded(LLMBudgetError):
+    """Raised before an LLM call that would exceed the runtime budget."""
+
+    reason: str
+    record: LLMCallAccountingRecord
+
+    def __str__(self) -> str:
+        return self.reason
+
+
+@dataclass
+class RuntimeLLMBudgetGuard:
+    """Fail-closed runtime budget guard for explicitly gated LLM calls."""
+
+    budget: LLMBudgetConfig
+    clock: Callable[[], str]
+    usage: LLMBudgetUsage = field(default_factory=LLMBudgetUsage)
+    blocked_records: list[LLMCallAccountingRecord] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+    def authorize_call(
+        self,
+        *,
+        step_name: str,
+        backend: str,
+        provider: str,
+        model: str | None,
+        request_payload: Mapping[str, Any],
+        input_token_estimate: int | None,
+        output_token_estimate: int | None,
+        estimated_cost_usd: float | None,
+    ) -> LLMBudgetDecision:
+        """Authorize one external LLM call before transport execution."""
+        started_at = self.clock()
+        reasons: list[str] = []
+        warnings: list[str] = []
+        candidate_increment = 1 if step_name == "llm-candidate-generation" else 0
+        review_increment = 1 if step_name == "llm-stage-b-review" else 0
+        prose_increment = 1 if step_name == "llm-prose-generation" else 0
+        next_usage = LLMBudgetUsage(
+            total_calls=self.usage.total_calls + 1,
+            candidate_generation_calls=(
+                self.usage.candidate_generation_calls + candidate_increment
+            ),
+            review_calls=self.usage.review_calls + review_increment,
+            prose_calls=self.usage.prose_calls + prose_increment,
+            total_input_tokens=_add_optional(
+                self.usage.total_input_tokens,
+                input_token_estimate,
+            ),
+            total_output_tokens=_add_optional(
+                self.usage.total_output_tokens,
+                output_token_estimate,
+            ),
+            estimated_cost_usd=_add_optional_float(
+                self.usage.estimated_cost_usd,
+                estimated_cost_usd,
+            ),
+            unknown_token_usage=(
+                input_token_estimate is None or output_token_estimate is None
+            ),
+            unknown_cost=estimated_cost_usd is None,
+            rate_limit_per_minute=self.budget.rate_limit_per_minute,
+        )
+        _check_limit(
+            reasons,
+            "max_total_calls",
+            next_usage.total_calls,
+            self.budget.max_total_calls,
+        )
+        _check_limit(
+            reasons,
+            "max_candidate_generation_calls",
+            next_usage.candidate_generation_calls,
+            self.budget.max_candidate_generation_calls,
+        )
+        _check_limit(
+            reasons,
+            "max_review_calls",
+            next_usage.review_calls,
+            self.budget.max_review_calls,
+        )
+        _check_limit(
+            reasons,
+            "max_prose_calls",
+            next_usage.prose_calls,
+            self.budget.max_prose_calls,
+        )
+        if input_token_estimate is None or output_token_estimate is None:
+            _unknown_budget_item(reasons, warnings, self.budget, "runtime token usage")
+        else:
+            _check_limit(
+                reasons,
+                "max_total_input_tokens",
+                next_usage.total_input_tokens or 0,
+                self.budget.max_total_input_tokens,
+            )
+            _check_limit(
+                reasons,
+                "max_total_output_tokens",
+                next_usage.total_output_tokens or 0,
+                self.budget.max_total_output_tokens,
+            )
+        if estimated_cost_usd is None:
+            _unknown_budget_item(reasons, warnings, self.budget, "runtime estimated cost")
+        elif (
+            self.budget.max_estimated_cost_usd is not None
+            and (next_usage.estimated_cost_usd or 0.0) > self.budget.max_estimated_cost_usd
+        ):
+            reasons.append(
+                "estimated cost exceeds max_estimated_cost_usd: "
+                f"{next_usage.estimated_cost_usd:.6f} > "
+                f"{self.budget.max_estimated_cost_usd:.6f}"
+            )
+        if (
+            self.budget.rate_limit_per_minute is not None
+            and next_usage.total_calls > self.budget.rate_limit_per_minute
+        ):
+            reasons.append(
+                "rate_limit_per_minute exceeded: "
+                f"{next_usage.total_calls} > {self.budget.rate_limit_per_minute}"
+            )
+
+        if reasons:
+            reason = "; ".join(sorted(set(reasons)))
+            record = build_call_accounting_record(
+                step_name=step_name,
+                backend=backend,
+                provider=provider,
+                model=model,
+                request_payload={
+                    "attempted_call_metadata": _redact_mapping(request_payload),
+                    "budget_blocked_before_external_call": True,
+                    "configured_limit": self.budget.model_dump(mode="json"),
+                    "observed_usage_before_block": self.usage.model_dump(mode="json"),
+                    "reason": reason,
+                },
+                response_payload=None,
+                started_at=started_at,
+                completed_at=self.clock(),
+                status=LLMCallStatus.BLOCKED,
+                error_type="BudgetExceeded",
+                input_token_estimate=input_token_estimate,
+                output_token_estimate=output_token_estimate,
+                estimated_cost_usd=estimated_cost_usd,
+                external_call_performed=False,
+            )
+            self.blocked_records.append(record)
+            raise LLMBudgetExceeded(reason=reason, record=record)
+
+        self.usage = next_usage
+        self.warnings.extend(warning for warning in warnings if warning not in self.warnings)
+        status = (
+            LLMBudgetDecisionStatus.ALLOWED_WITH_WARNINGS
+            if warnings
+            else LLMBudgetDecisionStatus.ALLOWED
+        )
+        return LLMBudgetDecision(
+            decision_status=status,
+            allowed=True,
+            budget_config=self.budget,
+            planned_usage=next_usage,
+            reasons=[],
+            warnings=sorted(set(warnings)),
+            rate_limit_per_minute=self.budget.rate_limit_per_minute,
+        )
 
 
 def budget_is_explicit(budget: LLMBudgetConfig) -> bool:
@@ -276,6 +446,18 @@ def _sum_optional_float(values) -> float | None:
     return round(sum(float(value) for value in items), 6)
 
 
+def _add_optional(current: int | None, increment: int | None) -> int | None:
+    if increment is None:
+        return None
+    return (current or 0) + increment
+
+
+def _add_optional_float(current: float | None, increment: float | None) -> float | None:
+    if increment is None:
+        return None
+    return round((current or 0.0) + increment, 6)
+
+
 def _redact_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     return {
         str(key): _redact_payload(item)
@@ -299,7 +481,9 @@ def _redact_payload(value: Any) -> Any:
 
 
 __all__ = [
+    "LLMBudgetExceeded",
     "LLMBudgetError",
+    "RuntimeLLMBudgetGuard",
     "budget_is_explicit",
     "build_call_accounting_record",
     "build_planned_llm_usage",

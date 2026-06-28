@@ -15,6 +15,7 @@ from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import (
     LLMOrchestrationError,
+    build_llm_orchestration_preflight_summary,
     run_llm_paper_orchestration,
 )
 from factori.output_hygiene import inspect_output_hygiene
@@ -335,6 +336,159 @@ def test_run_llm_paper_preflight_only_validates_without_mutation(tmp_path) -> No
     assert not (tmp_path / "runs" / "preflight").exists()
 
 
+def test_candidate_only_scope_preflight_counts_stage_a_seeded_constraints() -> None:
+    config = LLMOrchestrationConfig(
+        run_id="candidate-only-preflight",
+        domain="human geography",
+        candidate_backend="openai",
+        reviewer_backend="fake",
+        prose_backend="fake",
+        allow_external_calls=True,
+        budget=LLMBudgetConfig(max_total_calls=3, max_estimated_cost_usd=0.2),
+    )
+
+    summary = build_llm_orchestration_preflight_summary(
+        config,
+        llm_scope="candidate-only",
+    )
+
+    assert summary["llm_scope"] == "candidate-only"
+    assert summary["estimated_max_calls"] == 3
+    assert summary["candidate_generation_calls"] == 3
+    assert summary["review_calls"] == 0
+    assert summary["prose_calls"] == 0
+    assert summary["generate_paper_effective"] is False
+    assert summary["evaluate_release_effective"] is False
+    assert summary["export_latex_effective"] is False
+
+
+def test_candidate_only_scope_runs_stage_a_without_paper_or_release(tmp_path) -> None:
+    candidate_transport = CandidateTransport()
+
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="candidate-only",
+            domain="human geography",
+            candidate_backend="openai",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            allow_external_calls=True,
+            generate_paper=True,
+            evaluate_release=True,
+            write_report=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=3,
+                max_candidate_generation_calls=3,
+                max_estimated_cost_usd=0.2,
+            ),
+        ),
+        root=tmp_path,
+        llm_transport=candidate_transport,
+        environ={"OPENAI_API_KEY": "test-key"},
+        llm_scope="candidate-only",
+    )
+
+    assert len(candidate_transport.calls) == 3
+    assert result.pipeline_report is None
+    assert result.generation_result is None
+    assert result.release_result is None
+    assert [step.step_name for step in result.report.steps] == [
+        "preflight",
+        "candidate-only-stage-a",
+    ]
+    assert "generate-paper" not in [step.step_name for step in result.report.steps]
+    assert "evaluate-paper-release" not in [
+        step.step_name for step in result.report.steps
+    ]
+    assert result.report.selected_backends["llm_scope"] == "candidate-only"
+    assert result.report.selected_backends["generate_paper_effective"] == "false"
+    assert result.report.selected_backends["evaluate_release_effective"] == "false"
+    assert result.report.selected_backends["export_latex_effective"] == "false"
+    assert result.report.generate_paper_status is None
+    assert result.report.release_status is None
+    assert result.report.budget_decision.planned_usage.total_calls == 3
+    assert result.report.budget_usage.total_calls == 3
+    succeeded = [
+        record
+        for record in result.report.call_accounting
+        if record.status == LLMCallStatus.SUCCEEDED
+    ]
+    assert len(succeeded) == 3
+    assert all(record.step_name == "llm-candidate-generation" for record in succeeded)
+    assert all(record.external_call_performed for record in succeeded)
+    assert all(record.contains_secret is False for record in result.report.call_accounting)
+    assert result.report_artifact is not None
+    assert "test-key" not in result.report.model_dump_json()
+
+
+def test_candidate_only_scope_budget_blocks_before_any_transport_call(tmp_path) -> None:
+    candidate_transport = CandidateTransport()
+
+    with pytest.raises(LLMOrchestrationError, match="max_total_calls exceeded"):
+        run_llm_paper_orchestration(
+            config=LLMOrchestrationConfig(
+                run_id="candidate-only-over-budget",
+                domain="human geography",
+                candidate_backend="openai",
+                reviewer_backend="fake",
+                prose_backend="fake",
+                allow_external_calls=True,
+                budget=LLMBudgetConfig(
+                    max_total_calls=1,
+                    max_candidate_generation_calls=1,
+                    max_estimated_cost_usd=0.2,
+                ),
+            ),
+            root=tmp_path,
+            llm_transport=candidate_transport,
+            environ={"OPENAI_API_KEY": "test-key"},
+            llm_scope="candidate-only",
+        )
+
+    assert candidate_transport.calls == []
+    assert not (tmp_path / "runs" / "candidate-only-over-budget").exists()
+
+
+def test_run_llm_paper_cli_candidate_only_scope_is_json_visible(tmp_path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "cli-candidate-only",
+            "--domain",
+            "human geography",
+            "--llm-scope",
+            "candidate-only",
+            "--candidate-backend",
+            "fake",
+            "--reviewer-backend",
+            "fake",
+            "--prose-backend",
+            "fake",
+            "--max-total-calls",
+            "0",
+            "--write-report",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    report = payload["llm_orchestration_result"]["report"]
+    assert payload["preflight_summary"]["llm_scope"] == "candidate-only"
+    assert payload["preflight_summary"]["generate_paper_effective"] is False
+    assert report["selected_backends"]["llm_scope"] == "candidate-only"
+    assert report["generate_paper_status"] is None
+    assert report["release_status"] is None
+    assert [step["step_name"] for step in report["steps"]] == [
+        "preflight",
+        "candidate-only-stage-a",
+    ]
+
+
 def test_pipeline_transport_error_reports_sanitized_openai_body(tmp_path) -> None:
     result = run_llm_paper_orchestration(
         config=LLMOrchestrationConfig(
@@ -346,7 +500,7 @@ def test_pipeline_transport_error_reports_sanitized_openai_body(tmp_path) -> Non
             allow_external_calls=True,
             generate_paper=False,
             evaluate_release=False,
-            budget=LLMBudgetConfig(max_total_calls=1, max_estimated_cost_usd=0.2),
+            budget=LLMBudgetConfig(max_total_calls=3, max_estimated_cost_usd=0.2),
         ),
         root=tmp_path,
         llm_transport=FailingTransport(),
@@ -434,16 +588,34 @@ class CandidateTransport:
 
     def create_response(self, **kwargs: Any) -> dict[str, object]:
         self.calls.append(kwargs)
+        prompt_payload = json.loads(str(kwargs["prompt"]).split("\n", 1)[1])
+        domain = prompt_payload.get("domain") or "machine learning"
+        method = prompt_payload.get("method") or "calibration"
+        title_prefix = str(method).title()
         return {
             "candidates": [
-                _candidate("No-data calibration map", "NoData", None),
+                _candidate(f"No-data {title_prefix} map", "NoData", None, domain, method),
                 _candidate(
-                    "Synthetic calibration stress test",
+                    f"Synthetic {title_prefix} stress test",
                     "SyntheticOnly",
                     "Use a seeded shift generator and declared calibration metric.",
+                    domain,
+                    method,
                 ),
-                _candidate("Public benchmark calibration", "PublicDownload", None),
-                _candidate("Private deployment calibration", "UserProvided", None),
+                _candidate(
+                    f"Public benchmark {title_prefix}",
+                    "PublicDownload",
+                    None,
+                    domain,
+                    method,
+                ),
+                _candidate(
+                    f"Private deployment {title_prefix}",
+                    "UserProvided",
+                    None,
+                    domain,
+                    method,
+                ),
             ]
         }
 
@@ -488,11 +660,13 @@ def _candidate(
     title: str,
     data_requirement: str,
     experiment: str | None,
+    domain: str = "machine learning",
+    method: str = "calibration",
 ) -> dict[str, object]:
     return {
         "title": title,
-        "domain": "machine learning",
-        "method": "calibration",
+        "domain": domain,
+        "method": method,
         "claim_type": "methodological proposition",
         "question": f"What controlled conditions support {title.lower()}?",
         "hypothesis": "Declared assumptions identify a testable calibration boundary.",

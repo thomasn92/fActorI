@@ -12,7 +12,7 @@ from factori.adapters.errors import (
     AdapterTransportError,
     error_payload,
 )
-from factori.adapters.llm_real import LLMTransport
+from factori.adapters.llm_real import LLMTransport, OpenAIResponsesTransport
 from factori.adapters.registry import AdapterRegistry, get_adapter_registry
 from factori.artifacts import ArtifactStore
 from factori.full_paper_generation import (
@@ -25,15 +25,22 @@ from factori.full_paper_release import (
     FullPaperReleaseRunResult,
     run_full_paper_release_gate,
 )
+from factori.hashing import sha256_json
 from factori.ledger import ResearchLedger
 from factori.llm_budget import (
+    LLMBudgetExceeded,
+    RuntimeLLMBudgetGuard,
     budget_is_explicit,
     build_call_accounting_record,
     build_planned_llm_usage,
     evaluate_llm_budget,
     observed_usage_from_records,
 )
-from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.persistence import (
+    ArtifactWriteSpec,
+    PersistenceResult,
+    persist_artifacts_with_commit,
+)
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
@@ -58,9 +65,20 @@ from factori.schemas import (
     PipelineRunStatus,
     RerunPolicy,
 )
+from factori.stage0 import OPPORTUNITY_THRESHOLD, discover_opportunities
+from factori.stage_a import StageAResult, constraint_from_inputs, run_stage_a
 from factori.storage_protocols import Clock, SystemClock
 
 _FAKE_BACKEND = "fake"
+_LLM_SCOPE_CANDIDATE_ONLY = "candidate-only"
+_LLM_SCOPE_FULL_PAPER = "full-paper"
+_SUPPORTED_LLM_SCOPES = {
+    _LLM_SCOPE_CANDIDATE_ONLY,
+    _LLM_SCOPE_FULL_PAPER,
+    "reviewer-only",
+    "prose-only",
+    "pipeline-only",
+}
 _READY_RELEASE_STATUSES = {
     FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW,
     FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS,
@@ -100,10 +118,13 @@ def run_llm_paper_orchestration(
     environ: dict[str, str] | None = None,
     clock: Clock | None = None,
     preflight_only: bool = False,
+    llm_scope: str = _LLM_SCOPE_FULL_PAPER,
 ) -> LLMOrchestrationRunResult:
     """Run the explicitly gated LLM-assisted paper-generation workflow."""
     root_path = Path(root)
     clock = clock or SystemClock()
+    normalized_scope = _normalize_llm_scope(llm_scope)
+    config = _effective_config_for_scope(config, normalized_scope)
     real_mode = _real_llm_mode(config)
     if real_mode and not config.allow_external_calls:
         raise LLMOrchestrationError(
@@ -114,7 +135,7 @@ def run_llm_paper_orchestration(
         raise LLMOrchestrationError(
             "Explicit LLM budget is required for real LLM orchestration."
         )
-    planned_usage = _planned_usage(config)
+    planned_usage = _planned_usage(config, llm_scope=normalized_scope)
     budget_decision = evaluate_llm_budget(
         config.budget,
         planned_usage,
@@ -123,6 +144,7 @@ def run_llm_paper_orchestration(
     if not budget_decision.allowed:
         raise LLMOrchestrationError(_budget_error_message(budget_decision))
 
+    runtime_budget_guard = RuntimeLLMBudgetGuard(config.budget, clock.now)
     try:
         registry = _registry_for_config(
             config,
@@ -130,6 +152,7 @@ def run_llm_paper_orchestration(
             reviewer_transport=reviewer_transport,
             prose_transport=prose_transport,
             environ=environ,
+            runtime_budget_guard=runtime_budget_guard if real_mode else None,
         )
     except (AdapterConfigurationError, ValueError) as exc:
         raise LLMOrchestrationError(str(exc)) from exc
@@ -157,11 +180,12 @@ def run_llm_paper_orchestration(
             ),
             steps=[preflight_step],
             budget_decision=budget_decision,
-            call_accounting=_accounting_records(registry, clock),
+            call_accounting=_accounting_records(registry, clock, runtime_budget_guard),
             warnings=list(budget_decision.warnings),
             blocking=[],
             generation_result=None,
             release_result=None,
+            llm_scope=normalized_scope,
         )
         return LLMOrchestrationRunResult(run_id=config.run_id, report=report)
 
@@ -174,6 +198,19 @@ def run_llm_paper_orchestration(
     generation_result = None
     release_result = None
 
+    if normalized_scope == _LLM_SCOPE_CANDIDATE_ONLY:
+        return _run_candidate_only_scope(
+            config=config,
+            root_path=root_path,
+            store=store,
+            ledger=ledger,
+            registry=registry,
+            clock=clock,
+            preflight_step=preflight_step,
+            budget_decision=budget_decision,
+            runtime_budget_guard=runtime_budget_guard,
+        )
+
     pipeline_started = clock.now()
     try:
         pipeline_report = run_deterministic_pipeline(
@@ -181,21 +218,30 @@ def run_llm_paper_orchestration(
             clock=clock,
             adapter_registry=registry,
         )
-    except (PipelineRunError, AdapterTransportError) as exc:
+    except (PipelineRunError, AdapterTransportError, LLMBudgetExceeded) as exc:
         transport_error = _find_transport_error(exc)
         error_text = _failure_message(exc, transport_error)
+        step_status = (
+            LLMOrchestrationStepStatus.BLOCKED
+            if isinstance(exc, LLMBudgetExceeded)
+            else LLMOrchestrationStepStatus.FAILED
+        )
         steps.append(
             _step(
                 "run-all",
-                LLMOrchestrationStepStatus.FAILED,
-                "Pipeline execution failed.",
+                step_status,
+                (
+                    "Pipeline execution was blocked by the runtime LLM budget."
+                    if isinstance(exc, LLMBudgetExceeded)
+                    else "Pipeline execution failed."
+                ),
                 pipeline_started,
                 clock.now(),
                 error=error_text,
             )
         )
         blocking.append(error_text)
-        records = _accounting_records(registry, clock)
+        records = _accounting_records(registry, clock, runtime_budget_guard)
         if transport_error is not None:
             records.append(
                 _failed_transport_record(
@@ -207,7 +253,11 @@ def run_llm_paper_orchestration(
             )
         report = _build_report(
             config=config,
-            status=LLMOrchestrationStatus.ORCHESTRATION_FAILED,
+            status=(
+                LLMOrchestrationStatus.ORCHESTRATION_BLOCKED
+                if isinstance(exc, LLMBudgetExceeded)
+                else LLMOrchestrationStatus.ORCHESTRATION_FAILED
+            ),
             steps=steps,
             budget_decision=budget_decision,
             call_accounting=records,
@@ -215,6 +265,8 @@ def run_llm_paper_orchestration(
             blocking=blocking,
             generation_result=None,
             release_result=None,
+            llm_scope=normalized_scope,
+            runtime_budget_blocked=isinstance(exc, LLMBudgetExceeded),
         )
         return _maybe_persist(config, store, ledger, report, pipeline_report, None, None)
     pipeline_status = (
@@ -350,7 +402,7 @@ def run_llm_paper_orchestration(
             )
         )
 
-    records = _accounting_records(registry, clock)
+    records = _accounting_records(registry, clock, runtime_budget_guard)
     observed_usage = observed_usage_from_records(records)
     status = _orchestration_status(steps, blocking, warnings)
     report = _build_report(
@@ -364,6 +416,10 @@ def run_llm_paper_orchestration(
         generation_result=generation_result,
         release_result=release_result,
         observed_usage=observed_usage,
+        llm_scope=normalized_scope,
+        runtime_budget_blocked=any(
+            record.status == LLMCallStatus.BLOCKED for record in records
+        ),
     )
     return _maybe_persist(
         config,
@@ -391,23 +447,69 @@ def llm_orchestration_result_model(
 
 def build_llm_orchestration_preflight_summary(
     config: LLMOrchestrationConfig,
+    *,
+    llm_scope: str = _LLM_SCOPE_FULL_PAPER,
 ) -> dict[str, Any]:
     """Return deterministic, secret-free preflight metadata for CLI/reporting."""
-    planned = _planned_usage(config)
+    normalized_scope = _normalize_llm_scope(llm_scope)
+    effective_config = _effective_config_for_scope(config, normalized_scope)
+    planned = _planned_usage(effective_config, llm_scope=normalized_scope)
     return {
-        "candidate_backend": config.candidate_backend,
-        "candidate_model": config.llm_model,
-        "reviewer_backend": config.reviewer_backend,
-        "reviewer_model": config.reviewer_model,
-        "prose_backend": config.prose_backend,
-        "prose_model": config.prose_model,
-        "allow_external_calls": config.allow_external_calls,
-        "budget_limits": config.budget.model_dump(mode="json"),
+        "llm_scope": normalized_scope,
+        "candidate_backend": effective_config.candidate_backend,
+        "candidate_model": effective_config.llm_model,
+        "reviewer_backend": effective_config.reviewer_backend,
+        "reviewer_model": effective_config.reviewer_model,
+        "prose_backend": effective_config.prose_backend,
+        "prose_model": effective_config.prose_model,
+        "allow_external_calls": effective_config.allow_external_calls,
+        "budget_limits": effective_config.budget.model_dump(mode="json"),
         "estimated_max_calls": planned.total_calls,
-        "write_report": config.write_report,
-        "generate_paper": config.generate_paper,
-        "evaluate_release": config.evaluate_release,
+        "candidate_generation_calls": planned.candidate_generation_calls,
+        "review_calls": planned.review_calls,
+        "prose_calls": planned.prose_calls,
+        "write_report": effective_config.write_report,
+        "generate_paper": effective_config.generate_paper,
+        "evaluate_release": effective_config.evaluate_release,
+        "generate_paper_effective": effective_config.generate_paper,
+        "evaluate_release_effective": effective_config.evaluate_release,
+        "export_latex_effective": effective_config.export_latex,
     }
+
+
+def _normalize_llm_scope(value: str) -> str:
+    normalized = value.strip().lower().replace("_", "-")
+    if normalized not in _SUPPORTED_LLM_SCOPES:
+        allowed = ", ".join(sorted(_SUPPORTED_LLM_SCOPES))
+        raise LLMOrchestrationError(f"llm_scope must be one of: {allowed}")
+    if normalized not in {_LLM_SCOPE_CANDIDATE_ONLY, _LLM_SCOPE_FULL_PAPER}:
+        raise LLMOrchestrationError(
+            f"llm_scope={normalized} is reserved for a future isolated smoke path."
+        )
+    return normalized
+
+
+def _effective_config_for_scope(
+    config: LLMOrchestrationConfig,
+    llm_scope: str,
+) -> LLMOrchestrationConfig:
+    if llm_scope != _LLM_SCOPE_CANDIDATE_ONLY:
+        return config
+    return config.model_copy(
+        update={
+            "reviewer_backend": _FAKE_BACKEND,
+            "prose_backend": _FAKE_BACKEND,
+            "generate_paper": False,
+            "evaluate_release": False,
+            "include_citations": False,
+            "export_latex": False,
+            "critique": False,
+            "revise": False,
+            "apply_safe_fake_revision": False,
+            "reexport_latex_after_revision": False,
+            "render_check": False,
+        }
+    )
 
 
 def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
@@ -421,27 +523,55 @@ def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
     )
 
 
-def _planned_usage(config: LLMOrchestrationConfig) -> LLMBudgetUsage:
-    real_calls = sum(
-        1
-        for backend in (
-            config.candidate_backend,
-            config.reviewer_backend,
-            config.prose_backend,
+def _planned_usage(
+    config: LLMOrchestrationConfig,
+    *,
+    llm_scope: str = _LLM_SCOPE_FULL_PAPER,
+) -> LLMBudgetUsage:
+    candidate_calls = _planned_candidate_generation_calls(config)
+    review_calls = 0 if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY else 1
+    prose_calls = 1 if config.generate_paper else 0
+    real_calls = (
+        (
+            candidate_calls
+            if config.candidate_backend.strip().lower() != _FAKE_BACKEND
+            else 0
         )
-        if backend.strip().lower() != _FAKE_BACKEND
+        + (
+            review_calls
+            if config.reviewer_backend.strip().lower() != _FAKE_BACKEND
+            else 0
+        )
+        + (
+            prose_calls
+            if config.prose_backend.strip().lower() != _FAKE_BACKEND
+            else 0
+        )
     )
     return build_planned_llm_usage(
         candidate_backend=config.candidate_backend,
         reviewer_backend=config.reviewer_backend,
         prose_backend=config.prose_backend,
-        candidate_generation_calls=1,
-        review_calls=1,
-        prose_calls=1,
+        candidate_generation_calls=candidate_calls,
+        review_calls=review_calls,
+        prose_calls=prose_calls,
         input_tokens=1000 * real_calls if real_calls else None,
         output_tokens=500 * real_calls if real_calls else None,
         estimated_cost_usd=round(0.01 * real_calls, 6) if real_calls else None,
         rate_limit_per_minute=config.budget.rate_limit_per_minute,
+    )
+
+
+def _planned_candidate_generation_calls(config: LLMOrchestrationConfig) -> int:
+    constraints = constraint_from_inputs(config.domain, config.method)
+    if not constraints.domain or constraints.method:
+        return 1
+    return len(
+        [
+            opportunity
+            for opportunity in discover_opportunities(constraints)
+            if float(opportunity["opportunity_score"]) >= OPPORTUNITY_THRESHOLD
+        ]
     )
 
 
@@ -452,6 +582,7 @@ def _registry_for_config(
     reviewer_transport: LLMTransport | None,
     prose_transport: LLMTransport | None,
     environ: dict[str, str] | None,
+    runtime_budget_guard: RuntimeLLMBudgetGuard | None = None,
 ) -> AdapterRegistry:
     return get_adapter_registry(
         AdapterConfig(
@@ -465,11 +596,93 @@ def _registry_for_config(
             prose_backend=config.prose_backend,
             prose_model=config.prose_model,
         ),
-        llm_transport=llm_transport,
-        reviewer_transport=reviewer_transport,
-        prose_transport=prose_transport,
+        llm_transport=_budgeted_transport(
+            llm_transport,
+            runtime_budget_guard,
+            step_name="llm-candidate-generation",
+            backend=config.candidate_backend,
+        ),
+        reviewer_transport=_budgeted_transport(
+            reviewer_transport,
+            runtime_budget_guard,
+            step_name="llm-stage-b-review",
+            backend=config.reviewer_backend,
+        ),
+        prose_transport=_budgeted_transport(
+            prose_transport,
+            runtime_budget_guard,
+            step_name="llm-prose-generation",
+            backend=config.prose_backend,
+        ),
         environ=environ,
     )
+
+
+@dataclass
+class _BudgetedLLMTransport:
+    delegate: LLMTransport
+    guard: RuntimeLLMBudgetGuard
+    step_name: str
+    backend: str
+    provider: str = "openai"
+
+    @property
+    def endpoint(self) -> str:
+        return str(getattr(self.delegate, "endpoint", "https://api.openai.com/v1/responses"))
+
+    def create_response(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        prompt: str,
+        response_schema: dict[str, Any],
+    ) -> Any:
+        request_payload = {
+            "operation": "responses.create",
+            "backend": self.backend,
+            "provider": self.provider,
+            "model": model,
+            "prompt_hash": sha256_json({"prompt": prompt}),
+            "response_schema_hash": sha256_json(response_schema),
+        }
+        self.guard.authorize_call(
+            step_name=self.step_name,
+            backend=self.backend,
+            provider=self.provider,
+            model=model,
+            request_payload=request_payload,
+            input_token_estimate=_estimate_input_tokens(prompt),
+            output_token_estimate=500,
+            estimated_cost_usd=0.01,
+        )
+        return self.delegate.create_response(
+            api_key=api_key,
+            model=model,
+            prompt=prompt,
+            response_schema=response_schema,
+        )
+
+
+def _budgeted_transport(
+    transport: LLMTransport | None,
+    guard: RuntimeLLMBudgetGuard | None,
+    *,
+    step_name: str,
+    backend: str,
+) -> LLMTransport | None:
+    if guard is None or backend.strip().lower() == _FAKE_BACKEND:
+        return transport
+    return _BudgetedLLMTransport(
+        delegate=transport or OpenAIResponsesTransport(),
+        guard=guard,
+        step_name=step_name,
+        backend=backend,
+    )
+
+
+def _estimate_input_tokens(prompt: str) -> int:
+    return max(1, (len(prompt) + 3) // 4)
 
 
 def _pipeline_config(config: LLMOrchestrationConfig, root: Path) -> PipelineRunConfig:
@@ -509,6 +722,120 @@ def _full_paper_config(config: LLMOrchestrationConfig) -> FullPaperGenerationCon
         rerun_policy=_parse_rerun_policy(config.rerun_policy),
         force=config.force,
     )
+
+
+def _run_candidate_only_scope(
+    *,
+    config: LLMOrchestrationConfig,
+    root_path: Path,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    registry: AdapterRegistry,
+    clock: Clock,
+    preflight_step: LLMOrchestrationStep,
+    budget_decision: LLMBudgetDecision,
+    runtime_budget_guard: RuntimeLLMBudgetGuard,
+) -> LLMOrchestrationRunResult:
+    steps = [preflight_step]
+    warnings = list(budget_decision.warnings)
+    blocking: list[str] = []
+    stage_a_result: StageAResult | None = None
+    stage_a_started = clock.now()
+    try:
+        stage_a_result = run_stage_a(
+            run_id=config.run_id,
+            constraints=constraint_from_inputs(config.domain, config.method),
+            store=store,
+            ledger=ledger,
+            llm_client=registry.llm,
+        )
+    except (AdapterTransportError, LLMBudgetExceeded) as exc:
+        transport_error = _find_transport_error(exc)
+        error_text = _failure_message(exc, transport_error)
+        blocked = isinstance(exc, LLMBudgetExceeded)
+        steps.append(
+            _step(
+                "candidate-only-stage-a",
+                (
+                    LLMOrchestrationStepStatus.BLOCKED
+                    if blocked
+                    else LLMOrchestrationStepStatus.FAILED
+                ),
+                (
+                    "Candidate-only Stage A was blocked by the runtime LLM budget."
+                    if blocked
+                    else "Candidate-only Stage A failed."
+                ),
+                stage_a_started,
+                clock.now(),
+                error=error_text,
+            )
+        )
+        blocking.append(error_text)
+        records = _accounting_records(registry, clock, runtime_budget_guard)
+        if transport_error is not None:
+            records.append(
+                _failed_transport_record(
+                    step_name="candidate-only-stage-a",
+                    error=transport_error,
+                    config=config,
+                    clock=clock,
+                )
+            )
+        report = _build_report(
+            config=config,
+            status=(
+                LLMOrchestrationStatus.ORCHESTRATION_BLOCKED
+                if blocked
+                else LLMOrchestrationStatus.ORCHESTRATION_FAILED
+            ),
+            steps=steps,
+            budget_decision=budget_decision,
+            call_accounting=records,
+            warnings=warnings,
+            blocking=blocking,
+            generation_result=None,
+            release_result=None,
+            observed_usage=observed_usage_from_records(records),
+            llm_scope=_LLM_SCOPE_CANDIDATE_ONLY,
+            runtime_budget_blocked=blocked,
+        )
+        return _maybe_persist(config, store, ledger, report, None, None, None)
+
+    artifact_ids = sorted(
+        {
+            stage_a_result.report_artifact.id,
+            *(artifact.id for artifact in stage_a_result.candidate_artifacts.values()),
+            *(artifact.id for artifact in stage_a_result.score_artifacts.values()),
+            *(artifact.id for artifact in stage_a_result.llm_artifacts.values()),
+        }
+    )
+    steps.append(
+        _step(
+            "candidate-only-stage-a",
+            LLMOrchestrationStepStatus.SUCCEEDED,
+            "Isolated Stage A candidate generation completed.",
+            stage_a_started,
+            clock.now(),
+            artifact_ids=artifact_ids,
+        )
+    )
+    records = _accounting_records(registry, clock, runtime_budget_guard)
+    report = _build_report(
+        config=config,
+        status=_orchestration_status(steps, blocking, warnings),
+        steps=steps,
+        budget_decision=budget_decision,
+        call_accounting=records,
+        warnings=warnings,
+        blocking=blocking,
+        generation_result=None,
+        release_result=None,
+        observed_usage=observed_usage_from_records(records),
+        llm_scope=_LLM_SCOPE_CANDIDATE_ONLY,
+        runtime_budget_blocked=False,
+    )
+    return _maybe_persist(config, store, ledger, report, None, None, None)
 
 
 def _parse_rerun_policy(value: str) -> RerunPolicy:
@@ -554,6 +881,7 @@ def _step(
 def _accounting_records(
     registry: AdapterRegistry,
     clock: Clock,
+    runtime_budget_guard: RuntimeLLMBudgetGuard | None = None,
 ) -> list[LLMCallAccountingRecord]:
     records: list[LLMCallAccountingRecord] = []
     records.extend(
@@ -604,9 +932,18 @@ def _accounting_records(
                 started_at=clock.now(),
                 completed_at=clock.now(),
                 status=LLMCallStatus.SUCCEEDED,
+                input_token_estimate=_estimate_request_tokens(request_payload),
+                output_token_estimate=(
+                    500 if registry.config.prose_backend != _FAKE_BACKEND else None
+                ),
+                estimated_cost_usd=(
+                    0.01 if registry.config.prose_backend != _FAKE_BACKEND else None
+                ),
                 external_call_performed=registry.config.prose_backend != _FAKE_BACKEND,
             )
         )
+    if runtime_budget_guard is not None:
+        records.extend(runtime_budget_guard.blocked_records)
     if not records:
         records.extend(_fake_skipped_records(registry, clock))
     return sorted(
@@ -640,10 +977,27 @@ def _records_from_traces(
             started_at=clock.now(),
             completed_at=clock.now(),
             status=LLMCallStatus.SUCCEEDED,
+            input_token_estimate=_estimate_request_tokens(trace.request),
+            output_token_estimate=500 if backend != _FAKE_BACKEND else None,
+            estimated_cost_usd=0.01 if backend != _FAKE_BACKEND else None,
             external_call_performed=backend != _FAKE_BACKEND,
         )
         for trace in traces
     ]
+
+
+def _estimate_request_tokens(request_payload: Any) -> int | None:
+    if not isinstance(request_payload, dict):
+        return None
+    prompt_contract = request_payload.get("prompt_contract")
+    if isinstance(prompt_contract, dict):
+        prompt_text = prompt_contract.get("prompt_text")
+        if isinstance(prompt_text, str):
+            return _estimate_input_tokens(prompt_text)
+    request = request_payload.get("request")
+    if isinstance(request, dict):
+        return _estimate_request_tokens(request)
+    return None
 
 
 def _fake_skipped_records(
@@ -772,6 +1126,8 @@ def _build_report(
     generation_result: FullPaperGenerationRunResult | None,
     release_result: FullPaperReleaseRunResult | None,
     observed_usage: LLMBudgetUsage | None = None,
+    llm_scope: str = _LLM_SCOPE_FULL_PAPER,
+    runtime_budget_blocked: bool = False,
 ) -> LLMOrchestrationReport:
     safety = LLMRunSafetyReport(
         run_id=config.run_id,
@@ -795,12 +1151,17 @@ def _build_report(
         call_accounting=call_accounting,
         safety_report=safety,
         selected_backends={
+            "llm_scope": llm_scope,
             "candidate_backend": config.candidate_backend,
             "candidate_model": config.llm_model,
             "reviewer_backend": config.reviewer_backend,
             "reviewer_model": config.reviewer_model,
             "prose_backend": config.prose_backend,
             "prose_model": config.prose_model,
+            "generate_paper_effective": str(config.generate_paper).lower(),
+            "evaluate_release_effective": str(config.evaluate_release).lower(),
+            "export_latex_effective": str(config.export_latex).lower(),
+            "runtime_budget_blocked": str(runtime_budget_blocked).lower(),
             "preflight_status": (
                 next(
                     (

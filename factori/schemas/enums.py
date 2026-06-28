@@ -206,6 +206,7 @@ class LLMCallStatus(StrEnum):
     PLANNED = "Planned"
     SKIPPED = "Skipped"
     SUCCEEDED = "Succeeded"
+    BLOCKED = "Blocked"
     FAILED = "Failed"
 
 

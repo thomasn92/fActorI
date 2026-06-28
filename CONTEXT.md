@@ -63,7 +63,8 @@ completed run from disk and checks consistency without changing provenance.
   release evaluation, replay, hygiene, audit, and protocol validation;
 - explicit fail-closed LLM-assisted paper orchestration over existing Stage A, Stage B, prose,
   full-paper generation, and release-gate paths, with fake mode, budget checks, call accounting,
-  OpenAI strict transport-schema conversion, and no evidence authority;
+  isolated live-smoke scopes, hard runtime budget guards before real LLM transport calls, OpenAI
+  strict transport-schema conversion, and no evidence authority;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 

@@ -485,6 +485,7 @@
         "Planned",
         "Skipped",
         "Succeeded",
+        "Blocked",
         "Failed"
       ],
       "title": "LLMCallStatus",
@@ -967,7 +968,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.12.0/llm-orchestration-result.schema.json",
+  "$id": "https://schemas.factori.local/0.13.0/llm-orchestration-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for gated LLM paper orchestration commands.",
@@ -1030,7 +1031,7 @@
   ],
   "title": "LLMOrchestrationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.12.0",
+  "x-factori-protocol-version": "0.13.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationResult",
   "x-factori-verification-evidence": false
 }
