@@ -372,6 +372,26 @@ uv run factori run-llm-paper \
 `--preflight-only` validates gates, credentials, selected backends/models, and explicit budget
 without network calls or run mutation. OpenAI transport diagnostics include sanitized truncated
 HTTP error bodies, redacted URLs, selected model, and request hashes; they do not include secrets.
+OpenAI structured-output transport schemas are adapter-local strict copies. Every object property is
+listed in `required`, optional values are nullable, and public fActorI protocol schemas are not
+rewritten for OpenAI-specific compatibility.
+
+Post-strict-schema candidate smoke:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id live-candidate-smoke-002 \
+  --domain "human geography" \
+  --candidate-backend openai \
+  --candidate-model gpt-5.4-mini \
+  --reviewer-backend fake \
+  --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 1 \
+  --max-estimated-cost-usd 0.20 \
+  --write-report \
+  --json
+```
 
 LLM orchestration artifacts are accounting/context/audit artifacts only. They cannot create or
 upgrade evidence labels, turn LLM output into proof/experiment/retrieval evidence, or imply

@@ -19,6 +19,7 @@ from factori.adapters.llm_safety import (
     LLMCandidateResponseError,
     parse_llm_candidate_response_with_report,
 )
+from factori.adapters.openai_schema import make_openai_strict_json_schema
 from factori.hashing import sha256_json
 from factori.schemas import (
     Candidate,
@@ -232,6 +233,7 @@ def _responses_payload(
     response_schema: dict[str, Any],
     schema_name: str,
 ) -> dict[str, Any]:
+    strict_schema = make_openai_strict_json_schema(response_schema)
     return {
         "model": model,
         "input": prompt,
@@ -240,7 +242,7 @@ def _responses_payload(
                 "type": "json_schema",
                 "name": schema_name,
                 "strict": True,
-                "schema": response_schema,
+                "schema": strict_schema,
             }
         },
     }

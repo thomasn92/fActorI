@@ -223,6 +223,10 @@ network-capable adapter can be constructed. A read-only preflight mode validates
 network calls or run mutation. OpenAI transport failures carry sanitized truncated error-body
 excerpts, redacted URLs, selected model metadata, and request hashes so live-smoke 4xx/5xx failures
 are diagnosable without leaking secrets.
+OpenAI structured-output schemas are API-specific transport formats, not public protocol exports.
+The adapter layer converts requested output schemas into OpenAI strict-compatible copies where every
+object property is required and optional values are nullable. The generated fActorI protocol schemas
+remain the cross-language contracts for Python/server/Rust consumers.
 Its configuration, budget, accounting, orchestration, and safety reports are audit/context
 artifacts only. They cannot create evidence, upgrade labels, imply publication readiness, or bypass
 the existing stage validators and release gate.

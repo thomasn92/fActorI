@@ -87,6 +87,8 @@ schemas. Validate examples with `factori validate-protocol-examples` and use
   existing stage safety checks. Use `--preflight-only` for read-only live-smoke validation, keep
   candidate/reviewer/prose model choices explicit, and ensure OpenAI diagnostics remain sanitized:
   no API keys, Authorization headers, or raw secrets in errors, reports, JSON, or artifacts.
+  OpenAI strict structured-output schemas are adapter-local transport copies; do not rewrite public
+  protocol schemas just to satisfy OpenAI API-specific `required`/nullable rules.
 - Fake validators are fake. Never describe their output as scientific truth or real validation.
 - Prefer small deterministic functions, explicit Pydantic schemas, and existing local patterns.
 - Keep changes scoped. Do not introduce orchestration frameworks by default.

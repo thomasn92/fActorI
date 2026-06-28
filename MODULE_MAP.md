@@ -80,6 +80,8 @@ All implementation modules are under `factori/`.
   fake validators without network, subprocess, Lean, Docker, or human access.
 - `adapters/http.py`: minimal injectable HTTP/JSON request helpers used by gated real transports,
   including redacted URL and sanitized truncated HTTP error-body diagnostics.
+- `adapters/openai_schema.py`: adapter-local OpenAI strict structured-output schema transformer;
+  public protocol schemas remain unchanged.
 - `adapters/llm_prompts.py`: deterministic Stage A candidate prompt and structured-output contract.
 - `adapters/llm_safety.py`: strict parsing, candidate validation, label-inflation checks, and MVP
   data-boundary enforcement for untrusted LLM output.

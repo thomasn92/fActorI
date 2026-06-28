@@ -367,6 +367,25 @@ uv run factori run-llm-paper \
 OpenAI 4xx/5xx diagnostics include status, operation, backend/provider, redacted URL, selected
 model, request/prompt hashes, and a sanitized truncated error-body excerpt. They never include API
 keys or Authorization headers.
+OpenAI structured outputs use an adapter-local strict schema copy: every object property is listed
+in `required`, optional values are nullable, and public fActorI protocol schemas remain separate.
+
+Post-strict-schema candidate smoke:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id live-candidate-smoke-002 \
+  --domain "human geography" \
+  --candidate-backend openai \
+  --candidate-model gpt-5.4-mini \
+  --reviewer-backend fake \
+  --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 1 \
+  --max-estimated-cost-usd 0.20 \
+  --write-report \
+  --json
+```
 
 The orchestration report, budget report, call accounting, and safety report are context/audit
 artifacts only. They cannot create evidence, upgrade labels, or imply publication readiness.
