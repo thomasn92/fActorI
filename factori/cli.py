@@ -71,7 +71,9 @@ from factori.ledger import LedgerError, ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
 from factori.llm_orchestration import (
     LLMOrchestrationError,
+    LLMRunInspectionError,
     build_llm_orchestration_preflight_summary,
+    inspect_llm_run_summary,
     llm_orchestration_result_model,
     run_llm_paper_orchestration,
 )
@@ -2474,6 +2476,82 @@ def run_llm_paper_command(
         typer.echo(f"llm_budget_report={result.budget_artifact.path}")
     if result.accounting_artifact is not None:
         typer.echo(f"llm_call_accounting={result.accounting_artifact.path}")
+
+
+@app.command("inspect-llm-run")
+def inspect_llm_run_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect an existing persisted LLM orchestration run without mutation."""
+    try:
+        summary = inspect_llm_run_summary(run_id=run_id, root=root)
+    except LLMRunInspectionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    _print_llm_run_summary(summary)
+
+
+def _print_llm_run_summary(summary: dict[str, object]) -> None:
+    estimated_cost = summary.get("estimated_cost_usd")
+    budget_line = (
+        f"${float(estimated_cost):.2f} estimated"
+        if estimated_cost is not None
+        else "unknown estimated cost"
+    )
+    blocking = list(summary.get("blocking_issues") or [])
+    warnings = list(summary.get("top_level_warnings") or [])
+    artifact_paths = dict(summary.get("artifact_paths") or {})
+    typer.echo(f"Run: {summary['run_id']}")
+    typer.echo(f"Status: {summary['orchestration_status']}")
+    typer.echo(f"Release: {summary.get('paper_release_status') or 'unknown'}")
+    typer.echo(
+        f"Publication ready: {str(summary.get('publication_ready', False)).lower()}"
+    )
+    typer.echo("Safety: safe" if summary.get("safety_report_safe") else "Safety: unsafe")
+    typer.echo(
+        "Calls: "
+        f"{summary['total_calls']} total = "
+        f"{summary['candidate_generation_calls']} candidate + "
+        f"{summary['review_calls']} review + "
+        f"{summary['prose_calls']} prose"
+    )
+    typer.echo(f"Budget: {budget_line}")
+    typer.echo(
+        "Runtime budget blocked: "
+        f"{str(summary.get('runtime_budget_blocked', False)).lower()}"
+    )
+    typer.echo(
+        "Call records: "
+        f"{summary['external_call_count']} external, "
+        f"{summary['failed_call_count']} failed, "
+        f"{summary['blocked_call_count']} blocked, "
+        f"{summary['skipped_call_count']} skipped"
+    )
+    typer.echo(
+        "Safe repair: "
+        f"{'present' if summary.get('safe_repair_report_present') else 'absent'}"
+    )
+    typer.echo("Blocking issues:")
+    if blocking:
+        for issue in blocking:
+            typer.echo(f"- {issue}")
+    else:
+        typer.echo("- none")
+    typer.echo("Warnings:")
+    if warnings:
+        for warning in warnings:
+            typer.echo(f"- {warning}")
+    else:
+        typer.echo("- none")
+    if artifact_paths:
+        typer.echo("Artifacts:")
+        for key, path in sorted(artifact_paths.items()):
+            typer.echo(f"- {key}: {path}")
 
 
 @app.command("build-draft-skeleton")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -96,6 +97,10 @@ _READY_RELEASE_STATUSES = {
 
 class LLMOrchestrationError(RuntimeError):
     """Raised when gated LLM paper orchestration fails closed."""
+
+
+class LLMRunInspectionError(RuntimeError):
+    """Raised when an existing LLM run cannot be inspected read-only."""
 
 
 @dataclass(frozen=True)
@@ -539,6 +544,72 @@ def llm_orchestration_result_model(
     )
 
 
+def inspect_llm_run_summary(
+    *,
+    run_id: str,
+    root: str | Path = ".",
+) -> dict[str, Any]:
+    """Load persisted LLM orchestration reports and return a compact read-only summary."""
+    root_path = Path(root)
+    reports_dir = root_path / "runs" / run_id / "reports"
+    report_path = reports_dir / "llm-orchestration-report.json"
+    if not report_path.is_file():
+        raise LLMRunInspectionError(
+            f"No LLM orchestration report found for run_id={run_id}. "
+            "Run run-llm-paper with --write-report first."
+        )
+    report = LLMOrchestrationReport.model_validate_json(
+        report_path.read_text(encoding="utf-8")
+    )
+    budget_payload = _read_json_optional(reports_dir / "llm-budget-report.json")
+    accounting_payload = _read_json_optional(reports_dir / "llm-call-accounting.json")
+    safety_payload = _read_json_optional(reports_dir / "llm-run-safety-report.json")
+    budget_usage = (
+        LLMBudgetUsage.model_validate(budget_payload["budget_usage"])
+        if isinstance(budget_payload, dict) and "budget_usage" in budget_payload
+        else report.budget_usage
+    )
+    accounting_records = (
+        [LLMCallAccountingRecord.model_validate(record) for record in accounting_payload]
+        if isinstance(accounting_payload, list)
+        else list(report.call_accounting)
+    )
+    safety_report = (
+        LLMRunSafetyReport.model_validate(safety_payload)
+        if isinstance(safety_payload, dict)
+        else report.safety_report
+    )
+    call_counts = _llm_call_counts(accounting_records)
+    safe_repair_path = reports_dir / "safe-repair-report.json"
+    artifact_paths = _existing_llm_inspection_paths(root_path, run_id)
+    summary = {
+        "run_id": run_id,
+        "orchestration_status": report.orchestration_status.value,
+        "paper_release_status": report.release_status,
+        "publication_ready": report.publication_ready,
+        "safety_report_safe": safety_report.safe,
+        "blocking_issues": report.blocking_issues,
+        "top_level_warnings": report.warnings,
+        "candidate_generation_calls": budget_usage.candidate_generation_calls,
+        "review_calls": budget_usage.review_calls,
+        "prose_calls": budget_usage.prose_calls,
+        "total_calls": budget_usage.total_calls,
+        "estimated_cost_usd": budget_usage.estimated_cost_usd,
+        "runtime_budget_blocked": (
+            report.selected_backends.get("runtime_budget_blocked") == "true"
+            or call_counts["blocked_call_count"] > 0
+        ),
+        **call_counts,
+        "safe_repair_report_present": safe_repair_path.is_file(),
+        "artifact_paths": artifact_paths,
+        "reports_dir": reports_dir.relative_to(root_path).as_posix(),
+        "is_verification_evidence": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+    }
+    return summary
+
+
 def build_llm_orchestration_preflight_summary(
     config: LLMOrchestrationConfig,
     *,
@@ -573,6 +644,82 @@ def build_llm_orchestration_preflight_summary(
         "evaluate_release_effective": effective_config.evaluate_release,
         "export_latex_effective": effective_config.export_latex,
         "safe_repair_effective": effective_safe_repair,
+    }
+
+
+def _read_json_optional(path: Path) -> Any | None:
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _llm_call_counts(records: list[LLMCallAccountingRecord]) -> dict[str, int]:
+    return {
+        "external_call_count": sum(1 for record in records if record.external_call_performed),
+        "failed_call_count": sum(
+            1 for record in records if record.status == LLMCallStatus.FAILED
+        ),
+        "blocked_call_count": sum(
+            1 for record in records if record.status == LLMCallStatus.BLOCKED
+        ),
+        "skipped_call_count": sum(
+            1 for record in records if record.status == LLMCallStatus.SKIPPED
+        ),
+    }
+
+
+def _existing_llm_inspection_paths(root: Path, run_id: str) -> dict[str, str]:
+    candidates = {
+        "llm_orchestration_report": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "llm-orchestration-report.json",
+        "llm_budget_report": root / "runs" / run_id / "reports" / "llm-budget-report.json",
+        "llm_call_accounting": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "llm-call-accounting.json",
+        "llm_run_safety_report": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "llm-run-safety-report.json",
+        "safe_repair_report": root / "runs" / run_id / "reports" / "safe-repair-report.json",
+        "full_paper_generation_report": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "full-paper-generation-report.json",
+        "full_paper_release_report": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "full-paper-release-report.json",
+        "complete_manuscript_draft": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "complete-manuscript-draft.md",
+        "revised_manuscript_draft": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "revised-manuscript-draft.md",
+        "paper": root / "runs" / run_id / "latex" / "paper.tex",
+        "revised_paper": root / "runs" / run_id / "latex" / "revised-paper.tex",
+        "latex_source_map": root / "runs" / run_id / "latex" / "latex-source-map.json",
+        "revised_latex_source_map": root
+        / "runs"
+        / run_id
+        / "latex"
+        / "revised-latex-source-map.json",
+    }
+    return {
+        key: path.relative_to(root).as_posix()
+        for key, path in sorted(candidates.items())
+        if path.is_file()
     }
 
 
@@ -1599,7 +1746,9 @@ def _budget_error_message(decision: LLMBudgetDecision) -> str:
 __all__ = [
     "LLMOrchestrationError",
     "LLMOrchestrationRunResult",
+    "LLMRunInspectionError",
     "build_llm_orchestration_preflight_summary",
+    "inspect_llm_run_summary",
     "llm_orchestration_result_model",
     "run_llm_paper_orchestration",
 ]

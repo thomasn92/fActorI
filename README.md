@@ -424,6 +424,16 @@ uv run factori run-llm-paper \
 The orchestration report, budget report, call accounting, and safety report are context/audit
 artifacts only. They cannot create evidence, upgrade labels, or imply publication readiness.
 
+Inspect an existing LLM run without rerunning stages or creating artifacts:
+
+```bash
+uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001
+uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001 --json
+```
+
+The inspection command reads persisted LLM reports only and summarizes call counts, release status,
+current warnings, budget blocks, and paper artifact paths.
+
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:
 

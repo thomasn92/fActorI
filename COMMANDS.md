@@ -490,6 +490,16 @@ LLM orchestration artifacts are accounting/context/audit artifacts only. They ca
 upgrade evidence labels, turn LLM output into proof/experiment/retrieval evidence, or imply
 publication readiness. `--render-check` remains separately gated by `--allow-external-tools`.
 
+Inspect an existing LLM run without rerunning stages, calling APIs, or mutating run artifacts:
+
+```bash
+uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001
+uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001 --json
+```
+
+The compact summary reports orchestration and release status, current warnings, call counts,
+estimated cost, runtime budget blocks, safe-repair presence, and paper/report artifact paths.
+
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:
 

@@ -16,6 +16,7 @@ from factori.ledger import ResearchLedger
 from factori.llm_orchestration import (
     LLMOrchestrationError,
     build_llm_orchestration_preflight_summary,
+    inspect_llm_run_summary,
     run_llm_paper_orchestration,
 )
 from factori.output_hygiene import inspect_output_hygiene
@@ -231,6 +232,188 @@ def test_safe_repair_filters_pre_repair_warnings_from_orchestration_report(tmp_p
     )
     assert any("No citation markers were used" in warning for warning in result.report.warnings)
     assert result.report.release_status == ReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS
+
+
+def test_inspect_llm_run_json_and_human_output_are_compact_and_read_only(tmp_path) -> None:
+    run_id = "inspect-integrated"
+    run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id=run_id,
+            domain="human geography",
+            candidate_backend="openai",
+            reviewer_backend="openai",
+            prose_backend="openai",
+            allow_external_calls=True,
+            write_report=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=40,
+                max_candidate_generation_calls=3,
+                max_review_calls=16,
+                max_prose_calls=10,
+                max_estimated_cost_usd=5.0,
+            ),
+        ),
+        root=tmp_path,
+        llm_transport=CandidateTransport(),
+        reviewer_transport=ReviewerTransport(),
+        prose_transport=ProseTransport(),
+        environ={"OPENAI_API_KEY": "sk-test-key"},
+        enable_safe_repair=True,
+    )
+    before = _run_file_snapshot(tmp_path, run_id)
+
+    json_result = CliRunner().invoke(
+        app,
+        [
+            "inspect-llm-run",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert json_result.exit_code == 0, json_result.output
+    assert _run_file_snapshot(tmp_path, run_id) == before
+    payload = json.loads(json_result.output)
+    assert payload["run_id"] == run_id
+    assert payload["orchestration_status"] == "LLMOrchestrationSucceededWithWarnings"
+    assert payload["paper_release_status"] == "ReadyForHumanReviewWithWarnings"
+    assert payload["publication_ready"] is False
+    assert payload["safety_report_safe"] is True
+    assert payload["candidate_generation_calls"] == 3
+    assert payload["review_calls"] == 16
+    assert payload["prose_calls"] == 10
+    assert payload["total_calls"] == 29
+    assert payload["external_call_count"] == 29
+    assert payload["failed_call_count"] == 0
+    assert payload["blocked_call_count"] == 0
+    assert payload["safe_repair_report_present"] is True
+    assert payload["runtime_budget_blocked"] is False
+    assert payload["artifact_paths"]["paper"].endswith("latex/paper.tex")
+    assert payload["artifact_paths"]["revised_paper"].endswith("latex/revised-paper.tex")
+    assert "llm_orchestration_report" in payload["artifact_paths"]
+
+    human_result = CliRunner().invoke(
+        app,
+        ["inspect-llm-run", "--root", str(tmp_path), "--run-id", run_id],
+    )
+
+    assert human_result.exit_code == 0, human_result.output
+    assert f"Run: {run_id}" in human_result.output
+    assert "Status: LLMOrchestrationSucceededWithWarnings" in human_result.output
+    assert "Release: ReadyForHumanReviewWithWarnings" in human_result.output
+    assert "Publication ready: false" in human_result.output
+    assert "Safety: safe" in human_result.output
+    assert "Calls: 29 total = 3 candidate + 16 review + 10 prose" in human_result.output
+    assert "Runtime budget blocked: false" in human_result.output
+    assert "Safe repair: present" in human_result.output
+    assert "- No citation markers were used in the draft." in human_result.output
+    assert _run_file_snapshot(tmp_path, run_id) == before
+
+
+def test_inspect_llm_run_without_safe_repair_report(tmp_path) -> None:
+    run_id = "inspect-no-repair"
+    run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id=run_id,
+            domain="human geography",
+            candidate_backend="fake",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            write_report=True,
+            budget=LLMBudgetConfig(max_total_calls=0),
+        ),
+        root=tmp_path,
+    )
+
+    summary = inspect_llm_run_summary(run_id=run_id, root=tmp_path)
+
+    assert summary["safe_repair_report_present"] is False
+    assert summary["total_calls"] == 0
+    assert summary["external_call_count"] == 0
+    assert "safe_repair_report" not in summary["artifact_paths"]
+
+
+def test_inspect_llm_run_reports_budget_blocked_call(monkeypatch, tmp_path) -> None:
+    import factori.llm_orchestration as module
+
+    run_id = "inspect-budget-blocked"
+    original_planned_usage = module._planned_usage
+
+    def undercounted_usage(config, *, llm_scope="full-paper"):
+        usage = original_planned_usage(config, llm_scope=llm_scope)
+        return usage.model_copy(
+            update={
+                "total_calls": 1,
+                "candidate_generation_calls": 1,
+                "total_input_tokens": 1000,
+                "total_output_tokens": 500,
+                "estimated_cost_usd": 0.01,
+            }
+        )
+
+    monkeypatch.setattr(module, "_planned_usage", undercounted_usage)
+    module.run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id=run_id,
+            domain="human geography",
+            candidate_backend="openai",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            allow_external_calls=True,
+            write_report=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=1,
+                max_candidate_generation_calls=1,
+                max_estimated_cost_usd=1.0,
+            ),
+        ),
+        root=tmp_path,
+        llm_transport=CandidateTransport(),
+        environ={"OPENAI_API_KEY": "sk-test-key"},
+        llm_scope="candidate-only",
+    )
+
+    payload = json.loads(
+        CliRunner()
+        .invoke(
+            app,
+            [
+                "inspect-llm-run",
+                "--root",
+                str(tmp_path),
+                "--run-id",
+                run_id,
+                "--json",
+            ],
+        )
+        .output
+    )
+
+    assert payload["orchestration_status"] == "LLMOrchestrationBlocked"
+    assert payload["runtime_budget_blocked"] is True
+    assert payload["external_call_count"] == 1
+    assert payload["blocked_call_count"] == 1
+    assert payload["failed_call_count"] == 0
+    assert payload["blocking_issues"]
+
+
+def test_inspect_llm_run_missing_run_gives_clear_error(tmp_path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "inspect-llm-run",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "missing-run",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "No LLM orchestration report found for run_id=missing-run" in result.output
 
 
 def test_real_orchestration_fails_when_external_calls_disabled(tmp_path) -> None:
@@ -1001,6 +1184,15 @@ def _assert_non_evidence_artifact(tmp_path, ref: ArtifactRef) -> None:
     assert linked.metadata["is_verification_evidence"] is False
     assert linked.metadata["creates_scientific_validation"] is False
     assert linked.metadata["implies_publication_readiness"] is False
+
+
+def _run_file_snapshot(tmp_path, run_id: str) -> dict[str, str]:
+    run_path = tmp_path / "runs" / run_id
+    return {
+        path.relative_to(run_path).as_posix(): sha256_file(path)
+        for path in sorted(run_path.rglob("*"))
+        if path.is_file()
+    }
 
 
 class FailingTransport:
