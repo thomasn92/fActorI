@@ -142,6 +142,45 @@ def test_run_llm_paper_cli_works_in_fake_mode_and_json_is_valid(tmp_path) -> Non
     assert report["selected_backends"]["preflight_status"] == "Succeeded"
     assert payload["preflight_summary"]["candidate_model"] == "candidate-test-model"
     assert payload["artifacts"]["llm_orchestration_report"] is not None
+    assert payload["preflight_summary"]["safe_repair_effective"] is False
+    assert payload["artifacts"]["safe_repair_report"] is None
+
+
+def test_run_llm_paper_cli_enable_safe_repair_writes_audit_artifact(tmp_path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "cli-safe-repair",
+            "--domain",
+            "human geography",
+            "--candidate-backend",
+            "fake",
+            "--reviewer-backend",
+            "fake",
+            "--prose-backend",
+            "fake",
+            "--max-total-calls",
+            "0",
+            "--enable-safe-repair",
+            "--write-report",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["preflight_summary"]["safe_repair_effective"] is True
+    repair_ref = ArtifactRef.model_validate(payload["artifacts"]["safe_repair_report"])
+    _assert_non_evidence_artifact(tmp_path, repair_ref)
+    report = payload["llm_orchestration_result"]["report"]
+    assert report["release_status"] in {
+        "ReadyForHumanReview",
+        "ReadyForHumanReviewWithWarnings",
+    }
 
 
 def test_real_orchestration_fails_when_external_calls_disabled(tmp_path) -> None:
@@ -360,6 +399,13 @@ def test_candidate_only_scope_preflight_counts_stage_a_seeded_constraints() -> N
     assert summary["generate_paper_effective"] is False
     assert summary["evaluate_release_effective"] is False
     assert summary["export_latex_effective"] is False
+
+    repair_summary = build_llm_orchestration_preflight_summary(
+        config,
+        llm_scope="candidate-only",
+        enable_safe_repair=True,
+    )
+    assert repair_summary["safe_repair_effective"] is False
 
 
 def test_candidate_only_scope_runs_stage_a_without_paper_or_release(tmp_path) -> None:

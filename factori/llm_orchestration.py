@@ -128,11 +128,13 @@ def run_llm_paper_orchestration(
     clock: Clock | None = None,
     preflight_only: bool = False,
     llm_scope: str = _LLM_SCOPE_FULL_PAPER,
+    enable_safe_repair: bool = False,
 ) -> LLMOrchestrationRunResult:
     """Run the explicitly gated LLM-assisted paper-generation workflow."""
     root_path = Path(root)
     clock = clock or SystemClock()
     normalized_scope = _normalize_llm_scope(llm_scope)
+    enable_safe_repair = enable_safe_repair and normalized_scope == _LLM_SCOPE_FULL_PAPER
     config = _effective_config_for_scope(config, normalized_scope)
     real_mode = _real_llm_mode(config)
     if real_mode and not config.allow_external_calls:
@@ -377,6 +379,7 @@ def run_llm_paper_orchestration(
                 ledger=ledger,
                 prose_generator=registry.prose_generator,
                 config=_full_paper_config(config),
+                enable_safe_repair=enable_safe_repair,
             )
         except LLMBudgetExceeded as exc:
             steps.append(
@@ -540,10 +543,14 @@ def build_llm_orchestration_preflight_summary(
     config: LLMOrchestrationConfig,
     *,
     llm_scope: str = _LLM_SCOPE_FULL_PAPER,
+    enable_safe_repair: bool = False,
 ) -> dict[str, Any]:
     """Return deterministic, secret-free preflight metadata for CLI/reporting."""
     normalized_scope = _normalize_llm_scope(llm_scope)
     effective_config = _effective_config_for_scope(config, normalized_scope)
+    effective_safe_repair = (
+        enable_safe_repair and normalized_scope == _LLM_SCOPE_FULL_PAPER
+    )
     planned = _planned_usage(effective_config, llm_scope=normalized_scope)
     return {
         "llm_scope": normalized_scope,
@@ -565,6 +572,7 @@ def build_llm_orchestration_preflight_summary(
         "generate_paper_effective": effective_config.generate_paper,
         "evaluate_release_effective": effective_config.evaluate_release,
         "export_latex_effective": effective_config.export_latex,
+        "safe_repair_effective": effective_safe_repair,
     }
 
 

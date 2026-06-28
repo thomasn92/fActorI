@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from factori.artifacts import ArtifactStore
 from factori.citations import CITATION_MARKER_RE
+from factori.hashing import sha256_text
 from factori.ledger import ResearchLedger
 from factori.paper_critic import (
     RETRIEVAL_NOVELTY_CLAIMS,
     SYNTHETIC_AS_REAL_CLAIMS,
     build_paper_revision_plan,
+    critique_generated_paper,
     critique_paper_from_run,
 )
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -47,6 +50,7 @@ class PaperRevisionRunResult:
     revision_plan_artifact: ArtifactRef | None = None
     revision_safety_artifact: ArtifactRef | None = None
     revised_markdown_artifact: ArtifactRef | None = None
+    safe_repair_report_artifact: ArtifactRef | None = None
     commit_hash: str | None = None
 
 
@@ -56,10 +60,14 @@ def apply_safe_fake_revision(
     markdown: str,
     revision_plan: PaperRevisionPlan,
     citation_registry: CitationRegistry | None = None,
+    bounded_text_repair: bool = False,
 ) -> PaperRevisionResult:
     """Apply one deterministic conservative text-only revision pass."""
     revised = markdown
     patches: list[PaperRevisionPatch] = []
+    if bounded_text_repair:
+        revised, bounded_patches = _apply_bounded_text_repairs(revised)
+        patches.extend(bounded_patches)
     for action in revision_plan.actions:
         if action == PaperRevisionActionKind.NO_ACTION_NEEDED:
             continue
@@ -154,6 +162,7 @@ def revise_paper_from_run(
     ledger: ResearchLedger,
     apply_safe_fake_revision_flag: bool = False,
     write_report: bool = False,
+    safe_repair_mode: bool = False,
 ) -> PaperRevisionRunResult:
     """Plan or apply one safe fake paper revision pass for the latest draft."""
     critic = critique_paper_from_run(
@@ -175,10 +184,32 @@ def revise_paper_from_run(
         markdown=critic.inputs.markdown,
         revision_plan=plan,
         citation_registry=critic.inputs.citation_registry,
+        bounded_text_repair=safe_repair_mode,
     )
+    repaired_critic = critic.critic_report
+    if safe_repair_mode:
+        repaired_critic = critique_generated_paper(
+            run_id=run_id,
+            markdown=revision_result.revised_markdown,
+            citation_registry=critic.inputs.citation_registry,
+            latex_result=critic.inputs.latex_result,
+            source_map=critic.inputs.source_map,
+            latex_safety_report=critic.inputs.latex_safety_report,
+            manuscript_draft_artifact_id="revised-manuscript-draft",
+            latex_artifact_id=(
+                critic.inputs.latex_artifact.id
+                if critic.inputs.latex_artifact is not None
+                else None
+            ),
+            source_map_artifact_id=(
+                critic.inputs.source_map_artifact.id
+                if critic.inputs.source_map_artifact is not None
+                else None
+            ),
+        )
     result = PaperRevisionRunResult(
         run_id=run_id,
-        critic_report=critic.critic_report,
+        critic_report=repaired_critic,
         revision_plan=plan,
         revision_result=revision_result,
     )
@@ -188,9 +219,11 @@ def revise_paper_from_run(
         run_id=run_id,
         store=store,
         ledger=ledger,
-        critic_report=critic.critic_report,
+        critic_report=repaired_critic,
         revision_plan=plan,
         revision_result=revision_result,
+        safe_repair_mode=safe_repair_mode,
+        original_markdown=critic.inputs.markdown,
     )
     return _with_persisted_artifacts(result, persistence)
 
@@ -203,58 +236,79 @@ def write_paper_revision_artifacts(
     critic_report: PaperCriticReport,
     revision_plan: PaperRevisionPlan,
     revision_result: PaperRevisionResult,
+    safe_repair_mode: bool = False,
+    original_markdown: str | None = None,
 ) -> PersistenceResult:
     """Persist critic, plan, safety, and revised draft artifacts as context only."""
     metadata = _paper_revision_metadata()
+    critic_artifact_id = (
+        "safe-repair-critic-report" if safe_repair_mode else "paper-critic-report"
+    )
     revision_result = revision_result.model_copy(
         update={
-            "critic_report_artifact_id": "paper-critic-report",
+            "critic_report_artifact_id": critic_artifact_id,
             "revision_plan_artifact_id": "paper-revision-plan",
             "revision_safety_artifact_id": "revision-safety-report",
             "revised_markdown_artifact_id": "revised-manuscript-draft",
         }
     )
+    artifact_specs = [
+        ArtifactWriteSpec(
+            artifact_id=critic_artifact_id,
+            artifact_type=ArtifactType.REPORT,
+            payload=critic_report,
+            artifact_format="json",
+            metadata=metadata,
+        ),
+        ArtifactWriteSpec(
+            artifact_id="paper-revision-plan",
+            artifact_type=ArtifactType.REPORT,
+            payload=revision_plan,
+            artifact_format="json",
+            metadata=metadata,
+        ),
+        ArtifactWriteSpec(
+            artifact_id="revision-safety-report",
+            artifact_type=ArtifactType.REPORT,
+            payload=revision_result.safety_report,
+            artifact_format="json",
+            metadata=metadata,
+        ),
+        ArtifactWriteSpec(
+            artifact_id="revised-manuscript-draft",
+            artifact_type=ArtifactType.REPORT,
+            payload=revision_result.revised_markdown,
+            artifact_format="markdown",
+            metadata={**metadata, "artifact_role": "paper_revision_presentation_draft"},
+        ),
+        ArtifactWriteSpec(
+            artifact_id="paper-revision-result",
+            artifact_type=ArtifactType.REPORT,
+            payload=revision_result,
+            artifact_format="json",
+            metadata=metadata,
+        ),
+    ]
+    if safe_repair_mode:
+        artifact_specs.append(
+            ArtifactWriteSpec(
+                artifact_id="safe-repair-report",
+                artifact_type=ArtifactType.REPORT,
+                payload=_safe_repair_report(
+                    run_id=run_id,
+                    original_markdown=original_markdown or "",
+                    revision_plan=revision_plan,
+                    revision_result=revision_result,
+                ),
+                artifact_format="json",
+                metadata={**metadata, "artifact_role": "safe_repair_audit_context"},
+            )
+        )
     return persist_artifacts_with_commit(
         run_id=run_id,
         store=store,
         ledger=ledger,
-        artifact_specs=[
-            ArtifactWriteSpec(
-                artifact_id="paper-critic-report",
-                artifact_type=ArtifactType.REPORT,
-                payload=critic_report,
-                artifact_format="json",
-                metadata=metadata,
-            ),
-            ArtifactWriteSpec(
-                artifact_id="paper-revision-plan",
-                artifact_type=ArtifactType.REPORT,
-                payload=revision_plan,
-                artifact_format="json",
-                metadata=metadata,
-            ),
-            ArtifactWriteSpec(
-                artifact_id="revision-safety-report",
-                artifact_type=ArtifactType.REPORT,
-                payload=revision_result.safety_report,
-                artifact_format="json",
-                metadata=metadata,
-            ),
-            ArtifactWriteSpec(
-                artifact_id="revised-manuscript-draft",
-                artifact_type=ArtifactType.REPORT,
-                payload=revision_result.revised_markdown,
-                artifact_format="markdown",
-                metadata={**metadata, "artifact_role": "paper_revision_presentation_draft"},
-            ),
-            ArtifactWriteSpec(
-                artifact_id="paper-revision-result",
-                artifact_type=ArtifactType.REPORT,
-                payload=revision_result,
-                artifact_format="json",
-                metadata=metadata,
-            ),
-        ],
+        artifact_specs=artifact_specs,
         action_type=ControllerActionType.PAPER_REVISION_WRITTEN,
         commit_payload={
             "run_id": run_id,
@@ -340,6 +394,53 @@ def _apply_action(
     return markdown, []
 
 
+def _apply_bounded_text_repairs(
+    markdown: str,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    action = PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE
+    revised = markdown
+    patches: list[PaperRevisionPatch] = []
+    unsafe_placeholder = re.compile(
+        r"^\[UNSAFE SECTION OMITTED\].*$",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+    unsupported_sentence = re.compile(
+        r"^\[UNSUPPORTED SENTENCE\].*$",
+        flags=re.IGNORECASE | re.MULTILINE,
+    )
+    replacement = (
+        "[SECTION OMITTED BY SAFETY CHECK] Generated text was excluded. "
+        "No evidence or scientific validation is asserted."
+    )
+    for pattern, rationale in (
+        (unsafe_placeholder, "removed unsafe generated section text"),
+        (unsupported_sentence, "removed explicitly unsupported assertive sentence"),
+    ):
+        updated, count = pattern.subn(replacement, revised)
+        if count:
+            patches.append(_patch(action, pattern.pattern, replacement, rationale))
+            revised = updated
+    revised, claim_patches = _replace_unsafe_claim_language(revised, action)
+    patches.extend(claim_patches)
+    revised, boundary_patches = _clarify_synthetic_boundary(
+        revised,
+        PaperRevisionActionKind.CLARIFY_SYNTHETIC_ONLY_BOUNDARY,
+    )
+    patches.extend(boundary_patches)
+    revised, limitation_patches = _insert_after_heading(
+        revised,
+        "Limitations",
+        (
+            "Safe-repair note: omitted or downgraded generated text is presentation-only. "
+            "MVP and synthetic outputs do not establish empirical validation, scientific "
+            "validation, or publication readiness."
+        ),
+        PaperRevisionActionKind.ADD_MISSING_LIMITATION,
+    )
+    patches.extend(limitation_patches)
+    return revised, patches
+
+
 def _ensure_section(
     markdown: str,
     *,
@@ -392,9 +493,13 @@ def _replace_unsafe_claim_language(
         "SyntheticExperimentVerified": (
             "synthetic-experiment-supported only with linked synthetic evidence"
         ),
-        "RealDataExperimentVerified": "real-data validation unavailable in this MVP",
+        "RealDataExperimentVerified": "real-data support is unavailable in this MVP",
         "EmpiricallyValidated": "validation limited to stated non-empirical evidence",
-        "RealWorldValidated": "real-world validation unavailable in this MVP",
+        "RealWorldValidated": "support is limited to the stated non-empirical setting",
+        "Conjecture": "unverified claim",
+        "Theorem": "formal claim without verification authority",
+        "publication-ready": "ready for human review only",
+        "publication ready": "ready for human review only",
     }
     revised = markdown
     patches: list[PaperRevisionPatch] = []
@@ -498,6 +603,60 @@ def _paper_revision_metadata() -> dict[str, object]:
     }
 
 
+def _safe_repair_report(
+    *,
+    run_id: str,
+    original_markdown: str,
+    revision_plan: PaperRevisionPlan,
+    revision_result: PaperRevisionResult,
+) -> dict[str, object]:
+    forbidden_phrases = (
+        "Conjecture",
+        "Theorem",
+        "LeanVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "EmpiricallyValidated",
+        "RealWorldValidated",
+        "publication ready",
+        "publication-ready",
+    )
+    repaired = revision_result.revised_markdown
+    removed = sorted(
+        phrase
+        for phrase in forbidden_phrases
+        if phrase.lower() in original_markdown.lower()
+        and phrase.lower() not in repaired.lower()
+    )
+    return {
+        "report_id": f"safe-repair-report-{run_id}",
+        "run_id": run_id,
+        "repairs_attempted": [
+            "BoundedTextSafetyRepair",
+            *[action.value for action in revision_plan.actions],
+        ],
+        "repairs_applied": len(revision_result.patches),
+        "forbidden_phrases_removed": removed,
+        "sentences_removed_or_downgraded": sorted(
+            {patch.rationale for patch in revision_result.patches}
+        ),
+        "before_content_hash": sha256_text(original_markdown),
+        "after_content_hash": sha256_text(repaired),
+        "invented_citations": bool(
+            revision_result.safety_report.invented_citation_keys
+        ),
+        "invented_citation_keys": revision_result.safety_report.invented_citation_keys,
+        "created_or_upgraded_labels": (
+            revision_result.safety_report.created_or_upgraded_labels
+        ),
+        "mutated_claim_table": False,
+        "mutated_evidence_map": False,
+        "is_verification_evidence": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+    }
+
+
 def _with_persisted_artifacts(
     result: PaperRevisionRunResult,
     persistence: PersistenceResult,
@@ -507,7 +666,11 @@ def _with_persisted_artifacts(
     if revision_result is not None:
         revision_result = revision_result.model_copy(
             update={
-                "critic_report_artifact_id": "paper-critic-report",
+                "critic_report_artifact_id": (
+                    "safe-repair-critic-report"
+                    if "safe-repair-critic-report" in artifacts
+                    else "paper-critic-report"
+                ),
                 "revision_plan_artifact_id": "paper-revision-plan",
                 "revision_safety_artifact_id": "revision-safety-report",
                 "revised_markdown_artifact_id": "revised-manuscript-draft",
@@ -518,10 +681,14 @@ def _with_persisted_artifacts(
         critic_report=result.critic_report,
         revision_plan=result.revision_plan,
         revision_result=revision_result,
-        critic_report_artifact=artifacts.get("paper-critic-report"),
+        critic_report_artifact=(
+            artifacts.get("safe-repair-critic-report")
+            or artifacts.get("paper-critic-report")
+        ),
         revision_plan_artifact=artifacts.get("paper-revision-plan"),
         revision_safety_artifact=artifacts.get("revision-safety-report"),
         revised_markdown_artifact=artifacts.get("revised-manuscript-draft"),
+        safe_repair_report_artifact=artifacts.get("safe-repair-report"),
         commit_hash=persistence.commit.commit_hash,
     )
 

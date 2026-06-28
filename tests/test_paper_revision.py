@@ -107,6 +107,55 @@ def test_fake_revision_does_not_invent_or_upgrade_labels() -> None:
     assert not result.safety_report.created_or_upgraded_labels
 
 
+def test_bounded_safe_repair_removes_textual_boundary_violations() -> None:
+    markdown = _safe_markdown(
+        "[UNSAFE SECTION OMITTED] forbidden label appears in generated prose: Conjecture; "
+        "generated prose contains unsupported sentences\n"
+        "[UNSUPPORTED SENTENCE] This theorem is empirically validated and publication ready."
+    )
+    report = critique_generated_paper(run_id="run-1", markdown=markdown)
+
+    result = apply_safe_fake_revision(
+        run_id="run-1",
+        markdown=markdown,
+        revision_plan=build_paper_revision_plan(report),
+        bounded_text_repair=True,
+    )
+
+    lowered = result.revised_markdown.lower()
+    assert "conjecture" not in lowered
+    assert "theorem" not in lowered
+    assert "empirically validated" not in lowered
+    assert "publication ready" not in lowered
+    assert "section omitted by safety check" in lowered
+    assert "synthetic outputs do not establish empirical validation" in lowered
+    assert result.safety_report.safe
+
+
+def test_bounded_safe_repair_preserves_known_citations_and_invents_none() -> None:
+    registry = _citation_registry()
+    markdown = _safe_markdown(
+        "Known context [@Smith2024Bounded]. This Conjecture is not evidence."
+    )
+    report = critique_generated_paper(
+        run_id="run-1",
+        markdown=markdown,
+        citation_registry=registry,
+    )
+
+    result = apply_safe_fake_revision(
+        run_id="run-1",
+        markdown=markdown,
+        revision_plan=build_paper_revision_plan(report),
+        citation_registry=registry,
+        bounded_text_repair=True,
+    )
+
+    assert "[@Smith2024Bounded]" in result.revised_markdown
+    assert result.safety_report.invented_citation_keys == []
+    assert not result.safety_report.created_or_upgraded_labels
+
+
 def test_fake_revision_preserves_known_citations_and_removes_unknown() -> None:
     markdown = _safe_markdown("Known [@Smith2024Bounded] and unknown [@Missing2024].")
     registry = _citation_registry()

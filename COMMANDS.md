@@ -440,6 +440,31 @@ uv run factori run-llm-paper \
   --json
 ```
 
+Add `--enable-safe-repair` for one deterministic post-drafting text repair before release
+evaluation. It replaces explicit unsupported labels and publication-ready language, downgrades
+synthetic-as-real claims, removes text marked unsafe/unsupported, adds a non-evidence limitation,
+re-exports revised LaTeX, and reruns critic/release checks. It does not retry OpenAI calls, invent
+citations, create evidence, or override remaining release blockers.
+
+```bash
+uv run factori run-llm-paper \
+  --run-id live-prose-repair-smoke-001 \
+  --domain "human geography" \
+  --llm-scope full-paper \
+  --candidate-backend fake \
+  --reviewer-backend fake \
+  --prose-backend openai \
+  --prose-model gpt-5.4-mini \
+  --allow-external-calls \
+  --max-total-calls 12 \
+  --max-prose-calls 12 \
+  --max-estimated-cost-usd 1.50 \
+  --generate-paper \
+  --enable-safe-repair \
+  --write-report \
+  --json
+```
+
 Current candidate-only live smoke:
 
 ```bash

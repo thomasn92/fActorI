@@ -85,6 +85,7 @@ def generate_full_paper(
     config: FullPaperGenerationConfig,
     renderer: LatexRenderer | None = None,
     max_words: int = 160,
+    enable_safe_repair: bool = False,
 ) -> FullPaperGenerationRunResult:
     """Generate a complete manuscript package from existing deterministic run artifacts."""
     if config.run_id != run_id:
@@ -240,15 +241,17 @@ def generate_full_paper(
             )
         )
 
-    if config.revise or config.apply_safe_fake_revision:
+    repair_requested = config.apply_safe_fake_revision or enable_safe_repair
+    if config.revise or repair_requested:
         try:
             revision_result = revise_paper_from_run(
                 run_id=run_id,
                 root=root,
                 store=store,
                 ledger=ledger,
-                apply_safe_fake_revision_flag=config.apply_safe_fake_revision,
-                write_report=config.apply_safe_fake_revision,
+                apply_safe_fake_revision_flag=repair_requested,
+                write_report=repair_requested,
+                safe_repair_mode=enable_safe_repair,
             )
         except PaperCriticError as exc:
             raise FullPaperGenerationError(str(exc)) from exc
@@ -262,7 +265,7 @@ def generate_full_paper(
                 _status_from_warnings(warnings),
                 (
                     "Safe fake paper revision was applied."
-                    if config.apply_safe_fake_revision
+                    if repair_requested
                     else "Paper revision plan was built without applying changes."
                 ),
                 _refs_from_revision_result(revision_result),
@@ -279,7 +282,8 @@ def generate_full_paper(
             )
         )
 
-    if config.reexport_latex_after_revision:
+    reexport_requested = config.reexport_latex_after_revision or enable_safe_repair
+    if reexport_requested:
         if revision_result is None or revision_result.revision_result is None:
             raise FullPaperGenerationError(
                 "LaTeX re-export after revision requires --apply-safe-fake-revision."
@@ -324,7 +328,7 @@ def generate_full_paper(
         artifact_bundle=bundle,
         warnings=warnings,
         blocking_issues=_blocking_issues(steps),
-        revision_applied=config.apply_safe_fake_revision,
+        revision_applied=repair_requested,
         render_check_requested=config.render_check,
         publication_ready=False,
     )
@@ -866,10 +870,15 @@ def _refs_from_critic_result(result: PaperCriticRunResult) -> dict[str, Artifact
 
 def _refs_from_revision_result(result: PaperRevisionRunResult) -> dict[str, ArtifactRef]:
     refs = {
-        "paper-critic-report": result.critic_report_artifact,
+        (
+            result.critic_report_artifact.id
+            if result.critic_report_artifact is not None
+            else "paper-critic-report"
+        ): result.critic_report_artifact,
         "paper-revision-plan": result.revision_plan_artifact,
         "revision-safety-report": result.revision_safety_artifact,
         "revised-manuscript-draft": result.revised_markdown_artifact,
+        "safe-repair-report": result.safe_repair_report_artifact,
     }
     return {key: artifact for key, artifact in refs.items() if artifact is not None}
 

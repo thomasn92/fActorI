@@ -203,6 +203,39 @@ def test_generate_paper_reexports_latex_after_revision(tmp_path) -> None:
     assert bundle["revised_latex_source_map_artifact_id"] == "revised-latex-source-map"
 
 
+def test_safe_repair_writes_hashed_non_evidence_audit_artifact(tmp_path) -> None:
+    _prepare_run(tmp_path, run_id="run-safe-repair")
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs/run-safe-repair/ledger.sqlite")
+
+    result = generate_full_paper(
+        run_id="run-safe-repair",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=FakeProseGenerator(),
+        config=FullPaperGenerationConfig(
+            run_id="run-safe-repair",
+            write_report=True,
+        ),
+        enable_safe_repair=True,
+    )
+
+    assert result.revision_result is not None
+    repair_ref = result.revision_result.safe_repair_report_artifact
+    assert repair_ref is not None
+    _assert_non_evidence_artifact(tmp_path, repair_ref)
+    payload = json.loads((tmp_path / repair_ref.path).read_text(encoding="utf-8"))
+    assert payload["before_content_hash"]
+    assert payload["after_content_hash"]
+    assert payload["invented_citations"] is False
+    assert payload["created_or_upgraded_labels"] is False
+    assert result.artifact_bundle.revised_manuscript_draft_artifact_id == (
+        "revised-manuscript-draft"
+    )
+    assert result.artifact_bundle.revised_latex_artifact_id == "revised-paper"
+
+
 def test_generate_paper_render_check_fails_closed_without_external_tools(tmp_path) -> None:
     _prepare_run(tmp_path, run_id="run-render")
 

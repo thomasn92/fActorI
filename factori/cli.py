@@ -2311,6 +2311,10 @@ def run_llm_paper_command(
     ] = None,
     write_report: Annotated[bool, typer.Option("--write-report")] = False,
     preflight_only: Annotated[bool, typer.Option("--preflight-only")] = False,
+    enable_safe_repair: Annotated[
+        bool,
+        typer.Option("--enable-safe-repair"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     rerun_policy: Annotated[
         str,
@@ -2363,6 +2367,7 @@ def run_llm_paper_command(
         preflight_summary = build_llm_orchestration_preflight_summary(
             config,
             llm_scope=llm_scope,
+            enable_safe_repair=enable_safe_repair,
         )
     except LLMOrchestrationError as exc:
         typer.echo(str(exc), err=True)
@@ -2373,6 +2378,7 @@ def run_llm_paper_command(
             root=root,
             preflight_only=preflight_only,
             llm_scope=llm_scope,
+            enable_safe_repair=enable_safe_repair,
         )
     except LLMOrchestrationError as exc:
         typer.echo(str(exc), err=True)
@@ -2408,6 +2414,16 @@ def run_llm_paper_command(
                         "llm_run_safety_report": (
                             result.safety_artifact.model_dump(mode="json")
                             if result.safety_artifact
+                            else None
+                        ),
+                        "safe_repair_report": (
+                            result.generation_result.revision_result.safe_repair_report_artifact.model_dump(
+                                mode="json"
+                            )
+                            if result.generation_result is not None
+                            and result.generation_result.revision_result is not None
+                            and result.generation_result.revision_result.safe_repair_report_artifact
+                            is not None
                             else None
                         ),
                     },

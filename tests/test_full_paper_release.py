@@ -14,11 +14,14 @@ from factori.full_paper_release import (
 )
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
+from factori.paper_critic import build_paper_revision_plan, critique_generated_paper
+from factori.paper_revision import apply_safe_fake_revision
 from factori.persistence import persist_markdown_artifact
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    CitationRegistry,
     ControllerActionType,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
@@ -135,6 +138,48 @@ def test_synthetic_as_real_empirical_validation_blocks(tmp_path) -> None:
     report = _evaluate(tmp_path, ledger, "empirical")
 
     assert report.decision.status == FullPaperReleaseStatus.BLOCKED_EVIDENCE_BOUNDARY_VIOLATION
+
+
+def test_safe_textual_repair_can_restore_human_review_readiness(tmp_path) -> None:
+    ledger = _prepare_safe_bundle(tmp_path, "repair-ready")
+    unsafe = _revised_text(tmp_path, "repair-ready") + (
+        "\n[UNSAFE SECTION OMITTED] forbidden label appears in generated prose: Conjecture; "
+        "generated prose contains unsupported sentences; the synthetic result is "
+        "empirically validated.\n"
+    )
+    _replace_revised_draft(tmp_path, ledger, "repair-ready", unsafe)
+    blocked = _evaluate(tmp_path, ledger, "repair-ready")
+    assert blocked.decision.ready_for_human_review is False
+
+    registry = CitationRegistry.model_validate_json(
+        (tmp_path / "runs/repair-ready/reports/citation-registry.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    critic = critique_generated_paper(
+        run_id="repair-ready",
+        markdown=unsafe,
+        citation_registry=registry,
+    )
+    repaired = apply_safe_fake_revision(
+        run_id="repair-ready",
+        markdown=unsafe,
+        revision_plan=build_paper_revision_plan(critic),
+        citation_registry=registry,
+        bounded_text_repair=True,
+    )
+    _replace_revised_draft(
+        tmp_path,
+        ledger,
+        "repair-ready",
+        repaired.revised_markdown,
+    )
+
+    ready = _evaluate(tmp_path, ledger, "repair-ready")
+    assert ready.decision.status in {
+        FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW,
+        FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS,
+    }
 
 
 def test_unsupported_leanverified_and_publication_language_block(tmp_path) -> None:

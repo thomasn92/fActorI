@@ -394,6 +394,13 @@ review request per deterministic Stage B child: the current four-survivor/four-c
 review calls, or 19 total calls for the three-call human-geography candidate path. A runtime budget
 failure in full-paper mode now blocks orchestration before paper generation.
 
+`--enable-safe-repair` enables one bounded deterministic repair after manuscript drafting and
+before release evaluation. The pass removes explicitly unsafe section placeholders and unsupported
+label/publication language, downgrades synthetic-as-real claims, adds a non-evidence limitation,
+and re-exports revised LaTeX. It writes `safe-repair-report.json` with before/after hashes and patch
+metadata. It never retries a provider call, invents citations or evidence, upgrades labels, hides
+remaining findings, or claims publication readiness.
+
 Current candidate-only live smoke:
 
 ```bash
