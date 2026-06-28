@@ -46,6 +46,7 @@ from factori.schemas import (
     FullPaperGenerationStatus,
     FullPaperGenerationStep,
     FullPaperGenerationStepStatus,
+    PaperCriticReport,
     RerunPolicy,
 )
 
@@ -255,10 +256,10 @@ def generate_full_paper(
             )
         except PaperCriticError as exc:
             raise FullPaperGenerationError(str(exc)) from exc
-        warnings = list(revision_result.revision_plan.warnings)
-        if revision_result.revision_result is not None:
-            warnings.extend(revision_result.revision_result.safety_report.warnings)
-            warnings.extend(revision_result.revision_result.safety_report.reasons)
+        warnings = _revision_warnings(
+            revision_result,
+            safe_repair_mode=enable_safe_repair,
+        )
         steps.append(
             _step(
                 "revise-paper",
@@ -317,7 +318,13 @@ def generate_full_paper(
         )
 
     bundle = _collect_artifact_bundle(ledger, run_id)
-    warnings = _aggregate_warnings(steps)
+    warnings = (
+        _aggregate_post_repair_warnings(steps, revision_result)
+        if enable_safe_repair
+        and revision_result is not None
+        and revision_result.revision_result is not None
+        else _aggregate_warnings(steps)
+    )
     status = _generation_status(steps, warnings)
     report = FullPaperGenerationReport(
         report_id=f"full-paper-generation-report-{run_id}",
@@ -815,6 +822,25 @@ def _aggregate_warnings(steps: list[FullPaperGenerationStep]) -> list[str]:
     return sorted(set(warnings))
 
 
+def _aggregate_post_repair_warnings(
+    steps: list[FullPaperGenerationStep],
+    revision_result: PaperRevisionRunResult,
+) -> list[str]:
+    warnings = _post_repair_warnings(revision_result)
+    current_step_names = {"citation-registry", "reexport-latex-after-revision"}
+    warnings.extend(
+        warning
+        for step in steps
+        if step.step_name in current_step_names
+        for warning in step.warnings
+    )
+    warnings.append(
+        "Generated paper package artifacts are manuscript/presentation context only and "
+        "cannot create evidence, upgrade labels, or imply publication readiness."
+    )
+    return sorted(set(warnings))
+
+
 def _blocking_issues(steps: list[FullPaperGenerationStep]) -> list[str]:
     return [
         step.error_message or step.summary
@@ -826,8 +852,33 @@ def _blocking_issues(steps: list[FullPaperGenerationStep]) -> list[str]:
     ]
 
 
+def _revision_warnings(
+    result: PaperRevisionRunResult,
+    *,
+    safe_repair_mode: bool,
+) -> list[str]:
+    if safe_repair_mode and result.revision_result is not None:
+        return _post_repair_warnings(result)
+    warnings = list(result.revision_plan.warnings)
+    if result.revision_result is not None:
+        warnings.extend(result.revision_result.safety_report.warnings)
+        warnings.extend(result.revision_result.safety_report.reasons)
+    return sorted(set(warnings))
+
+
+def _post_repair_warnings(result: PaperRevisionRunResult) -> list[str]:
+    warnings = _critic_report_warnings(result.critic_report)
+    if result.revision_result is not None:
+        warnings.extend(result.revision_result.safety_report.warnings)
+        warnings.extend(result.revision_result.safety_report.reasons)
+    return sorted(set(warnings))
+
+
 def _critic_warnings(result: PaperCriticRunResult) -> list[str]:
-    report = result.critic_report
+    return _critic_report_warnings(result.critic_report)
+
+
+def _critic_report_warnings(report: PaperCriticReport) -> list[str]:
     warnings = [
         finding.message for finding in report.findings
         if finding.severity.value in {"Warning", "Major", "Blocking"}

@@ -443,8 +443,10 @@ uv run factori run-llm-paper \
 Add `--enable-safe-repair` for one deterministic post-drafting text repair before release
 evaluation. It replaces explicit unsupported labels and publication-ready language, downgrades
 synthetic-as-real claims, removes text marked unsafe/unsupported, adds a non-evidence limitation,
-re-exports revised LaTeX, and reruns critic/release checks. It does not retry OpenAI calls, invent
-citations, create evidence, or override remaining release blockers.
+re-exports revised LaTeX, and reruns critic/release checks. `safe-repair-report.json` preserves
+pre-repair findings, repaired findings, and post-repair warnings; top-level JSON warnings show only
+the current post-repair state. It does not retry OpenAI calls, invent citations, create evidence, or
+override remaining release blockers.
 
 ```bash
 uv run factori run-llm-paper \

@@ -398,8 +398,9 @@ failure in full-paper mode now blocks orchestration before paper generation.
 before release evaluation. The pass removes explicitly unsafe section placeholders and unsupported
 label/publication language, downgrades synthetic-as-real claims, adds a non-evidence limitation,
 and re-exports revised LaTeX. It writes `safe-repair-report.json` with before/after hashes and patch
-metadata. It never retries a provider call, invents citations or evidence, upgrades labels, hides
-remaining findings, or claims publication readiness.
+metadata, including pre-repair, repaired, and post-repair warning buckets. Top-level orchestration
+warnings reflect the current post-repair state only. It never retries a provider call, invents
+citations or evidence, upgrades labels, hides remaining findings, or claims publication readiness.
 
 Current candidate-only live smoke:
 

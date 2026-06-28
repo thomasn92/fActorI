@@ -183,6 +183,56 @@ def test_run_llm_paper_cli_enable_safe_repair_writes_audit_artifact(tmp_path) ->
     }
 
 
+def test_safe_repair_filters_pre_repair_warnings_from_orchestration_report(tmp_path) -> None:
+    transport = UnsafeFirstProseTransport()
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="orchestration-safe-repair-warnings",
+            domain="human geography",
+            candidate_backend="fake",
+            reviewer_backend="fake",
+            prose_backend="openai",
+            prose_model="prose-test-model",
+            allow_external_calls=True,
+            write_report=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=12,
+                max_prose_calls=12,
+                max_estimated_cost_usd=1.50,
+            ),
+        ),
+        root=tmp_path,
+        prose_transport=transport,
+        environ={"OPENAI_API_KEY": "sk-test-key"},
+        enable_safe_repair=True,
+    )
+
+    assert transport.calls
+    assert result.generation_result is not None
+    assert result.generation_result.revision_result is not None
+    repair_ref = result.generation_result.revision_result.safe_repair_report_artifact
+    assert repair_ref is not None
+    repair_payload = json.loads((tmp_path / repair_ref.path).read_text(encoding="utf-8"))
+    repaired_warning = (
+        "synthetic or MVP evidence is described as real-world empirical validation"
+    )
+    assert any(
+        warning.startswith("forbidden label appears in generated prose:")
+        for warning in repair_payload["pre_repair_warnings"]
+    )
+    assert repaired_warning in repair_payload["pre_repair_warnings"]
+    assert repaired_warning in repair_payload["repaired_warnings"]
+    assert repaired_warning not in repair_payload["post_repair_warnings"]
+    assert repaired_warning not in result.report.warnings
+    assert all(
+        "synthetic or MVP evidence is described as real-world empirical validation"
+        not in warning
+        for warning in result.report.warnings
+    )
+    assert any("No citation markers were used" in warning for warning in result.report.warnings)
+    assert result.report.release_status == ReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS
+
+
 def test_real_orchestration_fails_when_external_calls_disabled(tmp_path) -> None:
     with pytest.raises(LLMOrchestrationError, match="allow_external_calls=false"):
         run_llm_paper_orchestration(
@@ -1039,6 +1089,25 @@ class ProseTransport:
             "unsupported_sentences": [],
             "warnings": ["injected transport; no network call"],
         }
+
+
+@dataclass
+class UnsafeFirstProseTransport(ProseTransport):
+    unsafe_emitted: bool = False
+
+    def create_response(self, **kwargs: Any) -> dict[str, object]:
+        payload = super().create_response(**kwargs)
+        if self.unsafe_emitted:
+            return payload
+        self.unsafe_emitted = True
+        payload["draft_markdown"] = (
+            "Conjecture. The synthetic result is empirically validated. "
+            "This unsupported sentence is intentionally unsafe."
+        )
+        payload["unsupported_sentences"] = [
+            "This unsupported sentence is intentionally unsafe."
+        ]
+        return payload
 
 
 def _candidate(

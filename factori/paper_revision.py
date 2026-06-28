@@ -220,6 +220,7 @@ def revise_paper_from_run(
         store=store,
         ledger=ledger,
         critic_report=repaired_critic,
+        pre_repair_critic_report=critic.critic_report,
         revision_plan=plan,
         revision_result=revision_result,
         safe_repair_mode=safe_repair_mode,
@@ -236,6 +237,7 @@ def write_paper_revision_artifacts(
     critic_report: PaperCriticReport,
     revision_plan: PaperRevisionPlan,
     revision_result: PaperRevisionResult,
+    pre_repair_critic_report: PaperCriticReport | None = None,
     safe_repair_mode: bool = False,
     original_markdown: str | None = None,
 ) -> PersistenceResult:
@@ -299,6 +301,8 @@ def write_paper_revision_artifacts(
                     original_markdown=original_markdown or "",
                     revision_plan=revision_plan,
                     revision_result=revision_result,
+                    pre_repair_critic_report=pre_repair_critic_report,
+                    post_repair_critic_report=critic_report,
                 ),
                 artifact_format="json",
                 metadata={**metadata, "artifact_role": "safe_repair_audit_context"},
@@ -609,6 +613,8 @@ def _safe_repair_report(
     original_markdown: str,
     revision_plan: PaperRevisionPlan,
     revision_result: PaperRevisionResult,
+    pre_repair_critic_report: PaperCriticReport | None = None,
+    post_repair_critic_report: PaperCriticReport | None = None,
 ) -> dict[str, object]:
     forbidden_phrases = (
         "Conjecture",
@@ -622,6 +628,18 @@ def _safe_repair_report(
         "publication-ready",
     )
     repaired = revision_result.revised_markdown
+    pre_repair_warnings = _repair_warning_bucket(
+        original_markdown,
+        pre_repair_critic_report,
+    )
+    post_repair_warnings = _repair_warning_bucket(
+        repaired,
+        post_repair_critic_report,
+        extra=[
+            *revision_result.safety_report.warnings,
+            *revision_result.safety_report.reasons,
+        ],
+    )
     removed = sorted(
         phrase
         for phrase in forbidden_phrases
@@ -640,6 +658,11 @@ def _safe_repair_report(
         "sentences_removed_or_downgraded": sorted(
             {patch.rationale for patch in revision_result.patches}
         ),
+        "pre_repair_warnings": pre_repair_warnings,
+        "repaired_warnings": sorted(
+            set(pre_repair_warnings).difference(post_repair_warnings)
+        ),
+        "post_repair_warnings": post_repair_warnings,
         "before_content_hash": sha256_text(original_markdown),
         "after_content_hash": sha256_text(repaired),
         "invented_citations": bool(
@@ -655,6 +678,34 @@ def _safe_repair_report(
         "creates_scientific_validation": False,
         "implies_publication_readiness": False,
     }
+
+
+def _repair_warning_bucket(
+    markdown: str,
+    critic_report: PaperCriticReport | None,
+    *,
+    extra: list[str] | None = None,
+) -> list[str]:
+    warnings = list(extra or [])
+    warnings.extend(_unsafe_placeholder_warnings(markdown))
+    if critic_report is not None:
+        warnings.extend(
+            finding.message
+            for finding in critic_report.findings
+            if finding.severity.value in {"Warning", "Major", "Blocking"}
+        )
+    return sorted({warning for warning in warnings if warning})
+
+
+def _unsafe_placeholder_warnings(markdown: str) -> list[str]:
+    warnings: list[str] = []
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if not stripped.lower().startswith("[unsafe section omitted]"):
+            continue
+        message = stripped.split("]", 1)[-1].strip()
+        warnings.extend(part.strip() for part in message.split(";") if part.strip())
+    return warnings
 
 
 def _with_persisted_artifacts(

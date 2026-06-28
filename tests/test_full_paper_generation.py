@@ -18,6 +18,7 @@ from factori.schemas import (
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
     FullPaperGenerationStatus,
+    GeneratedSectionDraft,
     PipelineRunConfig,
     PipelineStage,
 )
@@ -236,6 +237,42 @@ def test_safe_repair_writes_hashed_non_evidence_audit_artifact(tmp_path) -> None
     assert result.artifact_bundle.revised_latex_artifact_id == "revised-paper"
 
 
+def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:
+    _prepare_run(tmp_path, run_id="run-safe-repair-warnings")
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs/run-safe-repair-warnings/ledger.sqlite")
+
+    result = generate_full_paper(
+        run_id="run-safe-repair-warnings",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=_UnsafeFirstProseGenerator(),
+        config=FullPaperGenerationConfig(
+            run_id="run-safe-repair-warnings",
+            write_report=True,
+        ),
+        enable_safe_repair=True,
+    )
+
+    assert result.revision_result is not None
+    repair_ref = result.revision_result.safe_repair_report_artifact
+    assert repair_ref is not None
+    payload = json.loads((tmp_path / repair_ref.path).read_text(encoding="utf-8"))
+    repaired_warning = (
+        "synthetic or MVP evidence is described as real-world empirical validation"
+    )
+    assert repaired_warning in payload["pre_repair_warnings"]
+    assert repaired_warning in payload["repaired_warnings"]
+    assert repaired_warning not in payload["post_repair_warnings"]
+    assert repaired_warning not in result.report.warnings
+    assert all(
+        "synthetic or MVP evidence is described as real-world empirical validation"
+        not in warning
+        for warning in result.report.warnings
+    )
+
+
 def test_generate_paper_render_check_fails_closed_without_external_tools(tmp_path) -> None:
     _prepare_run(tmp_path, run_id="run-render")
 
@@ -382,6 +419,33 @@ def _assert_non_evidence_artifact(tmp_path, ref: ArtifactRef) -> None:
     assert linked.metadata["is_verification_evidence"] is False
     assert linked.metadata["creates_scientific_validation"] is False
     assert linked.metadata["implies_publication_readiness"] is False
+
+
+class _UnsafeFirstProseGenerator:
+    backend_name = "fake"
+    is_fake = True
+    external_calls_enabled = False
+
+    def __init__(self) -> None:
+        self._delegate = FakeProseGenerator()
+        self._calls = 0
+
+    def generate_section(self, section_contract, claim_table) -> GeneratedSectionDraft:
+        self._calls += 1
+        draft = self._delegate.generate_section(section_contract, claim_table)
+        if self._calls != 1:
+            return draft
+        return draft.model_copy(
+            update={
+                "content": (
+                    "Conjecture. The synthetic result is empirically validated. "
+                    "This unsupported sentence is intentionally unsafe."
+                ),
+                "unsupported_sentences": [
+                    "This unsupported sentence is intentionally unsafe."
+                ],
+            }
+        )
 
 
 def _claim_table_snapshot(tmp_path, run_id: str) -> bytes:
