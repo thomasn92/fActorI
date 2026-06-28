@@ -57,6 +57,7 @@ from factori.full_paper_generation import (
     full_paper_generation_result_model,
     generate_full_paper,
     inspect_paper_bundle_summary,
+    lint_paper_bundle_summary,
 )
 from factori.full_paper_release import (
     FullPaperReleaseError,
@@ -2618,6 +2619,74 @@ def _echo_named_artifact(
     path = artifacts.get(key)
     if path is not None:
         typer.echo(f"- {label}: {path}")
+
+
+@app.command("lint-paper-bundle")
+def lint_paper_bundle_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    min_words: Annotated[int, typer.Option("--min-words")] = 1500,
+    min_avg_words_per_section: Annotated[
+        float,
+        typer.Option("--min-avg-words-per-section"),
+    ] = 120.0,
+    min_citation_markers: Annotated[int, typer.Option("--min-citation-markers")] = 1,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Lint generated paper bundle quality without mutation or evidence authority."""
+    try:
+        summary = lint_paper_bundle_summary(
+            run_id=run_id,
+            root=root,
+            min_words=min_words,
+            min_avg_words_per_section=min_avg_words_per_section,
+            min_citation_markers=min_citation_markers,
+        )
+    except PaperBundleInspectionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    _print_paper_bundle_lint_summary(summary)
+
+
+def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
+    issues = list(summary.get("issues") or [])
+    warnings = list(summary.get("warnings") or [])
+    title_state = (
+        "placeholder"
+        if summary.get("title_is_placeholder")
+        else "present"
+        if summary.get("title_detected")
+        else "missing"
+    )
+    citations = "present" if summary.get("citations_present") else "absent"
+    typer.echo(f"Paper quality: {summary['run_id']}")
+    typer.echo(f"Status: {summary['quality_status']}")
+    typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
+    typer.echo(f"Sections: {int(summary.get('section_count') or 0)}")
+    typer.echo(
+        "Average words/section: "
+        f"{float(summary.get('average_words_per_section') or 0.0):.1f}"
+    )
+    typer.echo(f"Title: {title_state}")
+    typer.echo(f"Citations: {citations}")
+    typer.echo(
+        "Release: "
+        f"{summary.get('paper_release_status') or 'unknown'}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo("Issues:")
+    if issues:
+        for issue in issues:
+            typer.echo(f"- {issue}")
+    else:
+        typer.echo("- none")
+    if warnings:
+        typer.echo("Warnings:")
+        for warning in warnings:
+            typer.echo(f"- {warning}")
 
 
 @app.command("build-draft-skeleton")

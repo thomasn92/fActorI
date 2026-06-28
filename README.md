@@ -444,6 +444,18 @@ uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --
 This compact summary prefers revised Markdown/LaTeX artifacts when present and reports section,
 word, citation, warning, blocking, safe-repair, and artifact-path details.
 
+Lint generated paper bundle draft quality without rerunning stages or creating artifacts:
+
+```bash
+uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001
+uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 --json
+```
+
+The lint is separate from the release gate. It reports deterministic draft-quality issues such as
+short manuscripts, placeholder titles, sparse sections, missing citations, missing limitations, and
+missing claim/evidence or provenance appendices. It does not change release status, safety status,
+evidence labels, or publication-readiness flags.
+
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:
 

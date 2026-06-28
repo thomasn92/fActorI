@@ -511,6 +511,20 @@ uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --
 The compact summary prefers revised Markdown/LaTeX artifacts when present and reports section,
 word, citation, warning, blocking, safe-repair, and artifact-path details.
 
+Lint generated paper bundle quality without rerunning stages, calling APIs, or mutating run
+artifacts:
+
+```bash
+uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001
+uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 --json
+uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 \
+  --min-words 1500 --min-avg-words-per-section 120 --min-citation-markers 1
+```
+
+The lint reports `DraftQualityFailed`, `DraftQualityWarnings`, or `DraftQualityPass` as a draft
+quality diagnostic only. It does not change generated-paper release status, safety status,
+evidence labels, human-review readiness, or publication-readiness flags.
+
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:
 

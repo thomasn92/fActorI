@@ -58,10 +58,11 @@
 | 48f | Bounded deterministic safe repair for generated-paper textual boundary violations and post-repair warning separation | `paper_revision.py`, `full_paper_generation.py`, `llm_orchestration.py` | `run-llm-paper --enable-safe-repair` | Optional one-pass repair removes or downgrades explicit unsafe text, writes a hashed non-evidence audit report with pre/repaired/post warning buckets, re-exports revised LaTeX, and reruns critic/release checks without inventing citations or evidence |
 | 49 | Compact read-only LLM run inspection summary for persisted orchestration reports | `llm_orchestration.py`, `cli.py` | `inspect-llm-run` | Reads existing LLM reports only; summarizes status, calls, budget blocks, warnings, safe-repair presence, and paper paths without mutating runs or creating evidence |
 | 50 | Compact read-only generated paper bundle inspection summary | `full_paper_generation.py`, `cli.py` | `inspect-paper-bundle` | Reads existing Markdown/LaTeX/report artifacts only; prefers revised artifacts and summarizes sections, words, citations, warnings, blockers, safe-repair presence, and paths without mutating runs or creating evidence |
+| 51 | Deterministic read-only generated paper bundle quality lint | `full_paper_generation.py`, `cli.py` | `lint-paper-bundle` | Reads existing preferred Markdown draft artifacts only; reports draft-quality failures/warnings separately from release readiness and never mutates runs, creates evidence, or implies publication readiness |
 
 ## Current Boundary
 
-Milestones through 50 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 51 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -121,3 +122,7 @@ paper/release work. Stage B preflight planning counts one reviewer request per d
 Runtime LLM budget guards authorize each real transport call before execution, so over-limit
 attempts are blocked before any network call and recorded as non-evidence `Blocked` accounting
 records.
+Generated paper bundle inspection now has two read-only views: `inspect-paper-bundle` for compact
+artifact structure and `lint-paper-bundle` for deterministic draft-quality diagnostics such as
+short manuscripts, placeholder titles, missing citations, and missing appendices. Neither view
+changes release/safety status, evidence labels, or publication-readiness flags.

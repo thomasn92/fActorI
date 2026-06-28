@@ -63,6 +63,39 @@ class PaperBundleInspectionError(RuntimeError):
     """Raised when a generated paper bundle cannot be inspected read-only."""
 
 
+_PLACEHOLDER_TITLE_PATTERNS = (
+    "deterministic branch manuscript plan",
+    "placeholder",
+    "untitled",
+    "draft",
+)
+_PLACEHOLDER_SECTION_PATTERNS = (
+    "[fake prose draft]",
+    "[fake",
+    "placeholder",
+    "todo",
+    "tbd",
+)
+_GENERIC_HEADING_TITLES = frozenset(
+    {
+        "abstract",
+        "introduction",
+        "background",
+        "related work",
+        "model",
+        "method",
+        "methods",
+        "results",
+        "discussion",
+        "limitations",
+        "conclusion",
+        "appendix",
+        "references",
+        "bibliography",
+    }
+)
+
+
 @dataclass(frozen=True)
 class FullPaperGenerationRunResult:
     """Runtime result for full-paper generation orchestration."""
@@ -498,6 +531,175 @@ def inspect_paper_bundle_summary(
     }
 
 
+def lint_paper_bundle_summary(
+    *,
+    run_id: str,
+    root: str | Path = ".",
+    min_words: int = 1500,
+    min_avg_words_per_section: float = 120.0,
+    min_citation_markers: int = 1,
+) -> dict[str, Any]:
+    """Compute deterministic draft-quality diagnostics without mutating the run."""
+    if min_words < 0:
+        raise PaperBundleInspectionError("min_words must be non-negative.")
+    if min_avg_words_per_section < 0:
+        raise PaperBundleInspectionError(
+            "min_avg_words_per_section must be non-negative."
+        )
+    if min_citation_markers < 0:
+        raise PaperBundleInspectionError("min_citation_markers must be non-negative.")
+
+    root_path = Path(root)
+    bundle = inspect_paper_bundle_summary(run_id=run_id, root=root_path)
+    primary = bundle.get("primary_artifact_to_read")
+    markdown = ""
+    if isinstance(primary, str) and primary.endswith(".md"):
+        primary_path = root_path / primary
+        if primary_path.is_file():
+            markdown = primary_path.read_text(encoding="utf-8")
+
+    headings = list(bundle.get("section_headings_detected") or [])
+    word_count = int(bundle.get("word_count") or 0)
+    section_count = int(bundle.get("section_count") or 0)
+    average_words_per_section = (
+        round(word_count / section_count, 1) if section_count else 0.0
+    )
+    title = bundle.get("title_detected")
+    title_text = str(title) if title else ""
+    title_is_placeholder = _title_is_placeholder(title_text)
+    abstract_present = bool(bundle.get("abstract_detected"))
+    citation_marker_count = int(bundle.get("citation_marker_count") or 0)
+    citations_present = citation_marker_count > 0
+    sections = _markdown_sections(markdown)
+    body_sections = _body_sections(sections, title_text)
+    sections_too_short = [
+        {"heading": section["heading"], "word_count": section["word_count"]}
+        for section in body_sections
+        if section["word_count"] < min_avg_words_per_section
+    ]
+    empty_or_placeholder_sections = [
+        {"heading": section["heading"], "word_count": section["word_count"]}
+        for section in body_sections
+        if section["word_count"] == 0 or _contains_placeholder_text(section["body"])
+    ]
+    generic_heading_count = sum(
+        1 for heading in headings if heading.casefold() in _GENERIC_HEADING_TITLES
+    )
+    lower_markdown = markdown.casefold()
+    missing_problem_framing = not _contains_any(
+        lower_markdown,
+        (
+            "problem framing",
+            "problem statement",
+            "research problem",
+            "the problem",
+        ),
+    )
+    missing_method_summary = not _contains_any(
+        lower_markdown,
+        ("method summary", "method", "model", "algorithm", "approach"),
+    )
+    lower_headings = [heading.casefold() for heading in headings]
+    missing_limitations = not _contains_heading_or_text(
+        lower_headings,
+        lower_markdown,
+        "limitation",
+    )
+    missing_claim_evidence_appendix = not any(
+        "claim/evidence" in heading or ("claim" in heading and "evidence" in heading)
+        for heading in lower_headings
+    )
+    missing_provenance_appendix = not any(
+        "provenance" in heading for heading in lower_headings
+    )
+    max_section_count_for_short_draft = 10
+    too_many_sections_for_length = (
+        word_count < min_words and section_count > max_section_count_for_short_draft
+    )
+
+    blocking_issues: list[str] = []
+    warnings: list[str] = []
+    if not markdown:
+        blocking_issues.append("No Markdown manuscript draft artifact was found.")
+    if word_count < min_words:
+        blocking_issues.append("Draft is below minimum word count.")
+    if average_words_per_section < min_avg_words_per_section:
+        blocking_issues.append("Average words per section is below minimum.")
+    if not title_text:
+        blocking_issues.append("Title is missing.")
+    elif title_is_placeholder:
+        blocking_issues.append("Title appears to be a placeholder.")
+    if sections_too_short:
+        blocking_issues.append("One or more sections are below the minimum length.")
+    if empty_or_placeholder_sections:
+        blocking_issues.append("One or more sections are empty or placeholder text.")
+    if too_many_sections_for_length:
+        blocking_issues.append("Too many sections for draft length.")
+    if missing_problem_framing:
+        blocking_issues.append("Problem framing is missing or not explicit.")
+    if missing_method_summary:
+        blocking_issues.append("Method or model summary is missing.")
+    if missing_limitations:
+        blocking_issues.append("Limitations section is missing.")
+    if missing_claim_evidence_appendix:
+        blocking_issues.append("Claim/evidence appendix is missing.")
+    if missing_provenance_appendix:
+        blocking_issues.append("Provenance appendix is missing.")
+    if citation_marker_count < min_citation_markers:
+        warnings.append("No citation markers found.")
+
+    issues = [*blocking_issues, *warnings]
+    quality_status = (
+        "DraftQualityFailed"
+        if blocking_issues
+        else "DraftQualityWarnings"
+        if warnings
+        else "DraftQualityPass"
+    )
+    quality_score = _quality_score(blocking_issues, warnings)
+    return {
+        "run_id": run_id,
+        "quality_status": quality_status,
+        "quality_score_optional": quality_score,
+        "word_count": word_count,
+        "section_count": section_count,
+        "average_words_per_section": average_words_per_section,
+        "title_detected": title_text or None,
+        "title_is_placeholder": title_is_placeholder,
+        "abstract_present": abstract_present,
+        "citation_marker_count": citation_marker_count,
+        "citations_present": citations_present,
+        "sections_too_short": sections_too_short,
+        "empty_or_placeholder_sections": empty_or_placeholder_sections,
+        "generic_heading_count": generic_heading_count,
+        "missing_problem_framing": missing_problem_framing,
+        "missing_method_summary": missing_method_summary,
+        "missing_limitations": missing_limitations,
+        "missing_claim_evidence_appendix": missing_claim_evidence_appendix,
+        "missing_provenance_appendix": missing_provenance_appendix,
+        "too_many_sections_for_length": too_many_sections_for_length,
+        "blocking_quality_issues": blocking_issues,
+        "issues": issues,
+        "warnings": warnings,
+        "thresholds": {
+            "min_words": min_words,
+            "min_avg_words_per_section": min_avg_words_per_section,
+            "min_citation_markers": min_citation_markers,
+            "max_section_count_for_short_draft": max_section_count_for_short_draft,
+            "placeholder_title_patterns": list(_PLACEHOLDER_TITLE_PATTERNS),
+        },
+        "primary_artifact_to_read": bundle.get("primary_artifact_to_read"),
+        "paper_release_status": bundle.get("release_status"),
+        "publication_ready": False,
+        "safety_report_safe": None,
+        "release_status_unchanged": True,
+        "safety_status_unchanged": True,
+        "is_verification_evidence": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+    }
+
+
 def _validate_upstream_prerequisites(run_id: str, ledger: ResearchLedger) -> None:
     try:
         load_manuscript_drafting_inputs(run_id, ledger)
@@ -575,6 +777,89 @@ def _markdown_title(markdown: str) -> str | None:
         if stripped.startswith("# "):
             return stripped[2:].strip() or None
     return None
+
+
+def _markdown_sections(markdown: str) -> list[dict[str, Any]]:
+    sections: list[dict[str, Any]] = []
+    current_heading: str | None = None
+    current_level = 0
+    current_lines: list[str] = []
+    for line in markdown.splitlines():
+        match = re.match(r"^(#{1,6})\s+(.+?)\s*$", line.strip())
+        if match:
+            if current_heading is not None:
+                body = "\n".join(current_lines).strip()
+                sections.append(
+                    {
+                        "heading": current_heading,
+                        "level": current_level,
+                        "body": body,
+                        "word_count": _word_count(body),
+                    }
+                )
+            current_heading = match.group(2).strip()
+            current_level = len(match.group(1))
+            current_lines = []
+        else:
+            current_lines.append(line)
+    if current_heading is not None:
+        body = "\n".join(current_lines).strip()
+        sections.append(
+            {
+                "heading": current_heading,
+                "level": current_level,
+                "body": body,
+                "word_count": _word_count(body),
+            }
+        )
+    return sections
+
+
+def _body_sections(
+    sections: list[dict[str, Any]],
+    title: str,
+) -> list[dict[str, Any]]:
+    title_key = title.casefold()
+    return [
+        section
+        for section in sections
+        if not (
+            section["level"] == 1
+            and title_key
+            and str(section["heading"]).casefold() == title_key
+        )
+    ]
+
+
+def _word_count(text: str) -> int:
+    return len(re.findall(r"[A-Za-z0-9][A-Za-z0-9'_-]*", text))
+
+
+def _title_is_placeholder(title: str) -> bool:
+    title_key = title.casefold()
+    return any(pattern in title_key for pattern in _PLACEHOLDER_TITLE_PATTERNS)
+
+
+def _contains_placeholder_text(text: str) -> bool:
+    text_key = text.casefold()
+    return any(pattern in text_key for pattern in _PLACEHOLDER_SECTION_PATTERNS)
+
+
+def _contains_any(text: str, phrases: tuple[str, ...]) -> bool:
+    return any(phrase in text for phrase in phrases)
+
+
+def _contains_heading_or_text(
+    headings: list[str],
+    text: str,
+    phrase: str,
+) -> bool:
+    return any(phrase in heading for heading in headings) or phrase in text
+
+
+def _quality_score(blocking_issues: list[str], warnings: list[str]) -> float:
+    penalty = min(1.0, 0.12 * len(blocking_issues) + 0.05 * len(warnings))
+    return round(max(0.0, 1.0 - penalty), 2)
 
 
 def _read_generation_report(path: Path) -> FullPaperGenerationReport | None:
@@ -1173,4 +1458,5 @@ __all__ = [
     "full_paper_generation_result_model",
     "generate_full_paper",
     "inspect_paper_bundle_summary",
+    "lint_paper_bundle_summary",
 ]
