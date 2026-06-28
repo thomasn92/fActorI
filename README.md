@@ -341,7 +341,7 @@ uv run factori run-llm-paper \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
   --allow-external-calls \
-  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --max-total-calls 20 --max-estimated-cost-usd 1.00 \
   --preflight-only --json
 
 uv run factori run-llm-paper \
@@ -374,7 +374,7 @@ uv run factori run-llm-paper \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
   --allow-external-calls \
-  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --max-total-calls 50 --max-estimated-cost-usd 1.00 \
   --generate-paper --evaluate-release --write-report --json
 ```
 
@@ -387,6 +387,12 @@ in `required`, optional values are nullable, and public fActorI protocol schemas
 only and forces paper generation, LaTeX export, critique/revision, and release evaluation off.
 Runtime LLM budget guards authorize each candidate/reviewer/prose transport call before the
 external request; a blocked call is recorded as `Blocked` with `external_call_performed=false`.
+
+`--llm-scope reviewer-only` runs Stage A and the Stage B reviewer path only. It disables Stage C,
+paper generation, release evaluation, LaTeX export, critique, and revision. Preflight plans one
+review request per deterministic Stage B child: the current four-survivor/four-child maximum is 16
+review calls, or 19 total calls for the three-call human-geography candidate path. A runtime budget
+failure in full-paper mode now blocks orchestration before paper generation.
 
 Current candidate-only live smoke:
 

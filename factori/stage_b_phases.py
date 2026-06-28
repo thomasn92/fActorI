@@ -48,6 +48,12 @@ if TYPE_CHECKING:
     from factori.adapters.base import RetrievalClient, ReviewerClient
 
 MAX_STAGE_B_SURVIVORS = 2
+STAGE_B_CHILD_VARIANTS = (
+    "narrow_scope",
+    "stronger_baseline",
+    "synthetic_experiment_contract",
+    "theorem_or_conjecture_form",
+)
 
 
 class StageBError(RuntimeError):
@@ -226,15 +232,15 @@ def expand_stage_b_children(stage_a_survivors: list[Candidate]) -> list[Candidat
     """Expand Stage A survivors into deterministic localized child variants."""
     children: list[Candidate] = []
     for parent in stage_a_survivors:
-        children.extend(
-            [
-                _child(parent, "narrow_scope"),
-                _child(parent, "stronger_baseline"),
-                _child(parent, "synthetic_experiment_contract"),
-                _child(parent, "theorem_or_conjecture_form"),
-            ]
-        )
+        children.extend(_child(parent, variant) for variant in STAGE_B_CHILD_VARIANTS)
     return children
+
+
+def planned_stage_b_review_calls(stage_a_survivor_count: int) -> int:
+    """Return one external reviewer call per deterministic Stage B child."""
+    if stage_a_survivor_count < 0:
+        raise ValueError("stage_a_survivor_count must be non-negative")
+    return stage_a_survivor_count * len(STAGE_B_CHILD_VARIANTS)
 
 
 def persist_stage_b_child_candidates(

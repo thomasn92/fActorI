@@ -53,10 +53,11 @@
 | 48a | OpenAI live-smoke diagnostics and model-flag hardening for gated LLM orchestration | `adapters/http.py`, `adapters/errors.py`, `adapters/llm_real.py`, `adapters/llm_review.py`, `adapters/prose_real.py`, `llm_orchestration.py`, `cli.py` | `run-llm-paper --preflight-only`, `run-llm-paper --candidate-model ... --reviewer-model ... --prose-model ...` | OpenAI 4xx/5xx failures now preserve sanitized truncated response bodies and request/model hashes; preflight validates gates without network or run mutation |
 | 48b | OpenAI strict structured-output JSON Schema compatibility for candidate, reviewer, and prose transports | `adapters/openai_schema.py`, `adapters/llm_real.py` | Existing gated OpenAI commands | OpenAI transport schemas are adapter-local strict copies with every property required and optional values nullable; public protocol schemas and fake defaults remain unchanged |
 | 48c | Live-smoke stage isolation and hard runtime LLM budget enforcement | `llm_orchestration.py`, `llm_budget.py`, `cli.py` | `run-llm-paper --llm-scope candidate-only`, `run-llm-paper --llm-scope full-paper` | Candidate-only live smoke runs isolated Stage A candidate generation only; runtime budget guards block over-limit LLM transport attempts before external calls and record non-evidence `Blocked` accounting records |
+| 48d | Reviewer-only live-smoke isolation and structural Stage B LLM call planning | `llm_orchestration.py`, `stage_b_phases.py`, `cli.py` | `run-llm-paper --llm-scope reviewer-only` | Reviewer-only runs Stage A and Stage B only; preflight plans one review call per deterministic Stage B child, and full-paper skips downstream generation after runtime LLM budget failure |
 
 ## Current Boundary
 
-Milestones through 48c implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 48d implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -110,7 +111,9 @@ excerpts and request hashes for actionable 4xx/5xx debugging.
 OpenAI strict structured-output compatibility is handled as an adapter-local transport conversion:
 all object properties are required in the API schema, optional values become nullable, and public
 fActorI protocol schemas remain stable.
-Live-smoke scope isolation now supports `candidate-only` and `full-paper`; candidate-only runs only
-Stage A candidate generation and disables downstream paper/release work. Runtime LLM budget guards
-authorize each real transport call before execution, so over-limit attempts are blocked before any
-network call and recorded as non-evidence `Blocked` accounting records.
+Live-smoke scope isolation now supports `candidate-only`, `reviewer-only`, and `full-paper`;
+candidate-only runs Stage A, while reviewer-only runs Stage A and Stage B without downstream
+paper/release work. Stage B preflight planning counts one reviewer request per deterministic child.
+Runtime LLM budget guards authorize each real transport call before execution, so over-limit
+attempts are blocked before any network call and recorded as non-evidence `Blocked` accounting
+records.

@@ -346,7 +346,7 @@ uv run factori run-llm-paper \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
   --allow-external-calls \
-  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --max-total-calls 20 --max-estimated-cost-usd 1.00 \
   --preflight-only --json
 
 uv run factori run-llm-paper \
@@ -379,7 +379,7 @@ uv run factori run-llm-paper \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
   --allow-external-calls \
-  --max-total-calls 5 --max-estimated-cost-usd 1.00 \
+  --max-total-calls 50 --max-estimated-cost-usd 1.00 \
   --generate-paper --evaluate-release --write-report --json
 ```
 
@@ -394,6 +394,28 @@ Stage C, `generate-paper`, or `evaluate-paper-release`, and it forces LaTeX expo
 revision options off. Runtime budget guards authorize each real LLM transport call before the
 external request; budget-blocked attempts are accounting records with `status=Blocked` and
 `external_call_performed=false`.
+
+Use `--llm-scope reviewer-only` to run Stage A and the Stage B reviewer path without Stage C,
+paper generation, release evaluation, LaTeX export, critique, or revision. Stage B expands at most
+four Stage A survivors into four children each, so a complete reviewer smoke plans 16 review calls.
+With the three human-geography candidate calls, the explicit total is 19:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id live-reviewer-smoke-002 \
+  --domain "human geography" \
+  --llm-scope reviewer-only \
+  --candidate-backend openai --candidate-model gpt-5.4-mini \
+  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
+  --prose-backend fake \
+  --allow-external-calls \
+  --max-total-calls 19 --max-candidate-generation-calls 3 \
+  --max-review-calls 16 --max-estimated-cost-usd 1.00 \
+  --write-report --json
+```
+
+If a runtime LLM budget blocks a mutating pipeline stage, full-paper orchestration records the
+pipeline as blocked and skips paper generation and release evaluation.
 
 Current candidate-only live smoke:
 

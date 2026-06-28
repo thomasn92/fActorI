@@ -315,7 +315,7 @@ def test_run_llm_paper_preflight_only_validates_without_mutation(tmp_path) -> No
             "prose-live-model",
             "--allow-external-calls",
             "--max-total-calls",
-            "5",
+            "20",
             "--max-estimated-cost-usd",
             "1.0",
             "--preflight-only",
@@ -419,6 +419,215 @@ def test_candidate_only_scope_runs_stage_a_without_paper_or_release(tmp_path) ->
     assert all(record.contains_secret is False for record in result.report.call_accounting)
     assert result.report_artifact is not None
     assert "test-key" not in result.report.model_dump_json()
+
+
+def test_reviewer_only_scope_plans_complete_stage_b_review_workload() -> None:
+    config = LLMOrchestrationConfig(
+        run_id="reviewer-only-preflight",
+        domain="human geography",
+        candidate_backend="openai",
+        reviewer_backend="openai",
+        prose_backend="openai",
+        allow_external_calls=True,
+        budget=LLMBudgetConfig(max_total_calls=19, max_estimated_cost_usd=1.0),
+    )
+
+    summary = build_llm_orchestration_preflight_summary(
+        config,
+        llm_scope="reviewer-only",
+    )
+
+    assert summary["llm_scope"] == "reviewer-only"
+    assert summary["candidate_generation_calls"] == 3
+    assert summary["review_calls"] == 16
+    assert summary["prose_calls"] == 0
+    assert summary["estimated_max_calls"] == 19
+    assert summary["generate_paper_effective"] is False
+    assert summary["evaluate_release_effective"] is False
+    assert summary["export_latex_effective"] is False
+
+
+def test_reviewer_only_scope_blocks_low_review_budget_before_mutation(tmp_path) -> None:
+    with pytest.raises(LLMOrchestrationError, match="max_review_calls exceeded"):
+        run_llm_paper_orchestration(
+            config=LLMOrchestrationConfig(
+                run_id="reviewer-only-low-budget",
+                domain="human geography",
+                candidate_backend="openai",
+                reviewer_backend="openai",
+                prose_backend="fake",
+                allow_external_calls=True,
+                budget=LLMBudgetConfig(
+                    max_total_calls=9,
+                    max_candidate_generation_calls=3,
+                    max_review_calls=6,
+                    max_estimated_cost_usd=1.0,
+                ),
+            ),
+            root=tmp_path,
+            llm_transport=CandidateTransport(),
+            reviewer_transport=ReviewerTransport(),
+            environ={"OPENAI_API_KEY": "test-key"},
+            llm_scope="reviewer-only",
+        )
+
+    assert not (tmp_path / "runs" / "reviewer-only-low-budget").exists()
+
+
+def test_reviewer_only_scope_runs_stage_a_and_stage_b_only(tmp_path) -> None:
+    candidate_transport = CandidateTransport()
+    reviewer_transport = ReviewerTransport()
+
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="reviewer-only",
+            domain="human geography",
+            candidate_backend="openai",
+            reviewer_backend="openai",
+            prose_backend="openai",
+            allow_external_calls=True,
+            generate_paper=True,
+            evaluate_release=True,
+            export_latex=True,
+            critique=True,
+            revise=True,
+            write_report=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=19,
+                max_candidate_generation_calls=3,
+                max_review_calls=16,
+                max_estimated_cost_usd=1.0,
+            ),
+        ),
+        root=tmp_path,
+        llm_transport=candidate_transport,
+        reviewer_transport=reviewer_transport,
+        environ={"OPENAI_API_KEY": "test-key"},
+        llm_scope="reviewer-only",
+    )
+
+    assert len(candidate_transport.calls) == 3
+    assert len(reviewer_transport.calls) == 16
+    assert result.pipeline_report is None
+    assert result.generation_result is None
+    assert result.release_result is None
+    assert [step.step_name for step in result.report.steps] == [
+        "preflight",
+        "reviewer-only-stage-a",
+        "reviewer-only-stage-b",
+    ]
+    assert result.report.selected_backends["llm_scope"] == "reviewer-only"
+    assert result.report.selected_backends["generate_paper_effective"] == "false"
+    assert result.report.selected_backends["evaluate_release_effective"] == "false"
+    assert result.report.selected_backends["export_latex_effective"] == "false"
+    assert result.report.budget_decision.planned_usage.review_calls == 16
+    assert result.report.budget_usage.review_calls == 16
+    assert result.report.generate_paper_status is None
+    assert result.report.release_status is None
+
+
+def test_run_llm_paper_cli_accepts_reviewer_only_scope(tmp_path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "cli-reviewer-only",
+            "--domain",
+            "human geography",
+            "--llm-scope",
+            "reviewer-only",
+            "--candidate-backend",
+            "fake",
+            "--reviewer-backend",
+            "fake",
+            "--prose-backend",
+            "fake",
+            "--max-total-calls",
+            "0",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["preflight_summary"]["llm_scope"] == "reviewer-only"
+    assert payload["preflight_summary"]["generate_paper_effective"] is False
+    assert payload["preflight_summary"]["evaluate_release_effective"] is False
+    assert payload["preflight_summary"]["export_latex_effective"] is False
+    assert [
+        step["step_name"]
+        for step in payload["llm_orchestration_result"]["report"]["steps"]
+    ] == ["preflight", "reviewer-only-stage-a", "reviewer-only-stage-b"]
+
+
+def test_full_paper_stops_after_stage_b_runtime_budget_failure(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import factori.llm_orchestration as module
+
+    original_planned_usage = module._planned_usage
+    generated = []
+
+    def undercounted_usage(config, *, llm_scope="full-paper"):
+        usage = original_planned_usage(config, llm_scope=llm_scope)
+        return usage.model_copy(
+            update={
+                "total_calls": 4,
+                "review_calls": 1,
+                "total_input_tokens": 4000,
+                "total_output_tokens": 2000,
+                "estimated_cost_usd": 0.04,
+            }
+        )
+
+    monkeypatch.setattr(module, "_planned_usage", undercounted_usage)
+    monkeypatch.setattr(
+        module,
+        "generate_full_paper",
+        lambda **kwargs: generated.append(kwargs),
+    )
+
+    result = module.run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="full-paper-stage-b-budget-block",
+            domain="human geography",
+            candidate_backend="openai",
+            reviewer_backend="openai",
+            prose_backend="fake",
+            allow_external_calls=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=8,
+                max_candidate_generation_calls=3,
+                max_review_calls=5,
+                max_estimated_cost_usd=1.0,
+            ),
+        ),
+        root=tmp_path,
+        llm_transport=CandidateTransport(),
+        reviewer_transport=ReviewerTransport(),
+        environ={"OPENAI_API_KEY": "test-key"},
+        llm_scope="full-paper",
+    )
+
+    assert generated == []
+    assert result.report.orchestration_status == LLMOrchestrationStatus.ORCHESTRATION_BLOCKED
+    assert result.report.selected_backends["runtime_budget_blocked"] == "true"
+    steps = {step.step_name: step for step in result.report.steps}
+    assert steps["run-all"].status.value == "Blocked"
+    assert steps["generate-paper"].status.value == "Skipped"
+    assert "upstream LLM budget failed" in steps["generate-paper"].summary
+    blocked = [
+        record
+        for record in result.report.call_accounting
+        if record.status == LLMCallStatus.BLOCKED
+    ]
+    assert len(blocked) == 1
+    assert blocked[0].error_type == "BudgetExceeded"
+    assert blocked[0].external_call_performed is False
 
 
 def test_candidate_only_scope_budget_blocks_before_any_transport_call(tmp_path) -> None:

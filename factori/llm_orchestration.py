@@ -66,16 +66,24 @@ from factori.schemas import (
     RerunPolicy,
 )
 from factori.stage0 import OPPORTUNITY_THRESHOLD, discover_opportunities
-from factori.stage_a import StageAResult, constraint_from_inputs, run_stage_a
+from factori.stage_a import (
+    MAX_STAGE_A_SURVIVORS,
+    StageAResult,
+    constraint_from_inputs,
+    run_stage_a,
+)
+from factori.stage_b import run_stage_b
+from factori.stage_b_phases import planned_stage_b_review_calls
 from factori.storage_protocols import Clock, SystemClock
 
 _FAKE_BACKEND = "fake"
 _LLM_SCOPE_CANDIDATE_ONLY = "candidate-only"
+_LLM_SCOPE_REVIEWER_ONLY = "reviewer-only"
 _LLM_SCOPE_FULL_PAPER = "full-paper"
 _SUPPORTED_LLM_SCOPES = {
     _LLM_SCOPE_CANDIDATE_ONLY,
     _LLM_SCOPE_FULL_PAPER,
-    "reviewer-only",
+    _LLM_SCOPE_REVIEWER_ONLY,
     "prose-only",
     "pipeline-only",
 }
@@ -210,6 +218,17 @@ def run_llm_paper_orchestration(
             budget_decision=budget_decision,
             runtime_budget_guard=runtime_budget_guard,
         )
+    if normalized_scope == _LLM_SCOPE_REVIEWER_ONLY:
+        return _run_reviewer_only_scope(
+            config=config,
+            store=store,
+            ledger=ledger,
+            registry=registry,
+            clock=clock,
+            preflight_step=preflight_step,
+            budget_decision=budget_decision,
+            runtime_budget_guard=runtime_budget_guard,
+        )
 
     pipeline_started = clock.now()
     try:
@@ -267,6 +286,65 @@ def run_llm_paper_orchestration(
             release_result=None,
             llm_scope=normalized_scope,
             runtime_budget_blocked=isinstance(exc, LLMBudgetExceeded),
+        )
+        return _maybe_persist(config, store, ledger, report, pipeline_report, None, None)
+    if runtime_budget_guard.blocked_records:
+        warnings.extend(pipeline_report.warnings)
+        budget_failure = next(
+            (
+                warning
+                for warning in pipeline_report.warnings
+                if "exceeded" in warning.lower()
+            ),
+            "Pipeline stopped after an upstream runtime LLM budget failure.",
+        )
+        blocking.append(budget_failure)
+        steps.append(
+            _step(
+                "run-all",
+                LLMOrchestrationStepStatus.BLOCKED,
+                "Pipeline execution was blocked by the runtime LLM budget.",
+                pipeline_started,
+                clock.now(),
+                warnings=pipeline_report.warnings,
+                error=budget_failure,
+                artifact_ids=["pipeline-run-report"],
+            )
+        )
+        if config.generate_paper:
+            steps.append(
+                _step(
+                    "generate-paper",
+                    LLMOrchestrationStepStatus.SKIPPED,
+                    "Paper generation was skipped because an upstream LLM budget failed.",
+                    clock.now(),
+                    clock.now(),
+                )
+            )
+        if config.evaluate_release:
+            steps.append(
+                _step(
+                    "evaluate-paper-release",
+                    LLMOrchestrationStepStatus.SKIPPED,
+                    "Release evaluation was skipped because an upstream LLM budget failed.",
+                    clock.now(),
+                    clock.now(),
+                )
+            )
+        records = _accounting_records(registry, clock, runtime_budget_guard)
+        report = _build_report(
+            config=config,
+            status=LLMOrchestrationStatus.ORCHESTRATION_BLOCKED,
+            steps=steps,
+            budget_decision=budget_decision,
+            call_accounting=records,
+            warnings=warnings,
+            blocking=blocking,
+            generation_result=None,
+            release_result=None,
+            observed_usage=observed_usage_from_records(records),
+            llm_scope=normalized_scope,
+            runtime_budget_blocked=True,
         )
         return _maybe_persist(config, store, ledger, report, pipeline_report, None, None)
     pipeline_status = (
@@ -482,7 +560,11 @@ def _normalize_llm_scope(value: str) -> str:
     if normalized not in _SUPPORTED_LLM_SCOPES:
         allowed = ", ".join(sorted(_SUPPORTED_LLM_SCOPES))
         raise LLMOrchestrationError(f"llm_scope must be one of: {allowed}")
-    if normalized not in {_LLM_SCOPE_CANDIDATE_ONLY, _LLM_SCOPE_FULL_PAPER}:
+    if normalized not in {
+        _LLM_SCOPE_CANDIDATE_ONLY,
+        _LLM_SCOPE_REVIEWER_ONLY,
+        _LLM_SCOPE_FULL_PAPER,
+    }:
         raise LLMOrchestrationError(
             f"llm_scope={normalized} is reserved for a future isolated smoke path."
         )
@@ -493,23 +575,23 @@ def _effective_config_for_scope(
     config: LLMOrchestrationConfig,
     llm_scope: str,
 ) -> LLMOrchestrationConfig:
-    if llm_scope != _LLM_SCOPE_CANDIDATE_ONLY:
+    if llm_scope not in {_LLM_SCOPE_CANDIDATE_ONLY, _LLM_SCOPE_REVIEWER_ONLY}:
         return config
-    return config.model_copy(
-        update={
-            "reviewer_backend": _FAKE_BACKEND,
-            "prose_backend": _FAKE_BACKEND,
-            "generate_paper": False,
-            "evaluate_release": False,
-            "include_citations": False,
-            "export_latex": False,
-            "critique": False,
-            "revise": False,
-            "apply_safe_fake_revision": False,
-            "reexport_latex_after_revision": False,
-            "render_check": False,
-        }
-    )
+    update: dict[str, Any] = {
+        "prose_backend": _FAKE_BACKEND,
+        "generate_paper": False,
+        "evaluate_release": False,
+        "include_citations": False,
+        "export_latex": False,
+        "critique": False,
+        "revise": False,
+        "apply_safe_fake_revision": False,
+        "reexport_latex_after_revision": False,
+        "render_check": False,
+    }
+    if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY:
+        update["reviewer_backend"] = _FAKE_BACKEND
+    return config.model_copy(update=update)
 
 
 def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
@@ -529,7 +611,11 @@ def _planned_usage(
     llm_scope: str = _LLM_SCOPE_FULL_PAPER,
 ) -> LLMBudgetUsage:
     candidate_calls = _planned_candidate_generation_calls(config)
-    review_calls = 0 if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY else 1
+    review_calls = (
+        0
+        if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY
+        else planned_stage_b_review_calls(MAX_STAGE_A_SURVIVORS)
+    )
     prose_calls = 1 if config.generate_paper else 0
     real_calls = (
         (
@@ -836,6 +922,202 @@ def _run_candidate_only_scope(
         runtime_budget_blocked=False,
     )
     return _maybe_persist(config, store, ledger, report, None, None, None)
+
+
+def _run_reviewer_only_scope(
+    *,
+    config: LLMOrchestrationConfig,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    registry: AdapterRegistry,
+    clock: Clock,
+    preflight_step: LLMOrchestrationStep,
+    budget_decision: LLMBudgetDecision,
+    runtime_budget_guard: RuntimeLLMBudgetGuard,
+) -> LLMOrchestrationRunResult:
+    """Run isolated Stage A candidate generation and Stage B review processing."""
+    steps = [preflight_step]
+    warnings = list(budget_decision.warnings)
+    blocking: list[str] = []
+
+    stage_a_started = clock.now()
+    try:
+        stage_a_result = run_stage_a(
+            run_id=config.run_id,
+            constraints=constraint_from_inputs(config.domain, config.method),
+            store=store,
+            ledger=ledger,
+            llm_client=registry.llm,
+        )
+    except (AdapterTransportError, LLMBudgetExceeded) as exc:
+        return _isolated_scope_failure(
+            config=config,
+            store=store,
+            ledger=ledger,
+            registry=registry,
+            clock=clock,
+            steps=steps,
+            warnings=warnings,
+            blocking=blocking,
+            budget_decision=budget_decision,
+            runtime_budget_guard=runtime_budget_guard,
+            scope=_LLM_SCOPE_REVIEWER_ONLY,
+            step_name="reviewer-only-stage-a",
+            summary="Reviewer-only Stage A failed.",
+            started_at=stage_a_started,
+            exc=exc,
+        )
+    steps.append(
+        _step(
+            "reviewer-only-stage-a",
+            LLMOrchestrationStepStatus.SUCCEEDED,
+            "Reviewer-only prerequisite Stage A completed.",
+            stage_a_started,
+            clock.now(),
+            artifact_ids=_stage_a_artifact_ids(stage_a_result),
+        )
+    )
+
+    stage_b_started = clock.now()
+    try:
+        stage_b_result = run_stage_b(
+            run_id=config.run_id,
+            store=store,
+            ledger=ledger,
+            reviewer_client=registry.reviewer,
+        )
+    except (AdapterTransportError, LLMBudgetExceeded) as exc:
+        return _isolated_scope_failure(
+            config=config,
+            store=store,
+            ledger=ledger,
+            registry=registry,
+            clock=clock,
+            steps=steps,
+            warnings=warnings,
+            blocking=blocking,
+            budget_decision=budget_decision,
+            runtime_budget_guard=runtime_budget_guard,
+            scope=_LLM_SCOPE_REVIEWER_ONLY,
+            step_name="reviewer-only-stage-b",
+            summary="Reviewer-only Stage B failed.",
+            started_at=stage_b_started,
+            exc=exc,
+        )
+
+    artifact_ids = {
+        stage_b_result.report_artifact.id,
+        *(artifact.id for values in stage_b_result.artifacts.values() for artifact in values),
+        *(artifact.id for artifact in stage_b_result.llm_reviewer_artifacts),
+    }
+    steps.append(
+        _step(
+            "reviewer-only-stage-b",
+            LLMOrchestrationStepStatus.SUCCEEDED,
+            "Isolated Stage B reviewer path completed.",
+            stage_b_started,
+            clock.now(),
+            artifact_ids=sorted(artifact_ids),
+        )
+    )
+    records = _accounting_records(registry, clock, runtime_budget_guard)
+    report = _build_report(
+        config=config,
+        status=_orchestration_status(steps, blocking, warnings),
+        steps=steps,
+        budget_decision=budget_decision,
+        call_accounting=records,
+        warnings=warnings,
+        blocking=blocking,
+        generation_result=None,
+        release_result=None,
+        observed_usage=observed_usage_from_records(records),
+        llm_scope=_LLM_SCOPE_REVIEWER_ONLY,
+        runtime_budget_blocked=False,
+    )
+    return _maybe_persist(config, store, ledger, report, None, None, None)
+
+
+def _isolated_scope_failure(
+    *,
+    config: LLMOrchestrationConfig,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    registry: AdapterRegistry,
+    clock: Clock,
+    steps: list[LLMOrchestrationStep],
+    warnings: list[str],
+    blocking: list[str],
+    budget_decision: LLMBudgetDecision,
+    runtime_budget_guard: RuntimeLLMBudgetGuard,
+    scope: str,
+    step_name: str,
+    summary: str,
+    started_at: str,
+    exc: AdapterTransportError | LLMBudgetExceeded,
+) -> LLMOrchestrationRunResult:
+    transport_error = _find_transport_error(exc)
+    error_text = _failure_message(exc, transport_error)
+    blocked = isinstance(exc, LLMBudgetExceeded)
+    steps.append(
+        _step(
+            step_name,
+            (
+                LLMOrchestrationStepStatus.BLOCKED
+                if blocked
+                else LLMOrchestrationStepStatus.FAILED
+            ),
+            (
+                f"{summary.removesuffix('.')} because the runtime LLM budget was exceeded."
+                if blocked
+                else summary
+            ),
+            started_at,
+            clock.now(),
+            error=error_text,
+        )
+    )
+    blocking.append(error_text)
+    records = _accounting_records(registry, clock, runtime_budget_guard)
+    if transport_error is not None:
+        records.append(
+            _failed_transport_record(
+                step_name=step_name,
+                error=transport_error,
+                config=config,
+                clock=clock,
+            )
+        )
+    report = _build_report(
+        config=config,
+        status=(
+            LLMOrchestrationStatus.ORCHESTRATION_BLOCKED
+            if blocked
+            else LLMOrchestrationStatus.ORCHESTRATION_FAILED
+        ),
+        steps=steps,
+        budget_decision=budget_decision,
+        call_accounting=records,
+        warnings=warnings,
+        blocking=blocking,
+        generation_result=None,
+        release_result=None,
+        observed_usage=observed_usage_from_records(records),
+        llm_scope=scope,
+        runtime_budget_blocked=blocked,
+    )
+    return _maybe_persist(config, store, ledger, report, None, None, None)
+
+
+def _stage_a_artifact_ids(result: StageAResult) -> list[str]:
+    return sorted(
+        {
+            result.report_artifact.id,
+            *(artifact.id for artifact in result.candidate_artifacts.values()),
+            *(artifact.id for artifact in result.score_artifacts.values()),
+            *(artifact.id for artifact in result.llm_artifacts.values()),
+        }
+    )
 
 
 def _parse_rerun_policy(value: str) -> RerunPolicy:
