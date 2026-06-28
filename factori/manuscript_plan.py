@@ -375,8 +375,7 @@ def _suggested_section(claim: Claim) -> str | None:
     return None
 
 
-def _abstract_nucleus_sections() -> list[str]:
-    return [
+_ABSTRACT_NUCLEUS_SECTIONS = (
         "Title",
         "Abstract",
         "Introduction",
@@ -387,22 +386,39 @@ def _abstract_nucleus_sections() -> list[str]:
         "Limitations",
         "Conclusion",
         "Appendix",
-    ]
+)
+
+
+_BRANCH_NUCLEUS_SECTIONS = (
+    "Title",
+    "Abstract",
+    "Introduction",
+    "Problem Setup",
+    "Method",
+    "Theory or Synthetic Experiments",
+    "Results",
+    "Limitations",
+    "Conclusion",
+    "Appendix",
+)
+
+
+def planned_manuscript_section_count() -> int:
+    """Return the deterministic section-task count used by manuscript drafting."""
+    counts = {len(_ABSTRACT_NUCLEUS_SECTIONS), len(_BRANCH_NUCLEUS_SECTIONS)}
+    if len(counts) != 1:
+        raise ManuscriptPlanError(
+            "Manuscript section variants have different drafting task counts"
+        )
+    return counts.pop()
+
+
+def _abstract_nucleus_sections() -> list[str]:
+    return list(_ABSTRACT_NUCLEUS_SECTIONS)
 
 
 def _branch_nucleus_sections() -> list[str]:
-    return [
-        "Title",
-        "Abstract",
-        "Introduction",
-        "Problem Setup",
-        "Method",
-        "Theory or Synthetic Experiments",
-        "Results",
-        "Limitations",
-        "Conclusion",
-        "Appendix",
-    ]
+    return list(_BRANCH_NUCLEUS_SECTIONS)
 
 
 def _claim_sections_for_title(title: str) -> list[str]:

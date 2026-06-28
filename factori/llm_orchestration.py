@@ -36,6 +36,7 @@ from factori.llm_budget import (
     evaluate_llm_budget,
     observed_usage_from_records,
 )
+from factori.manuscript_plan import planned_manuscript_section_count
 from factori.persistence import (
     ArtifactWriteSpec,
     PersistenceResult,
@@ -377,6 +378,18 @@ def run_llm_paper_orchestration(
                 prose_generator=registry.prose_generator,
                 config=_full_paper_config(config),
             )
+        except LLMBudgetExceeded as exc:
+            steps.append(
+                _step(
+                    "generate-paper",
+                    LLMOrchestrationStepStatus.BLOCKED,
+                    "Full-paper generation was blocked by the runtime LLM budget.",
+                    generation_started,
+                    clock.now(),
+                    error=str(exc),
+                )
+            )
+            blocking.append(str(exc))
         except FullPaperGenerationError as exc:
             steps.append(
                 _step(
@@ -616,7 +629,7 @@ def _planned_usage(
         if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY
         else planned_stage_b_review_calls(MAX_STAGE_A_SURVIVORS)
     )
-    prose_calls = 1 if config.generate_paper else 0
+    prose_calls = planned_manuscript_section_count() if config.generate_paper else 0
     real_calls = (
         (
             candidate_calls

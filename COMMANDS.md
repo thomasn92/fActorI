@@ -346,7 +346,7 @@ uv run factori run-llm-paper \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
   --allow-external-calls \
-  --max-total-calls 20 --max-estimated-cost-usd 1.00 \
+  --max-total-calls 29 --max-estimated-cost-usd 1.00 \
   --preflight-only --json
 
 uv run factori run-llm-paper \
@@ -416,6 +416,29 @@ uv run factori run-llm-paper \
 
 If a runtime LLM budget blocks a mutating pipeline stage, full-paper orchestration records the
 pipeline as blocked and skips paper generation and release evaluation.
+
+Full-paper preflight counts all deterministic manuscript drafting tasks. The current manuscript
+plan has 10 section tasks. If runtime prose generation still reaches a stricter token/cost/call
+limit, `run-llm-paper --json` returns `LLMOrchestrationBlocked`; the blocked call is recorded with
+`error_type=BudgetExceeded` and `external_call_performed=false`, without a traceback.
+
+```bash
+uv run factori run-llm-paper \
+  --run-id live-prose-smoke-002 \
+  --domain "human geography" \
+  --llm-scope full-paper \
+  --candidate-backend fake \
+  --reviewer-backend fake \
+  --prose-backend openai \
+  --prose-model gpt-5.4-mini \
+  --allow-external-calls \
+  --max-total-calls 12 \
+  --max-prose-calls 12 \
+  --max-estimated-cost-usd 1.50 \
+  --generate-paper \
+  --write-report \
+  --json
+```
 
 Current candidate-only live smoke:
 

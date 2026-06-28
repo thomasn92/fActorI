@@ -341,7 +341,7 @@ uv run factori run-llm-paper \
   --reviewer-backend openai --reviewer-model gpt-5.4-mini \
   --prose-backend openai --prose-model gpt-5.4-mini \
   --allow-external-calls \
-  --max-total-calls 20 --max-estimated-cost-usd 1.00 \
+  --max-total-calls 29 --max-estimated-cost-usd 1.00 \
   --preflight-only --json
 
 uv run factori run-llm-paper \

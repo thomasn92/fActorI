@@ -54,10 +54,11 @@
 | 48b | OpenAI strict structured-output JSON Schema compatibility for candidate, reviewer, and prose transports | `adapters/openai_schema.py`, `adapters/llm_real.py` | Existing gated OpenAI commands | OpenAI transport schemas are adapter-local strict copies with every property required and optional values nullable; public protocol schemas and fake defaults remain unchanged |
 | 48c | Live-smoke stage isolation and hard runtime LLM budget enforcement | `llm_orchestration.py`, `llm_budget.py`, `cli.py` | `run-llm-paper --llm-scope candidate-only`, `run-llm-paper --llm-scope full-paper` | Candidate-only live smoke runs isolated Stage A candidate generation only; runtime budget guards block over-limit LLM transport attempts before external calls and record non-evidence `Blocked` accounting records |
 | 48d | Reviewer-only live-smoke isolation and structural Stage B LLM call planning | `llm_orchestration.py`, `stage_b_phases.py`, `cli.py` | `run-llm-paper --llm-scope reviewer-only` | Reviewer-only runs Stage A and Stage B only; preflight plans one review call per deterministic Stage B child, and full-paper skips downstream generation after runtime LLM budget failure |
+| 48e | Full-paper prose-call planning and clean runtime prose-budget handling | `llm_orchestration.py`, `manuscript_plan.py` | Existing `run-llm-paper --llm-scope full-paper` | Preflight counts every deterministic manuscript section task; runtime prose budget exhaustion returns a blocked orchestration report with a non-external blocked accounting record instead of a traceback |
 
 ## Current Boundary
 
-Milestones through 48d implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 48e implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI

@@ -274,7 +274,7 @@ def test_real_orchestration_uses_injected_transports_without_network(tmp_path) -
 
     assert candidate_transport.calls
     assert reviewer_transport.calls
-    assert prose_transport.calls
+    assert len(prose_transport.calls) == 10
     assert result.report.orchestration_status in {
         LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED,
         LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS,
@@ -315,7 +315,7 @@ def test_run_llm_paper_preflight_only_validates_without_mutation(tmp_path) -> No
             "prose-live-model",
             "--allow-external-calls",
             "--max-total-calls",
-            "20",
+            "29",
             "--max-estimated-cost-usd",
             "1.0",
             "--preflight-only",
@@ -445,6 +445,53 @@ def test_reviewer_only_scope_plans_complete_stage_b_review_workload() -> None:
     assert summary["generate_paper_effective"] is False
     assert summary["evaluate_release_effective"] is False
     assert summary["export_latex_effective"] is False
+
+
+def test_full_paper_preflight_plans_all_manuscript_prose_tasks() -> None:
+    config = LLMOrchestrationConfig(
+        run_id="prose-preflight",
+        domain="human geography",
+        candidate_backend="fake",
+        reviewer_backend="fake",
+        prose_backend="openai",
+        allow_external_calls=True,
+        budget=LLMBudgetConfig(
+            max_total_calls=10,
+            max_prose_calls=10,
+            max_estimated_cost_usd=1.0,
+        ),
+    )
+
+    summary = build_llm_orchestration_preflight_summary(config)
+
+    assert summary["candidate_generation_calls"] == 0
+    assert summary["review_calls"] == 0
+    assert summary["prose_calls"] == 10
+    assert summary["estimated_max_calls"] == 10
+
+
+def test_full_paper_preflight_blocks_low_prose_budget_before_mutation(tmp_path) -> None:
+    with pytest.raises(LLMOrchestrationError, match="max_prose_calls exceeded"):
+        run_llm_paper_orchestration(
+            config=LLMOrchestrationConfig(
+                run_id="prose-preflight-low-budget",
+                domain="human geography",
+                candidate_backend="fake",
+                reviewer_backend="fake",
+                prose_backend="openai",
+                allow_external_calls=True,
+                budget=LLMBudgetConfig(
+                    max_total_calls=8,
+                    max_prose_calls=8,
+                    max_estimated_cost_usd=1.0,
+                ),
+            ),
+            root=tmp_path,
+            prose_transport=ProseTransport(),
+            environ={"OPENAI_API_KEY": "test-key"},
+        )
+
+    assert not (tmp_path / "runs" / "prose-preflight-low-budget").exists()
 
 
 def test_reviewer_only_scope_blocks_low_review_budget_before_mutation(tmp_path) -> None:
@@ -628,6 +675,89 @@ def test_full_paper_stops_after_stage_b_runtime_budget_failure(
     assert len(blocked) == 1
     assert blocked[0].error_type == "BudgetExceeded"
     assert blocked[0].external_call_performed is False
+
+
+def test_cli_json_catches_runtime_prose_budget_failure(monkeypatch, tmp_path) -> None:
+    import factori.cli as cli_module
+    import factori.llm_orchestration as module
+
+    original_planned_usage = module._planned_usage
+    real_orchestration = module.run_llm_paper_orchestration
+    prose_transport = ProseTransport()
+
+    def undercounted_usage(config, *, llm_scope="full-paper"):
+        usage = original_planned_usage(config, llm_scope=llm_scope)
+        return usage.model_copy(
+            update={
+                "total_calls": 1,
+                "prose_calls": 1,
+                "total_input_tokens": 1000,
+                "total_output_tokens": 500,
+                "estimated_cost_usd": 0.01,
+            }
+        )
+
+    def run_with_injected_transport(**kwargs):
+        return real_orchestration(
+            **kwargs,
+            prose_transport=prose_transport,
+            environ={"OPENAI_API_KEY": "test-key"},
+        )
+
+    monkeypatch.setattr(module, "_planned_usage", undercounted_usage)
+    monkeypatch.setattr(
+        cli_module,
+        "run_llm_paper_orchestration",
+        run_with_injected_transport,
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "cli-prose-runtime-budget-block",
+            "--domain",
+            "human geography",
+            "--candidate-backend",
+            "fake",
+            "--reviewer-backend",
+            "fake",
+            "--prose-backend",
+            "openai",
+            "--allow-external-calls",
+            "--max-total-calls",
+            "8",
+            "--max-prose-calls",
+            "8",
+            "--max-estimated-cost-usd",
+            "1.0",
+            "--skip-evaluate-release",
+            "--write-report",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Traceback" not in result.output
+    payload = json.loads(result.output)
+    report = payload["llm_orchestration_result"]["report"]
+    assert report["orchestration_status"] == "LLMOrchestrationBlocked"
+    assert report["selected_backends"]["runtime_budget_blocked"] == "true"
+    generate_step = next(
+        step for step in report["steps"] if step["step_name"] == "generate-paper"
+    )
+    assert generate_step["status"] == "Blocked"
+    assert "max_prose_calls exceeded" in generate_step["error_message"]
+    blocked = [record for record in report["call_accounting"] if record["status"] == "Blocked"]
+    assert len(blocked) == 1
+    assert blocked[0]["step_name"] == "llm-prose-generation"
+    assert blocked[0]["error_type"] == "BudgetExceeded"
+    assert blocked[0]["external_call_performed"] is False
+    assert len(prose_transport.calls) == 8
+    assert payload["artifacts"]["llm_orchestration_report"] is not None
 
 
 def test_candidate_only_scope_budget_blocks_before_any_transport_call(tmp_path) -> None:
