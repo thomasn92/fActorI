@@ -51,6 +51,13 @@
           "title": "Allowed Evidence Artifact Ids",
           "type": "array"
         },
+        "allowed_statement_classes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Statement Classes",
+          "type": "array"
+        },
         "citation_boundary_instructions": {
           "items": {
             "type": "string"
@@ -188,7 +195,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.13.0/prose-prompt-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.14.0/prose-prompt-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One-section prose prompt contract.",
@@ -283,7 +290,7 @@
   ],
   "title": "ProsePromptContract",
   "type": "object",
-  "x-factori-protocol-version": "0.13.0",
+  "x-factori-protocol-version": "0.14.0",
   "x-factori-source-model": "factori.schemas.ProsePromptContract",
   "x-factori-verification-evidence": false
 }

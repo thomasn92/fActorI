@@ -88,10 +88,27 @@ def test_prose_prompt_includes_semantic_required_content_items() -> None:
     assert "Do not add Markdown headings inside the section body" in prompt.prompt_text
 
 
+def test_prose_prompt_includes_allowed_statement_classes() -> None:
+    contract = _section_contract().model_copy(
+        update={"allowed_statement_classes": ["problem_framing", "limitation_statement"]}
+    )
+    prompt = build_prose_section_prompt(
+        contract,
+        _claim_table(),
+        _evidence_map(),
+        _narrative_contract(),
+    )
+
+    assert "allowed_statement_classes" in prompt.prompt_text
+    assert "problem_framing" in prompt.prompt_text
+    assert "limitation_statement" in prompt.prompt_text
+
+
 def test_forbidden_labels_exclude_only_allowed_claim_labels() -> None:
     labels = forbidden_labels_for_section(_section_contract(), _claim_table())
 
     assert VerificationLabel.CONJECTURE not in labels
+    assert VerificationLabel.LIMITATION not in labels
     assert VerificationLabel.LEAN_VERIFIED in labels
     assert VerificationLabel.REAL_DATA_EXPERIMENT_VERIFIED in labels
 

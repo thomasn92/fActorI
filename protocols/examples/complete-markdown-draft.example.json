@@ -4,6 +4,7 @@
   "claim_evidence_appendix": "- `claim-example`: artifact-example",
   "creates_scientific_validation": false,
   "fake": true,
+  "implies_publication_readiness": false,
   "is_verification_evidence": false,
   "literature_limitations": "",
   "markdown": "# Deterministic example manuscript draft\n\n## Introduction\n\n[FAKE PROSE DRAFT] This section summarizes claim-example.\n\n## Claim/Evidence Appendix\n\n- `claim-example`: artifact-example\n\n## Provenance Appendix\n\n- Draft artifacts are presentation/context only.\n",

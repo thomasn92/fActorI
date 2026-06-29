@@ -42,7 +42,7 @@ PROSE_OUTPUT_SCHEMA: dict[str, Any] = {
 
 FORBIDDEN_PROSE_OUTPUTS = [
     "Do not create new scientific claims.",
-    "Do not upgrade Conjecture, NegativeResult, Limitation, or Unsupported labels.",
+    "Do not upgrade Conjecture, NegativeResult, or Unsupported labels.",
     "Do not invent theorem or proposition numbering.",
     "Do not invent proof results.",
     "Do not invent experiment results.",
@@ -119,6 +119,7 @@ def build_prose_section_prompt(
             section_contract.literature_positioning_context or {}
         ),
         "allowed_citation_keys": list(section_contract.allowed_citation_keys),
+        "allowed_statement_classes": list(section_contract.allowed_statement_classes),
         "forbidden_outputs": FORBIDDEN_PROSE_OUTPUTS,
         "evidence_boundary_instructions": EVIDENCE_BOUNDARY_INSTRUCTIONS,
         "requested_output_schema": PROSE_OUTPUT_SCHEMA,
@@ -155,10 +156,7 @@ def forbidden_labels_for_section(
         VerificationLabel.EXPERIMENT_VERIFIED,
     ]
     forbidden.extend(label for label in VerificationLabel if label not in allowed)
-    if "limitation" in section_contract.section_title.lower():
-        forbidden = [
-            label for label in forbidden if label != VerificationLabel.LIMITATION
-        ]
+    forbidden = [label for label in forbidden if label != VerificationLabel.LIMITATION]
     return list(dict.fromkeys(forbidden))
 
 

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.13.0/complete-markdown-draft.schema.json",
+  "$id": "https://schemas.factori.local/0.14.0/complete-markdown-draft.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Assembled Markdown manuscript draft; presentation context only.",
@@ -34,6 +34,11 @@
     "fake": {
       "default": true,
       "title": "Fake",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
       "type": "boolean"
     },
     "is_verification_evidence": {
@@ -97,7 +102,7 @@
   ],
   "title": "CompleteMarkdownDraft",
   "type": "object",
-  "x-factori-protocol-version": "0.13.0",
+  "x-factori-protocol-version": "0.14.0",
   "x-factori-source-model": "factori.schemas.CompleteMarkdownDraft",
   "x-factori-verification-evidence": false
 }

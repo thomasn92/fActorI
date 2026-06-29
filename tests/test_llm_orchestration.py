@@ -215,9 +215,12 @@ def test_safe_repair_filters_pre_repair_warnings_from_orchestration_report(tmp_p
     repair_ref = result.generation_result.revision_result.safe_repair_report_artifact
     assert repair_ref is not None
     repair_payload = json.loads((tmp_path / repair_ref.path).read_text(encoding="utf-8"))
-    assert any(
+    assert "central message is missing or unavailable" in repair_payload[
+        "pre_repair_warnings"
+    ]
+    assert not any(
         warning.startswith("forbidden label appears in generated prose:")
-        for warning in repair_payload["pre_repair_warnings"]
+        for warning in result.report.warnings
     )
     assert repair_payload["repaired_warnings"]
     for repaired_warning in repair_payload["repaired_warnings"]:

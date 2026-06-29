@@ -1,9 +1,16 @@
 {
-  "$id": "https://schemas.factori.local/0.13.0/prose-safety-report.schema.json",
+  "$id": "https://schemas.factori.local/0.14.0/prose-safety-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One-section prose safety and grounding report.",
   "properties": {
+    "allowed_statement_classes_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Statement Classes Used",
+      "type": "array"
+    },
     "created_or_upgraded_labels": {
       "default": false,
       "title": "Created Or Upgraded Labels",
@@ -14,10 +21,35 @@
       "title": "Creates Scientific Validation",
       "type": "boolean"
     },
+    "forbidden_labels_allowed_as_scaffold": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Labels Allowed As Scaffold",
+      "type": "array"
+    },
+    "forbidden_labels_detected": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Labels Detected",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
     "is_verification_evidence": {
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "original_sentence_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Original Sentence Count",
+      "type": "integer"
     },
     "reasons": {
       "items": {
@@ -30,14 +62,64 @@
       "title": "Rejected",
       "type": "boolean"
     },
+    "removal_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removal Reasons",
+      "type": "array"
+    },
+    "removed_sentence_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Removed Sentence Count",
+      "type": "integer"
+    },
+    "retained_sentence_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retained Sentence Count",
+      "type": "integer"
+    },
     "safe": {
       "title": "Safe",
       "type": "boolean"
+    },
+    "safe_scaffold_sentences_retained": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safe Scaffold Sentences Retained",
+      "type": "array"
+    },
+    "sanitized_content": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sanitized Content"
     },
     "section_id": {
       "minLength": 1,
       "title": "Section Id",
       "type": "string"
+    },
+    "section_status": {
+      "default": "retained",
+      "title": "Section Status",
+      "type": "string"
+    },
+    "unsafe_sentences_removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsafe Sentences Removed",
+      "type": "array"
     },
     "used_citation_ids": {
       "items": {
@@ -82,7 +164,7 @@
   ],
   "title": "ProseSafetyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.13.0",
+  "x-factori-protocol-version": "0.14.0",
   "x-factori-source-model": "factori.schemas.ProseSafetyReport",
   "x-factori-verification-evidence": false
 }

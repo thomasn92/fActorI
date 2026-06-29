@@ -186,6 +186,7 @@ class NarrativeManuscriptContract(StrictModel):
     fake: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class MainMessageAssessment(StrictModel):
@@ -290,6 +291,7 @@ class PaperShapeCritique(StrictModel):
     fake: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class PaperCriticFinding(StrictModel):
@@ -715,10 +717,19 @@ class SectionDraftSafetySummary(StrictModel):
     used_evidence_artifact_ids: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
     used_citation_keys: list[str] = Field(default_factory=list)
+    allowed_statement_classes_used: list[str] = Field(default_factory=list)
+    safe_scaffold_sentences_retained: list[str] = Field(default_factory=list)
+    unsafe_sentences_removed: list[str] = Field(default_factory=list)
+    original_sentence_count: int = Field(default=0, ge=0)
+    removed_sentence_count: int = Field(default=0, ge=0)
+    retained_sentence_count: int = Field(default=0, ge=0)
+    section_status: str = "retained"
+    removal_reasons: list[str] = Field(default_factory=list)
     unsupported_sentences: list[str] = Field(default_factory=list)
     created_or_upgraded_labels: bool = False
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class SectionDraftingResult(StrictModel):
@@ -733,9 +744,17 @@ class SectionDraftingResult(StrictModel):
     used_evidence_artifact_ids: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
     used_citation_keys: list[str] = Field(default_factory=list)
+    allowed_statement_classes_used: list[str] = Field(default_factory=list)
     safety_status: str = Field(min_length=1)
     warnings: list[str] = Field(default_factory=list)
     unsupported_sentences: list[str] = Field(default_factory=list)
+    unsafe_sentences_removed: list[str] = Field(default_factory=list)
+    safe_scaffold_sentences_retained: list[str] = Field(default_factory=list)
+    original_sentence_count: int = Field(default=0, ge=0)
+    removed_sentence_count: int = Field(default=0, ge=0)
+    retained_sentence_count: int = Field(default=0, ge=0)
+    section_status: str = "retained"
+    removal_reasons: list[str] = Field(default_factory=list)
     source_contract_hashes: dict[str, str] = Field(default_factory=dict)
     safe: bool
     rejected: bool
@@ -745,6 +764,7 @@ class SectionDraftingResult(StrictModel):
     fake: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class CompleteMarkdownDraft(StrictModel):
@@ -764,6 +784,7 @@ class CompleteMarkdownDraft(StrictModel):
     fake: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class ManuscriptAssemblyReport(StrictModel):
@@ -773,12 +794,22 @@ class ManuscriptAssemblyReport(StrictModel):
     assembled_sections: int = Field(ge=0)
     omitted_sections: list[str] = Field(default_factory=list)
     unsafe_section_ids: list[str] = Field(default_factory=list)
+    sections_partially_sanitized: list[str] = Field(default_factory=list)
+    sections_replaced_by_safe_fallback: list[str] = Field(default_factory=list)
+    sections_omitted: list[str] = Field(default_factory=list)
+    safe_scaffold_sentences_retained: int = Field(default=0, ge=0)
+    unsafe_sentences_removed: int = Field(default=0, ge=0)
+    sentence_salvage: list[dict[str, Any]] = Field(default_factory=list)
+    allowed_statement_classes_used: list[str] = Field(default_factory=list)
+    forbidden_labels_detected: list[str] = Field(default_factory=list)
+    forbidden_labels_allowed_as_scaffold: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     draft_status: ManuscriptDraftStatus
     complete_markdown_artifact_id: str | None = None
     citation_safety_report_artifact_id: str | None = None
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class ManuscriptDraftingReport(StrictModel):

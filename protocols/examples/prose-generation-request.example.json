@@ -57,6 +57,7 @@
       "allowed_evidence_artifact_ids": [
         "artifact-example"
       ],
+      "allowed_statement_classes": [],
       "citation_boundary_instructions": [
         "Use only allowed citation keys.",
         "Do not claim retrieval proves novelty."

@@ -12,11 +12,18 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.13.0/manuscript-assembly-report.schema.json",
+  "$id": "https://schemas.factori.local/0.14.0/manuscript-assembly-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Markdown manuscript assembly report.",
   "properties": {
+    "allowed_statement_classes_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Statement Classes Used",
+      "type": "array"
+    },
     "assembled_sections": {
       "minimum": 0,
       "title": "Assembled Sections",
@@ -54,6 +61,25 @@
     "draft_status": {
       "$ref": "#/$defs/ManuscriptDraftStatus"
     },
+    "forbidden_labels_allowed_as_scaffold": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Labels Allowed As Scaffold",
+      "type": "array"
+    },
+    "forbidden_labels_detected": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Labels Detected",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
     "is_verification_evidence": {
       "default": false,
       "title": "Is Verification Evidence",
@@ -71,12 +97,53 @@
       "title": "Run Id",
       "type": "string"
     },
+    "safe_scaffold_sentences_retained": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Safe Scaffold Sentences Retained",
+      "type": "integer"
+    },
+    "sections_omitted": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Omitted",
+      "type": "array"
+    },
+    "sections_partially_sanitized": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Partially Sanitized",
+      "type": "array"
+    },
+    "sections_replaced_by_safe_fallback": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Replaced By Safe Fallback",
+      "type": "array"
+    },
+    "sentence_salvage": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Sentence Salvage",
+      "type": "array"
+    },
     "unsafe_section_ids": {
       "items": {
         "type": "string"
       },
       "title": "Unsafe Section Ids",
       "type": "array"
+    },
+    "unsafe_sentences_removed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Unsafe Sentences Removed",
+      "type": "integer"
     },
     "warnings": {
       "items": {
@@ -93,7 +160,7 @@
   ],
   "title": "ManuscriptAssemblyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.13.0",
+  "x-factori-protocol-version": "0.14.0",
   "x-factori-source-model": "factori.schemas.ManuscriptAssemblyReport",
   "x-factori-verification-evidence": false
 }

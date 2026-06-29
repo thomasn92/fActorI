@@ -1,4 +1,5 @@
 {
+  "allowed_statement_classes_used": [],
   "creates_scientific_validation": false,
   "draft": {
     "claim_ids": [
@@ -27,19 +28,37 @@
   },
   "draft_markdown": "[FAKE PROSE DRAFT] This section summarizes claim-example using artifact-example and [@Author1970SyntheticCalibrationContext]. No scientific label is upgraded.",
   "fake": true,
+  "implies_publication_readiness": false,
   "is_verification_evidence": false,
   "narrative_role": [],
+  "original_sentence_count": 0,
   "rejected": false,
+  "removal_reasons": [],
+  "removed_sentence_count": 0,
+  "retained_sentence_count": 0,
   "safe": true,
+  "safe_scaffold_sentences_retained": [],
   "safety_reasons": [],
   "safety_report": {
+    "allowed_statement_classes_used": [],
     "created_or_upgraded_labels": false,
     "creates_scientific_validation": false,
+    "forbidden_labels_allowed_as_scaffold": [],
+    "forbidden_labels_detected": [],
+    "implies_publication_readiness": false,
     "is_verification_evidence": false,
+    "original_sentence_count": 0,
     "reasons": [],
     "rejected": false,
+    "removal_reasons": [],
+    "removed_sentence_count": 0,
+    "retained_sentence_count": 0,
     "safe": true,
+    "safe_scaffold_sentences_retained": [],
+    "sanitized_content": null,
     "section_id": "introduction",
+    "section_status": "retained",
+    "unsafe_sentences_removed": [],
     "used_citation_ids": [
       "citation-source-example"
     ],
@@ -57,10 +76,12 @@
   "safety_status": "Safe",
   "section_id": "introduction",
   "section_role": "Introduction",
+  "section_status": "retained",
   "section_title": "Introduction",
   "source_contract_hashes": {
     "claim_table": "0000000000000000000000000000000000000000000000000000000000000000"
   },
+  "unsafe_sentences_removed": [],
   "unsupported_sentences": [],
   "used_citation_ids": [
     "citation-source-example"

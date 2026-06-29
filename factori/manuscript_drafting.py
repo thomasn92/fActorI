@@ -356,14 +356,28 @@ def _build_section_result(
         section_title=task.section_title,
         section_role=task.section_role,
         narrative_role=task.narrative_role,
-        draft_markdown=draft.content if draft is not None and safety.safe else "",
+        draft_markdown=(
+            safety.sanitized_content
+            if draft is not None and safety.safe and safety.sanitized_content is not None
+            else draft.content
+            if draft is not None and safety.safe
+            else ""
+        ),
         used_claim_ids=safety.used_claim_ids,
         used_evidence_artifact_ids=safety.used_evidence_artifact_ids,
         used_citation_ids=safety.used_citation_ids,
         used_citation_keys=safety.used_citation_keys,
+        allowed_statement_classes_used=safety.allowed_statement_classes_used,
         safety_status=safety_status,
         warnings=safety.warnings,
         unsupported_sentences=draft.unsupported_sentences if draft is not None else [],
+        unsafe_sentences_removed=safety.unsafe_sentences_removed,
+        safe_scaffold_sentences_retained=safety.safe_scaffold_sentences_retained,
+        original_sentence_count=safety.original_sentence_count,
+        removed_sentence_count=safety.removed_sentence_count,
+        retained_sentence_count=safety.retained_sentence_count,
+        section_status=safety.section_status,
+        removal_reasons=safety.removal_reasons,
         source_contract_hashes=task.source_contract_hashes,
         safe=safety.safe,
         rejected=safety.rejected,
@@ -396,6 +410,14 @@ def _build_drafting_report(
             used_evidence_artifact_ids=result.used_evidence_artifact_ids,
             used_citation_ids=result.used_citation_ids,
             used_citation_keys=result.used_citation_keys,
+            allowed_statement_classes_used=result.allowed_statement_classes_used,
+            safe_scaffold_sentences_retained=result.safe_scaffold_sentences_retained,
+            unsafe_sentences_removed=result.unsafe_sentences_removed,
+            original_sentence_count=result.original_sentence_count,
+            removed_sentence_count=result.removed_sentence_count,
+            retained_sentence_count=result.retained_sentence_count,
+            section_status=result.section_status,
+            removal_reasons=result.removal_reasons,
             unsupported_sentences=result.unsupported_sentences,
             created_or_upgraded_labels=result.safety_report.created_or_upgraded_labels,
         )

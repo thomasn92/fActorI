@@ -307,6 +307,14 @@ contracts require semantic content such as problem framing, one bounded central 
 method summary, evidence boundaries, limitations, and provenance. The assembler owns Markdown
 headings, demotes generated nested headings inside section bodies, and title cleanup avoids weak
 forms such as trailing question titles or method/domain fragments.
+Prose contracts also distinguish safe non-evidential scaffold statements from scientific claims.
+Problem framing, method description, evidence-boundary language, limitations, demonstration status,
+citation-status notes, and provenance statements may be retained when explicitly scoped as
+non-evidence. The safety layer still rejects fake citations, proof/theorem/conjecture labels,
+unsupported empirical validation, novelty-proof language, and publication-readiness claims. When a
+section mixes safe scaffold text with unsafe sentences, the unsafe sentences are removed and
+reported; if no safe content remains, deterministic non-evidence fallback text is inserted for
+required manuscript sections.
 
 `evaluate-paper-release` checks a generated bundle for internal human-review handoff readiness:
 

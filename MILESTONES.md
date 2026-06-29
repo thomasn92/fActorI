@@ -61,10 +61,11 @@
 | 51 | Deterministic read-only generated paper bundle quality lint | `full_paper_generation.py`, `cli.py` | `lint-paper-bundle` | Reads existing preferred Markdown draft artifacts only; reports draft-quality failures/warnings separately from release readiness and never mutates runs, creates evidence, or implies publication readiness |
 | 52 | Quality-aware manuscript planning and drafting constraints for less placeholder-like generated bundles | `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py` | `generate-paper`, `lint-paper-bundle` | Full-paper generation now uses a compact 7-section quality-aware plan, deterministic non-placeholder titles, no-evidence section pruning, and prose length/boundary guidance without changing release gates or evidence authority |
 | 52b | Semantic paper-quality gates for paper-shaped drafts | `full_paper_generation.py`, `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py`, `adapters/prose_prompts.py` | `lint-paper-bundle`, `generate-paper` | Quality lint now gates primarily on problem framing, one bounded central contribution, method summary, evidence boundaries, limitations, provenance, title quality, heading discipline, and fake-evidence absence; word count is only a skeletal-draft warning and release/safety status remains separate |
+| 52c | Safe non-evidential prose retention for paper-shaped drafts | `adapters/prose_safety.py`, `prose_contract.py`, `manuscript_drafting.py`, `manuscript_assembly.py` | `generate-paper`, `lint-paper-bundle` | Prose contracts now declare allowed non-evidence statement classes; safety retains scaffold sentences, removes unsafe sentences, inserts deterministic fallback text for required omitted sections, and reports salvage counts without permitting fake citations, proof labels, empirical validation, or publication readiness |
 
 ## Current Boundary
 
-Milestones through 52b implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 52c implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -137,3 +138,10 @@ framing, missing central contribution, missing method/evidence-boundary/limitati
 content, placeholder titles, heading fragmentation, fake citations, fake empirical claims, or
 unsupported uncited external facts. These constraints improve draft usefulness only; they do not
 weaken release/safety gates, create citations, or imply publication readiness.
+Generated prose safety now separates scientific claims from manuscript scaffolding: safe
+non-evidential problem framing, method description, evidence-boundary statements, limitations,
+demonstration status, citation-status notes, and provenance can be retained under explicit
+contract classes. Unsafe sentences are removed and audited at sentence level, and required sections
+with no retained safe text receive deterministic non-evidence fallbacks. This retention path still
+rejects or removes fake citations, theorem/conjecture/proof labels, empirical validation claims,
+novelty-proof language, and publication-readiness claims.

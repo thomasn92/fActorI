@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.13.0/revision-safety-report.schema.json",
+  "$id": "https://schemas.factori.local/0.14.0/revision-safety-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Safety report for a revised manuscript draft.",
@@ -83,7 +83,7 @@
   ],
   "title": "RevisionSafetyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.13.0",
+  "x-factori-protocol-version": "0.14.0",
   "x-factori-source-model": "factori.schemas.RevisionSafetyReport",
   "x-factori-verification-evidence": false
 }

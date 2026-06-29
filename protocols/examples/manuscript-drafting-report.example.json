@@ -13,14 +13,23 @@
   "run_id": "example",
   "section_summaries": [
     {
+      "allowed_statement_classes_used": [],
       "created_or_upgraded_labels": false,
       "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
       "is_verification_evidence": false,
+      "original_sentence_count": 0,
       "reasons": [],
       "rejected": false,
+      "removal_reasons": [],
+      "removed_sentence_count": 0,
+      "retained_sentence_count": 0,
       "safe": true,
+      "safe_scaffold_sentences_retained": [],
       "safety_status": "Safe",
       "section_id": "introduction",
+      "section_status": "retained",
+      "unsafe_sentences_removed": [],
       "unsupported_sentences": [],
       "used_citation_ids": [
         "citation-source-example"

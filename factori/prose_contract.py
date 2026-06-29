@@ -204,6 +204,7 @@ def build_prose_section_contract(
         allowed_evidence_artifact_ids=evidence_ids,
         allowed_citation_ids=[record.citation_id for record in allowed_citations],
         allowed_citation_keys=[record.citation_key for record in allowed_citations],
+        allowed_statement_classes=_allowed_statement_classes_for_section(section.title),
         forbidden_claims=sorted(set(manuscript_plan.blocked_claim_ids)),
         evidence_boundary_instructions=[
             "Use only allowed claim IDs.",
@@ -256,6 +257,8 @@ def build_prose_section_contract(
             "Use manuscript-draft prose, not final publication-ready prose.",
             "Preserve uncertainty, limitations, and fake-validator disclaimers.",
             "Avoid placeholder headings, placeholder body text, and generic section filler.",
+            "Allowed non-evidential scaffold classes: "
+            + ", ".join(_allowed_statement_classes_for_section(section.title)),
             *(_section_specific_style_instructions(section.title, has_citation_sources)),
         ],
         max_words=max_words,
@@ -353,6 +356,76 @@ def _section_specific_style_instructions(
     if "limitation" in lower:
         instructions.append("Include no-evidence and MVP-boundary limitations explicitly.")
     return instructions
+
+
+def _allowed_statement_classes_for_section(section_title: str) -> list[str]:
+    lower = section_title.lower()
+    classes = {
+        "non_evidence_disclaimer",
+        "evidence_boundary_statement",
+    }
+    if "abstract" in lower:
+        classes.update(
+            {
+                "problem_framing",
+                "central_contribution_summary",
+                "evidence_boundary_statement",
+                "limitation_statement",
+            }
+        )
+    if "introduction" in lower or "problem framing" in lower:
+        classes.update(
+            {
+                "problem_framing",
+                "motivation_statement",
+                "evidence_boundary_statement",
+                "citation_status_statement",
+            }
+        )
+    if "method" in lower or "model" in lower:
+        classes.update(
+            {
+                "method_description",
+                "pipeline_description",
+                "provenance_statement",
+            }
+        )
+    if "claim" in lower or "evidence" in lower:
+        classes.update(
+            {
+                "central_contribution_summary",
+                "evidence_boundary_statement",
+                "limitation_statement",
+                "provenance_statement",
+            }
+        )
+    if "demonstration" in lower or "result" in lower:
+        classes.update(
+            {
+                "demonstration_status_statement",
+                "evidence_boundary_statement",
+                "limitation_statement",
+            }
+        )
+    if "limitation" in lower:
+        classes.update(
+            {
+                "limitation_statement",
+                "missing_evidence_statement",
+                "citation_status_statement",
+                "non_evidence_disclaimer",
+            }
+        )
+    if "conclusion" in lower:
+        classes.update(
+            {
+                "central_contribution_summary",
+                "limitation_statement",
+                "non_evidence_disclaimer",
+                "provenance_statement",
+            }
+        )
+    return sorted(classes)
 
 
 def _required_subsections(

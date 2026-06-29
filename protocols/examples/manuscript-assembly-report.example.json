@@ -1,13 +1,23 @@
 {
+  "allowed_statement_classes_used": [],
   "assembled_sections": 1,
   "citation_safety_report_artifact_id": null,
   "complete_markdown_artifact_id": "complete-manuscript-draft",
   "creates_scientific_validation": false,
   "draft_status": "DraftCompleteWithWarnings",
+  "forbidden_labels_allowed_as_scaffold": [],
+  "forbidden_labels_detected": [],
+  "implies_publication_readiness": false,
   "is_verification_evidence": false,
   "omitted_sections": [],
   "run_id": "example",
+  "safe_scaffold_sentences_retained": 0,
+  "sections_omitted": [],
+  "sections_partially_sanitized": [],
+  "sections_replaced_by_safe_fallback": [],
+  "sentence_salvage": [],
   "unsafe_section_ids": [],
+  "unsafe_sentences_removed": 0,
   "warnings": [
     "Fake prose draft is a deterministic placeholder."
   ]

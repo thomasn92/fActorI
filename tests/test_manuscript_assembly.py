@@ -83,6 +83,34 @@ def test_assembly_demotes_generated_nested_headings() -> None:
     assert "Substantive paragraph." in draft.markdown
 
 
+def test_assembly_report_records_sentence_level_salvage() -> None:
+    draft, report = _assemble(
+        [
+            _section_result(
+                section_id="introduction",
+                title="Introduction and Problem Framing",
+                markdown="Safe retained sentence.",
+                unsafe_sentences_removed=["Unsafe proof sentence."],
+                safe_scaffold_sentences_retained=["Safe retained sentence."],
+                allowed_statement_classes_used=["problem_framing"],
+                original_sentence_count=2,
+                removed_sentence_count=1,
+                retained_sentence_count=1,
+                section_status="partially_sanitized",
+                removal_reasons=["assertive scientific prose appears without a linked claim_id"],
+            )
+        ]
+    )
+
+    assert "Safe retained sentence." in draft.markdown
+    assert report.sections_partially_sanitized == ["introduction"]
+    assert report.safe_scaffold_sentences_retained == 1
+    assert report.unsafe_sentences_removed == 1
+    assert report.sentence_salvage[0]["section_status"] == "partially_sanitized"
+    assert report.sentence_salvage[0]["removed_sentence_count"] == 1
+    assert report.allowed_statement_classes_used == ["problem_framing"]
+
+
 def test_assembly_includes_citation_bibliography_and_literature_limitations() -> None:
     narrative = _narrative_contract()
     registry = _citation_registry()
@@ -117,10 +145,12 @@ def test_unsafe_section_is_omitted_or_marked_in_markdown() -> None:
 
     draft, report = _assemble(results)
 
-    assert report.draft_status == ManuscriptDraftStatus.DRAFT_INCOMPLETE_UNSAFE_SECTIONS
-    assert report.unsafe_section_ids == ["introduction"]
-    assert "[UNSAFE SECTION OMITTED]" in draft.markdown
-    assert "claim-x" in draft.markdown
+    assert report.draft_status == ManuscriptDraftStatus.DRAFT_COMPLETE_WITH_WARNINGS
+    assert report.unsafe_section_ids == []
+    assert report.sections_replaced_by_safe_fallback == ["introduction"]
+    assert "[UNSAFE SECTION OMITTED]" not in draft.markdown
+    assert "non-evidential manuscript scaffolding" in draft.markdown
+    assert report.sentence_salvage[0]["section_status"] == "replaced_by_safe_fallback"
 
 
 def test_complete_markdown_draft_is_not_verification_evidence() -> None:
@@ -199,6 +229,14 @@ def _section_result(
     safe: bool = True,
     reasons: list[str] | None = None,
     markdown: str | None = None,
+    unsafe_sentences_removed: list[str] | None = None,
+    safe_scaffold_sentences_retained: list[str] | None = None,
+    allowed_statement_classes_used: list[str] | None = None,
+    original_sentence_count: int = 0,
+    removed_sentence_count: int = 0,
+    retained_sentence_count: int = 0,
+    section_status: str = "retained",
+    removal_reasons: list[str] | None = None,
 ) -> SectionDraftingResult:
     draft = GeneratedSectionDraft(
         section_id=section_id,
@@ -220,6 +258,15 @@ def _section_result(
         used_claim_ids=[],
         used_evidence_artifact_ids=[],
         used_citation_ids=[],
+        allowed_statement_classes_used=allowed_statement_classes_used or [],
+        safe_scaffold_sentences_retained=safe_scaffold_sentences_retained or [],
+        unsafe_sentences_removed=unsafe_sentences_removed or [],
+        original_sentence_count=original_sentence_count,
+        removed_sentence_count=removed_sentence_count,
+        retained_sentence_count=retained_sentence_count,
+        section_status=section_status,
+        removal_reasons=removal_reasons or [],
+        sanitized_content=draft.content if safe else None,
     )
     return SectionDraftingResult(
         section_id=section_id,
@@ -230,9 +277,17 @@ def _section_result(
         used_claim_ids=[],
         used_evidence_artifact_ids=[],
         used_citation_ids=[],
+        allowed_statement_classes_used=allowed_statement_classes_used or [],
         safety_status="Safe" if safe else "Unsafe",
         warnings=draft.warnings,
         unsupported_sentences=[],
+        unsafe_sentences_removed=unsafe_sentences_removed or [],
+        safe_scaffold_sentences_retained=safe_scaffold_sentences_retained or [],
+        original_sentence_count=original_sentence_count,
+        removed_sentence_count=removed_sentence_count,
+        retained_sentence_count=retained_sentence_count,
+        section_status=section_status,
+        removal_reasons=removal_reasons or [],
         source_contract_hashes={"claim_table": "0" * 64},
         safe=safe,
         rejected=not safe,

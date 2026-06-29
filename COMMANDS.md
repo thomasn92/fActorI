@@ -297,6 +297,13 @@ Semantic content is preferred over padding: prose contracts ask for problem fram
 central contribution, a mechanical method summary, evidence limitations, and provenance context.
 Generated section bodies should not add Markdown headings; the assembler owns headings and demotes
 nested generated headings so the planned paper shape remains coherent.
+The prose safety layer distinguishes manuscript scaffolding from scientific claims. Safe
+non-evidential statement classes include problem framing, method and pipeline description,
+evidence-boundary statements, limitation statements, demonstration-status statements,
+citation-status statements, provenance statements, and non-evidence disclaimers. Unsafe sentences
+are removed at sentence level when safe content remains; required sections with no retained safe
+content receive deterministic fallback text. This does not permit fake citations, proof labels,
+conjecture/theorem language, empirical validation claims, or publication-readiness claims.
 
 Evaluate a generated bundle for internal human-review handoff readiness. This is not publication
 readiness, peer review, scientific validation, or evidence:

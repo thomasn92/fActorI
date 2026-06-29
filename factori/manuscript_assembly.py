@@ -46,6 +46,35 @@ def assemble_complete_markdown_draft(
     safe_results = [result for result in section_results if result.safe and not result.rejected]
     unsafe_results = [result for result in section_results if not result.safe or result.rejected]
     unsafe_ids = sorted(result.section_id for result in unsafe_results)
+    fallback_section_ids = _fallback_section_ids(manuscript_plan.sections, results_by_id)
+    sections_omitted_ids = sorted(set(unsafe_ids) - set(fallback_section_ids))
+    partially_sanitized_ids = sorted(
+        result.section_id
+        for result in section_results
+        if result.section_status == "partially_sanitized"
+    )
+    sentence_salvage = _sentence_salvage_summaries(section_results, fallback_section_ids)
+    allowed_statement_classes_used = sorted(
+        {
+            statement_class
+            for result in section_results
+            for statement_class in result.allowed_statement_classes_used
+        }
+    )
+    forbidden_labels_detected = sorted(
+        {
+            label
+            for result in section_results
+            for label in result.safety_report.forbidden_labels_detected
+        }
+    )
+    forbidden_labels_allowed_as_scaffold = sorted(
+        {
+            label
+            for result in section_results
+            for label in result.safety_report.forbidden_labels_allowed_as_scaffold
+        }
+    )
     warnings = sorted(
         set(
             [
@@ -98,7 +127,7 @@ def assemble_complete_markdown_draft(
     )
     status = _draft_status(
         section_results=section_results,
-        unsafe_section_ids=unsafe_ids,
+        unsafe_section_ids=sections_omitted_ids,
         warnings=warnings,
     )
     complete = CompleteMarkdownDraft(
@@ -106,7 +135,7 @@ def assemble_complete_markdown_draft(
         title=manuscript_plan.title,
         markdown=markdown,
         section_ids=[section.section_id for section in manuscript_plan.sections],
-        unsafe_section_ids=unsafe_ids,
+        unsafe_section_ids=sections_omitted_ids,
         claim_evidence_appendix=claim_appendix,
         provenance_appendix=provenance_appendix,
         bibliography_markdown=bibliography,
@@ -124,9 +153,24 @@ def assemble_complete_markdown_draft(
     )
     report = ManuscriptAssemblyReport(
         run_id=run_id,
-        assembled_sections=len(safe_results),
-        omitted_sections=unsafe_ids,
-        unsafe_section_ids=unsafe_ids,
+        assembled_sections=len(safe_results) + len(fallback_section_ids),
+        omitted_sections=sections_omitted_ids,
+        unsafe_section_ids=sections_omitted_ids,
+        sections_partially_sanitized=partially_sanitized_ids,
+        sections_replaced_by_safe_fallback=fallback_section_ids,
+        sections_omitted=sections_omitted_ids,
+        safe_scaffold_sentences_retained=sum(
+            len(result.safe_scaffold_sentences_retained)
+            for result in section_results
+        ),
+        unsafe_sentences_removed=sum(
+            len(result.unsafe_sentences_removed)
+            for result in section_results
+        ),
+        sentence_salvage=sentence_salvage,
+        allowed_statement_classes_used=allowed_statement_classes_used,
+        forbidden_labels_detected=forbidden_labels_detected,
+        forbidden_labels_allowed_as_scaffold=forbidden_labels_allowed_as_scaffold,
         warnings=warnings,
         draft_status=status,
         complete_markdown_artifact_id="complete-manuscript-draft",
@@ -268,11 +312,104 @@ def _bucket_safe_results(
                 _demote_generated_headings(result.draft_markdown)
             )
         else:
-            buckets.setdefault(heading, []).append(
-                "[UNSAFE SECTION OMITTED] "
-                + "; ".join(result.safety_reasons or ["section failed safety checks"])
-            )
+            fallback = _safe_fallback_text(heading)
+            if fallback:
+                buckets.setdefault(heading, []).append(fallback)
+            else:
+                buckets.setdefault(heading, []).append(
+                    "[UNSAFE SECTION OMITTED] "
+                    + "; ".join(result.safety_reasons or ["section failed safety checks"])
+                )
     return buckets
+
+
+def _fallback_section_ids(
+    sections: Iterable,
+    results_by_id: dict[str, SectionDraftingResult],
+) -> list[str]:
+    section_ids = []
+    for section in sections:
+        result = results_by_id.get(section.section_id)
+        if result is None or (result.safe and not result.rejected):
+            continue
+        if _safe_fallback_text(_canonical_heading(section.title, section.narrative_roles)):
+            section_ids.append(section.section_id)
+    return sorted(section_ids)
+
+
+def _sentence_salvage_summaries(
+    section_results: list[SectionDraftingResult],
+    fallback_section_ids: list[str],
+) -> list[dict[str, object]]:
+    fallback_ids = set(fallback_section_ids)
+    summaries: list[dict[str, object]] = []
+    for result in section_results:
+        status = result.section_status
+        if result.section_id in fallback_ids:
+            status = "replaced_by_safe_fallback"
+        summaries.append(
+            {
+                "section_id": result.section_id,
+                "original_sentence_count": result.original_sentence_count,
+                "removed_sentence_count": result.removed_sentence_count,
+                "retained_sentence_count": result.retained_sentence_count,
+                "section_status": status,
+                "removal_reasons": result.removal_reasons,
+                "allowed_statement_classes_used": result.allowed_statement_classes_used,
+                "creates_scientific_validation": False,
+                "implies_publication_readiness": False,
+                "is_verification_evidence": False,
+            }
+        )
+    return summaries
+
+
+def _safe_fallback_text(heading: str) -> str:
+    fallbacks = {
+        "Abstract": (
+            "This abstract is retained only as non-evidential manuscript scaffolding. "
+            "The problem addressed by this draft is how to organize a selected "
+            "research candidate into a paper-shaped artifact while preserving proof, "
+            "experiment, retrieval, citation, and publication-readiness boundaries."
+        ),
+        "Introduction and Problem Framing": (
+            "This section is retained only as non-evidential manuscript scaffolding. "
+            "The problem addressed by this draft is how to structure a "
+            "human-geography research candidate into a bounded manuscript artifact "
+            "while keeping proof, empirical validation, retrieval grounding, and "
+            "publication readiness separate from generated prose."
+        ),
+        "Method and Model": (
+            "This method summary is non-evidential. The pipeline mechanically loads "
+            "approved run artifacts, builds a manuscript plan, drafts bounded sections, "
+            "applies safety checks, assembles Markdown, exports presentation artifacts, "
+            "and records audit context without creating proof or experiment evidence."
+        ),
+        "Claim and Evidence Boundaries": (
+            "This section records evidence boundaries rather than evidence. Generated "
+            "manuscript prose cannot prove claims, upgrade labels, create citations, "
+            "or establish empirical validation; claims remain governed by the linked "
+            "claim table and evidence artifacts."
+        ),
+        "Demonstration Status": (
+            "This demonstration-status section is non-evidential. The current artifact "
+            "shows orchestration and manuscript structure only; it does not establish "
+            "proof, synthetic experiment success, real-world validation, or publication "
+            "readiness."
+        ),
+        "Limitations": (
+            "This section records limitations rather than evidence. The current artifact "
+            "lacks retrieval-backed citations, proof artifacts, experiment artifacts, "
+            "and human approval. It is suitable only as a bounded draft for inspection, "
+            "not as scientific validation."
+        ),
+        "Conclusion": (
+            "This conclusion is non-evidential. It restates that the draft is a bounded "
+            "manuscript artifact for human inspection and does not establish proof, "
+            "empirical validation, citation coverage, or publication readiness."
+        ),
+    }
+    return fallbacks.get(heading, "")
 
 
 def _demote_generated_headings(markdown: str) -> str:
