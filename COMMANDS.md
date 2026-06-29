@@ -320,6 +320,9 @@ The OpenAI adjudicator additionally requires `--allow-external-calls`, a configu
 cost, and rate controls with candidate, reviewer, and prose calls. The LLM judges meaning;
 deterministic code verifies registry keys, source scope, bibliography provenance, and evidence
 artifacts.
+After adjudication, missing-citation failures are limited to positive external/source/literature
+claims. Current-run status, absence of retrieval support, scaffold role, retrieval limitations, and
+evidence-boundary statements do not require citations.
 
 Full-paper generation is an orchestration over the existing non-evidence manuscript workflow. By
 default it builds or reuses citation registry/literature positioning artifacts, drafts the Markdown
@@ -599,7 +602,8 @@ retrieval sources are available and no unsupported external facts are claimed. T
 not change generated-paper release status, safety status, evidence labels, human-review readiness,
 or publication-readiness flags. When `claim-support-audit.json` exists, lint also reports missing
 required citations, registry scope mismatches, citation placement violations, and
-citation-as-validation misuse.
+citation-as-validation misuse. Current-run scaffold and absence-of-evidence statements are not
+counted as missing-citation failures.
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:

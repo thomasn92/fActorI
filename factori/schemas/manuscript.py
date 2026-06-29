@@ -705,6 +705,18 @@ ClaimAdjudicationCitationUse = Literal[
 ]
 
 
+ClaimCitationRequirementReason = Literal[
+    "positive_external_claim",
+    "positive_source_context_claim",
+    "positive_literature_claim",
+    "current_run_status_no_citation_required",
+    "absence_of_evidence_no_citation_required",
+    "scaffold_role_no_citation_required",
+    "evidence_boundary_no_citation_required",
+    "claim_class_no_citation_required",
+]
+
+
 class ClaimAdjudication(StrictModel):
     """Bounded semantic classification of one manuscript sentence; never evidence."""
 
@@ -713,6 +725,9 @@ class ClaimAdjudication(StrictModel):
     sentence_hash: str = Field(min_length=64, max_length=64)
     adjudicated_claim_class: ClaimSupportClaimClass
     requires_citation: bool
+    requires_citation_reason: ClaimCitationRequirementReason = (
+        "claim_class_no_citation_required"
+    )
     citation_use: ClaimAdjudicationCitationUse = "none"
     forbidden_claim_detected: bool = False
     citation_as_validation_misuse: bool = False
@@ -734,6 +749,10 @@ class ClaimSupportItem(StrictModel):
     sentence_snippet: str = Field(default="", max_length=240)
     claim_class: ClaimSupportClaimClass
     citation_keys_present: list[str] = Field(default_factory=list)
+    requires_citation: bool = False
+    requires_citation_reason: ClaimCitationRequirementReason = (
+        "claim_class_no_citation_required"
+    )
     required_support_type: str = Field(default="none", min_length=1)
     supporting_source_ids: list[str] = Field(default_factory=list)
     support_status: ClaimSupportStatus

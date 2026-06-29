@@ -11,6 +11,7 @@ from factori.artifacts import ArtifactStore
 from factori.claim_adjudication import (
     ClaimAdjudicationRequest,
     ClaimAdjudicator,
+    citation_requirement_for_sentence,
     deterministic_semantic_adjudication,
     sentence_requires_adjudication,
 )
@@ -568,8 +569,18 @@ def build_claim_support_audit(
             if adjudication is not None
             else preliminary_class
         )
+        requires_citation, citation_reason = (
+            (
+                adjudication.requires_citation,
+                adjudication.requires_citation_reason,
+            )
+            if adjudication is not None
+            else citation_requirement_for_sentence(context["sentence"], claim_class)
+        )
         status, reason, sources = _support_status_for_sentence(
             claim_class=claim_class,
+            requires_citation=requires_citation,
+            requires_citation_reason=citation_reason,
             sentence_markers=context["sentence_markers"],
             paragraph_markers=context["paragraph_markers"],
             key_to_record=key_to_record,
@@ -585,7 +596,20 @@ def build_claim_support_audit(
                 sentence_snippet=_sentence_snippet(context["sentence"]),
                 claim_class=claim_class,
                 citation_keys_present=context["sentence_markers"],
-                required_support_type=_required_support_type(claim_class),
+                requires_citation=requires_citation,
+                requires_citation_reason=citation_reason,
+                required_support_type=(
+                    _required_support_type(claim_class)
+                    if requires_citation
+                    or claim_class
+                    in {
+                        "proof_claim",
+                        "experiment_claim",
+                        "novelty_claim",
+                        "publication_readiness_claim",
+                    }
+                    else "none"
+                ),
                 supporting_source_ids=sources,
                 support_status=status,
                 unsupported_reason=reason,
@@ -815,6 +839,8 @@ def _citation_artifacts_from_persistence(
 def _support_status_for_sentence(
     *,
     claim_class: str,
+    requires_citation: bool,
+    requires_citation_reason: str,
     sentence_markers: list[str],
     paragraph_markers: list[str],
     key_to_record: dict[str, CitationRecord],
@@ -859,11 +885,7 @@ def _support_status_for_sentence(
             f"{claim_class} requires real evidence artifacts, not manuscript prose",
             [],
         )
-    if claim_class in {
-        "source_context_claim",
-        "literature_background_claim",
-        "external_factual_claim",
-    }:
+    if requires_citation:
         if not registry_present and claim_class in {
             "source_context_claim",
             "literature_background_claim",
@@ -878,7 +900,10 @@ def _support_status_for_sentence(
         if not known_records:
             return (
                 "missing_required_citation",
-                f"{claim_class} requires a registry-backed local citation",
+                (
+                    f"{claim_class} requires a registry-backed local citation "
+                    f"({requires_citation_reason})"
+                ),
                 [],
             )
         matched = [
@@ -896,6 +921,12 @@ def _support_status_for_sentence(
             "registry_supported",
             None,
             sorted(record.source_id for record in matched),
+        )
+    if unknown_keys:
+        return (
+            "unsupported_external_claim",
+            "citation key is not present in the registry: " + ", ".join(unknown_keys),
+            [],
         )
     return ("not_required_scaffold", None, [])
 

@@ -91,6 +91,21 @@
           "title": "Requires Citation",
           "type": "boolean"
         },
+        "requires_citation_reason": {
+          "default": "claim_class_no_citation_required",
+          "enum": [
+            "positive_external_claim",
+            "positive_source_context_claim",
+            "positive_literature_claim",
+            "current_run_status_no_citation_required",
+            "absence_of_evidence_no_citation_required",
+            "scaffold_role_no_citation_required",
+            "evidence_boundary_no_citation_required",
+            "claim_class_no_citation_required"
+          ],
+          "title": "Requires Citation Reason",
+          "type": "string"
+        },
         "section_name": {
           "minLength": 1,
           "title": "Section Name",
@@ -278,6 +293,26 @@
           "title": "Required Support Type",
           "type": "string"
         },
+        "requires_citation": {
+          "default": false,
+          "title": "Requires Citation",
+          "type": "boolean"
+        },
+        "requires_citation_reason": {
+          "default": "claim_class_no_citation_required",
+          "enum": [
+            "positive_external_claim",
+            "positive_source_context_claim",
+            "positive_literature_claim",
+            "current_run_status_no_citation_required",
+            "absence_of_evidence_no_citation_required",
+            "scaffold_role_no_citation_required",
+            "evidence_boundary_no_citation_required",
+            "claim_class_no_citation_required"
+          ],
+          "title": "Requires Citation Reason",
+          "type": "string"
+        },
         "section_name": {
           "minLength": 1,
           "title": "Section Name",
@@ -351,7 +386,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.17.0/claim-support-audit-report.schema.json",
+  "$id": "https://schemas.factori.local/0.18.0/claim-support-audit-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic citation-placement and claim-support audit report.",
@@ -484,7 +519,7 @@
   ],
   "title": "ClaimSupportAuditReport",
   "type": "object",
-  "x-factori-protocol-version": "0.17.0",
+  "x-factori-protocol-version": "0.18.0",
   "x-factori-source-model": "factori.schemas.ClaimSupportAuditReport",
   "x-factori-verification-evidence": false
 }

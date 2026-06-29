@@ -379,6 +379,12 @@ artifacts exist. Negated statements such as "no proof" remain limitations; unsup
 proof, validation, novelty, and publication-readiness claims remain blocked. Adjudication is
 non-evidence and `publication_ready` remains false.
 
+After adjudication, citations are required only for positive external/source/literature claims.
+Current-run status, absence of retrieval or literature support, scaffold role, retrieval
+limitations, and evidence-boundary statements do not require citations. fActorI still blocks
+unregistered citations, invented bibliography metadata, citation-as-validation, and uncited
+positive external factual claims.
+
 Real mode requires explicit OpenAI backends, `--allow-external-calls`, credentials, and a budget
 before any network call can be attempted:
 
@@ -525,8 +531,9 @@ that identifies future evidence-producing work. Word count, average section leng
 headings, and citation absence remain development warnings for skeletal drafts, not standalone
 quality failures. When a claim-support audit exists, lint distinguishes registry-backed citation
 markers from correctly placed source support and reports missing required citations, scope
-mismatches, and citation-as-validation misuse. The lint does not change release status, safety
-status, evidence labels, or publication-readiness flags.
+mismatches, and citation-as-validation misuse. Missing-citation failures are limited to positive
+external/source/literature claims, not current-run scaffold or absence-of-evidence statements. The
+lint does not change release status, safety status, evidence labels, or publication-readiness flags.
 
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:

@@ -19,12 +19,15 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.17.0`.
+version is `0.18.0`.
 
-Protocol `0.17.0` adds backward-compatible semantic claim-adjudication fields and a
-`ClaimAdjudication` model. Adjudication classifies sentence meaning only; deterministic artifact,
-citation-registry, bibliography, and evidence checks remain authoritative. Adjudication reports
-remain non-evidence and cannot imply publication readiness.
+Protocol `0.18.0` adds backward-compatible citation-requirement metadata to claim-support audit
+items. Citation requirements now distinguish positive external/source/literature claims from
+current-run scaffold, missing-retrieval, and evidence-boundary statements. Protocol `0.17.0` added
+semantic claim-adjudication fields and a `ClaimAdjudication` model. Adjudication classifies
+sentence meaning only; deterministic artifact, citation-registry, bibliography, and evidence
+checks remain authoritative. Adjudication reports remain non-evidence and cannot imply publication
+readiness.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -108,7 +111,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.17.0
+  --new-version 0.18.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

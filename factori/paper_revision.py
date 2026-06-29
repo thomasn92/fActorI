@@ -81,7 +81,7 @@ def apply_safe_fake_revision(
             _patch(
                 PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE,
                 sentence_id,
-                "",
+                "[sentence removed by safe repair]",
                 "removed confirmed post-adjudication claim-support violation",
             )
             for sentence_id in removed_sentence_ids

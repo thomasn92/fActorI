@@ -38,6 +38,43 @@ _NEGATED_NOVELTY_OR_READINESS = re.compile(
     r"\b(novelty|publication[- ]ready|publication readiness)\b",
     re.IGNORECASE,
 )
+_NO_CITATION_CURRENT_RUN = re.compile(
+    r"\b(current|present)\s+(draft|run|artifact|artifacts|section)\b"
+    r"|\bpresent run artifacts\b"
+    r"|\bthis\s+(draft|section|artifact|manuscript)\b",
+    re.IGNORECASE,
+)
+_NO_CITATION_ABSENCE = re.compile(
+    r"\b(no|not|without|lacks?|absence of|absent|unavailable|does not include|"
+    r"cannot make|cannot support|does not make)\b[^.]{0,120}"
+    r"\b(retrieval|literature|source[- ]context|source context|source|metadata|"
+    r"citation|prior work|support)\b"
+    r"|\b(retrieval|literature|source[- ]context|source context|source|metadata|"
+    r"citation|prior work|support)\b[^.]{0,120}"
+    r"\b(absent|unavailable|missing|limitations?|does not verify|does not validate|"
+    r"cannot support|is absent)\b",
+    re.IGNORECASE,
+)
+_NO_CITATION_SCAFFOLD = re.compile(
+    r"\b(literature[- ]positioning|source[- ]context|problem[- ]framing|"
+    r"problem framing|literature positioning)\b[^.]{0,80}\b(scaffold|role|section)\b"
+    r"|\b(scaffold|role|section)\b[^.]{0,80}"
+    r"\b(literature[- ]positioning|source[- ]context|problem[- ]framing|"
+    r"problem framing|literature positioning)\b"
+    r"|\bretrieval limitations?\b",
+    re.IGNORECASE,
+)
+_POSITIVE_EXTERNAL_CLAIM = re.compile(
+    r"\b(prior work|the literature|retrieved sources?|sources?|source x|studies|"
+    r"field data|survey data)\b[^.]{0,120}"
+    r"\b(show|shows|uses?|used|establish(?:es|ed)?|supports?|discuss(?:es|ed)?|"
+    r"demonstrat(?:es|ed)?|models?|indicates?|finds?|argues?)\b"
+    r"|\b(human geography|spatial interaction|migration flows?)\b[^.]{0,120}"
+    r"\b(commonly|widely|typically|often)\b"
+    r"|\b(commonly|widely|typically|often)\b[^.]{0,120}"
+    r"\b(human geography|spatial interaction|migration flows?)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -122,6 +159,17 @@ def deterministic_semantic_adjudication(
         claim_class = "novelty_claim"
         citation_use = "misused_as_novelty" if request.citation_keys_present else "none"
         reasoning = "The sentence positively claims novelty validation."
+    elif _is_current_run_or_absence_statement(request.sentence):
+        claim_class = _no_citation_claim_class(request.sentence, claim_class)
+        citation_use = "none"
+        reasoning = "The sentence describes scaffold role or missing current-run support."
+    elif _POSITIVE_EXTERNAL_CLAIM.search(request.sentence):
+        claim_class = (
+            "external_factual_claim"
+            if claim_class == "external_factual_claim"
+            else "literature_background_claim"
+        )
+        reasoning = "The sentence makes a positive external or literature-context claim."
 
     forbidden = claim_class in {
         "proof_claim",
@@ -129,17 +177,17 @@ def deterministic_semantic_adjudication(
         "novelty_claim",
         "publication_readiness_claim",
     }
-    requires_citation = claim_class in {
-        "source_context_claim",
-        "literature_background_claim",
-        "external_factual_claim",
-    }
+    requires_citation, citation_reason = citation_requirement_for_sentence(
+        request.sentence,
+        claim_class,
+    )
     return ClaimAdjudication(
         sentence_id=request.sentence_id,
         section_name=request.section_name,
         sentence_hash=sha256_text(request.sentence),
         adjudicated_claim_class=claim_class,
         requires_citation=requires_citation,
+        requires_citation_reason=citation_reason,
         citation_use=citation_use,
         forbidden_claim_detected=forbidden,
         citation_as_validation_misuse=citation_use
@@ -247,6 +295,98 @@ def _is_negated_boundary(sentence: str) -> bool:
     )
 
 
+def citation_requirement_for_sentence(
+    sentence: str,
+    claim_class: str,
+) -> tuple[bool, str]:
+    """Decide whether a sentence needs local source support."""
+    if _is_current_run_or_absence_statement(sentence):
+        text = " ".join(sentence.casefold().split())
+        if "scaffold" in text or "problem-framing" in text or "problem framing" in text:
+            return False, "scaffold_role_no_citation_required"
+        if any(
+            term in text
+            for term in (
+                "no ",
+                "not ",
+                "without",
+                "lacks",
+                "absence",
+                "absent",
+                "unavailable",
+                "does not include",
+                "cannot make",
+                "does not make",
+                "limitations",
+            )
+        ):
+            return False, "absence_of_evidence_no_citation_required"
+        return False, "current_run_status_no_citation_required"
+    if _is_negated_boundary(sentence):
+        return False, "evidence_boundary_no_citation_required"
+    if _POSITIVE_EXTERNAL_CLAIM.search(sentence):
+        if claim_class == "external_factual_claim":
+            return True, "positive_external_claim"
+        if claim_class == "source_context_claim":
+            return True, "positive_source_context_claim"
+        return True, "positive_literature_claim"
+    if claim_class == "external_factual_claim":
+        return True, "positive_external_claim"
+    if claim_class == "source_context_claim":
+        return True, "positive_source_context_claim"
+    if claim_class == "literature_background_claim":
+        return True, "positive_literature_claim"
+    if claim_class == "evidence_boundary_statement":
+        return False, "evidence_boundary_no_citation_required"
+    if claim_class in {"limitation_statement", "pipeline_status_claim"}:
+        return False, "absence_of_evidence_no_citation_required"
+    if claim_class in {"scaffold_statement", "problem_framing_statement"}:
+        return False, "scaffold_role_no_citation_required"
+    return False, "claim_class_no_citation_required"
+
+
+def _is_current_run_or_absence_statement(sentence: str) -> bool:
+    text = " ".join(sentence.casefold().split())
+    return bool(
+        _NO_CITATION_ABSENCE.search(sentence)
+        or _NO_CITATION_SCAFFOLD.search(sentence)
+        or (
+            _NO_CITATION_CURRENT_RUN.search(sentence)
+            and any(
+                term in text
+                for term in (
+                    "retrieval",
+                    "literature",
+                    "source-context",
+                    "source context",
+                    "metadata",
+                    "citation",
+                    "support",
+                    "scaffold",
+                    "limitation",
+                    "cannot make",
+                    "does not include",
+                )
+            )
+        )
+    )
+
+
+def _no_citation_claim_class(sentence: str, fallback: str) -> str:
+    text = " ".join(sentence.casefold().split())
+    if "problem-framing" in text or "problem framing" in text:
+        return "problem_framing_statement"
+    if "scaffold" in text:
+        return "scaffold_statement"
+    if "limitation" in text or "does not include" in text or "cannot make" in text:
+        return "limitation_statement"
+    if "metadata" in text or "verify" in text or "validate" in text:
+        return "evidence_boundary_statement"
+    if "current" in text or "present run" in text:
+        return "pipeline_status_claim"
+    return fallback
+
+
 def _request_payload(requests: list[ClaimAdjudicationRequest]) -> dict[str, Any]:
     return {
         "sentences": [
@@ -269,7 +409,12 @@ def _adjudicator_prompt(payload: dict[str, Any]) -> str:
         "You audit manuscript sentence meaning only. Do not decide whether artifacts exist and "
         "do not infer hidden evidence. Sentences saying no proof, not proof, no experiment, no "
         "validation, no novelty, or not publication ready are boundary or limitation statements, "
-        "not positive proof or experiment claims. Classify every supplied sentence.\n\n"
+        "not positive proof or experiment claims. A sentence only requires citation if it makes "
+        "a positive claim about external literature, prior work, source contents, empirical facts, "
+        "or external domain facts. A sentence does not require citation merely because it contains "
+        "words like literature, source, retrieval, prior work, or metadata when it only describes "
+        "the current run, absence of evidence, limitations, or scaffold role. Classify every "
+        "supplied sentence.\n\n"
         + json.dumps(payload, sort_keys=True, ensure_ascii=True)
     )
 
@@ -351,11 +496,9 @@ def _parse_response(
         for row in rows:
             request = by_id[row["sentence_id"]]
             parsed.append(
-                ClaimAdjudication(
-                    sentence_id=request.sentence_id,
-                    section_name=request.section_name,
-                    sentence_hash=sha256_text(request.sentence),
-                    adjudicated_claim_class=row["claim_class"],
+                _normalized_adjudication(
+                    request=request,
+                    claim_class=row["claim_class"],
                     requires_citation=row["requires_citation"],
                     citation_use=row["citation_use"],
                     forbidden_claim_detected=row["forbidden_claim_detected"],
@@ -379,11 +522,74 @@ def _parse_response(
         ) from exc
 
 
+def _normalized_adjudication(
+    *,
+    request: ClaimAdjudicationRequest,
+    claim_class: str,
+    requires_citation: bool,
+    citation_use: str,
+    forbidden_claim_detected: bool,
+    citation_as_validation_misuse: bool,
+    publication_readiness_claim: bool,
+    reasoning_brief: str,
+    confidence: float,
+    adjudicator_backend: str,
+) -> ClaimAdjudication:
+    required_by_rule, citation_reason = citation_requirement_for_sentence(
+        request.sentence,
+        claim_class,
+    )
+    normalized_class = claim_class
+    normalized_reason = reasoning_brief
+    if not required_by_rule and requires_citation:
+        normalized_class = _no_citation_claim_class(request.sentence, claim_class)
+        normalized_reason = (
+            f"{reasoning_brief} Citation requirement suppressed: {citation_reason}."
+        )[:400]
+    elif required_by_rule and not requires_citation:
+        normalized_reason = (
+            f"{reasoning_brief} Citation requirement enforced: {citation_reason}."
+        )[:400]
+    normalized_forbidden = normalized_class in {
+        "proof_claim",
+        "experiment_claim",
+        "novelty_claim",
+        "publication_readiness_claim",
+    }
+    normalized_citation_misuse = citation_use in {
+        "misused_as_proof",
+        "misused_as_validation",
+        "misused_as_novelty",
+        "misused_as_publication_readiness",
+    }
+    return ClaimAdjudication(
+        sentence_id=request.sentence_id,
+        section_name=request.section_name,
+        sentence_hash=sha256_text(request.sentence),
+        adjudicated_claim_class=normalized_class,
+        requires_citation=required_by_rule,
+        requires_citation_reason=citation_reason,
+        citation_use=citation_use,
+        forbidden_claim_detected=forbidden_claim_detected and normalized_forbidden,
+        citation_as_validation_misuse=(
+            citation_as_validation_misuse and normalized_citation_misuse
+        ),
+        publication_readiness_claim=(
+            publication_readiness_claim
+            and normalized_class == "publication_readiness_claim"
+        ),
+        reasoning_brief=normalized_reason,
+        confidence=confidence,
+        adjudicator_backend=adjudicator_backend,
+    )
+
+
 __all__ = [
     "ClaimAdjudicationRequest",
     "ClaimAdjudicator",
     "FakeClaimAdjudicator",
     "OpenAIClaimAdjudicator",
+    "citation_requirement_for_sentence",
     "deterministic_semantic_adjudication",
     "sentence_requires_adjudication",
 ]

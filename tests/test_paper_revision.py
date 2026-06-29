@@ -4,6 +4,8 @@ import json
 
 from typer.testing import CliRunner
 
+from factori.citations import build_claim_support_audit
+from factori.claim_adjudication import FakeClaimAdjudicator
 from factori.cli import app
 from factori.hashing import sha256_file
 from factori.paper_critic import build_paper_revision_plan, critique_generated_paper
@@ -219,6 +221,37 @@ def test_revision_does_not_mutate_claim_or_evidence_tables() -> None:
     assert not result.safety_report.mutated_claim_table
     assert not result.safety_report.mutated_evidence_map
     assert not result.implies_publication_readiness
+
+
+def test_safe_repair_claim_support_removal_uses_non_empty_patch_snippets() -> None:
+    safe_boundary = "This draft is not a proof and provides no empirical validation."
+    positive_claim = "We prove that the proposed construction is correct."
+    markdown = _safe_markdown(f"{safe_boundary} {positive_claim}")
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=markdown,
+        citation_registry=None,
+        claim_adjudicator=FakeClaimAdjudicator(),
+    )
+
+    result = apply_safe_fake_revision(
+        run_id="run-1",
+        markdown=markdown,
+        revision_plan=build_paper_revision_plan(
+            critique_generated_paper(run_id="run-1", markdown=markdown)
+        ),
+        bounded_text_repair=True,
+        claim_support_audit=audit,
+    )
+
+    assert safe_boundary in result.revised_markdown
+    assert positive_claim not in result.revised_markdown
+    assert result.patches
+    assert all(patch.after_snippet for patch in result.patches)
+    assert any(
+        patch.after_snippet == "[sentence removed by safe repair]"
+        for patch in result.patches
+    )
 
 
 def test_revise_paper_cli_planning_mode_works(tmp_path) -> None:
