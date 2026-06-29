@@ -62,10 +62,11 @@
 | 52 | Quality-aware manuscript planning and drafting constraints for less placeholder-like generated bundles | `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py` | `generate-paper`, `lint-paper-bundle` | Full-paper generation now uses a compact 7-section quality-aware plan, deterministic non-placeholder titles, no-evidence section pruning, and prose length/boundary guidance without changing release gates or evidence authority |
 | 52b | Semantic paper-quality gates for paper-shaped drafts | `full_paper_generation.py`, `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py`, `adapters/prose_prompts.py` | `lint-paper-bundle`, `generate-paper` | Quality lint now gates primarily on problem framing, one bounded central contribution, method summary, evidence boundaries, limitations, provenance, title quality, heading discipline, and fake-evidence absence; word count is only a skeletal-draft warning and release/safety status remains separate |
 | 52c | Safe non-evidential prose retention for paper-shaped drafts | `adapters/prose_safety.py`, `prose_contract.py`, `manuscript_drafting.py`, `manuscript_assembly.py` | `generate-paper`, `lint-paper-bundle` | Prose contracts now declare allowed non-evidence statement classes; safety retains scaffold sentences, removes unsafe sentences, inserts deterministic fallback text for required omitted sections, and reports salvage counts without permitting fake citations, proof labels, empirical validation, or publication readiness |
+| 52d | Section consolidation and main-body quality accounting | `full_paper_generation.py`, `paper_revision.py`, `paper_critic.py`, `manuscript_assembly.py`, `cli.py` | `inspect-paper-bundle`, `lint-paper-bundle`, safe revision paths | Quality diagnostics separate planned main-body sections, appendices, and repair metadata; central-message repair is consolidated into planned prose, conclusion fallback is bounded and non-evidential, and appendices or word-count proxies alone do not cause fragmentation failure |
 
 ## Current Boundary
 
-Milestones through 52c implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 52d implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -145,3 +146,8 @@ contract classes. Unsafe sentences are removed and audited at sentence level, an
 with no retained safe text receive deterministic non-evidence fallbacks. This retention path still
 rejects or removes fake citations, theorem/conjecture/proof labels, empirical validation claims,
 novelty-proof language, and publication-readiness claims.
+Paper bundle inspection and linting now classify planned main-body sections separately from
+appendices and repair metadata. Required appendices no longer count as main-body fragmentation,
+safe repair demotes or merges standalone central-message headings, and the deterministic conclusion
+fallback closes with bounded contribution, human-review status, and future evidence-producing
+steps. These are manuscript-quality diagnostics only and do not change release or safety status.

@@ -404,9 +404,12 @@ def _safe_fallback_text(heading: str) -> str:
             "not as scientific validation."
         ),
         "Conclusion": (
-            "This conclusion is non-evidential. It restates that the draft is a bounded "
-            "manuscript artifact for human inspection and does not establish proof, "
-            "empirical validation, citation coverage, or publication readiness."
+            "This conclusion is non-evidential. The bounded contribution is a "
+            "manuscript-shaped artifact that preserves claim, evidence, and provenance "
+            "boundaries for human review. It does not establish proof, empirical "
+            "validation, citation coverage, or publication readiness. The next "
+            "evidence-producing steps are retrieval grounding, linked proof artifacts, "
+            "controlled experiment artifacts, and independent human validation."
         ),
     }
     return fallbacks.get(heading, "")

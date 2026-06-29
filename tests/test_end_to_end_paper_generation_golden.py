@@ -214,7 +214,7 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
         (tmp_path / refs["revised-latex-source-map"].path).read_text(encoding="utf-8")
     )
     assert source_map.covers_all_major_sections is True
-    assert len(source_map.entries) == 10
+    assert len(source_map.entries) == 9
 
     replay = replay_verify_run(run_id, tmp_path)
     assert replay.replay_status == ReplayStatus.REPLAY_VERIFIED

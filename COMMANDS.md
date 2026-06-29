@@ -523,8 +523,9 @@ uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001
 uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --json
 ```
 
-The compact summary prefers revised Markdown/LaTeX artifacts when present and reports section,
-word, citation, warning, blocking, safe-repair, and artifact-path details.
+The compact summary prefers revised Markdown/LaTeX artifacts when present and reports main-body,
+appendix, and total heading counts separately, plus word, citation, warning, blocking, safe-repair,
+and artifact-path details.
 
 Lint generated paper bundle quality without rerunning stages, calling APIs, or mutating run
 artifacts:
@@ -540,10 +541,13 @@ The lint reports `DraftQualityFailed`, `DraftQualityWarnings`, or `DraftQualityP
 quality diagnostic only. It now treats word count as a skeletal-draft proxy and gates primarily on
 semantic essentials: problem statement, central contribution, method summary, evidence-boundary
 statement, limitations, provenance, absence of fake citations, and absence of fake empirical or
-unsupported external factual claims. Missing citations are a warning when no retrieval sources are
-available and no unsupported external facts are claimed. The command does not change generated-paper
-release status, safety status, evidence labels, human-review readiness, or publication-readiness
-flags.
+unsupported external factual claims. Fragmentation failures use planned main-body sections and
+unplanned headings rather than total heading count; required appendices do not fragment the main
+body. Safe repair consolidates central-message text into a planned section, and the deterministic
+conclusion fallback remains explicitly non-evidential. Missing citations are a warning when no
+retrieval sources are available and no unsupported external facts are claimed. The command does
+not change generated-paper release status, safety status, evidence labels, human-review readiness,
+or publication-readiness flags.
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:

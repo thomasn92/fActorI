@@ -25,6 +25,7 @@ from factori.latex_export import (
 from factori.latex_render import LatexRenderer, LatexRenderError
 from factori.ledger import ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
+from factori.manuscript_assembly import CANONICAL_MAIN_SECTIONS
 from factori.manuscript_drafting import (
     ManuscriptDraftingError,
     ManuscriptDraftingRunResult,
@@ -161,6 +162,38 @@ _UNSUPPORTED_EXTERNAL_FACT_PATTERNS = (
     "field data show",
     "survey data show",
     "according to",
+)
+_MAIN_BODY_HEADING_ALIASES = {
+    "abstract": "Abstract",
+    "introduction": "Introduction and Problem Framing",
+    "introduction and problem framing": "Introduction and Problem Framing",
+    "problem framing": "Introduction and Problem Framing",
+    "method": "Method and Model",
+    "methods": "Method and Model",
+    "method and model": "Method and Model",
+    "method summary": "Method and Model",
+    "model": "Method and Model",
+    "central contribution": "Claim and Evidence Boundaries",
+    "claim and evidence boundaries": "Claim and Evidence Boundaries",
+    "main result and derivatives": "Claim and Evidence Boundaries",
+    "results": "Claim and Evidence Boundaries",
+    "demonstration status": "Demonstration Status",
+    "limitations": "Limitations",
+    "conclusion": "Conclusion",
+}
+_APPENDIX_HEADING_FRAGMENTS = (
+    "appendix",
+    "bibliography",
+    "references",
+)
+_METADATA_HEADING_TITLES = frozenset(
+    {
+        "central message",
+        "draft invariants",
+        "source/citation status",
+        "source and citation status",
+        "source map notes",
+    }
 )
 
 
@@ -524,6 +557,15 @@ def inspect_paper_bundle_summary(
     generation_report = _read_generation_report(paths["generation_report"])
     release_report = _read_release_report(paths["release_report"])
     safe_repair_report = _read_json_optional(paths["safe_repair_report"])
+    markdown = (
+        primary_draft.read_text(encoding="utf-8")
+        if primary_draft is not None
+        else ""
+    )
+    section_accounting = _section_accounting(
+        _markdown_sections(markdown),
+        manuscript_stats.get("title_detected"),
+    )
     generation_warning_count = (
         len(generation_report.warnings) if generation_report is not None else 0
     )
@@ -567,6 +609,7 @@ def inspect_paper_bundle_summary(
             else None
         ),
         **manuscript_stats,
+        **_public_section_accounting(section_accounting),
         "warning_counts": {
             "generation": generation_warning_count,
             "release": release_warning_count,
@@ -639,7 +682,32 @@ def lint_paper_bundle_summary(
     citation_marker_count = int(bundle.get("citation_marker_count") or 0)
     citations_present = citation_marker_count > 0
     sections = _markdown_sections(markdown)
-    body_sections = _major_body_sections(_body_sections(sections, title_text))
+    section_accounting = _section_accounting(sections, title_text)
+    main_body_sections = section_accounting["main_body_sections"]
+    appendix_sections = section_accounting["appendix_sections"]
+    metadata_sections = section_accounting["metadata_sections"]
+    unplanned_main_body_sections = section_accounting[
+        "unplanned_main_body_sections"
+    ]
+    body_sections = [
+        *main_body_sections,
+        *unplanned_main_body_sections,
+    ]
+    main_body_section_count = len(main_body_sections)
+    appendix_section_count = len(appendix_sections)
+    metadata_section_count = len(metadata_sections)
+    total_heading_count = int(section_accounting["total_heading_count"])
+    main_body_word_count = sum(
+        int(section["word_count"]) for section in main_body_sections
+    )
+    appendix_word_count = sum(
+        int(section["word_count"]) for section in appendix_sections
+    )
+    main_body_avg_words_per_section = (
+        round(main_body_word_count / main_body_section_count, 1)
+        if main_body_section_count
+        else 0.0
+    )
     sections_too_short = [
         {"heading": section["heading"], "word_count": section["word_count"]}
         for section in body_sections
@@ -686,18 +754,60 @@ def lint_paper_bundle_summary(
         "provenance" in heading for heading in lower_headings
     )
     max_section_count_for_short_draft = 10
+    paper_body_heading_count = (
+        main_body_section_count + len(unplanned_main_body_sections)
+    )
     too_many_sections_for_length = (
-        word_count < min_words and section_count > max_section_count_for_short_draft
+        word_count < min_words
+        and paper_body_heading_count > max_section_count_for_short_draft
     )
-    nested_heading_count = sum(1 for section in body_sections if section["level"] > 2)
-    heading_fragmentation_detected = (
-        nested_heading_count > 0 or section_count > max_section_count_for_short_draft
+    nested_main_body_heading_count = sum(
+        1 for section in body_sections if section["level"] > 2
     )
-    severe_section_fragmentation = (
-        heading_fragmentation_detected
-        and word_count < min_words
-        and section_count > max_section_count_for_short_draft
+    placeholder_main_body_sections = [
+        section
+        for section in main_body_sections
+        if section["word_count"] == 0 or _contains_placeholder_text(section["body"])
+    ]
+    unplanned_main_body_headings = [
+        str(section["heading"]) for section in unplanned_main_body_sections
+    ]
+    standalone_central_message_detected = any(
+        str(section["heading"]).casefold() == "central message"
+        for section in metadata_sections
     )
+    central_message_merged = (
+        not standalone_central_message_detected
+        and _contains_any(lower_body_text, _CONTRIBUTION_LANGUAGE)
+    )
+    conclusion_section = next(
+        (
+            section
+            for section in main_body_sections
+            if _canonical_main_body_heading(str(section["heading"])) == "Conclusion"
+        ),
+        None,
+    )
+    conclusion_placeholder_like = bool(
+        conclusion_section is not None
+        and (
+            int(conclusion_section["word_count"]) == 0
+            or _contains_placeholder_text(str(conclusion_section["body"]))
+        )
+    )
+    main_body_heading_fragmentation_detected = bool(
+        unplanned_main_body_headings
+        or nested_main_body_heading_count
+        or main_body_section_count > len(CANONICAL_MAIN_SECTIONS) + 1
+        or standalone_central_message_detected
+    )
+    severe_section_fragmentation = bool(
+        unplanned_main_body_headings
+        or nested_main_body_heading_count
+        or main_body_section_count > len(CANONICAL_MAIN_SECTIONS) + 1
+        or len(placeholder_main_body_sections) >= 2
+    )
+    heading_fragmentation_detected = main_body_heading_fragmentation_detected
     placeholder_sections_detected = bool(empty_or_placeholder_sections)
     mostly_placeholder_sections = len(empty_or_placeholder_sections) >= max(
         1,
@@ -722,6 +832,9 @@ def lint_paper_bundle_summary(
         "title_is_grammatical_enough": title_is_grammatical_enough,
         "section_structure_coherent": section_structure_coherent,
         "section_fragmentation_detected": heading_fragmentation_detected,
+        "main_body_heading_fragmentation_detected": (
+            main_body_heading_fragmentation_detected
+        ),
         "placeholder_sections_detected": placeholder_sections_detected,
         "claim_evidence_appendix_present": not missing_claim_evidence_appendix,
         "provenance_appendix_present": not missing_provenance_appendix,
@@ -729,7 +842,9 @@ def lint_paper_bundle_summary(
             unsupported_external_claims_without_citations
         ),
     }
-    semantic_section_audit = _semantic_section_audit(_body_sections(sections, title_text))
+    semantic_section_audit = _semantic_section_audit(
+        _body_sections(sections, title_text)
+    )
 
     failure_reasons: list[str] = []
     development_warnings: list[str] = []
@@ -773,6 +888,19 @@ def lint_paper_bundle_summary(
         failure_reasons.append("Most body sections are empty or placeholder text.")
     if too_many_sections_for_length:
         development_warnings.append("Too many headings for the amount of content.")
+    elif appendix_section_count and total_heading_count > max_section_count_for_short_draft:
+        development_warnings.append(
+            "Appendices increase the total heading count but do not fragment the main body."
+        )
+    if standalone_central_message_detected:
+        development_warnings.append(
+            "A standalone Central Message heading should be consolidated into a planned section."
+        )
+    if conclusion_placeholder_like:
+        development_warnings.append(
+            "The conclusion appears placeholder-like and should synthesize the "
+            "bounded contribution."
+        )
     if severe_section_fragmentation:
         failure_reasons.append("Severe section fragmentation is present.")
     if missing_claim_evidence_appendix:
@@ -801,6 +929,13 @@ def lint_paper_bundle_summary(
         "word_count": word_count,
         "section_count": section_count,
         "average_words_per_section": average_words_per_section,
+        "main_body_section_count": main_body_section_count,
+        "appendix_section_count": appendix_section_count,
+        "metadata_section_count": metadata_section_count,
+        "total_heading_count": total_heading_count,
+        "main_body_word_count": main_body_word_count,
+        "appendix_word_count": appendix_word_count,
+        "main_body_avg_words_per_section": main_body_avg_words_per_section,
         "title_detected": title_text or None,
         "title_is_placeholder": title_is_placeholder,
         "abstract_present": abstract_present,
@@ -816,6 +951,16 @@ def lint_paper_bundle_summary(
         "missing_provenance_appendix": missing_provenance_appendix,
         "too_many_sections_for_length": too_many_sections_for_length,
         "heading_fragmentation_detected": heading_fragmentation_detected,
+        "main_body_heading_fragmentation_detected": (
+            main_body_heading_fragmentation_detected
+        ),
+        "appendix_headings_present": appendix_section_count > 0,
+        "unplanned_main_body_headings": unplanned_main_body_headings,
+        "standalone_central_message_detected": (
+            standalone_central_message_detected
+        ),
+        "central_message_merged": central_message_merged,
+        "conclusion_placeholder_like": conclusion_placeholder_like,
         "semantic_checks": semantic_checks,
         "semantic_section_audit": semantic_section_audit,
         "development_warnings": development_warnings,
@@ -900,6 +1045,73 @@ def _empty_manuscript_stats() -> dict[str, Any]:
         "citations_present": False,
         "citation_marker_count": 0,
     }
+
+
+def _section_accounting(
+    sections: list[dict[str, Any]],
+    title: object,
+) -> dict[str, Any]:
+    title_text = str(title or "")
+    body_sections = _body_sections(sections, title_text)
+    main_body_sections: list[dict[str, Any]] = []
+    appendix_sections: list[dict[str, Any]] = []
+    metadata_sections: list[dict[str, Any]] = []
+    unplanned_main_body_sections: list[dict[str, Any]] = []
+    for section in body_sections:
+        heading = str(section["heading"])
+        heading_key = heading.casefold()
+        if _canonical_main_body_heading(heading) is not None:
+            main_body_sections.append(section)
+        elif any(fragment in heading_key for fragment in _APPENDIX_HEADING_FRAGMENTS):
+            appendix_sections.append(section)
+        elif heading_key in _METADATA_HEADING_TITLES:
+            metadata_sections.append(section)
+        else:
+            unplanned_main_body_sections.append(section)
+    return {
+        "main_body_sections": main_body_sections,
+        "appendix_sections": appendix_sections,
+        "metadata_sections": metadata_sections,
+        "unplanned_main_body_sections": unplanned_main_body_sections,
+        "main_body_section_count": len(main_body_sections),
+        "appendix_section_count": len(appendix_sections),
+        "metadata_section_count": len(metadata_sections),
+        "total_heading_count": len(sections),
+        "main_body_word_count": sum(
+            int(section["word_count"]) for section in main_body_sections
+        ),
+        "appendix_word_count": sum(
+            int(section["word_count"]) for section in appendix_sections
+        ),
+        "main_body_avg_words_per_section": (
+            round(
+                sum(int(section["word_count"]) for section in main_body_sections)
+                / len(main_body_sections),
+                1,
+            )
+            if main_body_sections
+            else 0.0
+        ),
+    }
+
+
+def _public_section_accounting(accounting: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: accounting[key]
+        for key in (
+            "main_body_section_count",
+            "appendix_section_count",
+            "metadata_section_count",
+            "total_heading_count",
+            "main_body_word_count",
+            "appendix_word_count",
+            "main_body_avg_words_per_section",
+        )
+    }
+
+
+def _canonical_main_body_heading(heading: str) -> str | None:
+    return _MAIN_BODY_HEADING_ALIASES.get(heading.strip().casefold())
 
 
 def _markdown_headings(markdown: str) -> list[str]:

@@ -77,6 +77,8 @@ def apply_safe_fake_revision(
             citation_registry=citation_registry,
         )
         patches.extend(action_patches)
+    revised, central_message_patches = _consolidate_central_message(revised)
+    patches.extend(central_message_patches)
     safety = validate_revision_safety(
         run_id=run_id,
         original_markdown=markdown,
@@ -333,12 +335,14 @@ def _apply_action(
     citation_registry: CitationRegistry | None,
 ) -> tuple[str, list[PaperRevisionPatch]]:
     if action == PaperRevisionActionKind.ADD_CENTRAL_MESSAGE:
-        return _ensure_section(
+        return _insert_after_heading(
             markdown,
-            heading="Central Message",
-            body=(
-                "This deterministic revision adds a placeholder central message. "
-                "It does not create evidence or upgrade any claim label."
+            "Claim and Evidence Boundaries",
+            (
+                "**Central message.** The bounded contribution of this draft is to "
+                "organize approved manuscript artifacts for human review while "
+                "preserving proof, experiment, citation, and publication-readiness "
+                "boundaries. This statement is manuscript context, not evidence."
             ),
             action=action,
         )
@@ -461,6 +465,24 @@ def _ensure_section(
     else:
         revised = markdown.rstrip() + insertion
     return revised, [_patch(action, "", insertion.strip(), f"inserted {heading} section")]
+
+
+def _consolidate_central_message(
+    markdown: str,
+) -> tuple[str, list[PaperRevisionPatch]]:
+    pattern = re.compile(r"^##\s+Central Message\s*$", flags=re.IGNORECASE | re.MULTILINE)
+    if not pattern.search(markdown):
+        return markdown, []
+    replacement = "**Central message.**"
+    revised = pattern.sub(replacement, markdown)
+    return revised, [
+        _patch(
+            PaperRevisionActionKind.ADD_CENTRAL_MESSAGE,
+            "## Central Message",
+            replacement,
+            "demoted standalone central-message heading into manuscript text",
+        )
+    ]
 
 
 def _insert_after_heading(

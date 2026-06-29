@@ -63,6 +63,21 @@ def test_fake_revision_inserts_bounded_literature_disclaimer() -> None:
     }
 
 
+def test_fake_revision_demotes_standalone_central_message_heading() -> None:
+    markdown = _safe_markdown()
+    report = critique_generated_paper(run_id="run-1", markdown=markdown)
+
+    result = apply_safe_fake_revision(
+        run_id="run-1",
+        markdown=markdown,
+        revision_plan=build_paper_revision_plan(report),
+    )
+
+    assert "## Central Message" not in result.revised_markdown
+    assert "**Central message.**" in result.revised_markdown
+    assert result.safety_report.safe
+
+
 def test_fake_revision_downgrades_retrieval_as_proof_language() -> None:
     report = critique_generated_paper(run_id="run-1", markdown=_unsafe_markdown())
     plan = build_paper_revision_plan(report)

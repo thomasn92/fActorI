@@ -342,7 +342,12 @@ def _narrative_findings(
 ) -> list[PaperCriticFinding]:
     lower = _normalized(markdown)
     findings: list[PaperCriticFinding] = []
-    if "## central message" not in lower or "central message unavailable" in lower:
+    central_message_present = (
+        "## central message" in lower
+        or "**central message." in lower
+        or "central contribution" in lower
+    )
+    if not central_message_present or "central message unavailable" in lower:
         findings.append(
             _finding(
                 PaperCriticFindingType.NARRATIVE_SHAPE_FINDING,

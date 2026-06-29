@@ -2588,7 +2588,9 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Primary draft: {primary_name}")
     typer.echo(f"Release: {release}")
     typer.echo(f"Safe repair: {safe_repair}")
-    typer.echo(f"Sections: {summary.get('section_count', 0)}")
+    typer.echo(f"Main-body sections: {summary.get('main_body_section_count', 0)}")
+    typer.echo(f"Appendix sections: {summary.get('appendix_section_count', 0)}")
+    typer.echo(f"Total headings: {summary.get('total_heading_count', 0)}")
     typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
     typer.echo(f"Citations: {citations}")
     typer.echo(f"Blocking issues: {blocking_count if blocking_count else 'none'}")
@@ -2671,10 +2673,18 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Paper quality: {summary['run_id']}")
     typer.echo(f"Status: {summary['quality_status']}")
     typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
-    typer.echo(f"Sections: {int(summary.get('section_count') or 0)}")
     typer.echo(
-        "Average words/section: "
-        f"{float(summary.get('average_words_per_section') or 0.0):.1f}"
+        "Main-body sections: "
+        f"{int(summary.get('main_body_section_count') or 0)}"
+    )
+    typer.echo(
+        "Appendix sections: "
+        f"{int(summary.get('appendix_section_count') or 0)}"
+    )
+    typer.echo(f"Total headings: {int(summary.get('total_heading_count') or 0)}")
+    typer.echo(
+        "Average main-body words/section: "
+        f"{float(summary.get('main_body_avg_words_per_section') or 0.0):.1f}"
     )
     typer.echo(f"Title: {title_state}")
     typer.echo(f"Citations: {citations}")

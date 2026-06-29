@@ -235,6 +235,16 @@ def test_safe_repair_writes_hashed_non_evidence_audit_artifact(tmp_path) -> None
         "revised-manuscript-draft"
     )
     assert result.artifact_bundle.revised_latex_artifact_id == "revised-paper"
+    revised_markdown = (
+        tmp_path / "runs/run-safe-repair/reports/revised-manuscript-draft.md"
+    ).read_text(encoding="utf-8")
+    assert "## Central Message" not in revised_markdown
+    assert "**Central message.**" in revised_markdown
+    lint = lint_paper_bundle_summary(run_id="run-safe-repair", root=tmp_path)
+    assert lint["main_body_section_count"] == 7
+    assert lint["appendix_section_count"] == 2
+    assert lint["standalone_central_message_detected"] is False
+    assert lint["central_message_merged"] is True
 
 
 def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:

@@ -460,8 +460,9 @@ uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001
 uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --json
 ```
 
-This compact summary prefers revised Markdown/LaTeX artifacts when present and reports section,
-word, citation, warning, blocking, safe-repair, and artifact-path details.
+This compact summary prefers revised Markdown/LaTeX artifacts when present and reports main-body,
+appendix, and total heading counts separately, plus word, citation, warning, blocking, safe-repair,
+and artifact-path details.
 
 Lint generated paper bundle draft quality without rerunning stages or creating artifacts:
 
@@ -473,10 +474,13 @@ uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 --jso
 The lint is separate from the release gate. It reports semantic checks first: problem statement,
 central contribution, method summary, evidence-boundary statement, limitations, provenance,
 unsupported claims, fake citations, fake empirical claims, title quality, and heading
-fragmentation. Word count, average section length, and section count remain development warnings
-for skeletal drafts, not standalone quality failures. Citation absence is a warning when no
-retrieval-backed sources exist and no unsupported external factual claims are made. The lint does
-not change release status, safety status, evidence labels, or publication-readiness flags.
+fragmentation. Main-body shape is evaluated separately from required appendices and repair
+metadata. A safe-repair central message is consolidated into a planned section rather than emitted
+as another top-level section, and a missing conclusion receives a bounded non-evidence synthesis
+that identifies future evidence-producing work. Word count, average section length, appendix
+headings, and citation absence remain development warnings for skeletal drafts, not standalone
+quality failures. The lint does not change release status, safety status, evidence labels, or
+publication-readiness flags.
 
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:

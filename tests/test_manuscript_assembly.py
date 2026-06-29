@@ -153,6 +153,30 @@ def test_unsafe_section_is_omitted_or_marked_in_markdown() -> None:
     assert report.sentence_salvage[0]["section_status"] == "replaced_by_safe_fallback"
 
 
+def test_unsafe_conclusion_uses_bounded_non_evidence_fallback() -> None:
+    draft, report = _assemble(
+        [
+            _section_result(
+                section_id="conclusion",
+                title="Conclusion",
+                safe=False,
+                reasons=["unsupported proof claim"],
+            )
+        ]
+    )
+
+    assert report.sections_replaced_by_safe_fallback == ["conclusion"]
+    conclusion = draft.markdown.split("## Conclusion", 1)[1].split(
+        "## Claim/Evidence Appendix",
+        1,
+    )[0]
+    assert "bounded contribution" in conclusion
+    assert "human review" in conclusion
+    assert "retrieval grounding" in conclusion
+    assert "independent human validation" in conclusion
+    assert "publication readiness" in conclusion
+
+
 def test_complete_markdown_draft_is_not_verification_evidence() -> None:
     draft, report = _assemble(_section_results())
 

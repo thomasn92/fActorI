@@ -88,6 +88,9 @@ def test_inspect_paper_bundle_with_revised_artifacts_is_read_only(tmp_path) -> N
     assert payload["line_count"] > 0
     assert payload["word_count"] > 0
     assert payload["section_count"] > 0
+    assert payload["main_body_section_count"] > 0
+    assert payload["appendix_section_count"] >= 2
+    assert payload["total_heading_count"] == payload["section_count"]
     assert payload["section_headings_detected"]
     assert payload["title_detected"]
     assert payload["safe_repair_applied_count"] >= 0
@@ -104,6 +107,9 @@ def test_inspect_paper_bundle_with_revised_artifacts_is_read_only(tmp_path) -> N
     assert "Primary draft: revised-manuscript-draft.md" in human_result.output
     assert "Release: ReadyForHumanReviewWithWarnings" in human_result.output
     assert "Safe repair: present" in human_result.output
+    assert "Main-body sections:" in human_result.output
+    assert "Appendix sections:" in human_result.output
+    assert "Total headings:" in human_result.output
     assert "Citations: absent" in human_result.output
     assert "Artifacts:" in human_result.output
     assert "- revised manuscript:" in human_result.output
@@ -242,11 +248,40 @@ def test_lint_paper_bundle_is_not_length_only(tmp_path) -> None:
     assert payload["semantic_checks"]["problem_statement_present"] is True
     assert payload["semantic_checks"]["central_contribution_present"] is True
     assert payload["semantic_checks"]["evidence_boundary_statement_present"] is True
+    assert payload["main_body_section_count"] == 5
+    assert payload["appendix_section_count"] == 2
+    assert payload["main_body_heading_fragmentation_detected"] is False
+    assert payload["appendix_headings_present"] is True
     assert payload["semantic_section_audit"]
     assert all(
         item["is_verification_evidence"] is False
         for item in payload["semantic_section_audit"]
     )
+
+
+def test_lint_paper_bundle_detects_standalone_central_message_as_metadata(
+    tmp_path,
+) -> None:
+    run_id = "lint-paper-central-message"
+    markdown = _short_semantically_complete_markdown(
+        include_citation=False
+    ).replace(
+        "## Claim and Evidence Boundaries",
+        "## Central Message\n\n"
+        "The central contribution of this draft remains bounded and non-evidential.\n\n"
+        "## Claim and Evidence Boundaries",
+    )
+    _write_paper_bundle_markdown(tmp_path, run_id=run_id, complete_markdown=markdown)
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["standalone_central_message_detected"] is True
+    assert payload["metadata_section_count"] == 1
+    assert payload["heading_fragmentation_detected"] is True
+    assert payload["main_body_section_count"] == 5
+    assert "Severe section fragmentation is present." not in payload[
+        "quality_failure_reasons"
+    ]
 
 
 def test_lint_paper_bundle_fails_missing_central_contribution(tmp_path) -> None:
