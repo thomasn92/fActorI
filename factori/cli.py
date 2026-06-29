@@ -2652,8 +2652,14 @@ def lint_paper_bundle_command(
 
 
 def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
-    issues = list(summary.get("issues") or [])
-    warnings = list(summary.get("warnings") or [])
+    failures = list(summary.get("quality_failure_reasons") or [])
+    development_warnings = list(
+        summary.get("development_warnings")
+        or summary.get("quality_warning_reasons")
+        or summary.get("warnings")
+        or []
+    )
+    semantic_checks = dict(summary.get("semantic_checks") or {})
     title_state = (
         "placeholder"
         if summary.get("title_is_placeholder")
@@ -2677,15 +2683,26 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{summary.get('paper_release_status') or 'unknown'}"
     )
     typer.echo("Publication ready: false")
-    typer.echo("Issues:")
-    if issues:
-        for issue in issues:
+    typer.echo("Semantic essentials:")
+    for key, label in (
+        ("problem_statement_present", "problem statement"),
+        ("central_contribution_present", "central contribution"),
+        ("method_summary_present", "method summary"),
+        ("evidence_boundary_statement_present", "evidence boundaries"),
+        ("limitations_present", "limitations"),
+        ("provenance_present", "provenance"),
+    ):
+        state = "present" if semantic_checks.get(key) else "missing"
+        typer.echo(f"- {label}: {state}")
+    typer.echo("Quality failures:")
+    if failures:
+        for issue in failures:
             typer.echo(f"- {issue}")
     else:
         typer.echo("- none")
-    if warnings:
-        typer.echo("Warnings:")
-        for warning in warnings:
+    if development_warnings:
+        typer.echo("Development warnings:")
+        for warning in development_warnings:
             typer.echo(f"- {warning}")
 
 

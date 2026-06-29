@@ -58,6 +58,34 @@ def test_prose_prompt_forbids_label_upgrades_and_invented_citations() -> None:
     assert "Do not upgrade Conjecture" in prompt.prompt_text
     assert "Do not invent bibliography keys or citations" in prompt.prompt_text
     assert "Do not edit the claim table or evidence classification" in prompt.prompt_text
+    assert "Do not add Markdown headings" in prompt.prompt_text
+
+
+def test_prose_prompt_includes_semantic_required_content_items() -> None:
+    contract = _section_contract()
+    contract = contract.model_copy(
+        update={
+            "section_title": "Claim and Evidence Boundaries",
+            "required_subsections": [
+                "Single bounded central contribution",
+                "Evidence boundary statement",
+            ],
+            "style_instructions": [
+                "State exactly one bounded central contribution.",
+                "Do not add Markdown headings inside the section body.",
+            ],
+        }
+    )
+    prompt = build_prose_section_prompt(
+        contract,
+        _claim_table(),
+        _evidence_map(),
+        _narrative_contract(),
+    )
+
+    assert "Single bounded central contribution" in prompt.prompt_text
+    assert "Evidence boundary statement" in prompt.prompt_text
+    assert "Do not add Markdown headings inside the section body" in prompt.prompt_text
 
 
 def test_forbidden_labels_exclude_only_allowed_claim_labels() -> None:

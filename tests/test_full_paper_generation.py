@@ -419,9 +419,18 @@ def test_quality_aware_generation_improves_lint_on_safe_fixture(tmp_path) -> Non
     assert lint["paper_release_status"] is None
     assert lint["release_status_unchanged"] is True
     assert lint["quality_status"] in {"DraftQualityPass", "DraftQualityWarnings"}
-    assert lint["word_count"] >= 1500
     assert 7 <= lint["section_count"] <= 10
     assert lint["title_is_placeholder"] is False
+    assert lint["semantic_checks"]["problem_statement_present"] is True
+    assert lint["semantic_checks"]["central_contribution_present"] is True
+    assert lint["semantic_checks"]["method_summary_present"] is True
+    assert lint["semantic_checks"]["evidence_boundary_statement_present"] is True
+    assert lint["semantic_checks"]["provenance_present"] is True
+    assert markdown.lower().count("central contribution") == 1
+    assert not any(
+        "main result is not stated" in finding.message
+        for finding in (result.critic_result.critic_report.findings if result.critic_result else [])
+    )
     assert "## Empirical Results and Discussion" not in markdown
     assert "## Bibliography" not in markdown
     assert "## Demonstration Status" in markdown

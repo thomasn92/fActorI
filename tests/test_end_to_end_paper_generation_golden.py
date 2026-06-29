@@ -130,7 +130,7 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
     assert release.report.is_verification_evidence is False
     assert release.report.critic_blocking_findings == 0
     assert release.report.critic_major_findings == 0
-    assert release.report.critic_warning_findings == 1
+    assert release.report.critic_warning_findings == 0
     assert release.report.findings == []
 
     bundle = generation.artifact_bundle

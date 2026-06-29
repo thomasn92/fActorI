@@ -60,10 +60,11 @@
 | 50 | Compact read-only generated paper bundle inspection summary | `full_paper_generation.py`, `cli.py` | `inspect-paper-bundle` | Reads existing Markdown/LaTeX/report artifacts only; prefers revised artifacts and summarizes sections, words, citations, warnings, blockers, safe-repair presence, and paths without mutating runs or creating evidence |
 | 51 | Deterministic read-only generated paper bundle quality lint | `full_paper_generation.py`, `cli.py` | `lint-paper-bundle` | Reads existing preferred Markdown draft artifacts only; reports draft-quality failures/warnings separately from release readiness and never mutates runs, creates evidence, or implies publication readiness |
 | 52 | Quality-aware manuscript planning and drafting constraints for less placeholder-like generated bundles | `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py` | `generate-paper`, `lint-paper-bundle` | Full-paper generation now uses a compact 7-section quality-aware plan, deterministic non-placeholder titles, no-evidence section pruning, and prose length/boundary guidance without changing release gates or evidence authority |
+| 52b | Semantic paper-quality gates for paper-shaped drafts | `full_paper_generation.py`, `manuscript_plan.py`, `manuscript_assembly.py`, `prose_contract.py`, `adapters/prose_prompts.py` | `lint-paper-bundle`, `generate-paper` | Quality lint now gates primarily on problem framing, one bounded central contribution, method summary, evidence boundaries, limitations, provenance, title quality, heading discipline, and fake-evidence absence; word count is only a skeletal-draft warning and release/safety status remains separate |
 
 ## Current Boundary
 
-Milestones through 51 implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 52b implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -129,7 +130,10 @@ short manuscripts, placeholder titles, missing citations, and missing appendices
 changes release/safety status, evidence labels, or publication-readiness flags.
 Full-paper generation now uses quality-aware manuscript planning by default: generated bundles use
 deterministic non-placeholder titles where possible, a smaller 7-section paper-shaped outline,
-section-level prose length guidance, no empirical-results section without experiment evidence, and
-no bibliography section when no retrieval-backed citation sources exist. These constraints improve
-draft usefulness only; they do not weaken release/safety gates, create citations, or imply
-publication readiness.
+section-level prose guidance, no empirical-results section without experiment evidence, and no
+bibliography section when no retrieval-backed citation sources exist. Semantic quality lint treats
+word count and section length as skeletal-draft warnings, while failures focus on missing problem
+framing, missing central contribution, missing method/evidence-boundary/limitation/provenance
+content, placeholder titles, heading fragmentation, fake citations, fake empirical claims, or
+unsupported uncited external facts. These constraints improve draft usefulness only; they do not
+weaken release/safety gates, create citations, or imply publication readiness.

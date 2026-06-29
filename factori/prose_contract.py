@@ -252,6 +252,7 @@ def build_prose_section_contract(
         ),
         style_instructions=[
             f"Target word range: {target_min_words}-{target_max_words} words.",
+            "Do not add Markdown headings inside the section body; the assembler owns headings.",
             "Use manuscript-draft prose, not final publication-ready prose.",
             "Preserve uncertainty, limitations, and fake-validator disclaimers.",
             "Avoid placeholder headings, placeholder body text, and generic section filler.",
@@ -325,6 +326,11 @@ def _section_specific_style_instructions(
 ) -> list[str]:
     lower = section_title.lower()
     instructions: list[str] = []
+    if "abstract" in lower:
+        instructions.append(
+            "Include the problem, bounded central contribution, evidence limitation, "
+            "and current status."
+        )
     if "introduction" in lower or "problem framing" in lower:
         instructions.append("Make the problem framing explicit in the first paragraph.")
         if has_citation_sources:
@@ -334,6 +340,11 @@ def _section_specific_style_instructions(
                 "State that no retrieval-backed citations are available rather than "
                 "inventing citations."
             )
+    if "claim" in lower or "evidence" in lower:
+        instructions.append(
+            "State exactly one bounded central contribution and make clear that it is "
+            "manuscript-quality context, not verification evidence."
+        )
     if "demonstration" in lower or "result" in lower:
         instructions.append(
             "Describe demonstration status as non-evidence unless linked experiment "
@@ -352,6 +363,15 @@ def _required_subsections(
 ) -> list[str]:
     lower = section_title.lower()
     required: list[str] = []
+    if "abstract" in lower:
+        required.extend(
+            [
+                "Problem statement",
+                "Central contribution",
+                "Evidence limitation",
+                "Current status",
+            ]
+        )
     if "introduction" in lower or "problem framing" in lower:
         required.append("Problem framing")
         required.append(
@@ -359,10 +379,18 @@ def _required_subsections(
             if has_citation_sources
             else "No retrieval-backed citations available"
         )
+    if "method" in lower or "model" in lower:
+        required.append("Mechanical method summary")
+    if "claim" in lower or "evidence" in lower:
+        required.append("Single bounded central contribution")
+        required.append("Evidence boundary statement")
     if ("demonstration" in lower or "result" in lower) and not has_experiment_evidence:
         required.append("No experiment evidence limitation")
     if "limitation" in lower:
         required.append("No publication-readiness claim")
+        required.append("Missing retrieval, proof, experiment, citation, and human validation")
+    if "conclusion" in lower:
+        required.append("Human-review-only status")
     return required
 
 

@@ -94,6 +94,74 @@ _GENERIC_HEADING_TITLES = frozenset(
         "bibliography",
     }
 )
+_PROBLEM_LANGUAGE = (
+    "problem framing",
+    "problem statement",
+    "research problem",
+    "the problem",
+)
+_CONTRIBUTION_LANGUAGE = (
+    "central contribution",
+    "contribution of this draft",
+    "this draft contributes",
+)
+_METHOD_LANGUAGE = (
+    "method summary",
+    "method",
+    "model",
+    "algorithm",
+    "approach",
+    "pipeline",
+    "mechanically",
+)
+_EVIDENCE_BOUNDARY_LANGUAGE = (
+    "evidence boundary",
+    "evidence boundaries",
+    "evidence-aware",
+    "not proof evidence",
+    "not verification evidence",
+    "cannot create evidence",
+    "does not create evidence",
+    "does not provide proof",
+    "does not provide empirical validation",
+)
+_LIMITATION_LANGUAGE = (
+    "limitation",
+    "not provide proof",
+    "not provide empirical validation",
+    "not publication readiness",
+    "unavailable",
+)
+_PROVENANCE_LANGUAGE = (
+    "provenance appendix",
+    "run id",
+    "artifact",
+    "ledger",
+    "audit context",
+)
+_FAKE_CITATION_PATTERNS = (
+    "[@fake",
+    "[@placeholder",
+    "[@todo",
+    "[@citation",
+)
+_FORBIDDEN_EMPIRICAL_PATTERNS = (
+    "empirically validated",
+    "provides empirical validation",
+    "demonstrates empirical validation",
+    "described as real-world empirical validation",
+    "described as real world empirical validation",
+    "real data validated",
+    "field validated",
+)
+_UNSUPPORTED_EXTERNAL_FACT_PATTERNS = (
+    "studies show",
+    "prior work shows",
+    "the literature shows",
+    "field data show",
+    "survey data show",
+    "according to",
+)
 
 
 @dataclass(frozen=True)
@@ -585,26 +653,31 @@ def lint_paper_bundle_summary(
     generic_heading_count = sum(
         1 for heading in headings if heading.casefold() in _GENERIC_HEADING_TITLES
     )
-    lower_markdown = markdown.casefold()
-    missing_problem_framing = not _contains_any(
-        lower_markdown,
-        (
-            "problem framing",
-            "problem statement",
-            "research problem",
-            "the problem",
-        ),
-    )
-    missing_method_summary = not _contains_any(
-        lower_markdown,
-        ("method summary", "method", "model", "algorithm", "approach"),
-    )
+    lower_body_text = _markdown_body_text(markdown).casefold()
     lower_headings = [heading.casefold() for heading in headings]
-    missing_limitations = not _contains_heading_or_text(
-        lower_headings,
-        lower_markdown,
-        "limitation",
+    problem_statement_present = _contains_any(lower_body_text, _PROBLEM_LANGUAGE)
+    central_contribution_present = _contains_any(
+        lower_body_text,
+        _CONTRIBUTION_LANGUAGE,
     )
+    method_summary_present = _contains_any(lower_body_text, _METHOD_LANGUAGE)
+    evidence_boundary_statement_present = _contains_any(
+        lower_body_text,
+        _EVIDENCE_BOUNDARY_LANGUAGE,
+    )
+    limitations_present = _contains_any(lower_body_text, _LIMITATION_LANGUAGE)
+    provenance_present = _contains_any(lower_body_text, _PROVENANCE_LANGUAGE)
+    unsupported_claims_absent = not _contains_any(
+        lower_body_text,
+        ("unsupported sentence", "unsupported assertion", "unsupported factual claim"),
+    )
+    fake_citations_absent = not _contains_any(lower_body_text, _FAKE_CITATION_PATTERNS)
+    fake_empirical_claims_absent = not _contains_any(
+        lower_body_text,
+        _FORBIDDEN_EMPIRICAL_PATTERNS,
+    )
+    title_is_non_placeholder = bool(title_text) and not title_is_placeholder
+    title_is_grammatical_enough = _title_is_grammatical_enough(title_text)
     missing_claim_evidence_appendix = not any(
         "claim/evidence" in heading or ("claim" in heading and "evidence" in heading)
         for heading in lower_headings
@@ -616,47 +689,111 @@ def lint_paper_bundle_summary(
     too_many_sections_for_length = (
         word_count < min_words and section_count > max_section_count_for_short_draft
     )
+    nested_heading_count = sum(1 for section in body_sections if section["level"] > 2)
+    heading_fragmentation_detected = (
+        nested_heading_count > 0 or section_count > max_section_count_for_short_draft
+    )
+    severe_section_fragmentation = (
+        heading_fragmentation_detected
+        and word_count < min_words
+        and section_count > max_section_count_for_short_draft
+    )
+    placeholder_sections_detected = bool(empty_or_placeholder_sections)
+    mostly_placeholder_sections = len(empty_or_placeholder_sections) >= max(
+        1,
+        len(body_sections) // 2,
+    )
+    section_structure_coherent = not severe_section_fragmentation
+    unsupported_external_claims_without_citations = (
+        citation_marker_count == 0
+        and _contains_any(lower_body_text, _UNSUPPORTED_EXTERNAL_FACT_PATTERNS)
+    )
+    semantic_checks = {
+        "problem_statement_present": problem_statement_present,
+        "central_contribution_present": central_contribution_present,
+        "method_summary_present": method_summary_present,
+        "evidence_boundary_statement_present": evidence_boundary_statement_present,
+        "limitations_present": limitations_present,
+        "provenance_present": provenance_present,
+        "unsupported_claims_absent": unsupported_claims_absent,
+        "fake_citations_absent": fake_citations_absent,
+        "fake_empirical_claims_absent": fake_empirical_claims_absent,
+        "title_is_non_placeholder": title_is_non_placeholder,
+        "title_is_grammatical_enough": title_is_grammatical_enough,
+        "section_structure_coherent": section_structure_coherent,
+        "section_fragmentation_detected": heading_fragmentation_detected,
+        "placeholder_sections_detected": placeholder_sections_detected,
+        "claim_evidence_appendix_present": not missing_claim_evidence_appendix,
+        "provenance_appendix_present": not missing_provenance_appendix,
+        "unsupported_external_claims_without_citations": (
+            unsupported_external_claims_without_citations
+        ),
+    }
+    semantic_section_audit = _semantic_section_audit(_body_sections(sections, title_text))
 
-    blocking_issues: list[str] = []
-    warnings: list[str] = []
+    failure_reasons: list[str] = []
+    development_warnings: list[str] = []
     if not markdown:
-        blocking_issues.append("No Markdown manuscript draft artifact was found.")
+        failure_reasons.append("No Markdown manuscript draft artifact was found.")
+    if not problem_statement_present:
+        failure_reasons.append("Problem statement is missing or not explicit.")
+    if not central_contribution_present:
+        failure_reasons.append("Central contribution is missing or not explicit.")
+    if not method_summary_present:
+        failure_reasons.append("Method or model summary is missing.")
+    if not evidence_boundary_statement_present:
+        failure_reasons.append("Evidence boundary statement is missing.")
+    if not limitations_present:
+        failure_reasons.append("Limitations are missing.")
+    if not provenance_present:
+        failure_reasons.append("Provenance statement or appendix is missing.")
+    if not unsupported_claims_absent:
+        failure_reasons.append("Unsupported assertive claim language is present.")
+    if not fake_citations_absent:
+        failure_reasons.append("Fake or placeholder citation markers are present.")
+    if not fake_empirical_claims_absent:
+        failure_reasons.append("Fake empirical or real-world validation language is present.")
+    if unsupported_external_claims_without_citations:
+        failure_reasons.append("External factual claims appear without citation markers.")
     if word_count < min_words:
-        blocking_issues.append("Draft is below minimum word count.")
+        development_warnings.append("Draft may be skeletal: below proxy word-count target.")
     if average_words_per_section < min_avg_words_per_section:
-        blocking_issues.append("Average words per section is below minimum.")
+        development_warnings.append("Sections may be underdeveloped by proxy word count.")
     if not title_text:
-        blocking_issues.append("Title is missing.")
+        failure_reasons.append("Title is missing.")
     elif title_is_placeholder:
-        blocking_issues.append("Title appears to be a placeholder.")
+        failure_reasons.append("Title appears to be a placeholder.")
+    elif not title_is_grammatical_enough:
+        development_warnings.append("Title may be grammatically weak.")
     if sections_too_short:
-        blocking_issues.append("One or more sections are below the minimum length.")
-    if empty_or_placeholder_sections:
-        blocking_issues.append("One or more sections are empty or placeholder text.")
+        development_warnings.append("One or more sections may be underdeveloped.")
+    if placeholder_sections_detected:
+        development_warnings.append("One or more sections are empty or placeholder-like.")
+    if mostly_placeholder_sections:
+        failure_reasons.append("Most body sections are empty or placeholder text.")
     if too_many_sections_for_length:
-        blocking_issues.append("Too many sections for draft length.")
-    if missing_problem_framing:
-        blocking_issues.append("Problem framing is missing or not explicit.")
-    if missing_method_summary:
-        blocking_issues.append("Method or model summary is missing.")
-    if missing_limitations:
-        blocking_issues.append("Limitations section is missing.")
+        development_warnings.append("Too many headings for the amount of content.")
+    if severe_section_fragmentation:
+        failure_reasons.append("Severe section fragmentation is present.")
     if missing_claim_evidence_appendix:
-        blocking_issues.append("Claim/evidence appendix is missing.")
+        failure_reasons.append("Claim/evidence appendix is missing.")
     if missing_provenance_appendix:
-        blocking_issues.append("Provenance appendix is missing.")
-    if citation_marker_count < min_citation_markers:
-        warnings.append("No citation markers found.")
+        failure_reasons.append("Provenance appendix is missing.")
+    if (
+        citation_marker_count < min_citation_markers
+        and not unsupported_external_claims_without_citations
+    ):
+        development_warnings.append("No citation markers found.")
 
-    issues = [*blocking_issues, *warnings]
+    issues = [*failure_reasons, *development_warnings]
     quality_status = (
         "DraftQualityFailed"
-        if blocking_issues
+        if failure_reasons
         else "DraftQualityWarnings"
-        if warnings
+        if development_warnings
         else "DraftQualityPass"
     )
-    quality_score = _quality_score(blocking_issues, warnings)
+    quality_score = _quality_score(failure_reasons, development_warnings)
     return {
         "run_id": run_id,
         "quality_status": quality_status,
@@ -672,15 +809,21 @@ def lint_paper_bundle_summary(
         "sections_too_short": sections_too_short,
         "empty_or_placeholder_sections": empty_or_placeholder_sections,
         "generic_heading_count": generic_heading_count,
-        "missing_problem_framing": missing_problem_framing,
-        "missing_method_summary": missing_method_summary,
-        "missing_limitations": missing_limitations,
+        "missing_problem_framing": not problem_statement_present,
+        "missing_method_summary": not method_summary_present,
+        "missing_limitations": not limitations_present,
         "missing_claim_evidence_appendix": missing_claim_evidence_appendix,
         "missing_provenance_appendix": missing_provenance_appendix,
         "too_many_sections_for_length": too_many_sections_for_length,
-        "blocking_quality_issues": blocking_issues,
+        "heading_fragmentation_detected": heading_fragmentation_detected,
+        "semantic_checks": semantic_checks,
+        "semantic_section_audit": semantic_section_audit,
+        "development_warnings": development_warnings,
+        "quality_failure_reasons": failure_reasons,
+        "quality_warning_reasons": development_warnings,
+        "blocking_quality_issues": failure_reasons,
         "issues": issues,
-        "warnings": warnings,
+        "warnings": development_warnings,
         "thresholds": {
             "min_words": min_words,
             "min_avg_words_per_section": min_avg_words_per_section,
@@ -815,6 +958,12 @@ def _markdown_sections(markdown: str) -> list[dict[str, Any]]:
     return sections
 
 
+def _markdown_body_text(markdown: str) -> str:
+    return "\n".join(
+        line for line in markdown.splitlines() if not line.strip().startswith("#")
+    )
+
+
 def _body_sections(
     sections: list[dict[str, Any]],
     title: str,
@@ -860,6 +1009,61 @@ def _title_is_placeholder(title: str) -> bool:
 def _contains_placeholder_text(text: str) -> bool:
     text_key = text.casefold()
     return any(pattern in text_key for pattern in _PLACEHOLDER_SECTION_PATTERNS)
+
+
+def _title_is_grammatical_enough(title: str) -> bool:
+    if not title:
+        return False
+    normalized = " ".join(title.split()).casefold()
+    if title.strip().endswith("?"):
+        return False
+    weak_patterns = (
+        " expose structure ",
+        " expose ",
+        " manuscript plan",
+        " bounded study of selected branch",
+    )
+    return not any(pattern in f" {normalized} " for pattern in weak_patterns)
+
+
+def _semantic_section_audit(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "section_name": str(section["heading"]),
+            "word_count": section["word_count"],
+            "contains_problem_language": _contains_any(
+                str(section["body"]).casefold(),
+                _PROBLEM_LANGUAGE,
+            ),
+            "contains_contribution_language": _contains_any(
+                str(section["body"]).casefold(),
+                _CONTRIBUTION_LANGUAGE,
+            ),
+            "contains_evidence_boundary_language": _contains_any(
+                str(section["body"]).casefold(),
+                _EVIDENCE_BOUNDARY_LANGUAGE,
+            ),
+            "contains_limitation_language": _contains_any(
+                str(section["body"]).casefold(),
+                _LIMITATION_LANGUAGE,
+            ),
+            "contains_provenance_language": _contains_any(
+                str(section["body"]).casefold(),
+                _PROVENANCE_LANGUAGE,
+            ),
+            "contains_forbidden_validation_language": _contains_any(
+                str(section["body"]).casefold(),
+                _FORBIDDEN_EMPIRICAL_PATTERNS,
+            ),
+            "contains_extra_headings": section["level"] > 2,
+            "placeholder_like": section["word_count"] == 0
+            or _contains_placeholder_text(str(section["body"])),
+            "is_verification_evidence": False,
+            "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
+        }
+        for section in sections
+    ]
 
 
 def _contains_any(text: str, phrases: tuple[str, ...]) -> bool:

@@ -293,6 +293,10 @@ The default drafting profile is quality-aware: it derives a non-placeholder titl
 uses a compact 7-section paper-shaped outline, gives prose contracts target word ranges and
 no-evidence boundary instructions, omits empirical-results sections without experiment evidence,
 and omits bibliography output when no retrieval-backed citations exist.
+Semantic content is preferred over padding: prose contracts ask for problem framing, one bounded
+central contribution, a mechanical method summary, evidence limitations, and provenance context.
+Generated section bodies should not add Markdown headings; the assembler owns headings and demotes
+nested generated headings so the planned paper shape remains coherent.
 
 Evaluate a generated bundle for internal human-review handoff readiness. This is not publication
 readiness, peer review, scientific validation, or evidence:
@@ -526,8 +530,13 @@ uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 \
 ```
 
 The lint reports `DraftQualityFailed`, `DraftQualityWarnings`, or `DraftQualityPass` as a draft
-quality diagnostic only. It does not change generated-paper release status, safety status,
-evidence labels, human-review readiness, or publication-readiness flags.
+quality diagnostic only. It now treats word count as a skeletal-draft proxy and gates primarily on
+semantic essentials: problem statement, central contribution, method summary, evidence-boundary
+statement, limitations, provenance, absence of fake citations, and absence of fake empirical or
+unsupported external factual claims. Missing citations are a warning when no retrieval sources are
+available and no unsupported external facts are claimed. The command does not change generated-paper
+release status, safety status, evidence labels, human-review readiness, or publication-readiness
+flags.
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:

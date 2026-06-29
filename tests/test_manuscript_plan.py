@@ -124,7 +124,7 @@ def test_quality_aware_plan_avoids_placeholder_title() -> None:
 
     plan = build_manuscript_plan(final_nucleus, claim_table)
 
-    assert plan.title == "Bounded Study of Transport Costs Bound Neighborhood Flows?"
+    assert plan.title == "Bounded Study of Transport Costs Bound Neighborhood Flows"
     assert plan.title not in {
         "Deterministic Branch Manuscript Plan",
         "Untitled",
@@ -132,6 +132,31 @@ def test_quality_aware_plan_avoids_placeholder_title() -> None:
         "Draft",
         "Paper",
     }
+
+
+def test_quality_aware_title_cleans_weak_question_fragment() -> None:
+    final_nucleus = _branch_nucleus()
+    claim_table = ClaimTable(
+        final_nucleus_id=final_nucleus.id,
+        claims=[
+            _claim(
+                "claim-ok",
+                VerificationLabel.CONJECTURE,
+                "Theory",
+                [],
+                text=(
+                    "For the selected branch, candidate candidate-a remains a conjecture: "
+                    "How can optimal transport expose structure in human geography?"
+                ),
+            )
+        ],
+    )
+
+    plan = build_manuscript_plan(final_nucleus, claim_table)
+
+    assert plan.title == "Optimal Transport for Bounded Structure Analysis in Human Geography"
+    assert not plan.title.endswith("?")
+    assert "Expose Structure" not in plan.title
 
 
 def test_quality_aware_plan_reduces_section_count_for_no_evidence_drafts() -> None:

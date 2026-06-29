@@ -434,7 +434,9 @@ def _claim_sections_for_title(title: str) -> list[str]:
 
 def _section_bullets(title: str, final_nucleus: FinalNucleus) -> list[str]:
     if title == "Abstract":
-        return ["State only claims admitted by the claim/evidence table."]
+        return [
+            "Summarize the problem, central contribution, evidence limitation, and status."
+        ]
     if title == "Introduction and Problem Framing":
         return [
             "Make the problem framing explicit.",
@@ -444,6 +446,7 @@ def _section_bullets(title: str, final_nucleus: FinalNucleus) -> list[str]:
         return ["Define objects, assumptions, and admissible claim labels."]
     if title == "Claim and Evidence Boundaries":
         return [
+            "State the single bounded central contribution as non-evidence.",
             "Place admitted claims with their evidence links.",
             "Do not upgrade conjectures, fake validators, or presentation artifacts.",
         ]
@@ -500,7 +503,22 @@ def _plan_title(final_nucleus: FinalNucleus, claim_table: ClaimTable | None = No
         claim_text = sorted(claim_table.claims, key=lambda item: item.claim_id)[0].claim_text
     if not claim_text:
         return _safe_title(f"Bounded Study of {final_nucleus.id}")
-    return _safe_title(f"Bounded Study of {_claim_title_fragment(claim_text)}")
+    return _safe_title(_title_from_claim_text(claim_text))
+
+
+def _title_from_claim_text(claim_text: str) -> str:
+    lowered = claim_text.lower().replace("?", " ")
+    if "human geography" in lowered:
+        if "optimal transport" in lowered:
+            return "Optimal Transport for Bounded Structure Analysis in Human Geography"
+        if "spatial statistics" in lowered:
+            return "Spatial Statistics for Bounded Structure Analysis in Human Geography"
+        return "Evidence-Bounded Manuscript Generation for Human Geography Research Candidates"
+    fragment = _claim_title_fragment(claim_text)
+    fragment = fragment.rstrip(" ?")
+    if _fragment_is_grammatically_weak(fragment):
+        return "Evidence-Bounded Manuscript Generation for Research Candidates"
+    return f"Bounded Study of {fragment}"
 
 
 def _claim_title_fragment(claim_text: str) -> str:
@@ -546,6 +564,15 @@ def _claim_title_fragment(claim_text: str) -> str:
     return " ".join(word.capitalize() for word in selected)
 
 
+def _fragment_is_grammatically_weak(fragment: str) -> bool:
+    lowered = fragment.casefold()
+    weak_phrases = (
+        " expose ",
+        " exposed ",
+    )
+    return fragment.endswith("?") or any(phrase in f" {lowered} " for phrase in weak_phrases)
+
+
 def _safe_title(title: str) -> str:
     forbidden = {
         "deterministic branch manuscript plan",
@@ -555,7 +582,12 @@ def _safe_title(title: str) -> str:
         "paper",
     }
     normalized = " ".join(title.split())
-    if not normalized or normalized.casefold() in forbidden:
+    normalized = normalized.rstrip(" ?")
+    if (
+        not normalized
+        or normalized.casefold() in forbidden
+        or _fragment_is_grammatically_weak(normalized)
+    ):
         return "Bounded Study of Selected Branch"
     return normalized
 

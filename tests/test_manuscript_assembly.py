@@ -67,6 +67,22 @@ def test_no_fake_bibliography_is_rendered_without_retrieval_sources() -> None:
     assert "No retrieval-backed citations are available" not in draft.markdown
 
 
+def test_assembly_demotes_generated_nested_headings() -> None:
+    draft, _report = _assemble(
+        [
+            _section_result(
+                section_id="introduction",
+                title="Introduction and Problem Framing",
+                markdown="### Extra Heading\n\nSubstantive paragraph.",
+            )
+        ]
+    )
+
+    assert "### Extra Heading" not in draft.markdown
+    assert "**Extra Heading.**" in draft.markdown
+    assert "Substantive paragraph." in draft.markdown
+
+
 def test_assembly_includes_citation_bibliography_and_literature_limitations() -> None:
     narrative = _narrative_contract()
     registry = _citation_registry()
@@ -182,11 +198,13 @@ def _section_result(
     *,
     safe: bool = True,
     reasons: list[str] | None = None,
+    markdown: str | None = None,
 ) -> SectionDraftingResult:
     draft = GeneratedSectionDraft(
         section_id=section_id,
         title=title,
-        content=f"[FAKE PROSE DRAFT] section_id={section_id}; No label is upgraded.",
+        content=markdown
+        or f"[FAKE PROSE DRAFT] section_id={section_id}; No label is upgraded.",
         claim_ids=[],
         used_claim_ids=[],
         used_evidence_artifact_ids=[],

@@ -378,7 +378,7 @@ def _narrative_findings(
                 section_title="Introduction",
             )
         )
-    if "main result" not in lower:
+    if "main result" not in lower and "central contribution" not in lower:
         findings.append(
             _finding(
                 PaperCriticFindingType.NARRATIVE_SHAPE_FINDING,

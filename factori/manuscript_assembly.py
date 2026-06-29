@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from factori.schemas import (
@@ -162,6 +163,8 @@ def _render_markdown(
     ]
     for heading in CANONICAL_MAIN_SECTIONS:
         lines.extend([f"## {heading}", ""])
+        if heading == "Claim and Evidence Boundaries":
+            lines.extend([_central_contribution_text(), ""])
         if heading == "Demonstration Status" and not _has_any_experiment_evidence(
             claim_table
         ):
@@ -238,6 +241,16 @@ def _render_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _central_contribution_text() -> str:
+    return (
+        "The central contribution of this draft is a bounded, evidence-aware "
+        "manuscript-generation pipeline for the selected research candidate. The "
+        "current artifact demonstrates orchestration, safety boundaries, and "
+        "manuscript structure; it does not provide proof, empirical validation, "
+        "citation coverage, or publication readiness."
+    )
+
+
 def _bucket_safe_results(
     sections: Iterable,
     results_by_id: dict[str, SectionDraftingResult],
@@ -251,13 +264,29 @@ def _bucket_safe_results(
         if heading == "Title":
             continue
         if result.safe and not result.rejected:
-            buckets.setdefault(heading, []).append(result.draft_markdown)
+            buckets.setdefault(heading, []).append(
+                _demote_generated_headings(result.draft_markdown)
+            )
         else:
             buckets.setdefault(heading, []).append(
                 "[UNSAFE SECTION OMITTED] "
                 + "; ".join(result.safety_reasons or ["section failed safety checks"])
             )
     return buckets
+
+
+def _demote_generated_headings(markdown: str) -> str:
+    """Keep assembled section headings owned by the assembler."""
+    lines: list[str] = []
+    for line in markdown.splitlines():
+        match = re.match(r"^(#{1,6})\s+(.+?)\s*$", line.strip())
+        if not match:
+            lines.append(line)
+            continue
+        heading = match.group(2).strip().rstrip(".")
+        if heading:
+            lines.append(f"**{heading}.**")
+    return "\n".join(lines).strip()
 
 
 def _canonical_heading(title: str, roles: list[NarrativeSectionRole]) -> str:

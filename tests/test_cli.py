@@ -182,11 +182,13 @@ def test_lint_paper_bundle_fails_placeholder_short_draft_read_only(tmp_path) -> 
     assert payload["too_many_sections_for_length"] is True
     assert payload["publication_ready"] is False
     assert payload["is_verification_evidence"] is False
-    assert "Draft is below minimum word count." in payload["issues"]
+    assert "Draft may be skeletal: below proxy word-count target." in payload["warnings"]
     assert "Title appears to be a placeholder." in payload["issues"]
-    assert "Too many sections for draft length." in payload["issues"]
+    assert "Severe section fragmentation is present." in payload["issues"]
+    assert "Too many headings for the amount of content." in payload["warnings"]
     assert "No citation markers found." in payload["issues"]
     assert "No citation markers found." in payload["warnings"]
+    assert payload["semantic_checks"]["central_contribution_present"] is False
 
     human_result = CliRunner().invoke(
         app,
@@ -198,7 +200,8 @@ def test_lint_paper_bundle_fails_placeholder_short_draft_read_only(tmp_path) -> 
     assert "Status: DraftQualityFailed" in human_result.output
     assert "Title: placeholder" in human_result.output
     assert "Citations: absent" in human_result.output
-    assert "Issues:" in human_result.output
+    assert "Semantic essentials:" in human_result.output
+    assert "Quality failures:" in human_result.output
     assert _run_file_snapshot(tmp_path, run_id) == before
 
 
@@ -217,6 +220,97 @@ def test_lint_paper_bundle_warns_on_missing_citations(tmp_path) -> None:
     assert payload["blocking_quality_issues"] == []
     assert payload["warnings"] == ["No citation markers found."]
     assert "No citation markers found." in payload["issues"]
+    assert payload["semantic_checks"]["central_contribution_present"] is True
+
+
+def test_lint_paper_bundle_is_not_length_only(tmp_path) -> None:
+    run_id = "lint-paper-short-semantic"
+    _write_paper_bundle_markdown(
+        tmp_path,
+        run_id=run_id,
+        complete_markdown=_short_semantically_complete_markdown(include_citation=False),
+    )
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["word_count"] < payload["thresholds"]["min_words"]
+    assert payload["quality_status"] == "DraftQualityWarnings"
+    assert payload["quality_failure_reasons"] == []
+    assert "Draft may be skeletal: below proxy word-count target." in payload[
+        "development_warnings"
+    ]
+    assert payload["semantic_checks"]["problem_statement_present"] is True
+    assert payload["semantic_checks"]["central_contribution_present"] is True
+    assert payload["semantic_checks"]["evidence_boundary_statement_present"] is True
+    assert payload["semantic_section_audit"]
+    assert all(
+        item["is_verification_evidence"] is False
+        for item in payload["semantic_section_audit"]
+    )
+
+
+def test_lint_paper_bundle_fails_missing_central_contribution(tmp_path) -> None:
+    run_id = "lint-paper-missing-contribution"
+    markdown = _short_semantically_complete_markdown(include_citation=False).replace(
+        "The central contribution of this draft",
+        "The internal package",
+    )
+    _write_paper_bundle_markdown(tmp_path, run_id=run_id, complete_markdown=markdown)
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["quality_status"] == "DraftQualityFailed"
+    assert "Central contribution is missing or not explicit." in payload[
+        "quality_failure_reasons"
+    ]
+
+
+def test_lint_paper_bundle_fails_missing_problem_statement(tmp_path) -> None:
+    run_id = "lint-paper-missing-problem"
+    markdown = _short_semantically_complete_markdown(include_citation=False).replace(
+        "problem statement",
+        "setup note",
+    ).replace("research problem", "research setting")
+    _write_paper_bundle_markdown(tmp_path, run_id=run_id, complete_markdown=markdown)
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["quality_status"] == "DraftQualityFailed"
+    assert "Problem statement is missing or not explicit." in payload[
+        "quality_failure_reasons"
+    ]
+
+
+def test_lint_paper_bundle_fails_fake_empirical_claim(tmp_path) -> None:
+    run_id = "lint-paper-fake-empirical"
+    markdown = (
+        _short_semantically_complete_markdown(include_citation=False)
+        + "\nThe pipeline is empirically validated for real-world deployment.\n"
+    )
+    _write_paper_bundle_markdown(tmp_path, run_id=run_id, complete_markdown=markdown)
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["quality_status"] == "DraftQualityFailed"
+    assert "Fake empirical or real-world validation language is present." in payload[
+        "quality_failure_reasons"
+    ]
+
+
+def test_lint_paper_bundle_fails_external_facts_without_citations(tmp_path) -> None:
+    run_id = "lint-paper-uncited-fact"
+    markdown = (
+        _short_semantically_complete_markdown(include_citation=False)
+        + "\nStudies show that this external setting is already established.\n"
+    )
+    _write_paper_bundle_markdown(tmp_path, run_id=run_id, complete_markdown=markdown)
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["quality_status"] == "DraftQualityFailed"
+    assert "External factual claims appear without citation markers." in payload[
+        "quality_failure_reasons"
+    ]
 
 
 def test_lint_paper_bundle_passes_acceptable_synthetic_fixture(tmp_path) -> None:
@@ -255,6 +349,7 @@ def test_lint_paper_bundle_prefers_revised_artifact(tmp_path) -> None:
     )
     assert payload["quality_status"] == "DraftQualityFailed"
     assert payload["title_is_placeholder"] is True
+    assert payload["heading_fragmentation_detected"] is True
 
 
 def test_lint_paper_bundle_missing_run_gives_clear_error(tmp_path) -> None:
@@ -374,6 +469,11 @@ def _acceptable_markdown(*, include_citation: bool) -> str:
             "This introduction gives problem framing for the research problem"
             f"{citation}",
         ),
+        (
+            "Central Contribution",
+            "The central contribution of this draft is a bounded manuscript "
+            "pipeline for human review only",
+        ),
         ("Problem Framing", "The problem statement explains why the setting matters"),
         ("Method Summary", "The method summary describes the model and approach"),
         ("Results", "The results section reports only supported internal findings"),
@@ -401,3 +501,31 @@ def _repeated_quality_paragraph(seed: str) -> str:
         "and provenance context for human review only."
     )
     return " ".join(sentence for _ in range(8))
+
+
+def _short_semantically_complete_markdown(*, include_citation: bool) -> str:
+    citation = " [@Smith2024]" if include_citation else ""
+    return (
+        "# Evidence-Bounded Manuscript Generation for Human Geography Research Candidates\n\n"
+        "## Abstract\n"
+        "The problem statement is to turn bounded research candidates into safe manuscript "
+        "drafts. The central contribution of this draft is a deterministic manuscript package "
+        "with evidence boundary checks. It is not proof evidence and does not provide "
+        "empirical validation.\n\n"
+        "## Introduction and Problem Framing\n"
+        f"The research problem is manuscript usefulness under strict evidence limits{citation}. "
+        "No retrieval-backed citations are invented.\n\n"
+        "## Method and Model\n"
+        "The method summary describes a pipeline that assembles approved section drafts, "
+        "claim links, and audit context mechanically.\n\n"
+        "## Claim and Evidence Boundaries\n"
+        "The evidence boundary statement is that generated prose cannot create evidence, "
+        "upgrade labels, or imply publication readiness.\n\n"
+        "## Limitations\n"
+        "Limitations include missing retrieval coverage, proof validation, experiment evidence, "
+        "citation coverage, and human validation.\n\n"
+        "## Claim/Evidence Appendix\n"
+        "- `claim-main`: evidence artifacts are context only.\n\n"
+        "## Provenance Appendix\n"
+        "- Run ID: `run-1`; artifact and ledger audit context remain non-evidence.\n"
+    )

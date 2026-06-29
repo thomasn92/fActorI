@@ -302,6 +302,11 @@ compact paper-shaped outline, derives a non-placeholder title from the selected 
 context when possible, gives each prose section target word-range guidance, omits empirical-results
 sections when no experiment evidence exists, and omits bibliography output when there are no
 retrieval-backed citation records.
+The profile now treats word count as a skeletal-draft proxy rather than a quality target: section
+contracts require semantic content such as problem framing, one bounded central contribution,
+method summary, evidence boundaries, limitations, and provenance. The assembler owns Markdown
+headings, demotes generated nested headings inside section bodies, and title cleanup avoids weak
+forms such as trailing question titles or method/domain fragments.
 
 `evaluate-paper-release` checks a generated bundle for internal human-review handoff readiness:
 
@@ -457,10 +462,13 @@ uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001
 uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 --json
 ```
 
-The lint is separate from the release gate. It reports deterministic draft-quality issues such as
-short manuscripts, placeholder titles, sparse sections, missing citations, missing limitations, and
-missing claim/evidence or provenance appendices. It does not change release status, safety status,
-evidence labels, or publication-readiness flags.
+The lint is separate from the release gate. It reports semantic checks first: problem statement,
+central contribution, method summary, evidence-boundary statement, limitations, provenance,
+unsupported claims, fake citations, fake empirical claims, title quality, and heading
+fragmentation. Word count, average section length, and section count remain development warnings
+for skeletal drafts, not standalone quality failures. Citation absence is a warning when no
+retrieval-backed sources exist and no unsupported external factual claims are made. The lint does
+not change release status, safety status, evidence labels, or publication-readiness flags.
 
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:

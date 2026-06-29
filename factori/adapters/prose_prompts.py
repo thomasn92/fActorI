@@ -52,6 +52,7 @@ FORBIDDEN_PROSE_OUTPUTS = [
     "Do not use citations as proof or experiment evidence.",
     "Do not claim empirical or real-world validation from synthetic evidence.",
     "Do not edit the claim table or evidence classification.",
+    "Do not add Markdown headings; return paragraphs for the requested section body only.",
 ]
 
 EVIDENCE_BOUNDARY_INSTRUCTIONS = [
@@ -102,6 +103,10 @@ def build_prose_section_prompt(
     }
     prompt_payload = {
         "task": "Draft prose only for the requested manuscript section.",
+        "heading_policy": (
+            "Do not include Markdown headings in draft_markdown. The assembler owns all "
+            "paper headings and will place this section body under the planned heading."
+        ),
         "section_contract": section_contract.model_dump(mode="json"),
         "allowed_claims": allowed_claims,
         "evidence_map": {
