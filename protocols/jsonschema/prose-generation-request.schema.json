@@ -160,6 +160,15 @@
           "title": "Citation Boundary Instructions",
           "type": "array"
         },
+        "citation_policy": {
+          "default": "none",
+          "enum": [
+            "none",
+            "registry-only"
+          ],
+          "title": "Citation Policy",
+          "type": "string"
+        },
         "creates_scientific_validation": {
           "default": false,
           "title": "Creates Scientific Validation",
@@ -290,7 +299,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.14.0/prose-generation-request.schema.json",
+  "$id": "https://schemas.factori.local/0.15.0/prose-generation-request.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider-neutral one-section prose generation request.",
@@ -353,7 +362,7 @@
   ],
   "title": "ProseGenerationRequest",
   "type": "object",
-  "x-factori-protocol-version": "0.14.0",
+  "x-factori-protocol-version": "0.15.0",
   "x-factori-source-model": "factori.schemas.ProseGenerationRequest",
   "x-factori-verification-evidence": false
 }

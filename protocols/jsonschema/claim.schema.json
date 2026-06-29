@@ -16,7 +16,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.14.0/claim.schema.json",
+  "$id": "https://schemas.factori.local/0.15.0/claim.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One label-preserving research claim.",
@@ -79,7 +79,7 @@
   ],
   "title": "Claim",
   "type": "object",
-  "x-factori-protocol-version": "0.14.0",
+  "x-factori-protocol-version": "0.15.0",
   "x-factori-source-model": "factori.schemas.Claim",
   "x-factori-verification-evidence": false
 }

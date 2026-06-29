@@ -271,6 +271,33 @@ uv run factori revise-paper --run-id demo \
   --apply-safe-fake-revision --write-report
 ```
 
+Deterministic bounded citation-registry smoke, with no network or external API:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id local-citation-registry-smoke-001 \
+  --domain "human geography" \
+  --llm-scope full-paper \
+  --candidate-backend fake \
+  --reviewer-backend fake \
+  --prose-backend fake \
+  --enable-retrieval \
+  --retrieval-backend fake \
+  --max-retrieval-sources 5 \
+  --citation-policy registry-only \
+  --generate-paper \
+  --enable-safe-repair \
+  --write-report \
+  --json
+```
+
+Retrieval remains disabled by default. With no populated registry, citation policy is `none` and
+missing citations remain a quality warning. With retrieval enabled, citation policy is
+`registry-only`: generated prose may use only persisted registry keys, bibliography entries come
+only from registry metadata, and fixture records are marked `source_status=fixture`. Citations are
+literature context only, not proof, experiment evidence, novelty validation, literature
+completeness, or publication readiness.
+
 Full-paper generation is an orchestration over the existing non-evidence manuscript workflow. By
 default it builds or reuses citation registry/literature positioning artifacts, drafts the Markdown
 manuscript, exports LaTeX, and runs the paper critic. Revision requires

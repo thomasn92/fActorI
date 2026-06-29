@@ -83,7 +83,7 @@ class names may differ from stable protocol names; each schema records its sourc
 The schema package preserves historical `factori.schemas.<ModelName>` source-model paths for
 protocol stability even though definitions live in grouped internal modules.
 
-Protocol version `0.13.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
+Protocol version `0.15.0` exports top-level run-control, adapter I/O, manifest, output, narrative,
 prose, citation/literature-positioning, manuscript drafting, LaTeX export/render,
 paper-critic/revision, full-paper generation/release, LLM orchestration/budget accounting, and enum contracts. Timestamp fields such as `timestamp`, `started_at`,
 `finished_at`, `created_at`, and `retrieved_at` are emitted with JSON Schema `format: date-time`.
@@ -181,6 +181,9 @@ scientific-validation evidence.
 When citation support is requested, section contracts also carry allowed citation keys and bounded
 literature-positioning context. The citation-safety layer rejects unknown citation keys, invented
 bibliography entries, exhaustive-coverage claims, and retrieval-as-novelty-proof language.
+Explicit `run-llm-paper` retrieval writes bounded source metadata before drafting and changes the
+effective citation policy to `registry-only`. The deterministic fake backend marks every source as
+a fixture and performs no network access; fixture citations test provenance plumbing only.
 
 The LaTeX export layer converts complete Markdown manuscript drafts into deterministic
 presentation/export artifacts: `paper.tex`, bibliography placeholders, source maps, safety reports,

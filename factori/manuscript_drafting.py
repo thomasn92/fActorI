@@ -201,6 +201,7 @@ def draft_manuscript(
     prose_generator,
     write_report: bool = False,
     include_citations: bool = False,
+    max_citation_sources: int | None = None,
     max_words: int = 160,
 ) -> ManuscriptDraftingRunResult:
     """Draft all manuscript sections and optionally persist presentation artifacts."""
@@ -208,7 +209,11 @@ def draft_manuscript(
     citation_registry = None
     literature_positioning_report = None
     if include_citations:
-        citation_registry = build_citation_registry_from_ledger(run_id, ledger)
+        citation_registry = build_citation_registry_from_ledger(
+            run_id,
+            ledger,
+            max_sources=max_citation_sources,
+        )
         literature_positioning_report = build_literature_positioning_report(
             run_id=run_id,
             citation_registry=citation_registry,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -49,6 +49,7 @@ class ProseSectionContract(StrictModel):
     allowed_evidence_artifact_ids: list[str] = Field(default_factory=list)
     allowed_citation_ids: list[str] = Field(default_factory=list)
     allowed_citation_keys: list[str] = Field(default_factory=list)
+    citation_policy: Literal["none", "registry-only"] = "none"
     allowed_statement_classes: list[str] = Field(default_factory=list)
     forbidden_claims: list[str] = Field(default_factory=list)
     forbidden_labels: list[VerificationLabel] = Field(default_factory=list)
@@ -349,6 +350,10 @@ class LLMOrchestrationConfig(StrictModel):
     generate_paper: bool = True
     evaluate_release: bool = True
     include_citations: bool = True
+    enable_retrieval: bool = False
+    retrieval_backend: str = "fake"
+    max_retrieval_sources: int = Field(default=5, ge=1, le=100)
+    citation_policy: Literal["none", "registry-only"] = "none"
     export_latex: bool = True
     critique: bool = True
     revise: bool = False

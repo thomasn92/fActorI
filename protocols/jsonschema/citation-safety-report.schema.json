@@ -40,7 +40,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.14.0/citation-safety-report.schema.json",
+  "$id": "https://schemas.factori.local/0.15.0/citation-safety-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Citation-safety report for manuscript drafts.",
@@ -49,6 +49,26 @@
       "default": 0,
       "minimum": 0,
       "title": "Bibliography Entries Count",
+      "type": "integer"
+    },
+    "bibliography_registry_backed": {
+      "default": false,
+      "title": "Bibliography Registry Backed",
+      "type": "boolean"
+    },
+    "citation_policy": {
+      "default": "none",
+      "enum": [
+        "none",
+        "registry-only"
+      ],
+      "title": "Citation Policy",
+      "type": "string"
+    },
+    "citation_registry_source_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Citation Registry Source Count",
       "type": "integer"
     },
     "citation_usages": {
@@ -61,6 +81,11 @@
     "creates_scientific_validation": {
       "default": false,
       "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
       "type": "boolean"
     },
     "invented_bibliography_keys": {
@@ -87,6 +112,12 @@
       "title": "Reasons",
       "type": "array"
     },
+    "registry_backed_citation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Registry Backed Citation Count",
+      "type": "integer"
+    },
     "rejected": {
       "title": "Rejected",
       "type": "boolean"
@@ -105,6 +136,13 @@
         "type": "string"
       },
       "title": "Unknown Citation Keys",
+      "type": "array"
+    },
+    "unregistered_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unregistered Citation Keys",
       "type": "array"
     },
     "used_citation_ids": {
@@ -136,7 +174,7 @@
   ],
   "title": "CitationSafetyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.14.0",
+  "x-factori-protocol-version": "0.15.0",
   "x-factori-source-model": "factori.schemas.CitationSafetyReport",
   "x-factori-verification-evidence": false
 }

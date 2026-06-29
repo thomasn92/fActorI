@@ -43,6 +43,10 @@ from factori.persistence import (
     PersistenceResult,
     persist_artifacts_with_commit,
 )
+from factori.retrieval import (
+    run_fixture_retrieval_with_provenance,
+    run_retrieval_with_provenance,
+)
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
@@ -141,6 +145,14 @@ def run_llm_paper_orchestration(
     normalized_scope = _normalize_llm_scope(llm_scope)
     enable_safe_repair = enable_safe_repair and normalized_scope == _LLM_SCOPE_FULL_PAPER
     config = _effective_config_for_scope(config, normalized_scope)
+    if config.enable_retrieval:
+        config = config.model_copy(
+            update={"citation_policy": "registry-only", "include_citations": True}
+        )
+    elif config.citation_policy != "none":
+        raise LLMOrchestrationError(
+            "citation_policy=registry-only requires --enable-retrieval for run-llm-paper"
+        )
     real_mode = _real_llm_mode(config)
     if real_mode and not config.allow_external_calls:
         raise LLMOrchestrationError(
@@ -374,7 +386,58 @@ def run_llm_paper_orchestration(
     )
     warnings.extend(pipeline_report.warnings)
 
-    if config.generate_paper:
+    if config.enable_retrieval:
+        retrieval_started = clock.now()
+        try:
+            retrieval_result = _run_bounded_citation_retrieval(
+                config=config,
+                registry=registry,
+                store=store,
+                ledger=ledger,
+            )
+        except (AdapterTransportError, ValueError, RuntimeError) as exc:
+            blocking.append(str(exc))
+            steps.append(
+                _step(
+                    "retrieval-citation-registry",
+                    LLMOrchestrationStepStatus.FAILED,
+                    "Bounded retrieval for citation provenance failed.",
+                    retrieval_started,
+                    clock.now(),
+                    error=str(exc),
+                )
+            )
+        else:
+            retrieval_warning = (
+                "Retrieval metadata is bounded literature context, not proof of novelty, "
+                "validation, or publication readiness."
+            )
+            warnings.append(retrieval_warning)
+            steps.append(
+                _step(
+                    "retrieval-citation-registry",
+                    LLMOrchestrationStepStatus.SUCCEEDED_WITH_WARNINGS,
+                    "Bounded retrieval metadata was recorded for registry-only citations.",
+                    retrieval_started,
+                    clock.now(),
+                    warnings=[retrieval_warning],
+                    artifact_ids=sorted(
+                        artifact.id for artifact in retrieval_result.artifacts.values()
+                    ),
+                )
+            )
+    else:
+        steps.append(
+            _step(
+                "retrieval-citation-registry",
+                LLMOrchestrationStepStatus.SKIPPED,
+                "Citation retrieval was disabled; citation policy remains none.",
+                clock.now(),
+                clock.now(),
+            )
+        )
+
+    if config.generate_paper and not blocking:
         generation_started = clock.now()
         try:
             generation_result = generate_full_paper(
@@ -438,7 +501,11 @@ def run_llm_paper_orchestration(
             _step(
                 "generate-paper",
                 LLMOrchestrationStepStatus.SKIPPED,
-                "Paper generation was skipped by configuration.",
+                (
+                    "Paper generation was skipped because bounded retrieval failed."
+                    if blocking and config.generate_paper
+                    else "Paper generation was skipped by configuration."
+                ),
                 clock.now(),
                 clock.now(),
             )
@@ -644,6 +711,10 @@ def build_llm_orchestration_preflight_summary(
         "evaluate_release_effective": effective_config.evaluate_release,
         "export_latex_effective": effective_config.export_latex,
         "safe_repair_effective": effective_safe_repair,
+        "enable_retrieval": effective_config.enable_retrieval,
+        "retrieval_backend": effective_config.retrieval_backend,
+        "max_retrieval_sources": effective_config.max_retrieval_sources,
+        "citation_policy": effective_config.citation_policy,
     }
 
 
@@ -687,6 +758,12 @@ def _existing_llm_inspection_paths(root: Path, run_id: str) -> dict[str, str]:
         / "reports"
         / "llm-run-safety-report.json",
         "safe_repair_report": root / "runs" / run_id / "reports" / "safe-repair-report.json",
+        "retrieval_report": root / "runs" / run_id / "reports" / "retrieval-report.json",
+        "citation_registry": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "citation-registry.json",
         "full_paper_generation_report": root
         / "runs"
         / run_id
@@ -756,6 +833,9 @@ def _effective_config_for_scope(
         "apply_safe_fake_revision": False,
         "reexport_latex_after_revision": False,
         "render_check": False,
+        "enable_retrieval": False,
+        "retrieval_backend": "fake",
+        "citation_policy": "none",
     }
     if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY:
         update["reviewer_backend"] = _FAKE_BACKEND
@@ -847,6 +927,10 @@ def _registry_for_config(
             use_llm_reviewers=config.reviewer_backend != _FAKE_BACKEND,
             reviewer_model=config.reviewer_model,
             reviewer_max_objections=config.reviewer_max_objections,
+            retrieval_backend=(
+                config.retrieval_backend if config.enable_retrieval else "fake"
+            ),
+            retrieval_limit=config.max_retrieval_sources,
             prose_backend=config.prose_backend,
             prose_model=config.prose_model,
         ),
@@ -961,6 +1045,8 @@ def _full_paper_config(config: LLMOrchestrationConfig) -> FullPaperGenerationCon
     return FullPaperGenerationConfig(
         run_id=config.run_id,
         include_citations=config.include_citations,
+        citation_policy=config.citation_policy,
+        max_retrieval_sources=config.max_retrieval_sources,
         export_latex=config.export_latex,
         critique=config.critique,
         revise=config.revise,
@@ -975,6 +1061,33 @@ def _full_paper_config(config: LLMOrchestrationConfig) -> FullPaperGenerationCon
         write_report=True,
         rerun_policy=_parse_rerun_policy(config.rerun_policy),
         force=config.force,
+    )
+
+
+def _run_bounded_citation_retrieval(
+    *,
+    config: LLMOrchestrationConfig,
+    registry: AdapterRegistry,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+):
+    query = f"{config.domain} bounded literature context"
+    if registry.retrieval.is_fake:
+        return run_fixture_retrieval_with_provenance(
+            run_id=config.run_id,
+            query=query,
+            limit=config.max_retrieval_sources,
+            retrieval_client=registry.retrieval,
+            store=store,
+            ledger=ledger,
+        )
+    return run_retrieval_with_provenance(
+        run_id=config.run_id,
+        query=query,
+        limit=config.max_retrieval_sources,
+        retrieval_client=registry.retrieval,
+        store=store,
+        ledger=ledger,
     )
 
 
@@ -1608,6 +1721,9 @@ def _build_report(
             "reviewer_model": config.reviewer_model,
             "prose_backend": config.prose_backend,
             "prose_model": config.prose_model,
+            "retrieval_enabled": str(config.enable_retrieval).lower(),
+            "retrieval_backend": config.retrieval_backend,
+            "citation_policy": config.citation_policy,
             "generate_paper_effective": str(config.generate_paper).lower(),
             "evaluate_release_effective": str(config.evaluate_release).lower(),
             "export_latex_effective": str(config.export_latex).lower(),

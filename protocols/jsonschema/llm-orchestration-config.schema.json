@@ -148,7 +148,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.14.0/llm-orchestration-config.schema.json",
+  "$id": "https://schemas.factori.local/0.15.0/llm-orchestration-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Configuration for gated end-to-end LLM paper orchestration.",
@@ -176,6 +176,15 @@
       "title": "Candidate Backend",
       "type": "string"
     },
+    "citation_policy": {
+      "default": "none",
+      "enum": [
+        "none",
+        "registry-only"
+      ],
+      "title": "Citation Policy",
+      "type": "string"
+    },
     "creates_scientific_validation": {
       "default": false,
       "title": "Creates Scientific Validation",
@@ -190,6 +199,11 @@
       "minLength": 1,
       "title": "Domain",
       "type": "string"
+    },
+    "enable_retrieval": {
+      "default": false,
+      "title": "Enable Retrieval",
+      "type": "boolean"
     },
     "evaluate_release": {
       "default": true,
@@ -243,6 +257,13 @@
       "title": "Llm Model",
       "type": "string"
     },
+    "max_retrieval_sources": {
+      "default": 5,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Max Retrieval Sources",
+      "type": "integer"
+    },
     "method": {
       "anyOf": [
         {
@@ -278,6 +299,11 @@
     "rerun_policy": {
       "default": "fail-if-exists",
       "title": "Rerun Policy",
+      "type": "string"
+    },
+    "retrieval_backend": {
+      "default": "fake",
+      "title": "Retrieval Backend",
       "type": "string"
     },
     "reviewer_backend": {
@@ -319,7 +345,7 @@
   ],
   "title": "LLMOrchestrationConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.14.0",
+  "x-factori-protocol-version": "0.15.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationConfig",
   "x-factori-verification-evidence": false
 }

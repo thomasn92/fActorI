@@ -102,6 +102,36 @@ def test_fake_llm_orchestration_runs_without_network_and_writes_reports(tmp_path
     }
 
 
+def test_fake_orchestration_can_build_bounded_fixture_citation_registry(tmp_path) -> None:
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="fake-retrieval-orch",
+            domain="human geography",
+            enable_retrieval=True,
+            retrieval_backend="fake",
+            max_retrieval_sources=3,
+            citation_policy="registry-only",
+            write_report=True,
+            budget=LLMBudgetConfig(max_total_calls=0),
+        ),
+        root=tmp_path,
+    )
+
+    assert result.generation_result is not None
+    reports = tmp_path / "runs" / "fake-retrieval-orch" / "reports"
+    assert (reports / "retrieval-report.json").is_file()
+    registry_payload = json.loads((reports / "citation-registry.json").read_text())
+    assert registry_payload["citation_policy"] == "registry-only"
+    assert registry_payload["source_count"] == 3
+    assert all(
+        item["source_status"] == "fixture" for item in registry_payload["citations"]
+    )
+    markdown = (reports / "complete-manuscript-draft.md").read_text()
+    assert "[@" in markdown
+    assert result.report.publication_ready is False
+    assert result.report.is_verification_evidence is False
+
+
 def test_run_llm_paper_cli_works_in_fake_mode_and_json_is_valid(tmp_path) -> None:
     result = CliRunner().invoke(
         app,

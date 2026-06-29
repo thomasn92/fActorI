@@ -119,6 +119,10 @@ def build_prose_section_prompt(
             section_contract.literature_positioning_context or {}
         ),
         "allowed_citation_keys": list(section_contract.allowed_citation_keys),
+        "citation_policy": section_contract.citation_policy,
+        "citation_instructions": list(
+            section_contract.citation_boundary_instructions
+        ),
         "allowed_statement_classes": list(section_contract.allowed_statement_classes),
         "forbidden_outputs": FORBIDDEN_PROSE_OUTPUTS,
         "evidence_boundary_instructions": EVIDENCE_BOUNDARY_INSTRUCTIONS,

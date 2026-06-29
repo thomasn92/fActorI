@@ -1,9 +1,33 @@
 {
-  "$id": "https://schemas.factori.local/0.14.0/citation-record.schema.json",
+  "$id": "https://schemas.factori.local/0.15.0/citation-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Retrieval-backed citation metadata for literature context only.",
   "properties": {
+    "abstract_or_snippet": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Abstract Or Snippet"
+    },
+    "allowed_citation_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Allowed Citation Key"
+    },
     "authors": {
       "items": {
         "type": "string"
@@ -26,6 +50,11 @@
       "title": "Claims Literature Coverage",
       "type": "boolean"
     },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
     "doi": {
       "anyOf": [
         {
@@ -37,6 +66,11 @@
       ],
       "default": null,
       "title": "Doi"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
     },
     "is_verification_evidence": {
       "default": false,
@@ -56,6 +90,12 @@
     "raw_metadata_hash": {
       "minLength": 1,
       "title": "Raw Metadata Hash",
+      "type": "string"
+    },
+    "retrieval_backend": {
+      "default": "unknown",
+      "minLength": 1,
+      "title": "Retrieval Backend",
       "type": "string"
     },
     "retrieved_at": {
@@ -81,9 +121,34 @@
       "title": "Source Id",
       "type": "string"
     },
+    "source_status": {
+      "default": "unverified_metadata",
+      "enum": [
+        "retrieved",
+        "user_provided",
+        "fixture",
+        "rejected",
+        "stale",
+        "unverified_metadata"
+      ],
+      "title": "Source Status",
+      "type": "string"
+    },
+    "source_type": {
+      "default": "retrieval_metadata",
+      "minLength": 1,
+      "title": "Source Type",
+      "type": "string"
+    },
     "title": {
       "minLength": 1,
       "title": "Title",
+      "type": "string"
+    },
+    "trust_level": {
+      "default": "metadata_only",
+      "minLength": 1,
+      "title": "Trust Level",
       "type": "string"
     },
     "url": {
@@ -142,7 +207,7 @@
   ],
   "title": "CitationRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.14.0",
+  "x-factori-protocol-version": "0.15.0",
   "x-factori-source-model": "factori.schemas.CitationRecord",
   "x-factori-verification-evidence": false
 }

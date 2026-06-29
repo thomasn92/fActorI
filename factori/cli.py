@@ -2288,6 +2288,22 @@ def run_llm_paper_command(
         bool,
         typer.Option("--include-citations/--no-citations"),
     ] = True,
+    enable_retrieval: Annotated[
+        bool,
+        typer.Option("--enable-retrieval/--disable-retrieval"),
+    ] = False,
+    retrieval_backend: Annotated[
+        str,
+        typer.Option("--retrieval-backend"),
+    ] = "fake",
+    max_retrieval_sources: Annotated[
+        int,
+        typer.Option("--max-retrieval-sources"),
+    ] = 5,
+    citation_policy: Annotated[
+        str,
+        typer.Option("--citation-policy"),
+    ] = "none",
     export_latex: Annotated[
         bool,
         typer.Option("--export-latex/--skip-export-latex"),
@@ -2343,6 +2359,10 @@ def run_llm_paper_command(
         generate_paper=generate_paper,
         evaluate_release=evaluate_release,
         include_citations=include_citations,
+        enable_retrieval=enable_retrieval,
+        retrieval_backend=retrieval_backend,
+        max_retrieval_sources=max_retrieval_sources,
+        citation_policy=citation_policy,
         export_latex=export_latex,
         critique=critique,
         revise=revise,
@@ -2593,6 +2613,22 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Total headings: {summary.get('total_heading_count', 0)}")
     typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
     typer.echo(f"Citations: {citations}")
+    typer.echo(
+        "Citation registry: "
+        f"{'present' if summary.get('citation_registry_present') else 'absent'}"
+    )
+    typer.echo(
+        "Registry sources: "
+        f"{int(summary.get('citation_registry_source_count') or 0)}"
+    )
+    typer.echo(
+        "Unregistered citations: "
+        f"{len(list(summary.get('unregistered_citation_keys') or []))}"
+    )
+    typer.echo(
+        "Bibliography: "
+        f"{summary.get('bibliography_status') or 'absent'}"
+    )
     typer.echo(f"Blocking issues: {blocking_count if blocking_count else 'none'}")
     typer.echo(f"Warnings: {warning_count}")
     typer.echo(f"Title: {summary.get('title_detected') or 'unknown'}")
@@ -2611,6 +2647,8 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         _echo_named_artifact(artifacts, "generation report", "generation_report")
         _echo_named_artifact(artifacts, "release report", "release_report")
         _echo_named_artifact(artifacts, "safe repair report", "safe_repair_report")
+        _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
+        _echo_named_artifact(artifacts, "citation registry", "citation_registry")
 
 
 def _echo_named_artifact(
@@ -2688,6 +2726,15 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     )
     typer.echo(f"Title: {title_state}")
     typer.echo(f"Citations: {citations}")
+    typer.echo(
+        "Citation registry: "
+        f"{'present' if summary.get('citation_registry_present') else 'absent'} "
+        f"({int(summary.get('citation_registry_source_count') or 0)} sources)"
+    )
+    typer.echo(
+        "Bibliography: "
+        f"{summary.get('bibliography_status') or 'absent'}"
+    )
     typer.echo(
         "Release: "
         f"{summary.get('paper_release_status') or 'unknown'}"

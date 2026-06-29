@@ -45,6 +45,7 @@
           "Use only allowed citation keys.",
           "Do not claim retrieval proves novelty."
         ],
+        "citation_policy": "none",
         "creates_scientific_validation": false,
         "evidence_boundary_instructions": [
           "Use only allowed claim IDs.",

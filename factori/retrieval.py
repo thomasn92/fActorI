@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from factori.artifacts import ArtifactStore
+from factori.hashing import sha256_json
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, persist_artifacts_with_commit
 from factori.schemas import (
@@ -15,6 +16,8 @@ from factori.schemas import (
     ControllerActionType,
     LiteratureState,
     RetrievalAdequacyCertificate,
+    RetrievalParseReport,
+    RetrievalQuery,
     RetrievalRunReport,
 )
 
@@ -192,3 +195,125 @@ def run_retrieval_with_provenance(
         artifacts=linked,
         commit_hash=result.commit.commit_hash,
     )
+
+
+def run_fixture_retrieval_with_provenance(
+    *,
+    run_id: str,
+    query: str,
+    limit: int,
+    retrieval_client: RetrievalClient,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> RetrievalExecutionResult:
+    """Ledger one bounded deterministic fixture retrieval without external calls."""
+    if not retrieval_client.is_fake:
+        raise ValueError("fixture retrieval requires the deterministic fake retrieval client")
+    normalized_query = " ".join(query.split()) or "unspecified domain"
+    results = retrieval_client.search(normalized_query, limit)
+    query_id = sha256_json(
+        {"run_id": run_id, "query": normalized_query, "limit": limit, "backend": "fake"}
+    )[:16]
+    query_contract = RetrievalQuery(
+        query_id=query_id,
+        query=normalized_query,
+        provider="fake",
+        limit=limit,
+        endpoint="fixture://local",
+        parameters={"source_status": "fixture", "network_access": False},
+        requires_credentials=False,
+        fake=True,
+    )
+    parse_report = RetrievalParseReport(
+        provider="fake",
+        raw_response_hash=sha256_json(
+            [result.model_dump(mode="json") for result in results]
+        ),
+        accepted_source_ids=[result.source_id for result in results],
+        rejected_results=[],
+        fake=True,
+    )
+    certificate = retrieval_client.build_adequacy_certificate(normalized_query, results)
+    report = RetrievalRunReport(
+        query=query_contract,
+        results=results,
+        parse_report=parse_report,
+        certificate=certificate,
+        backend="fake",
+        provider="fake",
+        config_metadata={
+            "limit": limit,
+            "retrieval_scope": "bounded-fixture",
+            "citation_policy": "registry-only",
+            "external_calls_enabled": False,
+            "fixture_sources": True,
+            "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
+            "is_verification_evidence": False,
+        },
+        fake=True,
+    )
+    metadata = {
+        "stage": "llm_orchestration_retrieval",
+        "adapter_backend": "fake",
+        "provider": "fake",
+        "artifact_role": "retrieval_citation_context",
+        "source_status": "fixture",
+        "is_verification_evidence": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "proves_novelty": False,
+        "claims_literature_coverage": False,
+        "fake": True,
+    }
+    normalized_id = f"retrieval-normalized-results-{query_id}"
+    persisted = persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id="retrieval-report",
+                artifact_type=ArtifactType.REPORT,
+                payload=report,
+                artifact_format="json",
+                metadata=metadata,
+            ),
+            ArtifactWriteSpec(
+                artifact_id=normalized_id,
+                artifact_type=ArtifactType.REPORT,
+                payload={
+                    "results": results,
+                    "parse_report": parse_report,
+                    "source_status": "fixture",
+                    "is_verification_evidence": False,
+                    "creates_scientific_validation": False,
+                    "implies_publication_readiness": False,
+                },
+                artifact_format="json",
+                metadata=metadata,
+            ),
+        ],
+        parent_hash=ledger.latest_commit_hash(run_id),
+        action_type=ControllerActionType.RETRIEVAL_RUN_RECORDED,
+        commit_payload=report.model_dump(mode="json"),
+    )
+    artifacts = {artifact.id: artifact for artifact in persisted.artifacts}
+    return RetrievalExecutionResult(
+        report=report,
+        artifacts={
+            "report": artifacts["retrieval-report"],
+            "normalized_results": artifacts[normalized_id],
+        },
+        commit_hash=persisted.commit.commit_hash,
+    )
+
+
+__all__ = [
+    "DEFAULT_RETRIEVAL_WEIGHTS",
+    "RetrievalExecutionResult",
+    "TAU_ADEQUACY",
+    "compute_retrieval_adequacy",
+    "run_fixture_retrieval_with_provenance",
+    "run_retrieval_with_provenance",
+]

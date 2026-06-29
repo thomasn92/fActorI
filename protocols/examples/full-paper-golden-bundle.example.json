@@ -46,6 +46,7 @@
   "paper_revision_plan_artifact_id": "paper-revision-plan",
   "paper_revision_result_artifact_id": "paper-revision-result",
   "references_artifact_id": "references",
+  "retrieval_report_artifact_id": null,
   "revised_latex_artifact_id": "revised-paper",
   "revised_latex_export_report_artifact_id": "revised-latex-export-report",
   "revised_latex_safety_report_artifact_id": "revised-latex-safety-report",

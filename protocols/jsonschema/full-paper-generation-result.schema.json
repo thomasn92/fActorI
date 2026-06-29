@@ -242,6 +242,18 @@
           "default": null,
           "title": "References Artifact Id"
         },
+        "retrieval_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieval Report Artifact Id"
+        },
         "revised_latex_artifact_id": {
           "anyOf": [
             {
@@ -357,6 +369,15 @@
           "title": "Apply Safe Fake Revision",
           "type": "boolean"
         },
+        "citation_policy": {
+          "default": "none",
+          "enum": [
+            "none",
+            "registry-only"
+          ],
+          "title": "Citation Policy",
+          "type": "string"
+        },
         "creates_scientific_validation": {
           "default": false,
           "title": "Creates Scientific Validation",
@@ -403,6 +424,13 @@
           ],
           "default": null,
           "title": "Latex Executable"
+        },
+        "max_retrieval_sources": {
+          "default": 5,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Max Retrieval Sources",
+          "type": "integer"
         },
         "prose_backend": {
           "default": "fake",
@@ -640,7 +668,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.14.0/full-paper-generation-result.schema.json",
+  "$id": "https://schemas.factori.local/0.15.0/full-paper-generation-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for full-paper generation commands.",
@@ -683,7 +711,7 @@
   ],
   "title": "FullPaperGenerationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.14.0",
+  "x-factori-protocol-version": "0.15.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationResult",
   "x-factori-verification-evidence": false
 }

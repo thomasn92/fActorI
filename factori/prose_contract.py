@@ -204,6 +204,7 @@ def build_prose_section_contract(
         allowed_evidence_artifact_ids=evidence_ids,
         allowed_citation_ids=[record.citation_id for record in allowed_citations],
         allowed_citation_keys=[record.citation_key for record in allowed_citations],
+        citation_policy="registry-only" if has_citation_sources else "none",
         allowed_statement_classes=_allowed_statement_classes_for_section(section.title),
         forbidden_claims=sorted(set(manuscript_plan.blocked_claim_ids)),
         evidence_boundary_instructions=[
@@ -232,10 +233,27 @@ def build_prose_section_contract(
         ],
         citation_boundary_instructions=[
             "Use only allowed citation keys.",
+            (
+                "Citation policy is registry-only; every marker must match an allowed "
+                "citation key from retrieval provenance."
+                if has_citation_sources
+                else "Citation policy is none because no retrieval-backed registry sources "
+                "are available."
+            ),
             "Citation markers are literature context only.",
+            "Do not invent references, source metadata, DOI values, or URLs.",
             "Do not claim exhaustive literature coverage.",
             "Do not claim retrieval proves novelty.",
             "Do not use citations as proof or experiment evidence.",
+            *(
+                [
+                    "Fixture sources validate citation plumbing only and cannot establish "
+                    "real literature coverage or scientific novelty."
+                ]
+                if citation_registry is not None
+                and any(record.source_status == "fixture" for record in allowed_citations)
+                else []
+            ),
             *(
                 [
                     "Do not include citation markers because no citation registry sources "

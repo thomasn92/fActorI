@@ -1,5 +1,8 @@
 {
   "bibliography_entries_count": 1,
+  "bibliography_registry_backed": false,
+  "citation_policy": "none",
+  "citation_registry_source_count": 0,
   "citation_usages": [
     {
       "citation_id": "citation-source-example",
@@ -9,14 +12,17 @@
     }
   ],
   "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
   "invented_bibliography_keys": [],
   "is_verification_evidence": false,
   "proves_novelty": false,
   "reasons": [],
+  "registry_backed_citation_count": 0,
   "rejected": false,
   "run_id": "example",
   "safe": true,
   "unknown_citation_keys": [],
+  "unregistered_citation_keys": [],
   "used_citation_ids": [
     "citation-source-example"
   ],

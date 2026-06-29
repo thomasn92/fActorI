@@ -108,7 +108,16 @@ class FakeRetrievalClient:
             results.append(
                 RetrievalResult(
                     source_id=source_id,
-                    title=f"Fake retrieval result {index + 1} for {normalized}",
+                    title=(
+                        f"Fixture metadata record {index + 1} for {normalized}"
+                    ),
+                    authors=[f"fActorI Fixture Author {index + 1}"],
+                    year=2000 + index,
+                    venue="fActorI deterministic retrieval fixture",
+                    abstract=(
+                        "Synthetic fixture metadata used only to test bounded citation "
+                        "plumbing; it is not a real literature source."
+                    ),
                     provider="fake",
                     retrieved_at=FAKE_RETRIEVAL_TIMESTAMP,
                     query=normalized,
@@ -119,7 +128,15 @@ class FakeRetrievalClient:
                         "Deterministic placeholder literature result; no source was retrieved."
                     ),
                     score=round(max(0.5, 0.9 - 0.04 * index), 6),
-                    metadata={"query": normalized, "rank": index, "backend": "fake"},
+                    metadata={
+                        "query": normalized,
+                        "rank": index,
+                        "backend": "fake",
+                        "source_type": "test_fixture",
+                        "source_status": "fixture",
+                        "trust_level": "fixture_only",
+                        "external_fetch_performed": False,
+                    },
                 )
             )
         return results

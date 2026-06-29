@@ -17,6 +17,9 @@ from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
+    BibliographyEntry,
+    CitationRecord,
+    CitationRegistry,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
     PipelineRunConfig,
@@ -137,6 +140,37 @@ def test_inspect_paper_bundle_without_revised_artifacts_degrades_gracefully(tmp_
     assert summary["primary_latex_to_read"].endswith("latex/paper.tex")
     assert "safe_repair_report" not in summary["artifacts"]
     assert summary["release_status"] is None
+
+
+def test_inspect_paper_bundle_reports_registry_backed_citations(tmp_path) -> None:
+    run_id = "inspect-paper-citations"
+    markdown = _acceptable_markdown(include_citation=True) + (
+        "\n## Bibliography\n\n- [@Smith2024] Fixture metadata only.\n"
+    )
+    _write_paper_bundle_markdown(
+        tmp_path,
+        run_id=run_id,
+        complete_markdown=markdown,
+    )
+    _write_fixture_citation_registry(tmp_path, run_id)
+
+    summary = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert summary["citation_registry_present"] is True
+    assert summary["citation_registry_source_count"] == 1
+    assert summary["registry_backed_citation_count"] >= 1
+    assert summary["unregistered_citation_keys"] == []
+    assert summary["bibliography_status"] == "registry-backed"
+    assert summary["citation_policy"] == "registry-only"
+
+    result = CliRunner().invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Citation registry: present" in result.output
+    assert "Registry sources: 1" in result.output
+    assert "Bibliography: registry-backed" in result.output
 
 
 def test_inspect_paper_bundle_missing_run_gives_clear_error(tmp_path) -> None:
@@ -355,6 +389,7 @@ def test_lint_paper_bundle_passes_acceptable_synthetic_fixture(tmp_path) -> None
         run_id=run_id,
         complete_markdown=_acceptable_markdown(include_citation=True),
     )
+    _write_fixture_citation_registry(tmp_path, run_id)
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
@@ -366,6 +401,26 @@ def test_lint_paper_bundle_passes_acceptable_synthetic_fixture(tmp_path) -> None
     assert payload["citation_marker_count"] >= 1
     assert payload["issues"] == []
     assert payload["warnings"] == []
+
+
+def test_lint_paper_bundle_rejects_unregistered_citation_key(tmp_path) -> None:
+    run_id = "lint-paper-unregistered-citation"
+    markdown = _acceptable_markdown(include_citation=False).replace(
+        "This introduction gives problem framing for the research problem",
+        "This introduction gives problem framing for the research problem [@Invented2026]",
+    )
+    _write_paper_bundle_markdown(
+        tmp_path,
+        run_id=run_id,
+        complete_markdown=markdown,
+    )
+    _write_fixture_citation_registry(tmp_path, run_id)
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["quality_status"] == "DraftQualityFailed"
+    assert payload["unregistered_citation_keys"] == ["Invented2026"]
+    assert any("Unregistered citation keys" in reason for reason in payload["issues"])
 
 
 def test_lint_paper_bundle_prefers_revised_artifact(tmp_path) -> None:
@@ -410,6 +465,7 @@ def test_lint_paper_bundle_missing_optional_artifacts_degrades_gracefully(tmp_pa
         run_id=run_id,
         complete_markdown=_acceptable_markdown(include_citation=True),
     )
+    _write_fixture_citation_registry(tmp_path, run_id)
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
@@ -485,6 +541,50 @@ def _write_paper_bundle_markdown(
             revised_markdown,
             encoding="utf-8",
         )
+
+
+def _write_fixture_citation_registry(tmp_path, run_id: str) -> None:
+    record = CitationRecord(
+        citation_id="citation-fixture-smith",
+        citation_key="Smith2024",
+        source_id="fixture-smith",
+        title="Fixture bounded context",
+        authors=["Smith, Fixture"],
+        year=2024,
+        provider="fake",
+        retrieval_backend="fake",
+        retrieved_at="1970-01-01T00:00:00Z",
+        raw_metadata_hash="0" * 64,
+        source_type="test_fixture",
+        allowed_citation_key="Smith2024",
+        trust_level="fixture_only",
+        source_status="fixture",
+    )
+    registry = CitationRegistry(
+        run_id=run_id,
+        citations=[record],
+        bibliography=[
+            BibliographyEntry(
+                citation_id=record.citation_id,
+                citation_key=record.citation_key,
+                source_id=record.source_id,
+                markdown="- [@Smith2024] Fixture metadata only.",
+                has_source_provenance=True,
+            )
+        ],
+        citation_key_policy="fixture",
+        citation_policy="registry-only",
+        retrieval_backend="fake",
+        retrieval_scope="bounded-fixture",
+        source_registry_hash="1" * 64,
+        source_count=1,
+        accepted_source_count=1,
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "citation-registry.json").write_text(
+        registry.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
 
 
 def _short_placeholder_markdown() -> str:

@@ -26,6 +26,8 @@ from factori.schemas import (
 
 CITATION_KEY_POLICY = "FirstAuthorYearShortTitle; duplicate keys receive deterministic letters."
 CITATION_MARKER_RE = re.compile(r"\[@([A-Za-z0-9][A-Za-z0-9_.:-]*)\]")
+_URL_RE = re.compile(r"https?://[^\s)>\]}]+", re.IGNORECASE)
+_DOI_RE = re.compile(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+\b", re.IGNORECASE)
 _EXHAUSTIVE_CLAIMS = (
     "exhaustive literature coverage",
     "complete literature coverage",
@@ -47,6 +49,10 @@ _RETRIEVAL_PROOF_CLAIMS = (
     "retrieval evidence proves",
     "proof evidence from citations",
     "experiment evidence from citations",
+    "citations establish empirical validation",
+    "citation establishes empirical validation",
+    "citations verify the theorem",
+    "citation verifies the theorem",
 )
 
 
@@ -87,6 +93,8 @@ def build_citation_registry(
         key = f"{base_key}{suffix}"
         warnings = _citation_warnings(result)
         source_id = str(getattr(result, "source_id", "unknown-source"))
+        metadata = dict(getattr(result, "metadata", {}) or {})
+        source_status = _source_status(result, metadata)
         records.append(
             CitationRecord(
                 citation_id=_citation_id(source_id),
@@ -99,9 +107,21 @@ def build_citation_registry(
                 doi=getattr(result, "doi", None),
                 url=getattr(result, "url", None),
                 provider=str(getattr(result, "provider", "unknown")),
+                retrieval_backend=str(
+                    metadata.get("backend") or getattr(result, "provider", "unknown")
+                ),
                 retrieved_at=str(getattr(result, "retrieved_at", "1970-01-01T00:00:00Z")),
                 raw_metadata_hash=str(getattr(result, "raw_metadata_hash", "")),
                 source_artifact_id=source_artifact_ids.get(source_id),
+                source_type=str(metadata.get("source_type", "retrieval_metadata")),
+                abstract_or_snippet=(
+                    getattr(result, "abstract", None)
+                    or getattr(result, "snippet", None)
+                    or None
+                ),
+                allowed_citation_key=key,
+                trust_level=str(metadata.get("trust_level", "metadata_only")),
+                source_status=source_status,
                 warnings=warnings,
             )
         )
@@ -109,19 +129,31 @@ def build_citation_registry(
     warnings = sorted({warning for record in records for warning in record.warnings})
     if not records:
         warnings.append("No retrieval sources were available for citation registry construction.")
+    backends = sorted({record.retrieval_backend for record in records})
+    retrieval_backend = backends[0] if len(backends) == 1 else "mixed" if backends else "none"
+    accepted = [record for record in records if record.source_status != "rejected"]
     return CitationRegistry(
         run_id=run_id,
         citations=records,
         bibliography=bibliography,
         citation_key_policy=CITATION_KEY_POLICY,
+        citation_policy="registry-only" if records else "none",
+        retrieval_backend=retrieval_backend,
+        retrieval_scope="bounded-source-metadata",
         source_registry_hash=sha256_json([record.model_dump(mode="json") for record in records]),
+        source_count=len(records),
+        accepted_source_count=len(accepted),
+        rejected_source_count=len(records) - len(accepted),
         warnings=warnings,
+        fake=all(record.source_status == "fixture" for record in records) if records else True,
     )
 
 
 def build_citation_registry_from_ledger(
     run_id: str,
     ledger: ResearchLedger,
+    *,
+    max_sources: int | None = None,
 ) -> CitationRegistry:
     """Build a citation registry from ledgered retrieval-run reports, if any exist."""
     results = []
@@ -138,9 +170,15 @@ def build_citation_registry_from_ledger(
             if artifact.id.startswith("retrieval-normalized-results-"):
                 for result in report.results:
                     source_artifacts[result.source_id] = artifact.id
+    ordered_results = sorted(
+        results,
+        key=lambda item: (item.provider, item.query, item.rank, item.source_id),
+    )
+    if max_sources is not None:
+        ordered_results = ordered_results[:max_sources]
     return build_citation_registry(
         run_id,
-        results,
+        ordered_results,
         source_artifact_ids=source_artifacts,
     )
 
@@ -185,6 +223,34 @@ def validate_citation_usage(
         reasons.append("unsupported exhaustive literature coverage claim appears in draft")
     if _contains_unbounded_claim(lowered, _RETRIEVAL_PROOF_CLAIMS):
         reasons.append("retrieval or citations are described as novelty/proof evidence")
+    if not citation_registry.citations and re.search(
+        r"^#{1,6}\s+(bibliography|references)\s*$",
+        markdown,
+        re.IGNORECASE | re.MULTILINE,
+    ):
+        reasons.append("bibliography section appears without citation registry sources")
+    known_urls = {
+        _normalized_external_identifier(record.url)
+        for record in citation_registry.citations
+        if record.url
+    }
+    known_dois = {record.doi.casefold() for record in citation_registry.citations if record.doi}
+    invented_urls = sorted(
+        {
+            _normalized_external_identifier(url)
+            for url in _URL_RE.findall(markdown)
+        }
+        - known_urls
+    )
+    invented_dois = sorted(
+        doi.rstrip(".,;:")
+        for doi in set(_DOI_RE.findall(markdown))
+        if doi.rstrip(".,;:").casefold() not in known_dois
+    )
+    if invented_urls:
+        reasons.append("URLs not present in citation registry: " + ", ".join(invented_urls))
+    if invented_dois:
+        reasons.append("DOIs not present in citation registry: " + ", ".join(invented_dois))
     if not markers:
         warnings.append("No citation markers were used in the draft.")
     usages = [
@@ -199,6 +265,13 @@ def validate_citation_usage(
     used_ids = sorted(
         key_to_record[key].citation_id for key in marker_counts if key in key_to_record
     )
+    bibliography_registry_backed = bool(citation_registry.citations) and (
+        len(citation_registry.bibliography) == len(citation_registry.citations)
+        and all(
+            entry.has_source_provenance and entry.citation_key in key_to_record
+            for entry in citation_registry.bibliography
+        )
+    )
     return CitationSafetyReport(
         run_id=citation_registry.run_id,
         safe=not reasons,
@@ -211,6 +284,13 @@ def validate_citation_usage(
         used_citation_keys=sorted(marker_counts),
         used_citation_ids=used_ids,
         bibliography_entries_count=len(citation_registry.bibliography),
+        citation_policy=citation_registry.citation_policy,
+        citation_registry_source_count=len(citation_registry.citations),
+        registry_backed_citation_count=sum(
+            count for key, count in marker_counts.items() if key in key_to_record
+        ),
+        unregistered_citation_keys=unknown,
+        bibliography_registry_backed=bibliography_registry_backed,
     )
 
 
@@ -229,6 +309,7 @@ def write_citation_registry_reports(
         "artifact_role": "literature_positioning_context",
         "is_verification_evidence": False,
         "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
         "proves_novelty": False,
         "claims_literature_coverage": False,
     }
@@ -266,6 +347,7 @@ def write_citation_registry_reports(
             "citation_safety_safe": citation_safety_report.safe,
             "is_verification_evidence": False,
             "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
             "proves_novelty": False,
         },
     )
@@ -347,6 +429,28 @@ def _citation_warnings(result: Any) -> list[str]:
             f"source {getattr(result, 'source_id', 'unknown')} has no raw metadata hash"
         )
     return warnings
+
+
+def _source_status(result: Any, metadata: dict[str, Any]) -> str:
+    configured = str(metadata.get("source_status", "")).strip().lower()
+    if configured in {
+        "retrieved",
+        "user_provided",
+        "fixture",
+        "rejected",
+        "stale",
+        "unverified_metadata",
+    }:
+        return configured
+    if bool(getattr(result, "fake", False)) or str(
+        getattr(result, "provider", "")
+    ).casefold() == "fake":
+        return "fixture"
+    return "retrieved"
+
+
+def _normalized_external_identifier(value: str) -> str:
+    return value.rstrip(".,;:")
 
 
 def _bibliography_entry(record: CitationRecord) -> BibliographyEntry:

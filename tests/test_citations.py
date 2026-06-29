@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from factori.adapters.fake import FakeRetrievalClient
 from factori.artifacts import ArtifactStore
 from factori.citations import (
     build_citation_registry,
+    build_citation_registry_from_ledger,
     validate_citation_usage,
     write_citation_registry_reports,
 )
 from factori.ledger import ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
+from factori.retrieval import run_fixture_retrieval_with_provenance
 from factori.schemas import (
     CitationRecord,
     CitationRegistry,
@@ -66,6 +69,46 @@ def test_citation_registry_preserves_source_provenance() -> None:
     assert registry.proves_novelty is False
 
 
+def test_fixture_sources_have_explicit_bounded_registry_metadata() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    record = registry.citations[0]
+
+    assert record.source_status == "fixture"
+    assert record.allowed_citation_key == record.citation_key
+    assert registry.citation_policy == "registry-only"
+    assert registry.source_count == 1
+    assert registry.accepted_source_count == 1
+    assert registry.creates_scientific_validation is False
+    assert registry.implies_publication_readiness is False
+
+
+def test_fixture_retrieval_is_ledgered_without_external_calls(tmp_path) -> None:
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / "fixture-run" / "ledger.sqlite")
+
+    result = run_fixture_retrieval_with_provenance(
+        run_id="fixture-run",
+        query="human geography bounded context",
+        limit=3,
+        retrieval_client=FakeRetrievalClient(),
+        store=store,
+        ledger=ledger,
+    )
+
+    assert len(result.report.results) == 3
+    assert all(item.metadata["source_status"] == "fixture" for item in result.report.results)
+    assert result.report.config_metadata["external_calls_enabled"] is False
+    assert result.artifacts["report"].path.endswith("reports/retrieval-report.json")
+    assert result.artifacts["report"].metadata["is_verification_evidence"] is False
+    registry = build_citation_registry_from_ledger(
+        "fixture-run",
+        ledger,
+        max_sources=2,
+    )
+    assert len(registry.citations) == 2
+    assert registry.retrieval_backend == "fake"
+
+
 def test_citation_usage_validator_accepts_known_citation_keys() -> None:
     registry = build_citation_registry("run-1", [_source("S1")])
     key = registry.citations[0].citation_key
@@ -96,6 +139,18 @@ def test_citation_usage_validator_rejects_invented_bibliography_entries() -> Non
 
     assert report.rejected
     assert report.invented_bibliography_keys == ["MadeUp2026"]
+
+
+def test_citation_usage_validator_rejects_invented_source_metadata() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+
+    report = validate_citation_usage(
+        "## Bibliography\n\nSource metadata: https://invented.invalid/source.",
+        registry,
+    )
+
+    assert report.rejected
+    assert any("URLs not present" in reason for reason in report.reasons)
 
 
 def test_citation_usage_validator_rejects_exhaustive_coverage_claims() -> None:

@@ -50,6 +50,8 @@ Implemented so far:
 - deterministic section-by-section Markdown manuscript drafting with strict prose safety checks;
 - deterministic citation registry and bounded literature-positioning integration for Markdown
   drafts, with citation-safety checks and no novelty-proof authority;
+- optional bounded retrieval-backed citation orchestration with deterministic fixture sources,
+  registry-only citation keys, provenance-derived bibliography output, and no evidence authority;
 - deterministic LaTeX export from complete Markdown drafts, with bibliography placeholders,
   source maps, safety checks, and optional gated render diagnostics;
 - deterministic paper critic and one safe fake revision pass over Markdown/LaTeX artifacts,
@@ -334,6 +336,25 @@ uv run factori run-llm-paper --run-id llm-fake --domain "human geography" \
   --candidate-backend fake --reviewer-backend fake --prose-backend fake \
   --apply-safe-fake-revision --write-report
 ```
+
+Bounded citation integration is opt-in. This deterministic smoke uses fixture metadata only and
+performs no network calls:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id local-citation-registry-smoke-001 \
+  --domain "human geography" \
+  --llm-scope full-paper \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --enable-retrieval --retrieval-backend fake \
+  --max-retrieval-sources 5 --citation-policy registry-only \
+  --generate-paper --enable-safe-repair --write-report --json
+```
+
+This writes `retrieval-report.json` and `citation-registry.json` before drafting. Prose contracts
+may use only registry keys; unknown keys, invented bibliography metadata, and citation-as-proof or
+validation language fail citation safety. Fixture sources validate pipeline plumbing only and do
+not establish real literature coverage, novelty, proof, experiments, or publication readiness.
 
 Real mode requires explicit OpenAI backends, `--allow-external-calls`, credentials, and a budget
 before any network call can be attempted:

@@ -10,6 +10,7 @@ from typing import Any
 
 from factori.artifacts import ArtifactStore
 from factori.citations import (
+    CITATION_MARKER_RE,
     build_citation_registry_from_ledger,
     validate_citation_usage,
     write_citation_registry_reports,
@@ -42,6 +43,7 @@ from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_ar
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    CitationRegistry,
     ControllerActionType,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
@@ -271,6 +273,7 @@ def generate_full_paper(
                 prose_generator=prose_generator,
                 write_report=True,
                 include_citations=config.include_citations,
+                max_citation_sources=config.max_retrieval_sources,
                 max_words=max_words,
             )
         except ManuscriptDraftingError as exc:
@@ -290,6 +293,7 @@ def generate_full_paper(
         store=store,
         ledger=ledger,
         include_citations=config.include_citations,
+        max_retrieval_sources=config.max_retrieval_sources,
     )
     steps.insert(0, citation_step)
 
@@ -566,6 +570,31 @@ def inspect_paper_bundle_summary(
         _markdown_sections(markdown),
         manuscript_stats.get("title_detected"),
     )
+    citation_registry = _read_citation_registry(paths["citation_registry"])
+    marker_keys = sorted(set(CITATION_MARKER_RE.findall(markdown)))
+    if citation_registry is not None:
+        citation_safety = validate_citation_usage(markdown, citation_registry)
+        unregistered_citation_keys = citation_safety.unregistered_citation_keys
+        registry_backed_citation_count = citation_safety.registry_backed_citation_count
+        bibliography_registry_backed = citation_safety.bibliography_registry_backed
+        citation_policy = citation_registry.citation_policy
+        registry_source_count = len(citation_registry.citations)
+    else:
+        unregistered_citation_keys = marker_keys
+        registry_backed_citation_count = 0
+        bibliography_registry_backed = False
+        citation_policy = "none"
+        registry_source_count = 0
+    bibliography_present = bool(
+        re.search(r"^#{1,6}\s+(bibliography|references)\s*$", markdown, re.I | re.M)
+    )
+    bibliography_status = (
+        "registry-backed"
+        if bibliography_present and bibliography_registry_backed
+        else "unsafe"
+        if bibliography_present
+        else "absent"
+    )
     generation_warning_count = (
         len(generation_report.warnings) if generation_report is not None else 0
     )
@@ -635,6 +664,13 @@ def inspect_paper_bundle_summary(
             if isinstance(safe_repair_report, dict)
             else 0
         ),
+        "citation_registry_present": paths["citation_registry"].is_file(),
+        "citation_registry_source_count": registry_source_count,
+        "registry_backed_citation_count": registry_backed_citation_count,
+        "unregistered_citation_keys": unregistered_citation_keys,
+        "bibliography_registry_backed": bibliography_registry_backed,
+        "bibliography_status": bibliography_status,
+        "citation_policy": citation_policy,
         "artifacts": existing,
         "is_verification_evidence": False,
         "creates_scientific_validation": False,
@@ -681,6 +717,20 @@ def lint_paper_bundle_summary(
     abstract_present = bool(bundle.get("abstract_detected"))
     citation_marker_count = int(bundle.get("citation_marker_count") or 0)
     citations_present = citation_marker_count > 0
+    citation_registry_present = bool(bundle.get("citation_registry_present"))
+    citation_registry_source_count = int(
+        bundle.get("citation_registry_source_count") or 0
+    )
+    registry_backed_citation_count = int(
+        bundle.get("registry_backed_citation_count") or 0
+    )
+    unregistered_citation_keys = list(
+        bundle.get("unregistered_citation_keys") or []
+    )
+    bibliography_registry_backed = bool(
+        bundle.get("bibliography_registry_backed")
+    )
+    citation_policy = str(bundle.get("citation_policy") or "none")
     sections = _markdown_sections(markdown)
     section_accounting = _section_accounting(sections, title_text)
     main_body_sections = section_accounting["main_body_sections"]
@@ -870,6 +920,13 @@ def lint_paper_bundle_summary(
         failure_reasons.append("Fake empirical or real-world validation language is present.")
     if unsupported_external_claims_without_citations:
         failure_reasons.append("External factual claims appear without citation markers.")
+    if unregistered_citation_keys:
+        failure_reasons.append(
+            "Unregistered citation keys are present: "
+            + ", ".join(unregistered_citation_keys)
+        )
+    if bundle.get("bibliography_status") == "unsafe":
+        failure_reasons.append("Bibliography is not fully backed by the citation registry.")
     if word_count < min_words:
         development_warnings.append("Draft may be skeletal: below proxy word-count target.")
     if average_words_per_section < min_avg_words_per_section:
@@ -911,7 +968,11 @@ def lint_paper_bundle_summary(
         citation_marker_count < min_citation_markers
         and not unsupported_external_claims_without_citations
     ):
-        development_warnings.append("No citation markers found.")
+        development_warnings.append(
+            "Citation registry sources are available but no citation markers were used."
+            if citation_registry_source_count
+            else "No citation markers found."
+        )
 
     issues = [*failure_reasons, *development_warnings]
     quality_status = (
@@ -941,6 +1002,13 @@ def lint_paper_bundle_summary(
         "abstract_present": abstract_present,
         "citation_marker_count": citation_marker_count,
         "citations_present": citations_present,
+        "citation_registry_present": citation_registry_present,
+        "citation_registry_source_count": citation_registry_source_count,
+        "registry_backed_citation_count": registry_backed_citation_count,
+        "unregistered_citation_keys": unregistered_citation_keys,
+        "bibliography_registry_backed": bibliography_registry_backed,
+        "bibliography_status": bundle.get("bibliography_status", "absent"),
+        "citation_policy": citation_policy,
         "sections_too_short": sections_too_short,
         "empty_or_placeholder_sections": empty_or_placeholder_sections,
         "generic_heading_count": generic_heading_count,
@@ -1012,7 +1080,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "generation_report": run_path / "reports" / "full-paper-generation-report.json",
         "release_report": run_path / "reports" / "full-paper-release-report.json",
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
+        "retrieval_report": run_path / "reports" / "retrieval-report.json",
+        "citation_registry": run_path / "reports" / "citation-registry.json",
+        "references": run_path / "latex" / "references.bib",
+        "revised_references": run_path / "latex" / "revised-references.bib",
     }
+
+
+def _read_citation_registry(path: Path) -> CitationRegistry | None:
+    if not path.is_file():
+        return None
+    try:
+        return CitationRegistry.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
 
 
 def _manuscript_stats(markdown: str) -> dict[str, Any]:
@@ -1319,6 +1400,7 @@ def _ensure_citation_artifacts(
     store: ArtifactStore,
     ledger: ResearchLedger,
     include_citations: bool,
+    max_retrieval_sources: int,
 ) -> FullPaperGenerationStep:
     if not include_citations:
         return _step(
@@ -1339,7 +1421,11 @@ def _ensure_citation_artifacts(
         inputs = load_manuscript_drafting_inputs(run_id, ledger)
     except ManuscriptDraftingError as exc:
         raise FullPaperGenerationError(_clear_manuscript_error(str(exc))) from exc
-    registry = build_citation_registry_from_ledger(run_id, ledger)
+    registry = build_citation_registry_from_ledger(
+        run_id,
+        ledger,
+        max_sources=max_retrieval_sources,
+    )
     positioning = build_literature_positioning_report(
         run_id=run_id,
         citation_registry=registry,
@@ -1626,8 +1712,10 @@ def _collect_artifact_bundle(
     latex = _latest_refs(ledger, run_id, ControllerActionType.LATEX_EXPORT_WRITTEN)
     critic = _latest_refs(ledger, run_id, ControllerActionType.PAPER_CRITIC_REPORT_WRITTEN)
     revision = _latest_refs(ledger, run_id, ControllerActionType.PAPER_REVISION_WRITTEN)
+    retrieval = _latest_refs(ledger, run_id, ControllerActionType.RETRIEVAL_RUN_RECORDED)
     bundle = FullPaperArtifactBundle(
         run_id=run_id,
+        retrieval_report_artifact_id=_id_if_present(retrieval, "retrieval-report"),
         citation_registry_artifact_id=_id_if_present(citation, "citation-registry"),
         literature_positioning_report_artifact_id=_id_if_present(
             citation, "literature-positioning-report"

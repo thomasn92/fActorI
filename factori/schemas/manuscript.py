@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -434,6 +434,8 @@ class FullPaperGenerationConfig(StrictModel):
 
     run_id: str = Field(min_length=1)
     include_citations: bool = True
+    citation_policy: Literal["none", "registry-only"] = "none"
+    max_retrieval_sources: int = Field(default=5, ge=1, le=100)
     export_latex: bool = True
     critique: bool = True
     revise: bool = False
@@ -470,6 +472,7 @@ class FullPaperArtifactBundle(StrictModel):
     """Artifact IDs that make up one generated paper package."""
 
     run_id: str = Field(min_length=1)
+    retrieval_report_artifact_id: str | None = None
     citation_registry_artifact_id: str | None = None
     literature_positioning_report_artifact_id: str | None = None
     citation_safety_report_artifact_id: str | None = None
@@ -554,11 +557,26 @@ class CitationRecord(StrictModel):
     doi: str | None = None
     url: str | None = None
     provider: str = Field(min_length=1)
+    retrieval_backend: str = Field(default="unknown", min_length=1)
     retrieved_at: str = Field(min_length=1)
     raw_metadata_hash: str = Field(min_length=1)
     source_artifact_id: str | None = None
+    source_type: str = Field(default="retrieval_metadata", min_length=1)
+    abstract_or_snippet: str | None = None
+    allowed_citation_key: str | None = None
+    trust_level: str = Field(default="metadata_only", min_length=1)
+    source_status: Literal[
+        "retrieved",
+        "user_provided",
+        "fixture",
+        "rejected",
+        "stale",
+        "unverified_metadata",
+    ] = "unverified_metadata"
     warnings: list[str] = Field(default_factory=list)
     is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
     proves_novelty: bool = False
     claims_literature_coverage: bool = False
 
@@ -583,10 +601,18 @@ class CitationRegistry(StrictModel):
     citations: list[CitationRecord] = Field(default_factory=list)
     bibliography: list[BibliographyEntry] = Field(default_factory=list)
     citation_key_policy: str = Field(min_length=1)
+    citation_policy: Literal["none", "registry-only"] = "none"
+    retrieval_backend: str = Field(default="none", min_length=1)
+    retrieval_scope: str = Field(default="bounded", min_length=1)
     source_registry_hash: str = Field(min_length=1)
+    source_count: int = Field(default=0, ge=0)
+    accepted_source_count: int = Field(default=0, ge=0)
+    rejected_source_count: int = Field(default=0, ge=0)
     warnings: list[str] = Field(default_factory=list)
     fake: bool = True
     is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
     proves_novelty: bool = False
     claims_literature_coverage: bool = False
 
@@ -614,8 +640,14 @@ class CitationSafetyReport(StrictModel):
     used_citation_keys: list[str] = Field(default_factory=list)
     used_citation_ids: list[str] = Field(default_factory=list)
     bibliography_entries_count: int = Field(default=0, ge=0)
+    citation_policy: Literal["none", "registry-only"] = "none"
+    citation_registry_source_count: int = Field(default=0, ge=0)
+    registry_backed_citation_count: int = Field(default=0, ge=0)
+    unregistered_citation_keys: list[str] = Field(default_factory=list)
+    bibliography_registry_backed: bool = False
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
     proves_novelty: bool = False
 
 
