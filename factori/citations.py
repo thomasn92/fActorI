@@ -8,6 +8,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from factori.artifacts import ArtifactStore
+from factori.claim_adjudication import (
+    ClaimAdjudicationRequest,
+    ClaimAdjudicator,
+    deterministic_semantic_adjudication,
+    sentence_requires_adjudication,
+)
 from factori.hashing import sha256_json, sha256_text
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -60,6 +66,7 @@ _CLAIM_CLASS_PROOF_PATTERNS = (
     " theorem ",
     " lemma ",
     " proposition ",
+    " conjecture ",
     " proof ",
     "leanverified",
     "verified theorem",
@@ -120,7 +127,17 @@ _METHOD_PATTERNS = (
     "orchestration",
 )
 _EVIDENCE_BOUNDARY_PATTERNS = (
+    "no proof",
+    "not a proof",
     "not proof",
+    "without proof",
+    "no experiment",
+    "not an experiment",
+    "without experiment",
+    "no validation",
+    "does not validate",
+    "not publication ready",
+    "not publication-ready",
     "not evidence",
     "not verification evidence",
     "not empirical validation",
@@ -437,8 +454,10 @@ def build_claim_support_audit(
     run_id: str,
     markdown: str,
     citation_registry: CitationRegistry | None,
+    claim_adjudicator: ClaimAdjudicator | None = None,
+    available_evidence_artifacts: dict[str, bool] | None = None,
 ) -> ClaimSupportAuditReport:
-    """Build a deterministic sentence-to-source support audit for a manuscript."""
+    """Build a sentence-to-source audit with semantic meaning kept separate from facts."""
     registry = citation_registry or CitationRegistry(
         run_id=run_id,
         citations=[],
@@ -448,8 +467,16 @@ def build_claim_support_audit(
         source_registry_hash=sha256_json([]),
     )
     key_to_record = {record.citation_key: record for record in registry.citations}
+    available_evidence = {
+        "proof": False,
+        "experiment": False,
+        "human_review": False,
+        "publication_ready": False,
+        **(available_evidence_artifacts or {}),
+    }
     items: list[ClaimSupportItem] = []
     placement_violations: list[str] = []
+    sentence_contexts: list[dict[str, Any]] = []
     for paragraph in _paragraph_contexts(markdown):
         if _is_bibliography_section(paragraph["section_name"]):
             continue
@@ -470,36 +497,122 @@ def build_claim_support_audit(
                 "literature_background_claim",
             }:
                 claim_class = "provenance_statement"
-            status, reason, sources = _support_status_for_sentence(
+            sentence_id = (
+                f"{_slug(paragraph['section_name'])}-"
+                f"p{paragraph['paragraph_index']}-s{sentence_index}"
+            )
+            sentence_contexts.append(
+                {
+                    "sentence_id": sentence_id,
+                    "section_name": paragraph["section_name"],
+                    "sentence": sentence,
+                    "sentence_markers": sentence_markers,
+                    "paragraph_markers": local_markers,
+                    "preliminary_claim_class": claim_class,
+                    "paragraph_index": paragraph["paragraph_index"],
+                    "sentence_index": sentence_index,
+                }
+            )
+
+    risky_requests = [
+        ClaimAdjudicationRequest(
+            sentence_id=context["sentence_id"],
+            section_name=context["section_name"],
+            sentence=context["sentence"],
+            preliminary_claim_class=context["preliminary_claim_class"],
+            citation_keys_present=context["sentence_markers"],
+            registry_source_summaries=[
+                {
+                    "citation_key": key,
+                    "support_scope": key_to_record[key].support_scope,
+                    "fixture_only": key_to_record[key].fixture_only,
+                }
+                for key in context["sentence_markers"]
+                if key in key_to_record
+            ],
+            available_evidence_artifacts=available_evidence,
+        )
+        for context in sentence_contexts
+        if sentence_requires_adjudication(context["sentence"])
+        and not _is_appendix_context(context["section_name"])
+    ]
+    initial_adjudication_calls = (
+        claim_adjudicator.call_count if claim_adjudicator is not None else 0
+    )
+    if claim_adjudicator is None:
+        adjudications = [
+            deterministic_semantic_adjudication(request) for request in risky_requests
+        ]
+        adjudicator_backend = "deterministic_fallback"
+        adjudication_enabled = False
+        adjudication_calls = 0
+        adjudicator_model = None
+    else:
+        adjudications = claim_adjudicator.adjudicate(risky_requests)
+        adjudicator_backend = claim_adjudicator.backend_name
+        adjudication_enabled = True
+        adjudication_calls = claim_adjudicator.call_count - initial_adjudication_calls
+        adjudicator_model = claim_adjudicator.model
+    adjudication_by_id = {item.sentence_id: item for item in adjudications}
+    semantically_adjudicated_count = sum(
+        1
+        for item in adjudications
+        if item.adjudicator_backend != "deterministic_fallback"
+    )
+
+    for context in sentence_contexts:
+        preliminary_class = context["preliminary_claim_class"]
+        adjudication = adjudication_by_id.get(context["sentence_id"])
+        claim_class = (
+            adjudication.adjudicated_claim_class
+            if adjudication is not None
+            else preliminary_class
+        )
+        status, reason, sources = _support_status_for_sentence(
+            claim_class=claim_class,
+            sentence_markers=context["sentence_markers"],
+            paragraph_markers=context["paragraph_markers"],
+            key_to_record=key_to_record,
+            registry_present=bool(registry.citations),
+            citation_use=adjudication.citation_use if adjudication else "none",
+            available_evidence_artifacts=available_evidence,
+        )
+        items.append(
+            ClaimSupportItem(
+                sentence_id=context["sentence_id"],
+                section_name=context["section_name"],
+                sentence_text_hash=sha256_text(context["sentence"]),
+                sentence_snippet=_sentence_snippet(context["sentence"]),
                 claim_class=claim_class,
-                sentence_markers=sentence_markers,
-                paragraph_markers=local_markers,
-                key_to_record=key_to_record,
-                registry_present=bool(registry.citations),
+                citation_keys_present=context["sentence_markers"],
+                required_support_type=_required_support_type(claim_class),
+                supporting_source_ids=sources,
+                support_status=status,
+                unsupported_reason=reason,
+                paragraph_index=context["paragraph_index"],
+                sentence_index=context["sentence_index"],
+                preliminary_claim_class=preliminary_class,
+                adjudicated_claim_class=(
+                    adjudication.adjudicated_claim_class if adjudication else None
+                ),
+                adjudication_changed_class=(
+                    adjudication is not None
+                    and adjudication.adjudicated_claim_class != preliminary_class
+                ),
+                adjudication_confidence=(adjudication.confidence if adjudication else None),
+                adjudication_reasoning_brief=(
+                    adjudication.reasoning_brief if adjudication else None
+                ),
+                citation_use=adjudication.citation_use if adjudication else "none",
             )
-            items.append(
-                ClaimSupportItem(
-                    sentence_id=(
-                        f"{_slug(paragraph['section_name'])}-"
-                        f"p{paragraph['paragraph_index']}-s{sentence_index}"
-                    ),
-                    section_name=paragraph["section_name"],
-                    sentence_text_hash=sha256_text(sentence),
-                    sentence_snippet=_sentence_snippet(sentence),
-                    claim_class=claim_class,
-                    citation_keys_present=sentence_markers,
-                    required_support_type=_required_support_type(claim_class),
-                    supporting_source_ids=sources,
-                    support_status=status,
-                    unsupported_reason=reason,
-                    paragraph_index=paragraph["paragraph_index"],
-                    sentence_index=sentence_index,
-                )
-            )
+        )
     summary = {
         "total_sentences": len(items),
         "registry_supported": sum(
             1 for item in items if item.support_status == "registry_supported"
+        ),
+        "evidence_artifact_supported": sum(
+            1 for item in items if item.support_status == "evidence_artifact_supported"
         ),
         "scaffold_not_required": sum(
             1 for item in items if item.support_status == "not_required_scaffold"
@@ -549,6 +662,14 @@ def build_claim_support_audit(
             for item in items
             if item.support_status == "citation_as_validation_misuse"
         ),
+        claim_adjudication_enabled=adjudication_enabled,
+        claim_adjudicator_backend=adjudicator_backend,
+        claim_adjudicator_model=adjudicator_model,
+        claim_adjudication_calls=adjudication_calls,
+        adjudicated_sentence_count=semantically_adjudicated_count,
+        deterministic_sentence_count=len(items) - semantically_adjudicated_count,
+        adjudication_items=adjudications,
+        post_adjudication_summary_counts=dict(sorted(summary.items())),
     )
 
 
@@ -582,6 +703,41 @@ def classify_claim_sentence(sentence: str) -> str:
     if _contains_any(text, _PROBLEM_PATTERNS):
         return "problem_framing_statement"
     return "scaffold_statement"
+
+
+def repair_confirmed_claim_support_violations(
+    markdown: str,
+    audit: ClaimSupportAuditReport,
+) -> tuple[str, list[str]]:
+    """Remove only sentences confirmed unsafe by the post-adjudication support audit."""
+    removable_ids = {
+        item.sentence_id
+        for item in audit.unsupported_items
+        if item.support_status
+        in {
+            "forbidden_claim_without_evidence",
+            "citation_as_validation_misuse",
+        }
+    }
+    if not removable_ids:
+        return markdown, []
+    revised = markdown
+    removed: list[str] = []
+    for paragraph in _paragraph_contexts(markdown):
+        if _is_bibliography_section(paragraph["section_name"]):
+            continue
+        for sentence_index, sentence in enumerate(_split_sentences(paragraph["text"])):
+            sentence_id = (
+                f"{_slug(paragraph['section_name'])}-"
+                f"p{paragraph['paragraph_index']}-s{sentence_index}"
+            )
+            if sentence_id not in removable_ids or sentence not in revised:
+                continue
+            revised = revised.replace(sentence, "", 1)
+            removed.append(sentence_id)
+    revised = re.sub(r"[ \t]+\n", "\n", revised)
+    revised = re.sub(r"\n{3,}", "\n\n", revised).strip() + "\n"
+    return revised, sorted(removed)
 
 
 def write_citation_registry_reports(
@@ -663,10 +819,19 @@ def _support_status_for_sentence(
     paragraph_markers: list[str],
     key_to_record: dict[str, CitationRecord],
     registry_present: bool,
+    citation_use: str = "none",
+    available_evidence_artifacts: dict[str, bool] | None = None,
 ) -> tuple[str, str | None, list[str]]:
     local_keys = sentence_markers or paragraph_markers
     known_records = [key_to_record[key] for key in local_keys if key in key_to_record]
     unknown_keys = [key for key in local_keys if key not in key_to_record]
+    evidence = available_evidence_artifacts or {}
+    if citation_use.startswith("misused_as_"):
+        return (
+            "citation_as_validation_misuse",
+            f"citation use is semantically classified as {citation_use}",
+            [record.source_id for record in known_records],
+        )
     if claim_class in {
         "proof_claim",
         "experiment_claim",
@@ -678,6 +843,16 @@ def _support_status_for_sentence(
                 "citation_as_validation_misuse",
                 f"citations cannot support {claim_class}",
                 [record.source_id for record in known_records],
+            )
+        evidence_kind = {
+            "proof_claim": "proof",
+            "experiment_claim": "experiment",
+        }.get(claim_class)
+        if evidence_kind and evidence.get(evidence_kind, False):
+            return (
+                "evidence_artifact_supported",
+                None,
+                [],
             )
         return (
             "forbidden_claim_without_evidence",

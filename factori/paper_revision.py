@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from factori.artifacts import ArtifactStore
-from factori.citations import CITATION_MARKER_RE
+from factori.citations import (
+    CITATION_MARKER_RE,
+    build_claim_support_audit,
+    repair_confirmed_claim_support_violations,
+)
+from factori.claim_adjudication import ClaimAdjudicator
 from factori.hashing import sha256_text
 from factori.ledger import ResearchLedger
 from factori.paper_critic import (
@@ -22,6 +27,7 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     CitationRegistry,
+    ClaimSupportAuditReport,
     ControllerActionType,
     PaperCriticReport,
     PaperRevisionActionKind,
@@ -61,15 +67,38 @@ def apply_safe_fake_revision(
     revision_plan: PaperRevisionPlan,
     citation_registry: CitationRegistry | None = None,
     bounded_text_repair: bool = False,
+    claim_support_audit: ClaimSupportAuditReport | None = None,
 ) -> PaperRevisionResult:
     """Apply one deterministic conservative text-only revision pass."""
     revised = markdown
     patches: list[PaperRevisionPatch] = []
+    if bounded_text_repair and claim_support_audit is not None:
+        revised, removed_sentence_ids = repair_confirmed_claim_support_violations(
+            revised,
+            claim_support_audit,
+        )
+        patches.extend(
+            _patch(
+                PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE,
+                sentence_id,
+                "",
+                "removed confirmed post-adjudication claim-support violation",
+            )
+            for sentence_id in removed_sentence_ids
+        )
     if bounded_text_repair:
-        revised, bounded_patches = _apply_bounded_text_repairs(revised)
+        revised, bounded_patches = _apply_bounded_text_repairs(
+            revised,
+            replace_claim_language=True,
+        )
         patches.extend(bounded_patches)
     for action in revision_plan.actions:
         if action == PaperRevisionActionKind.NO_ACTION_NEEDED:
+            continue
+        if (
+            claim_support_audit is not None
+            and action == PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE
+        ):
             continue
         revised, action_patches = _apply_action(
             revised,
@@ -165,6 +194,7 @@ def revise_paper_from_run(
     apply_safe_fake_revision_flag: bool = False,
     write_report: bool = False,
     safe_repair_mode: bool = False,
+    claim_adjudicator: ClaimAdjudicator | None = None,
 ) -> PaperRevisionRunResult:
     """Plan or apply one safe fake paper revision pass for the latest draft."""
     critic = critique_paper_from_run(
@@ -181,12 +211,23 @@ def revise_paper_from_run(
             critic_report=critic.critic_report,
             revision_plan=plan,
         )
+    claim_support_audit = (
+        build_claim_support_audit(
+            run_id=run_id,
+            markdown=critic.inputs.markdown,
+            citation_registry=critic.inputs.citation_registry,
+            claim_adjudicator=claim_adjudicator,
+        )
+        if safe_repair_mode and claim_adjudicator is not None
+        else None
+    )
     revision_result = apply_safe_fake_revision(
         run_id=run_id,
         markdown=critic.inputs.markdown,
         revision_plan=plan,
         citation_registry=critic.inputs.citation_registry,
         bounded_text_repair=safe_repair_mode,
+        claim_support_audit=claim_support_audit,
     )
     repaired_critic = critic.critic_report
     if safe_repair_mode:
@@ -404,6 +445,8 @@ def _apply_action(
 
 def _apply_bounded_text_repairs(
     markdown: str,
+    *,
+    replace_claim_language: bool = True,
 ) -> tuple[str, list[PaperRevisionPatch]]:
     action = PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE
     revised = markdown
@@ -428,8 +471,9 @@ def _apply_bounded_text_repairs(
         if count:
             patches.append(_patch(action, pattern.pattern, replacement, rationale))
             revised = updated
-    revised, claim_patches = _replace_unsafe_claim_language(revised, action)
-    patches.extend(claim_patches)
+    if replace_claim_language:
+        revised, claim_patches = _replace_unsafe_claim_language(revised, action)
+        patches.extend(claim_patches)
     revised, boundary_patches = _clarify_synthetic_boundary(
         revised,
         PaperRevisionActionKind.CLARIFY_SYNTHETIC_ONLY_BOUNDARY,

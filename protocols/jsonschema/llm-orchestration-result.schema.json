@@ -32,6 +32,19 @@
           "default": null,
           "title": "Max Candidate Generation Calls"
         },
+        "max_claim_adjudication_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Claim Adjudication Calls"
+        },
         "max_estimated_cost_usd": {
           "anyOf": [
             {
@@ -229,6 +242,12 @@
           "default": 0,
           "minimum": 0,
           "title": "Candidate Generation Calls",
+          "type": "integer"
+        },
+        "claim_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Claim Adjudication Calls",
           "type": "integer"
         },
         "creates_scientific_validation": {
@@ -525,6 +544,21 @@
             "registry-only"
           ],
           "title": "Citation Policy",
+          "type": "string"
+        },
+        "claim_adjudicator_backend": {
+          "default": "off",
+          "enum": [
+            "off",
+            "fake",
+            "openai"
+          ],
+          "title": "Claim Adjudicator Backend",
+          "type": "string"
+        },
+        "claim_adjudicator_model": {
+          "default": "gpt-5-mini",
+          "title": "Claim Adjudicator Model",
           "type": "string"
         },
         "creates_scientific_validation": {
@@ -994,7 +1028,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.16.0/llm-orchestration-result.schema.json",
+  "$id": "https://schemas.factori.local/0.17.0/llm-orchestration-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for gated LLM paper orchestration commands.",
@@ -1057,7 +1091,7 @@
   ],
   "title": "LLMOrchestrationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.16.0",
+  "x-factori-protocol-version": "0.17.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationResult",
   "x-factori-verification-evidence": false
 }

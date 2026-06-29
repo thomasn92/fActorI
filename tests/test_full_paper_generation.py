@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
+from factori.claim_adjudication import FakeClaimAdjudicator
 from factori.cli import app
 from factori.full_paper_generation import generate_full_paper, lint_paper_bundle_summary
 from factori.hashing import sha256_file
@@ -13,6 +14,7 @@ from factori.ledger import ResearchLedger
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
+    ClaimSupportAuditReport,
     ControllerActionType,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
@@ -62,6 +64,30 @@ def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
     for ref in (result.report_artifact, result.bundle_artifact):
         assert ref is not None
         _assert_non_evidence_artifact(tmp_path, ref)
+
+
+def test_full_paper_generation_writes_fake_semantic_adjudication_audit(tmp_path) -> None:
+    _prepare_run(tmp_path, run_id="run-adjudicated")
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs/run-adjudicated/ledger.sqlite")
+
+    generate_full_paper(
+        run_id="run-adjudicated",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=FakeProseGenerator(),
+        claim_adjudicator=FakeClaimAdjudicator(),
+        config=FullPaperGenerationConfig(run_id="run-adjudicated", write_report=True),
+    )
+
+    path = tmp_path / "runs/run-adjudicated/reports/claim-support-audit.json"
+    audit = ClaimSupportAuditReport.model_validate_json(path.read_text(encoding="utf-8"))
+    assert audit.claim_adjudication_enabled is True
+    assert audit.claim_adjudicator_backend == "fake"
+    assert audit.claim_adjudication_calls >= 1
+    assert audit.creates_scientific_validation is False
+    assert audit.implies_publication_readiness is False
 
 
 def test_generate_paper_cli_works_and_json_is_valid(tmp_path) -> None:

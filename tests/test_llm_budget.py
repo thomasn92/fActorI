@@ -282,6 +282,24 @@ def test_runtime_budget_guard_warns_and_allows_unknown_usage_when_configured() -
     assert any("runtime estimated cost is unknown" in warning for warning in decision.warnings)
 
 
+def test_runtime_guard_enforces_claim_adjudication_call_limit() -> None:
+    guard = RuntimeLLMBudgetGuard(
+        LLMBudgetConfig(
+            max_total_calls=2,
+            max_claim_adjudication_calls=1,
+            max_estimated_cost_usd=1.0,
+        ),
+        lambda: "1970-01-01T00:00:00.000000Z",
+    )
+
+    _authorize_step(guard, "llm-claim-adjudication")
+    with pytest.raises(LLMBudgetExceeded, match="max_claim_adjudication_calls") as error:
+        _authorize_step(guard, "llm-claim-adjudication")
+
+    assert error.value.record.external_call_performed is False
+    assert error.value.record.error_type == "BudgetExceeded"
+
+
 def _authorize_candidate(guard: RuntimeLLMBudgetGuard) -> None:
     _authorize_step(guard, "llm-candidate-generation")
 

@@ -1,15 +1,207 @@
 {
   "$defs": {
+    "ClaimAdjudication": {
+      "additionalProperties": false,
+      "description": "Bounded semantic classification of one manuscript sentence; never evidence.",
+      "properties": {
+        "adjudicated_claim_class": {
+          "enum": [
+            "scaffold_statement",
+            "problem_framing_statement",
+            "method_description_statement",
+            "evidence_boundary_statement",
+            "limitation_statement",
+            "provenance_statement",
+            "source_context_claim",
+            "literature_background_claim",
+            "external_factual_claim",
+            "pipeline_status_claim",
+            "proof_claim",
+            "experiment_claim",
+            "novelty_claim",
+            "publication_readiness_claim"
+          ],
+          "title": "Adjudicated Claim Class",
+          "type": "string"
+        },
+        "adjudicator_backend": {
+          "default": "deterministic_fallback",
+          "minLength": 1,
+          "title": "Adjudicator Backend",
+          "type": "string"
+        },
+        "citation_as_validation_misuse": {
+          "default": false,
+          "title": "Citation As Validation Misuse",
+          "type": "boolean"
+        },
+        "citation_use": {
+          "default": "none",
+          "enum": [
+            "none",
+            "background_context",
+            "local_support",
+            "misused_as_proof",
+            "misused_as_validation",
+            "misused_as_novelty",
+            "misused_as_publication_readiness"
+          ],
+          "title": "Citation Use",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "forbidden_claim_detected": {
+          "default": false,
+          "title": "Forbidden Claim Detected",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_readiness_claim": {
+          "default": false,
+          "title": "Publication Readiness Claim",
+          "type": "boolean"
+        },
+        "reasoning_brief": {
+          "default": "",
+          "maxLength": 400,
+          "title": "Reasoning Brief",
+          "type": "string"
+        },
+        "requires_citation": {
+          "title": "Requires Citation",
+          "type": "boolean"
+        },
+        "section_name": {
+          "minLength": 1,
+          "title": "Section Name",
+          "type": "string"
+        },
+        "sentence_hash": {
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Sentence Hash",
+          "type": "string"
+        },
+        "sentence_id": {
+          "minLength": 1,
+          "title": "Sentence Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence_id",
+        "section_name",
+        "sentence_hash",
+        "adjudicated_claim_class",
+        "requires_citation"
+      ],
+      "title": "ClaimAdjudication",
+      "type": "object"
+    },
     "ClaimSupportItem": {
       "additionalProperties": false,
       "description": "One deterministic manuscript sentence-to-source support classification.",
       "properties": {
+        "adjudicated_claim_class": {
+          "anyOf": [
+            {
+              "enum": [
+                "scaffold_statement",
+                "problem_framing_statement",
+                "method_description_statement",
+                "evidence_boundary_statement",
+                "limitation_statement",
+                "provenance_statement",
+                "source_context_claim",
+                "literature_background_claim",
+                "external_factual_claim",
+                "pipeline_status_claim",
+                "proof_claim",
+                "experiment_claim",
+                "novelty_claim",
+                "publication_readiness_claim"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudicated Claim Class"
+        },
+        "adjudication_changed_class": {
+          "default": false,
+          "title": "Adjudication Changed Class",
+          "type": "boolean"
+        },
+        "adjudication_confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudication Confidence"
+        },
+        "adjudication_reasoning_brief": {
+          "anyOf": [
+            {
+              "maxLength": 400,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adjudication Reasoning Brief"
+        },
         "citation_keys_present": {
           "items": {
             "type": "string"
           },
           "title": "Citation Keys Present",
           "type": "array"
+        },
+        "citation_use": {
+          "default": "none",
+          "enum": [
+            "none",
+            "background_context",
+            "local_support",
+            "misused_as_proof",
+            "misused_as_validation",
+            "misused_as_novelty",
+            "misused_as_publication_readiness"
+          ],
+          "title": "Citation Use",
+          "type": "string"
         },
         "claim_class": {
           "enum": [
@@ -52,6 +244,34 @@
           "title": "Paragraph Index",
           "type": "integer"
         },
+        "preliminary_claim_class": {
+          "anyOf": [
+            {
+              "enum": [
+                "scaffold_statement",
+                "problem_framing_statement",
+                "method_description_statement",
+                "evidence_boundary_statement",
+                "limitation_statement",
+                "provenance_statement",
+                "source_context_claim",
+                "literature_background_claim",
+                "external_factual_claim",
+                "pipeline_status_claim",
+                "proof_claim",
+                "experiment_claim",
+                "novelty_claim",
+                "publication_readiness_claim"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preliminary Claim Class"
+        },
         "required_support_type": {
           "default": "none",
           "minLength": 1,
@@ -90,6 +310,7 @@
           "enum": [
             "not_required_scaffold",
             "registry_supported",
+            "evidence_artifact_supported",
             "registry_key_present_but_scope_mismatch",
             "missing_required_citation",
             "forbidden_claim_without_evidence",
@@ -130,11 +351,24 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.16.0/claim-support-audit-report.schema.json",
+  "$id": "https://schemas.factori.local/0.17.0/claim-support-audit-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic citation-placement and claim-support audit report.",
   "properties": {
+    "adjudicated_sentence_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Adjudicated Sentence Count",
+      "type": "integer"
+    },
+    "adjudication_items": {
+      "items": {
+        "$ref": "#/$defs/ClaimAdjudication"
+      },
+      "title": "Adjudication Items",
+      "type": "array"
+    },
     "citation_as_validation_misuse_count": {
       "default": 0,
       "minimum": 0,
@@ -161,6 +395,34 @@
       "title": "Citation Registry Present",
       "type": "boolean"
     },
+    "claim_adjudication_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Claim Adjudication Calls",
+      "type": "integer"
+    },
+    "claim_adjudication_enabled": {
+      "default": false,
+      "title": "Claim Adjudication Enabled",
+      "type": "boolean"
+    },
+    "claim_adjudicator_backend": {
+      "default": "off",
+      "title": "Claim Adjudicator Backend",
+      "type": "string"
+    },
+    "claim_adjudicator_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Adjudicator Model"
+    },
     "claim_support_items": {
       "items": {
         "$ref": "#/$defs/ClaimSupportItem"
@@ -173,6 +435,12 @@
       "title": "Creates Scientific Validation",
       "type": "boolean"
     },
+    "deterministic_sentence_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deterministic Sentence Count",
+      "type": "integer"
+    },
     "implies_publication_readiness": {
       "default": false,
       "title": "Implies Publication Readiness",
@@ -182,6 +450,13 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "post_adjudication_summary_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Post Adjudication Summary Counts",
+      "type": "object"
     },
     "run_id": {
       "minLength": 1,
@@ -209,7 +484,7 @@
   ],
   "title": "ClaimSupportAuditReport",
   "type": "object",
-  "x-factori-protocol-version": "0.16.0",
+  "x-factori-protocol-version": "0.17.0",
   "x-factori-source-model": "factori.schemas.ClaimSupportAuditReport",
   "x-factori-verification-evidence": false
 }

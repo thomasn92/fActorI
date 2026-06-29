@@ -1,0 +1,123 @@
+{
+  "$id": "https://schemas.factori.local/0.17.0/claim-adjudication.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded semantic sentence classification; not artifact verification or evidence.",
+  "properties": {
+    "adjudicated_claim_class": {
+      "enum": [
+        "scaffold_statement",
+        "problem_framing_statement",
+        "method_description_statement",
+        "evidence_boundary_statement",
+        "limitation_statement",
+        "provenance_statement",
+        "source_context_claim",
+        "literature_background_claim",
+        "external_factual_claim",
+        "pipeline_status_claim",
+        "proof_claim",
+        "experiment_claim",
+        "novelty_claim",
+        "publication_readiness_claim"
+      ],
+      "title": "Adjudicated Claim Class",
+      "type": "string"
+    },
+    "adjudicator_backend": {
+      "default": "deterministic_fallback",
+      "minLength": 1,
+      "title": "Adjudicator Backend",
+      "type": "string"
+    },
+    "citation_as_validation_misuse": {
+      "default": false,
+      "title": "Citation As Validation Misuse",
+      "type": "boolean"
+    },
+    "citation_use": {
+      "default": "none",
+      "enum": [
+        "none",
+        "background_context",
+        "local_support",
+        "misused_as_proof",
+        "misused_as_validation",
+        "misused_as_novelty",
+        "misused_as_publication_readiness"
+      ],
+      "title": "Citation Use",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 1.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "forbidden_claim_detected": {
+      "default": false,
+      "title": "Forbidden Claim Detected",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_readiness_claim": {
+      "default": false,
+      "title": "Publication Readiness Claim",
+      "type": "boolean"
+    },
+    "reasoning_brief": {
+      "default": "",
+      "maxLength": 400,
+      "title": "Reasoning Brief",
+      "type": "string"
+    },
+    "requires_citation": {
+      "title": "Requires Citation",
+      "type": "boolean"
+    },
+    "section_name": {
+      "minLength": 1,
+      "title": "Section Name",
+      "type": "string"
+    },
+    "sentence_hash": {
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Sentence Hash",
+      "type": "string"
+    },
+    "sentence_id": {
+      "minLength": 1,
+      "title": "Sentence Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sentence_id",
+    "section_name",
+    "sentence_hash",
+    "adjudicated_claim_class",
+    "requires_citation"
+  ],
+  "title": "ClaimAdjudication",
+  "type": "object",
+  "x-factori-protocol-version": "0.17.0",
+  "x-factori-source-model": "factori.schemas.ClaimAdjudication",
+  "x-factori-verification-evidence": false
+}

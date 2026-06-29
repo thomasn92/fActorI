@@ -16,6 +16,7 @@ from factori.citations import (
     validate_citation_usage,
     write_citation_registry_reports,
 )
+from factori.claim_adjudication import ClaimAdjudicator
 from factori.latex_export import (
     LatexExportError,
     LatexExportRunResult,
@@ -220,6 +221,7 @@ class FullPaperGenerationRunResult:
     revised_source_map_artifact: ArtifactRef | None = None
     revised_export_report_artifact: ArtifactRef | None = None
     revised_safety_report_artifact: ArtifactRef | None = None
+    claim_adjudicator: ClaimAdjudicator | None = None
 
 
 def generate_full_paper(
@@ -233,6 +235,7 @@ def generate_full_paper(
     renderer: LatexRenderer | None = None,
     max_words: int = 260,
     enable_safe_repair: bool = False,
+    claim_adjudicator: ClaimAdjudicator | None = None,
 ) -> FullPaperGenerationRunResult:
     """Generate a complete manuscript package from existing deterministic run artifacts."""
     if config.run_id != run_id:
@@ -401,6 +404,7 @@ def generate_full_paper(
                 apply_safe_fake_revision_flag=repair_requested,
                 write_report=repair_requested,
                 safe_repair_mode=enable_safe_repair,
+                claim_adjudicator=claim_adjudicator,
             )
         except PaperCriticError as exc:
             raise FullPaperGenerationError(str(exc)) from exc
@@ -470,6 +474,7 @@ def generate_full_paper(
         root=root,
         ledger=ledger,
         revision_result=revision_result,
+        claim_adjudicator=claim_adjudicator,
     )
     claim_support_warnings = _claim_support_warnings(claim_support_audit)
     steps.append(
@@ -513,6 +518,7 @@ def generate_full_paper(
             latex_result=latex_result,
             critic_result=critic_result,
             revision_result=revision_result,
+            claim_adjudicator=claim_adjudicator,
         )
 
     persistence = _write_full_paper_generation_artifacts(
@@ -532,6 +538,7 @@ def generate_full_paper(
         latex_result=latex_result,
         critic_result=critic_result,
         revision_result=revision_result,
+        claim_adjudicator=claim_adjudicator,
         persistence=persistence,
     )
 
@@ -723,6 +730,24 @@ def inspect_paper_bundle_summary(
         "citation_as_validation_misuse_count": int(
             claim_support_counts.get("citation_as_validation_misuse", 0)
         ),
+        "claim_adjudication_enabled": bool(
+            claim_support_audit and claim_support_audit.claim_adjudication_enabled
+        ),
+        "claim_adjudicator_backend": (
+            claim_support_audit.claim_adjudicator_backend
+            if claim_support_audit is not None
+            else "off"
+        ),
+        "claim_adjudication_calls": (
+            claim_support_audit.claim_adjudication_calls
+            if claim_support_audit is not None
+            else 0
+        ),
+        "adjudicated_sentence_count": (
+            claim_support_audit.adjudicated_sentence_count
+            if claim_support_audit is not None
+            else 0
+        ),
         "artifacts": existing,
         "is_verification_evidence": False,
         "creates_scientific_validation": False,
@@ -808,6 +833,10 @@ def lint_paper_bundle_summary(
     citation_as_validation_misuse_count = int(
         bundle.get("citation_as_validation_misuse_count") or 0
     )
+    claim_adjudication_enabled = bool(bundle.get("claim_adjudication_enabled"))
+    claim_adjudicator_backend = str(bundle.get("claim_adjudicator_backend") or "off")
+    claim_adjudication_calls = int(bundle.get("claim_adjudication_calls") or 0)
+    adjudicated_sentence_count = int(bundle.get("adjudicated_sentence_count") or 0)
     sections = _markdown_sections(markdown)
     section_accounting = _section_accounting(sections, title_text)
     main_body_sections = section_accounting["main_body_sections"]
@@ -1126,6 +1155,10 @@ def lint_paper_bundle_summary(
         "claim_support_forbidden_claim_count": claim_support_forbidden_claim_count,
         "citation_placement_violations": citation_placement_violations,
         "citation_as_validation_misuse_count": citation_as_validation_misuse_count,
+        "claim_adjudication_enabled": claim_adjudication_enabled,
+        "claim_adjudicator_backend": claim_adjudicator_backend,
+        "claim_adjudication_calls": claim_adjudication_calls,
+        "adjudicated_sentence_count": adjudicated_sentence_count,
         "sections_too_short": sections_too_short,
         "empty_or_placeholder_sections": empty_or_placeholder_sections,
         "generic_heading_count": generic_heading_count,
@@ -1588,6 +1621,7 @@ def _build_claim_support_audit_for_generation(
     root: str | Path,
     ledger: ResearchLedger,
     revision_result: PaperRevisionRunResult | None,
+    claim_adjudicator: ClaimAdjudicator | None,
 ) -> ClaimSupportAuditReport:
     markdown = _primary_markdown_for_claim_support(
         run_id=run_id,
@@ -1603,7 +1637,34 @@ def _build_claim_support_audit_for_generation(
         run_id=run_id,
         markdown=markdown,
         citation_registry=registry,
+        claim_adjudicator=claim_adjudicator,
+        available_evidence_artifacts=_available_evidence_artifacts(ledger, run_id),
     )
+
+
+def _available_evidence_artifacts(
+    ledger: ResearchLedger,
+    run_id: str,
+) -> dict[str, bool]:
+    refs = [
+        artifact
+        for commit in ledger.list_commits(run_id)
+        for artifact in commit.artifact_refs
+    ]
+    return {
+        "proof": any(
+            artifact.type == ArtifactType.LEAN
+            and bool(artifact.metadata.get("is_verification_evidence"))
+            for artifact in refs
+        ),
+        "experiment": any(
+            artifact.type == ArtifactType.EXPERIMENT
+            and bool(artifact.metadata.get("is_verification_evidence"))
+            for artifact in refs
+        ),
+        "human_review": False,
+        "publication_ready": False,
+    }
 
 
 def _primary_markdown_for_claim_support(
@@ -1861,6 +1922,7 @@ def _with_persisted_generation_artifacts(
     latex_result: LatexExportRunResult | None,
     critic_result: PaperCriticRunResult | None,
     revision_result: PaperRevisionRunResult | None,
+    claim_adjudicator: ClaimAdjudicator | None,
     persistence: PersistenceResult,
 ) -> FullPaperGenerationRunResult:
     refs = {artifact.id: artifact for artifact in persistence.artifacts}
@@ -1894,6 +1956,7 @@ def _with_persisted_generation_artifacts(
         latex_result=latex_result,
         critic_result=critic_result,
         revision_result=revision_result,
+        claim_adjudicator=claim_adjudicator,
         persistence=persistence,
         report_artifact=refs.get("full-paper-generation-report"),
         bundle_artifact=refs.get("full-paper-artifact-bundle"),

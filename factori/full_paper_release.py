@@ -23,6 +23,7 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     CitationRegistry,
+    ClaimSupportAuditReport,
     ClaimTable,
     ControllerActionType,
     FullPaperArtifactBundle,
@@ -210,6 +211,50 @@ def evaluate_full_paper_release(
         else "; ".join(citation_reasons),
         "citation",
         ["citation-registry", "references"],
+    )
+
+    claim_support = _load_model(
+        root_path,
+        refs.get("claim-support-audit"),
+        ClaimSupportAuditReport,
+    )
+    claim_support_counts = (
+        claim_support.post_adjudication_summary_counts or claim_support.summary_counts
+        if claim_support is not None
+        else {}
+    )
+    unresolved_claim_support = sum(
+        int(claim_support_counts.get(key, 0))
+        for key in (
+            "forbidden_claim",
+            "citation_as_validation_misuse",
+            "scope_mismatch",
+            "unsupported_external_claim",
+            "missing_required_citation",
+        )
+    )
+    claim_support_required = bool(citation_registry and citation_registry.citations)
+    claim_support_safe = (
+        unresolved_claim_support == 0
+        and (claim_support is not None or not claim_support_required)
+    )
+    _record(
+        checks,
+        findings,
+        "claim_support_safety",
+        claim_support_safe,
+        FullPaperReleaseFindingSeverity.BLOCKING,
+        (
+            "Post-adjudication claim-support checks have no unresolved violations."
+            if claim_support_safe
+            else "Claim-support audit is missing or has unresolved semantic support violations."
+        ),
+        "citation",
+        ["claim-support-audit"],
+    )
+    citation_warnings.append(
+        "Retrieval metadata is bounded literature context, not proof of novelty, validation, "
+        "or publication readiness."
     )
 
     literature_safe = _literature_positioning_safe(literature, citations_required)

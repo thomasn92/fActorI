@@ -206,6 +206,9 @@ All implementation modules are under `factori/`.
   paper-shaped presentation draft with claim/evidence, bibliography, and provenance appendices.
 - `citations.py`: deterministic citation-key generation, citation registry construction from
   retrieval metadata, citation usage validation, and optional ledgered context-report persistence.
+- `claim_adjudication.py`: bounded fake/OpenAI semantic classification for ambiguous manuscript
+  sentences; deterministic citation, source-scope, bibliography, and evidence checks remain
+  authoritative.
 - `literature_positioning.py`: bounded literature-positioning contracts, gap statements, and
   draft-ready limitation text that does not claim exhaustive coverage or novelty proof.
 - `paper_critic.py`: deterministic generated-paper critique across narrative shape, citation

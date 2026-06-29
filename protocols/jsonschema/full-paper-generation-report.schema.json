@@ -390,6 +390,28 @@
           "title": "Citation Policy",
           "type": "string"
         },
+        "claim_adjudicator_backend": {
+          "default": "off",
+          "enum": [
+            "off",
+            "fake",
+            "openai"
+          ],
+          "title": "Claim Adjudicator Backend",
+          "type": "string"
+        },
+        "claim_adjudicator_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Adjudicator Model"
+        },
         "creates_scientific_validation": {
           "default": false,
           "title": "Creates Scientific Validation",
@@ -595,7 +617,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.16.0/full-paper-generation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.17.0/full-paper-generation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Summary report for full-paper package generation.",
@@ -680,7 +702,7 @@
   ],
   "title": "FullPaperGenerationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.16.0",
+  "x-factori-protocol-version": "0.17.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationReport",
   "x-factori-verification-evidence": false
 }

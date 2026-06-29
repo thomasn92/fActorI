@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -10,12 +11,19 @@ from typing import Any
 from factori.adapters.config import AdapterConfig
 from factori.adapters.errors import (
     AdapterConfigurationError,
+    AdapterResponseParseError,
     AdapterTransportError,
     error_payload,
 )
 from factori.adapters.llm_real import LLMTransport, OpenAIResponsesTransport
 from factori.adapters.registry import AdapterRegistry, get_adapter_registry
 from factori.artifacts import ArtifactStore
+from factori.claim_adjudication import (
+    ClaimAdjudicator,
+    FakeClaimAdjudicator,
+    OpenAIClaimAdjudicator,
+)
+from factori.config import OPENAI_API_KEY_ENV
 from factori.full_paper_generation import (
     FullPaperGenerationError,
     FullPaperGenerationRunResult,
@@ -133,6 +141,7 @@ def run_llm_paper_orchestration(
     llm_transport: LLMTransport | None = None,
     reviewer_transport: LLMTransport | None = None,
     prose_transport: LLMTransport | None = None,
+    claim_adjudicator_transport: LLMTransport | None = None,
     environ: dict[str, str] | None = None,
     clock: Clock | None = None,
     preflight_only: bool = False,
@@ -184,6 +193,15 @@ def run_llm_paper_orchestration(
         )
     except (AdapterConfigurationError, ValueError) as exc:
         raise LLMOrchestrationError(str(exc)) from exc
+    try:
+        claim_adjudicator = _claim_adjudicator_for_config(
+            config,
+            transport=claim_adjudicator_transport,
+            environ=environ,
+            runtime_budget_guard=runtime_budget_guard if real_mode else None,
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        raise LLMOrchestrationError(str(exc)) from exc
 
     preflight_started = clock.now()
     preflight_step = _step(
@@ -225,6 +243,7 @@ def run_llm_paper_orchestration(
     pipeline_report = None
     generation_result = None
     release_result = None
+    extra_accounting_records: list[LLMCallAccountingRecord] = []
 
     if normalized_scope == _LLM_SCOPE_CANDIDATE_ONLY:
         return _run_candidate_only_scope(
@@ -448,6 +467,7 @@ def run_llm_paper_orchestration(
                 prose_generator=registry.prose_generator,
                 config=_full_paper_config(config),
                 enable_safe_repair=enable_safe_repair,
+                claim_adjudicator=claim_adjudicator,
             )
         except LLMBudgetExceeded as exc:
             steps.append(
@@ -461,6 +481,27 @@ def run_llm_paper_orchestration(
                 )
             )
             blocking.append(str(exc))
+        except (AdapterTransportError, AdapterResponseParseError) as exc:
+            steps.append(
+                _step(
+                    "generate-paper",
+                    LLMOrchestrationStepStatus.FAILED,
+                    "Full-paper generation failed during claim adjudication or prose transport.",
+                    generation_started,
+                    clock.now(),
+                    error=str(exc),
+                )
+            )
+            blocking.append(str(exc))
+            if isinstance(exc, AdapterTransportError):
+                extra_accounting_records.append(
+                    _failed_transport_record(
+                        step_name="llm-claim-adjudication",
+                        error=exc,
+                        config=config,
+                        clock=clock,
+                    )
+                )
         except FullPaperGenerationError as exc:
             steps.append(
                 _step(
@@ -568,7 +609,21 @@ def run_llm_paper_orchestration(
             )
         )
 
-    records = _accounting_records(registry, clock, runtime_budget_guard)
+    records = _accounting_records(
+        registry,
+        clock,
+        runtime_budget_guard,
+        claim_adjudicator=claim_adjudicator,
+    )
+    records.extend(extra_accounting_records)
+    records.sort(
+        key=lambda record: (
+            record.step_name,
+            record.backend,
+            record.model or "",
+            record.request_hash,
+        )
+    )
     observed_usage = observed_usage_from_records(records)
     status = _orchestration_status(steps, blocking, warnings)
     report = _build_report(
@@ -660,6 +715,7 @@ def inspect_llm_run_summary(
         "candidate_generation_calls": budget_usage.candidate_generation_calls,
         "review_calls": budget_usage.review_calls,
         "prose_calls": budget_usage.prose_calls,
+        "claim_adjudication_calls": budget_usage.claim_adjudication_calls,
         "total_calls": budget_usage.total_calls,
         "estimated_cost_usd": budget_usage.estimated_cost_usd,
         "runtime_budget_blocked": (
@@ -698,12 +754,15 @@ def build_llm_orchestration_preflight_summary(
         "reviewer_model": effective_config.reviewer_model,
         "prose_backend": effective_config.prose_backend,
         "prose_model": effective_config.prose_model,
+        "claim_adjudicator_backend": effective_config.claim_adjudicator_backend,
+        "claim_adjudicator_model": effective_config.claim_adjudicator_model,
         "allow_external_calls": effective_config.allow_external_calls,
         "budget_limits": effective_config.budget.model_dump(mode="json"),
         "estimated_max_calls": planned.total_calls,
         "candidate_generation_calls": planned.candidate_generation_calls,
         "review_calls": planned.review_calls,
         "prose_calls": planned.prose_calls,
+        "claim_adjudication_calls": planned.claim_adjudication_calls,
         "write_report": effective_config.write_report,
         "generate_paper": effective_config.generate_paper,
         "evaluate_release": effective_config.evaluate_release,
@@ -836,6 +895,7 @@ def _effective_config_for_scope(
         "enable_retrieval": False,
         "retrieval_backend": "fake",
         "citation_policy": "none",
+        "claim_adjudicator_backend": "off",
     }
     if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY:
         update["reviewer_backend"] = _FAKE_BACKEND
@@ -844,11 +904,12 @@ def _effective_config_for_scope(
 
 def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
     return any(
-        backend.strip().lower() != _FAKE_BACKEND
+        backend.strip().lower() not in {_FAKE_BACKEND, "off"}
         for backend in (
             config.candidate_backend,
             config.reviewer_backend,
             config.prose_backend,
+            config.claim_adjudicator_backend,
         )
     )
 
@@ -865,6 +926,11 @@ def _planned_usage(
         else planned_stage_b_review_calls(MAX_STAGE_A_SURVIVORS)
     )
     prose_calls = planned_manuscript_section_count() if config.generate_paper else 0
+    adjudication_calls = (
+        config.budget.max_claim_adjudication_calls or 0
+        if config.generate_paper
+        else 0
+    )
     real_calls = (
         (
             candidate_calls
@@ -881,14 +947,21 @@ def _planned_usage(
             if config.prose_backend.strip().lower() != _FAKE_BACKEND
             else 0
         )
+        + (
+            adjudication_calls
+            if config.claim_adjudicator_backend == "openai"
+            else 0
+        )
     )
     return build_planned_llm_usage(
         candidate_backend=config.candidate_backend,
         reviewer_backend=config.reviewer_backend,
         prose_backend=config.prose_backend,
+        claim_adjudicator_backend=config.claim_adjudicator_backend,
         candidate_generation_calls=candidate_calls,
         review_calls=review_calls,
         prose_calls=prose_calls,
+        claim_adjudication_calls=adjudication_calls,
         input_tokens=1000 * real_calls if real_calls else None,
         output_tokens=500 * real_calls if real_calls else None,
         estimated_cost_usd=round(0.01 * real_calls, 6) if real_calls else None,
@@ -1019,6 +1092,48 @@ def _budgeted_transport(
     )
 
 
+def _claim_adjudicator_for_config(
+    config: LLMOrchestrationConfig,
+    *,
+    transport: LLMTransport | None,
+    environ: dict[str, str] | None,
+    runtime_budget_guard: RuntimeLLMBudgetGuard | None,
+) -> ClaimAdjudicator | None:
+    backend = config.claim_adjudicator_backend
+    if backend == "off":
+        return None
+    if backend == "fake":
+        return FakeClaimAdjudicator()
+    if not config.allow_external_calls:
+        raise AdapterConfigurationError(
+            "OpenAI claim adjudicator requires allow_external_calls=true."
+        )
+    max_calls = config.budget.max_claim_adjudication_calls
+    if max_calls is None or max_calls < 1:
+        raise AdapterConfigurationError(
+            "OpenAI claim adjudicator requires --max-claim-adjudication-calls >= 1."
+        )
+    environment = environ if environ is not None else os.environ
+    api_key = environment.get(OPENAI_API_KEY_ENV, "")
+    if not api_key:
+        raise AdapterConfigurationError(
+            "OpenAI claim adjudicator requested but no API key is configured."
+        )
+    adjudication_transport = _budgeted_transport(
+        transport,
+        runtime_budget_guard,
+        step_name="llm-claim-adjudication",
+        backend="openai",
+    )
+    return OpenAIClaimAdjudicator(
+        api_key=api_key,
+        model=config.claim_adjudicator_model,
+        transport=adjudication_transport or OpenAIResponsesTransport(),
+        allow_external_calls=True,
+        max_calls=max_calls,
+    )
+
+
 def _estimate_input_tokens(prompt: str) -> int:
     return max(1, (len(prompt) + 3) // 4)
 
@@ -1058,6 +1173,8 @@ def _full_paper_config(config: LLMOrchestrationConfig) -> FullPaperGenerationCon
         prose_backend=config.prose_backend,
         allow_external_calls=config.allow_external_calls,
         prose_model=config.prose_model,
+        claim_adjudicator_backend=config.claim_adjudicator_backend,
+        claim_adjudicator_model=config.claim_adjudicator_model,
         write_report=True,
         rerun_policy=_parse_rerun_policy(config.rerun_policy),
         force=config.force,
@@ -1445,6 +1562,7 @@ def _accounting_records(
     registry: AdapterRegistry,
     clock: Clock,
     runtime_budget_guard: RuntimeLLMBudgetGuard | None = None,
+    claim_adjudicator: ClaimAdjudicator | None = None,
 ) -> list[LLMCallAccountingRecord]:
     records: list[LLMCallAccountingRecord] = []
     records.extend(
@@ -1505,6 +1623,29 @@ def _accounting_records(
                 external_call_performed=registry.config.prose_backend != _FAKE_BACKEND,
             )
         )
+    if claim_adjudicator is not None and claim_adjudicator.backend_name == "openai":
+        requests = list(getattr(claim_adjudicator, "adjudication_requests", []))
+        responses = list(getattr(claim_adjudicator, "raw_responses", []))
+        for index, request_payload in enumerate(requests):
+            records.append(
+                build_call_accounting_record(
+                    step_name="llm-claim-adjudication",
+                    backend="openai",
+                    provider="openai",
+                    model=claim_adjudicator.model,
+                    request_payload=request_payload,
+                    response_payload=(
+                        responses[index] if index < len(responses) else None
+                    ),
+                    started_at=clock.now(),
+                    completed_at=clock.now(),
+                    status=LLMCallStatus.SUCCEEDED,
+                    input_token_estimate=_estimate_request_tokens(request_payload),
+                    output_token_estimate=500,
+                    estimated_cost_usd=0.01,
+                    external_call_performed=True,
+                )
+            )
     if runtime_budget_guard is not None:
         records.extend(runtime_budget_guard.blocked_records)
     if not records:
@@ -1560,6 +1701,8 @@ def _estimate_request_tokens(request_payload: Any) -> int | None:
     request = request_payload.get("request")
     if isinstance(request, dict):
         return _estimate_request_tokens(request)
+    if "sentences" in request_payload:
+        return _estimate_input_tokens(json.dumps(request_payload, sort_keys=True))
     return None
 
 
@@ -1657,6 +1800,8 @@ def _model_for_transport_error(
         return config.reviewer_model
     if config.prose_backend == "openai":
         return config.prose_model
+    if config.claim_adjudicator_backend == "openai":
+        return config.claim_adjudicator_model
     return None
 
 
@@ -1721,6 +1866,8 @@ def _build_report(
             "reviewer_model": config.reviewer_model,
             "prose_backend": config.prose_backend,
             "prose_model": config.prose_model,
+            "claim_adjudicator_backend": config.claim_adjudicator_backend,
+            "claim_adjudicator_model": config.claim_adjudicator_model,
             "retrieval_enabled": str(config.enable_retrieval).lower(),
             "retrieval_backend": config.retrieval_backend,
             "citation_policy": config.citation_policy,

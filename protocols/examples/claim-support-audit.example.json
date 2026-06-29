@@ -1,18 +1,30 @@
 {
+  "adjudicated_sentence_count": 0,
+  "adjudication_items": [],
   "citation_as_validation_misuse_count": 0,
   "citation_placement_violations": [],
   "citation_policy": "registry-only",
   "citation_registry_present": true,
+  "claim_adjudication_calls": 0,
+  "claim_adjudication_enabled": false,
+  "claim_adjudicator_backend": "off",
+  "claim_adjudicator_model": null,
   "claim_support_items": [
     {
+      "adjudicated_claim_class": null,
+      "adjudication_changed_class": false,
+      "adjudication_confidence": null,
+      "adjudication_reasoning_brief": null,
       "citation_keys_present": [
         "Author1970SyntheticCalibrationContext"
       ],
+      "citation_use": "none",
       "claim_class": "source_context_claim",
       "creates_scientific_validation": false,
       "implies_publication_readiness": false,
       "is_verification_evidence": false,
       "paragraph_index": 0,
+      "preliminary_claim_class": null,
       "required_support_type": "registry_background_context",
       "section_name": "Introduction",
       "sentence_id": "introduction-p0-s0",
@@ -26,12 +38,18 @@
       "unsupported_reason": null
     },
     {
+      "adjudicated_claim_class": null,
+      "adjudication_changed_class": false,
+      "adjudication_confidence": null,
+      "adjudication_reasoning_brief": null,
       "citation_keys_present": [],
+      "citation_use": "none",
       "claim_class": "evidence_boundary_statement",
       "creates_scientific_validation": false,
       "implies_publication_readiness": false,
       "is_verification_evidence": false,
       "paragraph_index": 0,
+      "preliminary_claim_class": null,
       "required_support_type": "none",
       "section_name": "Limitations",
       "sentence_id": "limitations-p0-s0",
@@ -44,8 +62,10 @@
     }
   ],
   "creates_scientific_validation": false,
+  "deterministic_sentence_count": 0,
   "implies_publication_readiness": false,
   "is_verification_evidence": false,
+  "post_adjudication_summary_counts": {},
   "run_id": "example",
   "summary_counts": {
     "citation_as_validation_misuse": 0,

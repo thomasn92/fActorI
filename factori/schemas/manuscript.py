@@ -447,6 +447,8 @@ class FullPaperGenerationConfig(StrictModel):
     prose_backend: str = "fake"
     allow_external_calls: bool = False
     prose_model: str | None = None
+    claim_adjudicator_backend: Literal["off", "fake", "openai"] = "off"
+    claim_adjudicator_model: str | None = None
     write_report: bool = False
     rerun_policy: RerunPolicy = RerunPolicy.FAIL_IF_EXISTS
     force: bool = False
@@ -683,12 +685,44 @@ ClaimSupportClaimClass = Literal[
 ClaimSupportStatus = Literal[
     "not_required_scaffold",
     "registry_supported",
+    "evidence_artifact_supported",
     "registry_key_present_but_scope_mismatch",
     "missing_required_citation",
     "forbidden_claim_without_evidence",
     "unsupported_external_claim",
     "citation_as_validation_misuse",
 ]
+
+
+ClaimAdjudicationCitationUse = Literal[
+    "none",
+    "background_context",
+    "local_support",
+    "misused_as_proof",
+    "misused_as_validation",
+    "misused_as_novelty",
+    "misused_as_publication_readiness",
+]
+
+
+class ClaimAdjudication(StrictModel):
+    """Bounded semantic classification of one manuscript sentence; never evidence."""
+
+    sentence_id: str = Field(min_length=1)
+    section_name: str = Field(min_length=1)
+    sentence_hash: str = Field(min_length=64, max_length=64)
+    adjudicated_claim_class: ClaimSupportClaimClass
+    requires_citation: bool
+    citation_use: ClaimAdjudicationCitationUse = "none"
+    forbidden_claim_detected: bool = False
+    citation_as_validation_misuse: bool = False
+    publication_readiness_claim: bool = False
+    reasoning_brief: str = Field(default="", max_length=400)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    adjudicator_backend: str = Field(default="deterministic_fallback", min_length=1)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class ClaimSupportItem(StrictModel):
@@ -706,6 +740,12 @@ class ClaimSupportItem(StrictModel):
     unsupported_reason: str | None = None
     paragraph_index: int = Field(default=0, ge=0)
     sentence_index: int = Field(default=0, ge=0)
+    preliminary_claim_class: ClaimSupportClaimClass | None = None
+    adjudicated_claim_class: ClaimSupportClaimClass | None = None
+    adjudication_changed_class: bool = False
+    adjudication_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    adjudication_reasoning_brief: str | None = Field(default=None, max_length=400)
+    citation_use: ClaimAdjudicationCitationUse = "none"
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -722,6 +762,14 @@ class ClaimSupportAuditReport(StrictModel):
     unsupported_items: list[ClaimSupportItem] = Field(default_factory=list)
     citation_placement_violations: list[str] = Field(default_factory=list)
     citation_as_validation_misuse_count: int = Field(default=0, ge=0)
+    claim_adjudication_enabled: bool = False
+    claim_adjudicator_backend: str = "off"
+    claim_adjudicator_model: str | None = None
+    claim_adjudication_calls: int = Field(default=0, ge=0)
+    adjudicated_sentence_count: int = Field(default=0, ge=0)
+    deterministic_sentence_count: int = Field(default=0, ge=0)
+    adjudication_items: list[ClaimAdjudication] = Field(default_factory=list)
+    post_adjudication_summary_counts: dict[str, int] = Field(default_factory=dict)
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False

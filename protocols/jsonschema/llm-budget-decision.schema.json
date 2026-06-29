@@ -32,6 +32,19 @@
           "default": null,
           "title": "Max Candidate Generation Calls"
         },
+        "max_claim_adjudication_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Claim Adjudication Calls"
+        },
         "max_estimated_cost_usd": {
           "anyOf": [
             {
@@ -167,6 +180,12 @@
           "title": "Candidate Generation Calls",
           "type": "integer"
         },
+        "claim_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Claim Adjudication Calls",
+          "type": "integer"
+        },
         "creates_scientific_validation": {
           "default": false,
           "title": "Creates Scientific Validation",
@@ -262,7 +281,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.16.0/llm-budget-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.17.0/llm-budget-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Preflight LLM budget decision.",
@@ -326,7 +345,7 @@
   ],
   "title": "LLMBudgetDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.16.0",
+  "x-factori-protocol-version": "0.17.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetDecision",
   "x-factori-verification-evidence": false
 }

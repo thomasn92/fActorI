@@ -2228,6 +2228,14 @@ def run_llm_paper_command(
         typer.Option("--reviewer-model"),
     ] = DEFAULT_LLM_MODEL,
     prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    claim_adjudicator_backend: Annotated[
+        str,
+        typer.Option("--claim-adjudicator-backend"),
+    ] = "off",
+    claim_adjudicator_model: Annotated[
+        str,
+        typer.Option("--claim-adjudicator-model"),
+    ] = DEFAULT_LLM_MODEL,
     reviewer_max_objections: Annotated[
         int,
         typer.Option("--reviewer-max-objections"),
@@ -2247,6 +2255,10 @@ def run_llm_paper_command(
     max_prose_calls: Annotated[
         int | None,
         typer.Option("--max-prose-calls"),
+    ] = None,
+    max_claim_adjudication_calls: Annotated[
+        int | None,
+        typer.Option("--max-claim-adjudication-calls"),
     ] = None,
     max_total_input_tokens: Annotated[
         int | None,
@@ -2355,6 +2367,8 @@ def run_llm_paper_command(
         llm_model=candidate_model,
         reviewer_model=reviewer_model,
         prose_model=prose_model,
+        claim_adjudicator_backend=claim_adjudicator_backend,
+        claim_adjudicator_model=claim_adjudicator_model,
         reviewer_max_objections=reviewer_max_objections,
         generate_paper=generate_paper,
         evaluate_release=evaluate_release,
@@ -2379,6 +2393,7 @@ def run_llm_paper_command(
             max_candidate_generation_calls=max_candidate_generation_calls,
             max_review_calls=max_review_calls,
             max_prose_calls=max_prose_calls,
+            max_claim_adjudication_calls=max_claim_adjudication_calls,
             max_total_input_tokens=max_total_input_tokens,
             max_total_output_tokens=max_total_output_tokens,
             max_estimated_cost_usd=max_estimated_cost_usd,
@@ -2649,6 +2664,11 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Citation validation misuse: "
         f"{int(summary.get('citation_as_validation_misuse_count') or 0)}"
     )
+    typer.echo(
+        "Claim adjudication: "
+        f"{summary.get('claim_adjudicator_backend') or 'off'} "
+        f"({int(summary.get('adjudicated_sentence_count') or 0)} sentences)"
+    )
     typer.echo(f"Blocking issues: {blocking_count if blocking_count else 'none'}")
     typer.echo(f"Warnings: {warning_count}")
     typer.echo(f"Title: {summary.get('title_detected') or 'unknown'}")
@@ -2771,6 +2791,11 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Citation validation misuse: "
         f"{int(summary.get('citation_as_validation_misuse_count') or 0)}"
+    )
+    typer.echo(
+        "Claim adjudication: "
+        f"{summary.get('claim_adjudicator_backend') or 'off'} "
+        f"({int(summary.get('adjudicated_sentence_count') or 0)} sentences)"
     )
     typer.echo(
         "Release: "

@@ -45,6 +45,31 @@ def test_llm_orchestration_models_are_importable() -> None:
     assert LLMBudgetConfig
 
 
+def test_preflight_plans_bounded_openai_claim_adjudication_calls() -> None:
+    config = LLMOrchestrationConfig(
+        run_id="claim-adjudication-preflight",
+        domain="human geography",
+        candidate_backend="fake",
+        reviewer_backend="fake",
+        prose_backend="fake",
+        claim_adjudicator_backend="openai",
+        claim_adjudicator_model="test-model",
+        allow_external_calls=True,
+        budget=LLMBudgetConfig(
+            max_total_calls=4,
+            max_claim_adjudication_calls=4,
+            max_estimated_cost_usd=1.0,
+        ),
+    )
+
+    summary = build_llm_orchestration_preflight_summary(config)
+
+    assert summary["claim_adjudicator_backend"] == "openai"
+    assert summary["claim_adjudicator_model"] == "test-model"
+    assert summary["claim_adjudication_calls"] == 4
+    assert summary["estimated_max_calls"] == 4
+
+
 def test_fake_llm_orchestration_runs_without_network_and_writes_reports(tmp_path) -> None:
     result = run_llm_paper_orchestration(
         config=LLMOrchestrationConfig(

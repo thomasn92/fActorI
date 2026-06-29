@@ -302,6 +302,25 @@ and checks that source-context citations are local to the sentence or paragraph 
 Scaffold/provenance/limitation statements do not require citations. Citations cannot support proof,
 experiment, novelty, validation, or publication-readiness claims.
 
+Use deterministic semantic adjudication for local pipeline validation:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id local-llm-adjudicator-smoke-001 \
+  --domain "human geography" \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --claim-adjudicator-backend fake \
+  --enable-retrieval --retrieval-backend fake \
+  --citation-policy registry-only --generate-paper --write-report --json
+```
+
+The OpenAI adjudicator additionally requires `--allow-external-calls`, a configured
+`OPENAI_API_KEY`, `--claim-adjudicator-model`, and an explicit
+`--max-claim-adjudication-calls`. It batches only ambiguous sentences and shares total-call, token,
+cost, and rate controls with candidate, reviewer, and prose calls. The LLM judges meaning;
+deterministic code verifies registry keys, source scope, bibliography provenance, and evidence
+artifacts.
+
 Full-paper generation is an orchestration over the existing non-evidence manuscript workflow. By
 default it builds or reuses citation registry/literature positioning artifacts, drafts the Markdown
 manuscript, exports LaTeX, and runs the paper critic. Revision requires

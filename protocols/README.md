@@ -19,11 +19,12 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.16.0`.
+version is `0.17.0`.
 
-Protocol `0.16.0` adds backward-compatible claim-to-source support audit models and source-support
-scope fields for citation records. The deterministic fixture backend is test context only;
-citations and claim-support audits remain non-evidence and non-authoritative.
+Protocol `0.17.0` adds backward-compatible semantic claim-adjudication fields and a
+`ClaimAdjudication` model. Adjudication classifies sentence meaning only; deterministic artifact,
+citation-registry, bibliography, and evidence checks remain authoritative. Adjudication reports
+remain non-evidence and cannot imply publication readiness.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -42,7 +43,7 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `ManuscriptDraftingPlan`, `SectionDraftingTask`, `SectionDraftingResult`,
   `CompleteMarkdownDraft`, `ManuscriptDraftingReport`, and `ManuscriptAssemblyReport` generated
   from manuscript drafting models;
-- `CitationRecord`, `CitationRegistry`, `BibliographyEntry`, `CitationUsage`,
+- `CitationRecord`, `CitationRegistry`, `BibliographyEntry`, `CitationUsage`, `ClaimAdjudication`,
   `CitationSafetyReport`, `ClaimSupportItem`, `ClaimSupportAuditReport`,
   `LiteratureGapStatement`, `LiteraturePositioningContract`, and `LiteraturePositioningReport`
   generated from citation-safe manuscript/literature models;
@@ -107,7 +108,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.16.0
+  --new-version 0.17.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

@@ -45,6 +45,44 @@ def test_inspect_paper_bundle_cli_is_registered() -> None:
     assert "--json" in result.output
 
 
+def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
+    tmp_path,
+) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "adjudicator-preflight",
+            "--domain",
+            "human geography",
+            "--candidate-backend",
+            "fake",
+            "--reviewer-backend",
+            "fake",
+            "--prose-backend",
+            "fake",
+            "--claim-adjudicator-backend",
+            "fake",
+            "--claim-adjudicator-model",
+            "test-model",
+            "--max-claim-adjudication-calls",
+            "2",
+            "--preflight-only",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    preflight = payload["preflight_summary"]
+    assert preflight["claim_adjudicator_backend"] == "fake"
+    assert preflight["claim_adjudicator_model"] == "test-model"
+    assert not (tmp_path / "runs" / "adjudicator-preflight").exists()
+
+
 def test_lint_paper_bundle_cli_is_registered() -> None:
     result = CliRunner().invoke(app, ["lint-paper-bundle", "--help"])
 

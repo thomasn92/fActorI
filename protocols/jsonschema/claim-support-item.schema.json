@@ -1,15 +1,89 @@
 {
-  "$id": "https://schemas.factori.local/0.16.0/claim-support-item.schema.json",
+  "$id": "https://schemas.factori.local/0.17.0/claim-support-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One sentence-level claim-to-source support classification.",
   "properties": {
+    "adjudicated_claim_class": {
+      "anyOf": [
+        {
+          "enum": [
+            "scaffold_statement",
+            "problem_framing_statement",
+            "method_description_statement",
+            "evidence_boundary_statement",
+            "limitation_statement",
+            "provenance_statement",
+            "source_context_claim",
+            "literature_background_claim",
+            "external_factual_claim",
+            "pipeline_status_claim",
+            "proof_claim",
+            "experiment_claim",
+            "novelty_claim",
+            "publication_readiness_claim"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adjudicated Claim Class"
+    },
+    "adjudication_changed_class": {
+      "default": false,
+      "title": "Adjudication Changed Class",
+      "type": "boolean"
+    },
+    "adjudication_confidence": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adjudication Confidence"
+    },
+    "adjudication_reasoning_brief": {
+      "anyOf": [
+        {
+          "maxLength": 400,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adjudication Reasoning Brief"
+    },
     "citation_keys_present": {
       "items": {
         "type": "string"
       },
       "title": "Citation Keys Present",
       "type": "array"
+    },
+    "citation_use": {
+      "default": "none",
+      "enum": [
+        "none",
+        "background_context",
+        "local_support",
+        "misused_as_proof",
+        "misused_as_validation",
+        "misused_as_novelty",
+        "misused_as_publication_readiness"
+      ],
+      "title": "Citation Use",
+      "type": "string"
     },
     "claim_class": {
       "enum": [
@@ -52,6 +126,34 @@
       "title": "Paragraph Index",
       "type": "integer"
     },
+    "preliminary_claim_class": {
+      "anyOf": [
+        {
+          "enum": [
+            "scaffold_statement",
+            "problem_framing_statement",
+            "method_description_statement",
+            "evidence_boundary_statement",
+            "limitation_statement",
+            "provenance_statement",
+            "source_context_claim",
+            "literature_background_claim",
+            "external_factual_claim",
+            "pipeline_status_claim",
+            "proof_claim",
+            "experiment_claim",
+            "novelty_claim",
+            "publication_readiness_claim"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preliminary Claim Class"
+    },
     "required_support_type": {
       "default": "none",
       "minLength": 1,
@@ -90,6 +192,7 @@
       "enum": [
         "not_required_scaffold",
         "registry_supported",
+        "evidence_artifact_supported",
         "registry_key_present_but_scope_mismatch",
         "missing_required_citation",
         "forbidden_claim_without_evidence",
@@ -128,7 +231,7 @@
   ],
   "title": "ClaimSupportItem",
   "type": "object",
-  "x-factori-protocol-version": "0.16.0",
+  "x-factori-protocol-version": "0.17.0",
   "x-factori-source-model": "factori.schemas.ClaimSupportItem",
   "x-factori-verification-evidence": false
 }

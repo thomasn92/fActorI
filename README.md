@@ -361,6 +361,24 @@ publication-readiness claims; citations can support only local background/source
 inside the same sentence or paragraph, and fixture sources cannot support proof, empirical,
 novelty, validation, or readiness claims.
 
+Ambiguous claim-support sentences can use a bounded semantic adjudicator. The fake backend is
+deterministic; OpenAI is opt-in and shares the orchestration budget guard:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id claim-adjudication-demo --domain "human geography" \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --claim-adjudicator-backend fake \
+  --enable-retrieval --retrieval-backend fake --citation-policy registry-only \
+  --generate-paper --write-report
+```
+
+The adjudicator judges sentence meaning only. Deterministic checks still decide whether citation
+keys exist, source scopes match, bibliography metadata is registry-backed, and proof or experiment
+artifacts exist. Negated statements such as "no proof" remain limitations; unsupported positive
+proof, validation, novelty, and publication-readiness claims remain blocked. Adjudication is
+non-evidence and `publication_ready` remains false.
+
 Real mode requires explicit OpenAI backends, `--allow-external-calls`, credentials, and a budget
 before any network call can be attempted:
 

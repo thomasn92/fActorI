@@ -94,6 +94,8 @@
       "allow_external_tools": false,
       "apply_safe_fake_revision": true,
       "citation_policy": "none",
+      "claim_adjudicator_backend": "off",
+      "claim_adjudicator_model": null,
       "creates_scientific_validation": false,
       "critique": true,
       "export_latex": true,
