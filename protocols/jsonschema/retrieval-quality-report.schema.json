@@ -1,0 +1,148 @@
+{
+  "$id": "https://schemas.factori.local/0.19.0/retrieval-quality-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded source-quality and relevance filtering report.",
+  "properties": {
+    "accepted_source_count": {
+      "minimum": 0,
+      "title": "Accepted Source Count",
+      "type": "integer"
+    },
+    "accepted_source_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Source Ids",
+      "type": "array"
+    },
+    "adequacy_status": {
+      "default": "not_evaluated",
+      "enum": [
+        "not_evaluated",
+        "insufficient_sources",
+        "bounded_context_only",
+        "adequate_for_background_context"
+      ],
+      "title": "Adequacy Status",
+      "type": "string"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "coverage_limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Coverage Limitations",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "duplicate_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "low_relevance_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Low Relevance Count",
+      "type": "integer"
+    },
+    "mean_relevance_score": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Mean Relevance Score",
+      "type": "number"
+    },
+    "metadata_incomplete_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Metadata Incomplete Count",
+      "type": "integer"
+    },
+    "min_relevance_score": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Min Relevance Score",
+      "type": "number"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "queries_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Queries Used",
+      "type": "array"
+    },
+    "rejected_source_count": {
+      "minimum": 0,
+      "title": "Rejected Source Count",
+      "type": "integer"
+    },
+    "rejected_source_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rejected Source Ids",
+      "type": "array"
+    },
+    "rejection_reasons": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Rejection Reasons",
+      "type": "object"
+    },
+    "retrieval_backend": {
+      "minLength": 1,
+      "title": "Retrieval Backend",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "total_retrieved_sources": {
+      "minimum": 0,
+      "title": "Total Retrieved Sources",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "retrieval_backend",
+    "total_retrieved_sources",
+    "accepted_source_count",
+    "rejected_source_count"
+  ],
+  "title": "RetrievalQualityReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.19.0",
+  "x-factori-source-model": "factori.schemas.RetrievalQualityReport",
+  "x-factori-verification-evidence": false
+}

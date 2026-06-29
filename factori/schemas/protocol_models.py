@@ -90,6 +90,7 @@ from factori.schemas.pipeline import (
 )
 from factori.schemas.retrieval import (
     RetrievalAdequacyCertificate,
+    RetrievalQualityReport,
     RetrievalResult,
     RetrievedDocument,
 )
@@ -123,6 +124,7 @@ __all__ = [
     "LLMOrchestrationResult",
     "PipelineStageResult",
     "RetrievalResult",
+    "RetrievalQualityReport",
     "RetrievedDocument",
     "RetrievalAdequacyCertificate",
     "StageBReviewerReport",

@@ -202,8 +202,9 @@ def build_citation_registry(
 ) -> CitationRegistry:
     """Build a deterministic citation registry from normalized retrieval results."""
     source_artifact_ids = source_artifact_ids or {}
+    accepted_results = [result for result in retrieval_results if _accepted_for_registry(result)]
     ordered = sorted(
-        retrieval_results,
+        accepted_results,
         key=lambda item: (
             str(getattr(item, "provider", "")),
             str(getattr(item, "query", "")),
@@ -263,6 +264,14 @@ def build_citation_registry(
                     or None
                 ),
                 fixture_only=source_status == "fixture",
+                retrieval_quality_status=str(
+                    metadata.get("retrieval_quality_status")
+                    or metadata.get("adequacy_status")
+                    or "bounded_context_only"
+                ),
+                relevance_score=getattr(result, "relevance_score", None),
+                source_quality_score=getattr(result, "source_quality_score", None),
+                accepted_for_registry=True,
                 may_support_background_context=bool(
                     metadata.get("may_support_background_context", True)
                 ),
@@ -288,6 +297,12 @@ def build_citation_registry(
     backends = sorted({record.retrieval_backend for record in records})
     retrieval_backend = backends[0] if len(backends) == 1 else "mixed" if backends else "none"
     accepted = [record for record in records if record.source_status != "rejected"]
+    rejected_input_count = len(retrieval_results) - len(accepted_results)
+    if rejected_input_count:
+        warnings.append(
+            f"{rejected_input_count} retrieved source(s) were rejected by "
+            "retrieval quality filtering."
+        )
     return CitationRegistry(
         run_id=run_id,
         citations=records,
@@ -299,7 +314,7 @@ def build_citation_registry(
         source_registry_hash=sha256_json([record.model_dump(mode="json") for record in records]),
         source_count=len(records),
         accepted_source_count=len(accepted),
-        rejected_source_count=len(records) - len(accepted),
+        rejected_source_count=rejected_input_count + len(records) - len(accepted),
         warnings=warnings,
         fake=all(record.source_status == "fixture" for record in records) if records else True,
     )
@@ -1099,6 +1114,19 @@ def _citation_warnings(result: Any) -> list[str]:
             f"source {getattr(result, 'source_id', 'unknown')} has no raw metadata hash"
         )
     return warnings
+
+
+def _accepted_for_registry(result: Any) -> bool:
+    metadata = dict(getattr(result, "metadata", {}) or {})
+    if getattr(result, "accepted_for_registry", True) is False:
+        return False
+    if metadata.get("accepted_for_registry") is False:
+        return False
+    if str(getattr(result, "rejection_reason", "") or "").strip():
+        return False
+    if str(metadata.get("rejection_reason", "") or "").strip():
+        return False
+    return _source_status(result, metadata) != "rejected"
 
 
 def _source_status(result: Any, metadata: dict[str, Any]) -> str:

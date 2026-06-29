@@ -130,6 +130,7 @@ from factori.schemas import (
     ResumeValidationReport,
     RetrievalAdequacyCertificate,
     RetrievalParseReport,
+    RetrievalQualityReport,
     RetrievalQuery,
     RetrievalResult,
     RetrievalRunReport,
@@ -150,7 +151,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.18.0"
+PROTOCOL_VERSION = "0.19.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -167,6 +168,7 @@ class RetrievalBackend(StrEnum):
     """Provider-neutral retrieval backend names exposed by the protocol layer."""
 
     FAKE = "fake"
+    LOCAL = "local"
     OPENALEX = "openalex"
 
 
@@ -258,6 +260,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("RetrievalResult", RetrievalResult, "Normalized retrieval source result."),
     ProtocolDefinition("RetrievalQuery", RetrievalQuery, "Provider retrieval query contract."),
     ProtocolDefinition("RetrievedDocument", RetrievedDocument, "Fetched source document metadata."),
+    ProtocolDefinition(
+        "RetrievalQualityReport",
+        RetrievalQualityReport,
+        "Bounded source-quality and relevance filtering report.",
+    ),
     ProtocolDefinition(
         "RetrievalRunReport",
         RetrievalRunReport,

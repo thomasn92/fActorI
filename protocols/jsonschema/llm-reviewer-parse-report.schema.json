@@ -101,7 +101,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.18.0/llm-reviewer-parse-report.schema.json",
+  "$id": "https://schemas.factori.local/0.19.0/llm-reviewer-parse-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Stage B LLM reviewer parse and safety result.",
@@ -151,7 +151,7 @@
   },
   "title": "LLMReviewerParseReport",
   "type": "object",
-  "x-factori-protocol-version": "0.18.0",
+  "x-factori-protocol-version": "0.19.0",
   "x-factori-source-model": "factori.schemas.LLMReviewerParseResult",
   "x-factori-verification-evidence": false
 }

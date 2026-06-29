@@ -26,6 +26,7 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     PipelineRunConfig,
     PipelineStage,
+    RetrievalQualityReport,
 )
 
 
@@ -217,6 +218,46 @@ def test_inspect_paper_bundle_reports_registry_backed_citations(tmp_path) -> Non
     assert "Bibliography: registry-backed" in result.output
     assert "Claim support: present" in result.output
     assert "Registry-supported claims: 1" in result.output
+
+
+def test_inspect_and_lint_paper_bundle_report_retrieval_quality(tmp_path) -> None:
+    run_id = "inspect-paper-retrieval-quality"
+    markdown = _acceptable_markdown(include_citation=True) + (
+        "\n## Bibliography\n\n- [@Smith2024] Fixture metadata only.\n"
+    )
+    _write_paper_bundle_markdown(
+        tmp_path,
+        run_id=run_id,
+        complete_markdown=markdown,
+    )
+    _write_fixture_citation_registry(tmp_path, run_id)
+    _write_fixture_claim_support_audit(tmp_path, run_id)
+    _write_fixture_retrieval_quality_report(tmp_path, run_id)
+
+    inspect_summary = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    lint_summary = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert inspect_summary["retrieval_quality_report_present"] is True
+    assert inspect_summary["retrieved_source_count"] == 3
+    assert inspect_summary["accepted_source_count"] == 1
+    assert inspect_summary["rejected_source_count"] == 2
+    assert inspect_summary["retrieval_adequacy_status"] == "bounded_context_only"
+    assert lint_summary["retrieval_quality_report_present"] is True
+    assert lint_summary["citation_registry_sources_all_accepted"] is True
+    assert lint_summary["accepted_source_count"] == 1
+    assert any(
+        "retrieved sources were rejected" in warning
+        for warning in lint_summary["development_warnings"]
+    )
+
+    result = CliRunner().invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Retrieval quality: present" in result.output
+    assert "Accepted sources: 1" in result.output
+    assert "Rejected sources: 2" in result.output
 
 
 def test_inspect_paper_bundle_missing_run_gives_clear_error(tmp_path) -> None:
@@ -660,6 +701,37 @@ def _write_fixture_citation_registry(tmp_path, run_id: str) -> None:
     reports = tmp_path / "runs" / run_id / "reports"
     (reports / "citation-registry.json").write_text(
         registry.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_fixture_retrieval_quality_report(tmp_path, run_id: str) -> None:
+    report = RetrievalQualityReport(
+        run_id=run_id,
+        retrieval_backend="local",
+        total_retrieved_sources=3,
+        accepted_source_count=1,
+        rejected_source_count=2,
+        duplicate_count=1,
+        low_relevance_count=1,
+        metadata_incomplete_count=0,
+        mean_relevance_score=0.5,
+        min_relevance_score=0.2,
+        queries_used=["human geography bounded literature context"],
+        coverage_limitations=[
+            "Bounded local source set; not validation or publication readiness."
+        ],
+        adequacy_status="bounded_context_only",
+        accepted_source_ids=["fixture-smith"],
+        rejected_source_ids=["duplicate", "irrelevant"],
+        rejection_reasons={
+            "duplicate": "duplicate_source",
+            "irrelevant": "low_relevance",
+        },
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "retrieval-quality-report.json").write_text(
+        report.model_dump_json(indent=2),
         encoding="utf-8",
     )
 

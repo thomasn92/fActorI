@@ -53,6 +53,7 @@ from factori.persistence import (
 )
 from factori.retrieval import (
     run_fixture_retrieval_with_provenance,
+    run_local_retrieval_with_provenance,
     run_retrieval_with_provenance,
 )
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
@@ -428,8 +429,8 @@ def run_llm_paper_orchestration(
             )
         else:
             retrieval_warning = (
-                "Retrieval metadata is bounded literature context, not proof of novelty, "
-                "validation, or publication readiness."
+                "Retrieval quality is bounded background context only and does not "
+                "establish novelty, validation, correctness, or publication readiness."
             )
             warnings.append(retrieval_warning)
             steps.append(
@@ -772,6 +773,7 @@ def build_llm_orchestration_preflight_summary(
         "safe_repair_effective": effective_safe_repair,
         "enable_retrieval": effective_config.enable_retrieval,
         "retrieval_backend": effective_config.retrieval_backend,
+        "retrieval_local_path": effective_config.retrieval_local_path,
         "max_retrieval_sources": effective_config.max_retrieval_sources,
         "citation_policy": effective_config.citation_policy,
     }
@@ -818,6 +820,11 @@ def _existing_llm_inspection_paths(root: Path, run_id: str) -> dict[str, str]:
         / "llm-run-safety-report.json",
         "safe_repair_report": root / "runs" / run_id / "reports" / "safe-repair-report.json",
         "retrieval_report": root / "runs" / run_id / "reports" / "retrieval-report.json",
+        "retrieval_quality_report": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "retrieval-quality-report.json",
         "citation_registry": root
         / "runs"
         / run_id
@@ -1189,6 +1196,19 @@ def _run_bounded_citation_retrieval(
     ledger: ResearchLedger,
 ):
     query = f"{config.domain} bounded literature context"
+    if config.retrieval_backend.strip().lower() == "local":
+        if not config.retrieval_local_path:
+            raise ValueError(
+                "--retrieval-local-path is required when retrieval_backend=local"
+            )
+        return run_local_retrieval_with_provenance(
+            run_id=config.run_id,
+            query=query,
+            limit=config.max_retrieval_sources,
+            local_path=config.retrieval_local_path,
+            store=store,
+            ledger=ledger,
+        )
     if registry.retrieval.is_fake:
         return run_fixture_retrieval_with_provenance(
             run_id=config.run_id,
@@ -1870,6 +1890,7 @@ def _build_report(
             "claim_adjudicator_model": config.claim_adjudicator_model,
             "retrieval_enabled": str(config.enable_retrieval).lower(),
             "retrieval_backend": config.retrieval_backend,
+            "retrieval_local_path": config.retrieval_local_path or "",
             "citation_policy": config.citation_policy,
             "generate_paper_effective": str(config.generate_paper).lower(),
             "evaluate_release_effective": str(config.evaluate_release).lower(),

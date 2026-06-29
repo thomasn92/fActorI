@@ -50,6 +50,8 @@ FORBIDDEN_PROSE_OUTPUTS = [
     "Do not claim exhaustive literature coverage.",
     "Do not claim retrieval proves novelty.",
     "Do not use citations as proof or experiment evidence.",
+    "Use accepted registry citations only for bounded background context.",
+    "Do not say sources validate, prove, establish novelty, or exhaust the literature.",
     "Use citations only for background/source-context claims.",
     "Place citations in the same sentence or paragraph as the supported claim.",
     "Do not cite every sentence mechanically.",

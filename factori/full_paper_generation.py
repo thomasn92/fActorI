@@ -58,6 +58,7 @@ from factori.schemas import (
     FullPaperReleaseReport,
     PaperCriticReport,
     RerunPolicy,
+    RetrievalQualityReport,
 )
 
 
@@ -598,6 +599,9 @@ def inspect_paper_bundle_summary(
         manuscript_stats.get("title_detected"),
     )
     citation_registry = _read_citation_registry(paths["citation_registry"])
+    retrieval_quality_report = _read_retrieval_quality_report(
+        paths["retrieval_quality_report"]
+    )
     marker_keys = sorted(set(CITATION_MARKER_RE.findall(markdown)))
     if citation_registry is not None:
         citation_safety = validate_citation_usage(markdown, citation_registry)
@@ -606,12 +610,16 @@ def inspect_paper_bundle_summary(
         bibliography_registry_backed = citation_safety.bibliography_registry_backed
         citation_policy = citation_registry.citation_policy
         registry_source_count = len(citation_registry.citations)
+        citation_registry_sources_all_accepted = all(
+            record.accepted_for_registry for record in citation_registry.citations
+        )
     else:
         unregistered_citation_keys = marker_keys
         registry_backed_citation_count = 0
         bibliography_registry_backed = False
         citation_policy = "none"
         registry_source_count = 0
+        citation_registry_sources_all_accepted = True
     bibliography_present = bool(
         re.search(r"^#{1,6}\s+(bibliography|references)\s*$", markdown, re.I | re.M)
     )
@@ -654,6 +662,7 @@ def inspect_paper_bundle_summary(
         "latex_exists": paths["paper"].is_file(),
         "revised_latex_exists": paths["revised_paper"].is_file(),
         "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
+        "retrieval_quality_report_exists": paths["retrieval_quality_report"].is_file(),
         "release_report_exists": paths["release_report"].is_file(),
         "generation_report_exists": paths["generation_report"].is_file(),
         "primary_artifact_to_read": (
@@ -702,11 +711,52 @@ def inspect_paper_bundle_summary(
         ),
         "citation_registry_present": paths["citation_registry"].is_file(),
         "citation_registry_source_count": registry_source_count,
+        "citation_registry_sources_all_accepted": (
+            citation_registry_sources_all_accepted
+        ),
         "registry_backed_citation_count": registry_backed_citation_count,
         "unregistered_citation_keys": unregistered_citation_keys,
         "bibliography_registry_backed": bibliography_registry_backed,
         "bibliography_status": bibliography_status,
         "citation_policy": citation_policy,
+        "retrieval_quality_report_present": (
+            retrieval_quality_report is not None
+        ),
+        "retrieved_source_count": (
+            retrieval_quality_report.total_retrieved_sources
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "accepted_source_count": (
+            retrieval_quality_report.accepted_source_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "rejected_source_count": (
+            retrieval_quality_report.rejected_source_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "retrieval_adequacy_status": (
+            retrieval_quality_report.adequacy_status
+            if retrieval_quality_report is not None
+            else "not_evaluated"
+        ),
+        "retrieval_quality_duplicate_count": (
+            retrieval_quality_report.duplicate_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "retrieval_quality_low_relevance_count": (
+            retrieval_quality_report.low_relevance_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "retrieval_quality_metadata_incomplete_count": (
+            retrieval_quality_report.metadata_incomplete_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
         "claim_support_audit_present": paths["claim_support_audit"].is_file(),
         "claim_support_total_sentences": int(
             claim_support_counts.get("total_sentences", 0)
@@ -798,6 +848,9 @@ def lint_paper_bundle_summary(
     citation_registry_source_count = int(
         bundle.get("citation_registry_source_count") or 0
     )
+    citation_registry_sources_all_accepted = bool(
+        bundle.get("citation_registry_sources_all_accepted", True)
+    )
     registry_backed_citation_count = int(
         bundle.get("registry_backed_citation_count") or 0
     )
@@ -808,6 +861,15 @@ def lint_paper_bundle_summary(
         bundle.get("bibliography_registry_backed")
     )
     citation_policy = str(bundle.get("citation_policy") or "none")
+    retrieval_quality_report_present = bool(
+        bundle.get("retrieval_quality_report_present")
+    )
+    retrieved_source_count = int(bundle.get("retrieved_source_count") or 0)
+    accepted_source_count = int(bundle.get("accepted_source_count") or 0)
+    rejected_source_count = int(bundle.get("rejected_source_count") or 0)
+    retrieval_adequacy_status = str(
+        bundle.get("retrieval_adequacy_status") or "not_evaluated"
+    )
     claim_support_audit_present = bool(bundle.get("claim_support_audit_present"))
     claim_support_total_sentences = int(
         bundle.get("claim_support_total_sentences") or 0
@@ -1027,6 +1089,29 @@ def lint_paper_bundle_summary(
         )
     if bundle.get("bibliography_status") == "unsafe":
         failure_reasons.append("Bibliography is not fully backed by the citation registry.")
+    if citation_registry_present and not citation_registry_sources_all_accepted:
+        failure_reasons.append(
+            "Citation registry includes a source rejected by retrieval quality filtering."
+        )
+    if (
+        retrieval_quality_report_present
+        and citation_policy == "registry-only"
+        and accepted_source_count == 0
+    ):
+        failure_reasons.append(
+            "Registry-only citation policy has no retrieval-quality accepted sources."
+        )
+    if retrieval_quality_report_present and rejected_source_count:
+        development_warnings.append(
+            "Some retrieved sources were rejected by bounded quality filtering."
+        )
+    if retrieval_quality_report_present and retrieval_adequacy_status in {
+        "insufficient_sources",
+        "bounded_context_only",
+    }:
+        development_warnings.append(
+            "Retrieval adequacy is bounded background context only, not validation."
+        )
     if citation_registry_present and not claim_support_audit_present:
         development_warnings.append(
             "Citation registry is present but no claim-support audit was found."
@@ -1129,11 +1214,19 @@ def lint_paper_bundle_summary(
         "citations_present": citations_present,
         "citation_registry_present": citation_registry_present,
         "citation_registry_source_count": citation_registry_source_count,
+        "citation_registry_sources_all_accepted": (
+            citation_registry_sources_all_accepted
+        ),
         "registry_backed_citation_count": registry_backed_citation_count,
         "unregistered_citation_keys": unregistered_citation_keys,
         "bibliography_registry_backed": bibliography_registry_backed,
         "bibliography_status": bundle.get("bibliography_status", "absent"),
         "citation_policy": citation_policy,
+        "retrieval_quality_report_present": retrieval_quality_report_present,
+        "retrieved_source_count": retrieved_source_count,
+        "accepted_source_count": accepted_source_count,
+        "rejected_source_count": rejected_source_count,
+        "retrieval_adequacy_status": retrieval_adequacy_status,
         "claim_support_audit_present": claim_support_audit_present,
         "claim_support_total_sentences": claim_support_total_sentences,
         "claim_support_registry_supported_count": (
@@ -1225,6 +1318,9 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": run_path / "reports" / "full-paper-release-report.json",
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
+        "retrieval_quality_report": run_path
+        / "reports"
+        / "retrieval-quality-report.json",
         "citation_registry": run_path / "reports" / "citation-registry.json",
         "claim_support_audit": run_path / "reports" / "claim-support-audit.json",
         "references": run_path / "latex" / "references.bib",
@@ -1246,6 +1342,15 @@ def _read_claim_support_audit(path: Path) -> ClaimSupportAuditReport | None:
         return None
     try:
         return ClaimSupportAuditReport.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def _read_retrieval_quality_report(path: Path) -> RetrievalQualityReport | None:
+    if not path.is_file():
+        return None
+    try:
+        return RetrievalQualityReport.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
 

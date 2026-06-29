@@ -87,7 +87,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.18.0/retrieval-result.schema.json",
+  "$id": "https://schemas.factori.local/0.19.0/retrieval-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Normalized retrieval source result.",
@@ -104,6 +104,11 @@
       "default": null,
       "title": "Abstract"
     },
+    "accepted_for_registry": {
+      "default": true,
+      "title": "Accepted For Registry",
+      "type": "boolean"
+    },
     "authors": {
       "items": {
         "type": "string"
@@ -114,6 +119,11 @@
     "claims_literature_coverage": {
       "default": false,
       "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
       "type": "boolean"
     },
     "doi": {
@@ -131,6 +141,16 @@
     "fake": {
       "default": true,
       "title": "Fake",
+      "type": "boolean"
+    },
+    "fixture_only": {
+      "default": false,
+      "title": "Fixture Only",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
       "type": "boolean"
     },
     "is_verification_evidence": {
@@ -168,6 +188,37 @@
       "title": "Raw Metadata Hash",
       "type": "string"
     },
+    "rejection_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rejection Reason"
+    },
+    "relevance_score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Relevance Score"
+    },
+    "retrieval_backend": {
+      "default": "unknown",
+      "title": "Retrieval Backend",
+      "type": "string"
+    },
     "retrieved_at": {
       "format": "date-time",
       "minLength": 1,
@@ -201,10 +252,43 @@
     "source_provenance": {
       "$ref": "#/$defs/SourceProvenance"
     },
+    "source_quality_score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Quality Score"
+    },
+    "source_type": {
+      "default": "retrieval_metadata",
+      "title": "Source Type",
+      "type": "string"
+    },
     "title": {
       "minLength": 1,
       "title": "Title",
       "type": "string"
+    },
+    "topic_match_score": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Topic Match Score"
     },
     "url": {
       "anyOf": [
@@ -256,7 +340,7 @@
   ],
   "title": "RetrievalResult",
   "type": "object",
-  "x-factori-protocol-version": "0.18.0",
+  "x-factori-protocol-version": "0.19.0",
   "x-factori-source-model": "factori.schemas.RetrievalResult",
   "x-factori-verification-evidence": false
 }

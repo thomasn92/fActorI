@@ -581,6 +581,10 @@ class CitationRecord(StrictModel):
     source_snippet: str | None = None
     source_summary: str | None = None
     fixture_only: bool = False
+    retrieval_quality_status: str = Field(default="not_evaluated", min_length=1)
+    relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    source_quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    accepted_for_registry: bool = True
     may_support_background_context: bool = True
     may_support_method_context: bool = False
     may_support_empirical_claims: bool = False

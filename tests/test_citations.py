@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from factori.adapters.fake import FakeRetrievalClient
 from factori.artifacts import ArtifactStore
 from factori.citations import (
@@ -12,7 +14,11 @@ from factori.citations import (
 )
 from factori.ledger import ResearchLedger
 from factori.literature_positioning import build_literature_positioning_report
-from factori.retrieval import run_fixture_retrieval_with_provenance
+from factori.retrieval import (
+    run_fixture_retrieval_with_provenance,
+    run_local_retrieval_with_provenance,
+    score_retrieval_sources,
+)
 from factori.schemas import (
     CitationRecord,
     CitationRegistry,
@@ -25,6 +31,9 @@ from factori.schemas import (
 )
 
 HASH = "0" * 64
+LOCAL_SOURCE_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "retrieval" / "human_geography_sources.json"
+)
 
 
 def test_citation_registry_models_are_importable() -> None:
@@ -279,6 +288,101 @@ def test_fixture_retrieval_is_ledgered_without_external_calls(tmp_path) -> None:
     )
     assert len(registry.citations) == 2
     assert registry.retrieval_backend == "fake"
+
+
+def test_local_retrieval_backend_loads_and_filters_sources(tmp_path) -> None:
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / "local-run" / "ledger.sqlite")
+
+    result = run_local_retrieval_with_provenance(
+        run_id="local-run",
+        query="human geography bounded literature context",
+        limit=8,
+        local_path=LOCAL_SOURCE_FIXTURE,
+        store=store,
+        ledger=ledger,
+    )
+
+    assert result.report.backend == "local"
+    assert len(result.report.results) == 6
+    assert result.artifacts["quality_report"].path.endswith(
+        "reports/retrieval-quality-report.json"
+    )
+    accepted = [item for item in result.report.results if item.accepted_for_registry]
+    rejected = [item for item in result.report.results if not item.accepted_for_registry]
+    assert len(accepted) == 3
+    assert len(rejected) == 3
+    assert {item.rejection_reason for item in rejected} == {
+        "duplicate_source",
+        "low_relevance",
+        "metadata_incomplete",
+    }
+    assert result.report.config_metadata["external_calls_enabled"] is False
+    assert result.artifacts["quality_report"].metadata["is_verification_evidence"] is False
+
+
+def test_rejected_local_sources_do_not_enter_citation_registry(tmp_path) -> None:
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / "local-registry" / "ledger.sqlite")
+    retrieval = run_local_retrieval_with_provenance(
+        run_id="local-registry",
+        query="human geography bounded literature context",
+        limit=8,
+        local_path=LOCAL_SOURCE_FIXTURE,
+        store=store,
+        ledger=ledger,
+    )
+
+    registry = build_citation_registry_from_ledger("local-registry", ledger)
+
+    accepted_count = sum(
+        1 for result in retrieval.report.results if result.accepted_for_registry
+    )
+    assert registry.source_count == accepted_count == 3
+    assert registry.accepted_source_count == 3
+    assert registry.rejected_source_count == 3
+    assert registry.retrieval_backend == "local"
+    assert all(record.accepted_for_registry for record in registry.citations)
+    assert all(record.source_status != "rejected" for record in registry.citations)
+    assert all(record.relevance_score is not None for record in registry.citations)
+    assert not any(
+        record.source_id == "local-irrelevant-001" for record in registry.citations
+    )
+
+
+def test_citation_to_rejected_local_source_key_fails() -> None:
+    scored, quality = score_retrieval_sources(
+        run_id="run-1",
+        retrieval_backend="local",
+        query="human geography bounded literature context",
+        results=[
+            _source(
+                "accepted",
+                title="Human Geography Bounded Literature Context",
+                authors=["Ada Smith"],
+                year=2024,
+                provider="local",
+            ),
+            _source(
+                "rejected",
+                title="Marine Coral Reef Thermal Stress Monitoring",
+                authors=["Ira Ocean"],
+                year=2019,
+                provider="local",
+            ),
+        ],
+    )
+    registry = build_citation_registry("run-1", scored)
+    rejected_key = "Ocean2019MarineCoralReef"
+    report = validate_citation_usage(
+        f"This paragraph cites rejected local metadata [@{rejected_key}].",
+        registry,
+    )
+
+    assert quality.rejected_source_count == 1
+    assert registry.source_count == 1
+    assert report.rejected
+    assert rejected_key in report.unknown_citation_keys
 
 
 def test_citation_usage_validator_accepts_known_citation_keys() -> None:

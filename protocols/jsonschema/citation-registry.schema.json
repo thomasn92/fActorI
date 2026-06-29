@@ -72,6 +72,11 @@
           "default": null,
           "title": "Abstract Or Snippet"
         },
+        "accepted_for_registry": {
+          "default": true,
+          "title": "Accepted For Registry",
+          "type": "boolean"
+        },
         "allowed_citation_key": {
           "anyOf": [
             {
@@ -178,10 +183,30 @@
           "title": "Raw Metadata Hash",
           "type": "string"
         },
+        "relevance_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relevance Score"
+        },
         "retrieval_backend": {
           "default": "unknown",
           "minLength": 1,
           "title": "Retrieval Backend",
+          "type": "string"
+        },
+        "retrieval_quality_status": {
+          "default": "not_evaluated",
+          "minLength": 1,
+          "title": "Retrieval Quality Status",
           "type": "string"
         },
         "retrieved_at": {
@@ -206,6 +231,20 @@
           "minLength": 1,
           "title": "Source Id",
           "type": "string"
+        },
+        "source_quality_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Quality Score"
         },
         "source_snippet": {
           "anyOf": [
@@ -333,7 +372,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.18.0/citation-registry.schema.json",
+  "$id": "https://schemas.factori.local/0.19.0/citation-registry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic citation registry; not novelty or verification proof.",
@@ -451,7 +490,7 @@
   ],
   "title": "CitationRegistry",
   "type": "object",
-  "x-factori-protocol-version": "0.18.0",
+  "x-factori-protocol-version": "0.19.0",
   "x-factori-source-model": "factori.schemas.CitationRegistry",
   "x-factori-verification-evidence": false
 }

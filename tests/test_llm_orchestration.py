@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -36,6 +37,10 @@ from factori.schemas import (
 )
 from factori.schemas import (
     FullPaperReleaseStatus as ReleaseStatus,
+)
+
+LOCAL_SOURCE_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "retrieval" / "human_geography_sources.json"
 )
 
 
@@ -155,6 +160,40 @@ def test_fake_orchestration_can_build_bounded_fixture_citation_registry(tmp_path
     assert "[@" in markdown
     assert result.report.publication_ready is False
     assert result.report.is_verification_evidence is False
+
+
+def test_orchestration_local_retrieval_filters_registry_sources(tmp_path) -> None:
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="local-retrieval-orch",
+            domain="human geography",
+            enable_retrieval=True,
+            retrieval_backend="local",
+            retrieval_local_path=str(LOCAL_SOURCE_FIXTURE),
+            max_retrieval_sources=8,
+            citation_policy="registry-only",
+            write_report=True,
+            budget=LLMBudgetConfig(max_total_calls=0),
+        ),
+        root=tmp_path,
+    )
+
+    assert result.generation_result is not None
+    reports = tmp_path / "runs" / "local-retrieval-orch" / "reports"
+    quality_payload = json.loads((reports / "retrieval-quality-report.json").read_text())
+    registry_payload = json.loads((reports / "citation-registry.json").read_text())
+    assert quality_payload["retrieval_backend"] == "local"
+    assert quality_payload["total_retrieved_sources"] == 6
+    assert quality_payload["accepted_source_count"] == 3
+    assert quality_payload["rejected_source_count"] == 3
+    assert registry_payload["source_count"] == 3
+    assert registry_payload["accepted_source_count"] == 3
+    assert registry_payload["rejected_source_count"] == 3
+    assert all(
+        item["accepted_for_registry"] is True
+        for item in registry_payload["citations"]
+    )
+    assert result.report.publication_ready is False
 
 
 def test_run_llm_paper_cli_works_in_fake_mode_and_json_is_valid(tmp_path) -> None:

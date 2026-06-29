@@ -1,0 +1,82 @@
+{
+  "sources": [
+    {
+      "source_id": "local-human-geography-001",
+      "title": "Optimal Transport for Spatial Inequality Analysis in Human Geography",
+      "authors": ["Ada Smith", "Bea Jones"],
+      "year": 2022,
+      "venue_or_source": "Local Source Fixture",
+      "url_or_doi_optional": "https://example.org/local/spatial-inequality",
+      "abstract_or_summary": "A local metadata fixture discussing optimal transport, spatial distributions, inequality, and human geography background context.",
+      "snippet": "Optimal transport is described as background context for comparing spatial distributions in human geography.",
+      "source_type": "local_fixture",
+      "supported_topics": ["human geography", "optimal transport", "spatial distributions"],
+      "trust_level": "metadata_only",
+      "may_support_background_context": true
+    },
+    {
+      "source_id": "local-human-geography-002",
+      "title": "Bounded Literature Context for Spatial Interaction Models",
+      "authors": ["Cara Nguyen"],
+      "year": 2020,
+      "venue_or_source": "Local Source Fixture",
+      "url_or_doi_optional": "10.1234/local.spatial.interaction",
+      "abstract_or_summary": "A deterministic local source record about spatial interaction, migration flow framing, retrieval limitations, and bounded background context.",
+      "snippet": "The fixture record supplies bounded source context for spatial interaction and human geography manuscript framing.",
+      "source_type": "local_fixture",
+      "supported_topics": ["human geography", "spatial interaction", "retrieval limitations"],
+      "trust_level": "metadata_only",
+      "may_support_background_context": true
+    },
+    {
+      "source_id": "local-human-geography-003",
+      "title": "Manuscript Pipelines for Evidence-Bounded Geography Drafts",
+      "authors": ["Dev Patel"],
+      "year": 2021,
+      "venue_or_source": "Local Source Fixture",
+      "url_or_doi_optional": "https://example.org/local/evidence-bounded-drafts",
+      "abstract_or_summary": "A local source metadata record covering evidence boundaries, manuscript scaffolding, citation provenance, and human geography drafts.",
+      "snippet": "Evidence-bounded drafting is framed as background context for human geography candidate manuscripts.",
+      "source_type": "local_fixture",
+      "supported_topics": ["human geography", "manuscript scaffolding", "evidence boundaries"],
+      "trust_level": "metadata_only",
+      "may_support_background_context": true
+    },
+    {
+      "source_id": "local-irrelevant-001",
+      "title": "Marine Coral Reef Thermal Stress Monitoring",
+      "authors": ["Ira Ocean"],
+      "year": 2019,
+      "venue_or_source": "Local Source Fixture",
+      "abstract_or_summary": "A deterministic source record about coral reef temperatures, marine biology, and ocean monitoring.",
+      "snippet": "Marine biology records describe ocean temperatures and reef monitoring.",
+      "source_type": "local_fixture",
+      "supported_topics": ["marine biology", "coral reefs"],
+      "may_support_background_context": true
+    },
+    {
+      "source_id": "local-duplicate-001",
+      "title": "Optimal Transport for Spatial Inequality Analysis in Human Geography",
+      "authors": ["Ada Smith", "Bea Jones"],
+      "year": 2022,
+      "venue_or_source": "Local Source Fixture",
+      "abstract_or_summary": "A duplicate local source record for deterministic duplicate filtering.",
+      "snippet": "Duplicate metadata repeats the spatial inequality and optimal transport source.",
+      "source_type": "local_fixture",
+      "supported_topics": ["human geography", "optimal transport"],
+      "may_support_background_context": true
+    },
+    {
+      "source_id": "local-incomplete-001",
+      "title": "Human Geography Note",
+      "authors": [],
+      "year": null,
+      "venue_or_source": null,
+      "abstract_or_summary": "",
+      "snippet": "short",
+      "source_type": "local_fixture",
+      "supported_topics": ["human geography"],
+      "may_support_background_context": true
+    }
+  ]
+}

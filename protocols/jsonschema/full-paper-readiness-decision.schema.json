@@ -17,7 +17,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.18.0/full-paper-readiness-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.19.0/full-paper-readiness-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Human-review-only readiness decision.",
@@ -71,7 +71,7 @@
   ],
   "title": "FullPaperReadinessDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.18.0",
+  "x-factori-protocol-version": "0.19.0",
   "x-factori-source-model": "factori.schemas.FullPaperReadinessDecision",
   "x-factori-verification-evidence": false
 }

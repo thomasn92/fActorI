@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -83,12 +83,22 @@ class RetrievalResult(StrictModel):
     query: str = Field(min_length=1)
     rank: int = Field(ge=0)
     score: float | None = Field(default=None, ge=0.0, le=1.0)
+    relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    topic_match_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    source_quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    accepted_for_registry: bool = True
+    rejection_reason: str | None = None
+    source_type: str = "retrieval_metadata"
+    retrieval_backend: str = "unknown"
+    fixture_only: bool = False
     raw_metadata_hash: str = Field(pattern=HASH_RE.pattern)
     source_provenance: SourceProvenance
     snippet: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
     fake: bool = True
     is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
     proves_novelty: bool = False
     claims_literature_coverage: bool = False
 
@@ -146,6 +156,40 @@ class RetrievalRunReport(StrictModel):
     claims_literature_coverage: bool = False
 
 
+RetrievalAdequacyStatus = Literal[
+    "not_evaluated",
+    "insufficient_sources",
+    "bounded_context_only",
+    "adequate_for_background_context",
+]
+
+
+class RetrievalQualityReport(StrictModel):
+    """Deterministic source-quality filter report; never verification evidence."""
+
+    run_id: str = Field(min_length=1)
+    retrieval_backend: str = Field(min_length=1)
+    total_retrieved_sources: int = Field(ge=0)
+    accepted_source_count: int = Field(ge=0)
+    rejected_source_count: int = Field(ge=0)
+    duplicate_count: int = Field(default=0, ge=0)
+    low_relevance_count: int = Field(default=0, ge=0)
+    metadata_incomplete_count: int = Field(default=0, ge=0)
+    mean_relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    min_relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    queries_used: list[str] = Field(default_factory=list)
+    coverage_limitations: list[str] = Field(default_factory=list)
+    adequacy_status: RetrievalAdequacyStatus = "not_evaluated"
+    accepted_source_ids: list[str] = Field(default_factory=list)
+    rejected_source_ids: list[str] = Field(default_factory=list)
+    rejection_reasons: dict[str, str] = Field(default_factory=dict)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+    claims_literature_coverage: bool = False
+
+
 class RetrievalRunTrace(StrictModel):
     """Sanitized provider trace used to write retrieval provenance artifacts."""
 
@@ -161,6 +205,7 @@ __all__ = [
     "RetrievalQuery",
     "SourceProvenance",
     "RetrievalResult",
+    "RetrievalQualityReport",
     "RetrievedDocument",
     "RetrievalValidationResult",
     "RetrievalParseReport",

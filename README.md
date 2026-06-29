@@ -361,6 +361,26 @@ publication-readiness claims; citations can support only local background/source
 inside the same sentence or paragraph, and fixture sources cannot support proof, empirical,
 novelty, validation, or readiness claims.
 
+Bounded local-source retrieval ingests an explicit JSON source file, scores relevance and metadata
+quality deterministically, writes `retrieval-quality-report.json`, and builds the citation registry
+only from accepted records:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id local-retrieval-quality-smoke-001 \
+  --domain "human geography" \
+  --llm-scope full-paper \
+  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
+  --enable-retrieval --retrieval-backend local \
+  --retrieval-local-path tests/fixtures/retrieval/human_geography_sources.json \
+  --max-retrieval-sources 8 --citation-policy registry-only \
+  --generate-paper --enable-safe-repair --write-report --json
+```
+
+Rejected, duplicate, incomplete, or low-relevance local sources remain visible in retrieval quality
+reports but cannot be cited. Accepted sources are bounded background context only; relevance scores
+do not prove correctness, validation, novelty, literature completeness, or publication readiness.
+
 Ambiguous claim-support sentences can use a bounded semantic adjudicator. The fake backend is
 deterministic; OpenAI is opt-in and shares the orchestration budget guard:
 

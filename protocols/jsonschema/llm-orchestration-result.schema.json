@@ -682,6 +682,18 @@
           "title": "Retrieval Backend",
           "type": "string"
         },
+        "retrieval_local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieval Local Path"
+        },
         "reviewer_backend": {
           "default": "fake",
           "title": "Reviewer Backend",
@@ -1028,7 +1040,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.18.0/llm-orchestration-result.schema.json",
+  "$id": "https://schemas.factori.local/0.19.0/llm-orchestration-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for gated LLM paper orchestration commands.",
@@ -1091,7 +1103,7 @@
   ],
   "title": "LLMOrchestrationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.18.0",
+  "x-factori-protocol-version": "0.19.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationResult",
   "x-factori-verification-evidence": false
 }

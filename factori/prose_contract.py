@@ -245,6 +245,9 @@ def build_prose_section_contract(
             "Do not claim exhaustive literature coverage.",
             "Do not claim retrieval proves novelty.",
             "Do not use citations as proof or experiment evidence.",
+            "Use accepted registry citations only for bounded background context.",
+            "Do not say accepted sources validate, prove, establish novelty, or exhaust "
+            "the literature.",
             "Use citations only for background or source-context claims.",
             "Place each citation in the same sentence or paragraph as the claim it supports.",
             "Do not cite sources for claims about this run unless the cited source is "

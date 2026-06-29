@@ -356,6 +356,7 @@ class LLMOrchestrationConfig(StrictModel):
     include_citations: bool = True
     enable_retrieval: bool = False
     retrieval_backend: str = "fake"
+    retrieval_local_path: str | None = None
     max_retrieval_sources: int = Field(default=5, ge=1, le=100)
     citation_policy: Literal["none", "registry-only"] = "none"
     export_latex: bool = True

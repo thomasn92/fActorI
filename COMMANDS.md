@@ -302,6 +302,33 @@ and checks that source-context citations are local to the sentence or paragraph 
 Scaffold/provenance/limitation statements do not require citations. Citations cannot support proof,
 experiment, novelty, validation, or publication-readiness claims.
 
+Deterministic local-source retrieval uses an explicit JSON file, no network, and quality filters
+before citation registry construction:
+
+```bash
+uv run factori run-llm-paper \
+  --run-id local-retrieval-quality-smoke-001 \
+  --domain "human geography" \
+  --llm-scope full-paper \
+  --candidate-backend fake \
+  --reviewer-backend fake \
+  --prose-backend fake \
+  --enable-retrieval \
+  --retrieval-backend local \
+  --retrieval-local-path tests/fixtures/retrieval/human_geography_sources.json \
+  --max-retrieval-sources 8 \
+  --citation-policy registry-only \
+  --generate-paper \
+  --enable-safe-repair \
+  --write-report \
+  --json
+```
+
+This writes `retrieval-quality-report.json` with retrieved, accepted, rejected, duplicate,
+low-relevance, and metadata-incomplete counts. Rejected local sources do not enter
+`citation-registry.json`; accepted sources remain bounded background context and cannot establish
+proof, empirical validation, novelty, exhaustive coverage, or publication readiness.
+
 Use deterministic semantic adjudication for local pipeline validation:
 
 ```bash

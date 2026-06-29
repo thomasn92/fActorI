@@ -19,9 +19,13 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.18.0`.
+version is `0.19.0`.
 
-Protocol `0.18.0` adds backward-compatible citation-requirement metadata to claim-support audit
+Protocol `0.19.0` adds bounded retrieval quality fields and a `RetrievalQualityReport` contract for
+local-source relevance, metadata-completeness, duplicate, accepted-source, and rejected-source
+accounting. Retrieval quality remains literature context only and cannot establish novelty,
+validation, correctness, exhaustive coverage, or publication readiness. Protocol `0.18.0` adds
+backward-compatible citation-requirement metadata to claim-support audit
 items. Citation requirements now distinguish positive external/source/literature claims from
 current-run scaffold, missing-retrieval, and evidence-boundary statements. Protocol `0.17.0` added
 semantic claim-adjudication fields and a `ClaimAdjudication` model. Adjudication classifies
@@ -46,6 +50,7 @@ Public protocol names are stable even where internal Python names differ. Curren
 - `ManuscriptDraftingPlan`, `SectionDraftingTask`, `SectionDraftingResult`,
   `CompleteMarkdownDraft`, `ManuscriptDraftingReport`, and `ManuscriptAssemblyReport` generated
   from manuscript drafting models;
+- `RetrievalQualityReport` generated from bounded source-quality and relevance filter reports;
 - `CitationRecord`, `CitationRegistry`, `BibliographyEntry`, `CitationUsage`, `ClaimAdjudication`,
   `CitationSafetyReport`, `ClaimSupportItem`, `ClaimSupportAuditReport`,
   `LiteratureGapStatement`, `LiteraturePositioningContract`, and `LiteraturePositioningReport`
@@ -111,7 +116,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.18.0
+  --new-version 0.19.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

@@ -17,6 +17,7 @@
   "citations": [
     {
       "abstract_or_snippet": null,
+      "accepted_for_registry": true,
       "allowed_citation_key": null,
       "authors": [
         "Example Author"
@@ -37,10 +38,13 @@
       "proves_novelty": false,
       "provider": "fake",
       "raw_metadata_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "relevance_score": null,
       "retrieval_backend": "unknown",
+      "retrieval_quality_status": "not_evaluated",
       "retrieved_at": "1970-01-01T00:00:00.000000Z",
       "source_artifact_id": "retrieval-normalized-results-example",
       "source_id": "source-example",
+      "source_quality_score": null,
       "source_snippet": null,
       "source_status": "unverified_metadata",
       "source_summary": null,

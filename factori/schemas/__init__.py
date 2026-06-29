@@ -259,6 +259,7 @@ from factori.schemas.pipeline import (
 from factori.schemas.retrieval import (
     RetrievalAdequacyCertificate,
     RetrievalParseReport,
+    RetrievalQualityReport,
     RetrievalQuery,
     RetrievalResult,
     RetrievalRunReport,
@@ -361,6 +362,7 @@ __all__ = [
     "RetrievalQuery",
     "SourceProvenance",
     "RetrievalResult",
+    "RetrievalQualityReport",
     "RetrievedDocument",
     "RetrievalValidationResult",
     "RetrievalParseReport",

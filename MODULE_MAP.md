@@ -13,8 +13,8 @@ All implementation modules are under `factori/`.
   - `schemas/artifacts.py`: artifact references, artifact manifests, and ledger commit schema.
   - `schemas/candidates.py`: constraints, candidates, scores, budgets, run state, and controller
     actions.
-  - `schemas/retrieval.py`: retrieval queries, results, source provenance, and adequacy
-    certificate models.
+  - `schemas/retrieval.py`: retrieval queries, results, source provenance, bounded source-quality
+    reports, and adequacy certificate models.
   - `schemas/control.py`: questioner/autonomy/stagnation/runtime summary models.
   - `schemas/stages.py`: Stage B reviewer/bridge/baseline/red-team and Stage C selection reports.
   - `schemas/verification.py`: verification state, fake proof/experiment results, and Stage C
@@ -71,7 +71,8 @@ All implementation modules are under `factori/`.
 - `adapters/base.py`: small runtime-checkable protocols for candidate LLM, structural reviewer,
   retrieval, proof, experiment, prose, and human-review backends.
 - `adapters/capabilities.py`: provider-neutral capability descriptors for fake, OpenAI candidate,
-  OpenAI reviewer/prose, OpenAlex retrieval, Lean proof, and local synthetic experiment backends.
+  OpenAI reviewer/prose, OpenAlex retrieval, local retrieval, Lean proof, and local synthetic
+  experiment backends.
 - `adapters/config.py`: strict fake-default backend/model configuration with external calls
   disabled and API keys excluded from reports.
 - `adapters/errors.py`: shared adapter configuration, capability, transport, parsing, and safety
@@ -163,7 +164,8 @@ All implementation modules are under `factori/`.
 - `autonomy.py`: deterministic HumanRequired predicate and autonomy contract.
 - `stagnation.py`: global stagnation index and forced actions.
 - `retrieval.py`: retrieval adequacy certificate skeleton plus stage-owned query/response/result/
-  certificate artifact and ledger flow.
+  certificate artifact flow, deterministic fixture retrieval, and bounded local-source
+  quality/relevance filtering for registry-safe citations.
 - `runtime_summary.py`: non-provenance runtime context compression.
 
 ## Stage B
@@ -205,7 +207,8 @@ All implementation modules are under `factori/`.
 - `manuscript_assembly.py`: pure Markdown assembly of safe section drafts into a complete
   paper-shaped presentation draft with claim/evidence, bibliography, and provenance appendices.
 - `citations.py`: deterministic citation-key generation, citation registry construction from
-  retrieval metadata, citation usage validation, and optional ledgered context-report persistence.
+  quality-accepted retrieval metadata, citation usage validation, and optional ledgered
+  context-report persistence.
 - `claim_adjudication.py`: bounded fake/OpenAI semantic classification for ambiguous manuscript
   sentences; deterministic citation, source-scope, bibliography, and evidence checks remain
   authoritative.

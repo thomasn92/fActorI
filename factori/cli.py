@@ -2308,6 +2308,10 @@ def run_llm_paper_command(
         str,
         typer.Option("--retrieval-backend"),
     ] = "fake",
+    retrieval_local_path: Annotated[
+        str | None,
+        typer.Option("--retrieval-local-path"),
+    ] = None,
     max_retrieval_sources: Annotated[
         int,
         typer.Option("--max-retrieval-sources"),
@@ -2375,6 +2379,7 @@ def run_llm_paper_command(
         include_citations=include_citations,
         enable_retrieval=enable_retrieval,
         retrieval_backend=retrieval_backend,
+        retrieval_local_path=retrieval_local_path,
         max_retrieval_sources=max_retrieval_sources,
         citation_policy=citation_policy,
         export_latex=export_latex,
@@ -2645,6 +2650,26 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{summary.get('bibliography_status') or 'absent'}"
     )
     typer.echo(
+        "Retrieval quality: "
+        f"{'present' if summary.get('retrieval_quality_report_present') else 'absent'}"
+    )
+    typer.echo(
+        "Retrieved sources: "
+        f"{int(summary.get('retrieved_source_count') or 0)}"
+    )
+    typer.echo(
+        "Accepted sources: "
+        f"{int(summary.get('accepted_source_count') or 0)}"
+    )
+    typer.echo(
+        "Rejected sources: "
+        f"{int(summary.get('rejected_source_count') or 0)}"
+    )
+    typer.echo(
+        "Adequacy: "
+        f"{summary.get('retrieval_adequacy_status') or 'not_evaluated'}"
+    )
+    typer.echo(
         "Claim support: "
         f"{'present' if summary.get('claim_support_audit_present') else 'absent'}"
     )
@@ -2688,6 +2713,11 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         _echo_named_artifact(artifacts, "release report", "release_report")
         _echo_named_artifact(artifacts, "safe repair report", "safe_repair_report")
         _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
+        _echo_named_artifact(
+            artifacts,
+            "retrieval quality report",
+            "retrieval_quality_report",
+        )
         _echo_named_artifact(artifacts, "citation registry", "citation_registry")
         _echo_named_artifact(artifacts, "claim support audit", "claim_support_audit")
 
@@ -2779,6 +2809,12 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Claim support: "
         f"{'present' if summary.get('claim_support_audit_present') else 'absent'}"
+    )
+    typer.echo(
+        "Retrieval quality: "
+        f"{'present' if summary.get('retrieval_quality_report_present') else 'absent'} "
+        f"({int(summary.get('accepted_source_count') or 0)} accepted / "
+        f"{int(summary.get('rejected_source_count') or 0)} rejected)"
     )
     typer.echo(
         "Missing citation claims: "

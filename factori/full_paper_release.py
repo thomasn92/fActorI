@@ -253,8 +253,8 @@ def evaluate_full_paper_release(
         ["claim-support-audit"],
     )
     citation_warnings.append(
-        "Retrieval metadata is bounded literature context, not proof of novelty, validation, "
-        "or publication readiness."
+        "Retrieval quality is bounded background context only and does not establish novelty, "
+        "validation, correctness, or publication readiness."
     )
 
     literature_safe = _literature_positioning_safe(literature, citations_required)

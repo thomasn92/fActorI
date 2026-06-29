@@ -67,10 +67,11 @@
 | 54 | Claim-to-source support mapping and citation placement discipline | `citations.py`, `prose_contract.py`, `manuscript_assembly.py`, `full_paper_generation.py`, `cli.py` | `generate-paper`, `inspect-paper-bundle`, `lint-paper-bundle` | Generated paper bundles now include a non-evidence `claim-support-audit.json` that classifies manuscript sentences, enforces local citation placement for source-context claims, records source-scope mismatches, and keeps citations from supporting proof, experiment, novelty, validation, or publication-readiness claims |
 | 54b | Bounded semantic adjudication for claim-support audits | `claim_adjudication.py`, `citations.py`, `llm_budget.py`, `llm_orchestration.py`, `full_paper_release.py` | `run-llm-paper --claim-adjudicator-backend fake\|openai` | A fake or explicitly gated OpenAI adjudicator resolves sentence meaning for ambiguous claim language, including negated proof/validation statements, while deterministic code continues to verify registry keys, source scope, bibliography provenance, evidence artifacts, and publication-readiness boundaries |
 | 54c | Citation-requirement semantics after LLM adjudication | `claim_adjudication.py`, `citations.py`, `full_paper_generation.py` | Existing claim adjudication and paper lint commands | Claim-support audits now require local registry citations only for positive external/source/literature claims; current-run status, missing retrieval support, scaffold role, retrieval limitations, and evidence-boundary statements are reported as no-citation-required while real uncited external claims still fail |
+| 55 | Bounded local-source retrieval quality and relevance filtering | `retrieval.py`, `citations.py`, `llm_orchestration.py`, `full_paper_generation.py` | `run-llm-paper --enable-retrieval --retrieval-backend local --retrieval-local-path <sources.json>` | Local source metadata is scored for deterministic relevance, metadata completeness, duplicates, and registry eligibility; rejected sources remain audit context but cannot be cited, and accepted sources remain bounded background context only |
 
 ## Current Boundary
 
-Milestones through 54c implement a deterministic scaffold plus explicitly gated external seams for
+Milestones through 55 implement a deterministic scaffold plus explicitly gated external seams for
 Stage A candidate proposal, Stage B source metadata retrieval, Stage B structural review, and
 Stage C local proof checking, Stage C controlled local synthetic experiment execution, and
 manuscript prose drafting. The `run-llm-paper` command can combine the existing OpenAI
@@ -155,3 +156,8 @@ appendices and repair metadata. Required appendices no longer count as main-body
 safe repair demotes or merges standalone central-message headings, and the deterministic conclusion
 fallback closes with bounded contribution, human-review status, and future evidence-producing
 steps. These are manuscript-quality diagnostics only and do not change release or safety status.
+Bounded local-source retrieval now accepts explicit JSON source metadata, writes a
+`retrieval-quality-report.json`, rejects duplicate, low-relevance, or metadata-incomplete records,
+and builds citation registries only from accepted records. Source relevance and quality scores are
+literature-context diagnostics only; they do not prove correctness, novelty, validation,
+exhaustive coverage, or publication readiness.

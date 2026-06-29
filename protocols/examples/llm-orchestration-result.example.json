@@ -131,6 +131,7 @@
       "render_check": false,
       "rerun_policy": "fail-if-exists",
       "retrieval_backend": "fake",
+      "retrieval_local_path": null,
       "reviewer_backend": "fake",
       "reviewer_max_objections": 5,
       "reviewer_model": "gpt-5-mini",
