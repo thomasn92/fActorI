@@ -920,11 +920,6 @@ def lint_paper_bundle_summary(
     nested_main_body_heading_count = sum(
         1 for section in body_sections if section["level"] > 2
     )
-    placeholder_main_body_sections = [
-        section
-        for section in main_body_sections
-        if section["word_count"] == 0 or _contains_placeholder_text(section["body"])
-    ]
     unplanned_main_body_headings = [
         str(section["heading"]) for section in unplanned_main_body_sections
     ]
@@ -961,7 +956,6 @@ def lint_paper_bundle_summary(
         unplanned_main_body_headings
         or nested_main_body_heading_count
         or main_body_section_count > len(CANONICAL_MAIN_SECTIONS) + 1
-        or len(placeholder_main_body_sections) >= 2
     )
     heading_fragmentation_detected = main_body_heading_fragmentation_detected
     placeholder_sections_detected = bool(empty_or_placeholder_sections)

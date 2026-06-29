@@ -339,6 +339,34 @@ def test_lint_paper_bundle_is_not_length_only(tmp_path) -> None:
     )
 
 
+def test_lint_paper_bundle_appendices_do_not_trigger_fragmentation_failure(
+    tmp_path,
+) -> None:
+    run_id = "lint-paper-appendices-not-fragmented"
+    _write_paper_bundle_markdown(
+        tmp_path,
+        run_id=run_id,
+        complete_markdown=_short_seven_main_sections_with_appendices_markdown(),
+    )
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["main_body_section_count"] == 7
+    assert payload["appendix_section_count"] == 3
+    assert payload["total_heading_count"] == 11
+    assert payload["main_body_heading_fragmentation_detected"] is False
+    assert payload["heading_fragmentation_detected"] is False
+    assert payload["too_many_sections_for_length"] is False
+    assert payload["unplanned_main_body_headings"] == []
+    assert payload["quality_status"] == "DraftQualityWarnings"
+    assert payload["quality_failure_reasons"] == []
+    assert "Severe section fragmentation is present." not in payload["issues"]
+    assert (
+        "Appendices increase the total heading count but do not fragment the main body."
+        in payload["development_warnings"]
+    )
+
+
 def test_lint_paper_bundle_detects_standalone_central_message_as_metadata(
     tmp_path,
 ) -> None:
@@ -747,4 +775,36 @@ def _short_semantically_complete_markdown(*, include_citation: bool) -> str:
         "- `claim-main`: evidence artifacts are context only.\n\n"
         "## Provenance Appendix\n"
         "- Run ID: `run-1`; artifact and ledger audit context remain non-evidence.\n"
+    )
+
+
+def _short_seven_main_sections_with_appendices_markdown() -> str:
+    return (
+        "# Evidence-Bounded Manuscript Generation for Human Geography Research Candidates\n\n"
+        "## Abstract\n"
+        "This abstract states the research problem, central contribution, evidence boundary, "
+        "and human-review-only status.\n\n"
+        "## Introduction and Problem Framing\n"
+        "The problem statement is how to keep manuscript generation useful while preserving "
+        "strict evidence boundaries and avoiding publication readiness claims.\n\n"
+        "## Method and Model\n"
+        "The method summary describes deterministic planning, bounded drafting, safe repair, "
+        "and audit reporting.\n\n"
+        "## Claim and Evidence Boundaries\n"
+        "The central contribution of this draft is a bounded paper package that keeps proof, "
+        "experiment, citation, and provenance roles separate.\n\n"
+        "## Demonstration Status\n"
+        "The demonstration status records pipeline behavior only and is not proof evidence or "
+        "empirical validation.\n\n"
+        "## Limitations\n"
+        "Limitations include missing real retrieval coverage, proof artifacts, experiment "
+        "evidence, and human validation.\n\n"
+        "## Conclusion\n"
+        "The conclusion restates the bounded contribution and identifies future evidence work.\n\n"
+        "## Claim/Evidence Appendix\n"
+        "- Claims and evidence links remain audit context only.\n\n"
+        "## Source/Citation Appendix\n"
+        "- No registry-backed citation entries are asserted by this fixture.\n\n"
+        "## Provenance Appendix\n"
+        "- Run artifacts, reports, and ledger context remain non-evidence.\n"
     )
