@@ -1,0 +1,60 @@
+{
+  "citation_as_validation_misuse_count": 0,
+  "citation_placement_violations": [],
+  "citation_policy": "registry-only",
+  "citation_registry_present": true,
+  "claim_support_items": [
+    {
+      "citation_keys_present": [
+        "Author1970SyntheticCalibrationContext"
+      ],
+      "claim_class": "source_context_claim",
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "paragraph_index": 0,
+      "required_support_type": "registry_background_context",
+      "section_name": "Introduction",
+      "sentence_id": "introduction-p0-s0",
+      "sentence_index": 0,
+      "sentence_snippet": "Retrieved fixture metadata provides bounded background context [@Author1970SyntheticCalibrationContext].",
+      "sentence_text_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "support_status": "registry_supported",
+      "supporting_source_ids": [
+        "source-example"
+      ],
+      "unsupported_reason": null
+    },
+    {
+      "citation_keys_present": [],
+      "claim_class": "evidence_boundary_statement",
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "paragraph_index": 0,
+      "required_support_type": "none",
+      "section_name": "Limitations",
+      "sentence_id": "limitations-p0-s0",
+      "sentence_index": 0,
+      "sentence_snippet": "This draft is manuscript context only and does not create evidence.",
+      "sentence_text_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "support_status": "not_required_scaffold",
+      "supporting_source_ids": [],
+      "unsupported_reason": null
+    }
+  ],
+  "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "run_id": "example",
+  "summary_counts": {
+    "citation_as_validation_misuse": 0,
+    "forbidden_claim": 0,
+    "missing_required_citation": 0,
+    "registry_supported": 1,
+    "scaffold_not_required": 1,
+    "scope_mismatch": 0,
+    "total_sentences": 2
+  },
+  "unsupported_items": []
+}

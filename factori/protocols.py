@@ -23,6 +23,8 @@ from factori.schemas import (
     CitationSafetyReport,
     CitationUsage,
     Claim,
+    ClaimSupportAuditReport,
+    ClaimSupportItem,
     ClaimTable,
     CompleteMarkdownDraft,
     DataRequirement,
@@ -147,7 +149,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.15.0"
+PROTOCOL_VERSION = "0.16.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -338,6 +340,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "CitationSafetyReport",
         CitationSafetyReport,
         "Citation-safety report for manuscript drafts.",
+    ),
+    ProtocolDefinition(
+        "ClaimSupportItem",
+        ClaimSupportItem,
+        "One sentence-level claim-to-source support classification.",
+    ),
+    ProtocolDefinition(
+        "ClaimSupportAuditReport",
+        ClaimSupportAuditReport,
+        "Deterministic citation-placement and claim-support audit report.",
     ),
     ProtocolDefinition(
         "LiteratureGapStatement",

@@ -104,7 +104,7 @@ def assemble_complete_markdown_draft(
     if literature_positioning_report is not None:
         warnings.extend(literature_positioning_report.warnings)
 
-    claim_appendix = _claim_evidence_appendix(claim_table)
+    claim_appendix = _claim_evidence_appendix(claim_table, citation_registry)
     bibliography = _bibliography_markdown(citation_registry)
     provenance_appendix = _provenance_appendix(
         run_id=run_id,
@@ -465,16 +465,37 @@ def _canonical_heading(title: str, roles: list[NarrativeSectionRole]) -> str:
     return "Appendix"
 
 
-def _claim_evidence_appendix(claim_table: ClaimTable) -> str:
+def _claim_evidence_appendix(
+    claim_table: ClaimTable,
+    citation_registry: CitationRegistry | None = None,
+) -> str:
+    support_lines = [
+        "Claim-support summary:",
+        "- Scaffold, method, limitation, evidence-boundary, and provenance statements "
+        "do not require citations.",
+        "- Source-context claims require registry-backed local citations when a registry "
+        "is present.",
+        "- Proof claims: none are created by manuscript drafting.",
+        "- Experiment claims: none are created by manuscript drafting.",
+        "- Novelty claims: none are created by retrieval or citations.",
+        "- Publication-readiness claims: none are created by the generated paper bundle.",
+    ]
+    if citation_registry is not None and citation_registry.citations:
+        support_lines.append(
+            "- Citation registry sources available: "
+            f"{len(citation_registry.citations)}; citations remain non-evidence context."
+        )
+    else:
+        support_lines.append("- Citation registry sources available: 0.")
     if not claim_table.claims:
-        return "- No claims are present in the claim table."
+        return "- No claims are present in the claim table.\n\n" + "\n".join(support_lines)
     lines = []
     for claim in sorted(claim_table.claims, key=lambda item: item.claim_id):
         evidence = ", ".join(claim.evidence_artifact_ids) or "none"
         lines.append(
             f"- `{claim.claim_id}` ({claim.claim_label.value}): evidence artifacts: {evidence}"
         )
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n\n" + "\n".join(support_lines)
 
 
 def _provenance_appendix(

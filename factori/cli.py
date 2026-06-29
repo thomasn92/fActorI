@@ -2629,6 +2629,26 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Bibliography: "
         f"{summary.get('bibliography_status') or 'absent'}"
     )
+    typer.echo(
+        "Claim support: "
+        f"{'present' if summary.get('claim_support_audit_present') else 'absent'}"
+    )
+    typer.echo(
+        "Registry-supported claims: "
+        f"{int(summary.get('claim_support_registry_supported_count') or 0)}"
+    )
+    typer.echo(
+        "Missing citation claims: "
+        f"{int(summary.get('claim_support_missing_required_citation_count') or 0)}"
+    )
+    typer.echo(
+        "Scope mismatches: "
+        f"{int(summary.get('claim_support_scope_mismatch_count') or 0)}"
+    )
+    typer.echo(
+        "Citation validation misuse: "
+        f"{int(summary.get('citation_as_validation_misuse_count') or 0)}"
+    )
     typer.echo(f"Blocking issues: {blocking_count if blocking_count else 'none'}")
     typer.echo(f"Warnings: {warning_count}")
     typer.echo(f"Title: {summary.get('title_detected') or 'unknown'}")
@@ -2649,6 +2669,7 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         _echo_named_artifact(artifacts, "safe repair report", "safe_repair_report")
         _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
         _echo_named_artifact(artifacts, "citation registry", "citation_registry")
+        _echo_named_artifact(artifacts, "claim support audit", "claim_support_audit")
 
 
 def _echo_named_artifact(
@@ -2734,6 +2755,22 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Bibliography: "
         f"{summary.get('bibliography_status') or 'absent'}"
+    )
+    typer.echo(
+        "Claim support: "
+        f"{'present' if summary.get('claim_support_audit_present') else 'absent'}"
+    )
+    typer.echo(
+        "Missing citation claims: "
+        f"{int(summary.get('claim_support_missing_required_citation_count') or 0)}"
+    )
+    typer.echo(
+        "Scope mismatches: "
+        f"{int(summary.get('claim_support_scope_mismatch_count') or 0)}"
+    )
+    typer.echo(
+        "Citation validation misuse: "
+        f"{int(summary.get('citation_as_validation_misuse_count') or 0)}"
     )
     typer.echo(
         "Release: "

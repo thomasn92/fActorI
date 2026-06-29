@@ -121,11 +121,11 @@ def test_protocol_export_is_deterministic_and_emits_all_schemas(tmp_path: Path) 
         "experiment-kind.schema.json",
     } <= {path.name for path in first.schema_files}
     assert first_contents == second_contents
-    assert len(first.schema_files) == len(get_protocol_definitions()) == 143
+    assert len(first.schema_files) == len(get_protocol_definitions()) == 145
     for path in first.schema_files:
         schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert schema["x-factori-protocol-version"] == "0.15.0"
+        assert schema["x-factori-protocol-version"] == "0.16.0"
         assert schema["x-factori-verification-evidence"] is False
 
 
@@ -135,7 +135,7 @@ def test_protocol_version_and_examples_are_validated_by_source_models(tmp_path: 
 
     metadata = json.loads(result.version_file.read_text(encoding="utf-8"))
     assert metadata == {
-        "protocol_version": "0.15.0",
+        "protocol_version": "0.16.0",
         "schema_format": "json-schema",
         "source": "factori-pydantic-models",
         "generated_by": "factori export-protocols",
@@ -171,7 +171,7 @@ def test_export_cli_and_check_mode_work(tmp_path: Path) -> None:
     )
 
     assert exported.exit_code == 0, exported.output
-    assert "schemas=143" in exported.output
+    assert "schemas=145" in exported.output
     assert checked.exit_code == 0, checked.output
     assert "check=ok" in checked.output
 
@@ -209,7 +209,7 @@ def test_protocol_export_does_not_touch_run_provenance(tmp_path: Path) -> None:
 
 def test_checked_in_protocol_files_are_current() -> None:
     assert require_protocols_current().up_to_date
-    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 42
+    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 43
 
 
 def test_timestamp_fields_are_exported_with_date_time_format(tmp_path: Path) -> None:

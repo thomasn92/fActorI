@@ -135,6 +135,16 @@ class FakeRetrievalClient:
                         "source_type": "test_fixture",
                         "source_status": "fixture",
                         "trust_level": "fixture_only",
+                        "support_scope": [
+                            "background_context",
+                            "fixture_pipeline_validation",
+                        ],
+                        "supported_topics": [normalized, "bounded citation plumbing"],
+                        "may_support_background_context": True,
+                        "may_support_method_context": False,
+                        "may_support_empirical_claims": False,
+                        "may_support_proof_claims": False,
+                        "may_support_novelty_claims": False,
                         "external_fetch_performed": False,
                     },
                 )

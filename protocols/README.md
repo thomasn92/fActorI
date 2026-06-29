@@ -19,11 +19,11 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.15.0`.
+version is `0.16.0`.
 
-Protocol `0.15.0` adds backward-compatible citation source-status, registry-policy, bounded
-retrieval configuration, and paper-bundle retrieval-reference fields. The deterministic fixture
-backend is test context only; citation contracts remain non-evidence and non-authoritative.
+Protocol `0.16.0` adds backward-compatible claim-to-source support audit models and source-support
+scope fields for citation records. The deterministic fixture backend is test context only;
+citations and claim-support audits remain non-evidence and non-authoritative.
 
 Public protocol names are stable even where internal Python names differ. Current aliases include:
 
@@ -43,8 +43,9 @@ Public protocol names are stable even where internal Python names differ. Curren
   `CompleteMarkdownDraft`, `ManuscriptDraftingReport`, and `ManuscriptAssemblyReport` generated
   from manuscript drafting models;
 - `CitationRecord`, `CitationRegistry`, `BibliographyEntry`, `CitationUsage`,
-  `CitationSafetyReport`, `LiteratureGapStatement`, `LiteraturePositioningContract`, and
-  `LiteraturePositioningReport` generated from citation-safe manuscript/literature models;
+  `CitationSafetyReport`, `ClaimSupportItem`, `ClaimSupportAuditReport`,
+  `LiteratureGapStatement`, `LiteraturePositioningContract`, and `LiteraturePositioningReport`
+  generated from citation-safe manuscript/literature models;
 - `LatexExportContract`, `LatexSourceMap`, `LatexSafetyReport`, `LatexRenderConfig`,
   `LatexRenderResult`, `LatexCompileCheckReport`, and `LatexExportResult` generated from
   presentation/export models;
@@ -106,7 +107,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.15.0
+  --new-version 0.16.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

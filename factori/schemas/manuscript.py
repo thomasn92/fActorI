@@ -476,6 +476,7 @@ class FullPaperArtifactBundle(StrictModel):
     citation_registry_artifact_id: str | None = None
     literature_positioning_report_artifact_id: str | None = None
     citation_safety_report_artifact_id: str | None = None
+    claim_support_audit_artifact_id: str | None = None
     manuscript_drafting_plan_artifact_id: str | None = None
     manuscript_drafting_report_artifact_id: str | None = None
     complete_manuscript_draft_artifact_id: str | None = None
@@ -573,6 +574,16 @@ class CitationRecord(StrictModel):
         "stale",
         "unverified_metadata",
     ] = "unverified_metadata"
+    support_scope: list[str] = Field(default_factory=lambda: ["background_context"])
+    supported_topics: list[str] = Field(default_factory=list)
+    source_snippet: str | None = None
+    source_summary: str | None = None
+    fixture_only: bool = False
+    may_support_background_context: bool = True
+    may_support_method_context: bool = False
+    may_support_empirical_claims: bool = False
+    may_support_proof_claims: bool = False
+    may_support_novelty_claims: bool = False
     warnings: list[str] = Field(default_factory=list)
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
@@ -649,6 +660,71 @@ class CitationSafetyReport(StrictModel):
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     proves_novelty: bool = False
+
+
+ClaimSupportClaimClass = Literal[
+    "scaffold_statement",
+    "problem_framing_statement",
+    "method_description_statement",
+    "evidence_boundary_statement",
+    "limitation_statement",
+    "provenance_statement",
+    "source_context_claim",
+    "literature_background_claim",
+    "external_factual_claim",
+    "pipeline_status_claim",
+    "proof_claim",
+    "experiment_claim",
+    "novelty_claim",
+    "publication_readiness_claim",
+]
+
+
+ClaimSupportStatus = Literal[
+    "not_required_scaffold",
+    "registry_supported",
+    "registry_key_present_but_scope_mismatch",
+    "missing_required_citation",
+    "forbidden_claim_without_evidence",
+    "unsupported_external_claim",
+    "citation_as_validation_misuse",
+]
+
+
+class ClaimSupportItem(StrictModel):
+    """One deterministic manuscript sentence-to-source support classification."""
+
+    sentence_id: str = Field(min_length=1)
+    section_name: str = Field(min_length=1)
+    sentence_text_hash: str = Field(min_length=64, max_length=64)
+    sentence_snippet: str = Field(default="", max_length=240)
+    claim_class: ClaimSupportClaimClass
+    citation_keys_present: list[str] = Field(default_factory=list)
+    required_support_type: str = Field(default="none", min_length=1)
+    supporting_source_ids: list[str] = Field(default_factory=list)
+    support_status: ClaimSupportStatus
+    unsupported_reason: str | None = None
+    paragraph_index: int = Field(default=0, ge=0)
+    sentence_index: int = Field(default=0, ge=0)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+
+
+class ClaimSupportAuditReport(StrictModel):
+    """Citation-placement and claim-support audit for a generated manuscript draft."""
+
+    run_id: str = Field(min_length=1)
+    citation_registry_present: bool
+    citation_policy: Literal["none", "registry-only"] = "none"
+    claim_support_items: list[ClaimSupportItem] = Field(default_factory=list)
+    summary_counts: dict[str, int] = Field(default_factory=dict)
+    unsupported_items: list[ClaimSupportItem] = Field(default_factory=list)
+    citation_placement_violations: list[str] = Field(default_factory=list)
+    citation_as_validation_misuse_count: int = Field(default=0, ge=0)
+    is_verification_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
 
 
 class LiteratureGapStatement(StrictModel):

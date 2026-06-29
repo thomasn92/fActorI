@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.15.0/claim-label.schema.json",
+  "$id": "https://schemas.factori.local/0.16.0/claim-label.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Claim and verification label enum.",
   "enum": [
@@ -14,7 +14,7 @@
   ],
   "title": "ClaimLabel",
   "type": "string",
-  "x-factori-protocol-version": "0.15.0",
+  "x-factori-protocol-version": "0.16.0",
   "x-factori-source-model": "factori.schemas.VerificationLabel",
   "x-factori-verification-evidence": false
 }

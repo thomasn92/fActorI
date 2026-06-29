@@ -297,6 +297,10 @@ missing citations remain a quality warning. With retrieval enabled, citation pol
 only from registry metadata, and fixture records are marked `source_status=fixture`. Citations are
 literature context only, not proof, experiment evidence, novelty validation, literature
 completeness, or publication readiness.
+Generated paper packages also write `reports/claim-support-audit.json`, which classifies sentences
+and checks that source-context citations are local to the sentence or paragraph they support.
+Scaffold/provenance/limitation statements do not require citations. Citations cannot support proof,
+experiment, novelty, validation, or publication-readiness claims.
 
 Full-paper generation is an orchestration over the existing non-evidence manuscript workflow. By
 default it builds or reuses citation registry/literature positioning artifacts, drafts the Markdown
@@ -551,8 +555,8 @@ uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --
 ```
 
 The compact summary prefers revised Markdown/LaTeX artifacts when present and reports main-body,
-appendix, and total heading counts separately, plus word, citation, warning, blocking, safe-repair,
-and artifact-path details.
+appendix, and total heading counts separately, plus word, citation, claim-support, warning,
+blocking, safe-repair, and artifact-path details.
 
 Lint generated paper bundle quality without rerunning stages, calling APIs, or mutating run
 artifacts:
@@ -574,7 +578,9 @@ body. Safe repair consolidates central-message text into a planned section, and 
 conclusion fallback remains explicitly non-evidential. Missing citations are a warning when no
 retrieval sources are available and no unsupported external facts are claimed. The command does
 not change generated-paper release status, safety status, evidence labels, human-review readiness,
-or publication-readiness flags.
+or publication-readiness flags. When `claim-support-audit.json` exists, lint also reports missing
+required citations, registry scope mismatches, citation placement violations, and
+citation-as-validation misuse.
 
 Real OpenAlex retrieval is separately gated and used only for Stage B literature context and
 bounded adequacy. It does not prove novelty or complete literature coverage:

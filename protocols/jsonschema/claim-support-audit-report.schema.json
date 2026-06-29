@@ -1,0 +1,215 @@
+{
+  "$defs": {
+    "ClaimSupportItem": {
+      "additionalProperties": false,
+      "description": "One deterministic manuscript sentence-to-source support classification.",
+      "properties": {
+        "citation_keys_present": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Keys Present",
+          "type": "array"
+        },
+        "claim_class": {
+          "enum": [
+            "scaffold_statement",
+            "problem_framing_statement",
+            "method_description_statement",
+            "evidence_boundary_statement",
+            "limitation_statement",
+            "provenance_statement",
+            "source_context_claim",
+            "literature_background_claim",
+            "external_factual_claim",
+            "pipeline_status_claim",
+            "proof_claim",
+            "experiment_claim",
+            "novelty_claim",
+            "publication_readiness_claim"
+          ],
+          "title": "Claim Class",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "paragraph_index": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Paragraph Index",
+          "type": "integer"
+        },
+        "required_support_type": {
+          "default": "none",
+          "minLength": 1,
+          "title": "Required Support Type",
+          "type": "string"
+        },
+        "section_name": {
+          "minLength": 1,
+          "title": "Section Name",
+          "type": "string"
+        },
+        "sentence_id": {
+          "minLength": 1,
+          "title": "Sentence Id",
+          "type": "string"
+        },
+        "sentence_index": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Sentence Index",
+          "type": "integer"
+        },
+        "sentence_snippet": {
+          "default": "",
+          "maxLength": 240,
+          "title": "Sentence Snippet",
+          "type": "string"
+        },
+        "sentence_text_hash": {
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Sentence Text Hash",
+          "type": "string"
+        },
+        "support_status": {
+          "enum": [
+            "not_required_scaffold",
+            "registry_supported",
+            "registry_key_present_but_scope_mismatch",
+            "missing_required_citation",
+            "forbidden_claim_without_evidence",
+            "unsupported_external_claim",
+            "citation_as_validation_misuse"
+          ],
+          "title": "Support Status",
+          "type": "string"
+        },
+        "supporting_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Source Ids",
+          "type": "array"
+        },
+        "unsupported_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unsupported Reason"
+        }
+      },
+      "required": [
+        "sentence_id",
+        "section_name",
+        "sentence_text_hash",
+        "claim_class",
+        "support_status"
+      ],
+      "title": "ClaimSupportItem",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.16.0/claim-support-audit-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic citation-placement and claim-support audit report.",
+  "properties": {
+    "citation_as_validation_misuse_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Citation As Validation Misuse Count",
+      "type": "integer"
+    },
+    "citation_placement_violations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Placement Violations",
+      "type": "array"
+    },
+    "citation_policy": {
+      "default": "none",
+      "enum": [
+        "none",
+        "registry-only"
+      ],
+      "title": "Citation Policy",
+      "type": "string"
+    },
+    "citation_registry_present": {
+      "title": "Citation Registry Present",
+      "type": "boolean"
+    },
+    "claim_support_items": {
+      "items": {
+        "$ref": "#/$defs/ClaimSupportItem"
+      },
+      "title": "Claim Support Items",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "summary_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Summary Counts",
+      "type": "object"
+    },
+    "unsupported_items": {
+      "items": {
+        "$ref": "#/$defs/ClaimSupportItem"
+      },
+      "title": "Unsupported Items",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "citation_registry_present"
+  ],
+  "title": "ClaimSupportAuditReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.16.0",
+  "x-factori-source-model": "factori.schemas.ClaimSupportAuditReport",
+  "x-factori-verification-evidence": false
+}

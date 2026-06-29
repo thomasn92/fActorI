@@ -56,6 +56,7 @@ def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
     assert bundle.paper_critic_report_artifact_id == "paper-critic-report"
     assert bundle.full_paper_generation_report_artifact_id == "full-paper-generation-report"
     assert bundle.full_paper_artifact_bundle_artifact_id == "full-paper-artifact-bundle"
+    assert bundle.claim_support_audit_artifact_id == "claim-support-audit"
     assert result.report.publication_ready is False
     assert result.report.is_verification_evidence is False
     for ref in (result.report_artifact, result.bundle_artifact):
@@ -120,6 +121,12 @@ def test_generate_paper_write_report_writes_full_report_and_bundle(tmp_path) -> 
     assert (
         tmp_path / "runs" / "run-report" / "reports" / "paper-critic-report.json"
     ).is_file()
+    claim_support_path = (
+        tmp_path / "runs" / "run-report" / "reports" / "claim-support-audit.json"
+    )
+    assert claim_support_path.is_file()
+    claim_support = json.loads(claim_support_path.read_text(encoding="utf-8"))
+    assert claim_support["creates_scientific_validation"] is False
 
 
 def test_generate_paper_without_revision_does_not_write_revised_draft(tmp_path) -> None:

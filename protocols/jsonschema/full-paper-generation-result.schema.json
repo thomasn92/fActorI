@@ -35,6 +35,18 @@
           "default": null,
           "title": "Citation Safety Report Artifact Id"
         },
+        "claim_support_audit_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Support Audit Artifact Id"
+        },
         "complete_manuscript_draft_artifact_id": {
           "anyOf": [
             {
@@ -668,7 +680,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.15.0/full-paper-generation-result.schema.json",
+  "$id": "https://schemas.factori.local/0.16.0/full-paper-generation-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for full-paper generation commands.",
@@ -711,7 +723,7 @@
   ],
   "title": "FullPaperGenerationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.15.0",
+  "x-factori-protocol-version": "0.16.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationResult",
   "x-factori-verification-evidence": false
 }

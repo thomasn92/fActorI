@@ -128,6 +128,31 @@ def test_prose_prompt_includes_registry_only_citation_policy() -> None:
     assert "Do not invent citations" in prompt.prompt_text
 
 
+def test_prose_prompt_includes_citation_placement_discipline() -> None:
+    contract = _section_contract().model_copy(
+        update={
+            "allowed_citation_keys": ["Fixture2024BoundedContext"],
+            "citation_policy": "registry-only",
+            "citation_boundary_instructions": [
+                "Use citations only for background or source-context claims.",
+                "Place each citation in the same sentence or paragraph as the claim it supports.",
+                "Do not use citations to imply proof or validation.",
+            ],
+        }
+    )
+
+    prompt = build_prose_section_prompt(
+        contract,
+        _claim_table(),
+        _evidence_map(),
+        _narrative_contract(),
+    )
+
+    assert "Use citations only for background" in prompt.prompt_text
+    assert "same sentence or paragraph" in prompt.prompt_text
+    assert "Do not use citations to imply proof" in prompt.prompt_text
+
+
 def test_forbidden_labels_exclude_only_allowed_claim_labels() -> None:
     labels = forbidden_labels_for_section(_section_contract(), _claim_table())
 

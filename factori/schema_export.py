@@ -30,6 +30,8 @@ from factori.schemas import (
     CitationSafetyReport,
     CitationUsage,
     Claim,
+    ClaimSupportAuditReport,
+    ClaimSupportItem,
     CompleteMarkdownDraft,
     ConstraintSet,
     DataRequirement,
@@ -149,6 +151,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "candidate.example.json": "Candidate",
     "citation-registry.example.json": "CitationRegistry",
     "citation-safety-report.example.json": "CitationSafetyReport",
+    "claim-support-audit.example.json": "ClaimSupportAuditReport",
     "claim.example.json": "Claim",
     "experiment-result.example.json": "ExperimentRunResult",
     "experiment-contract.example.json": "ExperimentRunContract",
@@ -389,6 +392,47 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         used_citation_keys=[citation_record.citation_key],
         used_citation_ids=[citation_record.citation_id],
         bibliography_entries_count=1,
+    )
+    claim_support_supported = ClaimSupportItem(
+        sentence_id="introduction-p0-s0",
+        section_name="Introduction",
+        sentence_text_hash=_HASH,
+        sentence_snippet=(
+            "Retrieved fixture metadata provides bounded background context "
+            "[@Author1970SyntheticCalibrationContext]."
+        ),
+        claim_class="source_context_claim",
+        citation_keys_present=[citation_record.citation_key],
+        required_support_type="registry_background_context",
+        supporting_source_ids=[citation_record.source_id],
+        support_status="registry_supported",
+    )
+    claim_support_scaffold = ClaimSupportItem(
+        sentence_id="limitations-p0-s0",
+        section_name="Limitations",
+        sentence_text_hash=_HASH,
+        sentence_snippet="This draft is manuscript context only and does not create evidence.",
+        claim_class="evidence_boundary_statement",
+        citation_keys_present=[],
+        required_support_type="none",
+        supporting_source_ids=[],
+        support_status="not_required_scaffold",
+    )
+    claim_support_audit = ClaimSupportAuditReport(
+        run_id="example",
+        citation_registry_present=True,
+        citation_policy="registry-only",
+        claim_support_items=[claim_support_supported, claim_support_scaffold],
+        summary_counts={
+            "total_sentences": 2,
+            "registry_supported": 1,
+            "scaffold_not_required": 1,
+            "missing_required_citation": 0,
+            "scope_mismatch": 0,
+            "forbidden_claim": 0,
+            "citation_as_validation_misuse": 0,
+        },
+        unsupported_items=[],
     )
     literature_contract = LiteraturePositioningContract(
         run_id="example",
@@ -882,6 +926,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         citation_registry_artifact_id="citation-registry",
         literature_positioning_report_artifact_id="literature-positioning-report",
         citation_safety_report_artifact_id="citation-safety-report",
+        claim_support_audit_artifact_id="claim-support-audit",
         manuscript_drafting_plan_artifact_id="manuscript-drafting-plan",
         manuscript_drafting_report_artifact_id="manuscript-drafting-report",
         complete_manuscript_draft_artifact_id="complete-manuscript-draft",
@@ -901,6 +946,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         full_paper_artifact_bundle_artifact_id="full-paper-artifact-bundle",
         artifact_ids=[
             "citation-registry",
+            "claim-support-audit",
             "complete-manuscript-draft",
             "paper",
             "paper-critic-report",
@@ -937,6 +983,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
             "artifact_ids": [
                 "citation-registry",
                 "citation-safety-report",
+                "claim-support-audit",
                 "complete-manuscript-draft",
                 "full-paper-artifact-bundle",
                 "full-paper-generation-report",
@@ -1218,6 +1265,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "citation-safety-report.example.json": citation_safety_report.model_dump(
             mode="json"
         ),
+        "claim-support-audit.example.json": claim_support_audit.model_dump(mode="json"),
         "artifact.example.json": artifact.model_dump(mode="json"),
         "artifact-manifest.example.json": artifact_manifest.model_dump(mode="json"),
         "stage-result.example.json": stage_result.model_dump(mode="json"),

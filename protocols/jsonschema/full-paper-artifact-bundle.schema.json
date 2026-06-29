@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.15.0/full-paper-artifact-bundle.schema.json",
+  "$id": "https://schemas.factori.local/0.16.0/full-paper-artifact-bundle.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Artifact IDs that make up one generated paper package.",
@@ -34,6 +34,18 @@
       ],
       "default": null,
       "title": "Citation Safety Report Artifact Id"
+    },
+    "claim_support_audit_artifact_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Support Audit Artifact Id"
     },
     "complete_manuscript_draft_artifact_id": {
       "anyOf": [
@@ -349,7 +361,7 @@
   ],
   "title": "FullPaperArtifactBundle",
   "type": "object",
-  "x-factori-protocol-version": "0.15.0",
+  "x-factori-protocol-version": "0.16.0",
   "x-factori-source-model": "factori.schemas.FullPaperArtifactBundle",
   "x-factori-verification-evidence": false
 }

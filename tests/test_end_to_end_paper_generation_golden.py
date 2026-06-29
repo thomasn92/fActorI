@@ -43,6 +43,7 @@ from factori.schemas import (
 GOLDEN_BUNDLE_ARTIFACT_IDS = [
     "citation-registry",
     "citation-safety-report",
+    "claim-support-audit",
     "complete-manuscript-draft",
     "full-paper-artifact-bundle",
     "full-paper-generation-report",
@@ -152,6 +153,7 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
     expected_paths = {
         "complete-manuscript-draft": "runs/golden-paper/reports/complete-manuscript-draft.md",
         "citation-registry": "runs/golden-paper/reports/citation-registry.json",
+        "claim-support-audit": "runs/golden-paper/reports/claim-support-audit.json",
         "literature-positioning-report": (
             "runs/golden-paper/reports/literature-positioning-report.json"
         ),
@@ -250,11 +252,11 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
 
     protocol_check = require_protocols_current()
     assert protocol_check.up_to_date is True
-    assert PROTOCOL_VERSION == "0.15.0"
-    assert len(protocol_check.schema_files) == 143
+    assert PROTOCOL_VERSION == "0.16.0"
+    assert len(protocol_check.schema_files) == 145
     examples = validate_protocol_examples()
-    assert examples.examples_checked == 42
-    assert examples.examples_valid == 42
+    assert examples.examples_checked == 43
+    assert examples.examples_valid == 43
     assert examples.examples_invalid == 0
 
     golden_example = FullPaperArtifactBundle.model_validate_json(

@@ -20,6 +20,8 @@ from factori.schemas import (
     BibliographyEntry,
     CitationRecord,
     CitationRegistry,
+    ClaimSupportAuditReport,
+    ClaimSupportItem,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
     PipelineRunConfig,
@@ -153,6 +155,7 @@ def test_inspect_paper_bundle_reports_registry_backed_citations(tmp_path) -> Non
         complete_markdown=markdown,
     )
     _write_fixture_citation_registry(tmp_path, run_id)
+    _write_fixture_claim_support_audit(tmp_path, run_id)
 
     summary = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
@@ -162,6 +165,9 @@ def test_inspect_paper_bundle_reports_registry_backed_citations(tmp_path) -> Non
     assert summary["unregistered_citation_keys"] == []
     assert summary["bibliography_status"] == "registry-backed"
     assert summary["citation_policy"] == "registry-only"
+    assert summary["claim_support_audit_present"] is True
+    assert summary["claim_support_registry_supported_count"] == 1
+    assert summary["claim_support_missing_required_citation_count"] == 0
 
     result = CliRunner().invoke(
         app,
@@ -171,6 +177,8 @@ def test_inspect_paper_bundle_reports_registry_backed_citations(tmp_path) -> Non
     assert "Citation registry: present" in result.output
     assert "Registry sources: 1" in result.output
     assert "Bibliography: registry-backed" in result.output
+    assert "Claim support: present" in result.output
+    assert "Registry-supported claims: 1" in result.output
 
 
 def test_inspect_paper_bundle_missing_run_gives_clear_error(tmp_path) -> None:
@@ -390,6 +398,7 @@ def test_lint_paper_bundle_passes_acceptable_synthetic_fixture(tmp_path) -> None
         complete_markdown=_acceptable_markdown(include_citation=True),
     )
     _write_fixture_citation_registry(tmp_path, run_id)
+    _write_fixture_claim_support_audit(tmp_path, run_id)
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
@@ -415,6 +424,7 @@ def test_lint_paper_bundle_rejects_unregistered_citation_key(tmp_path) -> None:
         complete_markdown=markdown,
     )
     _write_fixture_citation_registry(tmp_path, run_id)
+    _write_fixture_claim_support_audit(tmp_path, run_id)
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
@@ -466,6 +476,7 @@ def test_lint_paper_bundle_missing_optional_artifacts_degrades_gracefully(tmp_pa
         complete_markdown=_acceptable_markdown(include_citation=True),
     )
     _write_fixture_citation_registry(tmp_path, run_id)
+    _write_fixture_claim_support_audit(tmp_path, run_id)
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
@@ -583,6 +594,41 @@ def _write_fixture_citation_registry(tmp_path, run_id: str) -> None:
     reports = tmp_path / "runs" / run_id / "reports"
     (reports / "citation-registry.json").write_text(
         registry.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_fixture_claim_support_audit(tmp_path, run_id: str) -> None:
+    audit = ClaimSupportAuditReport(
+        run_id=run_id,
+        citation_registry_present=True,
+        citation_policy="registry-only",
+        claim_support_items=[
+            ClaimSupportItem(
+                sentence_id="introduction-p0-s0",
+                section_name="Introduction and Problem Framing",
+                sentence_text_hash="0" * 64,
+                sentence_snippet="Citation registry records bounded context [@Smith2024].",
+                claim_class="source_context_claim",
+                citation_keys_present=["Smith2024"],
+                required_support_type="registry_background_context",
+                supporting_source_ids=["fixture-smith"],
+                support_status="registry_supported",
+            )
+        ],
+        summary_counts={
+            "total_sentences": 1,
+            "registry_supported": 1,
+            "scaffold_not_required": 0,
+            "missing_required_citation": 0,
+            "scope_mismatch": 0,
+            "forbidden_claim": 0,
+            "citation_as_validation_misuse": 0,
+        },
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "claim-support-audit.json").write_text(
+        audit.model_dump_json(indent=2),
         encoding="utf-8",
     )
 

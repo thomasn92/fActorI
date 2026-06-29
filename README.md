@@ -355,6 +355,11 @@ This writes `retrieval-report.json` and `citation-registry.json` before drafting
 may use only registry keys; unknown keys, invented bibliography metadata, and citation-as-proof or
 validation language fail citation safety. Fixture sources validate pipeline plumbing only and do
 not establish real literature coverage, novelty, proof, experiments, or publication readiness.
+Generated paper packages also write `claim-support-audit.json`. The audit classifies manuscript
+sentences as scaffold, source-context, external factual, proof, experiment, novelty, or
+publication-readiness claims; citations can support only local background/source-context claims
+inside the same sentence or paragraph, and fixture sources cannot support proof, empirical,
+novelty, validation, or readiness claims.
 
 Real mode requires explicit OpenAI backends, `--allow-external-calls`, credentials, and a budget
 before any network call can be attempted:
@@ -482,8 +487,8 @@ uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --
 ```
 
 This compact summary prefers revised Markdown/LaTeX artifacts when present and reports main-body,
-appendix, and total heading counts separately, plus word, citation, warning, blocking, safe-repair,
-and artifact-path details.
+appendix, and total heading counts separately, plus word, citation, claim-support, warning,
+blocking, safe-repair, and artifact-path details.
 
 Lint generated paper bundle draft quality without rerunning stages or creating artifacts:
 
@@ -500,8 +505,10 @@ metadata. A safe-repair central message is consolidated into a planned section r
 as another top-level section, and a missing conclusion receives a bounded non-evidence synthesis
 that identifies future evidence-producing work. Word count, average section length, appendix
 headings, and citation absence remain development warnings for skeletal drafts, not standalone
-quality failures. The lint does not change release status, safety status, evidence labels, or
-publication-readiness flags.
+quality failures. When a claim-support audit exists, lint distinguishes registry-backed citation
+markers from correctly placed source support and reports missing required citations, scope
+mismatches, and citation-as-validation misuse. The lint does not change release status, safety
+status, evidence labels, or publication-readiness flags.
 
 The deterministic golden smoke workflow exercises the complete scaffold without network or
 external tools:

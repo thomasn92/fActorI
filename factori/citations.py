@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from factori.artifacts import ArtifactStore
-from factori.hashing import sha256_json
+from factori.hashing import sha256_json, sha256_text
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
 from factori.schemas import (
@@ -19,6 +19,8 @@ from factori.schemas import (
     CitationRegistry,
     CitationSafetyReport,
     CitationUsage,
+    ClaimSupportAuditReport,
+    ClaimSupportItem,
     ControllerActionType,
     LiteraturePositioningReport,
     RetrievalRunReport,
@@ -53,6 +55,114 @@ _RETRIEVAL_PROOF_CLAIMS = (
     "citation establishes empirical validation",
     "citations verify the theorem",
     "citation verifies the theorem",
+)
+_CLAIM_CLASS_PROOF_PATTERNS = (
+    " theorem ",
+    " lemma ",
+    " proposition ",
+    " proof ",
+    "leanverified",
+    "verified theorem",
+)
+_CLAIM_CLASS_EXPERIMENT_PATTERNS = (
+    " empirically validated",
+    " empirical validation",
+    " real-world validation",
+    " real world validation",
+    " experiment verifies",
+    " field validated",
+)
+_CLAIM_CLASS_NOVELTY_PATTERNS = (
+    "proves novelty",
+    "proven novel",
+    "novelty is proven",
+    "establishes novelty",
+)
+_CLAIM_CLASS_PUBLICATION_PATTERNS = (
+    "publication ready",
+    "ready for publication",
+    "accepted paper",
+)
+_SOURCE_CONTEXT_PATTERNS = (
+    "retrieved source",
+    "retrieval metadata",
+    "source metadata",
+    "fixture source",
+    "registry source",
+    "citation registry",
+)
+_LITERATURE_BACKGROUND_PATTERNS = (
+    "literature",
+    "prior work",
+    "background",
+    "citation",
+    "source-context",
+    "source context",
+)
+_EXTERNAL_FACTUAL_PATTERNS = (
+    "studies show",
+    "prior work shows",
+    "the literature shows",
+    "field data show",
+    "survey data show",
+    "according to",
+)
+_PROBLEM_PATTERNS = (
+    "problem",
+    "problem framing",
+    "research problem",
+)
+_METHOD_PATTERNS = (
+    "method",
+    "pipeline",
+    "mechanically",
+    "drafting engine",
+    "orchestration",
+)
+_EVIDENCE_BOUNDARY_PATTERNS = (
+    "not proof",
+    "not evidence",
+    "not verification evidence",
+    "not empirical validation",
+    "not exhaustive literature coverage",
+    "not proof of novelty",
+    "does not provide empirical validation",
+    "does not establish empirical validation",
+    "do not establish empirical validation",
+    "does not establish scientific validation",
+    "do not establish scientific validation",
+    "does not establish publication readiness",
+    "do not establish publication readiness",
+    "does not provide proof",
+    "does not create evidence",
+    "cannot create evidence",
+    "separate from verification evidence",
+    "bounded retrieval context",
+    "bounded by available retrieval metadata",
+    "bounded literature context",
+    "bounded literature positioning",
+    "does not transform",
+    "no real proof",
+    "no real experiment",
+    "no real-world empirical validation",
+    "no real world empirical validation",
+    "no publication-ready claim",
+    "evidence boundary",
+    "evidence boundaries",
+)
+_LIMITATION_PATTERNS = (
+    "limitation",
+    "lacks",
+    "absence of",
+    "unavailable",
+    "does not provide",
+)
+_PROVENANCE_PATTERNS = (
+    "provenance",
+    "artifact",
+    "ledger",
+    "run id",
+    "audit",
 )
 
 
@@ -122,6 +232,34 @@ def build_citation_registry(
                 allowed_citation_key=key,
                 trust_level=str(metadata.get("trust_level", "metadata_only")),
                 source_status=source_status,
+                support_scope=_support_scope(metadata, source_status),
+                supported_topics=_supported_topics(result, metadata),
+                source_snippet=(
+                    getattr(result, "snippet", None)
+                    or getattr(result, "abstract", None)
+                    or None
+                ),
+                source_summary=(
+                    getattr(result, "abstract", None)
+                    or getattr(result, "snippet", None)
+                    or None
+                ),
+                fixture_only=source_status == "fixture",
+                may_support_background_context=bool(
+                    metadata.get("may_support_background_context", True)
+                ),
+                may_support_method_context=bool(
+                    metadata.get("may_support_method_context", False)
+                ),
+                may_support_empirical_claims=bool(
+                    metadata.get("may_support_empirical_claims", False)
+                ),
+                may_support_proof_claims=bool(
+                    metadata.get("may_support_proof_claims", False)
+                ),
+                may_support_novelty_claims=bool(
+                    metadata.get("may_support_novelty_claims", False)
+                ),
                 warnings=warnings,
             )
         )
@@ -294,6 +432,158 @@ def validate_citation_usage(
     )
 
 
+def build_claim_support_audit(
+    *,
+    run_id: str,
+    markdown: str,
+    citation_registry: CitationRegistry | None,
+) -> ClaimSupportAuditReport:
+    """Build a deterministic sentence-to-source support audit for a manuscript."""
+    registry = citation_registry or CitationRegistry(
+        run_id=run_id,
+        citations=[],
+        bibliography=[],
+        citation_key_policy=CITATION_KEY_POLICY,
+        citation_policy="none",
+        source_registry_hash=sha256_json([]),
+    )
+    key_to_record = {record.citation_key: record for record in registry.citations}
+    items: list[ClaimSupportItem] = []
+    placement_violations: list[str] = []
+    for paragraph in _paragraph_contexts(markdown):
+        if _is_bibliography_section(paragraph["section_name"]):
+            continue
+        paragraph_markers = sorted(set(CITATION_MARKER_RE.findall(paragraph["text"])))
+        for sentence_index, sentence in enumerate(_split_sentences(paragraph["text"])):
+            sentence_markers = sorted(set(CITATION_MARKER_RE.findall(sentence)))
+            local_markers = sorted(set(paragraph_markers))
+            claim_class = classify_claim_sentence(sentence)
+            if _is_appendix_context(paragraph["section_name"]) and claim_class in {
+                "proof_claim",
+                "experiment_claim",
+                "novelty_claim",
+                "publication_readiness_claim",
+            }:
+                claim_class = "pipeline_status_claim"
+            if _is_appendix_context(paragraph["section_name"]) and claim_class in {
+                "source_context_claim",
+                "literature_background_claim",
+            }:
+                claim_class = "provenance_statement"
+            status, reason, sources = _support_status_for_sentence(
+                claim_class=claim_class,
+                sentence_markers=sentence_markers,
+                paragraph_markers=local_markers,
+                key_to_record=key_to_record,
+                registry_present=bool(registry.citations),
+            )
+            items.append(
+                ClaimSupportItem(
+                    sentence_id=(
+                        f"{_slug(paragraph['section_name'])}-"
+                        f"p{paragraph['paragraph_index']}-s{sentence_index}"
+                    ),
+                    section_name=paragraph["section_name"],
+                    sentence_text_hash=sha256_text(sentence),
+                    sentence_snippet=_sentence_snippet(sentence),
+                    claim_class=claim_class,
+                    citation_keys_present=sentence_markers,
+                    required_support_type=_required_support_type(claim_class),
+                    supporting_source_ids=sources,
+                    support_status=status,
+                    unsupported_reason=reason,
+                    paragraph_index=paragraph["paragraph_index"],
+                    sentence_index=sentence_index,
+                )
+            )
+    summary = {
+        "total_sentences": len(items),
+        "registry_supported": sum(
+            1 for item in items if item.support_status == "registry_supported"
+        ),
+        "scaffold_not_required": sum(
+            1 for item in items if item.support_status == "not_required_scaffold"
+        ),
+        "missing_required_citation": sum(
+            1 for item in items if item.support_status == "missing_required_citation"
+        ),
+        "scope_mismatch": sum(
+            1
+            for item in items
+            if item.support_status == "registry_key_present_but_scope_mismatch"
+        ),
+        "forbidden_claim": sum(
+            1
+            for item in items
+            if item.support_status == "forbidden_claim_without_evidence"
+        ),
+        "unsupported_external_claim": sum(
+            1 for item in items if item.support_status == "unsupported_external_claim"
+        ),
+        "citation_as_validation_misuse": sum(
+            1 for item in items if item.support_status == "citation_as_validation_misuse"
+        ),
+    }
+    unsupported = [
+        item
+        for item in items
+        if item.support_status
+        in {
+            "registry_key_present_but_scope_mismatch",
+            "missing_required_citation",
+            "forbidden_claim_without_evidence",
+            "unsupported_external_claim",
+            "citation_as_validation_misuse",
+        }
+    ]
+    return ClaimSupportAuditReport(
+        run_id=run_id,
+        citation_registry_present=bool(registry.citations),
+        citation_policy=registry.citation_policy,
+        claim_support_items=items,
+        summary_counts=dict(sorted(summary.items())),
+        unsupported_items=unsupported,
+        citation_placement_violations=sorted(set(placement_violations)),
+        citation_as_validation_misuse_count=sum(
+            1
+            for item in items
+            if item.support_status == "citation_as_validation_misuse"
+        ),
+    )
+
+
+def classify_claim_sentence(sentence: str) -> str:
+    """Classify one manuscript sentence for deterministic citation-support checks."""
+    text = f" {' '.join(sentence.casefold().split())} "
+    if _contains_any(text, _CLAIM_CLASS_PUBLICATION_PATTERNS):
+        return "publication_readiness_claim"
+    if _contains_any(text, _CLAIM_CLASS_NOVELTY_PATTERNS):
+        return "novelty_claim"
+    if _contains_any(text, _EVIDENCE_BOUNDARY_PATTERNS):
+        return "evidence_boundary_statement"
+    if "fake lean" in text or "fake proof" in text or "fake validator" in text:
+        return "pipeline_status_claim"
+    if _contains_any(text, _CLAIM_CLASS_PROOF_PATTERNS):
+        return "proof_claim"
+    if _contains_any(text, _CLAIM_CLASS_EXPERIMENT_PATTERNS):
+        return "experiment_claim"
+    if _contains_any(text, _EXTERNAL_FACTUAL_PATTERNS):
+        return "external_factual_claim"
+    if _contains_any(text, _SOURCE_CONTEXT_PATTERNS):
+        return "source_context_claim"
+    if _contains_any(text, _LITERATURE_BACKGROUND_PATTERNS):
+        return "literature_background_claim"
+    if _contains_any(text, _LIMITATION_PATTERNS):
+        return "limitation_statement"
+    if _contains_any(text, _PROVENANCE_PATTERNS):
+        return "provenance_statement"
+    if _contains_any(text, _METHOD_PATTERNS):
+        return "method_description_statement"
+    if _contains_any(text, _PROBLEM_PATTERNS):
+        return "problem_framing_statement"
+    return "scaffold_statement"
+
+
 def write_citation_registry_reports(
     *,
     run_id: str,
@@ -364,6 +654,180 @@ def _citation_artifacts_from_persistence(
         citation_safety_artifact=artifacts["citation-safety-report"],
         commit_hash=persistence.commit.commit_hash,
     )
+
+
+def _support_status_for_sentence(
+    *,
+    claim_class: str,
+    sentence_markers: list[str],
+    paragraph_markers: list[str],
+    key_to_record: dict[str, CitationRecord],
+    registry_present: bool,
+) -> tuple[str, str | None, list[str]]:
+    local_keys = sentence_markers or paragraph_markers
+    known_records = [key_to_record[key] for key in local_keys if key in key_to_record]
+    unknown_keys = [key for key in local_keys if key not in key_to_record]
+    if claim_class in {
+        "proof_claim",
+        "experiment_claim",
+        "novelty_claim",
+        "publication_readiness_claim",
+    }:
+        if known_records or unknown_keys:
+            return (
+                "citation_as_validation_misuse",
+                f"citations cannot support {claim_class}",
+                [record.source_id for record in known_records],
+            )
+        return (
+            "forbidden_claim_without_evidence",
+            f"{claim_class} requires real evidence artifacts, not manuscript prose",
+            [],
+        )
+    if claim_class in {
+        "source_context_claim",
+        "literature_background_claim",
+        "external_factual_claim",
+    }:
+        if not registry_present and claim_class in {
+            "source_context_claim",
+            "literature_background_claim",
+        }:
+            return ("not_required_scaffold", None, [])
+        if unknown_keys:
+            return (
+                "unsupported_external_claim",
+                "citation key is not present in the registry: " + ", ".join(unknown_keys),
+                [],
+            )
+        if not known_records:
+            return (
+                "missing_required_citation",
+                f"{claim_class} requires a registry-backed local citation",
+                [],
+            )
+        matched = [
+            record
+            for record in known_records
+            if _record_supports_claim_class(record, claim_class)
+        ]
+        if not matched:
+            return (
+                "registry_key_present_but_scope_mismatch",
+                f"registry source scope does not support {claim_class}",
+                [record.source_id for record in known_records],
+            )
+        return (
+            "registry_supported",
+            None,
+            sorted(record.source_id for record in matched),
+        )
+    return ("not_required_scaffold", None, [])
+
+
+def _record_supports_claim_class(record: CitationRecord, claim_class: str) -> bool:
+    if claim_class in {"source_context_claim", "literature_background_claim"}:
+        return record.may_support_background_context
+    if claim_class == "external_factual_claim":
+        return (
+            record.source_status != "fixture"
+            and not record.fixture_only
+            and record.may_support_background_context
+        )
+    return False
+
+
+def _required_support_type(claim_class: str) -> str:
+    if claim_class in {"source_context_claim", "literature_background_claim"}:
+        return "registry_background_context"
+    if claim_class == "external_factual_claim":
+        return "registry_external_source"
+    if claim_class in {
+        "proof_claim",
+        "experiment_claim",
+        "novelty_claim",
+        "publication_readiness_claim",
+    }:
+        return "real_evidence_artifact"
+    return "none"
+
+
+def _paragraph_contexts(markdown: str) -> list[dict[str, Any]]:
+    contexts = []
+    current_section = "Preamble"
+    paragraph_lines: list[str] = []
+    paragraph_index = 0
+    for line in markdown.splitlines():
+        heading_match = re.match(r"^#{1,6}\s+(.+?)\s*$", line.strip())
+        if heading_match:
+            if paragraph_lines:
+                text = " ".join(item.strip() for item in paragraph_lines if item.strip())
+                if text:
+                    contexts.append(
+                        {
+                            "section_name": current_section,
+                            "paragraph_index": paragraph_index,
+                            "text": text,
+                        }
+                    )
+                    paragraph_index += 1
+                paragraph_lines = []
+            current_section = heading_match.group(1).strip()
+            paragraph_index = 0
+            continue
+        if not line.strip():
+            if paragraph_lines:
+                text = " ".join(item.strip() for item in paragraph_lines if item.strip())
+                if text:
+                    contexts.append(
+                        {
+                            "section_name": current_section,
+                            "paragraph_index": paragraph_index,
+                            "text": text,
+                        }
+                    )
+                    paragraph_index += 1
+                paragraph_lines = []
+            continue
+        paragraph_lines.append(line)
+    if paragraph_lines:
+        text = " ".join(item.strip() for item in paragraph_lines if item.strip())
+        if text:
+            contexts.append(
+                {
+                    "section_name": current_section,
+                    "paragraph_index": paragraph_index,
+                    "text": text,
+                }
+            )
+    return contexts
+
+
+def _split_sentences(text: str) -> list[str]:
+    normalized = " ".join(text.split())
+    if not normalized:
+        return []
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z0-9`*_])", normalized)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _is_bibliography_section(section_name: str) -> bool:
+    return section_name.strip().casefold() in {"bibliography", "references"}
+
+
+def _is_appendix_context(section_name: str) -> bool:
+    lowered = section_name.strip().casefold()
+    return "appendix" in lowered or lowered in {"bibliography", "references"}
+
+
+def _sentence_snippet(sentence: str) -> str:
+    cleaned = " ".join(sentence.split())
+    return cleaned[:237] + "..." if len(cleaned) > 240 else cleaned
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-")
+    return slug or "section"
 
 
 def _base_citation_key(result: Any) -> str:
@@ -449,6 +913,41 @@ def _source_status(result: Any, metadata: dict[str, Any]) -> str:
     return "retrieved"
 
 
+def _support_scope(metadata: dict[str, Any], source_status: str) -> list[str]:
+    configured = metadata.get("support_scope")
+    if isinstance(configured, list):
+        scope = sorted({str(item) for item in configured if str(item).strip()})
+        if scope:
+            return scope
+    if source_status == "fixture":
+        return ["background_context", "fixture_pipeline_validation"]
+    return ["background_context"]
+
+
+def _supported_topics(result: Any, metadata: dict[str, Any]) -> list[str]:
+    configured = metadata.get("supported_topics")
+    if isinstance(configured, list):
+        topics = sorted({str(item) for item in configured if str(item).strip()})
+        if topics:
+            return topics
+    text = " ".join(
+        str(value or "")
+        for value in (
+            getattr(result, "title", ""),
+            getattr(result, "query", ""),
+            getattr(result, "abstract", ""),
+            getattr(result, "snippet", ""),
+        )
+    )
+    words = [
+        word.casefold()
+        for word in re.findall(r"[A-Za-z][A-Za-z0-9-]{3,}", text)
+        if word.casefold()
+        not in {"fixture", "metadata", "record", "source", "retrieval"}
+    ]
+    return sorted(dict.fromkeys(words[:8]))
+
+
 def _normalized_external_identifier(value: str) -> str:
     return value.rstrip(".,;:")
 
@@ -487,12 +986,18 @@ def _contains_unbounded_claim(text: str, phrases: tuple[str, ...]) -> bool:
     )
 
 
+def _contains_any(text: str, phrases: tuple[str, ...]) -> bool:
+    return any(phrase in text for phrase in phrases)
+
+
 __all__ = [
     "CITATION_KEY_POLICY",
     "CITATION_MARKER_RE",
     "CitationRegistryArtifacts",
     "build_citation_registry",
     "build_citation_registry_from_ledger",
+    "build_claim_support_audit",
+    "classify_claim_sentence",
     "validate_citation_usage",
     "write_citation_registry_reports",
 ]

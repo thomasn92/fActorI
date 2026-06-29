@@ -12,6 +12,7 @@ from factori.artifacts import ArtifactStore
 from factori.citations import (
     CITATION_MARKER_RE,
     build_citation_registry_from_ledger,
+    build_claim_support_audit,
     validate_citation_usage,
     write_citation_registry_reports,
 )
@@ -44,6 +45,7 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     CitationRegistry,
+    ClaimSupportAuditReport,
     ControllerActionType,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
@@ -463,6 +465,23 @@ def generate_full_paper(
             )
         )
 
+    claim_support_audit = _build_claim_support_audit_for_generation(
+        run_id=run_id,
+        root=root,
+        ledger=ledger,
+        revision_result=revision_result,
+    )
+    claim_support_warnings = _claim_support_warnings(claim_support_audit)
+    steps.append(
+        _step(
+            "claim-support-audit",
+            _status_from_warnings(claim_support_warnings),
+            "Claim-to-source support and citation placement were audited.",
+            {},
+            claim_support_warnings,
+        )
+    )
+
     bundle = _collect_artifact_bundle(ledger, run_id)
     warnings = (
         _aggregate_post_repair_warnings(steps, revision_result)
@@ -503,6 +522,7 @@ def generate_full_paper(
         report=report,
         bundle=bundle,
         revised_export=revised_export,
+        claim_support_audit=claim_support_audit,
     )
     return _with_persisted_generation_artifacts(
         run_id=run_id,
@@ -595,6 +615,15 @@ def inspect_paper_bundle_summary(
         if bibliography_present
         else "absent"
     )
+    claim_support_audit = _read_claim_support_audit(paths["claim_support_audit"])
+    claim_support_counts = (
+        claim_support_audit.summary_counts if claim_support_audit is not None else {}
+    )
+    claim_support_placement = (
+        claim_support_audit.citation_placement_violations
+        if claim_support_audit is not None
+        else []
+    )
     generation_warning_count = (
         len(generation_report.warnings) if generation_report is not None else 0
     )
@@ -671,6 +700,29 @@ def inspect_paper_bundle_summary(
         "bibliography_registry_backed": bibliography_registry_backed,
         "bibliography_status": bibliography_status,
         "citation_policy": citation_policy,
+        "claim_support_audit_present": paths["claim_support_audit"].is_file(),
+        "claim_support_total_sentences": int(
+            claim_support_counts.get("total_sentences", 0)
+        ),
+        "claim_support_registry_supported_count": int(
+            claim_support_counts.get("registry_supported", 0)
+        ),
+        "claim_support_scaffold_not_required_count": int(
+            claim_support_counts.get("scaffold_not_required", 0)
+        ),
+        "claim_support_missing_required_citation_count": int(
+            claim_support_counts.get("missing_required_citation", 0)
+        ),
+        "claim_support_scope_mismatch_count": int(
+            claim_support_counts.get("scope_mismatch", 0)
+        ),
+        "claim_support_forbidden_claim_count": int(
+            claim_support_counts.get("forbidden_claim", 0)
+        ),
+        "citation_placement_violations": list(claim_support_placement),
+        "citation_as_validation_misuse_count": int(
+            claim_support_counts.get("citation_as_validation_misuse", 0)
+        ),
         "artifacts": existing,
         "is_verification_evidence": False,
         "creates_scientific_validation": False,
@@ -731,6 +783,31 @@ def lint_paper_bundle_summary(
         bundle.get("bibliography_registry_backed")
     )
     citation_policy = str(bundle.get("citation_policy") or "none")
+    claim_support_audit_present = bool(bundle.get("claim_support_audit_present"))
+    claim_support_total_sentences = int(
+        bundle.get("claim_support_total_sentences") or 0
+    )
+    claim_support_registry_supported_count = int(
+        bundle.get("claim_support_registry_supported_count") or 0
+    )
+    claim_support_scaffold_not_required_count = int(
+        bundle.get("claim_support_scaffold_not_required_count") or 0
+    )
+    claim_support_missing_required_citation_count = int(
+        bundle.get("claim_support_missing_required_citation_count") or 0
+    )
+    claim_support_scope_mismatch_count = int(
+        bundle.get("claim_support_scope_mismatch_count") or 0
+    )
+    claim_support_forbidden_claim_count = int(
+        bundle.get("claim_support_forbidden_claim_count") or 0
+    )
+    citation_placement_violations = list(
+        bundle.get("citation_placement_violations") or []
+    )
+    citation_as_validation_misuse_count = int(
+        bundle.get("citation_as_validation_misuse_count") or 0
+    )
     sections = _markdown_sections(markdown)
     section_accounting = _section_accounting(sections, title_text)
     main_body_sections = section_accounting["main_body_sections"]
@@ -927,6 +1004,31 @@ def lint_paper_bundle_summary(
         )
     if bundle.get("bibliography_status") == "unsafe":
         failure_reasons.append("Bibliography is not fully backed by the citation registry.")
+    if citation_registry_present and not claim_support_audit_present:
+        development_warnings.append(
+            "Citation registry is present but no claim-support audit was found."
+        )
+    if claim_support_missing_required_citation_count:
+        failure_reasons.append(
+            "Claim-support audit found external/source claims without local citations."
+        )
+    if claim_support_scope_mismatch_count:
+        failure_reasons.append(
+            "Claim-support audit found citation scope mismatches."
+        )
+    if claim_support_forbidden_claim_count:
+        failure_reasons.append(
+            "Claim-support audit found forbidden proof, experiment, novelty, or "
+            "publication-readiness claims."
+        )
+    if citation_as_validation_misuse_count:
+        failure_reasons.append(
+            "Claim-support audit found citations used as validation or proof."
+        )
+    if citation_placement_violations:
+        failure_reasons.append(
+            "Citation placement violations are present."
+        )
     if word_count < min_words:
         development_warnings.append("Draft may be skeletal: below proxy word-count target.")
     if average_words_per_section < min_avg_words_per_section:
@@ -1009,6 +1111,21 @@ def lint_paper_bundle_summary(
         "bibliography_registry_backed": bibliography_registry_backed,
         "bibliography_status": bundle.get("bibliography_status", "absent"),
         "citation_policy": citation_policy,
+        "claim_support_audit_present": claim_support_audit_present,
+        "claim_support_total_sentences": claim_support_total_sentences,
+        "claim_support_registry_supported_count": (
+            claim_support_registry_supported_count
+        ),
+        "claim_support_scaffold_not_required_count": (
+            claim_support_scaffold_not_required_count
+        ),
+        "claim_support_missing_required_citation_count": (
+            claim_support_missing_required_citation_count
+        ),
+        "claim_support_scope_mismatch_count": claim_support_scope_mismatch_count,
+        "claim_support_forbidden_claim_count": claim_support_forbidden_claim_count,
+        "citation_placement_violations": citation_placement_violations,
+        "citation_as_validation_misuse_count": citation_as_validation_misuse_count,
         "sections_too_short": sections_too_short,
         "empty_or_placeholder_sections": empty_or_placeholder_sections,
         "generic_heading_count": generic_heading_count,
@@ -1082,6 +1199,7 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
         "citation_registry": run_path / "reports" / "citation-registry.json",
+        "claim_support_audit": run_path / "reports" / "claim-support-audit.json",
         "references": run_path / "latex" / "references.bib",
         "revised_references": run_path / "latex" / "revised-references.bib",
     }
@@ -1092,6 +1210,15 @@ def _read_citation_registry(path: Path) -> CitationRegistry | None:
         return None
     try:
         return CitationRegistry.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def _read_claim_support_audit(path: Path) -> ClaimSupportAuditReport | None:
+    if not path.is_file():
+        return None
+    try:
+        return ClaimSupportAuditReport.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
 
@@ -1455,6 +1582,78 @@ def _ensure_citation_artifacts(
     )
 
 
+def _build_claim_support_audit_for_generation(
+    *,
+    run_id: str,
+    root: str | Path,
+    ledger: ResearchLedger,
+    revision_result: PaperRevisionRunResult | None,
+) -> ClaimSupportAuditReport:
+    markdown = _primary_markdown_for_claim_support(
+        run_id=run_id,
+        root=root,
+        revision_result=revision_result,
+    )
+    registry = _read_citation_registry(
+        Path(root) / "runs" / run_id / "reports" / "citation-registry.json"
+    )
+    if registry is None:
+        registry = build_citation_registry_from_ledger(run_id, ledger)
+    return build_claim_support_audit(
+        run_id=run_id,
+        markdown=markdown,
+        citation_registry=registry,
+    )
+
+
+def _primary_markdown_for_claim_support(
+    *,
+    run_id: str,
+    root: str | Path,
+    revision_result: PaperRevisionRunResult | None,
+) -> str:
+    if revision_result is not None and revision_result.revision_result is not None:
+        return revision_result.revision_result.revised_markdown
+    run_path = Path(root) / "runs" / run_id
+    for relative in (
+        "reports/revised-manuscript-draft.md",
+        "reports/complete-manuscript-draft.md",
+    ):
+        path = run_path / relative
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    return ""
+
+
+def _claim_support_warnings(audit: ClaimSupportAuditReport) -> list[str]:
+    warnings: list[str] = []
+    if audit.citation_registry_present and not audit.claim_support_items:
+        warnings.append("Claim-support audit found no manuscript sentences to classify.")
+    missing = audit.summary_counts.get("missing_required_citation", 0)
+    mismatch = audit.summary_counts.get("scope_mismatch", 0)
+    forbidden = audit.summary_counts.get("forbidden_claim", 0)
+    misuse = audit.summary_counts.get("citation_as_validation_misuse", 0)
+    if missing:
+        warnings.append(f"Claim-support audit found {missing} missing local citations.")
+    if mismatch:
+        warnings.append(f"Claim-support audit found {mismatch} citation scope mismatches.")
+    if forbidden:
+        warnings.append(f"Claim-support audit found {forbidden} forbidden evidence claims.")
+    if misuse:
+        warnings.append(f"Claim-support audit found {misuse} citation-as-validation misuses.")
+    if audit.citation_placement_violations:
+        warnings.append(
+            "Claim-support audit found citation placement issues: "
+            + str(len(audit.citation_placement_violations))
+        )
+    if audit.citation_registry_present:
+        warnings.append(
+            "Retrieval metadata is bounded literature context, not proof of novelty, "
+            "validation, or publication readiness."
+        )
+    return warnings
+
+
 def _export_revised_markdown_to_latex(
     *,
     run_id: str,
@@ -1496,6 +1695,7 @@ def _write_full_paper_generation_artifacts(
     report: FullPaperGenerationReport,
     bundle: FullPaperArtifactBundle,
     revised_export,
+    claim_support_audit: ClaimSupportAuditReport,
 ) -> PersistenceResult:
     metadata = {
         "stage": "full_paper_generation",
@@ -1508,6 +1708,7 @@ def _write_full_paper_generation_artifacts(
         update={
             "full_paper_generation_report_artifact_id": "full-paper-generation-report",
             "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",
+            "claim_support_audit_artifact_id": "claim-support-audit",
             "revised_latex_artifact_id": (
                 "revised-paper" if revised_export is not None else None
             ),
@@ -1540,6 +1741,16 @@ def _write_full_paper_generation_artifacts(
             payload=bundle,
             artifact_format="json",
             metadata=metadata,
+        ),
+        ArtifactWriteSpec(
+            artifact_id="claim-support-audit",
+            artifact_type=ArtifactType.REPORT,
+            payload=claim_support_audit,
+            artifact_format="json",
+            metadata={
+                **metadata,
+                "artifact_role": "claim_support_citation_discipline_context",
+            },
         ),
     ]
     if revised_export is not None:
@@ -1657,6 +1868,9 @@ def _with_persisted_generation_artifacts(
         update={
             "full_paper_generation_report_artifact_id": "full-paper-generation-report",
             "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",
+            "claim_support_audit_artifact_id": _id_if_present(
+                refs, "claim-support-audit"
+            ),
             "revised_latex_artifact_id": _id_if_present(refs, "revised-paper"),
             "revised_references_artifact_id": _id_if_present(refs, "revised-references"),
             "revised_latex_source_map_artifact_id": _id_if_present(
@@ -1722,6 +1936,10 @@ def _collect_artifact_bundle(
         ),
         citation_safety_report_artifact_id=_id_if_present(
             citation, "citation-safety-report"
+        ),
+        claim_support_audit_artifact_id=_id_if_present(
+            _latest_refs(ledger, run_id, ControllerActionType.FULL_PAPER_GENERATION_WRITTEN),
+            "claim-support-audit",
         ),
         manuscript_drafting_plan_artifact_id=_id_if_present(
             draft, "manuscript-drafting-plan"

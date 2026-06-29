@@ -1,0 +1,134 @@
+{
+  "$id": "https://schemas.factori.local/0.16.0/claim-support-item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One sentence-level claim-to-source support classification.",
+  "properties": {
+    "citation_keys_present": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Keys Present",
+      "type": "array"
+    },
+    "claim_class": {
+      "enum": [
+        "scaffold_statement",
+        "problem_framing_statement",
+        "method_description_statement",
+        "evidence_boundary_statement",
+        "limitation_statement",
+        "provenance_statement",
+        "source_context_claim",
+        "literature_background_claim",
+        "external_factual_claim",
+        "pipeline_status_claim",
+        "proof_claim",
+        "experiment_claim",
+        "novelty_claim",
+        "publication_readiness_claim"
+      ],
+      "title": "Claim Class",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "paragraph_index": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Paragraph Index",
+      "type": "integer"
+    },
+    "required_support_type": {
+      "default": "none",
+      "minLength": 1,
+      "title": "Required Support Type",
+      "type": "string"
+    },
+    "section_name": {
+      "minLength": 1,
+      "title": "Section Name",
+      "type": "string"
+    },
+    "sentence_id": {
+      "minLength": 1,
+      "title": "Sentence Id",
+      "type": "string"
+    },
+    "sentence_index": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sentence Index",
+      "type": "integer"
+    },
+    "sentence_snippet": {
+      "default": "",
+      "maxLength": 240,
+      "title": "Sentence Snippet",
+      "type": "string"
+    },
+    "sentence_text_hash": {
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Sentence Text Hash",
+      "type": "string"
+    },
+    "support_status": {
+      "enum": [
+        "not_required_scaffold",
+        "registry_supported",
+        "registry_key_present_but_scope_mismatch",
+        "missing_required_citation",
+        "forbidden_claim_without_evidence",
+        "unsupported_external_claim",
+        "citation_as_validation_misuse"
+      ],
+      "title": "Support Status",
+      "type": "string"
+    },
+    "supporting_source_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Source Ids",
+      "type": "array"
+    },
+    "unsupported_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unsupported Reason"
+    }
+  },
+  "required": [
+    "sentence_id",
+    "section_name",
+    "sentence_text_hash",
+    "claim_class",
+    "support_status"
+  ],
+  "title": "ClaimSupportItem",
+  "type": "object",
+  "x-factori-protocol-version": "0.16.0",
+  "x-factori-source-model": "factori.schemas.ClaimSupportItem",
+  "x-factori-verification-evidence": false
+}

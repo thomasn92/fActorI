@@ -2,6 +2,7 @@
   "artifact_bundle": {
     "artifact_ids": [
       "citation-registry",
+      "claim-support-audit",
       "complete-manuscript-draft",
       "paper",
       "paper-critic-report",
@@ -10,6 +11,7 @@
     ],
     "citation_registry_artifact_id": "citation-registry",
     "citation_safety_report_artifact_id": "citation-safety-report",
+    "claim_support_audit_artifact_id": "claim-support-audit",
     "complete_manuscript_draft_artifact_id": "complete-manuscript-draft",
     "creates_scientific_validation": false,
     "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",
@@ -47,6 +49,7 @@
     "artifact_bundle": {
       "artifact_ids": [
         "citation-registry",
+        "claim-support-audit",
         "complete-manuscript-draft",
         "paper",
         "paper-critic-report",
@@ -55,6 +58,7 @@
       ],
       "citation_registry_artifact_id": "citation-registry",
       "citation_safety_report_artifact_id": "citation-safety-report",
+      "claim_support_audit_artifact_id": "claim-support-audit",
       "complete_manuscript_draft_artifact_id": "complete-manuscript-draft",
       "creates_scientific_validation": false,
       "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",

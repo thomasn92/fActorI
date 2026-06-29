@@ -5,6 +5,8 @@ from factori.artifacts import ArtifactStore
 from factori.citations import (
     build_citation_registry,
     build_citation_registry_from_ledger,
+    build_claim_support_audit,
+    classify_claim_sentence,
     validate_citation_usage,
     write_citation_registry_reports,
 )
@@ -30,6 +32,176 @@ def test_citation_registry_models_are_importable() -> None:
     assert CitationRegistry.__name__ == "CitationRegistry"
     assert CitationSafetyReport.__name__ == "CitationSafetyReport"
     assert CitationUsage.__name__ == "CitationUsage"
+
+
+def test_claim_classes_classify_scaffold_as_not_requiring_citation() -> None:
+    assert (
+        classify_claim_sentence(
+            "This draft is manuscript context only and does not create evidence."
+        )
+        == "evidence_boundary_statement"
+    )
+
+
+def test_bounded_literature_positioning_sentence_is_evidence_boundary() -> None:
+    assert (
+        classify_claim_sentence(
+            "Literature positioning is bounded by available retrieval metadata."
+        )
+        == "evidence_boundary_statement"
+    )
+
+
+def test_negated_empirical_validation_sentence_is_evidence_boundary() -> None:
+    assert (
+        classify_claim_sentence(
+            "MVP and synthetic outputs do not establish empirical validation, "
+            "scientific validation, or publication readiness."
+        )
+        == "evidence_boundary_statement"
+    )
+
+
+def test_source_context_claim_requires_registry_backed_citation() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=f"## Introduction\n\nRetrieval metadata gives bounded context [@{key}].",
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["registry_supported"] == 1
+    assert audit.unsupported_items == []
+    assert audit.is_verification_evidence is False
+
+
+def test_external_factual_claim_without_citation_is_flagged() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown="## Introduction\n\nPrior work shows a broad field trend.",
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["missing_required_citation"] == 1
+    assert audit.unsupported_items[0].support_status == "missing_required_citation"
+
+
+def test_citation_in_same_paragraph_supports_local_source_context_claim() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=(
+            "## Introduction\n\nThe citation registry records bounded source context. "
+            f"This paragraph includes the local source [@{key}]."
+        ),
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["registry_supported"] >= 1
+
+
+def test_bibliography_citation_does_not_support_body_claim() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=(
+            "## Introduction\n\nPrior work shows a broad field trend.\n\n"
+            f"## Bibliography\n\n- [@{key}] fixture entry."
+        ),
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["missing_required_citation"] == 1
+
+
+def test_citation_in_unrelated_section_does_not_support_body_claim() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=(
+            "## Introduction\n\nPrior work shows a broad field trend.\n\n"
+            f"## Limitations\n\nRetrieval metadata is bounded [@{key}]."
+        ),
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["missing_required_citation"] == 1
+    assert audit.summary_counts["registry_supported"] == 1
+
+
+def test_provenance_appendix_metadata_does_not_require_citations() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=(
+            "## Provenance Appendix\n\n"
+            "- Run ID: `run-1`\n"
+            "- Citation registry: `abc123`\n"
+            "- Retrieval-backed citations are bounded literature context, not novelty proof."
+        ),
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["missing_required_citation"] == 0
+    assert audit.summary_counts["forbidden_claim"] == 0
+    assert audit.unsupported_items == []
+
+
+def test_unregistered_citation_key_is_unsupported_external_claim() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown="## Introduction\n\nRetrieval metadata gives context [@Invented2026].",
+        citation_registry=registry,
+    )
+
+    assert audit.unsupported_items[0].support_status == "unsupported_external_claim"
+
+
+def test_fixture_source_scope_mismatch_for_external_factual_claim() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=f"## Introduction\n\nPrior work shows a broad field trend [@{key}].",
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["scope_mismatch"] == 1
+
+
+def test_fixture_source_cannot_support_proof_experiment_or_novelty_claims() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=(
+            f"## Introduction\n\nTheorem 1 is verified [@{key}]. "
+            f"The result is empirically validated [@{key}]. "
+            f"Retrieval proves novelty [@{key}]."
+        ),
+        citation_registry=registry,
+    )
+
+    assert audit.summary_counts["citation_as_validation_misuse"] == 3
+    assert all(
+        item.support_status == "citation_as_validation_misuse"
+        for item in audit.unsupported_items
+    )
 
 
 def test_citation_key_generation_is_deterministic() -> None:
