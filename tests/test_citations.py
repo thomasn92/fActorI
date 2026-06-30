@@ -10,6 +10,7 @@ from factori.citations import (
     build_citation_registry_from_ledger,
     build_claim_support_audit,
     classify_claim_sentence,
+    repair_missing_required_citations_with_accepted_sources,
     validate_citation_usage,
     write_citation_registry_reports,
 )
@@ -114,7 +115,7 @@ def test_citation_in_same_paragraph_supports_local_source_context_claim() -> Non
     audit = build_claim_support_audit(
         run_id="run-1",
         markdown=(
-            "## Introduction\n\nThe citation registry records bounded source context. "
+            "## Introduction\n\nRetrieved source metadata gives local context. "
             f"This paragraph includes the local source [@{key}]."
         ),
         citation_registry=registry,
@@ -489,6 +490,135 @@ def test_hard_rejects_cannot_be_overridden_by_fake_source_adjudicator() -> None:
     }
 
 
+def test_source_aware_repair_resolves_missing_citation_required_claims() -> None:
+    registry = _accepted_local_registry()
+    markdown = (
+        "## Abstract\n\n"
+        "Human geography often involves heterogeneous spatial relations.\n\n"
+        "## Introduction\n\n"
+        "Instead, the citations indicate only that the topic can be situated within "
+        "prior spatial and regional mobility discussions. "
+        "The novelty statement remains constrained by the available retrieval metadata, "
+        "and complete coverage is not claimed.\n"
+    )
+    audit = build_claim_support_audit(
+        run_id="run-source-repair",
+        markdown=markdown,
+        citation_registry=registry,
+    )
+
+    result = repair_missing_required_citations_with_accepted_sources(
+        markdown,
+        audit,
+        registry,
+    )
+    post = build_claim_support_audit(
+        run_id="run-source-repair",
+        markdown=result.revised_markdown,
+        citation_registry=registry,
+    )
+
+    assert result.repairs_attempted == 3
+    assert result.citations_added == 2
+    assert result.claims_downgraded == 1
+    assert result.repairs_unresolved == 0
+    assert result.used_rejected_source is False
+    assert result.used_hard_rejected_source is False
+    assert result.citation_required_items_adjudicated_or_repaired is True
+    assert "[@Smith2021HumanGeographySpatial]" in result.revised_markdown
+    assert "[@Nguyen2020RegionalMobilityPatterns]" in result.revised_markdown
+    assert "does not claim novelty or complete literature coverage" in result.revised_markdown
+    assert "novelty statement remains constrained" not in result.revised_markdown
+    assert post.summary_counts["missing_required_citation"] == 0
+    assert post.summary_counts["scope_mismatch"] == 0
+    assert post.unsupported_items == []
+
+
+def test_source_aware_repair_never_uses_rejected_or_hard_rejected_sources() -> None:
+    registry = _registry_from_records(
+        [
+            _citation_record(
+                "Rejected2024Source",
+                accepted_for_registry=False,
+                source_status="rejected",
+            ),
+            _citation_record(
+                "Hard2024Rejected",
+                retrieval_quality_status="hard_rejected",
+                warnings=["hard_rejected"],
+            ),
+        ]
+    )
+    markdown = "## Introduction\n\nPrior work shows a spatial interaction pattern.\n"
+    audit = build_claim_support_audit(
+        run_id="run-rejected-repair",
+        markdown=markdown,
+        citation_registry=registry,
+    )
+
+    result = repair_missing_required_citations_with_accepted_sources(
+        markdown,
+        audit,
+        registry,
+    )
+
+    assert result.citations_added == 0
+    assert result.claims_removed == 1
+    assert "[@Rejected2024Source]" not in result.revised_markdown
+    assert "[@Hard2024Rejected]" not in result.revised_markdown
+    assert result.used_rejected_source is False
+    assert result.used_hard_rejected_source is False
+
+
+def test_source_aware_repair_does_not_cite_validation_or_novelty_claims() -> None:
+    registry = _accepted_local_registry()
+    markdown = "## Introduction\n\nCitations establish novelty for this draft.\n"
+    audit = build_claim_support_audit(
+        run_id="run-no-novelty-cite",
+        markdown=markdown,
+        citation_registry=registry,
+    )
+
+    result = repair_missing_required_citations_with_accepted_sources(
+        markdown,
+        audit,
+        registry,
+    )
+
+    assert result.citations_added == 0
+    assert "[@Smith2021HumanGeographySpatial]" not in result.revised_markdown
+    assert result.repairs_attempted == 0
+
+
+def test_source_aware_repair_leaves_external_claim_unresolved_without_topic_overlap() -> None:
+    registry = _registry_from_records(
+        [
+            _citation_record(
+                "Smith2021HumanGeographySpatial",
+                title="Human Geography and Spatial Interaction Models",
+                supported_topics=["Human geography", "Spatial interaction"],
+            )
+        ]
+    )
+    markdown = "## Introduction\n\nPrior work shows a coral reef thermal stress pattern.\n"
+    audit = build_claim_support_audit(
+        run_id="run-topic-mismatch",
+        markdown=markdown,
+        citation_registry=registry,
+    )
+
+    result = repair_missing_required_citations_with_accepted_sources(
+        markdown,
+        audit,
+        registry,
+    )
+
+    assert result.citations_added == 0
+    assert result.repairs_unresolved == 0
+    assert result.claims_removed == 1
+    assert "[@Smith2021HumanGeographySpatial]" not in result.revised_markdown
+
+
 def test_citation_to_rejected_local_source_key_fails() -> None:
     scored, quality = score_retrieval_sources(
         run_id="run-1",
@@ -688,4 +818,91 @@ def _narrative_contract() -> NarrativeManuscriptContract:
         problem_statement="State the problem.",
         literature_gap="The gap is bounded by retrieval metadata.",
         novelty_claim="Novelty is not proven by retrieval.",
+    )
+
+
+def _accepted_local_registry() -> CitationRegistry:
+    return _registry_from_records(
+        [
+            _citation_record(
+                "Smith2021HumanGeographySpatial",
+                source_id="W560000001",
+                title="Human Geography and Spatial Interaction Models",
+                supported_topics=["Human geography", "Spatial interaction"],
+                relevance_score=0.892,
+            ),
+            _citation_record(
+                "Nguyen2020RegionalMobilityPatterns",
+                source_id="W560000002",
+                title="Regional Mobility Patterns in Urban Planning",
+                abstract_or_snippet=(
+                    "Regional mobility models describe urban migration flows, "
+                    "spatial interaction, and place based planning problems."
+                ),
+                supported_topics=["Migration", "Spatial interaction", "Urban planning"],
+                relevance_score=0.78,
+            ),
+        ]
+    )
+
+
+def _registry_from_records(records: list[CitationRecord]) -> CitationRegistry:
+    return CitationRegistry(
+        run_id="run-source-repair",
+        citations=records,
+        bibliography=[],
+        citation_key_policy="test",
+        citation_policy="registry-only",
+        retrieval_backend="local",
+        retrieval_scope="bounded-source-metadata",
+        source_registry_hash=HASH,
+        source_count=len(records),
+        accepted_source_count=sum(1 for record in records if record.accepted_for_registry),
+        rejected_source_count=sum(1 for record in records if not record.accepted_for_registry),
+        fake=False,
+    )
+
+
+def _citation_record(
+    citation_key: str,
+    *,
+    source_id: str = "source-1",
+    title: str = "Human Geography and Spatial Interaction Models",
+    abstract_or_snippet: str = (
+        "Human geography metadata describes spatial interaction and migration flows."
+    ),
+    supported_topics: list[str] | None = None,
+    accepted_for_registry: bool = True,
+    source_status: str = "retrieved",
+    retrieval_quality_status: str = "bounded_context_only",
+    warnings: list[str] | None = None,
+    relevance_score: float = 0.8,
+) -> CitationRecord:
+    return CitationRecord(
+        citation_id=f"citation-{source_id}",
+        citation_key=citation_key,
+        source_id=source_id,
+        title=title,
+        authors=["Ada Smith"],
+        year=2021,
+        provider="openalex",
+        retrieval_backend="local",
+        retrieved_at="1970-01-01T00:00:00.000000Z",
+        raw_metadata_hash=HASH,
+        source_type="openalex_style_metadata",
+        abstract_or_snippet=abstract_or_snippet,
+        allowed_citation_key=citation_key,
+        trust_level="metadata_only",
+        source_status=source_status,
+        support_scope=["background_context"],
+        supported_topics=supported_topics or ["Human geography", "Spatial interaction"],
+        source_snippet=abstract_or_snippet,
+        source_summary=abstract_or_snippet,
+        fixture_only=False,
+        retrieval_quality_status=retrieval_quality_status,
+        relevance_score=relevance_score,
+        source_quality_score=1.0,
+        accepted_for_registry=accepted_for_registry,
+        may_support_background_context=True,
+        warnings=warnings or [],
     )

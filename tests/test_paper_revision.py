@@ -254,6 +254,51 @@ def test_safe_repair_claim_support_removal_uses_non_empty_patch_snippets() -> No
     )
 
 
+def test_bounded_safe_repair_adds_accepted_citations_and_rewrites_novelty_boundary() -> None:
+    registry = _accepted_local_registry()
+    markdown = _safe_markdown(
+        "Human geography often involves heterogeneous spatial relations. "
+        "The novelty statement remains constrained by the available retrieval metadata, "
+        "and complete coverage is not claimed."
+    )
+    audit = build_claim_support_audit(
+        run_id="run-1",
+        markdown=markdown,
+        citation_registry=registry,
+        claim_adjudicator=FakeClaimAdjudicator(),
+    )
+
+    result = apply_safe_fake_revision(
+        run_id="run-1",
+        markdown=markdown,
+        revision_plan=build_paper_revision_plan(
+            critique_generated_paper(run_id="run-1", markdown=markdown)
+        ),
+        citation_registry=registry,
+        bounded_text_repair=True,
+        claim_support_audit=audit,
+    )
+    post = build_claim_support_audit(
+        run_id="run-1",
+        markdown=result.revised_markdown,
+        citation_registry=registry,
+        claim_adjudicator=FakeClaimAdjudicator(),
+    )
+
+    assert "[@Smith2021HumanGeographySpatial]" in result.revised_markdown
+    assert "does not claim novelty or complete literature coverage" in result.revised_markdown
+    assert result.safety_report.source_aware_missing_citation_repairs_attempted == 2
+    assert result.safety_report.source_aware_citations_added == 1
+    assert result.safety_report.source_aware_claims_downgraded == 1
+    assert result.safety_report.source_aware_repairs_unresolved == 0
+    assert result.safety_report.source_aware_repair_used_rejected_source is False
+    assert result.safety_report.source_aware_repair_used_hard_rejected_source is False
+    assert result.safety_report.citation_required_items_adjudicated_or_repaired is True
+    assert post.summary_counts["missing_required_citation"] == 0
+    assert post.summary_counts["scope_mismatch"] == 0
+    assert post.unsupported_items == []
+
+
 def test_revise_paper_cli_planning_mode_works(tmp_path) -> None:
     _prepare_draft(tmp_path)
     runner = CliRunner()
@@ -404,4 +449,64 @@ def _citation_registry() -> CitationRegistry:
         ],
         citation_key_policy="deterministic",
         source_registry_hash="0" * 64,
+    )
+
+
+def _accepted_local_registry() -> CitationRegistry:
+    record = CitationRecord(
+        citation_id="citation-W560000001",
+        citation_key="Smith2021HumanGeographySpatial",
+        source_id="W560000001",
+        title="Human Geography and Spatial Interaction Models",
+        authors=["Ada Smith", "Bea Jones"],
+        year=2021,
+        provider="openalex",
+        retrieval_backend="local",
+        retrieved_at="1970-01-01T00:00:00.000000Z",
+        raw_metadata_hash="0" * 64,
+        source_type="openalex_style_metadata",
+        abstract_or_snippet=(
+            "Human geography background metadata describes spatial interaction models "
+            "and migration flows as bounded literature context."
+        ),
+        allowed_citation_key="Smith2021HumanGeographySpatial",
+        trust_level="metadata_only",
+        source_status="retrieved",
+        support_scope=["background_context"],
+        supported_topics=["Human geography", "Spatial interaction"],
+        source_snippet=(
+            "Human geography background metadata describes spatial interaction models "
+            "and migration flows as bounded literature context."
+        ),
+        source_summary=(
+            "Human geography background metadata describes spatial interaction models "
+            "and migration flows as bounded literature context."
+        ),
+        fixture_only=False,
+        retrieval_quality_status="bounded_context_only",
+        relevance_score=0.892,
+        source_quality_score=1.0,
+        accepted_for_registry=True,
+        may_support_background_context=True,
+    )
+    return CitationRegistry(
+        run_id="run-1",
+        citations=[record],
+        bibliography=[
+            BibliographyEntry(
+                citation_id=record.citation_id,
+                citation_key=record.citation_key,
+                source_id=record.source_id,
+                markdown="- [@Smith2021HumanGeographySpatial] Human geography source.",
+                has_source_provenance=True,
+            )
+        ],
+        citation_key_policy="deterministic",
+        citation_policy="registry-only",
+        retrieval_backend="local",
+        retrieval_scope="bounded-source-metadata",
+        source_registry_hash="0" * 64,
+        source_count=1,
+        accepted_source_count=1,
+        fake=False,
     )

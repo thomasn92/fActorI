@@ -156,9 +156,14 @@ _EVIDENCE_BOUNDARY_PATTERNS = (
     "cannot create evidence",
     "separate from verification evidence",
     "bounded retrieval context",
+    "bounded background context only",
+    "bounded source context",
     "bounded by available retrieval metadata",
     "bounded literature context",
     "bounded literature positioning",
+    "does not claim novelty",
+    "does not claim complete literature coverage",
+    "complete literature coverage is not claimed",
     "does not transform",
     "no real proof",
     "no real experiment",
@@ -192,6 +197,23 @@ class CitationRegistryArtifacts:
     literature_positioning_artifact: ArtifactRef
     citation_safety_artifact: ArtifactRef
     commit_hash: str
+
+
+@dataclass(frozen=True)
+class SourceAwareCitationRepairResult:
+    """Deterministic repair summary for missing citation-required source claims."""
+
+    revised_markdown: str
+    repairs_attempted: int = 0
+    citations_added: int = 0
+    claims_downgraded: int = 0
+    claims_removed: int = 0
+    repairs_unresolved: int = 0
+    used_rejected_source: bool = False
+    used_hard_rejected_source: bool = False
+    citation_required_items_adjudicated_or_repaired: bool = True
+    outcomes_by_sentence_id: dict[str, str] | None = None
+    citation_keys_added_by_sentence_id: dict[str, str] | None = None
 
 
 def build_citation_registry(
@@ -779,6 +801,102 @@ def repair_confirmed_claim_support_violations(
     return revised, sorted(removed)
 
 
+def repair_missing_required_citations_with_accepted_sources(
+    markdown: str,
+    audit: ClaimSupportAuditReport,
+    citation_registry: CitationRegistry | None,
+) -> SourceAwareCitationRepairResult:
+    """Repair uncited source claims using accepted registry sources only."""
+    missing_by_id = {
+        item.sentence_id: item
+        for item in audit.unsupported_items
+        if item.requires_citation
+        and item.support_status == "missing_required_citation"
+    }
+    if not missing_by_id:
+        return SourceAwareCitationRepairResult(revised_markdown=markdown)
+
+    records = [
+        record
+        for record in (citation_registry.citations if citation_registry is not None else [])
+        if _record_is_accepted_repair_source(record)
+    ]
+    revised = markdown
+    citations_added = 0
+    claims_downgraded = 0
+    claims_removed = 0
+    repairs_unresolved = 0
+    outcomes: dict[str, str] = {}
+    keys_added: dict[str, str] = {}
+
+    for paragraph in _paragraph_contexts(markdown):
+        if _is_bibliography_section(paragraph["section_name"]):
+            continue
+        for sentence_index, sentence in enumerate(_split_sentences(paragraph["text"])):
+            sentence_id = (
+                f"{_slug(paragraph['section_name'])}-"
+                f"p{paragraph['paragraph_index']}-s{sentence_index}"
+            )
+            item = missing_by_id.get(sentence_id)
+            if item is None or sentence not in revised:
+                continue
+            if _should_rewrite_missing_citation_as_boundary(sentence, item):
+                replacement = _source_boundary_replacement(sentence)
+                revised = revised.replace(sentence, replacement, 1)
+                outcomes[sentence_id] = "downgraded_to_boundary_statement"
+                claims_downgraded += 1
+                continue
+            if _claim_class_must_not_be_cited(item.claim_class, sentence):
+                revised = revised.replace(sentence, "", 1)
+                outcomes[sentence_id] = "removed_unsupported_source_claim"
+                claims_removed += 1
+                continue
+            record = _compatible_repair_source(sentence, item, records)
+            if record is not None:
+                replacement = _sentence_with_registry_citation(sentence, record.citation_key)
+                revised = revised.replace(sentence, replacement, 1)
+                outcomes[sentence_id] = "added_accepted_registry_citation"
+                keys_added[sentence_id] = record.citation_key
+                citations_added += 1
+                continue
+            if _claim_can_be_removed_when_uncited(item.claim_class):
+                revised = revised.replace(sentence, "", 1)
+                outcomes[sentence_id] = "removed_unsupported_source_claim"
+                claims_removed += 1
+            else:
+                outcomes[sentence_id] = "left_unresolved"
+                repairs_unresolved += 1
+
+    for sentence_id in sorted(set(missing_by_id) - set(outcomes)):
+        outcomes[sentence_id] = "left_unresolved"
+        repairs_unresolved += 1
+
+    revised = re.sub(r"[ \t]+\n", "\n", revised)
+    revised = re.sub(r"\n{3,}", "\n\n", revised).strip() + "\n"
+    repaired_or_adjudicated = all(
+        item.adjudicated_claim_class is not None
+        or outcomes.get(sentence_id) in {
+            "added_accepted_registry_citation",
+            "downgraded_to_boundary_statement",
+            "removed_unsupported_source_claim",
+        }
+        for sentence_id, item in missing_by_id.items()
+    )
+    return SourceAwareCitationRepairResult(
+        revised_markdown=revised,
+        repairs_attempted=len(missing_by_id),
+        citations_added=citations_added,
+        claims_downgraded=claims_downgraded,
+        claims_removed=claims_removed,
+        repairs_unresolved=repairs_unresolved,
+        used_rejected_source=False,
+        used_hard_rejected_source=False,
+        citation_required_items_adjudicated_or_repaired=repaired_or_adjudicated,
+        outcomes_by_sentence_id=dict(sorted(outcomes.items())),
+        citation_keys_added_by_sentence_id=dict(sorted(keys_added.items())),
+    )
+
+
 def write_citation_registry_reports(
     *,
     run_id: str,
@@ -947,7 +1065,12 @@ def _support_status_for_sentence(
 
 
 def _record_supports_claim_class(record: CitationRecord, claim_class: str) -> bool:
-    if claim_class in {"source_context_claim", "literature_background_claim"}:
+    if claim_class in {
+        "source_context_claim",
+        "literature_background_claim",
+        "scaffold_statement",
+        "problem_framing_statement",
+    }:
         return record.may_support_background_context
     if claim_class == "external_factual_claim":
         return (
@@ -958,8 +1081,220 @@ def _record_supports_claim_class(record: CitationRecord, claim_class: str) -> bo
     return False
 
 
+def _record_is_accepted_repair_source(record: CitationRecord) -> bool:
+    if not record.accepted_for_registry:
+        return False
+    if record.source_status == "rejected":
+        return False
+    text = " ".join(
+        [
+            record.retrieval_quality_status,
+            record.source_type,
+            *record.support_scope,
+            *record.warnings,
+        ]
+    ).casefold()
+    if "hard_rejected" in text or "hard-rejected" in text:
+        return False
+    if "rejected" in text and "bounded_context" not in text:
+        return False
+    return (
+        record.may_support_background_context
+        and "background_context" in set(record.support_scope)
+        and bool(record.citation_key)
+    )
+
+
+def _compatible_repair_source(
+    sentence: str,
+    item: ClaimSupportItem,
+    records: list[CitationRecord],
+) -> CitationRecord | None:
+    if not records:
+        return None
+    if _claim_class_must_not_be_cited(item.claim_class, sentence):
+        return None
+    if item.claim_class == "external_factual_claim":
+        topical = [
+            record
+            for record in records
+            if _source_topic_overlap(sentence, record) > 0
+        ]
+        if not topical:
+            return None
+        return _best_repair_source(sentence, topical)
+    if item.claim_class in {
+        "source_context_claim",
+        "literature_background_claim",
+        "scaffold_statement",
+        "problem_framing_statement",
+    }:
+        return _best_repair_source(sentence, records)
+    if item.requires_citation_reason in {
+        "positive_literature_claim",
+        "positive_source_context_claim",
+    }:
+        return _best_repair_source(sentence, records)
+    return None
+
+
+def _best_repair_source(
+    sentence: str,
+    records: list[CitationRecord],
+) -> CitationRecord | None:
+    if not records:
+        return None
+    return sorted(
+        records,
+        key=lambda record: (
+            -_source_topic_overlap(sentence, record),
+            -(record.relevance_score or 0.0),
+            record.citation_key,
+        ),
+    )[0]
+
+
+def _source_topic_overlap(sentence: str, record: CitationRecord) -> int:
+    sentence_tokens = _repair_tokens(sentence)
+    source_text = " ".join(
+        [
+            record.title,
+            record.abstract_or_snippet or "",
+            record.source_snippet or "",
+            record.source_summary or "",
+            " ".join(record.supported_topics),
+        ]
+    )
+    return len(sentence_tokens & _repair_tokens(source_text))
+
+
+_REPAIR_STOPWORDS = frozenset(
+    {
+        "about",
+        "accepted",
+        "after",
+        "available",
+        "background",
+        "because",
+        "bounded",
+        "citation",
+        "citations",
+        "claim",
+        "claims",
+        "complete",
+        "context",
+        "coverage",
+        "draft",
+        "indicate",
+        "indicates",
+        "literature",
+        "metadata",
+        "novelty",
+        "only",
+        "prior",
+        "registry",
+        "retrieval",
+        "source",
+        "sources",
+        "statement",
+        "that",
+        "this",
+        "topic",
+        "within",
+    }
+)
+
+
+def _repair_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", text.casefold())
+        if len(token) >= 4 and token not in _REPAIR_STOPWORDS
+    }
+
+
+def _should_rewrite_missing_citation_as_boundary(
+    sentence: str,
+    item: ClaimSupportItem,
+) -> bool:
+    text = " ".join(sentence.casefold().split())
+    if "novelty" in text and (
+        "metadata" in text
+        or "complete coverage" in text
+        or "complete literature coverage" in text
+        or "not claimed" in text
+        or "constrained" in text
+    ):
+        return True
+    return item.claim_class == "novelty_claim" and (
+        "not" in text or "does not" in text or "cannot" in text
+    )
+
+
+def _source_boundary_replacement(sentence: str) -> str:
+    _ = sentence
+    return (
+        "This draft does not claim novelty or complete literature coverage; "
+        "retrieval metadata is bounded background context only."
+    )
+
+
+def _claim_class_must_not_be_cited(claim_class: str, sentence: str) -> bool:
+    text = " ".join(sentence.casefold().split())
+    if claim_class in {
+        "proof_claim",
+        "experiment_claim",
+        "novelty_claim",
+        "publication_readiness_claim",
+    }:
+        return True
+    forbidden_patterns = (
+        "proves novelty",
+        "establish novelty",
+        "establishes novelty",
+        "citations establish novelty",
+        "sources establish novelty",
+        "proof evidence",
+        "experiment evidence",
+        "empirical validation",
+        "scientific validation",
+        "publication readiness",
+        "publication ready",
+        "publication-ready",
+        "validated by citations",
+        "citations validate",
+        "sources validate",
+    )
+    return any(pattern in text for pattern in forbidden_patterns)
+
+
+def _claim_can_be_removed_when_uncited(claim_class: str) -> bool:
+    return claim_class in {
+        "source_context_claim",
+        "literature_background_claim",
+        "external_factual_claim",
+        "scaffold_statement",
+        "problem_framing_statement",
+    }
+
+
+def _sentence_with_registry_citation(sentence: str, citation_key: str) -> str:
+    marker = f"[@{citation_key}]"
+    stripped = sentence.rstrip()
+    if marker in stripped or CITATION_MARKER_RE.search(stripped):
+        return stripped
+    if stripped.endswith((".", "!", "?")):
+        return f"{stripped[:-1].rstrip()} {marker}{stripped[-1]}"
+    return f"{stripped} {marker}"
+
+
 def _required_support_type(claim_class: str) -> str:
-    if claim_class in {"source_context_claim", "literature_background_claim"}:
+    if claim_class in {
+        "source_context_claim",
+        "literature_background_claim",
+        "scaffold_statement",
+        "problem_framing_statement",
+    }:
         return "registry_background_context"
     if claim_class == "external_factual_claim":
         return "registry_external_source"

@@ -405,6 +405,14 @@ class RevisionSafetyReport(StrictModel):
     created_or_upgraded_labels: bool = False
     mutated_claim_table: bool = False
     mutated_evidence_map: bool = False
+    source_aware_missing_citation_repairs_attempted: int = Field(default=0, ge=0)
+    source_aware_citations_added: int = Field(default=0, ge=0)
+    source_aware_claims_downgraded: int = Field(default=0, ge=0)
+    source_aware_claims_removed: int = Field(default=0, ge=0)
+    source_aware_repairs_unresolved: int = Field(default=0, ge=0)
+    source_aware_repair_used_rejected_source: bool = False
+    source_aware_repair_used_hard_rejected_source: bool = False
+    citation_required_items_adjudicated_or_repaired: bool = True
     is_verification_evidence: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False

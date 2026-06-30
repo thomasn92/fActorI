@@ -25,6 +25,7 @@
   "revision_status": "RevisionAppliedWithWarnings",
   "run_id": "example",
   "safety_report": {
+    "citation_required_items_adjudicated_or_repaired": true,
     "created_or_upgraded_labels": false,
     "creates_scientific_validation": false,
     "implies_publication_readiness": false,
@@ -39,6 +40,13 @@
     "rejected": false,
     "run_id": "example",
     "safe": true,
+    "source_aware_citations_added": 0,
+    "source_aware_claims_downgraded": 0,
+    "source_aware_claims_removed": 0,
+    "source_aware_missing_citation_repairs_attempted": 0,
+    "source_aware_repair_used_hard_rejected_source": false,
+    "source_aware_repair_used_rejected_source": false,
+    "source_aware_repairs_unresolved": 0,
     "warnings": [
       "Paper revision artifacts are manuscript/revision context only and cannot create evidence."
     ]

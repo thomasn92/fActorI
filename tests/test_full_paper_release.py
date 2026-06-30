@@ -16,12 +16,17 @@ from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.paper_critic import build_paper_revision_plan, critique_generated_paper
 from factori.paper_revision import apply_safe_fake_revision
-from factori.persistence import persist_markdown_artifact
+from factori.persistence import (
+    ArtifactWriteSpec,
+    persist_artifacts_with_commit,
+    persist_markdown_artifact,
+)
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     CitationRegistry,
+    ClaimSupportAuditReport,
     ControllerActionType,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
@@ -180,6 +185,40 @@ def test_safe_textual_repair_can_restore_human_review_readiness(tmp_path) -> Non
         FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW,
         FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS,
     }
+
+
+def test_release_gate_fails_when_missing_citations_remain_unresolved(tmp_path) -> None:
+    ledger = _prepare_safe_bundle(tmp_path, "missing-claim-support")
+    _replace_claim_support_counts(
+        tmp_path,
+        ledger,
+        "missing-claim-support",
+        missing_required_citation=1,
+    )
+
+    report = _evaluate(tmp_path, ledger, "missing-claim-support")
+
+    assert report.decision.status == FullPaperReleaseStatus.RELEASE_GATE_FAILED
+    assert report.decision.ready_for_human_review is False
+    assert report.publication_ready is False
+
+
+def test_release_gate_passes_after_post_repair_claim_support_is_clean(tmp_path) -> None:
+    ledger = _prepare_safe_bundle(tmp_path, "clean-claim-support")
+    _replace_claim_support_counts(
+        tmp_path,
+        ledger,
+        "clean-claim-support",
+        missing_required_citation=0,
+    )
+
+    report = _evaluate(tmp_path, ledger, "clean-claim-support")
+
+    assert report.decision.status in {
+        FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW,
+        FullPaperReleaseStatus.READY_FOR_HUMAN_REVIEW_WITH_WARNINGS,
+    }
+    assert report.publication_ready is False
 
 
 def test_unsupported_leanverified_and_publication_language_block(tmp_path) -> None:
@@ -350,6 +389,61 @@ def _replace_revised_draft(
         },
         metadata={
             "artifact_role": "paper_revision_presentation_draft",
+            "is_verification_evidence": False,
+            "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
+        },
+    )
+
+
+def _replace_claim_support_counts(
+    tmp_path,
+    ledger: ResearchLedger,
+    run_id: str,
+    *,
+    missing_required_citation: int,
+) -> None:
+    path = tmp_path / "runs" / run_id / "reports" / "claim-support-audit.json"
+    audit = ClaimSupportAuditReport.model_validate_json(path.read_text(encoding="utf-8"))
+    counts = {
+        **audit.summary_counts,
+        "missing_required_citation": missing_required_citation,
+        "scope_mismatch": 0,
+        "forbidden_claim": 0,
+        "unsupported_external_claim": 0,
+        "citation_as_validation_misuse": 0,
+    }
+    updated = audit.model_copy(
+        update={
+            "summary_counts": counts,
+            "post_adjudication_summary_counts": counts,
+            "unsupported_items": (
+                audit.unsupported_items if missing_required_citation else []
+            ),
+        }
+    )
+    persist_artifacts_with_commit(
+        run_id=run_id,
+        store=ArtifactStore(tmp_path),
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                artifact_id="claim-support-audit",
+                artifact_type=ArtifactType.REPORT,
+                payload=updated,
+                artifact_format="json",
+                metadata={
+                    "artifact_role": "claim_support_citation_discipline_context",
+                    "is_verification_evidence": False,
+                    "creates_scientific_validation": False,
+                    "implies_publication_readiness": False,
+                },
+            )
+        ],
+        action_type=ControllerActionType.FULL_PAPER_GENERATION_WRITTEN,
+        commit_payload={
+            "run_id": run_id,
+            "test_claim_support_update": True,
             "is_verification_evidence": False,
             "creates_scientific_validation": False,
             "implies_publication_readiness": False,

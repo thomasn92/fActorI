@@ -9,8 +9,10 @@ from pathlib import Path
 from factori.artifacts import ArtifactStore
 from factori.citations import (
     CITATION_MARKER_RE,
+    SourceAwareCitationRepairResult,
     build_claim_support_audit,
     repair_confirmed_claim_support_violations,
+    repair_missing_required_citations_with_accepted_sources,
 )
 from factori.claim_adjudication import ClaimAdjudicator
 from factori.hashing import sha256_text
@@ -72,6 +74,7 @@ def apply_safe_fake_revision(
     """Apply one deterministic conservative text-only revision pass."""
     revised = markdown
     patches: list[PaperRevisionPatch] = []
+    source_repair_result: SourceAwareCitationRepairResult | None = None
     if bounded_text_repair and claim_support_audit is not None:
         revised, removed_sentence_ids = repair_confirmed_claim_support_violations(
             revised,
@@ -86,6 +89,13 @@ def apply_safe_fake_revision(
             )
             for sentence_id in removed_sentence_ids
         )
+        source_repair_result = repair_missing_required_citations_with_accepted_sources(
+            revised,
+            claim_support_audit,
+            citation_registry,
+        )
+        revised = source_repair_result.revised_markdown
+        patches.extend(_source_aware_repair_patches(source_repair_result))
     if bounded_text_repair:
         revised, bounded_patches = _apply_bounded_text_repairs(
             revised,
@@ -113,6 +123,7 @@ def apply_safe_fake_revision(
         original_markdown=markdown,
         revised_markdown=revised,
         citation_registry=citation_registry,
+        source_aware_repair_result=source_repair_result,
     )
     status = _revision_status(patches, safety)
     return PaperRevisionResult(
@@ -132,6 +143,7 @@ def validate_revision_safety(
     original_markdown: str,
     revised_markdown: str,
     citation_registry: CitationRegistry | None = None,
+    source_aware_repair_result: SourceAwareCitationRepairResult | None = None,
 ) -> RevisionSafetyReport:
     """Validate that a revised draft did not invent evidence, labels, or citations."""
     reasons: list[str] = []
@@ -170,6 +182,34 @@ def validate_revision_safety(
         reasons.append("revision contains unsupported verification-label language")
     if "publication ready" in lower or "publication-ready" in lower:
         reasons.append("revision implies publication readiness")
+    source_repairs_unresolved = (
+        source_aware_repair_result.repairs_unresolved
+        if source_aware_repair_result is not None
+        else 0
+    )
+    source_used_rejected = (
+        source_aware_repair_result.used_rejected_source
+        if source_aware_repair_result is not None
+        else False
+    )
+    source_used_hard_rejected = (
+        source_aware_repair_result.used_hard_rejected_source
+        if source_aware_repair_result is not None
+        else False
+    )
+    citation_required_items_adjudicated_or_repaired = (
+        source_aware_repair_result.citation_required_items_adjudicated_or_repaired
+        if source_aware_repair_result is not None
+        else True
+    )
+    if source_used_rejected:
+        reasons.append("source-aware repair used a rejected source")
+    if source_used_hard_rejected:
+        reasons.append("source-aware repair used a hard-rejected source")
+    if source_repairs_unresolved:
+        warnings.append(
+            f"source-aware repair left {source_repairs_unresolved} missing citation(s) unresolved"
+        )
     known_preserved = sorted(original_keys & revised_keys & allowed_citations)
     return RevisionSafetyReport(
         run_id=run_id,
@@ -182,6 +222,38 @@ def validate_revision_safety(
         created_or_upgraded_labels=created_or_upgraded,
         mutated_claim_table=False,
         mutated_evidence_map=False,
+        source_aware_missing_citation_repairs_attempted=(
+            source_aware_repair_result.repairs_attempted
+            if source_aware_repair_result is not None
+            else 0
+        ),
+        source_aware_citations_added=(
+            source_aware_repair_result.citations_added
+            if source_aware_repair_result is not None
+            else 0
+        ),
+        source_aware_claims_downgraded=(
+            source_aware_repair_result.claims_downgraded
+            if source_aware_repair_result is not None
+            else 0
+        ),
+        source_aware_claims_removed=(
+            source_aware_repair_result.claims_removed
+            if source_aware_repair_result is not None
+            else 0
+        ),
+        source_aware_repairs_unresolved=(
+            source_repairs_unresolved
+        ),
+        source_aware_repair_used_rejected_source=(
+            source_used_rejected
+        ),
+        source_aware_repair_used_hard_rejected_source=(
+            source_used_hard_rejected
+        ),
+        citation_required_items_adjudicated_or_repaired=(
+            citation_required_items_adjudicated_or_repaired
+        ),
     )
 
 
@@ -218,7 +290,7 @@ def revise_paper_from_run(
             citation_registry=critic.inputs.citation_registry,
             claim_adjudicator=claim_adjudicator,
         )
-        if safe_repair_mode and claim_adjudicator is not None
+        if safe_repair_mode
         else None
     )
     revision_result = apply_safe_fake_revision(
@@ -493,6 +565,45 @@ def _apply_bounded_text_repairs(
     return revised, patches
 
 
+def _source_aware_repair_patches(
+    result: SourceAwareCitationRepairResult,
+) -> list[PaperRevisionPatch]:
+    patches: list[PaperRevisionPatch] = []
+    outcomes = result.outcomes_by_sentence_id or {}
+    keys = result.citation_keys_added_by_sentence_id or {}
+    for sentence_id, outcome in sorted(outcomes.items()):
+        if outcome == "left_unresolved":
+            continue
+        if outcome == "added_accepted_registry_citation":
+            patches.append(
+                _patch(
+                    PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP,
+                    sentence_id,
+                    f"added accepted registry citation {keys.get(sentence_id, '')}".strip(),
+                    "added accepted registry citation for missing source-context support",
+                )
+            )
+        elif outcome == "downgraded_to_boundary_statement":
+            patches.append(
+                _patch(
+                    PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE,
+                    sentence_id,
+                    "rewritten as evidence-boundary statement",
+                    "downgraded unsupported novelty/source-context sentence",
+                )
+            )
+        elif outcome == "removed_unsupported_source_claim":
+            patches.append(
+                _patch(
+                    PaperRevisionActionKind.DOWNGRADE_UNSUPPORTED_CLAIM_LANGUAGE,
+                    sentence_id,
+                    "[sentence removed by source-aware safe repair]",
+                    "removed unsupported citation-required source claim",
+                )
+            )
+    return patches
+
+
 def _ensure_section(
     markdown: str,
     *,
@@ -740,6 +851,30 @@ def _safe_repair_report(
         ),
         "mutated_claim_table": False,
         "mutated_evidence_map": False,
+        "source_aware_missing_citation_repairs_attempted": (
+            revision_result.safety_report.source_aware_missing_citation_repairs_attempted
+        ),
+        "source_aware_citations_added": (
+            revision_result.safety_report.source_aware_citations_added
+        ),
+        "source_aware_claims_downgraded": (
+            revision_result.safety_report.source_aware_claims_downgraded
+        ),
+        "source_aware_claims_removed": (
+            revision_result.safety_report.source_aware_claims_removed
+        ),
+        "source_aware_repairs_unresolved": (
+            revision_result.safety_report.source_aware_repairs_unresolved
+        ),
+        "source_aware_repair_used_rejected_source": (
+            revision_result.safety_report.source_aware_repair_used_rejected_source
+        ),
+        "source_aware_repair_used_hard_rejected_source": (
+            revision_result.safety_report.source_aware_repair_used_hard_rejected_source
+        ),
+        "citation_required_items_adjudicated_or_repaired": (
+            revision_result.safety_report.citation_required_items_adjudicated_or_repaired
+        ),
         "is_verification_evidence": False,
         "creates_scientific_validation": False,
         "implies_publication_readiness": False,

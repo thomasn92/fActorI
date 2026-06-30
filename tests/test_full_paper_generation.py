@@ -264,6 +264,17 @@ def test_safe_repair_writes_hashed_non_evidence_audit_artifact(tmp_path) -> None
     assert payload["after_content_hash"]
     assert payload["invented_citations"] is False
     assert payload["created_or_upgraded_labels"] is False
+    assert payload["source_aware_missing_citation_repairs_attempted"] >= 0
+    assert payload["source_aware_citations_added"] >= 0
+    assert payload["source_aware_claims_downgraded"] >= 0
+    assert payload["source_aware_claims_removed"] >= 0
+    assert payload["source_aware_repairs_unresolved"] >= 0
+    assert payload["source_aware_repair_used_rejected_source"] is False
+    assert payload["source_aware_repair_used_hard_rejected_source"] is False
+    assert payload["citation_required_items_adjudicated_or_repaired"] is True
+    assert payload["creates_scientific_validation"] is False
+    assert payload["implies_publication_readiness"] is False
+    assert payload["is_verification_evidence"] is False
     assert result.artifact_bundle.revised_manuscript_draft_artifact_id == (
         "revised-manuscript-draft"
     )

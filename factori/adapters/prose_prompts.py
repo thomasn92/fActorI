@@ -52,10 +52,14 @@ FORBIDDEN_PROSE_OUTPUTS = [
     "Do not use citations as proof or experiment evidence.",
     "Use accepted registry citations only for bounded background context.",
     "Sources were accepted only as bounded background context after retrieval-quality filtering.",
+    "When accepted registry sources are few, write that they provide bounded background "
+    "context only instead of broad literature claims.",
     "Do not claim the accepted sources exhaust the literature.",
     "Do not claim source relevance proves novelty, correctness, validation, or "
     "publication readiness.",
     "Do not say sources validate, prove, establish novelty, or exhaust the literature.",
+    "If a sentence says citations indicate or sources suggest, include accepted "
+    "registry citation keys in that sentence or do not write the sentence.",
     "Use citations only for background/source-context claims.",
     "Place citations in the same sentence or paragraph as the supported claim.",
     "Do not cite every sentence mechanically.",

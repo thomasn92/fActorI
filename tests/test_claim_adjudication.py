@@ -178,6 +178,21 @@ def test_retrieval_limitations_do_not_require_citation() -> None:
     assert result.requires_citation_reason == "absence_of_evidence_no_citation_required"
 
 
+def test_novelty_and_coverage_boundary_does_not_require_citation() -> None:
+    sentence = (
+        "This draft does not claim novelty or complete literature coverage; "
+        "retrieval metadata is bounded background context only."
+    )
+
+    result = FakeClaimAdjudicator().adjudicate(
+        [_request(sentence, "source_context_claim")]
+    )[0]
+
+    assert result.adjudicated_claim_class == "evidence_boundary_statement"
+    assert result.requires_citation is False
+    assert result.requires_citation_reason == "evidence_boundary_no_citation_required"
+
+
 def test_current_draft_lacks_literature_support_does_not_require_citation() -> None:
     sentence = (
         "The current draft also does not include retrieval-backed literature support, "

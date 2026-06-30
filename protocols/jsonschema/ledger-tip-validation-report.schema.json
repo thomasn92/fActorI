@@ -89,7 +89,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.20.0/ledger-tip-validation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.21.0/ledger-tip-validation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only ledger tip and fork validation report.",
@@ -158,7 +158,7 @@
   ],
   "title": "LedgerTipValidationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.20.0",
+  "x-factori-protocol-version": "0.21.0",
   "x-factori-source-model": "factori.schemas.LedgerTipValidationReport",
   "x-factori-verification-evidence": false
 }

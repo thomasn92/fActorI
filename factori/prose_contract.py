@@ -250,6 +250,8 @@ def build_prose_section_contract(
                 [
                     "Sources were accepted only as bounded background context after "
                     "retrieval-quality filtering.",
+                    "When accepted registry sources are few, write that they provide "
+                    "bounded background context only instead of broad literature claims.",
                     "Do not claim the accepted sources exhaust the literature.",
                     "Do not claim source relevance proves novelty, correctness, "
                     "validation, or publication readiness.",
@@ -259,6 +261,8 @@ def build_prose_section_contract(
             ),
             "Do not say accepted sources validate, prove, establish novelty, or exhaust "
             "the literature.",
+            "If a sentence says citations indicate or sources suggest, include accepted "
+            "registry citation keys in that sentence or do not write the sentence.",
             "Use citations only for background or source-context claims.",
             "Place each citation in the same sentence or paragraph as the claim it supports.",
             "Do not cite sources for claims about this run unless the cited source is "

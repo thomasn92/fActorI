@@ -98,6 +98,11 @@
       "additionalProperties": false,
       "description": "Safety report for a revised manuscript draft; not evidence.",
       "properties": {
+        "citation_required_items_adjudicated_or_repaired": {
+          "default": true,
+          "title": "Citation Required Items Adjudicated Or Repaired",
+          "type": "boolean"
+        },
         "created_or_upgraded_labels": {
           "default": false,
           "title": "Created Or Upgraded Labels",
@@ -162,6 +167,46 @@
           "title": "Safe",
           "type": "boolean"
         },
+        "source_aware_citations_added": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Aware Citations Added",
+          "type": "integer"
+        },
+        "source_aware_claims_downgraded": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Aware Claims Downgraded",
+          "type": "integer"
+        },
+        "source_aware_claims_removed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Aware Claims Removed",
+          "type": "integer"
+        },
+        "source_aware_missing_citation_repairs_attempted": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Aware Missing Citation Repairs Attempted",
+          "type": "integer"
+        },
+        "source_aware_repair_used_hard_rejected_source": {
+          "default": false,
+          "title": "Source Aware Repair Used Hard Rejected Source",
+          "type": "boolean"
+        },
+        "source_aware_repair_used_rejected_source": {
+          "default": false,
+          "title": "Source Aware Repair Used Rejected Source",
+          "type": "boolean"
+        },
+        "source_aware_repairs_unresolved": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Aware Repairs Unresolved",
+          "type": "integer"
+        },
         "warnings": {
           "items": {
             "type": "string"
@@ -179,7 +224,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.20.0/paper-revision-result.schema.json",
+  "$id": "https://schemas.factori.local/0.21.0/paper-revision-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Result of one deterministic fake paper revision pass.",
@@ -290,7 +335,7 @@
   ],
   "title": "PaperRevisionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.20.0",
+  "x-factori-protocol-version": "0.21.0",
   "x-factori-source-model": "factori.schemas.PaperRevisionResult",
   "x-factori-verification-evidence": false
 }

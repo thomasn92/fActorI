@@ -34,8 +34,9 @@ _NEGATED_EXPERIMENT = re.compile(
     re.IGNORECASE,
 )
 _NEGATED_NOVELTY_OR_READINESS = re.compile(
-    r"\b(no|not|without|does not establish|cannot support)\b[^.]{0,80}"
-    r"\b(novelty|publication[- ]ready|publication readiness)\b",
+    r"\b(no|not|without|does not establish|does not claim|do not claim|"
+    r"cannot support)\b[^.]{0,80}"
+    r"\b(novelty|publication[- ]ready|publication readiness|complete literature coverage)\b",
     re.IGNORECASE,
 )
 _NO_CITATION_CURRENT_RUN = re.compile(
@@ -300,6 +301,8 @@ def citation_requirement_for_sentence(
     claim_class: str,
 ) -> tuple[bool, str]:
     """Decide whether a sentence needs local source support."""
+    if _is_negated_boundary(sentence):
+        return False, "evidence_boundary_no_citation_required"
     if _is_current_run_or_absence_statement(sentence):
         text = " ".join(sentence.casefold().split())
         if "scaffold" in text or "problem-framing" in text or "problem framing" in text:
@@ -322,8 +325,6 @@ def citation_requirement_for_sentence(
         ):
             return False, "absence_of_evidence_no_citation_required"
         return False, "current_run_status_no_citation_required"
-    if _is_negated_boundary(sentence):
-        return False, "evidence_boundary_no_citation_required"
     if _POSITIVE_EXTERNAL_CLAIM.search(sentence):
         if claim_class == "external_factual_claim":
             return True, "positive_external_claim"

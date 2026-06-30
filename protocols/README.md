@@ -19,9 +19,13 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.20.0`.
+version is `0.21.0`.
 
-Protocol `0.20.0` adds gated source relevance adjudication fields, LLM budget/accounting fields
+Protocol `0.21.0` adds source-aware missing-citation repair fields to revision safety and
+safe-repair reports. The fields record accepted-registry citation insertion, boundary downgrades,
+sentence removals, unresolved repairs, and rejected-source safety flags without creating evidence
+or publication readiness. Protocol `0.20.0` adds gated source relevance adjudication fields,
+LLM budget/accounting fields
 for source relevance calls, and a `SourceRelevanceAdjudication` contract. Source relevance
 adjudication judges bounded background-context fit only; deterministic code still controls source
 metadata, duplicate, registry, citation-provenance, and evidence-boundary checks. Protocol
@@ -121,7 +125,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.20.0
+  --new-version 0.21.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and
