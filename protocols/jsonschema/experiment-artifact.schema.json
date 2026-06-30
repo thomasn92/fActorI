@@ -1,0 +1,169 @@
+{
+  "$id": "https://schemas.factori.local/0.27.0/experiment-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Local experiment artifact intake record.",
+  "properties": {
+    "artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Artifact Paths",
+      "type": "array"
+    },
+    "claim_ids_or_section_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Claim Ids Or Section Ids",
+      "type": "array"
+    },
+    "code_commit_hash_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Code Commit Hash Optional"
+    },
+    "command_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Command Optional"
+    },
+    "config_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Hash",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "dataset_hash_optional": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dataset Hash Optional"
+    },
+    "dataset_name_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dataset Name Optional"
+    },
+    "experiment_id": {
+      "minLength": 1,
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "experiment_type": {
+      "minLength": 1,
+      "title": "Experiment Type",
+      "type": "string"
+    },
+    "hypothesis_or_question": {
+      "minLength": 1,
+      "title": "Hypothesis Or Question",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "ingested_at": {
+      "minLength": 1,
+      "title": "Ingested At",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "metrics": {
+      "additionalProperties": true,
+      "title": "Metrics",
+      "type": "object"
+    },
+    "result_summary": {
+      "minLength": 1,
+      "title": "Result Summary",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed",
+        "inconclusive",
+        "not_reproducible"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "experiment_id",
+    "experiment_type",
+    "claim_ids_or_section_ids",
+    "hypothesis_or_question",
+    "status",
+    "config_hash",
+    "result_summary",
+    "artifact_paths",
+    "created_at",
+    "ingested_at"
+  ],
+  "title": "ExperimentArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.27.0",
+  "x-factori-source-model": "factori.schemas.ExperimentArtifact",
+  "x-factori-verification-evidence": false
+}

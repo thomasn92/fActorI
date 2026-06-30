@@ -24,6 +24,8 @@ from factori.schemas import (
     CitationUsage,
     Claim,
     ClaimAdjudication,
+    ClaimEvidenceMap,
+    ClaimEvidenceMapLink,
     ClaimSupportAuditReport,
     ClaimSupportItem,
     ClaimTable,
@@ -32,6 +34,7 @@ from factori.schemas import (
     DiagnosticReport,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
+    ExperimentArtifact,
     ExperimentKind,
     ExperimentRunContract,
     ExperimentRunResult,
@@ -114,6 +117,7 @@ from factori.schemas import (
     PipelineRunReport,
     PipelineStageResult,
     PlannedStage,
+    ProofArtifact,
     ProofVerificationContract,
     ProofVerificationResult,
     ProseGenerationParseResult,
@@ -155,7 +159,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.25.0"
+PROTOCOL_VERSION = "0.27.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -332,6 +336,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "Provider-neutral synthetic experiment request contract.",
     ),
     ProtocolDefinition("Claim", Claim, "One label-preserving research claim."),
+    ProtocolDefinition(
+        "ClaimEvidenceMapLink",
+        ClaimEvidenceMapLink,
+        "One final claim-to-evidence support classification.",
+    ),
+    ProtocolDefinition(
+        "ClaimEvidenceMap",
+        ClaimEvidenceMap,
+        "Deterministic final claim-evidence support map.",
+    ),
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
     ProtocolDefinition(
         "CitationRecord",
@@ -655,6 +669,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "HumanReviewArtifact",
         HumanReviewArtifact,
         "Local human-review intake artifact.",
+    ),
+    ProtocolDefinition(
+        "ProofArtifact",
+        ProofArtifact,
+        "Local proof artifact intake record.",
+    ),
+    ProtocolDefinition(
+        "ExperimentArtifact",
+        ExperimentArtifact,
+        "Local experiment artifact intake record.",
     ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(

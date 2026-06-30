@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.25.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.27.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -28,6 +28,35 @@
       "title": "Citation Summary",
       "type": "object"
     },
+    "citation_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Citation Supported Claim Count",
+      "type": "integer"
+    },
+    "claim_evidence_map_present": {
+      "default": false,
+      "title": "Claim Evidence Map Present",
+      "type": "boolean"
+    },
+    "claim_evidence_partial_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Claim Evidence Partial Count",
+      "type": "integer"
+    },
+    "claim_evidence_supported_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Claim Evidence Supported Count",
+      "type": "integer"
+    },
+    "claim_evidence_unsupported_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Claim Evidence Unsupported Count",
+      "type": "integer"
+    },
     "claim_support_status": {
       "minLength": 1,
       "title": "Claim Support Status",
@@ -37,6 +66,12 @@
       "additionalProperties": true,
       "title": "Claim Support Summary",
       "type": "object"
+    },
+    "completed_experiment_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Completed Experiment Count",
+      "type": "integer"
     },
     "creates_scientific_validation": {
       "default": false,
@@ -59,6 +94,42 @@
       },
       "title": "Evidence Gaps",
       "type": "array"
+    },
+    "experiment_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Artifact Count",
+      "type": "integer"
+    },
+    "experiment_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Experiment Artifact Paths",
+      "type": "array"
+    },
+    "experiment_artifacts_present": {
+      "default": false,
+      "title": "Experiment Artifacts Present",
+      "type": "boolean"
+    },
+    "experiment_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Supported Claim Count",
+      "type": "integer"
+    },
+    "failed_experiment_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Failed Experiment Count",
+      "type": "integer"
+    },
+    "formal_verification_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Formal Verification Artifact Count",
+      "type": "integer"
     },
     "human_review_artifact_path": {
       "anyOf": [
@@ -89,6 +160,12 @@
       },
       "title": "Human Review Checklist",
       "type": "array"
+    },
+    "human_review_linked_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Linked Claim Count",
+      "type": "integer"
     },
     "human_review_recommended_next_action": {
       "anyOf": [
@@ -125,6 +202,18 @@
       "title": "Implies Publication Readiness",
       "type": "boolean"
     },
+    "inconclusive_experiment_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Inconclusive Experiment Count",
+      "type": "integer"
+    },
+    "informal_proof_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Informal Proof Artifact Count",
+      "type": "integer"
+    },
     "is_verification_evidence": {
       "default": false,
       "title": "Is Verification Evidence",
@@ -136,6 +225,30 @@
       },
       "title": "Paper Artifact Paths",
       "type": "object"
+    },
+    "proof_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Artifact Count",
+      "type": "integer"
+    },
+    "proof_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Proof Artifact Paths",
+      "type": "array"
+    },
+    "proof_artifacts_present": {
+      "default": false,
+      "title": "Proof Artifacts Present",
+      "type": "boolean"
+    },
+    "proof_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Supported Claim Count",
+      "type": "integer"
     },
     "publication_ready": {
       "default": false,
@@ -168,6 +281,13 @@
       "minLength": 1,
       "title": "Release Status",
       "type": "string"
+    },
+    "remaining_evidence_gaps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Remaining Evidence Gaps",
+      "type": "array"
     },
     "remaining_warnings": {
       "additionalProperties": {
@@ -225,7 +345,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.25.0",
+  "x-factori-protocol-version": "0.27.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

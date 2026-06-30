@@ -8,7 +8,7 @@ from pydantic import Field
 
 from factori.schemas.adapters import GeneratedSectionDraft, ProseSafetyReport, ProseSectionContract
 from factori.schemas.artifacts import ArtifactRef
-from factori.schemas.base import StrictModel
+from factori.schemas.base import HASH_RE, StrictModel
 from factori.schemas.enums import (
     ArtifactType,
     ChecklistCategory,
@@ -510,6 +510,26 @@ class ReviewerBundleSummary(StrictModel):
     human_review_blocking_concern_count: int = Field(default=0, ge=0)
     human_review_requested_change_count: int = Field(default=0, ge=0)
     human_review_recommended_next_action: str | None = None
+    proof_artifacts_present: bool = False
+    proof_artifact_count: int = Field(default=0, ge=0)
+    formal_verification_artifact_count: int = Field(default=0, ge=0)
+    informal_proof_artifact_count: int = Field(default=0, ge=0)
+    proof_artifact_paths: list[str] = Field(default_factory=list)
+    experiment_artifacts_present: bool = False
+    experiment_artifact_count: int = Field(default=0, ge=0)
+    completed_experiment_count: int = Field(default=0, ge=0)
+    inconclusive_experiment_count: int = Field(default=0, ge=0)
+    failed_experiment_count: int = Field(default=0, ge=0)
+    experiment_artifact_paths: list[str] = Field(default_factory=list)
+    remaining_evidence_gaps: list[str] = Field(default_factory=list)
+    claim_evidence_map_present: bool = False
+    claim_evidence_supported_count: int = Field(default=0, ge=0)
+    claim_evidence_partial_count: int = Field(default=0, ge=0)
+    claim_evidence_unsupported_count: int = Field(default=0, ge=0)
+    proof_supported_claim_count: int = Field(default=0, ge=0)
+    experiment_supported_claim_count: int = Field(default=0, ge=0)
+    citation_supported_claim_count: int = Field(default=0, ge=0)
+    human_review_linked_claim_count: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -542,6 +562,129 @@ class HumanReviewArtifact(StrictModel):
     accepted_limitations: list[str] = Field(default_factory=list)
     recommended_next_action: str = Field(min_length=1)
     reviewer_attestation: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ProofArtifact(StrictModel):
+    """Local proof artifact intake record with bounded proof authority."""
+
+    run_id: str = Field(min_length=1)
+    proof_id: str = Field(min_length=1)
+    proof_type: Literal[
+        "lean_verified",
+        "formal_verified",
+        "informal_proof_note",
+        "proof_plan",
+        "external_certificate",
+    ]
+    claim_ids_or_statement_ids: list[str] = Field(min_length=1)
+    statement: str = Field(min_length=1)
+    artifact_path_optional: str | None = None
+    checker_name_optional: str | None = None
+    checker_version_optional: str | None = None
+    checker_status: Literal["not_checked", "passed", "failed", "inconclusive"]
+    checker_log_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    proof_hash: str = Field(pattern=HASH_RE.pattern)
+    review_status: str = Field(min_length=1)
+    limitations: list[str] = Field(default_factory=list)
+    created_at: str = Field(min_length=1)
+    ingested_at: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ExperimentArtifact(StrictModel):
+    """Local experiment artifact intake record with bounded experiment authority."""
+
+    run_id: str = Field(min_length=1)
+    experiment_id: str = Field(min_length=1)
+    experiment_type: str = Field(min_length=1)
+    claim_ids_or_section_ids: list[str] = Field(min_length=1)
+    hypothesis_or_question: str = Field(min_length=1)
+    status: Literal["completed", "failed", "inconclusive", "not_reproducible"]
+    dataset_name_optional: str | None = None
+    dataset_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    config_hash: str = Field(pattern=HASH_RE.pattern)
+    code_commit_hash_optional: str | None = None
+    command_optional: str | None = None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    result_summary: str = Field(min_length=1)
+    artifact_paths: list[str] = Field(min_length=1)
+    limitations: list[str] = Field(default_factory=list)
+    created_at: str = Field(min_length=1)
+    ingested_at: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+ClaimEvidenceSupportType = Literal[
+    "none_required",
+    "citation_background_context",
+    "formal_proof_verification",
+    "informal_proof_context",
+    "experiment_result",
+    "human_review_occurrence",
+    "unsupported",
+]
+
+
+ClaimEvidenceSupportStatus = Literal[
+    "supported_within_scope",
+    "partially_supported",
+    "unsupported",
+    "not_required_scaffold",
+    "blocked_forbidden_claim",
+]
+
+
+ClaimEvidenceClassification = Literal[
+    "citation_supported_background_claim",
+    "proof_supported_claim",
+    "experiment_supported_claim",
+    "human_reviewed_claim",
+    "unsupported_claim",
+    "scaffold_or_boundary_statement",
+]
+
+
+class ClaimEvidenceMapLink(StrictModel):
+    """Deterministic final claim-to-evidence support classification."""
+
+    run_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    claim_text_hash: str = Field(min_length=64, max_length=64)
+    section_name: str = Field(min_length=1)
+    claim_class: str = Field(min_length=1)
+    requires_support: bool
+    support_status: ClaimEvidenceSupportStatus
+    classification: ClaimEvidenceClassification
+    supporting_citation_keys: list[str] = Field(default_factory=list)
+    supporting_source_ids: list[str] = Field(default_factory=list)
+    supporting_proof_artifact_ids: list[str] = Field(default_factory=list)
+    supporting_experiment_artifact_ids: list[str] = Field(default_factory=list)
+    supporting_human_review_ids: list[str] = Field(default_factory=list)
+    support_type: ClaimEvidenceSupportType
+    support_scope: str = Field(min_length=1)
+    unsupported_reason: str | None = None
+    evidence_limitations: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ClaimEvidenceMap(StrictModel):
+    """Final deterministic map from claims to bounded supporting artifacts."""
+
+    run_id: str = Field(min_length=1)
+    links: list[ClaimEvidenceMapLink] = Field(default_factory=list)
+    summary_counts: dict[str, int] = Field(default_factory=dict)
+    unsupported_non_scaffold_claim_ids: list[str] = Field(default_factory=list)
+    evidence_limitations: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
@@ -1244,6 +1387,8 @@ __all__ = [
     "AbstractionAttackReport",
     "FinalNucleus",
     "ClaimEvidenceLink",
+    "ClaimEvidenceMapLink",
+    "ClaimEvidenceMap",
     "Claim",
     "BlockedClaim",
     "ClaimTable",
@@ -1268,6 +1413,8 @@ __all__ = [
     "RevisionSafetyReport",
     "PaperRevisionResult",
     "QualityRepairReport",
+    "ProofArtifact",
+    "ExperimentArtifact",
     "HumanReviewArtifact",
     "ReviewerBundleSummary",
     "FullPaperGenerationConfig",

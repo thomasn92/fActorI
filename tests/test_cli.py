@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from typer.testing import CliRunner
 
@@ -67,6 +68,35 @@ def test_human_review_cli_commands_are_registered() -> None:
     assert "--review-file" in ingest.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
+
+
+def test_evidence_artifact_cli_commands_are_registered() -> None:
+    runner = CliRunner()
+    ingest_proof = runner.invoke(app, ["ingest-proof-artifact", "--help"])
+    inspect_proof = runner.invoke(app, ["inspect-proof-artifacts", "--help"])
+    ingest_experiment = runner.invoke(app, ["ingest-experiment-artifact", "--help"])
+    inspect_experiment = runner.invoke(app, ["inspect-experiment-artifacts", "--help"])
+    build_claim_map = runner.invoke(app, ["build-claim-evidence-map", "--help"])
+    inspect_claim_map = runner.invoke(app, ["inspect-claim-evidence-map", "--help"])
+
+    assert ingest_proof.exit_code == 0, ingest_proof.output
+    assert inspect_proof.exit_code == 0, inspect_proof.output
+    assert ingest_experiment.exit_code == 0, ingest_experiment.output
+    assert inspect_experiment.exit_code == 0, inspect_experiment.output
+    assert build_claim_map.exit_code == 0, build_claim_map.output
+    assert inspect_claim_map.exit_code == 0, inspect_claim_map.output
+    assert "--run-id" in ingest_proof.output
+    assert "--proof-file" in ingest_proof.output
+    assert "--run-id" in inspect_proof.output
+    assert "--json" in inspect_proof.output
+    assert "--run-id" in ingest_experiment.output
+    assert "--experiment-file" in ingest_experiment.output
+    assert "--run-id" in inspect_experiment.output
+    assert "--json" in inspect_experiment.output
+    assert "--run-id" in build_claim_map.output
+    assert "--json" in build_claim_map.output
+    assert "--run-id" in inspect_claim_map.output
+    assert "--json" in inspect_claim_map.output
 
 
 def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
@@ -469,6 +499,208 @@ def test_human_review_intake_and_inspection_cli(tmp_path) -> None:
     assert lint_payload["human_review_status"] == "reviewed_ready_for_evidence_generation"
     assert lint_payload["human_review_blocking_concern_count"] == 0
     assert lint_payload["human_review_requested_change_count"] == 0
+    assert lint_payload["publication_ready"] is False
+
+
+def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
+    run_id = "inspect-evidence-artifacts"
+    _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
+    proof_file = _write_proof_artifact_fixture(tmp_path, run_id=run_id)
+    experiment_file = _write_experiment_artifact_fixture(tmp_path, run_id=run_id)
+    runner = CliRunner()
+
+    proof_ingest = runner.invoke(
+        app,
+        [
+            "ingest-proof-artifact",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--proof-file",
+            str(proof_file),
+            "--json",
+        ],
+    )
+    experiment_ingest = runner.invoke(
+        app,
+        [
+            "ingest-experiment-artifact",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--experiment-file",
+            str(experiment_file),
+            "--json",
+        ],
+    )
+
+    assert proof_ingest.exit_code == 0, proof_ingest.output
+    assert experiment_ingest.exit_code == 0, experiment_ingest.output
+    proof_payload = json.loads(proof_ingest.output)
+    experiment_payload = json.loads(experiment_ingest.output)
+    assert proof_payload["publication_ready"] is False
+    assert proof_payload["is_verification_evidence"] is True
+    assert proof_payload["creates_scientific_validation"] is False
+    assert experiment_payload["publication_ready"] is False
+    assert experiment_payload["is_verification_evidence"] is False
+    assert experiment_payload["creates_scientific_validation"] is False
+
+    claim_map_build = runner.invoke(
+        app,
+        [
+            "build-claim-evidence-map",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    assert claim_map_build.exit_code == 0, claim_map_build.output
+    claim_map_build_payload = json.loads(claim_map_build.output)
+    assert claim_map_build_payload["publication_ready"] is False
+    assert claim_map_build_payload["claim_evidence_map_present"] is True
+
+    inspect_proof_json = runner.invoke(
+        app,
+        [
+            "inspect-proof-artifacts",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_proof_human = runner.invoke(
+        app,
+        ["inspect-proof-artifacts", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    inspect_experiment_json = runner.invoke(
+        app,
+        [
+            "inspect-experiment-artifacts",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_experiment_human = runner.invoke(
+        app,
+        [
+            "inspect-experiment-artifacts",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+        ],
+    )
+    inspect_claim_map_json = runner.invoke(
+        app,
+        [
+            "inspect-claim-evidence-map",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_claim_map_human = runner.invoke(
+        app,
+        ["inspect-claim-evidence-map", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    reviewer_summary = runner.invoke(
+        app,
+        [
+            "inspect-reviewer-summary",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    paper_bundle = runner.invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    lint_result = runner.invoke(
+        app,
+        [
+            "lint-paper-bundle",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert inspect_proof_json.exit_code == 0, inspect_proof_json.output
+    assert inspect_proof_human.exit_code == 0, inspect_proof_human.output
+    assert inspect_experiment_json.exit_code == 0, inspect_experiment_json.output
+    assert inspect_experiment_human.exit_code == 0, inspect_experiment_human.output
+    assert inspect_claim_map_json.exit_code == 0, inspect_claim_map_json.output
+    assert inspect_claim_map_human.exit_code == 0, inspect_claim_map_human.output
+    assert reviewer_summary.exit_code == 0, reviewer_summary.output
+    assert paper_bundle.exit_code == 0, paper_bundle.output
+    assert lint_result.exit_code == 0, lint_result.output
+
+    proof_summary = json.loads(inspect_proof_json.output)
+    assert proof_summary["proof_artifact_count"] == 1
+    assert proof_summary["formal_verification_passed_count"] == 1
+    assert proof_summary["proof_evidence_gap_present"] is False
+    assert "Formal verification artifacts passed: 1" in inspect_proof_human.output
+
+    experiment_summary = json.loads(inspect_experiment_json.output)
+    assert experiment_summary["experiment_artifact_count"] == 1
+    assert experiment_summary["completed_experiment_count"] == 1
+    assert experiment_summary["experiment_evidence_gap_present"] is False
+    assert "Completed experiments: 1" in inspect_experiment_human.output
+
+    claim_map_summary = json.loads(inspect_claim_map_json.output)
+    assert claim_map_summary["claim_evidence_map_present"] is True
+    assert claim_map_summary["proof_supported_claim_count"] >= 1
+    assert claim_map_summary["experiment_supported_claim_count"] >= 0
+    assert claim_map_summary["citation_supported_claim_count"] >= 0
+    assert "Proof-supported claims:" in inspect_claim_map_human.output
+
+    summary = json.loads(reviewer_summary.output)
+    assert summary["proof_artifact_count"] == 1
+    assert summary["formal_verification_artifact_count"] == 1
+    assert summary["experiment_artifact_count"] == 1
+    assert summary["completed_experiment_count"] == 1
+    assert summary["claim_evidence_map_present"] is True
+    assert summary["proof_supported_claim_count"] >= 1
+    assert summary["experiment_supported_claim_count"] >= 0
+    assert summary["publication_ready"] is False
+    assert not any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
+    assert not any(
+        "No completed experiment artifact" in gap for gap in summary["evidence_gaps"]
+    )
+
+    assert "Proof artifacts: 1" in paper_bundle.output
+    assert "Formal verification artifacts passed: 1" in paper_bundle.output
+    assert "Experiment artifacts: 1" in paper_bundle.output
+    assert "Completed experiments: 1" in paper_bundle.output
+    assert "Claim-evidence map: present" in paper_bundle.output
+    assert "Proof-supported claims:" in paper_bundle.output
+
+    lint_payload = json.loads(lint_result.output)
+    assert lint_payload["proof_artifact_count"] == 1
+    assert lint_payload["formal_verification_passed_count"] == 1
+    assert lint_payload["experiment_artifact_count"] == 1
+    assert lint_payload["completed_experiment_count"] == 1
+    assert lint_payload["proof_evidence_gap_present"] is False
+    assert lint_payload["experiment_evidence_gap_present"] is False
+    assert lint_payload["claim_evidence_map_present"] is True
+    assert lint_payload["proof_supported_claim_count"] >= 1
+    assert lint_payload["experiment_supported_claim_count"] >= 0
     assert lint_payload["publication_ready"] is False
 
 
@@ -1121,6 +1353,70 @@ def _write_human_review_fixture(tmp_path, *, run_id: str):
         "is_verification_evidence": False,
     }
     path = tmp_path / "human-review.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_proof_artifact_fixture(tmp_path, *, run_id: str) -> Path:
+    payload = {
+        "run_id": run_id,
+        "proof_id": "lean-proof-passed-cli-001",
+        "proof_type": "lean_verified",
+        "claim_ids_or_statement_ids": [
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
+        ],
+        "statement": "A local checker report is linked for this bounded CLI fixture.",
+        "artifact_path_optional": f"runs/{run_id}/reports/revised-manuscript-draft.md",
+        "checker_name_optional": "fixture-local-checker",
+        "checker_version_optional": "0.1.0",
+        "checker_status": "passed",
+        "checker_log_hash_optional": "2" * 64,
+        "proof_hash": "1" * 64,
+        "review_status": "artifact_scope_not_human_validated",
+        "limitations": [
+            "This CLI fixture records proof-artifact intake only.",
+            "It does not imply novelty, broad correctness, or publication readiness.",
+        ],
+        "created_at": "2026-06-30T00:00:00Z",
+        "ingested_at": "2026-06-30T00:00:00Z",
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": True,
+    }
+    path = tmp_path / "proof-artifact-cli.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_experiment_artifact_fixture(tmp_path, *, run_id: str) -> Path:
+    payload = {
+        "run_id": run_id,
+        "experiment_id": "completed-experiment-cli-001",
+        "experiment_type": "local_synthetic_fixture",
+        "claim_ids_or_section_ids": ["demonstration-status"],
+        "hypothesis_or_question": "Can local CLI intake record a bounded experiment artifact?",
+        "status": "completed",
+        "dataset_name_optional": "fixture-synthetic-dataset",
+        "dataset_hash_optional": "6" * 64,
+        "config_hash": "7" * 64,
+        "code_commit_hash_optional": "abc123fixture",
+        "command_optional": "factori fixture-experiment --local",
+        "metrics": {"fixture_metric": 1.0, "sample_count": 3},
+        "result_summary": (
+            "The local CLI fixture completed and reports bounded metrics for this run only."
+        ),
+        "artifact_paths": [f"runs/{run_id}/reports/revised-manuscript-draft.md"],
+        "limitations": [
+            "This experiment artifact is local to the fixture run.",
+            "It does not imply broad empirical validation or publication readiness.",
+        ],
+        "created_at": "2026-06-30T00:00:00Z",
+        "ingested_at": "2026-06-30T00:00:00Z",
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+    }
+    path = tmp_path / "experiment-artifact-cli.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
 

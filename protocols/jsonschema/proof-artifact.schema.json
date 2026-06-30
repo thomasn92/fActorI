@@ -1,0 +1,161 @@
+{
+  "$id": "https://schemas.factori.local/0.27.0/proof-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Local proof artifact intake record.",
+  "properties": {
+    "artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Artifact Path Optional"
+    },
+    "checker_log_hash_optional": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checker Log Hash Optional"
+    },
+    "checker_name_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checker Name Optional"
+    },
+    "checker_status": {
+      "enum": [
+        "not_checked",
+        "passed",
+        "failed",
+        "inconclusive"
+      ],
+      "title": "Checker Status",
+      "type": "string"
+    },
+    "checker_version_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checker Version Optional"
+    },
+    "claim_ids_or_statement_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Claim Ids Or Statement Ids",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "ingested_at": {
+      "minLength": 1,
+      "title": "Ingested At",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "proof_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Proof Hash",
+      "type": "string"
+    },
+    "proof_id": {
+      "minLength": 1,
+      "title": "Proof Id",
+      "type": "string"
+    },
+    "proof_type": {
+      "enum": [
+        "lean_verified",
+        "formal_verified",
+        "informal_proof_note",
+        "proof_plan",
+        "external_certificate"
+      ],
+      "title": "Proof Type",
+      "type": "string"
+    },
+    "review_status": {
+      "minLength": 1,
+      "title": "Review Status",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "statement": {
+      "minLength": 1,
+      "title": "Statement",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "proof_id",
+    "proof_type",
+    "claim_ids_or_statement_ids",
+    "statement",
+    "checker_status",
+    "proof_hash",
+    "review_status",
+    "created_at",
+    "ingested_at"
+  ],
+  "title": "ProofArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.27.0",
+  "x-factori-source-model": "factori.schemas.ProofArtifact",
+  "x-factori-verification-evidence": false
+}

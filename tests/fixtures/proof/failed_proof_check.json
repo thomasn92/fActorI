@@ -1,0 +1,25 @@
+{
+  "artifact_path_optional": "runs/local-evidence-artifact-intake-smoke-001/reports/revised-manuscript-draft.md",
+  "checker_log_hash_optional": "5555555555555555555555555555555555555555555555555555555555555555",
+  "checker_name_optional": "fixture-lean-checker",
+  "checker_status": "failed",
+  "checker_version_optional": "0.1.0",
+  "claim_ids_or_statement_ids": [
+    "claim-failed-formal-check"
+  ],
+  "created_at": "2026-06-30T00:00:00Z",
+  "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
+  "ingested_at": "2026-06-30T00:00:00Z",
+  "is_verification_evidence": false,
+  "limitations": [
+    "The checker did not pass.",
+    "This artifact leaves the formal proof evidence gap unresolved."
+  ],
+  "proof_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+  "proof_id": "failed-proof-check-001",
+  "proof_type": "lean_verified",
+  "review_status": "accepted_as_failed_check_record",
+  "run_id": "local-evidence-artifact-intake-smoke-001",
+  "statement": "Fixture failed proof-check artifact for a bounded statement."
+}

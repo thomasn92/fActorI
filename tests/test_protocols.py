@@ -7,7 +7,10 @@ from factori.protocols import (
 )
 from factori.schemas import (
     ArtifactRef,
+    ClaimEvidenceMap,
+    ClaimEvidenceMapLink,
     CompleteMarkdownDraft,
+    ExperimentArtifact,
     ExperimentRunContract,
     ExperimentRunResult,
     FullPaperArtifactBundle,
@@ -42,6 +45,7 @@ from factori.schemas import (
     PaperRevisionPlan,
     PaperRevisionResult,
     PipelineStageResult,
+    ProofArtifact,
     ProofVerificationResult,
     ProseGenerationParseResult,
     ProseGenerationRequest,
@@ -67,9 +71,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 151
+    assert len(first) == 155
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.25.0"
+    assert PROTOCOL_VERSION == "0.27.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -118,7 +122,11 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ReviewerBundleSummary").model is (
         ReviewerBundleSummary
     )
+    assert get_protocol_definition("ClaimEvidenceMapLink").model is ClaimEvidenceMapLink
+    assert get_protocol_definition("ClaimEvidenceMap").model is ClaimEvidenceMap
     assert get_protocol_definition("HumanReviewArtifact").model is HumanReviewArtifact
+    assert get_protocol_definition("ProofArtifact").model is ProofArtifact
+    assert get_protocol_definition("ExperimentArtifact").model is ExperimentArtifact
     assert get_protocol_definition("FullPaperGenerationConfig").model is (
         FullPaperGenerationConfig
     )
@@ -211,7 +219,11 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "PaperRevisionResult",
         "FullPaperGenerationConfig",
         "ReviewerBundleSummary",
+        "ClaimEvidenceMapLink",
+        "ClaimEvidenceMap",
         "HumanReviewArtifact",
+        "ProofArtifact",
+        "ExperimentArtifact",
         "FullPaperGenerationStep",
         "FullPaperArtifactBundle",
         "FullPaperGenerationReport",

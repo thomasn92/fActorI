@@ -342,6 +342,9 @@ class ControllerActionType(StrEnum):
     FULL_PAPER_GENERATION_WRITTEN = "FullPaperGenerationWritten"
     FULL_PAPER_RELEASE_EVALUATED = "FullPaperReleaseEvaluated"
     HUMAN_REVIEW_INGESTED = "HumanReviewIngested"
+    PROOF_ARTIFACT_INGESTED = "ProofArtifactIngested"
+    EXPERIMENT_ARTIFACT_INGESTED = "ExperimentArtifactIngested"
+    CLAIM_EVIDENCE_MAP_WRITTEN = "ClaimEvidenceMapWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

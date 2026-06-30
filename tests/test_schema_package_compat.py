@@ -9,8 +9,11 @@ from factori.schemas import (
     ArtifactType,
     BranchStatus,
     Candidate,
+    ClaimEvidenceMap,
+    ClaimEvidenceMapLink,
     CompleteMarkdownDraft,
     DataRequirement,
+    ExperimentArtifact,
     FullPaperGenerationReport,
     HumanReviewArtifact,
     LatexExportResult,
@@ -20,6 +23,7 @@ from factori.schemas import (
     PaperRevisionResult,
     PaperShapeCritique,
     PipelineRunConfig,
+    ProofArtifact,
     QualityRepairReport,
     ReviewerBundleSummary,
     VerificationLabel,
@@ -44,7 +48,11 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert PaperRevisionResult in vars(schemas).values()
     assert QualityRepairReport in vars(schemas).values()
     assert HumanReviewArtifact in vars(schemas).values()
+    assert ProofArtifact in vars(schemas).values()
+    assert ExperimentArtifact in vars(schemas).values()
     assert ReviewerBundleSummary in vars(schemas).values()
+    assert ClaimEvidenceMap in vars(schemas).values()
+    assert ClaimEvidenceMapLink in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -69,7 +77,11 @@ def test_schema_all_contains_expected_public_names() -> None:
         "PaperRevisionResult",
         "QualityRepairReport",
         "HumanReviewArtifact",
+        "ProofArtifact",
+        "ExperimentArtifact",
         "ReviewerBundleSummary",
+        "ClaimEvidenceMap",
+        "ClaimEvidenceMapLink",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -110,4 +122,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 151
+    assert len(get_protocol_definitions()) == 155

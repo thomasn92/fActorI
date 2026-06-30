@@ -17,6 +17,11 @@ from factori.citations import (
     validate_citation_usage,
     write_citation_registry_reports,
 )
+from factori.claim_evidence import (
+    ClaimEvidenceMapError,
+    inspect_claim_evidence_map,
+    persist_claim_evidence_map,
+)
 from factori.commands.artifacts import write_artifact as write_artifact_entry
 from factori.commands.candidates import add_candidate as add_candidate_entry
 from factori.commands.questioner import run_questioner_check
@@ -48,6 +53,13 @@ from factori.diagnostics import (
 )
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
 from factori.dry_run import build_pipeline_dry_run_plan
+from factori.evidence_artifact_intake import (
+    EvidenceArtifactIntakeError,
+    ingest_experiment_artifact,
+    ingest_proof_artifact,
+    inspect_experiment_artifacts,
+    inspect_proof_artifacts,
+)
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
@@ -2331,6 +2343,262 @@ def inspect_human_review_command(
     typer.echo(f"Artifact: {summary.get('human_review_artifact_path')}")
 
 
+@app.command("ingest-proof-artifact")
+def ingest_proof_artifact_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    proof_file: Annotated[Path, typer.Option("--proof-file")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate and persist a local proof artifact without readiness upgrades."""
+    try:
+        result = ingest_proof_artifact(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            proof_file=proof_file,
+        )
+    except EvidenceArtifactIntakeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "proof_artifact": result.proof.model_dump(mode="json"),
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": result.proof.is_verification_evidence,
+        "artifacts": {
+            "proof_artifact": result.proof_artifact.model_dump(mode="json"),
+            "proof_index": result.proof_index_artifact.model_dump(mode="json"),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary_markdown": (
+                result.reviewer_summary_markdown_artifact.model_dump(mode="json")
+            ),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"proof_id={result.proof.proof_id}")
+    typer.echo(f"proof_type={result.proof.proof_type}")
+    typer.echo(f"checker_status={result.proof.checker_status}")
+    typer.echo(
+        "formal_verification_passed="
+        f"{str(result.proof.is_verification_evidence).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo("creates_scientific_validation=false")
+    typer.echo(f"proof_artifact={result.proof_artifact.path}")
+
+
+@app.command("inspect-proof-artifacts")
+def inspect_proof_artifacts_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect persisted proof artifacts without mutation."""
+    try:
+        summary = inspect_proof_artifacts(run_id=run_id, root=root)
+    except EvidenceArtifactIntakeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Proof artifacts: {summary['run_id']}")
+    typer.echo(f"Proof artifact count: {summary['proof_artifact_count']}")
+    typer.echo(
+        "Formal verification artifacts passed: "
+        f"{summary['formal_verification_passed_count']}"
+    )
+    typer.echo(f"Informal proof artifacts: {summary['informal_proof_artifact_count']}")
+    typer.echo(
+        "Proof evidence gap present: "
+        f"{str(summary['proof_evidence_gap_present']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    for path in summary["proof_artifact_paths"]:
+        typer.echo(f"- {path}")
+
+
+@app.command("ingest-experiment-artifact")
+def ingest_experiment_artifact_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    experiment_file: Annotated[Path, typer.Option("--experiment-file")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate and persist a local experiment artifact without readiness upgrades."""
+    try:
+        result = ingest_experiment_artifact(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            experiment_file=experiment_file,
+        )
+    except EvidenceArtifactIntakeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "experiment_artifact": result.experiment.model_dump(mode="json"),
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+        "artifacts": {
+            "experiment_artifact": result.experiment_artifact.model_dump(mode="json"),
+            "experiment_index": result.experiment_index_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary_markdown": (
+                result.reviewer_summary_markdown_artifact.model_dump(mode="json")
+            ),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"experiment_id={result.experiment.experiment_id}")
+    typer.echo(f"experiment_type={result.experiment.experiment_type}")
+    typer.echo(f"experiment_status={result.experiment.status}")
+    typer.echo(f"completed={str(result.experiment.status == 'completed').lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo("creates_scientific_validation=false")
+    typer.echo(f"experiment_artifact={result.experiment_artifact.path}")
+
+
+@app.command("inspect-experiment-artifacts")
+def inspect_experiment_artifacts_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect persisted experiment artifacts without mutation."""
+    try:
+        summary = inspect_experiment_artifacts(run_id=run_id, root=root)
+    except EvidenceArtifactIntakeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Experiment artifacts: {summary['run_id']}")
+    typer.echo(f"Experiment artifact count: {summary['experiment_artifact_count']}")
+    typer.echo(f"Completed experiments: {summary['completed_experiment_count']}")
+    typer.echo(f"Inconclusive experiments: {summary['inconclusive_experiment_count']}")
+    typer.echo(f"Failed experiments: {summary['failed_experiment_count']}")
+    typer.echo(
+        "Experiment evidence gap present: "
+        f"{str(summary['experiment_evidence_gap_present']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    for path in summary["experiment_artifact_paths"]:
+        typer.echo(f"- {path}")
+
+
+@app.command("build-claim-evidence-map")
+def build_claim_evidence_map_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build and persist deterministic scoped evidence-to-claim links."""
+    try:
+        result = persist_claim_evidence_map(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except ClaimEvidenceMapError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "claim_evidence_map": result.claim_evidence_map.model_dump(mode="json"),
+        "claim_evidence_map_present": True,
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+        "artifacts": {
+            "claim_evidence_map": result.map_artifact.model_dump(mode="json"),
+            "claim_evidence_map_markdown": result.markdown_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary_markdown": (
+                result.reviewer_summary_markdown_artifact.model_dump(mode="json")
+            ),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    counts = result.claim_evidence_map.summary_counts
+    typer.echo(f"run_id={run_id}")
+    typer.echo("claim_evidence_map_present=true")
+    typer.echo(f"supported_claims={int(counts.get('supported_within_scope') or 0)}")
+    typer.echo(f"partial_claims={int(counts.get('partially_supported') or 0)}")
+    typer.echo(f"unsupported_claims={int(counts.get('unsupported') or 0)}")
+    typer.echo(
+        "proof_supported_claims="
+        f"{int(counts.get('proof_supported_claim') or 0)}"
+    )
+    typer.echo(
+        "experiment_supported_claims="
+        f"{int(counts.get('experiment_supported_claim') or 0)}"
+    )
+    typer.echo(
+        "citation_supported_claims="
+        f"{int(counts.get('citation_supported_background_claim') or 0)}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"claim_evidence_map={result.map_artifact.path}")
+
+
+@app.command("inspect-claim-evidence-map")
+def inspect_claim_evidence_map_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect a persisted claim-evidence map without mutation."""
+    try:
+        summary = inspect_claim_evidence_map(run_id=run_id, root=root)
+    except ClaimEvidenceMapError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Claim-evidence map: {summary['run_id']}")
+    typer.echo(f"Supported claims: {summary['claim_evidence_supported_count']}")
+    typer.echo(f"Partially supported claims: {summary['claim_evidence_partial_count']}")
+    typer.echo(f"Unsupported claims: {summary['claim_evidence_unsupported_count']}")
+    typer.echo(f"Proof-supported claims: {summary['proof_supported_claim_count']}")
+    typer.echo(
+        f"Experiment-supported claims: {summary['experiment_supported_claim_count']}"
+    )
+    typer.echo(f"Citation-supported claims: {summary['citation_supported_claim_count']}")
+    typer.echo(
+        f"Human-review-linked claims: {summary['human_review_linked_claim_count']}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary.get('claim_evidence_map_path')}")
+
+
 @app.command("run-llm-paper")
 def run_llm_paper_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -2868,6 +3136,51 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Recommended next action: "
         f"{summary.get('human_review_recommended_next_action') or 'none'}"
     )
+    typer.echo(f"Proof artifacts: {int(summary.get('proof_artifact_count') or 0)}")
+    typer.echo(
+        "Formal verification artifacts passed: "
+        f"{int(summary.get('formal_verification_passed_count') or 0)}"
+    )
+    typer.echo(
+        "Experiment artifacts: "
+        f"{int(summary.get('experiment_artifact_count') or 0)}"
+    )
+    typer.echo(
+        "Completed experiments: "
+        f"{int(summary.get('completed_experiment_count') or 0)}"
+    )
+    typer.echo(
+        "Remaining evidence gaps: "
+        f"{int(summary.get('remaining_evidence_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Claim-evidence map: "
+        f"{'present' if summary.get('claim_evidence_map_present') else 'absent'}"
+    )
+    typer.echo(
+        "Supported claims: "
+        f"{int(summary.get('claim_evidence_supported_count') or 0)}"
+    )
+    typer.echo(
+        "Partially supported claims: "
+        f"{int(summary.get('claim_evidence_partial_count') or 0)}"
+    )
+    typer.echo(
+        "Unsupported claims: "
+        f"{int(summary.get('claim_evidence_unsupported_count') or 0)}"
+    )
+    typer.echo(
+        "Proof-supported claims: "
+        f"{int(summary.get('proof_supported_claim_count') or 0)}"
+    )
+    typer.echo(
+        "Experiment-supported claims: "
+        f"{int(summary.get('experiment_supported_claim_count') or 0)}"
+    )
+    typer.echo(
+        "Citation-supported claims: "
+        f"{int(summary.get('citation_supported_claim_count') or 0)}"
+    )
     typer.echo(
         "Quality repair backend: "
         f"{summary.get('quality_repair_backend') or 'off'}"
@@ -3020,6 +3333,22 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
             "reviewer summary after human review",
             "reviewer_bundle_summary_after_human_review_json",
         )
+        _echo_named_artifact(
+            artifacts,
+            "reviewer summary after evidence artifacts",
+            "reviewer_bundle_summary_after_evidence_artifacts_json",
+        )
+        _echo_named_artifact(
+            artifacts,
+            "reviewer summary after claim evidence map",
+            "reviewer_bundle_summary_after_claim_evidence_map_json",
+        )
+        _echo_named_artifact(artifacts, "claim-evidence map", "claim_evidence_map")
+        _echo_named_artifact(
+            artifacts,
+            "claim-evidence map markdown",
+            "claim_evidence_map_markdown",
+        )
         _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
         _echo_named_artifact(
             artifacts,
@@ -3099,6 +3428,47 @@ def _print_reviewer_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Recommended next action: "
         f"{summary.get('human_review_recommended_next_action') or 'none'}"
+    )
+    typer.echo(f"Proof artifacts: {int(summary.get('proof_artifact_count') or 0)}")
+    typer.echo(
+        "Formal verification artifacts passed: "
+        f"{int(summary.get('formal_verification_artifact_count') or 0)}"
+    )
+    typer.echo(
+        "Experiment artifacts: "
+        f"{int(summary.get('experiment_artifact_count') or 0)}"
+    )
+    typer.echo(
+        "Completed experiments: "
+        f"{int(summary.get('completed_experiment_count') or 0)}"
+    )
+    typer.echo(
+        "Claim-evidence map: "
+        f"{'present' if summary.get('claim_evidence_map_present') else 'absent'}"
+    )
+    typer.echo(
+        "Supported claims: "
+        f"{int(summary.get('claim_evidence_supported_count') or 0)}"
+    )
+    typer.echo(
+        "Partially supported claims: "
+        f"{int(summary.get('claim_evidence_partial_count') or 0)}"
+    )
+    typer.echo(
+        "Unsupported claims: "
+        f"{int(summary.get('claim_evidence_unsupported_count') or 0)}"
+    )
+    typer.echo(
+        "Proof-supported claims: "
+        f"{int(summary.get('proof_supported_claim_count') or 0)}"
+    )
+    typer.echo(
+        "Experiment-supported claims: "
+        f"{int(summary.get('experiment_supported_claim_count') or 0)}"
+    )
+    typer.echo(
+        "Citation-supported claims: "
+        f"{int(summary.get('citation_supported_claim_count') or 0)}"
     )
     typer.echo(f"Evidence gaps: {len(evidence_gaps)}")
     for gap in evidence_gaps:

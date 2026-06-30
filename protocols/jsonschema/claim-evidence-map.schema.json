@@ -1,0 +1,231 @@
+{
+  "$defs": {
+    "ClaimEvidenceMapLink": {
+      "additionalProperties": false,
+      "description": "Deterministic final claim-to-evidence support classification.",
+      "properties": {
+        "claim_class": {
+          "minLength": 1,
+          "title": "Claim Class",
+          "type": "string"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_text_hash": {
+          "maxLength": 64,
+          "minLength": 64,
+          "title": "Claim Text Hash",
+          "type": "string"
+        },
+        "classification": {
+          "enum": [
+            "citation_supported_background_claim",
+            "proof_supported_claim",
+            "experiment_supported_claim",
+            "human_reviewed_claim",
+            "unsupported_claim",
+            "scaffold_or_boundary_statement"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Limitations",
+          "type": "array"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "requires_support": {
+          "title": "Requires Support",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "section_name": {
+          "minLength": 1,
+          "title": "Section Name",
+          "type": "string"
+        },
+        "support_scope": {
+          "minLength": 1,
+          "title": "Support Scope",
+          "type": "string"
+        },
+        "support_status": {
+          "enum": [
+            "supported_within_scope",
+            "partially_supported",
+            "unsupported",
+            "not_required_scaffold",
+            "blocked_forbidden_claim"
+          ],
+          "title": "Support Status",
+          "type": "string"
+        },
+        "support_type": {
+          "enum": [
+            "none_required",
+            "citation_background_context",
+            "formal_proof_verification",
+            "informal_proof_context",
+            "experiment_result",
+            "human_review_occurrence",
+            "unsupported"
+          ],
+          "title": "Support Type",
+          "type": "string"
+        },
+        "supporting_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Citation Keys",
+          "type": "array"
+        },
+        "supporting_experiment_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Experiment Artifact Ids",
+          "type": "array"
+        },
+        "supporting_human_review_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Human Review Ids",
+          "type": "array"
+        },
+        "supporting_proof_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Proof Artifact Ids",
+          "type": "array"
+        },
+        "supporting_source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Source Ids",
+          "type": "array"
+        },
+        "unsupported_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unsupported Reason"
+        }
+      },
+      "required": [
+        "run_id",
+        "claim_id",
+        "claim_text_hash",
+        "section_name",
+        "claim_class",
+        "requires_support",
+        "support_status",
+        "classification",
+        "support_type",
+        "support_scope"
+      ],
+      "title": "ClaimEvidenceMapLink",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.27.0/claim-evidence-map.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic final claim-evidence support map.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Limitations",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "links": {
+      "items": {
+        "$ref": "#/$defs/ClaimEvidenceMapLink"
+      },
+      "title": "Links",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "summary_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Summary Counts",
+      "type": "object"
+    },
+    "unsupported_non_scaffold_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsupported Non Scaffold Claim Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "ClaimEvidenceMap",
+  "type": "object",
+  "x-factori-protocol-version": "0.27.0",
+  "x-factori-source-model": "factori.schemas.ClaimEvidenceMap",
+  "x-factori-verification-evidence": false
+}

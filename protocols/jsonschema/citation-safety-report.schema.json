@@ -40,7 +40,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.25.0/citation-safety-report.schema.json",
+  "$id": "https://schemas.factori.local/0.27.0/citation-safety-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Citation-safety report for manuscript drafts.",
@@ -174,7 +174,7 @@
   ],
   "title": "CitationSafetyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.25.0",
+  "x-factori-protocol-version": "0.27.0",
   "x-factori-source-model": "factori.schemas.CitationSafetyReport",
   "x-factori-verification-evidence": false
 }

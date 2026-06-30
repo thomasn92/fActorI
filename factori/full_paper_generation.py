@@ -18,6 +18,10 @@ from factori.citations import (
     write_citation_registry_reports,
 )
 from factori.claim_adjudication import ClaimAdjudicator
+from factori.claim_evidence import (
+    claim_evidence_summary_fields,
+    latest_claim_evidence_map_path,
+)
 from factori.latex_export import (
     LatexExportError,
     LatexExportRunResult,
@@ -47,8 +51,10 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     CitationRegistry,
+    ClaimEvidenceMap,
     ClaimSupportAuditReport,
     ControllerActionType,
+    ExperimentArtifact,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -59,6 +65,7 @@ from factori.schemas import (
     FullPaperReleaseReport,
     HumanReviewArtifact,
     PaperCriticReport,
+    ProofArtifact,
     QualityRepairReport,
     RerunPolicy,
     RetrievalQualityReport,
@@ -688,6 +695,22 @@ def inspect_paper_bundle_summary(
         paths["quality_repair_report"]
     )
     human_review_artifact = _read_human_review_artifact(paths["human_review_artifact"])
+    proof_artifacts = _read_proof_artifacts(run_path)
+    experiment_artifacts = _read_experiment_artifacts(run_path)
+    proof_summary = _proof_artifact_summary(
+        run_id=run_id,
+        root_path=root_path,
+        run_path=run_path,
+        proof_artifacts=proof_artifacts,
+    )
+    experiment_summary = _experiment_artifact_summary(
+        run_id=run_id,
+        root_path=root_path,
+        run_path=run_path,
+        experiment_artifacts=experiment_artifacts,
+    )
+    claim_evidence_map = _read_claim_evidence_map(paths["claim_evidence_map"])
+    claim_evidence_summary = claim_evidence_summary_fields(claim_evidence_map)
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
     markdown = (
         primary_draft.read_text(encoding="utf-8")
@@ -789,8 +812,66 @@ def inspect_paper_bundle_summary(
             if human_review_artifact is not None
             else None
         ),
+        "proof_artifacts_present": bool(proof_artifacts),
+        "proof_artifact_count": proof_summary["proof_artifact_count"],
+        "formal_verification_passed_count": proof_summary[
+            "formal_verification_passed_count"
+        ],
+        "informal_proof_artifact_count": proof_summary[
+            "informal_proof_artifact_count"
+        ],
+        "proof_artifact_paths": proof_summary["proof_artifact_paths"],
+        "experiment_artifacts_present": bool(experiment_artifacts),
+        "experiment_artifact_count": experiment_summary["experiment_artifact_count"],
+        "completed_experiment_count": experiment_summary["completed_experiment_count"],
+        "inconclusive_experiment_count": experiment_summary[
+            "inconclusive_experiment_count"
+        ],
+        "failed_experiment_count": experiment_summary["failed_experiment_count"],
+        "experiment_artifact_paths": experiment_summary["experiment_artifact_paths"],
+        "proof_evidence_gap_present": (
+            proof_summary["formal_verification_passed_count"] == 0
+        ),
+        "experiment_evidence_gap_present": (
+            experiment_summary["completed_experiment_count"] == 0
+        ),
+        "claim_evidence_map_present": claim_evidence_map is not None,
+        "claim_evidence_map_path": (
+            paths["claim_evidence_map"].relative_to(root_path).as_posix()
+            if claim_evidence_map is not None
+            else None
+        ),
+        "claim_evidence_map_markdown_path": (
+            paths["claim_evidence_map_markdown"].relative_to(root_path).as_posix()
+            if paths["claim_evidence_map_markdown"].is_file()
+            else None
+        ),
+        "claim_evidence_supported_count": claim_evidence_summary[
+            "claim_evidence_supported_count"
+        ],
+        "claim_evidence_partial_count": claim_evidence_summary[
+            "claim_evidence_partial_count"
+        ],
+        "claim_evidence_unsupported_count": claim_evidence_summary[
+            "claim_evidence_unsupported_count"
+        ],
+        "proof_supported_claim_count": claim_evidence_summary[
+            "proof_supported_claim_count"
+        ],
+        "experiment_supported_claim_count": claim_evidence_summary[
+            "experiment_supported_claim_count"
+        ],
+        "citation_supported_claim_count": claim_evidence_summary[
+            "citation_supported_claim_count"
+        ],
+        "human_review_linked_claim_count": claim_evidence_summary[
+            "human_review_linked_claim_count"
+        ],
         "reviewer_bundle_summary_exists": (
             paths["reviewer_bundle_summary_json"].is_file()
+        ),
+        "reviewer_bundle_summary_after_evidence_artifacts_exists": (
+            paths["reviewer_bundle_summary_after_evidence_artifacts_json"].is_file()
         ),
         "reviewer_bundle_summary_after_human_review_exists": (
             paths["reviewer_bundle_summary_after_human_review_json"].is_file()
@@ -803,6 +884,11 @@ def inspect_paper_bundle_summary(
             "present" if reviewer_bundle_summary is not None else "absent"
         ),
         "reviewer_summary_evidence_gap_count": (
+            len(reviewer_bundle_summary.evidence_gaps)
+            if reviewer_bundle_summary is not None
+            else 0
+        ),
+        "remaining_evidence_gap_count": (
             len(reviewer_bundle_summary.evidence_gaps)
             if reviewer_bundle_summary is not None
             else 0
@@ -1670,6 +1756,56 @@ def lint_paper_bundle_summary(
         "human_review_recommended_next_action": bundle.get(
             "human_review_recommended_next_action"
         ),
+        "proof_artifact_count": int(bundle.get("proof_artifact_count") or 0),
+        "formal_verification_passed_count": int(
+            bundle.get("formal_verification_passed_count") or 0
+        ),
+        "informal_proof_artifact_count": int(
+            bundle.get("informal_proof_artifact_count") or 0
+        ),
+        "experiment_artifact_count": int(
+            bundle.get("experiment_artifact_count") or 0
+        ),
+        "completed_experiment_count": int(
+            bundle.get("completed_experiment_count") or 0
+        ),
+        "inconclusive_experiment_count": int(
+            bundle.get("inconclusive_experiment_count") or 0
+        ),
+        "failed_experiment_count": int(bundle.get("failed_experiment_count") or 0),
+        "remaining_evidence_gap_count": int(
+            bundle.get("reviewer_summary_evidence_gap_count") or 0
+        ),
+        "proof_evidence_gap_present": bool(
+            bundle.get("proof_evidence_gap_present")
+        ),
+        "experiment_evidence_gap_present": bool(
+            bundle.get("experiment_evidence_gap_present")
+        ),
+        "claim_evidence_map_present": bool(
+            bundle.get("claim_evidence_map_present")
+        ),
+        "claim_evidence_supported_count": int(
+            bundle.get("claim_evidence_supported_count") or 0
+        ),
+        "claim_evidence_partial_count": int(
+            bundle.get("claim_evidence_partial_count") or 0
+        ),
+        "claim_evidence_unsupported_count": int(
+            bundle.get("claim_evidence_unsupported_count") or 0
+        ),
+        "proof_supported_claim_count": int(
+            bundle.get("proof_supported_claim_count") or 0
+        ),
+        "experiment_supported_claim_count": int(
+            bundle.get("experiment_supported_claim_count") or 0
+        ),
+        "citation_supported_claim_count": int(
+            bundle.get("citation_supported_claim_count") or 0
+        ),
+        "human_review_linked_claim_count": int(
+            bundle.get("human_review_linked_claim_count") or 0
+        ),
         "citation_registry_present": citation_registry_present,
         "citation_registry_source_count": citation_registry_source_count,
         "citation_registry_sources_all_accepted": (
@@ -1808,6 +1944,42 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "reviewer_bundle_summary_after_human_review_markdown": run_path
         / "reports"
         / "reviewer-bundle-summary-after-human-review.md",
+        "reviewer_bundle_summary_after_evidence_artifacts_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-evidence-artifacts-*.json",
+                "reviewer-bundle-summary-after-evidence-artifacts-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_evidence_artifacts_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-evidence-artifacts-*.md",
+                "reviewer-bundle-summary-after-evidence-artifacts-0000.md",
+            )
+        ),
+        "reviewer_bundle_summary_after_claim_evidence_map_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-claim-evidence-map-*.json",
+                "reviewer-bundle-summary-after-claim-evidence-map-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_claim_evidence_map_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-claim-evidence-map-*.md",
+                "reviewer-bundle-summary-after-claim-evidence-map-0000.md",
+            )
+        ),
+        "claim_evidence_map": (
+            latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
+            or run_path / "reports" / "claim-evidence-map.json"
+        ),
+        "claim_evidence_map_markdown": (
+            _latest_claim_evidence_markdown_path(run_path)
+            or run_path / "reports" / "claim-evidence-map.md"
+        ),
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
         "retrieval_quality_report": run_path
         / "reports"
@@ -1864,6 +2036,49 @@ def _read_human_review_artifact(path: Path) -> HumanReviewArtifact | None:
         return None
 
 
+def _read_proof_artifacts(run_path: Path) -> list[ProofArtifact]:
+    reports = run_path / "reports"
+    proofs: list[ProofArtifact] = []
+    for path in sorted(reports.glob("proof-artifact-*.json")):
+        if path.name.startswith("proof-artifact-index-") or path.name.endswith(
+            ".meta.json"
+        ):
+            continue
+        try:
+            proofs.append(
+                ProofArtifact.model_validate_json(path.read_text(encoding="utf-8"))
+            )
+        except ValueError:
+            continue
+    return sorted(proofs, key=lambda item: item.proof_id)
+
+
+def _read_experiment_artifacts(run_path: Path) -> list[ExperimentArtifact]:
+    reports = run_path / "reports"
+    experiments: list[ExperimentArtifact] = []
+    for path in sorted(reports.glob("experiment-artifact-*.json")):
+        if path.name.startswith("experiment-artifact-index-") or path.name.endswith(
+            ".meta.json"
+        ):
+            continue
+        try:
+            experiments.append(
+                ExperimentArtifact.model_validate_json(path.read_text(encoding="utf-8"))
+            )
+        except ValueError:
+            continue
+    return sorted(experiments, key=lambda item: item.experiment_id)
+
+
+def _read_claim_evidence_map(path: Path) -> ClaimEvidenceMap | None:
+    if not path.is_file():
+        return None
+    try:
+        return ClaimEvidenceMap.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
 def _read_reviewer_bundle_summary(path: Path) -> ReviewerBundleSummary | None:
     if not path.is_file():
         return None
@@ -1877,8 +2092,42 @@ def _read_preferred_reviewer_bundle_summary(
     paths: dict[str, Path],
 ) -> ReviewerBundleSummary | None:
     return _read_reviewer_bundle_summary(
+        paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
+    ) or _read_reviewer_bundle_summary(
+        paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
+    ) or _read_reviewer_bundle_summary(
         paths["reviewer_bundle_summary_after_human_review_json"]
     ) or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_json"])
+
+
+def _latest_report_path(run_path: Path, pattern: str, default_name: str) -> Path:
+    matches = sorted(
+        path
+        for path in (run_path / "reports").glob(pattern)
+        if not path.name.endswith(".meta.json")
+    )
+    return matches[-1] if matches else run_path / "reports" / default_name
+
+
+def _latest_claim_evidence_markdown_path(run_path: Path) -> Path | None:
+    reports = run_path / "reports"
+    matches = [
+        path
+        for path in reports.glob("claim-evidence-map*.md")
+        if not path.name.endswith(".meta.json")
+    ]
+    if not matches:
+        return None
+    return sorted(matches, key=_claim_evidence_markdown_sort_key)[-1]
+
+
+def _claim_evidence_markdown_sort_key(path: Path) -> tuple[int, str]:
+    if path.name == "claim-evidence-map.md":
+        return (0, path.name)
+    match = re.match(r"claim-evidence-map-(\d+)\.md$", path.name)
+    if match:
+        return (int(match.group(1)), path.name)
+    return (-1, path.name)
 
 
 def build_reviewer_bundle_summary(
@@ -1887,6 +2136,11 @@ def build_reviewer_bundle_summary(
     root: str | Path = ".",
     release_report: FullPaperReleaseReport | None = None,
     human_review_artifact: HumanReviewArtifact | None = None,
+    additional_proof_artifacts: list[ProofArtifact] | None = None,
+    additional_proof_artifact_paths: list[str] | None = None,
+    additional_experiment_artifacts: list[ExperimentArtifact] | None = None,
+    additional_experiment_artifact_paths: list[str] | None = None,
+    claim_evidence_map: ClaimEvidenceMap | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -1898,6 +2152,32 @@ def build_reviewer_bundle_summary(
         paths["human_review_artifact"]
     )
     human_review_present = _human_review_counts_as_present(human_review)
+    proof_artifacts = _merge_proof_artifacts(
+        _read_proof_artifacts(run_path),
+        additional_proof_artifacts or [],
+    )
+    experiment_artifacts = _merge_experiment_artifacts(
+        _read_experiment_artifacts(run_path),
+        additional_experiment_artifacts or [],
+    )
+    proof_summary = _proof_artifact_summary(
+        run_id=run_id,
+        root_path=root_path,
+        run_path=run_path,
+        proof_artifacts=proof_artifacts,
+        additional_paths=additional_proof_artifact_paths,
+    )
+    experiment_summary = _experiment_artifact_summary(
+        run_id=run_id,
+        root_path=root_path,
+        run_path=run_path,
+        experiment_artifacts=experiment_artifacts,
+        additional_paths=additional_experiment_artifact_paths,
+    )
+    claim_map = claim_evidence_map or _read_claim_evidence_map(
+        paths["claim_evidence_map"]
+    )
+    claim_evidence_summary = claim_evidence_summary_fields(claim_map)
     release_status = (
         release_report.decision.status.value
         if release_report is not None
@@ -1915,6 +2195,9 @@ def build_reviewer_bundle_summary(
         lint=lint,
         release_warnings=release_warnings,
         human_review=human_review,
+        proof_summary=proof_summary,
+        experiment_summary=experiment_summary,
+        claim_evidence_summary=claim_evidence_summary,
     )
     blocking_issues = sorted(
         set(
@@ -1935,6 +2218,12 @@ def build_reviewer_bundle_summary(
         else "needs_review"
     )
     source_relevance_status = _reviewer_source_relevance_status(lint)
+    evidence_gaps = _reviewer_evidence_gaps(
+        human_review_present,
+        proof_summary,
+        experiment_summary,
+        claim_evidence_summary,
+    )
     return ReviewerBundleSummary(
         run_id=run_id,
         release_status=release_status,
@@ -1952,8 +2241,12 @@ def build_reviewer_bundle_summary(
         audit_artifact_paths=audit_paths,
         remaining_warnings=warning_summary,
         blocking_issues=blocking_issues,
-        evidence_boundaries=_reviewer_evidence_boundaries(human_review_present),
-        evidence_gaps=_reviewer_evidence_gaps(human_review_present),
+        evidence_boundaries=_reviewer_evidence_boundaries(
+            human_review_present,
+            proof_summary,
+            experiment_summary,
+        ),
+        evidence_gaps=evidence_gaps,
         source_limitations=_reviewer_source_limitations(lint),
         claim_support_summary=_reviewer_claim_support_summary(lint),
         citation_summary=_reviewer_citation_summary(lint),
@@ -1975,8 +2268,56 @@ def build_reviewer_bundle_summary(
         human_review_recommended_next_action=(
             human_review.recommended_next_action if human_review else None
         ),
+        proof_artifacts_present=proof_summary["proof_artifact_count"] > 0,
+        proof_artifact_count=proof_summary["proof_artifact_count"],
+        formal_verification_artifact_count=proof_summary[
+            "formal_verification_passed_count"
+        ],
+        informal_proof_artifact_count=proof_summary[
+            "informal_proof_artifact_count"
+        ],
+        proof_artifact_paths=proof_summary["proof_artifact_paths"],
+        experiment_artifacts_present=(
+            experiment_summary["experiment_artifact_count"] > 0
+        ),
+        experiment_artifact_count=experiment_summary["experiment_artifact_count"],
+        completed_experiment_count=experiment_summary["completed_experiment_count"],
+        inconclusive_experiment_count=experiment_summary[
+            "inconclusive_experiment_count"
+        ],
+        failed_experiment_count=experiment_summary["failed_experiment_count"],
+        experiment_artifact_paths=experiment_summary["experiment_artifact_paths"],
+        remaining_evidence_gaps=evidence_gaps,
+        claim_evidence_map_present=claim_evidence_summary[
+            "claim_evidence_map_present"
+        ],
+        claim_evidence_supported_count=claim_evidence_summary[
+            "claim_evidence_supported_count"
+        ],
+        claim_evidence_partial_count=claim_evidence_summary[
+            "claim_evidence_partial_count"
+        ],
+        claim_evidence_unsupported_count=claim_evidence_summary[
+            "claim_evidence_unsupported_count"
+        ],
+        proof_supported_claim_count=claim_evidence_summary[
+            "proof_supported_claim_count"
+        ],
+        experiment_supported_claim_count=claim_evidence_summary[
+            "experiment_supported_claim_count"
+        ],
+        citation_supported_claim_count=claim_evidence_summary[
+            "citation_supported_claim_count"
+        ],
+        human_review_linked_claim_count=claim_evidence_summary[
+            "human_review_linked_claim_count"
+        ],
         human_review_checklist=_reviewer_human_review_checklist(),
-        recommended_next_actions=_reviewer_recommended_next_actions(human_review),
+        recommended_next_actions=_reviewer_recommended_next_actions(
+            human_review,
+            proof_summary,
+            experiment_summary,
+        ),
         creates_scientific_validation=False,
         implies_publication_readiness=False,
         is_verification_evidence=False,
@@ -2017,6 +2358,27 @@ def render_reviewer_bundle_summary_markdown(
             "Human-review recommended next action: "
             f"`{summary.human_review_recommended_next_action or 'none'}`"
         ),
+        f"Proof artifacts: `{summary.proof_artifact_count}`",
+        (
+            "Formal verification artifacts passed: "
+            f"`{summary.formal_verification_artifact_count}`"
+        ),
+        f"Informal proof artifacts: `{summary.informal_proof_artifact_count}`",
+        f"Experiment artifacts: `{summary.experiment_artifact_count}`",
+        f"Completed experiments: `{summary.completed_experiment_count}`",
+        f"Inconclusive experiments: `{summary.inconclusive_experiment_count}`",
+        f"Failed experiments: `{summary.failed_experiment_count}`",
+        (
+            "Claim-evidence map: "
+            f"`{'present' if summary.claim_evidence_map_present else 'absent'}`"
+        ),
+        f"Supported claims: `{summary.claim_evidence_supported_count}`",
+        f"Partially supported claims: `{summary.claim_evidence_partial_count}`",
+        f"Unsupported claims: `{summary.claim_evidence_unsupported_count}`",
+        f"Proof-supported claims: `{summary.proof_supported_claim_count}`",
+        f"Experiment-supported claims: `{summary.experiment_supported_claim_count}`",
+        f"Citation-supported claims: `{summary.citation_supported_claim_count}`",
+        f"Human-review-linked claims: `{summary.human_review_linked_claim_count}`",
         "",
         "## Remaining Warnings",
     ]
@@ -2037,6 +2399,10 @@ def render_reviewer_bundle_summary_markdown(
         lines.extend(f"- {item}" for item in items)
     lines.extend(["", "## Evidence Gaps"])
     lines.extend(f"- {gap}" for gap in summary.evidence_gaps)
+    lines.extend(["", "## Proof Artifacts"])
+    lines.extend(f"- {path}" for path in summary.proof_artifact_paths or ["none"])
+    lines.extend(["", "## Experiment Artifacts"])
+    lines.extend(f"- {path}" for path in summary.experiment_artifact_paths or ["none"])
     lines.extend(["", "## Source Limitations"])
     lines.extend(f"- {item}" for item in summary.source_limitations)
     lines.extend(["", "## Human Review Checklist"])
@@ -2074,12 +2440,20 @@ def inspect_reviewer_bundle_summary(
         )
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_human_review_json"]
+        paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
+        if paths["reviewer_bundle_summary_after_claim_evidence_map_json"].is_file()
+        else paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
+        if paths["reviewer_bundle_summary_after_evidence_artifacts_json"].is_file()
+        else paths["reviewer_bundle_summary_after_human_review_json"]
         if paths["reviewer_bundle_summary_after_human_review_json"].is_file()
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_human_review_markdown"]
+        paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"]
+        if paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_evidence_artifacts_markdown"]
+        if paths["reviewer_bundle_summary_after_evidence_artifacts_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_human_review_markdown"]
         if paths["reviewer_bundle_summary_after_human_review_markdown"].is_file()
         else paths["reviewer_bundle_summary_markdown"]
     )
@@ -2093,6 +2467,9 @@ def _reviewer_remaining_warnings(
     lint: dict[str, Any],
     release_warnings: list[str],
     human_review: HumanReviewArtifact | None,
+    proof_summary: dict[str, Any],
+    experiment_summary: dict[str, Any],
+    claim_evidence_summary: dict[str, int | bool],
 ) -> dict[str, list[str]]:
     all_warnings = sorted(
         set(list(lint.get("quality_warning_reasons") or []) + release_warnings)
@@ -2113,6 +2490,10 @@ def _reviewer_remaining_warnings(
         claim_warnings.append("Forbidden proof, experiment, novelty, or readiness claims remain.")
     if int(lint.get("claim_support_scope_mismatch_count") or 0):
         claim_warnings.append("Some citations do not match claim-support scope.")
+    if int(claim_evidence_summary.get("claim_evidence_unsupported_count") or 0):
+        claim_warnings.append(
+            "One or more non-scaffold claims lack a compatible scoped evidence link."
+        )
     citation_warnings: list[str] = []
     if list(lint.get("unregistered_citation_keys") or []):
         citation_warnings.append("Unregistered citation keys are present.")
@@ -2132,12 +2513,30 @@ def _reviewer_remaining_warnings(
         human_review_warnings.append("Human review recorded blocking concerns.")
     if human_review and human_review.requested_changes:
         human_review_warnings.append("Human review requested manuscript or evidence changes.")
+    evidence_artifact_warnings: list[str] = []
+    if int(proof_summary.get("failed_or_inconclusive_proof_artifact_count") or 0):
+        evidence_artifact_warnings.append(
+            "One or more proof artifacts failed, were inconclusive, or were not checked."
+        )
+    if int(proof_summary.get("proof_artifact_count") or 0) and not int(
+        proof_summary.get("formal_verification_passed_count") or 0
+    ):
+        evidence_artifact_warnings.append(
+            "Proof artifacts are present, but no formal verification artifact passed."
+        )
+    if int(experiment_summary.get("inconclusive_experiment_count") or 0):
+        evidence_artifact_warnings.append(
+            "One or more experiment artifacts are inconclusive."
+        )
+    if int(experiment_summary.get("failed_experiment_count") or 0):
+        evidence_artifact_warnings.append("One or more experiment artifacts failed.")
     return {
         "retrieval_source_boundary_warnings": retrieval_warnings,
         "quality_depth_warnings": quality_warnings,
         "claim_support_warnings": sorted(set(claim_warnings)),
         "citation_warnings": sorted(set(citation_warnings)),
         "human_review_warnings": sorted(set(human_review_warnings)),
+        "evidence_artifact_warnings": sorted(set(evidence_artifact_warnings)),
         "release_warnings": sorted(set(release_warnings_only)),
     }
 
@@ -2197,6 +2596,8 @@ def _reviewer_audit_artifact_paths(
         "retrieval_quality_report",
         "citation_registry",
         "claim_support_audit",
+        "claim_evidence_map",
+        "claim_evidence_map_markdown",
         "human_review_artifact",
         "human_review_summary",
     )
@@ -2260,18 +2661,163 @@ def _human_review_counts_as_present(review: HumanReviewArtifact | None) -> bool:
     )
 
 
+def _proof_artifact_summary(
+    *,
+    run_id: str,
+    root_path: Path,
+    run_path: Path,
+    proof_artifacts: list[ProofArtifact],
+    additional_paths: list[str] | None = None,
+) -> dict[str, Any]:
+    paths = _proof_artifact_paths(
+        root_path=root_path,
+        run_path=run_path,
+        proof_artifacts=proof_artifacts,
+        additional_paths=additional_paths,
+    )
+    formal_passed = [
+        proof for proof in proof_artifacts if _proof_is_verification_evidence(proof)
+    ]
+    informal = [
+        proof
+        for proof in proof_artifacts
+        if proof.proof_type in {"informal_proof_note", "proof_plan"}
+    ]
+    failed_or_inconclusive = [
+        proof
+        for proof in proof_artifacts
+        if proof.checker_status in {"failed", "inconclusive", "not_checked"}
+    ]
+    return {
+        "proof_artifact_count": len(proof_artifacts),
+        "formal_verification_passed_count": len(formal_passed),
+        "informal_proof_artifact_count": len(informal),
+        "failed_or_inconclusive_proof_artifact_count": len(failed_or_inconclusive),
+        "proof_artifact_paths": paths,
+    }
+
+
+def _experiment_artifact_summary(
+    *,
+    run_id: str,
+    root_path: Path,
+    run_path: Path,
+    experiment_artifacts: list[ExperimentArtifact],
+    additional_paths: list[str] | None = None,
+) -> dict[str, Any]:
+    paths = _experiment_artifact_paths(
+        root_path=root_path,
+        run_path=run_path,
+        experiment_artifacts=experiment_artifacts,
+        additional_paths=additional_paths,
+    )
+    return {
+        "experiment_artifact_count": len(experiment_artifacts),
+        "completed_experiment_count": sum(
+            1 for artifact in experiment_artifacts if artifact.status == "completed"
+        ),
+        "inconclusive_experiment_count": sum(
+            1 for artifact in experiment_artifacts if artifact.status == "inconclusive"
+        ),
+        "failed_experiment_count": sum(
+            1
+            for artifact in experiment_artifacts
+            if artifact.status in {"failed", "not_reproducible"}
+        ),
+        "experiment_artifact_paths": paths,
+    }
+
+
+def _proof_artifact_paths(
+    *,
+    root_path: Path,
+    run_path: Path,
+    proof_artifacts: list[ProofArtifact],
+    additional_paths: list[str] | None = None,
+) -> list[str]:
+    paths = set(additional_paths or [])
+    for proof in proof_artifacts:
+        artifact_id = f"proof-artifact-{_safe_report_suffix(proof.proof_id)}"
+        path = run_path / "reports" / f"{artifact_id}.json"
+        if path.is_file():
+            paths.add(path.relative_to(root_path).as_posix())
+    return sorted(paths)
+
+
+def _experiment_artifact_paths(
+    *,
+    root_path: Path,
+    run_path: Path,
+    experiment_artifacts: list[ExperimentArtifact],
+    additional_paths: list[str] | None = None,
+) -> list[str]:
+    paths = set(additional_paths or [])
+    for experiment in experiment_artifacts:
+        artifact_id = (
+            f"experiment-artifact-{_safe_report_suffix(experiment.experiment_id)}"
+        )
+        path = run_path / "reports" / f"{artifact_id}.json"
+        if path.is_file():
+            paths.add(path.relative_to(root_path).as_posix())
+    return sorted(paths)
+
+
+def _merge_proof_artifacts(
+    existing: list[ProofArtifact],
+    additional: list[ProofArtifact],
+) -> list[ProofArtifact]:
+    by_id = {proof.proof_id: proof for proof in existing}
+    by_id.update({proof.proof_id: proof for proof in additional})
+    return sorted(by_id.values(), key=lambda item: item.proof_id)
+
+
+def _merge_experiment_artifacts(
+    existing: list[ExperimentArtifact],
+    additional: list[ExperimentArtifact],
+) -> list[ExperimentArtifact]:
+    by_id = {experiment.experiment_id: experiment for experiment in existing}
+    by_id.update({experiment.experiment_id: experiment for experiment in additional})
+    return sorted(by_id.values(), key=lambda item: item.experiment_id)
+
+
+def _proof_is_verification_evidence(proof: ProofArtifact) -> bool:
+    return proof.proof_type in {
+        "lean_verified",
+        "formal_verified",
+        "external_certificate",
+    } and proof.checker_status == "passed"
+
+
+def _safe_report_suffix(value: str) -> str:
+    return "".join(
+        character if character.isalnum() else "-" for character in value
+    ).strip("-")
+
+
 def _reviewer_evidence_boundaries(
     human_review_present: bool,
+    proof_summary: dict[str, Any],
+    experiment_summary: dict[str, Any],
 ) -> dict[str, list[str]]:
     human_review_evidence_line = (
         "Human-review artifact is evidence that human review occurred only."
         if human_review_present
         else "No human-review artifact is present in this bundle."
     )
+    proof_evidence_line = (
+        "Formal proof artifact with passed checker is linked; scope requires human interpretation."
+        if int(proof_summary.get("formal_verification_passed_count") or 0)
+        else "No formal proof artifact with passed checker is present in this bundle."
+    )
+    experiment_evidence_line = (
+        "Completed experiment artifact is linked; scope is limited to reported run/results."
+        if int(experiment_summary.get("completed_experiment_count") or 0)
+        else "No completed experiment artifact is present in this bundle."
+    )
     return {
         "artifacts_that_are_evidence": [
-            "No linked proof artifact is present in this bundle.",
-            "No linked experiment artifact is present in this bundle.",
+            proof_evidence_line,
+            experiment_evidence_line,
             human_review_evidence_line,
             "Retrieval/source records are bounded background context only.",
         ],
@@ -2289,21 +2835,56 @@ def _reviewer_evidence_boundaries(
                 "Human review does not establish proof, experiment validation, "
                 "novelty, correctness, or publication readiness."
             ),
+            (
+                "Proof and experiment artifact intake does not establish novelty, "
+                "broad correctness, broad empirical validation, or publication readiness."
+            ),
+            (
+                "Claim-evidence maps scope links between claims and artifacts; they do not "
+                "create scientific validation or publication readiness."
+            ),
         ],
     }
 
 
-def _reviewer_evidence_gaps(human_review_present: bool) -> list[str]:
-    gaps = [
-        (
-            "No proof artifact is linked; theorem-style claims need proof work before "
-            "stronger wording."
-        ),
-        (
-            "No experiment artifact is linked; empirical claims need experiment work "
+def _reviewer_evidence_gaps(
+    human_review_present: bool,
+    proof_summary: dict[str, Any],
+    experiment_summary: dict[str, Any],
+    claim_evidence_summary: dict[str, int | bool],
+) -> list[str]:
+    gaps = []
+    claim_map_present = bool(claim_evidence_summary.get("claim_evidence_map_present"))
+    proof_claim_links = int(claim_evidence_summary.get("proof_supported_claim_count") or 0)
+    experiment_claim_links = int(
+        claim_evidence_summary.get("experiment_supported_claim_count") or 0
+    )
+    formal_proofs = int(proof_summary.get("formal_verification_passed_count") or 0)
+    completed_experiments = int(experiment_summary.get("completed_experiment_count") or 0)
+    if claim_map_present and formal_proofs and not proof_claim_links:
+        gaps.append(
+            "Proof artifacts are present, but no proof-linked claims are mapped."
+        )
+    elif not formal_proofs:
+        gaps.append(
+            "No proof artifact with formal verification is linked; No formal proof "
+            "artifact with a passed checker is linked; theorem-style claims need "
+            "proof work before stronger wording."
+        )
+    if claim_map_present and completed_experiments and not experiment_claim_links:
+        gaps.append(
+            "Experiment artifacts are present, but no experiment-linked claims are mapped."
+        )
+    elif not completed_experiments:
+        gaps.append(
+            "No experiment artifact with completed status is linked; No completed "
+            "experiment artifact is linked; empirical claims need experiment work "
             "before stronger wording."
-        ),
-    ]
+        )
+    if claim_map_present and int(
+        claim_evidence_summary.get("claim_evidence_unsupported_count") or 0
+    ):
+        gaps.append("One or more non-scaffold claims lack scoped evidence linkage.")
     if not human_review_present:
         gaps.append("No human-review artifact is linked; this summary is not human review.")
     return gaps
@@ -2445,6 +3026,8 @@ def _reviewer_human_review_checklist() -> list[str]:
 
 def _reviewer_recommended_next_actions(
     human_review: HumanReviewArtifact | None,
+    proof_summary: dict[str, Any],
+    experiment_summary: dict[str, Any],
 ) -> list[str]:
     actions: list[str] = []
     if human_review and human_review.blocking_concerns:
@@ -2453,12 +3036,20 @@ def _reviewer_recommended_next_actions(
         actions.append("Follow the human-review recommended next action as a separate step.")
     else:
         actions.append("Perform human review and record the result as a separate artifact.")
+    if int(proof_summary.get("formal_verification_passed_count") or 0):
+        actions.append("Have a human interpret linked proof artifacts before stronger wording.")
+    else:
+        actions.append("Add a proof artifact if theorem claims are desired.")
+    if int(experiment_summary.get("completed_experiment_count") or 0):
+        actions.append(
+            "Have a human interpret completed experiment artifacts before stronger wording."
+        )
+    else:
+        actions.append("Add an experiment artifact if empirical claims are desired.")
     actions.extend(
         [
-        "Expand real retrieval before making broader literature-context claims.",
-        "Add a proof artifact if theorem claims are desired.",
-        "Add an experiment artifact if empirical claims are desired.",
-        "Run a LaTeX/PDF export check if presentation fidelity is needed.",
+            "Expand real retrieval before making broader literature-context claims.",
+            "Run a LaTeX/PDF export check if presentation fidelity is needed.",
         ]
     )
     return actions

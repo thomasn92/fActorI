@@ -9,7 +9,19 @@ from typer.testing import CliRunner
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.claim_adjudication import FakeClaimAdjudicator
+from factori.claim_evidence import (
+    build_claim_evidence_map,
+    inspect_claim_evidence_map,
+    persist_claim_evidence_map,
+)
 from factori.cli import app
+from factori.evidence_artifact_intake import (
+    EvidenceArtifactIntakeError,
+    ingest_experiment_artifact,
+    ingest_proof_artifact,
+    inspect_experiment_artifacts,
+    inspect_proof_artifacts,
+)
 from factori.full_paper_generation import (
     generate_full_paper,
     inspect_reviewer_bundle_summary,
@@ -26,8 +38,14 @@ from factori.ledger import ResearchLedger
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
+    CitationRecord,
+    CitationRegistry,
+    ClaimEvidenceMap,
+    ClaimEvidenceMapLink,
     ClaimSupportAuditReport,
+    ClaimSupportItem,
     ControllerActionType,
+    ExperimentArtifact,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -37,7 +55,9 @@ from factori.schemas import (
     HumanReviewArtifact,
     PipelineRunConfig,
     PipelineStage,
+    ProofArtifact,
     QualityRepairReport,
+    RetrievalQualityReport,
     ReviewerBundleSummary,
 )
 
@@ -49,6 +69,10 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert QualityRepairReport
     assert ReviewerBundleSummary
     assert HumanReviewArtifact
+    assert ProofArtifact
+    assert ExperimentArtifact
+    assert ClaimEvidenceMap
+    assert ClaimEvidenceMapLink
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -677,6 +701,683 @@ def test_human_review_validation_authority_claims_are_rejected(
         )
 
 
+def test_valid_formal_proof_artifact_is_ingested_and_removes_proof_gap(tmp_path) -> None:
+    run_id = "run-proof-formal"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(tmp_path, run_id=run_id)
+
+    result = ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+
+    assert result.persistence.commit.action_type == ControllerActionType.PROOF_ARTIFACT_INGESTED
+    assert result.proof.is_verification_evidence is True
+    _assert_artifact_boundary_flags(
+        tmp_path,
+        result.proof_artifact,
+        is_verification_evidence=True,
+    )
+    _assert_artifact_boundary_flags(tmp_path, result.proof_index_artifact)
+    _assert_artifact_boundary_flags(tmp_path, result.reviewer_summary_artifact)
+
+    inspected = inspect_proof_artifacts(run_id=run_id, root=tmp_path)
+    assert inspected["proof_artifact_count"] == 1
+    assert inspected["formal_verification_passed_count"] == 1
+    assert inspected["proof_evidence_gap_present"] is False
+
+    summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert summary["proof_artifact_count"] == 1
+    assert summary["formal_verification_artifact_count"] == 1
+    assert summary["publication_ready"] is False
+    assert not any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
+    assert any("No completed experiment artifact" in gap for gap in summary["evidence_gaps"])
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["proof_artifact_count"] == 1
+    assert lint["formal_verification_passed_count"] == 1
+    assert lint["proof_evidence_gap_present"] is False
+    assert lint["publication_ready"] is False
+
+
+def test_informal_proof_note_is_ingested_without_formal_verification(tmp_path) -> None:
+    run_id = "run-proof-informal"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        proof_id="informal-proof-note-001",
+        proof_type="informal_proof_note",
+        checker_status="not_checked",
+        is_verification_evidence=False,
+        proof_hash="3333333333333333333333333333333333333333333333333333333333333333",
+    )
+
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+
+    inspected = inspect_proof_artifacts(run_id=run_id, root=tmp_path)
+    assert inspected["proof_artifact_count"] == 1
+    assert inspected["informal_proof_artifact_count"] == 1
+    assert inspected["formal_verification_passed_count"] == 0
+    assert inspected["proof_evidence_gap_present"] is True
+
+
+def test_failed_proof_check_is_ingested_without_removing_proof_gap(tmp_path) -> None:
+    run_id = "run-proof-failed"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        proof_id="failed-proof-check-001",
+        checker_status="failed",
+        is_verification_evidence=False,
+        proof_hash="4444444444444444444444444444444444444444444444444444444444444444",
+    )
+
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+
+    inspected = inspect_proof_artifacts(run_id=run_id, root=tmp_path)
+    assert inspected["proof_artifact_count"] == 1
+    assert inspected["failed_or_inconclusive_proof_artifact_count"] == 1
+    assert inspected["formal_verification_passed_count"] == 0
+    assert inspected["proof_evidence_gap_present"] is True
+
+
+def test_proof_artifact_run_id_mismatch_is_rejected(tmp_path) -> None:
+    run_id = "run-proof-mismatch"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id="different-run",
+        artifact_run_id=run_id,
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="run_id does not match"):
+        ingest_proof_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            proof_file=proof_file,
+        )
+
+
+def test_proof_artifact_publication_ready_claim_is_rejected(tmp_path) -> None:
+    run_id = "run-proof-publication-ready"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        statement="This fixture wrongly says the bundle is publication ready.",
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="forbidden publication"):
+        ingest_proof_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            proof_file=proof_file,
+        )
+
+
+def test_proof_artifact_formal_verification_without_passed_checker_is_rejected(
+    tmp_path,
+) -> None:
+    run_id = "run-proof-bad-formal"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        checker_status="failed",
+        is_verification_evidence=True,
+        statement="This fixture wrongly says proof verified despite a failed checker.",
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="verification-evidence flag"):
+        ingest_proof_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            proof_file=proof_file,
+        )
+
+
+def test_llm_generated_formal_proof_artifact_is_rejected(tmp_path) -> None:
+    run_id = "run-proof-llm-generated"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        statement="As an AI language model, I generated this formal proof text.",
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="LLM-generated proof"):
+        ingest_proof_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            proof_file=proof_file,
+        )
+
+
+def test_completed_experiment_artifact_is_ingested_and_removes_experiment_gap(
+    tmp_path,
+) -> None:
+    run_id = "run-experiment-completed"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(tmp_path, run_id=run_id)
+
+    result = ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.EXPERIMENT_ARTIFACT_INGESTED
+    )
+    _assert_artifact_boundary_flags(tmp_path, result.experiment_artifact)
+    _assert_artifact_boundary_flags(tmp_path, result.experiment_index_artifact)
+    _assert_artifact_boundary_flags(tmp_path, result.reviewer_summary_artifact)
+
+    inspected = inspect_experiment_artifacts(run_id=run_id, root=tmp_path)
+    assert inspected["experiment_artifact_count"] == 1
+    assert inspected["completed_experiment_count"] == 1
+    assert inspected["experiment_evidence_gap_present"] is False
+
+    summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert summary["experiment_artifact_count"] == 1
+    assert summary["completed_experiment_count"] == 1
+    assert not any(
+        "No completed experiment artifact" in gap for gap in summary["evidence_gaps"]
+    )
+    assert any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["experiment_artifact_count"] == 1
+    assert lint["completed_experiment_count"] == 1
+    assert lint["experiment_evidence_gap_present"] is False
+    assert lint["publication_ready"] is False
+
+
+@pytest.mark.parametrize("status", ["inconclusive", "failed"])
+def test_non_completed_experiment_artifact_does_not_remove_experiment_gap(
+    tmp_path,
+    status: str,
+) -> None:
+    run_id = f"run-experiment-{status}"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        experiment_id=f"{status}-experiment-001",
+        status=status,
+        config_hash=(
+            "8888888888888888888888888888888888888888888888888888888888888888"
+            if status == "inconclusive"
+            else "9999999999999999999999999999999999999999999999999999999999999999"
+        ),
+    )
+
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+
+    inspected = inspect_experiment_artifacts(run_id=run_id, root=tmp_path)
+    assert inspected["experiment_artifact_count"] == 1
+    assert inspected["completed_experiment_count"] == 0
+    assert inspected["experiment_evidence_gap_present"] is True
+
+
+def test_experiment_artifact_run_id_mismatch_is_rejected(tmp_path) -> None:
+    run_id = "run-experiment-mismatch"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id="different-run",
+        artifact_run_id=run_id,
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="run_id does not match"):
+        ingest_experiment_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            experiment_file=experiment_file,
+        )
+
+
+def test_experiment_artifact_broad_validation_claim_is_rejected(tmp_path) -> None:
+    run_id = "run-experiment-broad-validation"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        result_summary="This fixture wrongly says the experiment validated the paper.",
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="forbidden publication"):
+        ingest_experiment_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            experiment_file=experiment_file,
+        )
+
+
+def test_experiment_artifact_publication_ready_claim_is_rejected(tmp_path) -> None:
+    run_id = "run-experiment-publication-ready"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        result_summary="This fixture wrongly says the bundle is publication ready.",
+    )
+
+    with pytest.raises(EvidenceArtifactIntakeError, match="forbidden publication"):
+        ingest_experiment_artifact(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            experiment_file=experiment_file,
+        )
+
+
+def test_proof_and_experiment_artifacts_update_reviewer_summary_together(
+    tmp_path,
+) -> None:
+    run_id = "run-proof-experiment-summary"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(tmp_path, run_id=run_id)
+    experiment_file = _write_experiment_artifact_fixture(tmp_path, run_id=run_id)
+
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+
+    summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert summary["proof_artifact_count"] == 1
+    assert summary["formal_verification_artifact_count"] == 1
+    assert summary["experiment_artifact_count"] == 1
+    assert summary["completed_experiment_count"] == 1
+    assert summary["publication_ready"] is False
+    assert not any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
+    assert not any(
+        "No completed experiment artifact" in gap for gap in summary["evidence_gaps"]
+    )
+    assert any("No human-review artifact" in gap for gap in summary["evidence_gaps"])
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["proof_evidence_gap_present"] is False
+    assert lint["experiment_evidence_gap_present"] is False
+    assert lint["remaining_evidence_gap_count"] == 1
+
+
+def test_claim_evidence_map_is_persisted_and_summarized(tmp_path) -> None:
+    run_id = "run-claim-evidence-persist"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.CLAIM_EVIDENCE_MAP_WRITTEN
+    )
+    assert result.claim_evidence_map.publication_ready is False
+    assert result.claim_evidence_map.creates_scientific_validation is False
+    assert (tmp_path / result.map_artifact.path).is_file()
+    assert (tmp_path / result.markdown_artifact.path).is_file()
+    inspected = inspect_claim_evidence_map(run_id=run_id, root=tmp_path)
+    assert inspected["claim_evidence_map_present"] is True
+    summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert summary["claim_evidence_map_present"] is True
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["claim_evidence_map_present"] is True
+    assert lint["publication_ready"] is False
+
+
+def test_claim_evidence_map_links_citation_supported_background_claim(tmp_path) -> None:
+    run_id = "run-claim-evidence-citation"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="background-claim-1",
+                claim_class="literature_background_claim",
+                citation_keys_present=["smith2021"],
+                supporting_source_ids=["source-1"],
+                support_status="registry_supported",
+            )
+        ],
+        citation_registry=_citation_registry_fixture(run_id=run_id),
+        retrieval_quality=_retrieval_quality_fixture(run_id=run_id),
+    )
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    link = claim_map.links[0]
+    assert link.support_status == "supported_within_scope"
+    assert link.support_type == "citation_background_context"
+    assert link.supporting_source_ids == ["source-1"]
+    assert claim_map.summary_counts["citation_supported_background_claim"] == 1
+
+
+@pytest.mark.parametrize(
+    ("source_status", "rejected_source_ids", "rejection_reasons"),
+    [
+        ("rejected", ["source-1"], {"source-1": "deterministic reject"}),
+        ("retrieved", ["source-1"], {"source-1": "hard metadata reject"}),
+    ],
+)
+def test_claim_evidence_map_rejected_sources_cannot_support_claims(
+    tmp_path,
+    source_status: str,
+    rejected_source_ids: list[str],
+    rejection_reasons: dict[str, str],
+) -> None:
+    run_id = "run-claim-evidence-rejected-source"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="background-claim-1",
+                claim_class="literature_background_claim",
+                citation_keys_present=["smith2021"],
+                supporting_source_ids=["source-1"],
+                support_status="registry_supported",
+            )
+        ],
+        citation_registry=_citation_registry_fixture(
+            run_id=run_id,
+            source_status=source_status,
+            accepted_for_registry=source_status != "rejected",
+        ),
+        retrieval_quality=_retrieval_quality_fixture(
+            run_id=run_id,
+            accepted_source_ids=[],
+            rejected_source_ids=rejected_source_ids,
+            rejection_reasons=rejection_reasons,
+        ),
+    )
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    link = claim_map.links[0]
+    assert link.support_status in {"partially_supported", "unsupported"}
+    assert link.support_type == "unsupported"
+    assert claim_map.summary_counts["citation_supported_background_claim"] == 0
+
+
+@pytest.mark.parametrize(
+    (
+        "proof_type",
+        "checker_status",
+        "is_verification_evidence",
+        "expected_status",
+        "expected_type",
+    ),
+    [
+        (
+            "lean_verified",
+            "passed",
+            True,
+            "supported_within_scope",
+            "formal_proof_verification",
+        ),
+        (
+            "informal_proof_note",
+            "not_checked",
+            False,
+            "partially_supported",
+            "informal_proof_context",
+        ),
+        ("lean_verified", "failed", False, "unsupported", "unsupported"),
+    ],
+)
+def test_claim_evidence_map_links_proof_artifacts_by_authority(
+    tmp_path,
+    proof_type: str,
+    checker_status: str,
+    is_verification_evidence: bool,
+    expected_status: str,
+    expected_type: str,
+) -> None:
+    run_id = f"run-claim-evidence-proof-{checker_status}"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="proof-claim-1",
+                claim_class="proof_claim",
+                support_status="forbidden_claim_without_evidence",
+            )
+        ],
+    )
+    _write_proof_artifact_report(
+        tmp_path,
+        run_id=run_id,
+        proof_id=f"proof-{checker_status}",
+        proof_type=proof_type,
+        claim_ids_or_statement_ids=["proof-claim-1"],
+        checker_status=checker_status,
+        is_verification_evidence=is_verification_evidence,
+    )
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    link = claim_map.links[0]
+    assert link.support_status == expected_status
+    assert link.support_type == expected_type
+    if expected_type == "formal_proof_verification":
+        assert claim_map.summary_counts["proof_supported_claim"] == 1
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_status"),
+    [
+        ("completed", "supported_within_scope"),
+        ("inconclusive", "unsupported"),
+        ("failed", "unsupported"),
+    ],
+)
+def test_claim_evidence_map_links_completed_experiments_only(
+    tmp_path,
+    status: str,
+    expected_status: str,
+) -> None:
+    run_id = f"run-claim-evidence-experiment-{status}"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="experiment-claim-1",
+                claim_class="experiment_claim",
+                support_status="forbidden_claim_without_evidence",
+            )
+        ],
+    )
+    _write_experiment_artifact_report(
+        tmp_path,
+        run_id=run_id,
+        experiment_id=f"experiment-{status}",
+        claim_ids_or_section_ids=["experiment-claim-1"],
+        status=status,
+    )
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    link = claim_map.links[0]
+    assert link.support_status == expected_status
+    if status == "completed":
+        assert link.support_type == "experiment_result"
+        assert claim_map.summary_counts["experiment_supported_claim"] == 1
+    else:
+        assert link.support_type == "unsupported"
+
+
+def test_claim_evidence_map_does_not_let_experiment_support_proof_claim(
+    tmp_path,
+) -> None:
+    run_id = "run-claim-evidence-experiment-no-proof"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="proof-claim-1",
+                claim_class="proof_claim",
+                support_status="forbidden_claim_without_evidence",
+            )
+        ],
+    )
+    _write_experiment_artifact_report(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_section_ids=["proof-claim-1"],
+        status="completed",
+    )
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    assert claim_map.links[0].support_status == "unsupported"
+    assert claim_map.summary_counts["experiment_supported_claim"] == 0
+
+
+def test_claim_evidence_map_blocks_proof_for_novelty_or_readiness_claim(
+    tmp_path,
+) -> None:
+    run_id = "run-claim-evidence-proof-no-novelty"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="novelty-claim-1",
+                claim_class="novelty_claim",
+                support_status="forbidden_claim_without_evidence",
+            )
+        ],
+    )
+    _write_proof_artifact_report(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_statement_ids=["novelty-claim-1"],
+    )
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    link = claim_map.links[0]
+    assert link.support_status == "blocked_forbidden_claim"
+    assert link.supporting_proof_artifact_ids == []
+    assert claim_map.publication_ready is False
+
+
+def test_claim_evidence_map_links_human_review_occurrence_only(tmp_path) -> None:
+    run_id = "run-claim-evidence-human-review"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id="human-review-claim-1",
+                claim_class="pipeline_status_claim",
+                sentence_snippet=(
+                    "Human review recorded readiness for evidence generation."
+                ),
+                support_status="not_required_scaffold",
+            ),
+            _claim_support_item(
+                sentence_id="proof-claim-1",
+                claim_class="proof_claim",
+                sentence_snippet="Human review confirms this theorem.",
+                support_status="forbidden_claim_without_evidence",
+            ),
+        ],
+    )
+    _write_human_review_artifact_report(tmp_path, run_id=run_id)
+
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+
+    by_id = {link.claim_id: link for link in claim_map.links}
+    assert by_id["human-review-claim-1"].support_type == "human_review_occurrence"
+    assert by_id["proof-claim-1"].support_status == "unsupported"
+    assert claim_map.summary_counts["human_reviewed_claim"] == 1
+
+
 def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:
     _prepare_run(tmp_path, run_id="run-safe-repair-warnings")
     store = ArtifactStore(tmp_path)
@@ -876,6 +1577,213 @@ def test_quality_aware_generation_improves_lint_on_safe_fixture(tmp_path) -> Non
     assert "## Demonstration Status" in markdown
 
 
+def _write_claim_map_reports(
+    tmp_path,
+    *,
+    run_id: str,
+    items: list[ClaimSupportItem],
+    citation_registry: CitationRegistry | None = None,
+    retrieval_quality: RetrievalQualityReport | None = None,
+) -> Path:
+    reports = tmp_path / "runs" / run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    audit = ClaimSupportAuditReport(
+        run_id=run_id,
+        citation_registry_present=citation_registry is not None,
+        citation_policy="registry-only" if citation_registry is not None else "none",
+        claim_support_items=items,
+        summary_counts={"total_sentences": len(items)},
+        unsupported_items=[
+            item
+            for item in items
+            if item.support_status
+            in {
+                "missing_required_citation",
+                "forbidden_claim_without_evidence",
+                "unsupported_external_claim",
+            }
+        ],
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+    (reports / "claim-support-audit.json").write_text(
+        audit.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    if citation_registry is not None:
+        (reports / "citation-registry.json").write_text(
+            citation_registry.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+    if retrieval_quality is not None:
+        (reports / "retrieval-quality-report.json").write_text(
+            retrieval_quality.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return reports
+
+
+def _claim_support_item(
+    *,
+    sentence_id: str,
+    claim_class: str,
+    sentence_hash: str | None = None,
+    sentence_snippet: str = "Fixture claim sentence.",
+    citation_keys_present: list[str] | None = None,
+    supporting_source_ids: list[str] | None = None,
+    support_status: str = "not_required_scaffold",
+) -> ClaimSupportItem:
+    return ClaimSupportItem(
+        sentence_id=sentence_id,
+        section_name="Fixture Section",
+        sentence_text_hash=sentence_hash or "a" * 64,
+        sentence_snippet=sentence_snippet,
+        claim_class=claim_class,
+        citation_keys_present=citation_keys_present or [],
+        requires_citation=claim_class
+        in {
+            "literature_background_claim",
+            "source_context_claim",
+            "external_factual_claim",
+        },
+        requires_citation_reason=(
+            "positive_literature_claim"
+            if claim_class == "literature_background_claim"
+            else "positive_source_context_claim"
+            if claim_class == "source_context_claim"
+            else "positive_external_claim"
+            if claim_class == "external_factual_claim"
+            else "claim_class_no_citation_required"
+        ),
+        required_support_type="accepted_registry_source"
+        if citation_keys_present
+        else "none",
+        supporting_source_ids=supporting_source_ids or [],
+        support_status=support_status,
+        unsupported_reason=None
+        if support_status in {"registry_supported", "not_required_scaffold"}
+        else "fixture unsupported",
+        paragraph_index=0,
+        sentence_index=0,
+        citation_use="background_context" if citation_keys_present else "none",
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+
+
+def _citation_registry_fixture(
+    *,
+    run_id: str,
+    source_status: str = "retrieved",
+    accepted_for_registry: bool = True,
+) -> CitationRegistry:
+    record = CitationRecord(
+        citation_id="citation-source-1",
+        citation_key="smith2021",
+        source_id="source-1",
+        title="Fixture Human Geography Source",
+        authors=["Smith"],
+        year=2021,
+        venue="Fixture Journal",
+        provider="fixture",
+        retrieval_backend="local",
+        retrieved_at="2026-06-30T00:00:00Z",
+        raw_metadata_hash="b" * 64,
+        source_status=source_status,
+        source_summary="A bounded fixture source for background context.",
+        accepted_for_registry=accepted_for_registry,
+        may_support_background_context=True,
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+    return CitationRegistry(
+        run_id=run_id,
+        citations=[record],
+        bibliography=[],
+        citation_key_policy="deterministic_fixture",
+        citation_policy="registry-only",
+        retrieval_backend="local",
+        source_registry_hash="c" * 64,
+        source_count=1,
+        accepted_source_count=1 if accepted_for_registry else 0,
+        rejected_source_count=0 if accepted_for_registry else 1,
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+
+
+def _retrieval_quality_fixture(
+    *,
+    run_id: str,
+    accepted_source_ids: list[str] | None = None,
+    rejected_source_ids: list[str] | None = None,
+    rejection_reasons: dict[str, str] | None = None,
+) -> RetrievalQualityReport:
+    accepted = ["source-1"] if accepted_source_ids is None else accepted_source_ids
+    rejected = rejected_source_ids or []
+    return RetrievalQualityReport(
+        run_id=run_id,
+        retrieval_backend="local",
+        total_retrieved_sources=len(accepted) + len(rejected),
+        accepted_source_count=len(accepted),
+        rejected_source_count=len(rejected),
+        queries_used=["fixture query"],
+        coverage_limitations=["fixture retrieval is bounded"],
+        adequacy_status="bounded_context_only",
+        accepted_source_ids=accepted,
+        rejected_source_ids=rejected,
+        rejection_reasons=rejection_reasons or {},
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+
+
+def _write_proof_artifact_report(tmp_path, *, run_id: str, **kwargs) -> None:
+    proof_file = _write_proof_artifact_fixture(tmp_path, run_id=run_id, **kwargs)
+    proof = ProofArtifact.model_validate_json(proof_file.read_text(encoding="utf-8"))
+    reports = tmp_path / "runs" / run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / f"proof-artifact-{proof.proof_id}.json").write_text(
+        proof.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_experiment_artifact_report(tmp_path, *, run_id: str, **kwargs) -> None:
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        **kwargs,
+    )
+    experiment = ExperimentArtifact.model_validate_json(
+        experiment_file.read_text(encoding="utf-8")
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / f"experiment-artifact-{experiment.experiment_id}.json").write_text(
+        experiment.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_human_review_artifact_report(tmp_path, *, run_id: str) -> None:
+    review_file = _write_human_review_fixture(tmp_path, run_id=run_id)
+    review = HumanReviewArtifact.model_validate_json(
+        review_file.read_text(encoding="utf-8")
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / "human-review-artifact.json").write_text(
+        review.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _prepare_run(tmp_path, *, run_id: str) -> None:
     run_deterministic_pipeline(
         PipelineRunConfig(
@@ -982,6 +1890,120 @@ def _write_human_review_fixture(
     path = tmp_path / filename
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
+
+
+def _write_proof_artifact_fixture(
+    tmp_path,
+    *,
+    run_id: str,
+    artifact_run_id: str | None = None,
+    proof_id: str = "lean-proof-passed-001",
+    proof_type: str = "lean_verified",
+    claim_ids_or_statement_ids: list[str] | None = None,
+    checker_status: str = "passed",
+    statement: str = (
+        "A local checker report is linked for a bounded statement in this fixture."
+    ),
+    is_verification_evidence: bool = True,
+    proof_hash: str = "1" * 64,
+) -> Path:
+    reviewed_run_id = artifact_run_id or run_id
+    payload = {
+        "run_id": run_id,
+        "proof_id": proof_id,
+        "proof_type": proof_type,
+        "claim_ids_or_statement_ids": claim_ids_or_statement_ids or ["statement-1"],
+        "statement": statement,
+        "artifact_path_optional": (
+            f"runs/{reviewed_run_id}/reports/revised-manuscript-draft.md"
+        ),
+        "checker_name_optional": "fixture-local-checker",
+        "checker_version_optional": "0.1.0",
+        "checker_status": checker_status,
+        "checker_log_hash_optional": "2" * 64,
+        "proof_hash": proof_hash,
+        "review_status": "artifact_scope_not_human_validated",
+        "limitations": [
+            "This fixture is local proof-artifact intake only.",
+            "It does not imply novelty, broad correctness, or publication readiness.",
+        ],
+        "created_at": "2026-06-30T00:00:00Z",
+        "ingested_at": "2026-06-30T00:00:00Z",
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": is_verification_evidence,
+    }
+    path = tmp_path / f"{proof_id}.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_experiment_artifact_fixture(
+    tmp_path,
+    *,
+    run_id: str,
+    artifact_run_id: str | None = None,
+    experiment_id: str = "completed-experiment-001",
+    claim_ids_or_section_ids: list[str] | None = None,
+    status: str = "completed",
+    result_summary: str = (
+        "The local fixture run completed and reports bounded metrics for this run only."
+    ),
+    config_hash: str = "7" * 64,
+) -> Path:
+    reviewed_run_id = artifact_run_id or run_id
+    payload = {
+        "run_id": run_id,
+        "experiment_id": experiment_id,
+        "experiment_type": "local_synthetic_fixture",
+        "claim_ids_or_section_ids": claim_ids_or_section_ids or ["demonstration-status"],
+        "hypothesis_or_question": (
+            "Can the local fixture record bounded experiment-output intake?"
+        ),
+        "status": status,
+        "dataset_name_optional": "fixture-synthetic-dataset",
+        "dataset_hash_optional": "6" * 64,
+        "config_hash": config_hash,
+        "code_commit_hash_optional": "abc123fixture",
+        "command_optional": "factori fixture-experiment --local",
+        "metrics": {
+            "fixture_metric": 1.0,
+            "sample_count": 3,
+        },
+        "result_summary": result_summary,
+        "artifact_paths": [
+            f"runs/{reviewed_run_id}/reports/revised-manuscript-draft.md"
+        ],
+        "limitations": [
+            "This experiment artifact is local to the fixture run.",
+            "It does not imply broad empirical validation or publication readiness.",
+        ],
+        "created_at": "2026-06-30T00:00:00Z",
+        "ingested_at": "2026-06-30T00:00:00Z",
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+    }
+    path = tmp_path / f"{experiment_id}.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _assert_artifact_boundary_flags(
+    tmp_path,
+    ref: ArtifactRef,
+    *,
+    is_verification_evidence: bool = False,
+) -> None:
+    path = tmp_path / ref.path
+    assert path.is_file()
+    assert ref.content_hash == sha256_file(path)
+    linked = ArtifactRef.model_validate_json(
+        (tmp_path / f"{ref.path}.meta.json").read_text(encoding="utf-8")
+    )
+    assert linked.metadata["is_verification_evidence"] is is_verification_evidence
+    assert linked.metadata["creates_scientific_validation"] is False
+    assert linked.metadata["implies_publication_readiness"] is False
 
 
 def _assert_non_evidence_artifact(tmp_path, ref: ArtifactRef) -> None:

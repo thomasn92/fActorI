@@ -737,7 +737,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.25.0/full-paper-generation-result.schema.json",
+  "$id": "https://schemas.factori.local/0.27.0/full-paper-generation-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for full-paper generation commands.",
@@ -780,7 +780,7 @@
   ],
   "title": "FullPaperGenerationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.25.0",
+  "x-factori-protocol-version": "0.27.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationResult",
   "x-factori-verification-evidence": false
 }

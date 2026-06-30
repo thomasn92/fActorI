@@ -1,0 +1,23 @@
+{
+  "artifact_path_optional": null,
+  "checker_log_hash_optional": null,
+  "checker_name_optional": null,
+  "checker_status": "not_checked",
+  "checker_version_optional": null,
+  "claim_ids_or_statement_ids": [
+    "claim-missing-hash"
+  ],
+  "created_at": "2026-06-30T00:00:00Z",
+  "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
+  "ingested_at": "2026-06-30T00:00:00Z",
+  "is_verification_evidence": false,
+  "limitations": [
+    "Missing hash rejection fixture."
+  ],
+  "proof_id": "missing-hash-proof-001",
+  "proof_type": "informal_proof_note",
+  "review_status": "accepted_as_context_only",
+  "run_id": "local-evidence-artifact-intake-smoke-001",
+  "statement": "Fixture proof artifact missing proof_hash."
+}

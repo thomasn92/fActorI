@@ -1,0 +1,30 @@
+{
+  "artifact_paths": [
+    "runs/local-evidence-artifact-intake-smoke-001/reports/revised-manuscript-draft.md"
+  ],
+  "claim_ids_or_section_ids": [
+    "demonstration-status"
+  ],
+  "code_commit_hash_optional": "abc123fixture",
+  "command_optional": "fixture-run --deterministic",
+  "config_hash": "6666666666666666666666666666666666666666666666666666666666666666",
+  "created_at": "2026-06-30T00:00:00Z",
+  "creates_scientific_validation": false,
+  "dataset_hash_optional": null,
+  "dataset_name_optional": "fixture_synthetic_dataset",
+  "experiment_id": "publication-ready-experiment-001",
+  "experiment_type": "synthetic_fixture",
+  "hypothesis_or_question": "Publication-ready rejection fixture.",
+  "implies_publication_readiness": false,
+  "ingested_at": "2026-06-30T00:00:00Z",
+  "is_verification_evidence": false,
+  "limitations": [
+    "This artifact wrongly says the paper is ready for publication."
+  ],
+  "metrics": {
+    "fixture_score": 0.91
+  },
+  "result_summary": "This fixture wrongly says the bundle is publication ready.",
+  "run_id": "local-evidence-artifact-intake-smoke-001",
+  "status": "completed"
+}

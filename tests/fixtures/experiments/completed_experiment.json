@@ -1,0 +1,34 @@
+{
+  "artifact_paths": [
+    "runs/local-claim-evidence-linkage-smoke-001/reports/revised-manuscript-draft.md",
+    "runs/local-claim-evidence-linkage-smoke-001/reports/claim-support-audit.json"
+  ],
+  "claim_ids_or_section_ids": [
+    "demonstration-status",
+    "demonstration-status-p0-s0"
+  ],
+  "code_commit_hash_optional": "abc123fixture",
+  "command_optional": "fixture-run --deterministic",
+  "config_hash": "6666666666666666666666666666666666666666666666666666666666666666",
+  "created_at": "2026-06-30T00:00:00Z",
+  "creates_scientific_validation": false,
+  "dataset_hash_optional": "7777777777777777777777777777777777777777777777777777777777777777",
+  "dataset_name_optional": "fixture_synthetic_dataset",
+  "experiment_id": "completed-experiment-001",
+  "experiment_type": "synthetic_fixture",
+  "hypothesis_or_question": "Fixture completed experiment for bounded run behavior.",
+  "implies_publication_readiness": false,
+  "ingested_at": "2026-06-30T00:00:00Z",
+  "is_verification_evidence": false,
+  "limitations": [
+    "The completed fixture experiment applies only to the reported run.",
+    "It does not establish broad validation, novelty, correctness, or publication readiness."
+  ],
+  "metrics": {
+    "fixture_score": 0.91,
+    "runs": 1
+  },
+  "result_summary": "The fixture experiment completed and records bounded results only.",
+  "run_id": "local-claim-evidence-linkage-smoke-001",
+  "status": "completed"
+}

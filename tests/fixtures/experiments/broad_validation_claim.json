@@ -1,0 +1,30 @@
+{
+  "artifact_paths": [
+    "runs/local-evidence-artifact-intake-smoke-001/reports/revised-manuscript-draft.md"
+  ],
+  "claim_ids_or_section_ids": [
+    "demonstration-status"
+  ],
+  "code_commit_hash_optional": "abc123fixture",
+  "command_optional": "fixture-run --deterministic",
+  "config_hash": "6666666666666666666666666666666666666666666666666666666666666666",
+  "created_at": "2026-06-30T00:00:00Z",
+  "creates_scientific_validation": false,
+  "dataset_hash_optional": null,
+  "dataset_name_optional": "fixture_synthetic_dataset",
+  "experiment_id": "broad-validation-experiment-001",
+  "experiment_type": "synthetic_fixture",
+  "hypothesis_or_question": "Broad validation rejection fixture.",
+  "implies_publication_readiness": false,
+  "ingested_at": "2026-06-30T00:00:00Z",
+  "is_verification_evidence": false,
+  "limitations": [
+    "This artifact wrongly claims broad empirical validation."
+  ],
+  "metrics": {
+    "fixture_score": 0.91
+  },
+  "result_summary": "This fixture wrongly says the experiment validated the paper.",
+  "run_id": "local-evidence-artifact-intake-smoke-001",
+  "status": "completed"
+}
