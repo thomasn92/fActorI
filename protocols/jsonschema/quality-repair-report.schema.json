@@ -1,0 +1,235 @@
+{
+  "$id": "https://schemas.factori.local/0.23.0/quality-repair-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded manuscript-quality repair report.",
+  "properties": {
+    "abstract_repaired": {
+      "default": false,
+      "title": "Abstract Repaired",
+      "type": "boolean"
+    },
+    "after_quality_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "After Quality Status"
+    },
+    "before_quality_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Before Quality Status"
+    },
+    "citation_safety_rechecked_after_repair": {
+      "default": false,
+      "title": "Citation Safety Rechecked After Repair",
+      "type": "boolean"
+    },
+    "claim_support_rechecked_after_repair": {
+      "default": false,
+      "title": "Claim Support Rechecked After Repair",
+      "type": "boolean"
+    },
+    "conclusion_repaired": {
+      "default": false,
+      "title": "Conclusion Repaired",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "irreducible_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Irreducible Warnings",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations_repaired": {
+      "default": false,
+      "title": "Limitations Repaired",
+      "type": "boolean"
+    },
+    "method_summary_repaired": {
+      "default": false,
+      "title": "Method Summary Repaired",
+      "type": "boolean"
+    },
+    "placeholder_like_sections_after": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Placeholder Like Sections After",
+      "type": "array"
+    },
+    "placeholder_like_sections_before": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Placeholder Like Sections Before",
+      "type": "array"
+    },
+    "placeholder_sections_repaired": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Placeholder Sections Repaired",
+      "type": "integer"
+    },
+    "problem_statement_repaired": {
+      "default": false,
+      "title": "Problem Statement Repaired",
+      "type": "boolean"
+    },
+    "quality_failures_after": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Failures After",
+      "type": "array"
+    },
+    "quality_failures_before": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Failures Before",
+      "type": "array"
+    },
+    "quality_repair_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Quality Repair Backend",
+      "type": "string"
+    },
+    "quality_repair_enabled": {
+      "default": false,
+      "title": "Quality Repair Enabled",
+      "type": "boolean"
+    },
+    "quality_repair_status": {
+      "default": "disabled",
+      "enum": [
+        "disabled",
+        "repaired",
+        "no_action_needed",
+        "blocked",
+        "failed"
+      ],
+      "title": "Quality Repair Status",
+      "type": "string"
+    },
+    "quality_warnings_after": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Warnings After",
+      "type": "array"
+    },
+    "quality_warnings_before": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Warnings Before",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_depth_targets": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "title": "Section Depth Targets",
+      "type": "object"
+    },
+    "section_word_counts_after": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Section Word Counts After",
+      "type": "object"
+    },
+    "section_word_counts_before": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Section Word Counts Before",
+      "type": "object"
+    },
+    "sections_below_target_after": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Below Target After",
+      "type": "array"
+    },
+    "sections_below_target_before": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Below Target Before",
+      "type": "array"
+    },
+    "sections_repaired": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Repaired",
+      "type": "array"
+    },
+    "underdeveloped_sections_repaired": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Underdeveloped Sections Repaired",
+      "type": "integer"
+    },
+    "warnings_reduced_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Warnings Reduced Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "QualityRepairReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.23.0",
+  "x-factori-source-model": "factori.schemas.QualityRepairReport",
+  "x-factori-verification-evidence": false
+}

@@ -47,6 +47,7 @@
   "paper_critic_report_artifact_id": "paper-critic-report",
   "paper_revision_plan_artifact_id": "paper-revision-plan",
   "paper_revision_result_artifact_id": "paper-revision-result",
+  "quality_repair_report_artifact_id": null,
   "references_artifact_id": "references",
   "retrieval_report_artifact_id": null,
   "revised_latex_artifact_id": "revised-paper",

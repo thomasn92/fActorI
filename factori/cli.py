@@ -1989,6 +1989,14 @@ def generate_paper_command(
         typer.Option("--allow-external-calls"),
     ] = DEFAULT_ALLOW_EXTERNAL_CALLS,
     prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    quality_repair_backend: Annotated[
+        str,
+        typer.Option("--quality-repair-backend"),
+    ] = "off",
+    quality_repair_model: Annotated[
+        str,
+        typer.Option("--quality-repair-model"),
+    ] = DEFAULT_LLM_MODEL,
     rerun_policy: Annotated[
         str,
         typer.Option("--rerun-policy"),
@@ -2024,6 +2032,8 @@ def generate_paper_command(
         prose_backend=prose_backend,
         allow_external_calls=allow_external_calls,
         prose_model=prose_model,
+        quality_repair_backend=quality_repair_backend,
+        quality_repair_model=quality_repair_model,
         write_report=write_report,
         rerun_policy=policy,
         force=force,
@@ -2072,6 +2082,13 @@ def generate_paper_command(
                             if result.revised_source_map_artifact
                             else None
                         ),
+                        "quality_repair_report": (
+                            result.quality_repair_report_artifact.model_dump(
+                                mode="json"
+                            )
+                            if result.quality_repair_report_artifact
+                            else None
+                        ),
                     },
                 },
                 indent=2,
@@ -2089,6 +2106,7 @@ def generate_paper_command(
     typer.echo(f"include_citations={str(include_citations).lower()}")
     typer.echo(f"export_latex={str(export_latex).lower()}")
     typer.echo(f"revision_applied={str(report.revision_applied).lower()}")
+    typer.echo(f"quality_repair_backend={quality_repair_backend}")
     typer.echo(f"render_check={str(render_check).lower()}")
     typer.echo("publication_ready=false")
     typer.echo("is_verification_evidence=false")
@@ -2102,6 +2120,8 @@ def generate_paper_command(
     typer.echo(f"paper_critic_report={bundle.paper_critic_report_artifact_id or 'missing'}")
     if bundle.revised_manuscript_draft_artifact_id is not None:
         typer.echo(f"revised_manuscript_draft={bundle.revised_manuscript_draft_artifact_id}")
+    if bundle.quality_repair_report_artifact_id is not None:
+        typer.echo(f"quality_repair_report={bundle.quality_repair_report_artifact_id}")
     if result.report_artifact is not None:
         typer.echo(f"full_paper_generation_report={result.report_artifact.path}")
     if result.bundle_artifact is not None:
@@ -2244,6 +2264,14 @@ def run_llm_paper_command(
         str,
         typer.Option("--source-relevance-adjudicator-model"),
     ] = DEFAULT_LLM_MODEL,
+    quality_repair_backend: Annotated[
+        str,
+        typer.Option("--quality-repair-backend"),
+    ] = "off",
+    quality_repair_model: Annotated[
+        str,
+        typer.Option("--quality-repair-model"),
+    ] = DEFAULT_LLM_MODEL,
     reviewer_max_objections: Annotated[
         int,
         typer.Option("--reviewer-max-objections"),
@@ -2271,6 +2299,10 @@ def run_llm_paper_command(
     max_source_relevance_adjudication_calls: Annotated[
         int | None,
         typer.Option("--max-source-relevance-adjudication-calls"),
+    ] = None,
+    max_quality_repair_calls: Annotated[
+        int | None,
+        typer.Option("--max-quality-repair-calls"),
     ] = None,
     max_total_input_tokens: Annotated[
         int | None,
@@ -2387,6 +2419,8 @@ def run_llm_paper_command(
         claim_adjudicator_model=claim_adjudicator_model,
         source_relevance_adjudicator_backend=source_relevance_adjudicator_backend,
         source_relevance_adjudicator_model=source_relevance_adjudicator_model,
+        quality_repair_backend=quality_repair_backend,
+        quality_repair_model=quality_repair_model,
         reviewer_max_objections=reviewer_max_objections,
         generate_paper=generate_paper,
         evaluate_release=evaluate_release,
@@ -2416,6 +2450,7 @@ def run_llm_paper_command(
             max_source_relevance_adjudication_calls=(
                 max_source_relevance_adjudication_calls
             ),
+            max_quality_repair_calls=max_quality_repair_calls,
             max_total_input_tokens=max_total_input_tokens,
             max_total_output_tokens=max_total_output_tokens,
             max_estimated_cost_usd=max_estimated_cost_usd,
@@ -2488,6 +2523,15 @@ def run_llm_paper_command(
                             is not None
                             else None
                         ),
+                        "quality_repair_report": (
+                            result.generation_result.quality_repair_report_artifact.model_dump(
+                                mode="json"
+                            )
+                            if result.generation_result is not None
+                            and result.generation_result.quality_repair_report_artifact
+                            is not None
+                            else None
+                        ),
                     },
                 },
                 indent=2,
@@ -2513,12 +2557,18 @@ def run_llm_paper_command(
         "source_relevance_adjudicator_model="
         f"{source_relevance_adjudicator_model}"
     )
+    typer.echo(f"quality_repair_backend={quality_repair_backend}")
+    typer.echo(f"quality_repair_model={quality_repair_model}")
     typer.echo(f"allow_external_calls={str(allow_external_calls).lower()}")
     typer.echo(f"preflight_only={str(preflight_only).lower()}")
     typer.echo(f"estimated_max_calls={preflight_summary['estimated_max_calls']}")
     typer.echo(
         "source_relevance_adjudication_calls="
         f"{preflight_summary['source_relevance_adjudication_calls']}"
+    )
+    typer.echo(
+        "quality_repair_calls="
+        f"{preflight_summary['quality_repair_calls']}"
     )
     typer.echo(
         "generate_paper_effective="
@@ -2592,7 +2642,8 @@ def _print_llm_run_summary(summary: dict[str, object]) -> None:
         f"{summary['review_calls']} review + "
         f"{summary['prose_calls']} prose + "
         f"{summary.get('claim_adjudication_calls', 0)} claim adjudication + "
-        f"{summary.get('source_relevance_adjudication_calls', 0)} source relevance"
+        f"{summary.get('source_relevance_adjudication_calls', 0)} source relevance + "
+        f"{summary.get('quality_repair_calls', 0)} quality repair"
     )
     typer.echo(f"Budget: {budget_line}")
     typer.echo(
@@ -2652,6 +2703,9 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     primary_name = Path(primary).name if primary != "none" else "none"
     release = summary.get("release_status") or "unknown"
     safe_repair = "present" if summary.get("safe_repair_report_exists") else "absent"
+    quality_repair = (
+        "present" if summary.get("quality_repair_report_present") else "absent"
+    )
     citations = "present" if summary.get("citations_present") else "absent"
     blocking_count = int(summary.get("blocking_issue_count") or 0)
     warning_count = int(summary.get("warning_count") or 0)
@@ -2659,6 +2713,33 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Primary draft: {primary_name}")
     typer.echo(f"Release: {release}")
     typer.echo(f"Safe repair: {safe_repair}")
+    typer.echo(f"Quality repair: {quality_repair}")
+    typer.echo(
+        "Quality repair backend: "
+        f"{summary.get('quality_repair_backend') or 'off'}"
+    )
+    typer.echo(
+        "Quality repaired sections: "
+        f"{int(summary.get('quality_repaired_section_count') or 0)}"
+    )
+    typer.echo(
+        "Sections repaired: "
+        f"{int(summary.get('quality_repaired_section_count') or 0)}"
+    )
+    typer.echo(
+        "Depth targets met: "
+        f"{int(summary.get('section_depth_target_met_count') or 0)}/"
+        f"{int(summary.get('section_depth_target_total') or 0)}"
+    )
+    typer.echo(
+        "Warnings reduced: "
+        f"{int(summary.get('warnings_reduced_count') or 0)}"
+    )
+    typer.echo(
+        "Quality status before/after: "
+        f"{summary.get('quality_status_before_repair') or 'unknown'} / "
+        f"{summary.get('quality_status_after_repair') or 'unknown'}"
+    )
     typer.echo(f"Main-body sections: {summary.get('main_body_section_count', 0)}")
     typer.echo(f"Appendix sections: {summary.get('appendix_section_count', 0)}")
     typer.echo(f"Total headings: {summary.get('total_heading_count', 0)}")
@@ -2763,6 +2844,11 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         _echo_named_artifact(artifacts, "generation report", "generation_report")
         _echo_named_artifact(artifacts, "release report", "release_report")
         _echo_named_artifact(artifacts, "safe repair report", "safe_repair_report")
+        _echo_named_artifact(
+            artifacts,
+            "quality repair report",
+            "quality_repair_report",
+        )
         _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
         _echo_named_artifact(
             artifacts,
@@ -2848,6 +2934,32 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     )
     typer.echo(f"Title: {title_state}")
     typer.echo(f"Citations: {citations}")
+    typer.echo(
+        "Quality repair: "
+        f"{'present' if summary.get('quality_repair_report_present') else 'absent'}"
+    )
+    typer.echo(
+        "Quality repair backend: "
+        f"{summary.get('quality_repair_backend') or 'off'}"
+    )
+    typer.echo(
+        "Quality repaired sections: "
+        f"{int(summary.get('quality_repaired_section_count') or 0)}"
+    )
+    typer.echo(
+        "Depth targets met: "
+        f"{int(summary.get('section_depth_target_met_count') or 0)}/"
+        f"{int(summary.get('section_depth_target_total') or 0)}"
+    )
+    typer.echo(
+        "Warnings reduced: "
+        f"{int(summary.get('warnings_reduced_count') or 0)}"
+    )
+    typer.echo(
+        "Quality status before/after: "
+        f"{summary.get('quality_status_before_repair') or 'unknown'} / "
+        f"{summary.get('quality_status_after_repair') or 'unknown'}"
+    )
     typer.echo(
         "Citation registry: "
         f"{'present' if summary.get('citation_registry_present') else 'absent'} "

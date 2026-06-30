@@ -77,6 +77,7 @@ from factori.schemas.manuscript import (
     PaperShapeCritique,
     PaperShapeScore,
     PaperSkeleton,
+    QualityRepairReport,
     RevisionSafetyReport,
     SectionRevisionPlan,
 )
@@ -189,6 +190,7 @@ __all__ = [
     "PaperRevisionPatch",
     "RevisionSafetyReport",
     "PaperRevisionResult",
+    "QualityRepairReport",
     "FullPaperGenerationConfig",
     "FullPaperGenerationStep",
     "FullPaperArtifactBundle",

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.21.0/llm-budget-usage.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/llm-budget-usage.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned or observed LLM usage accounting.",
@@ -43,6 +43,12 @@
       "default": 0,
       "minimum": 0,
       "title": "Prose Calls",
+      "type": "integer"
+    },
+    "quality_repair_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Quality Repair Calls",
       "type": "integer"
     },
     "rate_limit_per_minute": {
@@ -115,7 +121,7 @@
   },
   "title": "LLMBudgetUsage",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetUsage",
   "x-factori-verification-evidence": false
 }

@@ -23,6 +23,7 @@ from factori.schemas import (
     GeneratedSectionDraft,
     PipelineRunConfig,
     PipelineStage,
+    QualityRepairReport,
 )
 
 
@@ -30,6 +31,7 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
     assert FullPaperGenerationReport
+    assert QualityRepairReport
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -289,6 +291,89 @@ def test_safe_repair_writes_hashed_non_evidence_audit_artifact(tmp_path) -> None
     assert lint["appendix_section_count"] == 2
     assert lint["standalone_central_message_detected"] is False
     assert lint["central_message_merged"] is True
+
+
+def test_deterministic_quality_repair_writes_safe_report_and_revised_draft(
+    tmp_path,
+) -> None:
+    _prepare_run(tmp_path, run_id="run-quality-repair")
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs/run-quality-repair/ledger.sqlite")
+
+    result = generate_full_paper(
+        run_id="run-quality-repair",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=FakeProseGenerator(),
+        config=FullPaperGenerationConfig(
+            run_id="run-quality-repair",
+            write_report=True,
+            quality_repair_backend="deterministic",
+            quality_repair_model="unused",
+        ),
+        enable_safe_repair=True,
+    )
+
+    assert result.quality_repair_report_artifact is not None
+    _assert_non_evidence_artifact(tmp_path, result.quality_repair_report_artifact)
+    report_path = tmp_path / result.quality_repair_report_artifact.path
+    report = QualityRepairReport.model_validate_json(
+        report_path.read_text(encoding="utf-8")
+    )
+    assert report.quality_repair_enabled is True
+    assert report.quality_repair_backend == "deterministic"
+    assert report.quality_repair_status in {"repaired", "no_action_needed"}
+    assert report.claim_support_rechecked_after_repair is True
+    assert report.citation_safety_rechecked_after_repair is True
+    assert report.section_depth_targets["Abstract"]["min_words"] == 130
+    assert report.sections_below_target_after == []
+    assert report.placeholder_like_sections_after == []
+    assert report.warnings_reduced_count >= 1
+    assert "Draft may be skeletal: below proxy word-count target." in (
+        report.quality_warnings_before
+    )
+    assert "Draft may be skeletal: below proxy word-count target." not in (
+        report.quality_warnings_after
+    )
+    for heading, target in report.section_depth_targets.items():
+        assert report.section_word_counts_after[heading] >= target["min_words"]
+    assert report.creates_scientific_validation is False
+    assert report.implies_publication_readiness is False
+    assert report.is_verification_evidence is False
+    assert result.artifact_bundle.quality_repair_report_artifact_id == (
+        "quality-repair-report"
+    )
+    assert result.artifact_bundle.revised_manuscript_draft_artifact_id == (
+        "revised-manuscript-draft"
+    )
+    revised = (
+        tmp_path
+        / "runs/run-quality-repair/reports/revised-manuscript-draft.md"
+    ).read_text(encoding="utf-8")
+    lowered = revised.lower()
+    assert "publication_ready=false" in revised
+    assert "publication ready" not in lowered
+    assert "empirically validated" not in lowered
+    assert "source relevance and retrieval adequacy remain non-evidential" in lowered
+    assert "accepted_source_count" in revised
+    assert "absence of proof artifacts" in lowered
+    assert "absence of experiment artifacts" in lowered
+    lint = lint_paper_bundle_summary(run_id="run-quality-repair", root=tmp_path)
+    assert lint["quality_repair_report_present"] is True
+    assert lint["quality_repair_backend"] == "deterministic"
+    assert lint["quality_repaired_section_count"] >= 1
+    assert lint["section_depth_targets_present"] is True
+    assert lint["sections_below_depth_target"] == []
+    assert lint["placeholder_sections_after_quality_repair"] == []
+    assert lint["warnings_reduced_count"] >= 1
+    assert lint["limitations_concrete_constraint_count"] >= 2
+    assert lint["claim_support_rechecked_after_quality_repair"] is True
+    assert lint["citation_safety_rechecked_after_quality_repair"] is True
+    assert lint["claim_support_forbidden_claim_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
+    assert lint["unregistered_citation_keys"] == []
+    assert lint["publication_ready"] is False
 
 
 def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:

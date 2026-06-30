@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.21.0/latex-render-result.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/latex-render-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Optional gated LaTeX render/check result.",
@@ -119,7 +119,7 @@
   ],
   "title": "LatexRenderResult",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.LatexRenderResult",
   "x-factori-verification-evidence": false
 }

@@ -16,7 +16,7 @@ from factori.schemas import (
     LLMCallStatus,
 )
 
-_FAKE_BACKENDS = {"fake", "off"}
+_FAKE_BACKENDS = {"fake", "off", "deterministic"}
 
 
 class LLMBudgetError(RuntimeError):
@@ -67,6 +67,7 @@ class RuntimeLLMBudgetGuard:
         source_relevance_increment = (
             1 if step_name == "llm-source-relevance-adjudication" else 0
         )
+        quality_repair_increment = 1 if step_name == "llm-quality-repair" else 0
         next_usage = LLMBudgetUsage(
             total_calls=self.usage.total_calls + 1,
             candidate_generation_calls=(
@@ -80,6 +81,9 @@ class RuntimeLLMBudgetGuard:
             source_relevance_adjudication_calls=(
                 self.usage.source_relevance_adjudication_calls
                 + source_relevance_increment
+            ),
+            quality_repair_calls=(
+                self.usage.quality_repair_calls + quality_repair_increment
             ),
             total_input_tokens=_add_optional(
                 self.usage.total_input_tokens,
@@ -134,6 +138,12 @@ class RuntimeLLMBudgetGuard:
             "max_source_relevance_adjudication_calls",
             next_usage.source_relevance_adjudication_calls,
             self.budget.max_source_relevance_adjudication_calls,
+        )
+        _check_limit(
+            reasons,
+            "max_quality_repair_calls",
+            next_usage.quality_repair_calls,
+            self.budget.max_quality_repair_calls,
         )
         if input_token_estimate is None or output_token_estimate is None:
             _unknown_budget_item(reasons, warnings, self.budget, "runtime token usage")
@@ -226,6 +236,7 @@ def budget_is_explicit(budget: LLMBudgetConfig) -> bool:
             budget.max_prose_calls,
             budget.max_claim_adjudication_calls,
             budget.max_source_relevance_adjudication_calls,
+            budget.max_quality_repair_calls,
             budget.max_total_input_tokens,
             budget.max_total_output_tokens,
             budget.max_estimated_cost_usd,
@@ -242,11 +253,13 @@ def build_planned_llm_usage(
     prose_backend: str,
     claim_adjudicator_backend: str = "off",
     source_relevance_adjudicator_backend: str = "off",
+    quality_repair_backend: str = "off",
     candidate_generation_calls: int = 1,
     review_calls: int = 1,
     prose_calls: int = 1,
     claim_adjudication_calls: int = 0,
     source_relevance_adjudication_calls: int = 0,
+    quality_repair_calls: int = 0,
     estimated_cost_usd: float | None = None,
     input_tokens: int | None = None,
     output_tokens: int | None = None,
@@ -270,12 +283,18 @@ def build_planned_llm_usage(
         if _is_real_backend(source_relevance_adjudicator_backend)
         else 0
     )
+    quality_calls = (
+        max(0, quality_repair_calls)
+        if _is_real_backend(quality_repair_backend)
+        else 0
+    )
     total_calls = (
         candidate_calls
         + reviewer_calls
         + section_calls
         + adjudication_calls
         + source_relevance_calls
+        + quality_calls
     )
     return LLMBudgetUsage(
         total_calls=total_calls,
@@ -284,6 +303,7 @@ def build_planned_llm_usage(
         prose_calls=section_calls,
         claim_adjudication_calls=adjudication_calls,
         source_relevance_adjudication_calls=source_relevance_calls,
+        quality_repair_calls=quality_calls,
         total_input_tokens=input_tokens,
         total_output_tokens=output_tokens,
         estimated_cost_usd=estimated_cost_usd,
@@ -340,6 +360,12 @@ def evaluate_llm_budget(
         "max_source_relevance_adjudication_calls",
         planned_usage.source_relevance_adjudication_calls,
         budget.max_source_relevance_adjudication_calls,
+    )
+    _check_limit(
+        reasons,
+        "max_quality_repair_calls",
+        planned_usage.quality_repair_calls,
+        budget.max_quality_repair_calls,
     )
     if planned_usage.total_calls > 0 and planned_usage.total_input_tokens is None:
         _unknown_budget_item(reasons, warnings, budget, "input token usage")
@@ -414,6 +440,9 @@ def observed_usage_from_records(
         for record in successful
         if record.step_name == "llm-source-relevance-adjudication"
     )
+    quality_repair_calls = sum(
+        1 for record in successful if record.step_name == "llm-quality-repair"
+    )
     input_tokens = _sum_optional(record.input_token_estimate for record in successful)
     output_tokens = _sum_optional(record.output_token_estimate for record in successful)
     cost = _sum_optional_float(record.estimated_cost_usd for record in successful)
@@ -424,6 +453,7 @@ def observed_usage_from_records(
         prose_calls=prose_calls,
         claim_adjudication_calls=adjudication_calls,
         source_relevance_adjudication_calls=source_relevance_calls,
+        quality_repair_calls=quality_repair_calls,
         total_input_tokens=input_tokens,
         total_output_tokens=output_tokens,
         estimated_cost_usd=cost,

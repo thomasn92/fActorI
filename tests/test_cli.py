@@ -76,10 +76,16 @@ def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation
             "fake",
             "--source-relevance-adjudicator-model",
             "test-source-model",
+            "--quality-repair-backend",
+            "fake",
+            "--quality-repair-model",
+            "test-quality-model",
             "--max-claim-adjudication-calls",
             "2",
             "--max-source-relevance-adjudication-calls",
             "3",
+            "--max-quality-repair-calls",
+            "4",
             "--preflight-only",
             "--json",
         ],
@@ -92,7 +98,10 @@ def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation
     assert preflight["claim_adjudicator_model"] == "test-model"
     assert preflight["source_relevance_adjudicator_backend"] == "fake"
     assert preflight["source_relevance_adjudicator_model"] == "test-source-model"
+    assert preflight["quality_repair_backend"] == "fake"
+    assert preflight["quality_repair_model"] == "test-quality-model"
     assert preflight["source_relevance_adjudication_calls"] == 0
+    assert preflight["quality_repair_calls"] == 0
     assert not (tmp_path / "runs" / "adjudicator-preflight").exists()
 
 
@@ -123,6 +132,67 @@ def test_preflight_budget_plans_openai_source_relevance_calls() -> None:
     assert summary["source_relevance_adjudicator_backend"] == "openai"
     assert summary["source_relevance_adjudication_calls"] == 4
     assert summary["estimated_max_calls"] == 4
+
+
+def test_preflight_budget_plans_openai_quality_repair_calls() -> None:
+    summary = build_llm_orchestration_preflight_summary(
+        LLMOrchestrationConfig(
+            run_id="quality-repair-preflight",
+            domain="human geography",
+            candidate_backend="fake",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            allow_external_calls=True,
+            quality_repair_backend="openai",
+            quality_repair_model="test-quality-model",
+            budget=LLMBudgetConfig(
+                max_total_calls=2,
+                max_quality_repair_calls=2,
+                max_total_input_tokens=2000,
+                max_total_output_tokens=1000,
+                max_estimated_cost_usd=1.0,
+            ),
+        )
+    )
+
+    assert summary["quality_repair_backend"] == "openai"
+    assert summary["quality_repair_model"] == "test-quality-model"
+    assert summary["quality_repair_calls"] == 2
+    assert summary["estimated_max_calls"] == 2
+
+
+def test_deterministic_quality_repair_preflight_is_local_without_external_gate(
+    tmp_path,
+) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "run-llm-paper",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            "quality-repair-local-preflight",
+            "--domain",
+            "human geography",
+            "--candidate-backend",
+            "fake",
+            "--reviewer-backend",
+            "fake",
+            "--prose-backend",
+            "fake",
+            "--quality-repair-backend",
+            "deterministic",
+            "--preflight-only",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["preflight_summary"]["quality_repair_backend"] == "deterministic"
+    assert payload["preflight_summary"]["quality_repair_calls"] == 0
+    assert payload["preflight_summary"]["estimated_max_calls"] == 0
+    assert not (tmp_path / "runs" / "quality-repair-local-preflight").exists()
 
 
 def test_lint_paper_bundle_cli_is_registered() -> None:
@@ -318,6 +388,80 @@ def test_inspect_and_lint_paper_bundle_report_retrieval_quality(tmp_path) -> Non
     assert "Hard rejected sources: 1" in result.output
 
 
+def test_inspect_and_lint_paper_bundle_report_quality_repair(tmp_path) -> None:
+    run_id = "inspect-paper-quality-repair"
+    run_deterministic_pipeline(
+        PipelineRunConfig(
+            run_id=run_id,
+            domain="human geography",
+            root=tmp_path,
+            stop_after=PipelineStage.PLAN_MANUSCRIPT,
+        )
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    generate_full_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=FakeProseGenerator(),
+        config=FullPaperGenerationConfig(
+            run_id=run_id,
+            write_report=True,
+            quality_repair_backend="deterministic",
+        ),
+        enable_safe_repair=True,
+    )
+
+    inspect_summary = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    lint_summary = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert inspect_summary["quality_repair_report_present"] is True
+    assert inspect_summary["quality_repair_backend"] == "deterministic"
+    assert inspect_summary["quality_repaired_section_count"] >= 1
+    assert inspect_summary["section_depth_targets_present"] is True
+    assert inspect_summary["section_depth_target_met_count"] == (
+        inspect_summary["section_depth_target_total"]
+    )
+    assert inspect_summary["sections_below_depth_target"] == []
+    assert inspect_summary["warnings_reduced_count"] >= 1
+    assert inspect_summary["claim_support_rechecked_after_quality_repair"] is True
+    assert inspect_summary["citation_safety_rechecked_after_quality_repair"] is True
+    assert lint_summary["quality_repair_report_present"] is True
+    assert lint_summary["quality_repair_status"] in {"repaired", "no_action_needed"}
+    assert lint_summary["quality_repaired_section_count"] >= 1
+    assert lint_summary["section_depth_targets_present"] is True
+    assert lint_summary["sections_below_depth_target"] == []
+    assert lint_summary["placeholder_sections_after_quality_repair"] == []
+    assert lint_summary["warnings_reduced_count"] >= 1
+    assert lint_summary["quality_status_before_repair"]
+    assert lint_summary["quality_status_after_repair"]
+    assert lint_summary["claim_support_rechecked_after_quality_repair"] is True
+    assert lint_summary["citation_safety_rechecked_after_quality_repair"] is True
+
+    inspect_result = CliRunner().invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    assert inspect_result.exit_code == 0, inspect_result.output
+    assert "Quality repair: present" in inspect_result.output
+    assert "Quality repair backend: deterministic" in inspect_result.output
+    assert "Quality repaired sections:" in inspect_result.output
+    assert "Depth targets met:" in inspect_result.output
+    assert "Warnings reduced:" in inspect_result.output
+
+    lint_result = CliRunner().invoke(
+        app,
+        ["lint-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    assert lint_result.exit_code == 0, lint_result.output
+    assert "Quality repair: present" in lint_result.output
+    assert "Depth targets met:" in lint_result.output
+    assert "Warnings reduced:" in lint_result.output
+    assert "Quality repair backend: deterministic" in lint_result.output
+
+
 def test_inspect_paper_bundle_missing_run_gives_clear_error(tmp_path) -> None:
     result = CliRunner().invoke(
         app,
@@ -463,6 +607,46 @@ def test_lint_paper_bundle_appendices_do_not_trigger_fragmentation_failure(
     assert (
         "Appendices increase the total heading count but do not fragment the main body."
         in payload["development_warnings"]
+    )
+
+
+def test_lint_paper_bundle_concrete_limitations_are_not_placeholder_like(
+    tmp_path,
+) -> None:
+    run_id = "lint-paper-concrete-limitations"
+    old_limitations = (
+        "## Limitations\n"
+        + _repeated_quality_paragraph("The limitations section keeps the scope bounded")
+    )
+    concrete_limitations = (
+        "## Limitations\n"
+        "This limitations section is not placeholder boilerplate. "
+        "The accepted source count is local to the citation registry, rejected source "
+        "counts constrain what can be cited, hard-rejected source decisions cannot "
+        "support manuscript claims, the absence of proof artifacts blocks proof "
+        "language, the absence of experiment artifacts blocks experiment language, "
+        "and the absence of human-review artifacts blocks human approval language. "
+        "The manuscript remains bounded by publication_ready=false and cannot turn "
+        "quality repair into validation."
+    )
+    _write_paper_bundle_markdown(
+        tmp_path,
+        run_id=run_id,
+        complete_markdown=_acceptable_markdown(include_citation=False).replace(
+            old_limitations,
+            concrete_limitations,
+        ),
+    )
+
+    payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert payload["limitations_concrete_constraint_count"] >= 2
+    assert "Limitations" not in {
+        item["heading"] for item in payload["empty_or_placeholder_sections"]
+    }
+    assert all(
+        item["section_name"] != "Limitations" or item["placeholder_like"] is False
+        for item in payload["semantic_section_audit"]
     )
 
 

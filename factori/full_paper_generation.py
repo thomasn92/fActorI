@@ -13,6 +13,7 @@ from factori.citations import (
     CITATION_MARKER_RE,
     build_citation_registry_from_ledger,
     build_claim_support_audit,
+    repair_missing_required_citations_with_accepted_sources,
     validate_citation_usage,
     write_citation_registry_reports,
 )
@@ -57,6 +58,7 @@ from factori.schemas import (
     FullPaperGenerationStepStatus,
     FullPaperReleaseReport,
     PaperCriticReport,
+    QualityRepairReport,
     RerunPolicy,
     RetrievalQualityReport,
 )
@@ -187,10 +189,41 @@ _MAIN_BODY_HEADING_ALIASES = {
     "limitations": "Limitations",
     "conclusion": "Conclusion",
 }
+QUALITY_SECTION_DEPTH_TARGETS: dict[str, dict[str, int]] = {
+    "Abstract": {"min_words": 130, "max_words": 190},
+    "Introduction and Problem Framing": {"min_words": 220, "max_words": 320},
+    "Method and Model": {"min_words": 220, "max_words": 320},
+    "Claim and Evidence Boundaries": {"min_words": 160, "max_words": 240},
+    "Demonstration Status": {"min_words": 150, "max_words": 230},
+    "Limitations": {"min_words": 180, "max_words": 260},
+    "Conclusion": {"min_words": 150, "max_words": 220},
+}
 _APPENDIX_HEADING_FRAGMENTS = (
     "appendix",
     "bibliography",
     "references",
+)
+_CONCRETE_LIMITATION_PATTERNS = (
+    "accepted registry source",
+    "accepted source",
+    "accepted_source_count",
+    "rejected source",
+    "hard-rejected source",
+    "hard rejected source",
+    "no proof artifact",
+    "proof artifact",
+    "no experiment artifact",
+    "experiment artifact",
+    "human validation",
+    "human-review artifact",
+    "bounded retrieval",
+    "retrieval is bounded",
+    "publication_ready=false",
+)
+_IRREDUCIBLE_QUALITY_WARNING_PREFIXES = (
+    "Some retrieved sources were rejected by bounded quality filtering.",
+    "Retrieval adequacy is bounded background context only, not validation.",
+    "Appendices increase the total heading count but do not fragment the main body.",
 )
 _METADATA_HEADING_TITLES = frozenset(
     {
@@ -222,6 +255,7 @@ class FullPaperGenerationRunResult:
     revised_source_map_artifact: ArtifactRef | None = None
     revised_export_report_artifact: ArtifactRef | None = None
     revised_safety_report_artifact: ArtifactRef | None = None
+    quality_repair_report_artifact: ArtifactRef | None = None
     claim_adjudicator: ClaimAdjudicator | None = None
 
 
@@ -259,6 +293,9 @@ def generate_full_paper(
     critic_result = None
     revision_result = None
     revised_export = None
+    quality_repair_report: QualityRepairReport | None = None
+    quality_repaired_markdown: str | None = None
+    claim_support_audit: ClaimSupportAuditReport | None = None
 
     draft_refs = _latest_refs(ledger, run_id, ControllerActionType.MANUSCRIPT_DRAFT_WRITTEN)
     if draft_refs:
@@ -436,9 +473,61 @@ def generate_full_paper(
             )
         )
 
-    reexport_requested = config.reexport_latex_after_revision or enable_safe_repair
+    quality_repair_report, quality_repaired_markdown, claim_support_audit = (
+        _run_quality_repair_if_requested(
+            run_id=run_id,
+            root=root,
+            ledger=ledger,
+            config=config,
+            revision_result=revision_result,
+            claim_adjudicator=claim_adjudicator,
+        )
+    )
+    if quality_repair_report is not None:
+        if (
+            quality_repaired_markdown is not None
+            and revision_result is not None
+            and revision_result.revision_result is not None
+        ):
+            revision_result = _revision_result_with_markdown(
+                revision_result,
+                quality_repaired_markdown,
+            )
+        steps.append(
+            _step(
+                "quality-repair",
+                _quality_repair_step_status(quality_repair_report),
+                "Bounded deterministic quality repair was evaluated.",
+                {},
+                _quality_repair_step_warnings(quality_repair_report),
+                (
+                    "Quality repair could not complete safely."
+                    if quality_repair_report.quality_repair_status
+                    in {"blocked", "failed"}
+                    else None
+                ),
+            )
+        )
+    else:
+        steps.append(
+            _step(
+                "quality-repair",
+                FullPaperGenerationStepStatus.SKIPPED,
+                "Quality repair was skipped by configuration.",
+                {},
+            )
+        )
+
+    reexport_requested = (
+        config.reexport_latex_after_revision
+        or enable_safe_repair
+        or (config.export_latex and quality_repaired_markdown is not None)
+    )
     if reexport_requested:
-        if revision_result is None or revision_result.revision_result is None:
+        if (
+            quality_repaired_markdown is None
+            and (revision_result is None or revision_result.revision_result is None)
+        ):
             raise FullPaperGenerationError(
                 "LaTeX re-export after revision requires --apply-safe-fake-revision."
             )
@@ -448,6 +537,7 @@ def generate_full_paper(
                 root=root,
                 ledger=ledger,
                 revision_result=revision_result,
+                revised_markdown=quality_repaired_markdown,
             )
         except LatexExportError as exc:
             raise FullPaperGenerationError(str(exc)) from exc
@@ -470,13 +560,14 @@ def generate_full_paper(
             )
         )
 
-    claim_support_audit = _build_claim_support_audit_for_generation(
-        run_id=run_id,
-        root=root,
-        ledger=ledger,
-        revision_result=revision_result,
-        claim_adjudicator=claim_adjudicator,
-    )
+    if claim_support_audit is None:
+        claim_support_audit = _build_claim_support_audit_for_generation(
+            run_id=run_id,
+            root=root,
+            ledger=ledger,
+            revision_result=revision_result,
+            claim_adjudicator=claim_adjudicator,
+        )
     claim_support_warnings = _claim_support_warnings(claim_support_audit)
     steps.append(
         _step(
@@ -530,6 +621,8 @@ def generate_full_paper(
         bundle=bundle,
         revised_export=revised_export,
         claim_support_audit=claim_support_audit,
+        quality_repair_report=quality_repair_report,
+        quality_repaired_markdown=quality_repaired_markdown,
     )
     return _with_persisted_generation_artifacts(
         run_id=run_id,
@@ -589,6 +682,9 @@ def inspect_paper_bundle_summary(
     generation_report = _read_generation_report(paths["generation_report"])
     release_report = _read_release_report(paths["release_report"])
     safe_repair_report = _read_json_optional(paths["safe_repair_report"])
+    quality_repair_report = _read_quality_repair_report(
+        paths["quality_repair_report"]
+    )
     markdown = (
         primary_draft.read_text(encoding="utf-8")
         if primary_draft is not None
@@ -662,6 +758,8 @@ def inspect_paper_bundle_summary(
         "latex_exists": paths["paper"].is_file(),
         "revised_latex_exists": paths["revised_paper"].is_file(),
         "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
+        "quality_repair_report_exists": paths["quality_repair_report"].is_file(),
+        "quality_repair_report_present": quality_repair_report is not None,
         "retrieval_quality_report_exists": paths["retrieval_quality_report"].is_file(),
         "release_report_exists": paths["release_report"].is_file(),
         "generation_report_exists": paths["generation_report"].is_file(),
@@ -708,6 +806,78 @@ def inspect_paper_bundle_summary(
             int(safe_repair_report.get("repairs_applied", 0))
             if isinstance(safe_repair_report, dict)
             else 0
+        ),
+        "quality_repair_backend": (
+            quality_repair_report.quality_repair_backend
+            if quality_repair_report is not None
+            else "off"
+        ),
+        "quality_repair_status": (
+            quality_repair_report.quality_repair_status
+            if quality_repair_report is not None
+            else "disabled"
+        ),
+        "quality_repaired_section_count": (
+            len(quality_repair_report.sections_repaired)
+            if quality_repair_report is not None
+            else 0
+        ),
+        "quality_status_before_repair": (
+            quality_repair_report.before_quality_status
+            if quality_repair_report is not None
+            else None
+        ),
+        "quality_status_after_repair": (
+            quality_repair_report.after_quality_status
+            if quality_repair_report is not None
+            else None
+        ),
+        "section_depth_targets_present": bool(
+            quality_repair_report and quality_repair_report.section_depth_targets
+        ),
+        "section_depth_targets": (
+            quality_repair_report.section_depth_targets
+            if quality_repair_report is not None
+            else {}
+        ),
+        "section_depth_target_total": (
+            len(quality_repair_report.section_depth_targets)
+            if quality_repair_report is not None
+            else 0
+        ),
+        "section_depth_target_met_count": (
+            len(quality_repair_report.section_depth_targets)
+            - len(quality_repair_report.sections_below_target_after)
+            if quality_repair_report is not None
+            else 0
+        ),
+        "sections_below_depth_target": (
+            quality_repair_report.sections_below_target_after
+            if quality_repair_report is not None
+            else []
+        ),
+        "placeholder_sections_after_quality_repair": (
+            quality_repair_report.placeholder_like_sections_after
+            if quality_repair_report is not None
+            else []
+        ),
+        "warnings_reduced_count": (
+            quality_repair_report.warnings_reduced_count
+            if quality_repair_report is not None
+            else 0
+        ),
+        "irreducible_quality_warnings": (
+            quality_repair_report.irreducible_warnings
+            if quality_repair_report is not None
+            else []
+        ),
+        "claim_support_rechecked_after_quality_repair": bool(
+            quality_repair_report
+            and quality_repair_report.claim_support_rechecked_after_repair
+        ),
+        "citation_safety_rechecked_after_quality_repair": bool(
+            quality_repair_report
+            and quality_repair_report.citation_safety_rechecked_after_repair
         ),
         "citation_registry_present": paths["citation_registry"].is_file(),
         "citation_registry_source_count": registry_source_count,
@@ -851,6 +1021,9 @@ def lint_paper_bundle_summary(
     min_words: int = 1500,
     min_avg_words_per_section: float = 120.0,
     min_citation_markers: int = 1,
+    _markdown_override: str | None = None,
+    _claim_support_audit_override: ClaimSupportAuditReport | None = None,
+    _citation_safety_override: Any | None = None,
 ) -> dict[str, Any]:
     """Compute deterministic draft-quality diagnostics without mutating the run."""
     if min_words < 0:
@@ -866,10 +1039,88 @@ def lint_paper_bundle_summary(
     bundle = inspect_paper_bundle_summary(run_id=run_id, root=root_path)
     primary = bundle.get("primary_artifact_to_read")
     markdown = ""
-    if isinstance(primary, str) and primary.endswith(".md"):
+    if _markdown_override is not None:
+        markdown = _markdown_override
+    elif isinstance(primary, str) and primary.endswith(".md"):
         primary_path = root_path / primary
         if primary_path.is_file():
             markdown = primary_path.read_text(encoding="utf-8")
+    if _markdown_override is not None:
+        override_stats = _manuscript_stats(markdown)
+        override_sections = _markdown_sections(markdown)
+        override_accounting = _section_accounting(
+            override_sections,
+            override_stats.get("title_detected"),
+        )
+        bundle.update(override_stats)
+        bundle.update(_public_section_accounting(override_accounting))
+        bundle["unregistered_citation_keys"] = sorted(
+            set(CITATION_MARKER_RE.findall(markdown))
+        )
+        if _citation_safety_override is not None:
+            bundle["unregistered_citation_keys"] = list(
+                _citation_safety_override.unregistered_citation_keys
+            )
+            bundle["registry_backed_citation_count"] = int(
+                _citation_safety_override.registry_backed_citation_count
+            )
+            bundle["bibliography_registry_backed"] = bool(
+                _citation_safety_override.bibliography_registry_backed
+            )
+            bibliography_present = bool(
+                re.search(
+                    r"^#{1,6}\s+(bibliography|references)\s*$",
+                    markdown,
+                    re.I | re.M,
+                )
+            )
+            bundle["bibliography_status"] = (
+                "registry-backed"
+                if bibliography_present
+                and _citation_safety_override.bibliography_registry_backed
+                else "unsafe"
+                if bibliography_present
+                else "absent"
+            )
+        if _claim_support_audit_override is not None:
+            counts = _claim_support_audit_override.summary_counts
+            bundle["claim_support_audit_present"] = True
+            bundle["claim_support_total_sentences"] = int(
+                counts.get("total_sentences", 0)
+            )
+            bundle["claim_support_registry_supported_count"] = int(
+                counts.get("registry_supported", 0)
+            )
+            bundle["claim_support_scaffold_not_required_count"] = int(
+                counts.get("scaffold_not_required", 0)
+            )
+            bundle["claim_support_missing_required_citation_count"] = int(
+                counts.get("missing_required_citation", 0)
+            )
+            bundle["claim_support_scope_mismatch_count"] = int(
+                counts.get("scope_mismatch", 0)
+            )
+            bundle["claim_support_forbidden_claim_count"] = int(
+                counts.get("forbidden_claim", 0)
+            )
+            bundle["citation_placement_violations"] = list(
+                _claim_support_audit_override.citation_placement_violations
+            )
+            bundle["citation_as_validation_misuse_count"] = int(
+                counts.get("citation_as_validation_misuse", 0)
+            )
+            bundle["claim_adjudication_enabled"] = bool(
+                _claim_support_audit_override.claim_adjudication_enabled
+            )
+            bundle["claim_adjudicator_backend"] = (
+                _claim_support_audit_override.claim_adjudicator_backend
+            )
+            bundle["claim_adjudication_calls"] = (
+                _claim_support_audit_override.claim_adjudication_calls
+            )
+            bundle["adjudicated_sentence_count"] = (
+                _claim_support_audit_override.adjudicated_sentence_count
+            )
 
     headings = list(bundle.get("section_headings_detected") or [])
     word_count = int(bundle.get("word_count") or 0)
@@ -883,6 +1134,22 @@ def lint_paper_bundle_summary(
     abstract_present = bool(bundle.get("abstract_detected"))
     citation_marker_count = int(bundle.get("citation_marker_count") or 0)
     citations_present = citation_marker_count > 0
+    quality_repair_report_present = bool(
+        bundle.get("quality_repair_report_present")
+    )
+    quality_repair_backend = str(bundle.get("quality_repair_backend") or "off")
+    quality_repair_status = str(bundle.get("quality_repair_status") or "disabled")
+    quality_repaired_section_count = int(
+        bundle.get("quality_repaired_section_count") or 0
+    )
+    quality_status_before_repair = bundle.get("quality_status_before_repair")
+    quality_status_after_repair = bundle.get("quality_status_after_repair")
+    claim_support_rechecked_after_quality_repair = bool(
+        bundle.get("claim_support_rechecked_after_quality_repair")
+    )
+    citation_safety_rechecked_after_quality_repair = bool(
+        bundle.get("citation_safety_rechecked_after_quality_repair")
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(
         bundle.get("citation_registry_source_count") or 0
@@ -983,6 +1250,9 @@ def lint_paper_bundle_summary(
         if main_body_section_count
         else 0.0
     )
+    section_word_counts = _canonical_section_word_counts(body_sections)
+    depth_summary = _quality_depth_target_summary(section_word_counts)
+    sections_below_depth_target = list(depth_summary["sections_below_depth_target"])
     sections_too_short = [
         {"heading": section["heading"], "word_count": section["word_count"]}
         for section in body_sections
@@ -991,8 +1261,19 @@ def lint_paper_bundle_summary(
     empty_or_placeholder_sections = [
         {"heading": section["heading"], "word_count": section["word_count"]}
         for section in body_sections
-        if section["word_count"] == 0 or _contains_placeholder_text(section["body"])
+        if _section_is_placeholder_like(section)
     ]
+    placeholder_like_section_headings = [
+        str(section["heading"]) for section in empty_or_placeholder_sections
+    ]
+    limitations_concrete_constraint_count = max(
+        (
+            _concrete_limitation_constraint_count(str(section["body"]))
+            for section in body_sections
+            if _canonical_main_body_heading(str(section["heading"])) == "Limitations"
+        ),
+        default=0,
+    )
     generic_heading_count = sum(
         1 for heading in headings if heading.casefold() in _GENERIC_HEADING_TITLES
     )
@@ -1060,10 +1341,7 @@ def lint_paper_bundle_summary(
     )
     conclusion_placeholder_like = bool(
         conclusion_section is not None
-        and (
-            int(conclusion_section["word_count"]) == 0
-            or _contains_placeholder_text(str(conclusion_section["body"]))
-        )
+        and _section_is_placeholder_like(conclusion_section)
     )
     main_body_heading_fragmentation_detected = bool(
         unplanned_main_body_headings
@@ -1204,7 +1482,9 @@ def lint_paper_bundle_summary(
         failure_reasons.append("Title appears to be a placeholder.")
     elif not title_is_grammatical_enough:
         development_warnings.append("Title may be grammatically weak.")
-    if sections_too_short:
+    if sections_too_short or (
+        quality_repair_report_present and sections_below_depth_target
+    ):
         development_warnings.append("One or more sections may be underdeveloped.")
     if placeholder_sections_detected:
         development_warnings.append("One or more sections are empty or placeholder-like.")
@@ -1212,7 +1492,11 @@ def lint_paper_bundle_summary(
         failure_reasons.append("Most body sections are empty or placeholder text.")
     if too_many_sections_for_length:
         development_warnings.append("Too many headings for the amount of content.")
-    elif appendix_section_count and total_heading_count > max_section_count_for_short_draft:
+    elif (
+        appendix_section_count
+        and total_heading_count > max_section_count_for_short_draft
+        and word_count < min_words
+    ):
         development_warnings.append(
             "Appendices increase the total heading count but do not fragment the main body."
         )
@@ -1242,6 +1526,7 @@ def lint_paper_bundle_summary(
         )
 
     issues = [*failure_reasons, *development_warnings]
+    irreducible_quality_warnings = _irreducible_quality_warnings(development_warnings)
     quality_status = (
         "DraftQualityFailed"
         if failure_reasons
@@ -1264,11 +1549,45 @@ def lint_paper_bundle_summary(
         "main_body_word_count": main_body_word_count,
         "appendix_word_count": appendix_word_count,
         "main_body_avg_words_per_section": main_body_avg_words_per_section,
+        "section_depth_targets_present": True,
+        "section_depth_targets": QUALITY_SECTION_DEPTH_TARGETS,
+        "section_word_counts": section_word_counts,
+        "section_depth_target_total": depth_summary[
+            "section_depth_target_total"
+        ],
+        "section_depth_target_met_count": depth_summary[
+            "section_depth_target_met_count"
+        ],
+        "sections_below_depth_target": sections_below_depth_target,
+        "placeholder_sections_after_quality_repair": (
+            placeholder_like_section_headings
+        ),
+        "warnings_reduced_count": int(bundle.get("warnings_reduced_count") or 0),
+        "irreducible_quality_warnings": irreducible_quality_warnings,
+        "limitations_concrete_constraint_count": limitations_concrete_constraint_count,
         "title_detected": title_text or None,
         "title_is_placeholder": title_is_placeholder,
         "abstract_present": abstract_present,
         "citation_marker_count": citation_marker_count,
         "citations_present": citations_present,
+        "quality_repair_report_present": quality_repair_report_present,
+        "quality_repair_backend": quality_repair_backend,
+        "quality_repair_status": quality_repair_status,
+        "quality_repaired_section_count": quality_repaired_section_count,
+        "quality_status_before_repair": quality_status_before_repair,
+        "quality_status_after_repair": quality_status_after_repair,
+        "quality_repair_warnings_reduced_count": int(
+            bundle.get("warnings_reduced_count") or 0
+        ),
+        "quality_repair_irreducible_warnings": list(
+            bundle.get("irreducible_quality_warnings") or []
+        ),
+        "claim_support_rechecked_after_quality_repair": (
+            claim_support_rechecked_after_quality_repair
+        ),
+        "citation_safety_rechecked_after_quality_repair": (
+            citation_safety_rechecked_after_quality_repair
+        ),
         "citation_registry_present": citation_registry_present,
         "citation_registry_source_count": citation_registry_source_count,
         "citation_registry_sources_all_accepted": (
@@ -1392,6 +1711,7 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "generation_report": run_path / "reports" / "full-paper-generation-report.json",
         "release_report": run_path / "reports" / "full-paper-release-report.json",
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
+        "quality_repair_report": run_path / "reports" / "quality-repair-report.json",
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
         "retrieval_quality_report": run_path
         / "reports"
@@ -1426,6 +1746,15 @@ def _read_retrieval_quality_report(path: Path) -> RetrievalQualityReport | None:
         return None
     try:
         return RetrievalQualityReport.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def _read_quality_repair_report(path: Path) -> QualityRepairReport | None:
+    if not path.is_file():
+        return None
+    try:
+        return QualityRepairReport.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
 
@@ -1523,6 +1852,55 @@ def _public_section_accounting(accounting: dict[str, Any]) -> dict[str, Any]:
             "main_body_avg_words_per_section",
         )
     }
+
+
+def _canonical_section_word_counts(
+    sections: list[dict[str, Any]],
+) -> dict[str, int]:
+    counts = {heading: 0 for heading in CANONICAL_MAIN_SECTIONS}
+    for section in sections:
+        canonical = _canonical_main_body_heading(str(section["heading"]))
+        if canonical in counts:
+            counts[canonical] = max(counts[canonical], int(section["word_count"]))
+    return counts
+
+
+def _sections_below_depth_target(
+    word_counts: dict[str, int],
+) -> list[str]:
+    return [
+        heading
+        for heading, target in QUALITY_SECTION_DEPTH_TARGETS.items()
+        if int(word_counts.get(heading, 0)) < int(target["min_words"])
+    ]
+
+
+def _quality_depth_target_summary(
+    word_counts: dict[str, int],
+) -> dict[str, int | list[str] | bool]:
+    below = _sections_below_depth_target(word_counts)
+    total = len(QUALITY_SECTION_DEPTH_TARGETS)
+    return {
+        "section_depth_targets_present": True,
+        "section_depth_target_total": total,
+        "section_depth_target_met_count": total - len(below),
+        "sections_below_depth_target": below,
+    }
+
+
+def _irreducible_quality_warnings(warnings: list[str]) -> list[str]:
+    return [
+        warning
+        for warning in warnings
+        if any(
+            warning.startswith(prefix)
+            for prefix in _IRREDUCIBLE_QUALITY_WARNING_PREFIXES
+        )
+    ]
+
+
+def _warnings_reduced_count(before: list[str], after: list[str]) -> int:
+    return max(0, len(set(before) - set(after)))
 
 
 def _canonical_main_body_heading(heading: str) -> str | None:
@@ -1638,6 +2016,27 @@ def _contains_placeholder_text(text: str) -> bool:
     return any(pattern in text_key for pattern in _PLACEHOLDER_SECTION_PATTERNS)
 
 
+def _concrete_limitation_constraint_count(text: str) -> int:
+    text_key = text.casefold()
+    return sum(1 for pattern in _CONCRETE_LIMITATION_PATTERNS if pattern in text_key)
+
+
+def _is_concrete_limitations_section(section: dict[str, Any]) -> bool:
+    heading = str(section["heading"])
+    return (
+        _canonical_main_body_heading(heading) == "Limitations"
+        and _concrete_limitation_constraint_count(str(section["body"])) >= 2
+    )
+
+
+def _section_is_placeholder_like(section: dict[str, Any]) -> bool:
+    if int(section["word_count"]) == 0:
+        return True
+    if _is_concrete_limitations_section(section):
+        return False
+    return _contains_placeholder_text(str(section["body"]))
+
+
 def _title_is_grammatical_enough(title: str) -> bool:
     if not title:
         return False
@@ -1683,8 +2082,7 @@ def _semantic_section_audit(sections: list[dict[str, Any]]) -> list[dict[str, An
                 _FORBIDDEN_EMPIRICAL_PATTERNS,
             ),
             "contains_extra_headings": section["level"] > 2,
-            "placeholder_like": section["word_count"] == 0
-            or _contains_placeholder_text(str(section["body"])),
+            "placeholder_like": _section_is_placeholder_like(section),
             "is_verification_evidence": False,
             "creates_scientific_validation": False,
             "implies_publication_readiness": False,
@@ -1816,6 +2214,575 @@ def _build_claim_support_audit_for_generation(
     )
 
 
+def _run_quality_repair_if_requested(
+    *,
+    run_id: str,
+    root: str | Path,
+    ledger: ResearchLedger,
+    config: FullPaperGenerationConfig,
+    revision_result: PaperRevisionRunResult | None,
+    claim_adjudicator: ClaimAdjudicator | None,
+) -> tuple[QualityRepairReport | None, str | None, ClaimSupportAuditReport | None]:
+    backend = config.quality_repair_backend
+    if backend == "off":
+        return None, None, None
+    if backend == "openai":
+        if not config.allow_external_calls:
+            raise FullPaperGenerationError(
+                "OpenAI quality repair requires --allow-external-calls."
+            )
+        raise FullPaperGenerationError(
+            "OpenAI quality repair is gated but not implemented for M57; "
+            "use --quality-repair-backend deterministic."
+        )
+    if backend not in {"deterministic", "fake"}:
+        raise FullPaperGenerationError(f"Unsupported quality repair backend: {backend}")
+
+    markdown = _primary_markdown_for_claim_support(
+        run_id=run_id,
+        root=root,
+        revision_result=revision_result,
+    )
+    before = lint_paper_bundle_summary(run_id=run_id, root=root)
+    repaired_markdown, repair_state = _deterministic_quality_repair_markdown(
+        markdown,
+        before,
+    )
+    registry = _read_citation_registry(
+        Path(root) / "runs" / run_id / "reports" / "citation-registry.json"
+    )
+    if registry is None:
+        registry = build_citation_registry_from_ledger(run_id, ledger)
+    claim_support_audit = build_claim_support_audit(
+        run_id=run_id,
+        markdown=repaired_markdown,
+        citation_registry=registry,
+        claim_adjudicator=claim_adjudicator,
+        available_evidence_artifacts=_available_evidence_artifacts(ledger, run_id),
+    )
+    source_repair = repair_missing_required_citations_with_accepted_sources(
+        repaired_markdown,
+        claim_support_audit,
+        registry,
+    )
+    if source_repair.revised_markdown != repaired_markdown:
+        repaired_markdown = source_repair.revised_markdown
+        claim_support_audit = build_claim_support_audit(
+            run_id=run_id,
+            markdown=repaired_markdown,
+            citation_registry=registry,
+            claim_adjudicator=claim_adjudicator,
+            available_evidence_artifacts=_available_evidence_artifacts(ledger, run_id),
+        )
+    citation_safety = validate_citation_usage(repaired_markdown, registry)
+    after = lint_paper_bundle_summary(
+        run_id=run_id,
+        root=root,
+        _markdown_override=repaired_markdown,
+        _claim_support_audit_override=claim_support_audit,
+        _citation_safety_override=citation_safety,
+    )
+    bibliography_present = bool(
+        re.search(
+            r"^#{1,6}\s+(bibliography|references)\s*$",
+            repaired_markdown,
+            re.I | re.M,
+        )
+    )
+    citation_violation = bool(citation_safety.unregistered_citation_keys) or (
+        bibliography_present and not citation_safety.bibliography_registry_backed
+    )
+    sections_repaired = sorted(set(repair_state["sections_repaired"]))
+    quality_warnings_before = list(before.get("quality_warning_reasons") or [])
+    quality_warnings_after = list(after.get("quality_warning_reasons") or [])
+    placeholder_like_sections_before = [
+        str(item.get("heading", ""))
+        for item in before.get("empty_or_placeholder_sections") or []
+        if isinstance(item, dict) and item.get("heading")
+    ]
+    placeholder_like_sections_after = [
+        str(item.get("heading", ""))
+        for item in after.get("empty_or_placeholder_sections") or []
+        if isinstance(item, dict) and item.get("heading")
+    ]
+    status = (
+        "blocked"
+        if citation_violation
+        or int(claim_support_audit.summary_counts.get("missing_required_citation", 0))
+        or int(claim_support_audit.summary_counts.get("forbidden_claim", 0))
+        or int(claim_support_audit.summary_counts.get("citation_as_validation_misuse", 0))
+        else "repaired"
+        if repaired_markdown != markdown
+        else "no_action_needed"
+    )
+    report = QualityRepairReport(
+        run_id=run_id,
+        quality_repair_enabled=True,
+        quality_repair_backend=backend,
+        quality_repair_status=status,
+        before_quality_status=str(before.get("quality_status") or ""),
+        after_quality_status=str(after.get("quality_status") or ""),
+        quality_failures_before=list(before.get("quality_failure_reasons") or []),
+        quality_failures_after=list(after.get("quality_failure_reasons") or []),
+        quality_warnings_before=quality_warnings_before,
+        quality_warnings_after=quality_warnings_after,
+        sections_repaired=sections_repaired,
+        section_depth_targets=QUALITY_SECTION_DEPTH_TARGETS,
+        section_word_counts_before=dict(before.get("section_word_counts") or {}),
+        section_word_counts_after=dict(after.get("section_word_counts") or {}),
+        sections_below_target_before=list(
+            before.get("sections_below_depth_target") or []
+        ),
+        sections_below_target_after=list(
+            after.get("sections_below_depth_target") or []
+        ),
+        placeholder_like_sections_before=placeholder_like_sections_before,
+        placeholder_like_sections_after=placeholder_like_sections_after,
+        warnings_reduced_count=_warnings_reduced_count(
+            quality_warnings_before,
+            quality_warnings_after,
+        ),
+        irreducible_warnings=_irreducible_quality_warnings(quality_warnings_after),
+        abstract_repaired=bool(repair_state["abstract_repaired"]),
+        problem_statement_repaired=bool(repair_state["problem_statement_repaired"]),
+        method_summary_repaired=bool(repair_state["method_summary_repaired"]),
+        limitations_repaired=bool(repair_state["limitations_repaired"]),
+        conclusion_repaired=bool(repair_state["conclusion_repaired"]),
+        placeholder_sections_repaired=int(
+            repair_state["placeholder_sections_repaired"]
+        ),
+        underdeveloped_sections_repaired=int(
+            repair_state["underdeveloped_sections_repaired"]
+        ),
+        claim_support_rechecked_after_repair=True,
+        citation_safety_rechecked_after_repair=True,
+    )
+    return report, repaired_markdown, claim_support_audit
+
+
+def _deterministic_quality_repair_markdown(
+    markdown: str,
+    before_lint: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    sections = _markdown_sections(markdown)
+    state: dict[str, Any] = {
+        "sections_repaired": [],
+        "abstract_repaired": False,
+        "problem_statement_repaired": False,
+        "method_summary_repaired": False,
+        "limitations_repaired": False,
+        "conclusion_repaired": False,
+        "placeholder_sections_repaired": 0,
+        "underdeveloped_sections_repaired": 0,
+    }
+    revised = markdown
+    short_headings = {
+        str(item.get("heading", ""))
+        for item in before_lint.get("sections_too_short") or []
+        if isinstance(item, dict)
+    }
+    placeholder_headings = {
+        str(item.get("heading", ""))
+        for item in before_lint.get("empty_or_placeholder_sections") or []
+        if isinstance(item, dict)
+    }
+
+    def needs(heading: str, min_words: int) -> bool:
+        section = _find_markdown_section(sections, heading)
+        if section is None:
+            return True
+        return (
+            int(section["word_count"]) < min_words
+            or heading in short_headings
+            or heading in placeholder_headings
+            or _contains_placeholder_text(str(section["body"]))
+        )
+
+    if needs("Abstract", QUALITY_SECTION_DEPTH_TARGETS["Abstract"]["min_words"]):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Abstract",
+            _quality_repair_abstract(),
+        )
+        state["sections_repaired"].append("Abstract")
+        state["abstract_repaired"] = True
+        state["underdeveloped_sections_repaired"] += 1
+        if "Abstract" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+
+    semantic = dict(before_lint.get("semantic_checks") or {})
+    if needs(
+        "Introduction and Problem Framing",
+        QUALITY_SECTION_DEPTH_TARGETS["Introduction and Problem Framing"][
+            "min_words"
+        ],
+    ):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Introduction and Problem Framing",
+            _quality_repair_introduction(),
+        )
+        state["sections_repaired"].append("Introduction and Problem Framing")
+        state["problem_statement_repaired"] = True
+        state["underdeveloped_sections_repaired"] += 1
+        if "Introduction and Problem Framing" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+    elif not semantic.get("problem_statement_present"):
+        revised = _prepend_to_markdown_section(
+            revised,
+            "Introduction and Problem Framing",
+            _quality_repair_problem_statement(),
+        )
+        state["sections_repaired"].append("Introduction and Problem Framing")
+        state["problem_statement_repaired"] = True
+
+    if (
+        needs(
+            "Method and Model",
+            QUALITY_SECTION_DEPTH_TARGETS["Method and Model"]["min_words"],
+        )
+        or not semantic.get("method_summary_present")
+    ):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Method and Model",
+            _quality_repair_method_summary(),
+        )
+        state["sections_repaired"].append("Method and Model")
+        state["method_summary_repaired"] = True
+        state["underdeveloped_sections_repaired"] += 1
+        if "Method and Model" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+
+    if needs(
+        "Claim and Evidence Boundaries",
+        QUALITY_SECTION_DEPTH_TARGETS["Claim and Evidence Boundaries"]["min_words"],
+    ):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Claim and Evidence Boundaries",
+            _quality_repair_claim_boundaries(),
+        )
+        state["sections_repaired"].append("Claim and Evidence Boundaries")
+        state["underdeveloped_sections_repaired"] += 1
+        if "Claim and Evidence Boundaries" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+
+    if needs(
+        "Demonstration Status",
+        QUALITY_SECTION_DEPTH_TARGETS["Demonstration Status"]["min_words"],
+    ):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Demonstration Status",
+            _quality_repair_demonstration_status(),
+        )
+        state["sections_repaired"].append("Demonstration Status")
+        state["underdeveloped_sections_repaired"] += 1
+        if "Demonstration Status" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+
+    if (
+        needs(
+            "Limitations",
+            QUALITY_SECTION_DEPTH_TARGETS["Limitations"]["min_words"],
+        )
+        or not semantic.get("limitations_present")
+    ):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Limitations",
+            _quality_repair_limitations(),
+        )
+        state["sections_repaired"].append("Limitations")
+        state["limitations_repaired"] = True
+        state["underdeveloped_sections_repaired"] += 1
+        if "Limitations" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+
+    if (
+        needs(
+            "Conclusion",
+            QUALITY_SECTION_DEPTH_TARGETS["Conclusion"]["min_words"],
+        )
+        or before_lint.get("conclusion_placeholder_like")
+    ):
+        revised = _replace_or_insert_markdown_section(
+            revised,
+            "Conclusion",
+            _quality_repair_conclusion(),
+        )
+        state["sections_repaired"].append("Conclusion")
+        state["conclusion_repaired"] = True
+        state["underdeveloped_sections_repaired"] += 1
+        if "Conclusion" in placeholder_headings:
+            state["placeholder_sections_repaired"] += 1
+
+    return revised.strip() + "\n", state
+
+
+def _quality_repair_abstract() -> str:
+    return (
+        "This draft frames a bounded optimal-transport approach for organizing a "
+        "manuscript-level description of heterogeneous spatial structure in human "
+        "geography. The contribution is deliberately narrow: it is an audited paper "
+        "package that makes the candidate framing, source boundaries, citation "
+        "registry, claim-support audit, source-aware citation repair, quality repair, "
+        "and release gate readable for human review. The method described here is a "
+        "deterministic pipeline for assembling and checking a draft, not a validated "
+        "theorem, experiment, novelty result, or correctness argument. Accepted "
+        "registry sources are used only as bounded background context; rejected and "
+        "hard-rejected sources cannot support claims. Source relevance and retrieval "
+        "adequacy remain non-evidential, and citations do not prove validation or "
+        "publication readiness. The current run therefore supports a cautious "
+        "human-review handoff with warnings while reserving stronger scientific "
+        "claims for later proof, experiment, and human-review artifacts."
+    )
+
+
+def _quality_repair_problem_statement() -> str:
+    return (
+        "Problem statement: this draft asks how a bounded optimal-transport framing "
+        "can organize heterogeneous spatial structure in human geography without "
+        "treating the draft as proof, validation, or novelty. The central contribution "
+        "of this draft is a traceable manuscript package whose source and citation "
+        "boundaries are explicit."
+    )
+
+
+def _quality_repair_introduction() -> str:
+    return (
+        "Problem statement: this draft asks how a bounded optimal-transport framing "
+        "can organize a structured description of heterogeneous spatial relations in "
+        "human geography without treating the description as proof, validation, or "
+        "novelty. The representation problem is difficult in the manuscript because "
+        "the candidate framing must handle uneven scales, overlapping boundaries, and "
+        "multiple relation types while staying inside the evidence actually recorded "
+        "by the run. The current draft does not try to settle that scientific problem. "
+        "It instead presents a controlled research scaffold whose central contribution "
+        "is traceability: the paper package states what was assembled, which sources "
+        "were accepted for bounded background context, which sources were rejected or "
+        "hard-rejected, and which claim-support checks remain binding. Accepted "
+        "registry sources, when present, may situate the topic locally, but they do "
+        "not map the literature as a whole and cannot support proof, experiment, "
+        "validation, or publication-readiness language. The introduction therefore "
+        "sets expectations for a cautious human-review handoff. It makes the candidate "
+        "idea legible, names the source and citation constraints, and leaves stronger "
+        "scientific conclusions to later admissible evidence artifacts. That stance "
+        "also shapes the prose: claims about sources must either carry accepted local "
+        "citations or be rewritten as boundary language, and claims about proof, "
+        "experiments, validation, novelty, or publication readiness are excluded from "
+        "the draft unless the run contains the corresponding evidence. The section is "
+        "therefore an orientation to the package rather than an argument that the "
+        "candidate approach has already succeeded. The terminology is intentionally "
+        "modest: candidate, scaffold, boundary, and handoff language help the reader "
+        "separate manuscript organization from evidence production. It also keeps "
+        "review questions explicit and auditable."
+    )
+
+
+def _quality_repair_method_summary() -> str:
+    return (
+        "Method summary: the run begins with a candidate framing and then assembles a "
+        "paper-shaped manuscript from deterministic artifacts already present in the "
+        "run. Retrieval records are normalized and filtered before any source can "
+        "enter the citation registry. Source relevance adjudication, when enabled, "
+        "may judge whether an ambiguous source is useful as bounded background "
+        "context, but deterministic checks still control metadata completeness, "
+        "duplicate status, hard rejection, registry inclusion, and citation key "
+        "provenance. The accepted-source registry then becomes the only source of "
+        "allowed citation keys. The drafting layer uses that registry as context, "
+        "after which the claim-support audit classifies manuscript sentences, checks "
+        "whether citation-required claims have local registry citations, and rejects "
+        "citation use that implies proof, experiment evidence, novelty evidence, "
+        "validation, or publication readiness. Source-aware repair can add compatible "
+        "accepted citations or downgrade unsupported source claims to boundary "
+        "language. Quality repair then expands underdeveloped sections using only "
+        "deterministic, non-evidence wording. The release gate evaluates the final "
+        "bundle for human-review handoff only. These steps describe provenance, "
+        "traceability, and safety controls; they do not establish correctness or "
+        "scientific value. The method is intentionally conservative about local "
+        "artifacts: it reads reports from the run, rewrites only manuscript text, "
+        "reruns citation and claim-support checks after repair, and carries forward "
+        "the same non-evidence flags. A section can become clearer or deeper through "
+        "this pass, but it cannot gain a stronger verification label or a new source "
+        "outside the registry. The method also records section-depth targets, "
+        "before-and-after warning counts, empty-section checks, and post-repair safety "
+        "checks so that readability improvements remain auditable and repeatable."
+    )
+
+
+def _quality_repair_claim_boundaries() -> str:
+    return (
+        "The claim and evidence boundary is explicit. This manuscript does not change "
+        "the claim table, mutate evidence links, or upgrade verification labels. "
+        "Markdown prose, LaTeX exports, citation registries, retrieval reports, source "
+        "relevance decisions, quality repair reports, and release reports are context "
+        "artifacts only. They can describe how the run was assembled and where its "
+        "boundaries are, but they cannot provide scientific validation, empirical "
+        "confirmation, novelty, correctness, human approval, or publication readiness. "
+        "The absence of proof evidence means proof-oriented language must stay outside "
+        "this manuscript unless a verified proof artifact is later linked through the "
+        "ledger. The absence of experiment evidence means experiment-oriented language "
+        "must also stay outside the manuscript unless a validated experiment artifact "
+        "with the correct data-regime limits is later linked. "
+        "Citations can support bounded background or source-context statements when "
+        "they are registry-backed and accepted; they cannot support theorem, "
+        "experiment, validation, novelty, or publication-readiness claims. Any "
+        "stronger manuscript sentence must wait for the corresponding admissible "
+        "evidence artifact, and deterministic repair is allowed only to clarify this "
+        "boundary."
+    )
+
+
+def _quality_repair_demonstration_status() -> str:
+    return (
+        "Demonstration status: the current run demonstrates orchestration, artifact "
+        "persistence, bounded retrieval filtering, citation safety, claim-support "
+        "checks, source-aware repair, deterministic quality repair, and release "
+        "gating. In fake or local mode, adapter outputs are deterministic stand-ins "
+        "for workflow validation and are not scientific evidence. In live mode, LLM "
+        "prose, source relevance judgments, and claim adjudication records remain "
+        "context and audit artifacts rather than proof, experiment evidence, or human "
+        "approval. The demonstrated result is therefore a safer manuscript package, "
+        "not a validated scientific finding. The run can show that rejected sources "
+        "stay out of the citation registry, that accepted citations are registry "
+        "backed, and that release status is limited to human-review handoff. It does "
+        "not show that the candidate model is correct, novel, empirically confirmed, "
+        "or approved by a human reviewer. The value of the demonstration is "
+        "operational: it shows that the manuscript can be made more readable after "
+        "safety-clean generation while the same citation and evidence boundaries "
+        "remain in force."
+    )
+
+
+def _quality_repair_limitations() -> str:
+    return (
+        "Limitations: retrieval is bounded and cannot be read as a map of the "
+        "literature as a whole. The accepted source count is a local registry count, "
+        "not a measure of disciplinary agreement, and sparse accepted sources should "
+        "be read as a constraint on background context. Rejected sources and "
+        "hard-rejected sources are excluded from citation support even when their "
+        "titles look relevant. Source relevance adjudication does not create proof, "
+        "experiment evidence, novelty evidence, empirical validation, correctness, or "
+        "human approval. This run has no proof artifact unless the ledger links a "
+        "verified proof result, and it has no experiment artifact unless the ledger "
+        "links a validated experiment result with the proper data-regime boundary. "
+        "Human validation is also absent unless an explicit human-review artifact is "
+        "present. The release status means only that configured internal checks are "
+        "suitable for a human-review handoff. The manuscript remains a draft with "
+        "`publication_ready=false`, and stronger claims require additional admissible "
+        "evidence outside deterministic quality repair. These constraints are "
+        "concrete rather than decorative: accepted_source_count, rejected source "
+        "counts, hard-rejection decisions, the absence of proof artifacts, the "
+        "absence of experiment artifacts, and the absence of human-review artifacts "
+        "all limit what the manuscript can responsibly say."
+    )
+
+
+def _quality_repair_conclusion() -> str:
+    return (
+        "The resulting artifact is suitable for human review with warnings when the "
+        "release gate reports that status. The useful result is the package discipline: "
+        "source filtering is recorded, accepted citations remain registry-backed, "
+        "claim-support checks are clean, and evidence boundaries are visible in the "
+        "manuscript rather than hidden in auxiliary reports. Retrieval remains bounded "
+        "background context, so clean citation safety does not become proof, empirical "
+        "confirmation, novelty, or publication readiness. The draft should therefore "
+        "be read as a traceable handoff artifact for reviewers who need to inspect the "
+        "candidate framing and the supporting audit trail. The absence of proof, "
+        "experiment, and human-review evidence keeps stronger future claims outside "
+        "this draft. Future validation, correctness, novelty, or "
+        "publication conclusions must wait for separate admissible artifacts before "
+        "the manuscript can state them in a stronger form. The next useful step is "
+        "therefore not a stronger claim in prose, but a review or evidence-producing "
+        "artifact that can be audited by the same safety stack."
+    )
+
+
+def _find_markdown_section(
+    sections: list[dict[str, Any]],
+    heading: str,
+) -> dict[str, Any] | None:
+    target = heading.strip().casefold()
+    return next(
+        (section for section in sections if str(section["heading"]).casefold() == target),
+        None,
+    )
+
+
+def _replace_or_insert_markdown_section(markdown: str, heading: str, body: str) -> str:
+    if re.search(rf"^##\s+{re.escape(heading)}\s*$", markdown, re.M):
+        return _replace_markdown_section(markdown, heading, body)
+    insertion = f"\n## {heading}\n\n{body.strip()}\n"
+    title_match = re.search(r"^#\s+.+$", markdown, re.M)
+    if title_match:
+        insert_at = title_match.end()
+        return markdown[:insert_at] + "\n" + insertion + markdown[insert_at:]
+    return f"# Generated Paper Draft\n{insertion}\n{markdown}"
+
+
+def _replace_markdown_section(markdown: str, heading: str, body: str) -> str:
+    pattern = re.compile(
+        rf"(^##\s+{re.escape(heading)}\s*\n)(.*?)(?=^##\s+|\Z)",
+        re.M | re.S,
+    )
+    return pattern.sub(rf"\1\n{body.strip()}\n\n", markdown, count=1)
+
+
+def _prepend_to_markdown_section(markdown: str, heading: str, paragraph: str) -> str:
+    if re.search(rf"^##\s+{re.escape(heading)}\s*$", markdown, re.M):
+        pattern = re.compile(rf"(^##\s+{re.escape(heading)}\s*\n)", re.M)
+        return pattern.sub(rf"\1\n{paragraph.strip()}\n\n", markdown, count=1)
+    return _replace_or_insert_markdown_section(markdown, heading, paragraph)
+
+
+def _revision_result_with_markdown(
+    result: PaperRevisionRunResult,
+    revised_markdown: str,
+) -> PaperRevisionRunResult:
+    if result.revision_result is None:
+        return result
+    return PaperRevisionRunResult(
+        run_id=result.run_id,
+        critic_report=result.critic_report,
+        revision_plan=result.revision_plan,
+        revision_result=result.revision_result.model_copy(
+            update={"revised_markdown": revised_markdown}
+        ),
+        critic_report_artifact=result.critic_report_artifact,
+        revision_plan_artifact=result.revision_plan_artifact,
+        revision_safety_artifact=result.revision_safety_artifact,
+        revised_markdown_artifact=result.revised_markdown_artifact,
+        safe_repair_report_artifact=result.safe_repair_report_artifact,
+        commit_hash=result.commit_hash,
+    )
+
+
+def _quality_repair_step_status(
+    report: QualityRepairReport,
+) -> FullPaperGenerationStepStatus:
+    if report.quality_repair_status in {"blocked", "failed"}:
+        return FullPaperGenerationStepStatus.BLOCKED
+    if report.quality_failures_after or report.quality_warnings_after:
+        return FullPaperGenerationStepStatus.SUCCEEDED_WITH_WARNINGS
+    return FullPaperGenerationStepStatus.SUCCEEDED
+
+
+def _quality_repair_step_warnings(report: QualityRepairReport) -> list[str]:
+    warnings: list[str] = []
+    if report.quality_repair_status == "no_action_needed":
+        warnings.append("Quality repair found no eligible deterministic section edits.")
+    if report.quality_failures_after:
+        warnings.extend(report.quality_failures_after)
+    warnings.extend(report.quality_warnings_after)
+    warnings.append(
+        "Quality repair is manuscript polish only and cannot create evidence, "
+        "validation, novelty, or publication readiness."
+    )
+    return sorted(set(warnings))
+
+
 def _available_evidence_artifacts(
     ledger: ResearchLedger,
     run_id: str,
@@ -1894,9 +2861,14 @@ def _export_revised_markdown_to_latex(
     run_id: str,
     root: str | Path,
     ledger: ResearchLedger,
-    revision_result: PaperRevisionRunResult,
+    revision_result: PaperRevisionRunResult | None,
+    revised_markdown: str | None = None,
 ):
-    if revision_result.revision_result is None:
+    if revised_markdown is None:
+        if revision_result is None or revision_result.revision_result is None:
+            raise LatexExportError("revised manuscript draft is missing")
+        revised_markdown = revision_result.revision_result.revised_markdown
+    if not revised_markdown:
         raise LatexExportError("revised manuscript draft is missing")
     inputs = load_latex_export_inputs(run_id, root=root, ledger=ledger)
     contract = build_latex_export_contract(
@@ -1914,7 +2886,7 @@ def _export_revised_markdown_to_latex(
     )
     return export_markdown_draft_to_latex(
         run_id=run_id,
-        draft_markdown=revision_result.revision_result.revised_markdown,
+        draft_markdown=revised_markdown,
         contract=contract,
         drafting_plan=inputs.drafting_plan,
         drafting_report=inputs.drafting_report,
@@ -1931,6 +2903,8 @@ def _write_full_paper_generation_artifacts(
     bundle: FullPaperArtifactBundle,
     revised_export,
     claim_support_audit: ClaimSupportAuditReport,
+    quality_repair_report: QualityRepairReport | None,
+    quality_repaired_markdown: str | None,
 ) -> PersistenceResult:
     metadata = {
         "stage": "full_paper_generation",
@@ -1944,6 +2918,16 @@ def _write_full_paper_generation_artifacts(
             "full_paper_generation_report_artifact_id": "full-paper-generation-report",
             "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",
             "claim_support_audit_artifact_id": "claim-support-audit",
+            "quality_repair_report_artifact_id": (
+                "quality-repair-report"
+                if quality_repair_report is not None
+                else None
+            ),
+            "revised_manuscript_draft_artifact_id": (
+                "revised-manuscript-draft"
+                if quality_repaired_markdown is not None
+                else bundle.revised_manuscript_draft_artifact_id
+            ),
             "revised_latex_artifact_id": (
                 "revised-paper" if revised_export is not None else None
             ),
@@ -1988,6 +2972,32 @@ def _write_full_paper_generation_artifacts(
             },
         ),
     ]
+    if quality_repair_report is not None:
+        specs.append(
+            ArtifactWriteSpec(
+                artifact_id="quality-repair-report",
+                artifact_type=ArtifactType.REPORT,
+                payload=quality_repair_report,
+                artifact_format="json",
+                metadata={
+                    **metadata,
+                    "artifact_role": "quality_repair_context",
+                },
+            )
+        )
+    if quality_repaired_markdown is not None:
+        specs.append(
+            ArtifactWriteSpec(
+                artifact_id="revised-manuscript-draft",
+                artifact_type=ArtifactType.REPORT,
+                payload=quality_repaired_markdown,
+                artifact_format="markdown",
+                metadata={
+                    **metadata,
+                    "artifact_role": "quality_repaired_manuscript_context",
+                },
+            )
+        )
     if revised_export is not None:
         specs.extend(
             [
@@ -2040,6 +3050,9 @@ def _write_full_paper_generation_artifacts(
             "steps": len(report.steps),
             "warnings": len(report.warnings),
             "revision_applied": report.revision_applied,
+            "quality_repair_applied": quality_repair_report is not None
+            and quality_repair_report.quality_repair_status
+            in {"repaired", "no_action_needed"},
             "render_check_requested": report.render_check_requested,
             "is_verification_evidence": False,
             "creates_scientific_validation": False,
@@ -2107,6 +3120,14 @@ def _with_persisted_generation_artifacts(
             "claim_support_audit_artifact_id": _id_if_present(
                 refs, "claim-support-audit"
             ),
+            "quality_repair_report_artifact_id": _id_if_present(
+                refs, "quality-repair-report"
+            )
+            or bundle.quality_repair_report_artifact_id,
+            "revised_manuscript_draft_artifact_id": _id_if_present(
+                refs, "revised-manuscript-draft"
+            )
+            or bundle.revised_manuscript_draft_artifact_id,
             "revised_latex_artifact_id": _id_if_present(refs, "revised-paper"),
             "revised_references_artifact_id": _id_if_present(refs, "revised-references"),
             "revised_latex_source_map_artifact_id": _id_if_present(
@@ -2139,6 +3160,7 @@ def _with_persisted_generation_artifacts(
         revised_source_map_artifact=refs.get("revised-latex-source-map"),
         revised_export_report_artifact=refs.get("revised-latex-export-report"),
         revised_safety_report_artifact=refs.get("revised-latex-safety-report"),
+        quality_repair_report_artifact=refs.get("quality-repair-report"),
     )
 
 
@@ -2164,6 +3186,7 @@ def _collect_artifact_bundle(
     critic = _latest_refs(ledger, run_id, ControllerActionType.PAPER_CRITIC_REPORT_WRITTEN)
     revision = _latest_refs(ledger, run_id, ControllerActionType.PAPER_REVISION_WRITTEN)
     retrieval = _latest_refs(ledger, run_id, ControllerActionType.RETRIEVAL_RUN_RECORDED)
+    generation = _latest_refs(ledger, run_id, ControllerActionType.FULL_PAPER_GENERATION_WRITTEN)
     bundle = FullPaperArtifactBundle(
         run_id=run_id,
         retrieval_report_artifact_id=_id_if_present(retrieval, "retrieval-report"),
@@ -2175,7 +3198,7 @@ def _collect_artifact_bundle(
             citation, "citation-safety-report"
         ),
         claim_support_audit_artifact_id=_id_if_present(
-            _latest_refs(ledger, run_id, ControllerActionType.FULL_PAPER_GENERATION_WRITTEN),
+            generation,
             "claim-support-audit",
         ),
         manuscript_drafting_plan_artifact_id=_id_if_present(
@@ -2204,10 +3227,18 @@ def _collect_artifact_bundle(
             revision, "revision-safety-report"
         ),
         revised_manuscript_draft_artifact_id=_id_if_present(
-            revision, "revised-manuscript-draft"
+            generation, "revised-manuscript-draft"
+        )
+        or _id_if_present(
+            revision,
+            "revised-manuscript-draft",
         ),
         paper_revision_result_artifact_id=_id_if_present(
             revision, "paper-revision-result"
+        ),
+        quality_repair_report_artifact_id=_id_if_present(
+            generation,
+            "quality-repair-report",
         ),
     )
     return _bundle_with_artifact_ids(bundle)

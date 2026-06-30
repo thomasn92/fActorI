@@ -437,6 +437,49 @@ class PaperRevisionResult(StrictModel):
     implies_publication_readiness: bool = False
 
 
+class QualityRepairReport(StrictModel):
+    """Bounded manuscript-quality repair report; not evidence or publication approval."""
+
+    run_id: str = Field(min_length=1)
+    quality_repair_enabled: bool = False
+    quality_repair_backend: Literal["off", "deterministic", "fake", "openai"] = "off"
+    quality_repair_status: Literal[
+        "disabled",
+        "repaired",
+        "no_action_needed",
+        "blocked",
+        "failed",
+    ] = "disabled"
+    before_quality_status: str | None = None
+    after_quality_status: str | None = None
+    quality_failures_before: list[str] = Field(default_factory=list)
+    quality_failures_after: list[str] = Field(default_factory=list)
+    quality_warnings_before: list[str] = Field(default_factory=list)
+    quality_warnings_after: list[str] = Field(default_factory=list)
+    sections_repaired: list[str] = Field(default_factory=list)
+    section_depth_targets: dict[str, dict[str, int]] = Field(default_factory=dict)
+    section_word_counts_before: dict[str, int] = Field(default_factory=dict)
+    section_word_counts_after: dict[str, int] = Field(default_factory=dict)
+    sections_below_target_before: list[str] = Field(default_factory=list)
+    sections_below_target_after: list[str] = Field(default_factory=list)
+    placeholder_like_sections_before: list[str] = Field(default_factory=list)
+    placeholder_like_sections_after: list[str] = Field(default_factory=list)
+    warnings_reduced_count: int = Field(default=0, ge=0)
+    irreducible_warnings: list[str] = Field(default_factory=list)
+    abstract_repaired: bool = False
+    problem_statement_repaired: bool = False
+    method_summary_repaired: bool = False
+    limitations_repaired: bool = False
+    conclusion_repaired: bool = False
+    placeholder_sections_repaired: int = Field(default=0, ge=0)
+    underdeveloped_sections_repaired: int = Field(default=0, ge=0)
+    claim_support_rechecked_after_repair: bool = False
+    citation_safety_rechecked_after_repair: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class FullPaperGenerationConfig(StrictModel):
     """Configuration for the non-evidence full-paper generation workflow."""
 
@@ -457,6 +500,8 @@ class FullPaperGenerationConfig(StrictModel):
     prose_model: str | None = None
     claim_adjudicator_backend: Literal["off", "fake", "openai"] = "off"
     claim_adjudicator_model: str | None = None
+    quality_repair_backend: Literal["off", "deterministic", "fake", "openai"] = "off"
+    quality_repair_model: str | None = None
     write_report: bool = False
     rerun_policy: RerunPolicy = RerunPolicy.FAIL_IF_EXISTS
     force: bool = False
@@ -502,6 +547,7 @@ class FullPaperArtifactBundle(StrictModel):
     revision_safety_report_artifact_id: str | None = None
     revised_manuscript_draft_artifact_id: str | None = None
     paper_revision_result_artifact_id: str | None = None
+    quality_repair_report_artifact_id: str | None = None
     revised_latex_artifact_id: str | None = None
     revised_references_artifact_id: str | None = None
     revised_latex_source_map_artifact_id: str | None = None
@@ -1154,6 +1200,7 @@ __all__ = [
     "PaperRevisionPatch",
     "RevisionSafetyReport",
     "PaperRevisionResult",
+    "QualityRepairReport",
     "FullPaperGenerationConfig",
     "FullPaperGenerationStep",
     "FullPaperArtifactBundle",

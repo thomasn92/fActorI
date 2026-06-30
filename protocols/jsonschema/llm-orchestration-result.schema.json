@@ -71,6 +71,19 @@
           "default": null,
           "title": "Max Prose Calls"
         },
+        "max_quality_repair_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Quality Repair Calls"
+        },
         "max_retries_per_call": {
           "default": 0,
           "maximum": 10,
@@ -290,6 +303,12 @@
           "default": 0,
           "minimum": 0,
           "title": "Prose Calls",
+          "type": "integer"
+        },
+        "quality_repair_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Quality Repair Calls",
           "type": "integer"
         },
         "rate_limit_per_minute": {
@@ -679,6 +698,22 @@
         "prose_model": {
           "default": "gpt-5-mini",
           "title": "Prose Model",
+          "type": "string"
+        },
+        "quality_repair_backend": {
+          "default": "off",
+          "enum": [
+            "off",
+            "deterministic",
+            "fake",
+            "openai"
+          ],
+          "title": "Quality Repair Backend",
+          "type": "string"
+        },
+        "quality_repair_model": {
+          "default": "gpt-5-mini",
+          "title": "Quality Repair Model",
           "type": "string"
         },
         "reexport_latex_after_revision": {
@@ -1074,7 +1109,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.21.0/llm-orchestration-result.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/llm-orchestration-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for gated LLM paper orchestration commands.",
@@ -1137,7 +1172,7 @@
   ],
   "title": "LLMOrchestrationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationResult",
   "x-factori-verification-evidence": false
 }

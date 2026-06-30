@@ -251,6 +251,7 @@ class LLMBudgetConfig(StrictModel):
     max_prose_calls: int | None = Field(default=None, ge=0)
     max_claim_adjudication_calls: int | None = Field(default=None, ge=0)
     max_source_relevance_adjudication_calls: int | None = Field(default=None, ge=0)
+    max_quality_repair_calls: int | None = Field(default=None, ge=0)
     max_total_input_tokens: int | None = Field(default=None, ge=0)
     max_total_output_tokens: int | None = Field(default=None, ge=0)
     max_estimated_cost_usd: float | None = Field(default=None, ge=0.0)
@@ -271,6 +272,7 @@ class LLMBudgetUsage(StrictModel):
     prose_calls: int = Field(default=0, ge=0)
     claim_adjudication_calls: int = Field(default=0, ge=0)
     source_relevance_adjudication_calls: int = Field(default=0, ge=0)
+    quality_repair_calls: int = Field(default=0, ge=0)
     total_input_tokens: int | None = Field(default=None, ge=0)
     total_output_tokens: int | None = Field(default=None, ge=0)
     estimated_cost_usd: float | None = Field(default=None, ge=0.0)
@@ -354,6 +356,8 @@ class LLMOrchestrationConfig(StrictModel):
     claim_adjudicator_model: str = "gpt-5-mini"
     source_relevance_adjudicator_backend: Literal["off", "fake", "openai"] = "off"
     source_relevance_adjudicator_model: str = "gpt-5-mini"
+    quality_repair_backend: Literal["off", "deterministic", "fake", "openai"] = "off"
+    quality_repair_model: str = "gpt-5-mini"
     reviewer_max_objections: int = Field(default=5, ge=1, le=20)
     generate_paper: bool = True
     evaluate_release: bool = True

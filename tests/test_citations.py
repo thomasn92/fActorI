@@ -733,6 +733,20 @@ def test_citation_usage_validator_rejects_exhaustive_coverage_claims() -> None:
     assert any("exhaustive" in reason for reason in report.reasons)
 
 
+def test_citation_usage_validator_allows_negated_coverage_boundary() -> None:
+    registry = build_citation_registry("run-1", [_source("S1")])
+    key = registry.citations[0].citation_key
+
+    report = validate_citation_usage(
+        f"This draft does not claim complete literature coverage [@{key}].",
+        registry,
+    )
+
+    assert report.safe
+    assert not report.rejected
+    assert report.unregistered_citation_keys == []
+
+
 def test_citation_usage_validator_rejects_retrieval_as_proof_language() -> None:
     registry = build_citation_registry("run-1", [_source("S1")])
     key = registry.citations[0].citation_key

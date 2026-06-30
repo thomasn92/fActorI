@@ -755,6 +755,7 @@ def inspect_llm_run_summary(
         "source_relevance_adjudication_calls": (
             budget_usage.source_relevance_adjudication_calls
         ),
+        "quality_repair_calls": budget_usage.quality_repair_calls,
         "total_calls": budget_usage.total_calls,
         "estimated_cost_usd": budget_usage.estimated_cost_usd,
         "runtime_budget_blocked": (
@@ -801,6 +802,8 @@ def build_llm_orchestration_preflight_summary(
         "source_relevance_adjudicator_model": (
             effective_config.source_relevance_adjudicator_model
         ),
+        "quality_repair_backend": effective_config.quality_repair_backend,
+        "quality_repair_model": effective_config.quality_repair_model,
         "allow_external_calls": effective_config.allow_external_calls,
         "budget_limits": effective_config.budget.model_dump(mode="json"),
         "estimated_max_calls": planned.total_calls,
@@ -811,6 +814,7 @@ def build_llm_orchestration_preflight_summary(
         "source_relevance_adjudication_calls": (
             planned.source_relevance_adjudication_calls
         ),
+        "quality_repair_calls": planned.quality_repair_calls,
         "write_report": effective_config.write_report,
         "generate_paper": effective_config.generate_paper,
         "evaluate_release": effective_config.evaluate_release,
@@ -951,6 +955,7 @@ def _effective_config_for_scope(
         "citation_policy": "none",
         "claim_adjudicator_backend": "off",
         "source_relevance_adjudicator_backend": "off",
+        "quality_repair_backend": "off",
     }
     if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY:
         update["reviewer_backend"] = _FAKE_BACKEND
@@ -959,13 +964,14 @@ def _effective_config_for_scope(
 
 def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
     return any(
-        backend.strip().lower() not in {_FAKE_BACKEND, "off"}
+        backend.strip().lower() not in {_FAKE_BACKEND, "off", "deterministic"}
         for backend in (
             config.candidate_backend,
             config.reviewer_backend,
             config.prose_backend,
             config.claim_adjudicator_backend,
             config.source_relevance_adjudicator_backend,
+            config.quality_repair_backend,
         )
     )
 
@@ -990,6 +996,11 @@ def _planned_usage(
     source_relevance_calls = (
         config.budget.max_source_relevance_adjudication_calls or 0
         if config.enable_retrieval
+        else 0
+    )
+    quality_repair_calls = (
+        config.budget.max_quality_repair_calls or 0
+        if config.generate_paper
         else 0
     )
     real_calls = (
@@ -1018,6 +1029,11 @@ def _planned_usage(
             if config.source_relevance_adjudicator_backend == "openai"
             else 0
         )
+        + (
+            quality_repair_calls
+            if config.quality_repair_backend == "openai"
+            else 0
+        )
     )
     return build_planned_llm_usage(
         candidate_backend=config.candidate_backend,
@@ -1027,11 +1043,13 @@ def _planned_usage(
         source_relevance_adjudicator_backend=(
             config.source_relevance_adjudicator_backend
         ),
+        quality_repair_backend=config.quality_repair_backend,
         candidate_generation_calls=candidate_calls,
         review_calls=review_calls,
         prose_calls=prose_calls,
         claim_adjudication_calls=adjudication_calls,
         source_relevance_adjudication_calls=source_relevance_calls,
+        quality_repair_calls=quality_repair_calls,
         input_tokens=1000 * real_calls if real_calls else None,
         output_tokens=500 * real_calls if real_calls else None,
         estimated_cost_usd=round(0.01 * real_calls, 6) if real_calls else None,
@@ -1294,6 +1312,8 @@ def _full_paper_config(config: LLMOrchestrationConfig) -> FullPaperGenerationCon
         prose_model=config.prose_model,
         claim_adjudicator_backend=config.claim_adjudicator_backend,
         claim_adjudicator_model=config.claim_adjudicator_model,
+        quality_repair_backend=config.quality_repair_backend,
+        quality_repair_model=config.quality_repair_model,
         write_report=True,
         rerun_policy=_parse_rerun_policy(config.rerun_policy),
         force=config.force,
@@ -2051,6 +2071,8 @@ def _build_report(
             "source_relevance_adjudicator_model": (
                 config.source_relevance_adjudicator_model
             ),
+            "quality_repair_backend": config.quality_repair_backend,
+            "quality_repair_model": config.quality_repair_model,
             "retrieval_enabled": str(config.enable_retrieval).lower(),
             "retrieval_backend": config.retrieval_backend,
             "retrieval_local_path": config.retrieval_local_path or "",

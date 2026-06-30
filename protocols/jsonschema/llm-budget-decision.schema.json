@@ -71,6 +71,19 @@
           "default": null,
           "title": "Max Prose Calls"
         },
+        "max_quality_repair_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Quality Repair Calls"
+        },
         "max_retries_per_call": {
           "default": 0,
           "maximum": 10,
@@ -228,6 +241,12 @@
           "title": "Prose Calls",
           "type": "integer"
         },
+        "quality_repair_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Quality Repair Calls",
+          "type": "integer"
+        },
         "rate_limit_per_minute": {
           "anyOf": [
             {
@@ -300,7 +319,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.21.0/llm-budget-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/llm-budget-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Preflight LLM budget decision.",
@@ -364,7 +383,7 @@
   ],
   "title": "LLMBudgetDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetDecision",
   "x-factori-verification-evidence": false
 }

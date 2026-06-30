@@ -12,7 +12,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.21.0/full-paper-generation-config.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/full-paper-generation-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Configuration for end-to-end non-evidence paper generation.",
@@ -134,6 +134,29 @@
       "default": null,
       "title": "Prose Model"
     },
+    "quality_repair_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Quality Repair Backend",
+      "type": "string"
+    },
+    "quality_repair_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Quality Repair Model"
+    },
     "reexport_latex_after_revision": {
       "default": false,
       "title": "Reexport Latex After Revision",
@@ -169,7 +192,7 @@
   ],
   "title": "FullPaperGenerationConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationConfig",
   "x-factori-verification-evidence": false
 }

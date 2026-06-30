@@ -242,6 +242,18 @@
           "default": null,
           "title": "Paper Revision Result Artifact Id"
         },
+        "quality_repair_report_artifact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quality Repair Report Artifact Id"
+        },
         "references_artifact_id": {
           "anyOf": [
             {
@@ -483,6 +495,29 @@
           "default": null,
           "title": "Prose Model"
         },
+        "quality_repair_backend": {
+          "default": "off",
+          "enum": [
+            "off",
+            "deterministic",
+            "fake",
+            "openai"
+          ],
+          "title": "Quality Repair Backend",
+          "type": "string"
+        },
+        "quality_repair_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quality Repair Model"
+        },
         "reexport_latex_after_revision": {
           "default": false,
           "title": "Reexport Latex After Revision",
@@ -702,7 +737,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.21.0/full-paper-generation-result.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/full-paper-generation-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for full-paper generation commands.",
@@ -745,7 +780,7 @@
   ],
   "title": "FullPaperGenerationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationResult",
   "x-factori-verification-evidence": false
 }

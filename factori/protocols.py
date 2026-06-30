@@ -120,6 +120,7 @@ from factori.schemas import (
     ProsePromptContract,
     ProseSafetyReport,
     ProseSectionContract,
+    QualityRepairReport,
     ReleaseGateDecision,
     ReleaseGateStatus,
     ReplayVerificationReport,
@@ -152,7 +153,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.21.0"
+PROTOCOL_VERSION = "0.23.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -577,6 +578,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "PaperRevisionResult",
         PaperRevisionResult,
         "Result of one deterministic fake paper revision pass.",
+    ),
+    ProtocolDefinition(
+        "QualityRepairReport",
+        QualityRepairReport,
+        "Bounded manuscript-quality repair report.",
     ),
     ProtocolDefinition(
         "FullPaperGenerationConfig",

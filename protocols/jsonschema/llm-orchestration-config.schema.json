@@ -71,6 +71,19 @@
           "default": null,
           "title": "Max Prose Calls"
         },
+        "max_quality_repair_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Quality Repair Calls"
+        },
         "max_retries_per_call": {
           "default": 0,
           "maximum": 10,
@@ -174,7 +187,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.21.0/llm-orchestration-config.schema.json",
+  "$id": "https://schemas.factori.local/0.23.0/llm-orchestration-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Configuration for gated end-to-end LLM paper orchestration.",
@@ -327,6 +340,22 @@
       "title": "Prose Model",
       "type": "string"
     },
+    "quality_repair_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Quality Repair Backend",
+      "type": "string"
+    },
+    "quality_repair_model": {
+      "default": "gpt-5-mini",
+      "title": "Quality Repair Model",
+      "type": "string"
+    },
     "reexport_latex_after_revision": {
       "default": false,
       "title": "Reexport Latex After Revision",
@@ -413,7 +442,7 @@
   ],
   "title": "LLMOrchestrationConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.21.0",
+  "x-factori-protocol-version": "0.23.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationConfig",
   "x-factori-verification-evidence": false
 }

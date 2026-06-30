@@ -1552,6 +1552,8 @@ def _contains_unbounded_claim(text: str, phrases: tuple[str, ...]) -> bool:
     return any(
         phrase in text
         and f"not {phrase}" not in text
+        and f"does not claim {phrase}" not in text
+        and f"{phrase} is not claimed" not in text
         and f"not proof of {phrase}" not in text
         for phrase in phrases
     )
