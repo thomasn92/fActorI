@@ -2236,6 +2236,14 @@ def run_llm_paper_command(
         str,
         typer.Option("--claim-adjudicator-model"),
     ] = DEFAULT_LLM_MODEL,
+    source_relevance_adjudicator_backend: Annotated[
+        str,
+        typer.Option("--source-relevance-adjudicator-backend"),
+    ] = "off",
+    source_relevance_adjudicator_model: Annotated[
+        str,
+        typer.Option("--source-relevance-adjudicator-model"),
+    ] = DEFAULT_LLM_MODEL,
     reviewer_max_objections: Annotated[
         int,
         typer.Option("--reviewer-max-objections"),
@@ -2259,6 +2267,10 @@ def run_llm_paper_command(
     max_claim_adjudication_calls: Annotated[
         int | None,
         typer.Option("--max-claim-adjudication-calls"),
+    ] = None,
+    max_source_relevance_adjudication_calls: Annotated[
+        int | None,
+        typer.Option("--max-source-relevance-adjudication-calls"),
     ] = None,
     max_total_input_tokens: Annotated[
         int | None,
@@ -2373,6 +2385,8 @@ def run_llm_paper_command(
         prose_model=prose_model,
         claim_adjudicator_backend=claim_adjudicator_backend,
         claim_adjudicator_model=claim_adjudicator_model,
+        source_relevance_adjudicator_backend=source_relevance_adjudicator_backend,
+        source_relevance_adjudicator_model=source_relevance_adjudicator_model,
         reviewer_max_objections=reviewer_max_objections,
         generate_paper=generate_paper,
         evaluate_release=evaluate_release,
@@ -2399,6 +2413,9 @@ def run_llm_paper_command(
             max_review_calls=max_review_calls,
             max_prose_calls=max_prose_calls,
             max_claim_adjudication_calls=max_claim_adjudication_calls,
+            max_source_relevance_adjudication_calls=(
+                max_source_relevance_adjudication_calls
+            ),
             max_total_input_tokens=max_total_input_tokens,
             max_total_output_tokens=max_total_output_tokens,
             max_estimated_cost_usd=max_estimated_cost_usd,
@@ -2488,9 +2505,21 @@ def run_llm_paper_command(
     typer.echo(f"reviewer_model={reviewer_model}")
     typer.echo(f"prose_backend={prose_backend}")
     typer.echo(f"prose_model={prose_model}")
+    typer.echo(
+        "source_relevance_adjudicator_backend="
+        f"{source_relevance_adjudicator_backend}"
+    )
+    typer.echo(
+        "source_relevance_adjudicator_model="
+        f"{source_relevance_adjudicator_model}"
+    )
     typer.echo(f"allow_external_calls={str(allow_external_calls).lower()}")
     typer.echo(f"preflight_only={str(preflight_only).lower()}")
     typer.echo(f"estimated_max_calls={preflight_summary['estimated_max_calls']}")
+    typer.echo(
+        "source_relevance_adjudication_calls="
+        f"{preflight_summary['source_relevance_adjudication_calls']}"
+    )
     typer.echo(
         "generate_paper_effective="
         f"{str(preflight_summary['generate_paper_effective']).lower()}"
@@ -2561,7 +2590,9 @@ def _print_llm_run_summary(summary: dict[str, object]) -> None:
         f"{summary['total_calls']} total = "
         f"{summary['candidate_generation_calls']} candidate + "
         f"{summary['review_calls']} review + "
-        f"{summary['prose_calls']} prose"
+        f"{summary['prose_calls']} prose + "
+        f"{summary.get('claim_adjudication_calls', 0)} claim adjudication + "
+        f"{summary.get('source_relevance_adjudication_calls', 0)} source relevance"
     )
     typer.echo(f"Budget: {budget_line}")
     typer.echo(
@@ -2668,6 +2699,26 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Adequacy: "
         f"{summary.get('retrieval_adequacy_status') or 'not_evaluated'}"
+    )
+    typer.echo(
+        "Source relevance adjudication: "
+        f"{summary.get('source_relevance_adjudicator_backend') or 'off'}"
+    )
+    typer.echo(
+        "Adjudicated sources: "
+        f"{int(summary.get('source_relevance_adjudicated_count') or 0)}"
+    )
+    typer.echo(
+        "LLM accepted sources: "
+        f"{int(summary.get('source_relevance_llm_accepted_count') or 0)}"
+    )
+    typer.echo(
+        "LLM rejected sources: "
+        f"{int(summary.get('source_relevance_llm_rejected_count') or 0)}"
+    )
+    typer.echo(
+        "Hard rejected sources: "
+        f"{int(summary.get('source_relevance_hard_reject_count') or 0)}"
     )
     typer.echo(
         "Claim support: "
@@ -2815,6 +2866,26 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{'present' if summary.get('retrieval_quality_report_present') else 'absent'} "
         f"({int(summary.get('accepted_source_count') or 0)} accepted / "
         f"{int(summary.get('rejected_source_count') or 0)} rejected)"
+    )
+    typer.echo(
+        "Source relevance adjudication: "
+        f"{summary.get('source_relevance_adjudicator_backend') or 'off'}"
+    )
+    typer.echo(
+        "Adjudicated sources: "
+        f"{int(summary.get('source_relevance_adjudicated_count') or 0)}"
+    )
+    typer.echo(
+        "LLM accepted sources: "
+        f"{int(summary.get('source_relevance_llm_accepted_count') or 0)}"
+    )
+    typer.echo(
+        "LLM rejected sources: "
+        f"{int(summary.get('source_relevance_llm_rejected_count') or 0)}"
+    )
+    typer.echo(
+        "Hard rejected sources: "
+        f"{int(summary.get('source_relevance_hard_reject_count') or 0)}"
     )
     typer.echo(
         "Missing citation claims: "

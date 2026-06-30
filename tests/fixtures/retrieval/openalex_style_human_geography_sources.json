@@ -1,0 +1,147 @@
+{
+  "sources": [
+    {
+      "id": "https://openalex.org/W560000001",
+      "display_name": "Human Geography and Spatial Interaction Models",
+      "publication_year": 2021,
+      "authorships": [
+        {"author": {"display_name": "Ada Smith"}},
+        {"author": {"display_name": "Bea Jones"}}
+      ],
+      "host_venue": {
+        "display_name": "Journal of Bounded Local Fixtures",
+        "url": "https://example.org/openalex-style/spatial-interaction"
+      },
+      "abstract_inverted_index": {
+        "Human": [0],
+        "geography": [1],
+        "background": [2],
+        "metadata": [3],
+        "describes": [4],
+        "spatial": [5],
+        "interaction": [6],
+        "models": [7],
+        "and": [8],
+        "migration": [9],
+        "flows": [10],
+        "as": [11],
+        "bounded": [12],
+        "literature": [13],
+        "context": [14]
+      },
+      "doi": "https://doi.org/10.1234/openalex.human.geography.1",
+      "concepts": [
+        {"display_name": "Human geography"},
+        {"display_name": "Spatial interaction"}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W560000002",
+      "display_name": "Regional Mobility Patterns in Urban Planning",
+      "publication_year": 2020,
+      "authorships": [
+        {"author": {"display_name": "Cara Nguyen"}}
+      ],
+      "host_venue": {
+        "display_name": "Journal of Bounded Local Fixtures",
+        "url": "https://example.org/openalex-style/regional-mobility"
+      },
+      "abstract_inverted_index": {
+        "Regional": [0],
+        "mobility": [1],
+        "models": [2],
+        "describe": [3],
+        "urban": [4],
+        "migration": [5],
+        "flows": [6],
+        "spatial": [7],
+        "interaction": [8],
+        "and": [9],
+        "place": [10],
+        "based": [11],
+        "planning": [12],
+        "problems": [13]
+      },
+      "doi": "10.1234/openalex.regional.mobility",
+      "concepts": [
+        {"display_name": "Urban planning"},
+        {"display_name": "Spatial interaction"},
+        {"display_name": "Migration"}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W560000003",
+      "display_name": "Marine Coral Reef Thermal Stress Monitoring",
+      "publication_year": 2019,
+      "authorships": [
+        {"author": {"display_name": "Ira Ocean"}}
+      ],
+      "host_venue": {
+        "display_name": "Journal of Bounded Local Fixtures",
+        "url": "https://example.org/openalex-style/coral-reef"
+      },
+      "abstract_inverted_index": {
+        "Marine": [0],
+        "biology": [1],
+        "records": [2],
+        "describe": [3],
+        "coral": [4],
+        "reef": [5],
+        "thermal": [6],
+        "stress": [7],
+        "ocean": [8],
+        "monitoring": [9],
+        "and": [10],
+        "temperature": [11],
+        "sensors": [12]
+      },
+      "doi": "10.1234/openalex.coral.reef",
+      "concepts": [
+        {"display_name": "Marine biology"},
+        {"display_name": "Coral reef"}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W560000004",
+      "display_name": "Human Geography and Spatial Interaction Models",
+      "publication_year": 2021,
+      "authorships": [
+        {"author": {"display_name": "Ada Smith"}},
+        {"author": {"display_name": "Bea Jones"}}
+      ],
+      "host_venue": {
+        "display_name": "Journal of Bounded Local Fixtures",
+        "url": "https://example.org/openalex-style/spatial-interaction-duplicate"
+      },
+      "abstract_inverted_index": {
+        "Duplicate": [0],
+        "metadata": [1],
+        "repeats": [2],
+        "human": [3],
+        "geography": [4],
+        "and": [5],
+        "spatial": [6],
+        "interaction": [7],
+        "source": [8],
+        "details": [9]
+      },
+      "doi": "10.1234/openalex.human.geography.duplicate",
+      "concepts": [
+        {"display_name": "Human geography"},
+        {"display_name": "Spatial interaction"}
+      ]
+    },
+    {
+      "id": "https://openalex.org/W560000005",
+      "display_name": "Human Geography Note",
+      "publication_year": null,
+      "authorships": [],
+      "host_venue": {},
+      "abstract_inverted_index": {},
+      "doi": null,
+      "concepts": [
+        {"display_name": "Human geography"}
+      ]
+    }
+  ]
+}

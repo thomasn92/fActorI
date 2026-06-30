@@ -15,6 +15,7 @@ from factori.full_paper_generation import (
 from factori.full_paper_release import run_full_paper_release_gate
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
+from factori.llm_orchestration import build_llm_orchestration_preflight_summary
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     BibliographyEntry,
@@ -24,6 +25,8 @@ from factori.schemas import (
     ClaimSupportItem,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
+    LLMBudgetConfig,
+    LLMOrchestrationConfig,
     PipelineRunConfig,
     PipelineStage,
     RetrievalQualityReport,
@@ -69,8 +72,14 @@ def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation
             "fake",
             "--claim-adjudicator-model",
             "test-model",
+            "--source-relevance-adjudicator-backend",
+            "fake",
+            "--source-relevance-adjudicator-model",
+            "test-source-model",
             "--max-claim-adjudication-calls",
             "2",
+            "--max-source-relevance-adjudication-calls",
+            "3",
             "--preflight-only",
             "--json",
         ],
@@ -81,7 +90,39 @@ def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation
     preflight = payload["preflight_summary"]
     assert preflight["claim_adjudicator_backend"] == "fake"
     assert preflight["claim_adjudicator_model"] == "test-model"
+    assert preflight["source_relevance_adjudicator_backend"] == "fake"
+    assert preflight["source_relevance_adjudicator_model"] == "test-source-model"
+    assert preflight["source_relevance_adjudication_calls"] == 0
     assert not (tmp_path / "runs" / "adjudicator-preflight").exists()
+
+
+def test_preflight_budget_plans_openai_source_relevance_calls() -> None:
+    summary = build_llm_orchestration_preflight_summary(
+        LLMOrchestrationConfig(
+            run_id="source-relevance-preflight",
+            domain="human geography",
+            candidate_backend="fake",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            allow_external_calls=True,
+            enable_retrieval=True,
+            retrieval_backend="local",
+            retrieval_local_path="tests/fixtures/retrieval/openalex_style_human_geography_sources.json",
+            source_relevance_adjudicator_backend="openai",
+            source_relevance_adjudicator_model="test-source-model",
+            budget=LLMBudgetConfig(
+                max_total_calls=4,
+                max_source_relevance_adjudication_calls=4,
+                max_total_input_tokens=4000,
+                max_total_output_tokens=2000,
+                max_estimated_cost_usd=1.0,
+            ),
+        )
+    )
+
+    assert summary["source_relevance_adjudicator_backend"] == "openai"
+    assert summary["source_relevance_adjudication_calls"] == 4
+    assert summary["estimated_max_calls"] == 4
 
 
 def test_lint_paper_bundle_cli_is_registered() -> None:
@@ -242,7 +283,19 @@ def test_inspect_and_lint_paper_bundle_report_retrieval_quality(tmp_path) -> Non
     assert inspect_summary["accepted_source_count"] == 1
     assert inspect_summary["rejected_source_count"] == 2
     assert inspect_summary["retrieval_adequacy_status"] == "bounded_context_only"
+    assert inspect_summary["source_relevance_adjudication_enabled"] is True
+    assert inspect_summary["source_relevance_adjudicator_backend"] == "fake"
+    assert inspect_summary["source_relevance_adjudicated_count"] == 2
+    assert inspect_summary["source_relevance_llm_accepted_count"] == 1
+    assert inspect_summary["source_relevance_llm_rejected_count"] == 1
+    assert inspect_summary["source_relevance_hard_reject_count"] == 1
     assert lint_summary["retrieval_quality_report_present"] is True
+    assert lint_summary["source_relevance_adjudication_enabled"] is True
+    assert lint_summary["source_relevance_adjudicator_backend"] == "fake"
+    assert lint_summary["source_relevance_adjudicated_count"] == 2
+    assert lint_summary["source_relevance_llm_accepted_count"] == 1
+    assert lint_summary["source_relevance_llm_rejected_count"] == 1
+    assert lint_summary["source_relevance_hard_reject_count"] == 1
     assert lint_summary["citation_registry_sources_all_accepted"] is True
     assert lint_summary["accepted_source_count"] == 1
     assert any(
@@ -258,6 +311,11 @@ def test_inspect_and_lint_paper_bundle_report_retrieval_quality(tmp_path) -> Non
     assert "Retrieval quality: present" in result.output
     assert "Accepted sources: 1" in result.output
     assert "Rejected sources: 2" in result.output
+    assert "Source relevance adjudication: fake" in result.output
+    assert "Adjudicated sources: 2" in result.output
+    assert "LLM accepted sources: 1" in result.output
+    assert "LLM rejected sources: 1" in result.output
+    assert "Hard rejected sources: 1" in result.output
 
 
 def test_inspect_paper_bundle_missing_run_gives_clear_error(tmp_path) -> None:
@@ -722,6 +780,16 @@ def _write_fixture_retrieval_quality_report(tmp_path, run_id: str) -> None:
             "Bounded local source set; not validation or publication readiness."
         ],
         adequacy_status="bounded_context_only",
+        source_relevance_adjudication_enabled=True,
+        source_relevance_adjudicator_backend="fake",
+        source_relevance_adjudicator_model="test-model",
+        source_relevance_adjudication_calls=1,
+        adjudicated_source_count=2,
+        deterministic_accept_count=0,
+        deterministic_reject_count=0,
+        llm_accepted_count=1,
+        llm_rejected_count=1,
+        hard_reject_count=1,
         accepted_source_ids=["fixture-smith"],
         rejected_source_ids=["duplicate", "irrelevant"],
         rejection_reasons={

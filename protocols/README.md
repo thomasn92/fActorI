@@ -19,9 +19,13 @@ verification evidence, or a replacement for the append-only research ledger.
 
 `full-paper-golden-bundle.example.json` pins the structural 24-artifact paper bundle against the
 existing `FullPaperArtifactBundle` schema. It adds no schema by itself; the current protocol
-version is `0.19.0`.
+version is `0.20.0`.
 
-Protocol `0.19.0` adds bounded retrieval quality fields and a `RetrievalQualityReport` contract for
+Protocol `0.20.0` adds gated source relevance adjudication fields, LLM budget/accounting fields
+for source relevance calls, and a `SourceRelevanceAdjudication` contract. Source relevance
+adjudication judges bounded background-context fit only; deterministic code still controls source
+metadata, duplicate, registry, citation-provenance, and evidence-boundary checks. Protocol
+`0.19.0` adds bounded retrieval quality fields and a `RetrievalQualityReport` contract for
 local-source relevance, metadata-completeness, duplicate, accepted-source, and rejected-source
 accounting. Retrieval quality remains literature context only and cannot establish novelty,
 validation, correctness, exhaustive coverage, or publication readiness. Protocol `0.18.0` adds
@@ -51,6 +55,7 @@ Public protocol names are stable even where internal Python names differ. Curren
   `CompleteMarkdownDraft`, `ManuscriptDraftingReport`, and `ManuscriptAssemblyReport` generated
   from manuscript drafting models;
 - `RetrievalQualityReport` generated from bounded source-quality and relevance filter reports;
+- `SourceRelevanceAdjudication` generated from bounded source relevance judgments;
 - `CitationRecord`, `CitationRegistry`, `BibliographyEntry`, `CitationUsage`, `ClaimAdjudication`,
   `CitationSafetyReport`, `ClaimSupportItem`, `ClaimSupportAuditReport`,
   `LiteratureGapStatement`, `LiteraturePositioningContract`, and `LiteraturePositioningReport`
@@ -116,7 +121,7 @@ uv run factori check-protocol-version \
   --old-dir path/to/old/jsonschema \
   --new-dir path/to/new/jsonschema \
   --old-version 0.1.0 \
-  --new-version 0.19.0
+  --new-version 0.20.0
 ```
 
 See [`versioning.md`](versioning.md) for MAJOR/MINOR/PATCH rules and

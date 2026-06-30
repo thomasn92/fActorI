@@ -267,6 +267,8 @@ from factori.schemas.retrieval import (
     RetrievalValidationResult,
     RetrievedDocument,
     SourceProvenance,
+    SourceRelevanceAdjudication,
+    SourceRelevanceLabel,
 )
 from factori.schemas.stages import (
     BaselineReport,
@@ -368,6 +370,8 @@ __all__ = [
     "RetrievalParseReport",
     "RetrievalRunReport",
     "RetrievalRunTrace",
+    "SourceRelevanceAdjudication",
+    "SourceRelevanceLabel",
     "Question",
     "AutonomyContext",
     "StagnationEvent",

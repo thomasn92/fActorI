@@ -64,6 +64,9 @@ class RuntimeLLMBudgetGuard:
         review_increment = 1 if step_name == "llm-stage-b-review" else 0
         prose_increment = 1 if step_name == "llm-prose-generation" else 0
         adjudication_increment = 1 if step_name == "llm-claim-adjudication" else 0
+        source_relevance_increment = (
+            1 if step_name == "llm-source-relevance-adjudication" else 0
+        )
         next_usage = LLMBudgetUsage(
             total_calls=self.usage.total_calls + 1,
             candidate_generation_calls=(
@@ -73,6 +76,10 @@ class RuntimeLLMBudgetGuard:
             prose_calls=self.usage.prose_calls + prose_increment,
             claim_adjudication_calls=(
                 self.usage.claim_adjudication_calls + adjudication_increment
+            ),
+            source_relevance_adjudication_calls=(
+                self.usage.source_relevance_adjudication_calls
+                + source_relevance_increment
             ),
             total_input_tokens=_add_optional(
                 self.usage.total_input_tokens,
@@ -121,6 +128,12 @@ class RuntimeLLMBudgetGuard:
             "max_claim_adjudication_calls",
             next_usage.claim_adjudication_calls,
             self.budget.max_claim_adjudication_calls,
+        )
+        _check_limit(
+            reasons,
+            "max_source_relevance_adjudication_calls",
+            next_usage.source_relevance_adjudication_calls,
+            self.budget.max_source_relevance_adjudication_calls,
         )
         if input_token_estimate is None or output_token_estimate is None:
             _unknown_budget_item(reasons, warnings, self.budget, "runtime token usage")
@@ -212,6 +225,7 @@ def budget_is_explicit(budget: LLMBudgetConfig) -> bool:
             budget.max_review_calls,
             budget.max_prose_calls,
             budget.max_claim_adjudication_calls,
+            budget.max_source_relevance_adjudication_calls,
             budget.max_total_input_tokens,
             budget.max_total_output_tokens,
             budget.max_estimated_cost_usd,
@@ -227,10 +241,12 @@ def build_planned_llm_usage(
     reviewer_backend: str,
     prose_backend: str,
     claim_adjudicator_backend: str = "off",
+    source_relevance_adjudicator_backend: str = "off",
     candidate_generation_calls: int = 1,
     review_calls: int = 1,
     prose_calls: int = 1,
     claim_adjudication_calls: int = 0,
+    source_relevance_adjudication_calls: int = 0,
     estimated_cost_usd: float | None = None,
     input_tokens: int | None = None,
     output_tokens: int | None = None,
@@ -249,13 +265,25 @@ def build_planned_llm_usage(
         if _is_real_backend(claim_adjudicator_backend)
         else 0
     )
-    total_calls = candidate_calls + reviewer_calls + section_calls + adjudication_calls
+    source_relevance_calls = (
+        max(0, source_relevance_adjudication_calls)
+        if _is_real_backend(source_relevance_adjudicator_backend)
+        else 0
+    )
+    total_calls = (
+        candidate_calls
+        + reviewer_calls
+        + section_calls
+        + adjudication_calls
+        + source_relevance_calls
+    )
     return LLMBudgetUsage(
         total_calls=total_calls,
         candidate_generation_calls=candidate_calls,
         review_calls=reviewer_calls,
         prose_calls=section_calls,
         claim_adjudication_calls=adjudication_calls,
+        source_relevance_adjudication_calls=source_relevance_calls,
         total_input_tokens=input_tokens,
         total_output_tokens=output_tokens,
         estimated_cost_usd=estimated_cost_usd,
@@ -306,6 +334,12 @@ def evaluate_llm_budget(
         "max_claim_adjudication_calls",
         planned_usage.claim_adjudication_calls,
         budget.max_claim_adjudication_calls,
+    )
+    _check_limit(
+        reasons,
+        "max_source_relevance_adjudication_calls",
+        planned_usage.source_relevance_adjudication_calls,
+        budget.max_source_relevance_adjudication_calls,
     )
     if planned_usage.total_calls > 0 and planned_usage.total_input_tokens is None:
         _unknown_budget_item(reasons, warnings, budget, "input token usage")
@@ -375,6 +409,11 @@ def observed_usage_from_records(
     adjudication_calls = sum(
         1 for record in successful if record.step_name == "llm-claim-adjudication"
     )
+    source_relevance_calls = sum(
+        1
+        for record in successful
+        if record.step_name == "llm-source-relevance-adjudication"
+    )
     input_tokens = _sum_optional(record.input_token_estimate for record in successful)
     output_tokens = _sum_optional(record.output_token_estimate for record in successful)
     cost = _sum_optional_float(record.estimated_cost_usd for record in successful)
@@ -384,6 +423,7 @@ def observed_usage_from_records(
         review_calls=review_calls,
         prose_calls=prose_calls,
         claim_adjudication_calls=adjudication_calls,
+        source_relevance_adjudication_calls=source_relevance_calls,
         total_input_tokens=input_tokens,
         total_output_tokens=output_tokens,
         estimated_cost_usd=cost,

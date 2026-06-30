@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from factori.adapters.retrieval_sources import normalize_retrieval_result
 from factori.artifacts import ArtifactStore
 from factori.hashing import sha256_json
 from factori.ledger import ResearchLedger
@@ -26,6 +27,12 @@ from factori.schemas import (
     RetrievalRunReport,
     SourceProvenance,
 )
+from factori.source_relevance import (
+    SourceRelevanceAdjudicator,
+    SourceRelevanceRequest,
+    deterministic_source_relevance_adjudication,
+    source_relevance_request_from_result,
+)
 
 if TYPE_CHECKING:
     from factori.adapters.base import RetrievalClient
@@ -40,6 +47,24 @@ DEFAULT_RETRIEVAL_WEIGHTS = {
 }
 LOCAL_RETRIEVAL_RELEVANCE_THRESHOLD = 0.35
 LOCAL_RETRIEVAL_QUALITY_THRESHOLD = 0.55
+LOCAL_RETRIEVAL_AMBIGUITY_MARGIN = 0.12
+_ACCEPTED_SOURCE_RELEVANCE_LABELS = {
+    "highly_relevant_background",
+    "partially_relevant_background",
+}
+_ALLOWED_LOCAL_SOURCE_TYPES = frozenset(
+    {
+        "article",
+        "book",
+        "journal-article",
+        "local_fixture",
+        "local_source_metadata",
+        "openalex_style_metadata",
+        "openalex_work",
+        "report",
+        "retrieval_metadata",
+    }
+)
 _DETERMINISTIC_RETRIEVED_AT = "1970-01-01T00:00:00.000000Z"
 _STOPWORDS = frozenset(
     {
@@ -70,6 +95,18 @@ class RetrievalExecutionResult:
     report: RetrievalRunReport
     artifacts: dict[str, ArtifactRef]
     commit_hash: str
+
+
+@dataclass(frozen=True)
+class _SourceScoringDecision:
+    result: RetrievalResult
+    metadata: dict[str, object]
+    topic_score: float
+    quality_score: float
+    relevance_score: float
+    hard_rejection_reason: str | None
+    requires_adjudication: bool
+    request: SourceRelevanceRequest
 
 
 def compute_retrieval_adequacy(
@@ -358,6 +395,10 @@ def run_local_retrieval_with_provenance(
     local_path: str | Path,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    source_relevance_adjudicator: SourceRelevanceAdjudicator | None = None,
+    source_relevance_adjudicator_model: str | None = None,
+    domain: str | None = None,
+    candidate_title_or_problem: str | None = None,
 ) -> RetrievalExecutionResult:
     """Load deterministic local source metadata and ledger quality-filtered retrieval."""
     normalized_query = " ".join(query.split()) or "unspecified domain"
@@ -377,6 +418,10 @@ def run_local_retrieval_with_provenance(
         retrieval_backend="local",
         query=normalized_query,
         results=results,
+        source_relevance_adjudicator=source_relevance_adjudicator,
+        source_relevance_adjudicator_model=source_relevance_adjudicator_model,
+        domain=domain or normalized_query,
+        candidate_title_or_problem=candidate_title_or_problem or normalized_query,
     )
     query_id = sha256_json(
         {
@@ -508,14 +553,30 @@ def score_retrieval_sources(
     results: list[RetrievalResult],
     relevance_threshold: float = LOCAL_RETRIEVAL_RELEVANCE_THRESHOLD,
     quality_threshold: float = LOCAL_RETRIEVAL_QUALITY_THRESHOLD,
+    source_relevance_adjudicator: SourceRelevanceAdjudicator | None = None,
+    source_relevance_adjudicator_model: str | None = None,
+    domain: str | None = None,
+    candidate_title_or_problem: str | None = None,
 ) -> tuple[list[RetrievalResult], RetrievalQualityReport]:
     """Score retrieval results and mark only usable background sources as accepted."""
     seen: set[tuple[str, int | None]] = set()
-    scored: list[RetrievalResult] = []
+    decisions: list[_SourceScoringDecision] = []
     duplicate_count = 0
     low_relevance_count = 0
     metadata_incomplete_count = 0
+    hard_reject_count = 0
+    deterministic_accept_count = 0
+    deterministic_reject_count = 0
+    llm_accepted_count = 0
+    llm_rejected_count = 0
     rejection_reasons: dict[str, str] = {}
+    adjudication_items = []
+    adjudication_enabled = source_relevance_adjudicator is not None
+    normalized_domain = " ".join((domain or query).split()) or query
+    normalized_problem = (
+        " ".join((candidate_title_or_problem or normalized_domain).split())
+        or normalized_domain
+    )
     for result in results:
         metadata = dict(result.metadata or {})
         title_key = (_normalize_title(result.title), result.year)
@@ -524,17 +585,130 @@ def score_retrieval_sources(
         topic_score = _topic_match_score(query, result, metadata)
         quality_score = _metadata_quality_score(result)
         relevance_score = round((topic_score * 0.72) + (quality_score * 0.28), 3)
+        hard_reason = _hard_rejection_reason(
+            result,
+            metadata,
+            duplicate=duplicate,
+            quality_threshold=quality_threshold,
+        )
+        requires_adjudication = bool(
+            adjudication_enabled
+            and hard_reason is None
+            and _requires_source_relevance_adjudication(
+                result=result,
+                metadata=metadata,
+                relevance_score=relevance_score,
+                topic_score=topic_score,
+                quality_score=quality_score,
+                relevance_threshold=relevance_threshold,
+            )
+        )
+        decisions.append(
+            _SourceScoringDecision(
+                result=result,
+                metadata=metadata,
+                topic_score=topic_score,
+                quality_score=quality_score,
+                relevance_score=relevance_score,
+                hard_rejection_reason=hard_reason,
+                requires_adjudication=requires_adjudication,
+                request=source_relevance_request_from_result(
+                    result,
+                    query=query,
+                    domain=normalized_domain,
+                    candidate_title_or_problem=normalized_problem,
+                    deterministic_relevance_score=relevance_score,
+                    deterministic_topic_match_score=topic_score,
+                    source_quality_score=quality_score,
+                ),
+            )
+        )
+    initial_adjudication_calls = (
+        source_relevance_adjudicator.call_count
+        if source_relevance_adjudicator is not None
+        else 0
+    )
+    adjudicated_by_id = {}
+    if source_relevance_adjudicator is not None:
+        requests = [
+            decision.request
+            for decision in decisions
+            if decision.requires_adjudication
+        ]
+        adjudicated = source_relevance_adjudicator.adjudicate(requests) if requests else []
+        adjudicated_by_id = {item.source_id: item for item in adjudicated}
+
+    scored: list[RetrievalResult] = []
+    for decision in decisions:
+        result = decision.result
+        metadata = decision.metadata
         reason = ""
-        if duplicate:
-            duplicate_count += 1
-            reason = "duplicate_source"
-        elif quality_score < quality_threshold:
-            metadata_incomplete_count += 1
-            reason = "metadata_incomplete"
-        elif relevance_score < relevance_threshold:
-            low_relevance_count += 1
-            reason = "low_relevance"
-        accepted = not reason
+        accepted = False
+        adjudication = adjudicated_by_id.get(result.source_id)
+        if decision.hard_rejection_reason:
+            reason = decision.hard_rejection_reason
+            hard_reject_count += 1
+            if reason == "duplicate_source":
+                duplicate_count += 1
+            elif reason in {
+                "metadata_incomplete",
+                "missing_title",
+                "missing_year",
+                "missing_snippet_or_summary",
+                "missing_authors",
+            }:
+                metadata_incomplete_count += 1
+            else:
+                low_relevance_count += 1
+            if adjudication_enabled:
+                adjudication_items.append(
+                    deterministic_source_relevance_adjudication(
+                        decision.request,
+                        backend="deterministic_hard_filter",
+                        model=source_relevance_adjudicator_model,
+                        forced_label=_label_for_hard_reason(reason),
+                        forced_rejection_reason=reason,
+                    )
+                )
+        elif adjudication is not None:
+            accepted = (
+                adjudication.accepted_for_background_context
+                and adjudication.adjudicated_relevance_label
+                in _ACCEPTED_SOURCE_RELEVANCE_LABELS
+            )
+            reason = "" if accepted else adjudication.rejection_reason or "low_relevance"
+            adjudication_items.append(adjudication)
+            if accepted:
+                llm_accepted_count += 1
+            else:
+                llm_rejected_count += 1
+                low_relevance_count += 1
+        else:
+            if decision.quality_score < quality_threshold:
+                metadata_incomplete_count += 1
+                reason = "metadata_incomplete"
+            elif decision.relevance_score < relevance_threshold:
+                low_relevance_count += 1
+                reason = "low_relevance"
+            accepted = not reason
+            if accepted:
+                deterministic_accept_count += 1
+            else:
+                deterministic_reject_count += 1
+            if adjudication_enabled:
+                adjudication_items.append(
+                    deterministic_source_relevance_adjudication(
+                        decision.request,
+                        backend="deterministic_filter",
+                        model=source_relevance_adjudicator_model,
+                        forced_label=(
+                            _deterministic_accept_label(decision.relevance_score)
+                            if accepted
+                            else "weakly_relevant"
+                        ),
+                        forced_rejection_reason=reason or None,
+                    )
+                )
         if not accepted:
             rejection_reasons[result.source_id] = reason
         status = "retrieved" if accepted else "rejected"
@@ -543,14 +717,33 @@ def score_retrieval_sources(
             "backend": retrieval_backend,
             "source_status": status,
             "accepted_for_registry": accepted,
+            "hard_rejected": bool(decision.hard_rejection_reason),
             "rejection_reason": reason or None,
-            "relevance_score": relevance_score,
-            "topic_match_score": topic_score,
-            "source_quality_score": quality_score,
+            "relevance_score": decision.relevance_score,
+            "topic_match_score": decision.topic_score,
+            "source_quality_score": decision.quality_score,
+            "source_relevance_adjudicated": adjudication is not None,
+            "source_relevance_adjudicator_backend": (
+                adjudication.adjudicator_backend
+                if adjudication is not None
+                else "deterministic_hard_filter"
+                if decision.hard_rejection_reason
+                else "deterministic_filter"
+            ),
+            "source_relevance_label": (
+                adjudication.adjudicated_relevance_label
+                if adjudication is not None
+                else _label_for_hard_reason(reason)
+                if decision.hard_rejection_reason
+                else _deterministic_accept_label(decision.relevance_score)
+                if accepted
+                else "weakly_relevant"
+            ),
             "trust_level": metadata.get("trust_level", "metadata_only"),
             "may_support_background_context": bool(
                 metadata.get("may_support_background_context", True)
-            ),
+            )
+            and accepted,
             "may_support_empirical_claims": False,
             "may_support_proof_claims": False,
             "may_support_novelty_claims": False,
@@ -558,9 +751,9 @@ def score_retrieval_sources(
         scored.append(
             result.model_copy(
                 update={
-                    "relevance_score": relevance_score,
-                    "topic_match_score": topic_score,
-                    "source_quality_score": quality_score,
+                    "relevance_score": decision.relevance_score,
+                    "topic_match_score": decision.topic_score,
+                    "source_quality_score": decision.quality_score,
                     "accepted_for_registry": accepted,
                     "rejection_reason": reason or None,
                     "retrieval_backend": retrieval_backend,
@@ -573,6 +766,16 @@ def score_retrieval_sources(
     accepted_results = [result for result in scored if result.accepted_for_registry]
     rejected_results = [result for result in scored if not result.accepted_for_registry]
     relevance_scores = [result.relevance_score or 0.0 for result in scored]
+    adjudication_calls = (
+        source_relevance_adjudicator.call_count - initial_adjudication_calls
+        if source_relevance_adjudicator is not None
+        else 0
+    )
+    adjudicated_source_count = sum(
+        1
+        for item in adjudication_items
+        if item.adjudicator_backend in {"fake", "openai"}
+    )
     adequacy_status = (
         "insufficient_sources"
         if not accepted_results
@@ -600,8 +803,30 @@ def score_retrieval_sources(
             "Retrieval quality is bounded to the supplied local source set.",
             "Accepted sources are background context only, not novelty proof, "
             "claim verification, correctness evidence, or publication readiness.",
+            "Source relevance adjudication, when enabled, judges topical fit only; "
+            "deterministic code still controls metadata, provenance, duplicate, "
+            "registry, citation, and evidence-boundary checks.",
         ],
         adequacy_status=adequacy_status,
+        source_relevance_adjudication_enabled=adjudication_enabled,
+        source_relevance_adjudicator_backend=(
+            source_relevance_adjudicator.backend_name
+            if source_relevance_adjudicator is not None
+            else "off"
+        ),
+        source_relevance_adjudicator_model=(
+            source_relevance_adjudicator.model
+            if source_relevance_adjudicator is not None
+            else source_relevance_adjudicator_model
+        ),
+        source_relevance_adjudication_calls=adjudication_calls,
+        adjudicated_source_count=adjudicated_source_count,
+        deterministic_accept_count=deterministic_accept_count,
+        deterministic_reject_count=deterministic_reject_count,
+        llm_accepted_count=llm_accepted_count,
+        llm_rejected_count=llm_rejected_count,
+        hard_reject_count=hard_reject_count,
+        adjudication_items=adjudication_items,
         accepted_source_ids=[result.source_id for result in accepted_results],
         rejected_source_ids=[result.source_id for result in rejected_results],
         rejection_reasons=rejection_reasons,
@@ -630,7 +855,10 @@ def _local_source_result(
     query: str,
     rank: int,
 ) -> RetrievalResult:
+    if _looks_like_openalex_record(record):
+        return _openalex_style_local_source_result(record, query=query, rank=rank)
     source_id = str(record.get("source_id") or f"local-src-{rank + 1:03d}")
+    title_missing = not str(record.get("title") or "").strip()
     title = str(record.get("title") or f"Untitled local source {rank + 1}")
     authors_value = record.get("authors") or []
     authors = (
@@ -668,6 +896,13 @@ def _local_source_result(
         "supported_topics": list(record.get("supported_topics") or []),
         "source_summary": str(abstract or snippet or ""),
         "source_snippet": snippet,
+        "title_missing": title_missing,
+        "explicit_invalid_marker": bool(
+            record.get("invalid")
+            or record.get("unsafe")
+            or record.get("test_invalid_marker")
+            or record.get("explicit_invalid_marker")
+        ),
         "fixture_only": bool(record.get("fixture_only", False)),
         "may_support_background_context": bool(
             record.get("may_support_background_context", True)
@@ -713,6 +948,92 @@ def _local_source_result(
     )
 
 
+def _looks_like_openalex_record(record: dict[str, object]) -> bool:
+    return any(
+        key in record
+        for key in (
+            "display_name",
+            "publication_year",
+            "authorships",
+            "abstract_inverted_index",
+            "host_venue",
+            "concepts",
+        )
+    )
+
+
+def _openalex_style_local_source_result(
+    record: dict[str, object],
+    *,
+    query: str,
+    rank: int,
+) -> RetrievalResult:
+    enriched: dict[str, object] = dict(record)
+    enriched.setdefault("id", record.get("source_id") or f"local-openalex-{rank + 1:03d}")
+    enriched.setdefault("_query", query)
+    enriched.setdefault("_rank", rank)
+    enriched.setdefault("_retrieved_at", _DETERMINISTIC_RETRIEVED_AT)
+    enriched.setdefault("_normalized_score", max(0.0, 1.0 - (0.08 * rank)))
+    if "primary_location" not in enriched and isinstance(record.get("host_venue"), dict):
+        host = record["host_venue"]
+        enriched["primary_location"] = {
+            "source": {
+                "display_name": str(host.get("display_name") or host.get("name") or "")
+            },
+            "landing_page_url": host.get("url"),
+        }
+    result = normalize_retrieval_result(enriched, "openalex", backend="local")
+    concepts = record.get("concepts")
+    supported_topics = _openalex_supported_topics(concepts)
+    metadata = {
+        **dict(result.metadata or {}),
+        "backend": "local",
+        "source_type": str(record.get("source_type") or "openalex_style_metadata"),
+        "source_status": "retrieved",
+        "trust_level": str(record.get("trust_level") or "metadata_only"),
+        "supported_topics": supported_topics,
+        "source_summary": result.abstract or result.snippet or result.title,
+        "source_snippet": result.snippet,
+        "title_missing": not str(record.get("display_name") or record.get("title") or "").strip(),
+        "explicit_invalid_marker": bool(
+            record.get("invalid")
+            or record.get("unsafe")
+            or record.get("test_invalid_marker")
+            or record.get("explicit_invalid_marker")
+        ),
+        "fixture_only": bool(record.get("fixture_only", False)),
+        "may_support_background_context": bool(
+            record.get("may_support_background_context", True)
+        ),
+        "may_support_method_context": bool(record.get("may_support_method_context", False)),
+        "may_support_empirical_claims": False,
+        "may_support_proof_claims": False,
+        "may_support_novelty_claims": False,
+    }
+    return result.model_copy(
+        update={
+            "retrieval_backend": "local",
+            "source_type": str(metadata["source_type"]),
+            "metadata": metadata,
+            "fixture_only": bool(metadata["fixture_only"]),
+        }
+    )
+
+
+def _openalex_supported_topics(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    topics = []
+    for item in value:
+        if isinstance(item, dict):
+            name = item.get("display_name") or item.get("name")
+            if name:
+                topics.append(str(name))
+        elif item:
+            topics.append(str(item))
+    return list(dict.fromkeys(topics))
+
+
 def _quality_report_for_fixture_sources(
     *,
     run_id: str,
@@ -742,6 +1063,97 @@ def _quality_report_for_fixture_sources(
         rejected_source_ids=[],
         rejection_reasons={},
     )
+
+
+def _hard_rejection_reason(
+    result: RetrievalResult,
+    metadata: dict[str, object],
+    *,
+    duplicate: bool,
+    quality_threshold: float,
+) -> str | None:
+    del quality_threshold
+    if bool(metadata.get("explicit_invalid_marker")):
+        return "unsafe_or_invalid_source"
+    source_type = str(metadata.get("source_type") or result.source_type or "").strip().lower()
+    if source_type and source_type not in _ALLOWED_LOCAL_SOURCE_TYPES:
+        return "invalid_source_type"
+    if bool(metadata.get("title_missing")) or not result.title.strip():
+        return "metadata_incomplete"
+    if duplicate:
+        return "duplicate_source"
+    if not result.authors:
+        return "metadata_incomplete"
+    if result.year is None:
+        return "metadata_incomplete"
+    text = " ".join(part for part in (result.abstract or "", result.snippet or "") if part)
+    if len(_tokens(text)) < 8:
+        return "metadata_incomplete"
+    return None
+
+
+def _requires_source_relevance_adjudication(
+    *,
+    result: RetrievalResult,
+    metadata: dict[str, object],
+    relevance_score: float,
+    topic_score: float,
+    quality_score: float,
+    relevance_threshold: float,
+) -> bool:
+    near_threshold = (
+        relevance_threshold - LOCAL_RETRIEVAL_AMBIGUITY_MARGIN
+        <= relevance_score
+        <= relevance_threshold + LOCAL_RETRIEVAL_AMBIGUITY_MARGIN
+    )
+    good_metadata_weak_overlap = quality_score >= 0.82 and topic_score < 0.25
+    partial_overlap = 0.15 <= topic_score < 0.45 and quality_score >= 0.70
+    high_overlap_generic = topic_score >= 0.55 and _title_is_generic(result.title)
+    title_abstract_mismatch = _title_abstract_mismatch(result, metadata)
+    return bool(
+        near_threshold
+        or good_metadata_weak_overlap
+        or partial_overlap
+        or high_overlap_generic
+        or title_abstract_mismatch
+    )
+
+
+def _label_for_hard_reason(reason: str) -> str:
+    if reason == "duplicate_source":
+        return "duplicate"
+    if reason in {"unsafe_or_invalid_source", "invalid_source_type"}:
+        return "unsafe_or_invalid_source"
+    if reason:
+        return "metadata_insufficient"
+    return "weakly_relevant"
+
+
+def _deterministic_accept_label(relevance_score: float) -> str:
+    return (
+        "highly_relevant_background"
+        if relevance_score >= 0.70
+        else "partially_relevant_background"
+    )
+
+
+def _title_is_generic(title: str) -> bool:
+    tokens = _tokens(title)
+    generic = {"analysis", "approach", "context", "framework", "study", "survey"}
+    return bool(tokens & generic) and len(tokens) <= 5
+
+
+def _title_abstract_mismatch(
+    result: RetrievalResult,
+    metadata: dict[str, object],
+) -> bool:
+    abstract = result.abstract or result.snippet or str(metadata.get("source_summary") or "")
+    title_tokens = _tokens(result.title)
+    abstract_tokens = _tokens(abstract)
+    if not title_tokens or not abstract_tokens:
+        return False
+    overlap = len(title_tokens & abstract_tokens) / len(title_tokens)
+    return overlap < 0.20 and len(abstract_tokens) >= 12
 
 
 def _topic_match_score(

@@ -91,6 +91,19 @@
           "default": null,
           "title": "Max Review Calls"
         },
+        "max_source_relevance_adjudication_calls": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Source Relevance Adjudication Calls"
+        },
         "max_total_calls": {
           "anyOf": [
             {
@@ -296,6 +309,12 @@
           "default": 0,
           "minimum": 0,
           "title": "Review Calls",
+          "type": "integer"
+        },
+        "source_relevance_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Relevance Adjudication Calls",
           "type": "integer"
         },
         "total_calls": {
@@ -721,6 +740,21 @@
           "title": "Run Id",
           "type": "string"
         },
+        "source_relevance_adjudicator_backend": {
+          "default": "off",
+          "enum": [
+            "off",
+            "fake",
+            "openai"
+          ],
+          "title": "Source Relevance Adjudicator Backend",
+          "type": "string"
+        },
+        "source_relevance_adjudicator_model": {
+          "default": "gpt-5-mini",
+          "title": "Source Relevance Adjudicator Model",
+          "type": "string"
+        },
         "write_report": {
           "default": false,
           "title": "Write Report",
@@ -919,7 +953,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.19.0/llm-orchestration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.20.0/llm-orchestration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Report for gated end-to-end LLM paper orchestration.",
@@ -1040,7 +1074,7 @@
   ],
   "title": "LLMOrchestrationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.19.0",
+  "x-factori-protocol-version": "0.20.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationReport",
   "x-factori-verification-evidence": false
 }

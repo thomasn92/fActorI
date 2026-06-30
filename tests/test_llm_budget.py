@@ -63,6 +63,33 @@ def test_budget_permits_run_within_call_limit() -> None:
     assert usage.total_calls == 2
 
 
+def test_budget_plans_source_relevance_adjudication_calls() -> None:
+    usage = build_planned_llm_usage(
+        candidate_backend="fake",
+        reviewer_backend="fake",
+        prose_backend="fake",
+        source_relevance_adjudicator_backend="openai",
+        source_relevance_adjudication_calls=3,
+        input_tokens=3000,
+        output_tokens=1500,
+        estimated_cost_usd=0.03,
+    )
+
+    decision = evaluate_llm_budget(
+        LLMBudgetConfig(
+            max_total_calls=3,
+            max_source_relevance_adjudication_calls=3,
+            max_estimated_cost_usd=1.0,
+        ),
+        usage,
+        require_explicit_budget=True,
+    )
+
+    assert decision.allowed is True
+    assert usage.total_calls == 3
+    assert usage.source_relevance_adjudication_calls == 3
+
+
 def test_budget_blocks_run_over_call_limit() -> None:
     usage = build_planned_llm_usage(
         candidate_backend="openai",
@@ -237,6 +264,25 @@ def test_runtime_budget_guard_blocks_candidate_review_and_prose_limits() -> None
         _authorize_step(review_guard, "llm-stage-b-review")
     with pytest.raises(LLMBudgetExceeded, match="max_prose_calls"):
         _authorize_step(prose_guard, "llm-prose-generation")
+
+
+def test_runtime_budget_guard_blocks_source_relevance_limit() -> None:
+    guard = RuntimeLLMBudgetGuard(
+        LLMBudgetConfig(
+            max_source_relevance_adjudication_calls=0,
+            max_estimated_cost_usd=0.2,
+        ),
+        lambda: "1970-01-01T00:00:00.000000Z",
+    )
+
+    with pytest.raises(
+        LLMBudgetExceeded,
+        match="max_source_relevance_adjudication_calls",
+    ):
+        _authorize_step(guard, "llm-source-relevance-adjudication")
+
+    assert guard.blocked_records[0].step_name == "llm-source-relevance-adjudication"
+    assert guard.blocked_records[0].external_call_performed is False
 
 
 def test_runtime_budget_guard_blocks_unknown_usage_when_fail_closed() -> None:

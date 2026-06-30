@@ -80,6 +80,11 @@ from factori.schemas import (
     PipelineRunStatus,
     RerunPolicy,
 )
+from factori.source_relevance import (
+    FakeSourceRelevanceAdjudicator,
+    OpenAISourceRelevanceAdjudicator,
+    SourceRelevanceAdjudicator,
+)
 from factori.stage0 import OPPORTUNITY_THRESHOLD, discover_opportunities
 from factori.stage_a import (
     MAX_STAGE_A_SURVIVORS,
@@ -143,6 +148,7 @@ def run_llm_paper_orchestration(
     reviewer_transport: LLMTransport | None = None,
     prose_transport: LLMTransport | None = None,
     claim_adjudicator_transport: LLMTransport | None = None,
+    source_relevance_adjudicator_transport: LLMTransport | None = None,
     environ: dict[str, str] | None = None,
     clock: Clock | None = None,
     preflight_only: bool = False,
@@ -198,6 +204,15 @@ def run_llm_paper_orchestration(
         claim_adjudicator = _claim_adjudicator_for_config(
             config,
             transport=claim_adjudicator_transport,
+            environ=environ,
+            runtime_budget_guard=runtime_budget_guard if real_mode else None,
+        )
+    except (AdapterConfigurationError, ValueError) as exc:
+        raise LLMOrchestrationError(str(exc)) from exc
+    try:
+        source_relevance_adjudicator = _source_relevance_adjudicator_for_config(
+            config,
+            transport=source_relevance_adjudicator_transport,
             environ=environ,
             runtime_budget_guard=runtime_budget_guard if real_mode else None,
         )
@@ -414,19 +429,38 @@ def run_llm_paper_orchestration(
                 registry=registry,
                 store=store,
                 ledger=ledger,
+                source_relevance_adjudicator=source_relevance_adjudicator,
             )
         except (AdapterTransportError, ValueError, RuntimeError) as exc:
+            blocked_by_budget = isinstance(exc, LLMBudgetExceeded)
             blocking.append(str(exc))
             steps.append(
                 _step(
                     "retrieval-citation-registry",
-                    LLMOrchestrationStepStatus.FAILED,
-                    "Bounded retrieval for citation provenance failed.",
+                    (
+                        LLMOrchestrationStepStatus.BLOCKED
+                        if blocked_by_budget
+                        else LLMOrchestrationStepStatus.FAILED
+                    ),
+                    (
+                        "Source relevance adjudication was blocked by the runtime LLM budget."
+                        if blocked_by_budget
+                        else "Bounded retrieval for citation provenance failed."
+                    ),
                     retrieval_started,
                     clock.now(),
                     error=str(exc),
                 )
             )
+            if isinstance(exc, AdapterTransportError):
+                extra_accounting_records.append(
+                    _failed_transport_record(
+                        step_name="llm-source-relevance-adjudication",
+                        error=exc,
+                        config=config,
+                        clock=clock,
+                    )
+                )
         else:
             retrieval_warning = (
                 "Retrieval quality is bounded background context only and does not "
@@ -615,6 +649,7 @@ def run_llm_paper_orchestration(
         clock,
         runtime_budget_guard,
         claim_adjudicator=claim_adjudicator,
+        source_relevance_adjudicator=source_relevance_adjudicator,
     )
     records.extend(extra_accounting_records)
     records.sort(
@@ -717,6 +752,9 @@ def inspect_llm_run_summary(
         "review_calls": budget_usage.review_calls,
         "prose_calls": budget_usage.prose_calls,
         "claim_adjudication_calls": budget_usage.claim_adjudication_calls,
+        "source_relevance_adjudication_calls": (
+            budget_usage.source_relevance_adjudication_calls
+        ),
         "total_calls": budget_usage.total_calls,
         "estimated_cost_usd": budget_usage.estimated_cost_usd,
         "runtime_budget_blocked": (
@@ -757,6 +795,12 @@ def build_llm_orchestration_preflight_summary(
         "prose_model": effective_config.prose_model,
         "claim_adjudicator_backend": effective_config.claim_adjudicator_backend,
         "claim_adjudicator_model": effective_config.claim_adjudicator_model,
+        "source_relevance_adjudicator_backend": (
+            effective_config.source_relevance_adjudicator_backend
+        ),
+        "source_relevance_adjudicator_model": (
+            effective_config.source_relevance_adjudicator_model
+        ),
         "allow_external_calls": effective_config.allow_external_calls,
         "budget_limits": effective_config.budget.model_dump(mode="json"),
         "estimated_max_calls": planned.total_calls,
@@ -764,6 +808,9 @@ def build_llm_orchestration_preflight_summary(
         "review_calls": planned.review_calls,
         "prose_calls": planned.prose_calls,
         "claim_adjudication_calls": planned.claim_adjudication_calls,
+        "source_relevance_adjudication_calls": (
+            planned.source_relevance_adjudication_calls
+        ),
         "write_report": effective_config.write_report,
         "generate_paper": effective_config.generate_paper,
         "evaluate_release": effective_config.evaluate_release,
@@ -903,6 +950,7 @@ def _effective_config_for_scope(
         "retrieval_backend": "fake",
         "citation_policy": "none",
         "claim_adjudicator_backend": "off",
+        "source_relevance_adjudicator_backend": "off",
     }
     if llm_scope == _LLM_SCOPE_CANDIDATE_ONLY:
         update["reviewer_backend"] = _FAKE_BACKEND
@@ -917,6 +965,7 @@ def _real_llm_mode(config: LLMOrchestrationConfig) -> bool:
             config.reviewer_backend,
             config.prose_backend,
             config.claim_adjudicator_backend,
+            config.source_relevance_adjudicator_backend,
         )
     )
 
@@ -936,6 +985,11 @@ def _planned_usage(
     adjudication_calls = (
         config.budget.max_claim_adjudication_calls or 0
         if config.generate_paper
+        else 0
+    )
+    source_relevance_calls = (
+        config.budget.max_source_relevance_adjudication_calls or 0
+        if config.enable_retrieval
         else 0
     )
     real_calls = (
@@ -959,16 +1013,25 @@ def _planned_usage(
             if config.claim_adjudicator_backend == "openai"
             else 0
         )
+        + (
+            source_relevance_calls
+            if config.source_relevance_adjudicator_backend == "openai"
+            else 0
+        )
     )
     return build_planned_llm_usage(
         candidate_backend=config.candidate_backend,
         reviewer_backend=config.reviewer_backend,
         prose_backend=config.prose_backend,
         claim_adjudicator_backend=config.claim_adjudicator_backend,
+        source_relevance_adjudicator_backend=(
+            config.source_relevance_adjudicator_backend
+        ),
         candidate_generation_calls=candidate_calls,
         review_calls=review_calls,
         prose_calls=prose_calls,
         claim_adjudication_calls=adjudication_calls,
+        source_relevance_adjudication_calls=source_relevance_calls,
         input_tokens=1000 * real_calls if real_calls else None,
         output_tokens=500 * real_calls if real_calls else None,
         estimated_cost_usd=round(0.01 * real_calls, 6) if real_calls else None,
@@ -1141,6 +1204,55 @@ def _claim_adjudicator_for_config(
     )
 
 
+def _source_relevance_adjudicator_for_config(
+    config: LLMOrchestrationConfig,
+    *,
+    transport: LLMTransport | None,
+    environ: dict[str, str] | None,
+    runtime_budget_guard: RuntimeLLMBudgetGuard | None,
+) -> SourceRelevanceAdjudicator | None:
+    backend = config.source_relevance_adjudicator_backend
+    if backend == "off":
+        return None
+    if backend == "fake":
+        return FakeSourceRelevanceAdjudicator(
+            model=config.source_relevance_adjudicator_model
+        )
+    if not config.enable_retrieval:
+        raise AdapterConfigurationError(
+            "OpenAI source relevance adjudication requires --enable-retrieval."
+        )
+    if not config.allow_external_calls:
+        raise AdapterConfigurationError(
+            "OpenAI source relevance adjudicator requires allow_external_calls=true."
+        )
+    max_calls = config.budget.max_source_relevance_adjudication_calls
+    if max_calls is None or max_calls < 1:
+        raise AdapterConfigurationError(
+            "OpenAI source relevance adjudicator requires "
+            "--max-source-relevance-adjudication-calls >= 1."
+        )
+    environment = environ if environ is not None else os.environ
+    api_key = environment.get(OPENAI_API_KEY_ENV, "")
+    if not api_key:
+        raise AdapterConfigurationError(
+            "OpenAI source relevance adjudicator requested but no API key is configured."
+        )
+    adjudication_transport = _budgeted_transport(
+        transport,
+        runtime_budget_guard,
+        step_name="llm-source-relevance-adjudication",
+        backend="openai",
+    )
+    return OpenAISourceRelevanceAdjudicator(
+        api_key=api_key,
+        model=config.source_relevance_adjudicator_model,
+        transport=adjudication_transport or OpenAIResponsesTransport(),
+        allow_external_calls=True,
+        max_calls=max_calls,
+    )
+
+
 def _estimate_input_tokens(prompt: str) -> int:
     return max(1, (len(prompt) + 3) // 4)
 
@@ -1194,6 +1306,7 @@ def _run_bounded_citation_retrieval(
     registry: AdapterRegistry,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    source_relevance_adjudicator: SourceRelevanceAdjudicator | None,
 ):
     query = f"{config.domain} bounded literature context"
     if config.retrieval_backend.strip().lower() == "local":
@@ -1208,6 +1321,12 @@ def _run_bounded_citation_retrieval(
             local_path=config.retrieval_local_path,
             store=store,
             ledger=ledger,
+            source_relevance_adjudicator=source_relevance_adjudicator,
+            source_relevance_adjudicator_model=(
+                config.source_relevance_adjudicator_model
+            ),
+            domain=config.domain,
+            candidate_title_or_problem=config.method or config.domain,
         )
     if registry.retrieval.is_fake:
         return run_fixture_retrieval_with_provenance(
@@ -1583,6 +1702,7 @@ def _accounting_records(
     clock: Clock,
     runtime_budget_guard: RuntimeLLMBudgetGuard | None = None,
     claim_adjudicator: ClaimAdjudicator | None = None,
+    source_relevance_adjudicator: SourceRelevanceAdjudicator | None = None,
 ) -> list[LLMCallAccountingRecord]:
     records: list[LLMCallAccountingRecord] = []
     records.extend(
@@ -1666,6 +1786,38 @@ def _accounting_records(
                     external_call_performed=True,
                 )
             )
+    if source_relevance_adjudicator is not None:
+        requests = list(getattr(source_relevance_adjudicator, "adjudication_requests", []))
+        responses = list(getattr(source_relevance_adjudicator, "raw_responses", []))
+        backend = source_relevance_adjudicator.backend_name
+        for index, request_payload in enumerate(requests):
+            records.append(
+                build_call_accounting_record(
+                    step_name="llm-source-relevance-adjudication",
+                    backend=backend,
+                    provider=(
+                        "openai"
+                        if backend == "openai"
+                        else getattr(
+                            source_relevance_adjudicator,
+                            "provider_name",
+                            backend,
+                        )
+                    ),
+                    model=source_relevance_adjudicator.model,
+                    request_payload=request_payload,
+                    response_payload=(
+                        responses[index] if index < len(responses) else None
+                    ),
+                    started_at=clock.now(),
+                    completed_at=clock.now(),
+                    status=LLMCallStatus.SUCCEEDED,
+                    input_token_estimate=_estimate_request_tokens(request_payload),
+                    output_token_estimate=500 if backend == "openai" else None,
+                    estimated_cost_usd=0.01 if backend == "openai" else None,
+                    external_call_performed=backend == "openai",
+                )
+            )
     if runtime_budget_guard is not None:
         records.extend(runtime_budget_guard.blocked_records)
     if not records:
@@ -1722,6 +1874,8 @@ def _estimate_request_tokens(request_payload: Any) -> int | None:
     if isinstance(request, dict):
         return _estimate_request_tokens(request)
     if "sentences" in request_payload:
+        return _estimate_input_tokens(json.dumps(request_payload, sort_keys=True))
+    if "sources" in request_payload:
         return _estimate_input_tokens(json.dumps(request_payload, sort_keys=True))
     return None
 
@@ -1822,6 +1976,8 @@ def _model_for_transport_error(
         return config.prose_model
     if config.claim_adjudicator_backend == "openai":
         return config.claim_adjudicator_model
+    if config.source_relevance_adjudicator_backend == "openai":
+        return config.source_relevance_adjudicator_model
     return None
 
 
@@ -1865,6 +2021,7 @@ def _build_report(
             "LLM reviews are not proof evidence.",
             "LLM prose is not proof, experiment, retrieval, human approval, "
             "scientific validation, or publication readiness.",
+            "Source relevance adjudication is bounded background-context filtering only.",
             "Release status is human-review readiness only.",
         ],
     )
@@ -1888,6 +2045,12 @@ def _build_report(
             "prose_model": config.prose_model,
             "claim_adjudicator_backend": config.claim_adjudicator_backend,
             "claim_adjudicator_model": config.claim_adjudicator_model,
+            "source_relevance_adjudicator_backend": (
+                config.source_relevance_adjudicator_backend
+            ),
+            "source_relevance_adjudicator_model": (
+                config.source_relevance_adjudicator_model
+            ),
             "retrieval_enabled": str(config.enable_retrieval).lower(),
             "retrieval_backend": config.retrieval_backend,
             "retrieval_local_path": config.retrieval_local_path or "",

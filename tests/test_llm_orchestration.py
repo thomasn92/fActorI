@@ -42,6 +42,12 @@ from factori.schemas import (
 LOCAL_SOURCE_FIXTURE = (
     Path(__file__).parent / "fixtures" / "retrieval" / "human_geography_sources.json"
 )
+OPENALEX_STYLE_SOURCE_FIXTURE = (
+    Path(__file__).parent
+    / "fixtures"
+    / "retrieval"
+    / "openalex_style_human_geography_sources.json"
+)
 
 
 def test_llm_orchestration_models_are_importable() -> None:
@@ -194,6 +200,45 @@ def test_orchestration_local_retrieval_filters_registry_sources(tmp_path) -> Non
         for item in registry_payload["citations"]
     )
     assert result.report.publication_ready is False
+
+
+def test_orchestration_records_fake_source_relevance_accounting(tmp_path) -> None:
+    result = run_llm_paper_orchestration(
+        config=LLMOrchestrationConfig(
+            run_id="source-relevance-orch",
+            domain="human geography",
+            enable_retrieval=True,
+            retrieval_backend="local",
+            retrieval_local_path=str(OPENALEX_STYLE_SOURCE_FIXTURE),
+            max_retrieval_sources=8,
+            citation_policy="registry-only",
+            source_relevance_adjudicator_backend="fake",
+            source_relevance_adjudicator_model="test-source-model",
+            write_report=True,
+            budget=LLMBudgetConfig(max_total_calls=0),
+        ),
+        root=tmp_path,
+    )
+
+    reports = tmp_path / "runs" / "source-relevance-orch" / "reports"
+    quality_payload = json.loads((reports / "retrieval-quality-report.json").read_text())
+    accounting_payload = json.loads((reports / "llm-call-accounting.json").read_text())
+    source_records = [
+        record
+        for record in accounting_payload
+        if record["step_name"] == "llm-source-relevance-adjudication"
+    ]
+
+    assert result.report.publication_ready is False
+    assert quality_payload["source_relevance_adjudication_enabled"] is True
+    assert quality_payload["source_relevance_adjudicator_backend"] == "fake"
+    assert quality_payload["adjudicated_source_count"] > 0
+    assert quality_payload["llm_accepted_count"] >= 1
+    assert quality_payload["llm_rejected_count"] >= 1
+    assert quality_payload["hard_reject_count"] >= 1
+    assert source_records
+    assert source_records[0]["external_call_performed"] is False
+    assert source_records[0]["contains_secret"] is False
 
 
 def test_run_llm_paper_cli_works_in_fake_mode_and_json_is_valid(tmp_path) -> None:

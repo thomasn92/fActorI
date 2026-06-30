@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.19.0/llm-budget-config.schema.json",
+  "$id": "https://schemas.factori.local/0.20.0/llm-budget-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Explicit budget limits for gated LLM paper orchestration.",
@@ -91,6 +91,19 @@
       "default": null,
       "title": "Max Review Calls"
     },
+    "max_source_relevance_adjudication_calls": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Source Relevance Adjudication Calls"
+    },
     "max_total_calls": {
       "anyOf": [
         {
@@ -159,7 +172,7 @@
   },
   "title": "LLMBudgetConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.19.0",
+  "x-factori-protocol-version": "0.20.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetConfig",
   "x-factori-verification-evidence": false
 }

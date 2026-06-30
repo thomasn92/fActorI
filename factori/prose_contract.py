@@ -246,6 +246,17 @@ def build_prose_section_contract(
             "Do not claim retrieval proves novelty.",
             "Do not use citations as proof or experiment evidence.",
             "Use accepted registry citations only for bounded background context.",
+            *(
+                [
+                    "Sources were accepted only as bounded background context after "
+                    "retrieval-quality filtering.",
+                    "Do not claim the accepted sources exhaust the literature.",
+                    "Do not claim source relevance proves novelty, correctness, "
+                    "validation, or publication readiness.",
+                ]
+                if has_citation_sources
+                else []
+            ),
             "Do not say accepted sources validate, prove, establish novelty, or exhaust "
             "the literature.",
             "Use citations only for background or source-context claims.",

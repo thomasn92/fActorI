@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from factori.adapters.fake import FakeRetrievalClient
@@ -29,10 +30,17 @@ from factori.schemas import (
     RetrievalResult,
     SourceProvenance,
 )
+from factori.source_relevance import FakeSourceRelevanceAdjudicator
 
 HASH = "0" * 64
 LOCAL_SOURCE_FIXTURE = (
     Path(__file__).parent / "fixtures" / "retrieval" / "human_geography_sources.json"
+)
+OPENALEX_STYLE_SOURCE_FIXTURE = (
+    Path(__file__).parent
+    / "fixtures"
+    / "retrieval"
+    / "openalex_style_human_geography_sources.json"
 )
 
 
@@ -350,6 +358,137 @@ def test_rejected_local_sources_do_not_enter_citation_registry(tmp_path) -> None
     )
 
 
+def test_openalex_style_local_fixture_normalizes_and_adjudicates_sources(tmp_path) -> None:
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / "openalex-local" / "ledger.sqlite")
+    adjudicator = FakeSourceRelevanceAdjudicator(model="test-source-model")
+
+    result = run_local_retrieval_with_provenance(
+        run_id="openalex-local",
+        query="human geography bounded literature context",
+        limit=8,
+        local_path=OPENALEX_STYLE_SOURCE_FIXTURE,
+        store=store,
+        ledger=ledger,
+        source_relevance_adjudicator=adjudicator,
+        source_relevance_adjudicator_model="test-source-model",
+        domain="human geography",
+        candidate_title_or_problem="human geography bounded context",
+    )
+
+    quality = result.report.config_metadata
+    report = result.report.results
+    quality_report_path = tmp_path / "runs" / "openalex-local" / "reports" / (
+        "retrieval-quality-report.json"
+    )
+    quality_report = json.loads(quality_report_path.read_text(encoding="utf-8"))
+
+    assert quality["external_calls_enabled"] is False
+    assert len(report) == 5
+    assert {item.provider for item in report} == {"openalex"}
+    assert report[0].retrieval_backend == "local"
+    assert adjudicator.call_count == 1
+    assert quality_report["source_relevance_adjudication_enabled"] is True
+
+
+def test_fake_source_relevance_accepts_borderline_and_rejects_irrelevant(tmp_path) -> None:
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / "source-adjudication" / "ledger.sqlite")
+    adjudicator = FakeSourceRelevanceAdjudicator(model="test-source-model")
+
+    retrieval = run_local_retrieval_with_provenance(
+        run_id="source-adjudication",
+        query="human geography bounded literature context",
+        limit=8,
+        local_path=OPENALEX_STYLE_SOURCE_FIXTURE,
+        store=store,
+        ledger=ledger,
+        source_relevance_adjudicator=adjudicator,
+        domain="human geography",
+        candidate_title_or_problem="human geography bounded context",
+    )
+    quality = retrieval.artifacts["quality_report"]
+    registry = build_citation_registry_from_ledger("source-adjudication", ledger)
+
+    by_id = {item.source_id: item for item in retrieval.report.results}
+    assert by_id["W560000002"].accepted_for_registry is True
+    assert by_id["W560000003"].accepted_for_registry is False
+    assert by_id["W560000003"].rejection_reason == "low_relevance"
+    assert by_id["W560000004"].accepted_for_registry is False
+    assert by_id["W560000004"].rejection_reason == "duplicate_source"
+    assert by_id["W560000005"].accepted_for_registry is False
+    assert by_id["W560000005"].rejection_reason == "metadata_incomplete"
+    assert quality.metadata["is_verification_evidence"] is False
+    assert registry.source_count == 2
+    assert {record.source_id for record in registry.citations} == {
+        "W560000001",
+        "W560000002",
+    }
+    assert all(record.accepted_for_registry for record in registry.citations)
+
+
+def test_hard_rejects_cannot_be_overridden_by_fake_source_adjudicator() -> None:
+    scored, quality = score_retrieval_sources(
+        run_id="run-source-hard-reject",
+        retrieval_backend="local",
+        query="human geography bounded literature context",
+        domain="human geography",
+        candidate_title_or_problem="human geography bounded context",
+        source_relevance_adjudicator=FakeSourceRelevanceAdjudicator(),
+        results=[
+            _source(
+                "accepted",
+                title="Human Geography Bounded Literature Context",
+                authors=["Ada Smith"],
+                year=2024,
+                provider="local",
+            ).model_copy(
+                update={
+                    "abstract": "Human geography bounded literature context source metadata.",
+                    "snippet": (
+                        "Human geography bounded literature context source metadata "
+                        "for background filtering."
+                    ),
+                }
+            ),
+            _source(
+                "duplicate",
+                title="Human Geography Bounded Literature Context",
+                authors=["Ada Smith"],
+                year=2024,
+                provider="local",
+            ).model_copy(
+                update={
+                    "abstract": "Duplicate human geography source metadata.",
+                    "snippet": (
+                        "Duplicate human geography bounded literature context source "
+                        "metadata for background filtering."
+                    ),
+                }
+            ),
+            _source(
+                "incomplete",
+                title="Human Geography Metadata Note",
+                authors=[],
+                year=None,
+                provider="local",
+            ),
+        ],
+    )
+
+    by_id = {item.source_id: item for item in scored}
+    assert by_id["duplicate"].accepted_for_registry is False
+    assert by_id["duplicate"].rejection_reason == "duplicate_source"
+    assert by_id["incomplete"].accepted_for_registry is False
+    assert by_id["incomplete"].rejection_reason == "metadata_incomplete"
+    assert quality.hard_reject_count == 2
+    assert quality.source_relevance_adjudication_enabled is True
+    assert {item.adjudicated_relevance_label for item in quality.adjudication_items} >= {
+        "duplicate",
+        "metadata_insufficient",
+    }
+
+
 def test_citation_to_rejected_local_source_key_fails() -> None:
     scored, quality = score_retrieval_sources(
         run_id="run-1",
@@ -362,6 +501,17 @@ def test_citation_to_rejected_local_source_key_fails() -> None:
                 authors=["Ada Smith"],
                 year=2024,
                 provider="local",
+            ).model_copy(
+                update={
+                    "abstract": (
+                        "Human geography bounded literature context source metadata "
+                        "for registry background filtering."
+                    ),
+                    "snippet": (
+                        "Human geography bounded literature context source metadata "
+                        "for registry background filtering."
+                    ),
+                }
             ),
             _source(
                 "rejected",
@@ -369,6 +519,17 @@ def test_citation_to_rejected_local_source_key_fails() -> None:
                 authors=["Ira Ocean"],
                 year=2019,
                 provider="local",
+            ).model_copy(
+                update={
+                    "abstract": (
+                        "Marine biology records describe coral reef thermal stress "
+                        "and ocean monitoring."
+                    ),
+                    "snippet": (
+                        "Marine biology records describe coral reef thermal stress "
+                        "and ocean monitoring."
+                    ),
+                }
             ),
         ],
     )

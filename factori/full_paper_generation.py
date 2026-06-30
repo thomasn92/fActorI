@@ -757,6 +757,45 @@ def inspect_paper_bundle_summary(
             if retrieval_quality_report is not None
             else 0
         ),
+        "source_relevance_adjudication_enabled": bool(
+            retrieval_quality_report
+            and retrieval_quality_report.source_relevance_adjudication_enabled
+        ),
+        "source_relevance_adjudicator_backend": (
+            retrieval_quality_report.source_relevance_adjudicator_backend
+            if retrieval_quality_report is not None
+            else "off"
+        ),
+        "source_relevance_adjudicator_model": (
+            retrieval_quality_report.source_relevance_adjudicator_model
+            if retrieval_quality_report is not None
+            else None
+        ),
+        "source_relevance_adjudication_calls": (
+            retrieval_quality_report.source_relevance_adjudication_calls
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "source_relevance_adjudicated_count": (
+            retrieval_quality_report.adjudicated_source_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "source_relevance_llm_accepted_count": (
+            retrieval_quality_report.llm_accepted_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "source_relevance_llm_rejected_count": (
+            retrieval_quality_report.llm_rejected_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
+        "source_relevance_hard_reject_count": (
+            retrieval_quality_report.hard_reject_count
+            if retrieval_quality_report is not None
+            else 0
+        ),
         "claim_support_audit_present": paths["claim_support_audit"].is_file(),
         "claim_support_total_sentences": int(
             claim_support_counts.get("total_sentences", 0)
@@ -869,6 +908,24 @@ def lint_paper_bundle_summary(
     rejected_source_count = int(bundle.get("rejected_source_count") or 0)
     retrieval_adequacy_status = str(
         bundle.get("retrieval_adequacy_status") or "not_evaluated"
+    )
+    source_relevance_adjudication_enabled = bool(
+        bundle.get("source_relevance_adjudication_enabled")
+    )
+    source_relevance_adjudicator_backend = str(
+        bundle.get("source_relevance_adjudicator_backend") or "off"
+    )
+    source_relevance_adjudicated_count = int(
+        bundle.get("source_relevance_adjudicated_count") or 0
+    )
+    source_relevance_llm_accepted_count = int(
+        bundle.get("source_relevance_llm_accepted_count") or 0
+    )
+    source_relevance_llm_rejected_count = int(
+        bundle.get("source_relevance_llm_rejected_count") or 0
+    )
+    source_relevance_hard_reject_count = int(
+        bundle.get("source_relevance_hard_reject_count") or 0
     )
     claim_support_audit_present = bool(bundle.get("claim_support_audit_present"))
     claim_support_total_sentences = int(
@@ -1227,6 +1284,24 @@ def lint_paper_bundle_summary(
         "accepted_source_count": accepted_source_count,
         "rejected_source_count": rejected_source_count,
         "retrieval_adequacy_status": retrieval_adequacy_status,
+        "source_relevance_adjudication_enabled": (
+            source_relevance_adjudication_enabled
+        ),
+        "source_relevance_adjudicator_backend": (
+            source_relevance_adjudicator_backend
+        ),
+        "source_relevance_adjudicated_count": (
+            source_relevance_adjudicated_count
+        ),
+        "source_relevance_llm_accepted_count": (
+            source_relevance_llm_accepted_count
+        ),
+        "source_relevance_llm_rejected_count": (
+            source_relevance_llm_rejected_count
+        ),
+        "source_relevance_hard_reject_count": (
+            source_relevance_hard_reject_count
+        ),
         "claim_support_audit_present": claim_support_audit_present,
         "claim_support_total_sentences": claim_support_total_sentences,
         "claim_support_registry_supported_count": (

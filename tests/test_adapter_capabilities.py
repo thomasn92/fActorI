@@ -18,6 +18,7 @@ def test_provider_descriptors_are_deterministic() -> None:
         "openai",
         "openai",
         "openalex",
+        "local",
         "lean",
         "local_synthetic",
         "openai",
@@ -76,4 +77,4 @@ def test_backend_aliases_are_available_for_supported_kinds() -> None:
 
 
 def test_known_retrieval_providers_come_from_descriptors() -> None:
-    assert known_retrieval_providers() == frozenset({"fake", "openalex"})
+    assert known_retrieval_providers() == frozenset({"fake", "local", "openalex"})

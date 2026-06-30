@@ -1,0 +1,153 @@
+{
+  "$id": "https://schemas.factori.local/0.20.0/source-relevance-adjudication.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded source relevance adjudication; not scientific evidence.",
+  "properties": {
+    "accepted_for_background_context": {
+      "title": "Accepted For Background Context",
+      "type": "boolean"
+    },
+    "adjudicated_relevance_label": {
+      "enum": [
+        "highly_relevant_background",
+        "partially_relevant_background",
+        "weakly_relevant",
+        "irrelevant",
+        "metadata_insufficient",
+        "duplicate",
+        "unsafe_or_invalid_source"
+      ],
+      "title": "Adjudicated Relevance Label",
+      "type": "string"
+    },
+    "adjudicated_relevance_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Adjudicated Relevance Score",
+      "type": "number"
+    },
+    "adjudicator_backend": {
+      "minLength": 1,
+      "title": "Adjudicator Backend",
+      "type": "string"
+    },
+    "adjudicator_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adjudicator Model"
+    },
+    "candidate_title_or_problem": {
+      "minLength": 1,
+      "title": "Candidate Title Or Problem",
+      "type": "string"
+    },
+    "claims_literature_coverage": {
+      "default": false,
+      "title": "Claims Literature Coverage",
+      "type": "boolean"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deterministic_relevance_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Deterministic Relevance Score",
+      "type": "number"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proves_novelty": {
+      "default": false,
+      "title": "Proves Novelty",
+      "type": "boolean"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "reasoning_brief": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Reasoning Brief",
+      "type": "string"
+    },
+    "rejection_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rejection Reason"
+    },
+    "source_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Hash",
+      "type": "string"
+    },
+    "source_id": {
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_id",
+    "title",
+    "source_hash",
+    "query",
+    "domain",
+    "candidate_title_or_problem",
+    "deterministic_relevance_score",
+    "adjudicated_relevance_label",
+    "adjudicated_relevance_score",
+    "accepted_for_background_context",
+    "reasoning_brief",
+    "confidence",
+    "adjudicator_backend"
+  ],
+  "title": "SourceRelevanceAdjudication",
+  "type": "object",
+  "x-factori-protocol-version": "0.20.0",
+  "x-factori-source-model": "factori.schemas.SourceRelevanceAdjudication",
+  "x-factori-verification-evidence": false
+}

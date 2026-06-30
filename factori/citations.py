@@ -1118,6 +1118,8 @@ def _citation_warnings(result: Any) -> list[str]:
 
 def _accepted_for_registry(result: Any) -> bool:
     metadata = dict(getattr(result, "metadata", {}) or {})
+    if metadata.get("hard_rejected") is True:
+        return False
     if getattr(result, "accepted_for_registry", True) is False:
         return False
     if metadata.get("accepted_for_registry") is False:

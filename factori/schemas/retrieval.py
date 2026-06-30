@@ -156,6 +156,42 @@ class RetrievalRunReport(StrictModel):
     claims_literature_coverage: bool = False
 
 
+SourceRelevanceLabel = Literal[
+    "highly_relevant_background",
+    "partially_relevant_background",
+    "weakly_relevant",
+    "irrelevant",
+    "metadata_insufficient",
+    "duplicate",
+    "unsafe_or_invalid_source",
+]
+
+
+class SourceRelevanceAdjudication(StrictModel):
+    """Bounded source-relevance judgment; never verification evidence."""
+
+    source_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    source_hash: str = Field(pattern=HASH_RE.pattern)
+    query: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    candidate_title_or_problem: str = Field(min_length=1)
+    deterministic_relevance_score: float = Field(ge=0.0, le=1.0)
+    adjudicated_relevance_label: SourceRelevanceLabel
+    adjudicated_relevance_score: float = Field(ge=0.0, le=1.0)
+    accepted_for_background_context: bool
+    rejection_reason: str | None = None
+    reasoning_brief: str = Field(min_length=1, max_length=500)
+    confidence: float = Field(ge=0.0, le=1.0)
+    adjudicator_backend: str = Field(min_length=1)
+    adjudicator_model: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    proves_novelty: bool = False
+    claims_literature_coverage: bool = False
+
+
 RetrievalAdequacyStatus = Literal[
     "not_evaluated",
     "insufficient_sources",
@@ -180,6 +216,17 @@ class RetrievalQualityReport(StrictModel):
     queries_used: list[str] = Field(default_factory=list)
     coverage_limitations: list[str] = Field(default_factory=list)
     adequacy_status: RetrievalAdequacyStatus = "not_evaluated"
+    source_relevance_adjudication_enabled: bool = False
+    source_relevance_adjudicator_backend: str = "off"
+    source_relevance_adjudicator_model: str | None = None
+    source_relevance_adjudication_calls: int = Field(default=0, ge=0)
+    adjudicated_source_count: int = Field(default=0, ge=0)
+    deterministic_accept_count: int = Field(default=0, ge=0)
+    deterministic_reject_count: int = Field(default=0, ge=0)
+    llm_accepted_count: int = Field(default=0, ge=0)
+    llm_rejected_count: int = Field(default=0, ge=0)
+    hard_reject_count: int = Field(default=0, ge=0)
+    adjudication_items: list[SourceRelevanceAdjudication] = Field(default_factory=list)
     accepted_source_ids: list[str] = Field(default_factory=list)
     rejected_source_ids: list[str] = Field(default_factory=list)
     rejection_reasons: dict[str, str] = Field(default_factory=dict)
@@ -211,4 +258,6 @@ __all__ = [
     "RetrievalParseReport",
     "RetrievalRunReport",
     "RetrievalRunTrace",
+    "SourceRelevanceAdjudication",
+    "SourceRelevanceLabel",
 ]
