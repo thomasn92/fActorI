@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from factori.adapters.fake import FakeProseGenerator
@@ -15,6 +17,11 @@ from factori.full_paper_generation import (
 )
 from factori.full_paper_release import run_full_paper_release_gate
 from factori.hashing import sha256_file
+from factori.human_review import (
+    HumanReviewIntakeError,
+    ingest_human_review,
+    inspect_human_review,
+)
 from factori.ledger import ResearchLedger
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
@@ -27,6 +34,7 @@ from factori.schemas import (
     FullPaperGenerationStatus,
     FullPaperReleaseGateConfig,
     GeneratedSectionDraft,
+    HumanReviewArtifact,
     PipelineRunConfig,
     PipelineStage,
     QualityRepairReport,
@@ -40,6 +48,7 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
+    assert HumanReviewArtifact
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -471,6 +480,203 @@ def test_reviewer_bundle_summary_is_written_after_release(tmp_path) -> None:
         assert phrase not in lowered
 
 
+def test_valid_human_review_artifact_is_ingested_and_updates_summary(tmp_path) -> None:
+    run_id = "run-human-review"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(tmp_path, run_id=run_id)
+
+    result = ingest_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        review_file=review_file,
+    )
+
+    assert result.review.review_status == "reviewed_ready_for_evidence_generation"
+    assert result.review.creates_scientific_validation is False
+    assert result.review.implies_publication_readiness is False
+    assert result.review.is_verification_evidence is False
+    assert result.persistence.commit.action_type == ControllerActionType.HUMAN_REVIEW_INGESTED
+    _assert_non_evidence_artifact(tmp_path, result.review_artifact)
+    _assert_non_evidence_artifact(tmp_path, result.review_summary_artifact)
+    _assert_non_evidence_artifact(tmp_path, result.reviewer_summary_artifact)
+
+    inspected_review = inspect_human_review(run_id=run_id, root=tmp_path)
+    assert inspected_review["human_review_artifact_present"] is True
+    assert inspected_review["publication_ready"] is False
+
+    summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert summary["summary_path"].endswith(
+        "reviewer-bundle-summary-after-human-review.json"
+    )
+    assert summary["human_review_artifact_present"] is True
+    assert summary["human_review_status"] == "reviewed_ready_for_evidence_generation"
+    assert summary["human_review_blocking_concern_count"] == 0
+    assert summary["human_review_requested_change_count"] == 0
+    assert summary["publication_ready"] is False
+    assert not any("No human-review artifact" in gap for gap in summary["evidence_gaps"])
+    assert any("No proof artifact" in gap for gap in summary["evidence_gaps"])
+    assert any("No experiment artifact" in gap for gap in summary["evidence_gaps"])
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["human_review_artifact_present"] is True
+    assert lint["human_review_status"] == "reviewed_ready_for_evidence_generation"
+    assert lint["publication_ready"] is False
+
+
+def test_blocking_human_review_concerns_are_surfaced(tmp_path) -> None:
+    run_id = "run-human-review-blocking"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id=run_id,
+        review_status="reviewed_with_blocking_changes",
+        blocking_concerns=["Problem framing needs human revision."],
+        requested_changes=["Revise problem framing before evidence generation."],
+        recommended_next_action="Address blocking human-review concerns first.",
+    )
+
+    ingest_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        review_file=review_file,
+    )
+
+    summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert summary["human_review_blocking_concern_count"] == 1
+    assert summary["human_review_requested_change_count"] == 1
+    assert "Problem framing needs human revision." in summary["blocking_issues"]
+    assert any(
+        "blocking human-review concerns" in action
+        for action in summary["recommended_next_actions"]
+    )
+
+
+def test_human_review_run_id_mismatch_is_rejected(tmp_path) -> None:
+    run_id = "run-human-review-mismatch"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id="different-run",
+        reviewed_run_id=run_id,
+    )
+
+    with pytest.raises(HumanReviewIntakeError, match="run_id does not match"):
+        ingest_human_review(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            review_file=review_file,
+        )
+
+
+def test_human_review_missing_checklist_is_rejected(tmp_path) -> None:
+    run_id = "run-human-review-missing-checklist"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id=run_id,
+        checklist_items=[],
+    )
+
+    with pytest.raises(HumanReviewIntakeError, match="Invalid human review artifact"):
+        ingest_human_review(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            review_file=review_file,
+        )
+
+
+def test_human_review_missing_attestation_is_rejected(tmp_path) -> None:
+    run_id = "run-human-review-missing-attestation"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id=run_id,
+        reviewer_attestation="   ",
+    )
+
+    with pytest.raises(HumanReviewIntakeError, match="attestation is required"):
+        ingest_human_review(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            review_file=review_file,
+        )
+
+
+def test_human_review_publication_ready_claim_is_rejected(tmp_path) -> None:
+    run_id = "run-human-review-publication-ready"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id=run_id,
+        non_blocking_comments=["This draft is ready for publication."],
+    )
+
+    with pytest.raises(HumanReviewIntakeError, match="forbidden publication"):
+        ingest_human_review(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            review_file=review_file,
+        )
+
+
+@pytest.mark.parametrize(
+    "unsafe_claim",
+    [
+        "The proof is verified.",
+        "The experiment is validated.",
+        "Novelty confirmed.",
+        "Correctness is established.",
+    ],
+)
+def test_human_review_validation_authority_claims_are_rejected(
+    tmp_path,
+    unsafe_claim: str,
+) -> None:
+    run_id = "run-human-review-validation-claims"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id=run_id,
+        non_blocking_comments=[unsafe_claim],
+        filename=f"{unsafe_claim.casefold().replace(' ', '-')}.json",
+    )
+
+    with pytest.raises(HumanReviewIntakeError, match="forbidden publication"):
+        ingest_human_review(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            review_file=review_file,
+        )
+
+
 def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:
     _prepare_run(tmp_path, run_id="run-safe-repair-warnings")
     store = ArtifactStore(tmp_path)
@@ -679,6 +885,103 @@ def _prepare_run(tmp_path, *, run_id: str) -> None:
             stop_after=PipelineStage.PLAN_MANUSCRIPT,
         )
     )
+
+
+def _prepare_reviewable_bundle(tmp_path, *, run_id: str) -> None:
+    _prepare_run(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    generate_full_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=FakeProseGenerator(),
+        config=FullPaperGenerationConfig(
+            run_id=run_id,
+            write_report=True,
+            quality_repair_backend="deterministic",
+        ),
+        enable_safe_repair=True,
+    )
+    run_full_paper_release_gate(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FullPaperReleaseGateConfig(run_id=run_id, write_report=True),
+    )
+
+
+def _write_human_review_fixture(
+    tmp_path,
+    *,
+    run_id: str,
+    reviewed_run_id: str | None = None,
+    review_status: str = "reviewed_ready_for_evidence_generation",
+    checklist_items: list[str] | None = None,
+    blocking_concerns: list[str] | None = None,
+    non_blocking_comments: list[str] | None = None,
+    requested_changes: list[str] | None = None,
+    recommended_next_action: str = (
+        "Proceed to evidence generation planning without publication-readiness claims."
+    ),
+    reviewer_attestation: str = (
+        "I performed this human review locally and understand that it records review "
+        "occurrence only."
+    ),
+    filename: str = "human-review.json",
+) -> Path:
+    artifact_run_id = reviewed_run_id or run_id
+    payload = {
+        "run_id": run_id,
+        "review_id": f"review-{run_id}",
+        "reviewer_name_optional": "Fixture Reviewer",
+        "reviewer_role": "internal_human_reviewer",
+        "reviewer_is_human": True,
+        "llm_generated": False,
+        "reviewed_artifact_paths": [
+            f"runs/{artifact_run_id}/reports/revised-manuscript-draft.md",
+            f"runs/{artifact_run_id}/reports/reviewer-bundle-summary.json",
+            f"runs/{artifact_run_id}/reports/claim-support-audit.json",
+        ],
+        "reviewed_at": "2026-06-30T00:00:00Z",
+        "review_status": review_status,
+        "checklist_items": (
+            [
+                "problem framing checked",
+                "citation registry checked",
+                "accepted sources checked",
+                "claim-support audit checked",
+                "evidence gaps acknowledged",
+                "proof artifact absent acknowledged",
+                "experiment artifact absent acknowledged",
+                "publication_ready remains false acknowledged",
+            ]
+            if checklist_items is None
+            else checklist_items
+        ),
+        "blocking_concerns": blocking_concerns or [],
+        "non_blocking_comments": non_blocking_comments
+        or [
+            "The draft can proceed to evidence-generation planning with retrieval limits preserved."
+        ],
+        "requested_changes": requested_changes or [],
+        "accepted_limitations": [
+            "Retrieval remains bounded background context only.",
+            "Proof artifact is absent.",
+            "Experiment artifact is absent.",
+            "publication_ready remains false.",
+        ],
+        "recommended_next_action": recommended_next_action,
+        "reviewer_attestation": reviewer_attestation,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+    }
+    path = tmp_path / filename
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def _assert_non_evidence_artifact(tmp_path, ref: ArtifactRef) -> None:

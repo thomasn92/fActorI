@@ -15,6 +15,7 @@ from factori.schemas import (
     FullPaperGenerationReport,
     FullPaperGenerationResult,
     FullPaperGenerationStep,
+    HumanReviewArtifact,
     LatexExportContract,
     LatexExportResult,
     LatexRenderResult,
@@ -66,9 +67,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 150
+    assert len(first) == 151
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.24.0"
+    assert PROTOCOL_VERSION == "0.25.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -117,6 +118,7 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ReviewerBundleSummary").model is (
         ReviewerBundleSummary
     )
+    assert get_protocol_definition("HumanReviewArtifact").model is HumanReviewArtifact
     assert get_protocol_definition("FullPaperGenerationConfig").model is (
         FullPaperGenerationConfig
     )
@@ -209,6 +211,7 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "PaperRevisionResult",
         "FullPaperGenerationConfig",
         "ReviewerBundleSummary",
+        "HumanReviewArtifact",
         "FullPaperGenerationStep",
         "FullPaperArtifactBundle",
         "FullPaperGenerationReport",

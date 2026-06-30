@@ -504,8 +504,44 @@ class ReviewerBundleSummary(StrictModel):
     citation_summary: dict[str, Any] = Field(default_factory=dict)
     retrieval_summary: dict[str, Any] = Field(default_factory=dict)
     quality_summary: dict[str, Any] = Field(default_factory=dict)
+    human_review_artifact_present: bool = False
+    human_review_status: str | None = None
+    human_review_artifact_path: str | None = None
+    human_review_blocking_concern_count: int = Field(default=0, ge=0)
+    human_review_requested_change_count: int = Field(default=0, ge=0)
+    human_review_recommended_next_action: str | None = None
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class HumanReviewArtifact(StrictModel):
+    """Local human-review artifact; evidence only that human review occurred."""
+
+    run_id: str = Field(min_length=1)
+    review_id: str = Field(min_length=1)
+    reviewer_name_optional: str | None = None
+    reviewer_role: str = Field(min_length=1)
+    reviewer_is_human: bool = True
+    llm_generated: bool = False
+    reviewed_artifact_paths: list[str] = Field(min_length=1)
+    reviewed_at: str = Field(min_length=1)
+    review_status: Literal[
+        "not_reviewed",
+        "reviewed_with_blocking_changes",
+        "reviewed_with_nonblocking_comments",
+        "reviewed_ready_for_evidence_generation",
+        "reviewed_rejected",
+    ]
+    checklist_items: list[str] = Field(min_length=1)
+    blocking_concerns: list[str] = Field(default_factory=list)
+    non_blocking_comments: list[str] = Field(default_factory=list)
+    requested_changes: list[str] = Field(default_factory=list)
+    accepted_limitations: list[str] = Field(default_factory=list)
+    recommended_next_action: str = Field(min_length=1)
+    reviewer_attestation: str = Field(min_length=1)
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
@@ -1232,6 +1268,7 @@ __all__ = [
     "RevisionSafetyReport",
     "PaperRevisionResult",
     "QualityRepairReport",
+    "HumanReviewArtifact",
     "ReviewerBundleSummary",
     "FullPaperGenerationConfig",
     "FullPaperGenerationStep",

@@ -679,7 +679,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.24.0/pipeline-dry-run-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.25.0/pipeline-dry-run-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only pipeline execution plan.",
@@ -866,7 +866,7 @@
   ],
   "title": "PipelineDryRunPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.24.0",
+  "x-factori-protocol-version": "0.25.0",
   "x-factori-source-model": "factori.schemas.PipelineDryRunPlan",
   "x-factori-verification-evidence": false
 }

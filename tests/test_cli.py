@@ -57,6 +57,18 @@ def test_inspect_reviewer_summary_cli_is_registered() -> None:
     assert "--json" in result.output
 
 
+def test_human_review_cli_commands_are_registered() -> None:
+    ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])
+
+    assert ingest.exit_code == 0, ingest.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--run-id" in ingest.output
+    assert "--review-file" in ingest.output
+    assert "--run-id" in inspect.output
+    assert "--json" in inspect.output
+
+
 def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
     tmp_path,
 ) -> None:
@@ -353,6 +365,111 @@ def test_inspect_reviewer_summary_command_is_read_only(tmp_path) -> None:
     assert lint_payload["reviewer_summary_human_checklist_count"] > 0
     assert lint_payload["reviewer_summary_recommended_action_count"] > 0
     assert _run_file_snapshot(tmp_path, run_id) == before
+
+
+def test_human_review_intake_and_inspection_cli(tmp_path) -> None:
+    run_id = "inspect-human-review"
+    _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
+    review_file = _write_human_review_fixture(tmp_path, run_id=run_id)
+
+    ingest_result = CliRunner().invoke(
+        app,
+        [
+            "ingest-human-review",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--review-file",
+            str(review_file),
+            "--json",
+        ],
+    )
+
+    assert ingest_result.exit_code == 0, ingest_result.output
+    ingest_payload = json.loads(ingest_result.output)
+    assert ingest_payload["publication_ready"] is False
+    assert ingest_payload["creates_scientific_validation"] is False
+    assert ingest_payload["is_verification_evidence"] is False
+    assert (
+        ingest_payload["human_review_artifact"]["review_status"]
+        == "reviewed_ready_for_evidence_generation"
+    )
+
+    inspect_json = CliRunner().invoke(
+        app,
+        [
+            "inspect-human-review",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_human = CliRunner().invoke(
+        app,
+        ["inspect-human-review", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    reviewer_summary = CliRunner().invoke(
+        app,
+        [
+            "inspect-reviewer-summary",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    paper_bundle = CliRunner().invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    lint_result = CliRunner().invoke(
+        app,
+        [
+            "lint-paper-bundle",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert inspect_json.exit_code == 0, inspect_json.output
+    assert inspect_human.exit_code == 0, inspect_human.output
+    assert reviewer_summary.exit_code == 0, reviewer_summary.output
+    assert paper_bundle.exit_code == 0, paper_bundle.output
+    assert lint_result.exit_code == 0, lint_result.output
+
+    inspected = json.loads(inspect_json.output)
+    assert inspected["human_review_artifact_present"] is True
+    assert inspected["review_status"] == "reviewed_ready_for_evidence_generation"
+    assert inspected["human_review_blocking_concern_count"] == 0
+    assert inspected["human_review_requested_change_count"] == 0
+    assert inspected["publication_ready"] is False
+    assert "Status: reviewed_ready_for_evidence_generation" in inspect_human.output
+    assert "Publication ready: false" in inspect_human.output
+
+    summary = json.loads(reviewer_summary.output)
+    assert summary["human_review_artifact_present"] is True
+    assert summary["human_review_status"] == "reviewed_ready_for_evidence_generation"
+    assert not any("No human-review artifact" in gap for gap in summary["evidence_gaps"])
+    assert any("No proof artifact" in gap for gap in summary["evidence_gaps"])
+    assert any("No experiment artifact" in gap for gap in summary["evidence_gaps"])
+    assert "Human review: present" in paper_bundle.output
+    assert "Human review status: reviewed_ready_for_evidence_generation" in (
+        paper_bundle.output
+    )
+
+    lint_payload = json.loads(lint_result.output)
+    assert lint_payload["human_review_artifact_present"] is True
+    assert lint_payload["human_review_status"] == "reviewed_ready_for_evidence_generation"
+    assert lint_payload["human_review_blocking_concern_count"] == 0
+    assert lint_payload["human_review_requested_change_count"] == 0
+    assert lint_payload["publication_ready"] is False
 
 
 def test_inspect_paper_bundle_without_revised_artifacts_degrades_gracefully(tmp_path) -> None:
@@ -954,6 +1071,58 @@ def _prepare_paper_bundle(
             ledger=ledger,
             config=FullPaperReleaseGateConfig(run_id=run_id, write_report=True),
         )
+
+
+def _write_human_review_fixture(tmp_path, *, run_id: str):
+    payload = {
+        "run_id": run_id,
+        "review_id": f"review-{run_id}",
+        "reviewer_name_optional": "Fixture Reviewer",
+        "reviewer_role": "internal_human_reviewer",
+        "reviewer_is_human": True,
+        "llm_generated": False,
+        "reviewed_artifact_paths": [
+            f"runs/{run_id}/reports/revised-manuscript-draft.md",
+            f"runs/{run_id}/reports/reviewer-bundle-summary.json",
+            f"runs/{run_id}/reports/claim-support-audit.json",
+        ],
+        "reviewed_at": "2026-06-30T00:00:00Z",
+        "review_status": "reviewed_ready_for_evidence_generation",
+        "checklist_items": [
+            "problem framing checked",
+            "citation registry checked",
+            "accepted sources checked",
+            "claim-support audit checked",
+            "evidence gaps acknowledged",
+            "proof artifact absent acknowledged",
+            "experiment artifact absent acknowledged",
+            "publication_ready remains false acknowledged",
+        ],
+        "blocking_concerns": [],
+        "non_blocking_comments": [
+            "The draft can proceed to evidence-generation planning with retrieval limits preserved."
+        ],
+        "requested_changes": [],
+        "accepted_limitations": [
+            "Retrieval remains bounded background context only.",
+            "Proof artifact is absent.",
+            "Experiment artifact is absent.",
+            "publication_ready remains false.",
+        ],
+        "recommended_next_action": (
+            "Proceed to evidence generation planning without publication-readiness claims."
+        ),
+        "reviewer_attestation": (
+            "I performed this human review locally and understand that it records "
+            "review occurrence only."
+        ),
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+    }
+    path = tmp_path / "human-review.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def _run_file_snapshot(tmp_path, run_id: str) -> dict[str, str]:

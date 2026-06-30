@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.24.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.25.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -60,12 +60,65 @@
       "title": "Evidence Gaps",
       "type": "array"
     },
+    "human_review_artifact_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Review Artifact Path"
+    },
+    "human_review_artifact_present": {
+      "default": false,
+      "title": "Human Review Artifact Present",
+      "type": "boolean"
+    },
+    "human_review_blocking_concern_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Blocking Concern Count",
+      "type": "integer"
+    },
     "human_review_checklist": {
       "items": {
         "type": "string"
       },
       "title": "Human Review Checklist",
       "type": "array"
+    },
+    "human_review_recommended_next_action": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Review Recommended Next Action"
+    },
+    "human_review_requested_change_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Requested Change Count",
+      "type": "integer"
+    },
+    "human_review_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Review Status"
     },
     "implies_publication_readiness": {
       "default": false,
@@ -172,7 +225,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.24.0",
+  "x-factori-protocol-version": "0.25.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

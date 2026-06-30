@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.24.0/llm-budget-usage.schema.json",
+  "$id": "https://schemas.factori.local/0.25.0/llm-budget-usage.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned or observed LLM usage accounting.",
@@ -121,7 +121,7 @@
   },
   "title": "LLMBudgetUsage",
   "type": "object",
-  "x-factori-protocol-version": "0.24.0",
+  "x-factori-protocol-version": "0.25.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetUsage",
   "x-factori-verification-evidence": false
 }

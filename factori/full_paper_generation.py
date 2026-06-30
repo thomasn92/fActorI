@@ -57,6 +57,7 @@ from factori.schemas import (
     FullPaperGenerationStep,
     FullPaperGenerationStepStatus,
     FullPaperReleaseReport,
+    HumanReviewArtifact,
     PaperCriticReport,
     QualityRepairReport,
     RerunPolicy,
@@ -686,9 +687,8 @@ def inspect_paper_bundle_summary(
     quality_repair_report = _read_quality_repair_report(
         paths["quality_repair_report"]
     )
-    reviewer_bundle_summary = _read_reviewer_bundle_summary(
-        paths["reviewer_bundle_summary_json"]
-    )
+    human_review_artifact = _read_human_review_artifact(paths["human_review_artifact"])
+    reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
     markdown = (
         primary_draft.read_text(encoding="utf-8")
         if primary_draft is not None
@@ -764,8 +764,36 @@ def inspect_paper_bundle_summary(
         "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
         "quality_repair_report_exists": paths["quality_repair_report"].is_file(),
         "quality_repair_report_present": quality_repair_report is not None,
+        "human_review_artifact_exists": paths["human_review_artifact"].is_file(),
+        "human_review_artifact_present": human_review_artifact is not None,
+        "human_review_status": (
+            human_review_artifact.review_status if human_review_artifact is not None else None
+        ),
+        "human_review_artifact_path": (
+            paths["human_review_artifact"].relative_to(root_path).as_posix()
+            if human_review_artifact is not None
+            else None
+        ),
+        "human_review_blocking_concern_count": (
+            len(human_review_artifact.blocking_concerns)
+            if human_review_artifact is not None
+            else 0
+        ),
+        "human_review_requested_change_count": (
+            len(human_review_artifact.requested_changes)
+            if human_review_artifact is not None
+            else 0
+        ),
+        "human_review_recommended_next_action": (
+            human_review_artifact.recommended_next_action
+            if human_review_artifact is not None
+            else None
+        ),
         "reviewer_bundle_summary_exists": (
             paths["reviewer_bundle_summary_json"].is_file()
+        ),
+        "reviewer_bundle_summary_after_human_review_exists": (
+            paths["reviewer_bundle_summary_after_human_review_json"].is_file()
         ),
         "reviewer_bundle_summary_markdown_exists": (
             paths["reviewer_bundle_summary_markdown"].is_file()
@@ -1629,6 +1657,19 @@ def lint_paper_bundle_summary(
         "reviewer_summary_recommended_action_count": int(
             bundle.get("reviewer_summary_recommended_action_count") or 0
         ),
+        "human_review_artifact_present": bool(
+            bundle.get("human_review_artifact_present")
+        ),
+        "human_review_status": bundle.get("human_review_status"),
+        "human_review_blocking_concern_count": int(
+            bundle.get("human_review_blocking_concern_count") or 0
+        ),
+        "human_review_requested_change_count": int(
+            bundle.get("human_review_requested_change_count") or 0
+        ),
+        "human_review_recommended_next_action": bundle.get(
+            "human_review_recommended_next_action"
+        ),
         "citation_registry_present": citation_registry_present,
         "citation_registry_source_count": citation_registry_source_count,
         "citation_registry_sources_all_accepted": (
@@ -1753,12 +1794,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": run_path / "reports" / "full-paper-release-report.json",
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "quality_repair_report": run_path / "reports" / "quality-repair-report.json",
+        "human_review_artifact": run_path / "reports" / "human-review-artifact.json",
+        "human_review_summary": run_path / "reports" / "human-review-summary.md",
         "reviewer_bundle_summary_json": run_path
         / "reports"
         / "reviewer-bundle-summary.json",
         "reviewer_bundle_summary_markdown": run_path
         / "reports"
         / "reviewer-bundle-summary.md",
+        "reviewer_bundle_summary_after_human_review_json": run_path
+        / "reports"
+        / "reviewer-bundle-summary-after-human-review.json",
+        "reviewer_bundle_summary_after_human_review_markdown": run_path
+        / "reports"
+        / "reviewer-bundle-summary-after-human-review.md",
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
         "retrieval_quality_report": run_path
         / "reports"
@@ -1806,6 +1855,15 @@ def _read_quality_repair_report(path: Path) -> QualityRepairReport | None:
         return None
 
 
+def _read_human_review_artifact(path: Path) -> HumanReviewArtifact | None:
+    if not path.is_file():
+        return None
+    try:
+        return HumanReviewArtifact.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
 def _read_reviewer_bundle_summary(path: Path) -> ReviewerBundleSummary | None:
     if not path.is_file():
         return None
@@ -1815,11 +1873,20 @@ def _read_reviewer_bundle_summary(path: Path) -> ReviewerBundleSummary | None:
         return None
 
 
+def _read_preferred_reviewer_bundle_summary(
+    paths: dict[str, Path],
+) -> ReviewerBundleSummary | None:
+    return _read_reviewer_bundle_summary(
+        paths["reviewer_bundle_summary_after_human_review_json"]
+    ) or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_json"])
+
+
 def build_reviewer_bundle_summary(
     *,
     run_id: str,
     root: str | Path = ".",
     release_report: FullPaperReleaseReport | None = None,
+    human_review_artifact: HumanReviewArtifact | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -1827,6 +1894,10 @@ def build_reviewer_bundle_summary(
     paths = _paper_bundle_paths(run_path)
     bundle = inspect_paper_bundle_summary(run_id=run_id, root=root_path)
     lint = lint_paper_bundle_summary(run_id=run_id, root=root_path)
+    human_review = human_review_artifact or _read_human_review_artifact(
+        paths["human_review_artifact"]
+    )
+    human_review_present = _human_review_counts_as_present(human_review)
     release_status = (
         release_report.decision.status.value
         if release_report is not None
@@ -1843,9 +1914,14 @@ def build_reviewer_bundle_summary(
     warning_summary = _reviewer_remaining_warnings(
         lint=lint,
         release_warnings=release_warnings,
+        human_review=human_review,
     )
     blocking_issues = sorted(
-        set(release_blocking + list(lint.get("quality_failure_reasons") or []))
+        set(
+            release_blocking
+            + list(lint.get("quality_failure_reasons") or [])
+            + (list(human_review.blocking_concerns) if human_review else [])
+        )
     )
     paper_paths = _reviewer_paper_artifact_paths(bundle)
     audit_paths = _reviewer_audit_artifact_paths(bundle, paths, root_path)
@@ -1876,15 +1952,31 @@ def build_reviewer_bundle_summary(
         audit_artifact_paths=audit_paths,
         remaining_warnings=warning_summary,
         blocking_issues=blocking_issues,
-        evidence_boundaries=_reviewer_evidence_boundaries(),
-        evidence_gaps=_reviewer_evidence_gaps(),
+        evidence_boundaries=_reviewer_evidence_boundaries(human_review_present),
+        evidence_gaps=_reviewer_evidence_gaps(human_review_present),
         source_limitations=_reviewer_source_limitations(lint),
         claim_support_summary=_reviewer_claim_support_summary(lint),
         citation_summary=_reviewer_citation_summary(lint),
         retrieval_summary=_reviewer_retrieval_summary(lint),
         quality_summary=_reviewer_quality_summary(lint),
+        human_review_artifact_present=human_review_present,
+        human_review_status=human_review.review_status if human_review else None,
+        human_review_artifact_path=(
+            paths["human_review_artifact"].relative_to(root_path).as_posix()
+            if human_review
+            else None
+        ),
+        human_review_blocking_concern_count=(
+            len(human_review.blocking_concerns) if human_review else 0
+        ),
+        human_review_requested_change_count=(
+            len(human_review.requested_changes) if human_review else 0
+        ),
+        human_review_recommended_next_action=(
+            human_review.recommended_next_action if human_review else None
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
-        recommended_next_actions=_reviewer_recommended_next_actions(),
+        recommended_next_actions=_reviewer_recommended_next_actions(human_review),
         creates_scientific_validation=False,
         implies_publication_readiness=False,
         is_verification_evidence=False,
@@ -1908,6 +2000,23 @@ def render_reviewer_bundle_summary_markdown(
         f"Retrieval quality: `{summary.retrieval_quality_status}`",
         f"Source relevance: `{summary.source_relevance_status}`",
         f"Quality repair: `{summary.quality_repair_status}`",
+        (
+            "Human review: "
+            f"`{'present' if summary.human_review_artifact_present else 'absent'}`"
+        ),
+        f"Human review status: `{summary.human_review_status or 'not_available'}`",
+        (
+            "Blocking human-review concerns: "
+            f"`{summary.human_review_blocking_concern_count}`"
+        ),
+        (
+            "Requested human-review changes: "
+            f"`{summary.human_review_requested_change_count}`"
+        ),
+        (
+            "Human-review recommended next action: "
+            f"`{summary.human_review_recommended_next_action or 'none'}`"
+        ),
         "",
         "## Remaining Warnings",
     ]
@@ -1958,18 +2067,24 @@ def inspect_reviewer_bundle_summary(
     if not run_path.is_dir():
         raise PaperBundleInspectionError(f"No run directory found for run_id={run_id}.")
     paths = _paper_bundle_paths(run_path)
-    summary = _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_json"])
+    summary = _read_preferred_reviewer_bundle_summary(paths)
     if summary is None:
         raise PaperBundleInspectionError(
             f"No reviewer bundle summary found for run_id={run_id}."
         )
     payload = summary.model_dump(mode="json")
-    payload["summary_path"] = paths["reviewer_bundle_summary_json"].relative_to(
-        root_path
-    ).as_posix()
-    payload["markdown_summary_path"] = paths[
-        "reviewer_bundle_summary_markdown"
-    ].relative_to(root_path).as_posix()
+    summary_path = (
+        paths["reviewer_bundle_summary_after_human_review_json"]
+        if paths["reviewer_bundle_summary_after_human_review_json"].is_file()
+        else paths["reviewer_bundle_summary_json"]
+    )
+    markdown_path = (
+        paths["reviewer_bundle_summary_after_human_review_markdown"]
+        if paths["reviewer_bundle_summary_after_human_review_markdown"].is_file()
+        else paths["reviewer_bundle_summary_markdown"]
+    )
+    payload["summary_path"] = summary_path.relative_to(root_path).as_posix()
+    payload["markdown_summary_path"] = markdown_path.relative_to(root_path).as_posix()
     return payload
 
 
@@ -1977,6 +2092,7 @@ def _reviewer_remaining_warnings(
     *,
     lint: dict[str, Any],
     release_warnings: list[str],
+    human_review: HumanReviewArtifact | None,
 ) -> dict[str, list[str]]:
     all_warnings = sorted(
         set(list(lint.get("quality_warning_reasons") or []) + release_warnings)
@@ -2011,11 +2127,17 @@ def _reviewer_remaining_warnings(
         and warning not in retrieval_warnings
     ]
     release_warnings_only.append("Publication ready is false.")
+    human_review_warnings: list[str] = []
+    if human_review and human_review.blocking_concerns:
+        human_review_warnings.append("Human review recorded blocking concerns.")
+    if human_review and human_review.requested_changes:
+        human_review_warnings.append("Human review requested manuscript or evidence changes.")
     return {
         "retrieval_source_boundary_warnings": retrieval_warnings,
         "quality_depth_warnings": quality_warnings,
         "claim_support_warnings": sorted(set(claim_warnings)),
         "citation_warnings": sorted(set(citation_warnings)),
+        "human_review_warnings": sorted(set(human_review_warnings)),
         "release_warnings": sorted(set(release_warnings_only)),
     }
 
@@ -2075,6 +2197,8 @@ def _reviewer_audit_artifact_paths(
         "retrieval_quality_report",
         "citation_registry",
         "claim_support_audit",
+        "human_review_artifact",
+        "human_review_summary",
     )
     result: dict[str, str] = {}
     for key in keys:
@@ -2127,12 +2251,28 @@ def _reviewer_source_relevance_status(lint: dict[str, Any]) -> str:
     )
 
 
-def _reviewer_evidence_boundaries() -> dict[str, list[str]]:
+def _human_review_counts_as_present(review: HumanReviewArtifact | None) -> bool:
+    return bool(
+        review
+        and review.reviewer_is_human
+        and not review.llm_generated
+        and review.review_status != "not_reviewed"
+    )
+
+
+def _reviewer_evidence_boundaries(
+    human_review_present: bool,
+) -> dict[str, list[str]]:
+    human_review_evidence_line = (
+        "Human-review artifact is evidence that human review occurred only."
+        if human_review_present
+        else "No human-review artifact is present in this bundle."
+    )
     return {
         "artifacts_that_are_evidence": [
             "No linked proof artifact is present in this bundle.",
             "No linked experiment artifact is present in this bundle.",
-            "No human-review artifact is present in this bundle.",
+            human_review_evidence_line,
             "Retrieval/source records are bounded background context only.",
         ],
         "artifacts_that_are_not_evidence": [
@@ -2145,12 +2285,16 @@ def _reviewer_evidence_boundaries() -> dict[str, list[str]]:
             "Quality repair is not evidence.",
             "Release status is not evidence.",
             "LaTeX/PDF export is not evidence.",
+            (
+                "Human review does not establish proof, experiment validation, "
+                "novelty, correctness, or publication readiness."
+            ),
         ],
     }
 
 
-def _reviewer_evidence_gaps() -> list[str]:
-    return [
+def _reviewer_evidence_gaps(human_review_present: bool) -> list[str]:
+    gaps = [
         (
             "No proof artifact is linked; theorem-style claims need proof work before "
             "stronger wording."
@@ -2159,8 +2303,10 @@ def _reviewer_evidence_gaps() -> list[str]:
             "No experiment artifact is linked; empirical claims need experiment work "
             "before stronger wording."
         ),
-        "No human-review artifact is linked; this summary is not human review.",
     ]
+    if not human_review_present:
+        gaps.append("No human-review artifact is linked; this summary is not human review.")
+    return gaps
 
 
 def _reviewer_source_limitations(lint: dict[str, Any]) -> list[str]:
@@ -2297,14 +2443,25 @@ def _reviewer_human_review_checklist() -> list[str]:
     ]
 
 
-def _reviewer_recommended_next_actions() -> list[str]:
-    return [
+def _reviewer_recommended_next_actions(
+    human_review: HumanReviewArtifact | None,
+) -> list[str]:
+    actions: list[str] = []
+    if human_review and human_review.blocking_concerns:
+        actions.append("Address blocking human-review concerns before evidence generation.")
+    elif _human_review_counts_as_present(human_review):
+        actions.append("Follow the human-review recommended next action as a separate step.")
+    else:
+        actions.append("Perform human review and record the result as a separate artifact.")
+    actions.extend(
+        [
         "Expand real retrieval before making broader literature-context claims.",
         "Add a proof artifact if theorem claims are desired.",
         "Add an experiment artifact if empirical claims are desired.",
-        "Perform human review and record the result as a separate artifact.",
         "Run a LaTeX/PDF export check if presentation fidelity is needed.",
-    ]
+        ]
+    )
+    return actions
 
 
 def _manuscript_stats(markdown: str) -> dict[str, Any]:

@@ -1,0 +1,146 @@
+{
+  "$id": "https://schemas.factori.local/0.25.0/human-review-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Local human-review intake artifact.",
+  "properties": {
+    "accepted_limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Limitations",
+      "type": "array"
+    },
+    "blocking_concerns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Concerns",
+      "type": "array"
+    },
+    "checklist_items": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Checklist Items",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "llm_generated": {
+      "default": false,
+      "title": "Llm Generated",
+      "type": "boolean"
+    },
+    "non_blocking_comments": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Non Blocking Comments",
+      "type": "array"
+    },
+    "recommended_next_action": {
+      "minLength": 1,
+      "title": "Recommended Next Action",
+      "type": "string"
+    },
+    "requested_changes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested Changes",
+      "type": "array"
+    },
+    "review_id": {
+      "minLength": 1,
+      "title": "Review Id",
+      "type": "string"
+    },
+    "review_status": {
+      "enum": [
+        "not_reviewed",
+        "reviewed_with_blocking_changes",
+        "reviewed_with_nonblocking_comments",
+        "reviewed_ready_for_evidence_generation",
+        "reviewed_rejected"
+      ],
+      "title": "Review Status",
+      "type": "string"
+    },
+    "reviewed_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Reviewed Artifact Paths",
+      "type": "array"
+    },
+    "reviewed_at": {
+      "minLength": 1,
+      "title": "Reviewed At",
+      "type": "string"
+    },
+    "reviewer_attestation": {
+      "minLength": 1,
+      "title": "Reviewer Attestation",
+      "type": "string"
+    },
+    "reviewer_is_human": {
+      "default": true,
+      "title": "Reviewer Is Human",
+      "type": "boolean"
+    },
+    "reviewer_name_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewer Name Optional"
+    },
+    "reviewer_role": {
+      "minLength": 1,
+      "title": "Reviewer Role",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "review_id",
+    "reviewer_role",
+    "reviewed_artifact_paths",
+    "reviewed_at",
+    "review_status",
+    "checklist_items",
+    "recommended_next_action",
+    "reviewer_attestation"
+  ],
+  "title": "HumanReviewArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.25.0",
+  "x-factori-source-model": "factori.schemas.HumanReviewArtifact",
+  "x-factori-verification-evidence": false
+}

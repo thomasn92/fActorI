@@ -55,6 +55,7 @@ from factori.schemas import (
     FullPaperReleaseReport,
     FullPaperReleaseStatus,
     GeneratedSectionDraft,
+    HumanReviewArtifact,
     HumanReviewDecision,
     HygieneRemediationPlan,
     LatexCompileCheckReport,
@@ -154,7 +155,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.24.0"
+PROTOCOL_VERSION = "0.25.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -649,6 +650,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ReviewerBundleSummary",
         ReviewerBundleSummary,
         "Reviewer-facing generated-paper bundle summary.",
+    ),
+    ProtocolDefinition(
+        "HumanReviewArtifact",
+        HumanReviewArtifact,
+        "Local human-review intake artifact.",
     ),
     ProtocolDefinition("ResearchObject", ResearchObject, "Packaged reproducible research object."),
     ProtocolDefinition(

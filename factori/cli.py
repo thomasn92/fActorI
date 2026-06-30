@@ -64,6 +64,11 @@ from factori.full_paper_release import (
     FullPaperReleaseError,
     run_full_paper_release_gate,
 )
+from factori.human_review import (
+    HumanReviewIntakeError,
+    ingest_human_review,
+    inspect_human_review,
+)
 from factori.hygiene_plan import (
     build_hygiene_remediation_plan,
     summarize_hygiene_remediation_plan,
@@ -2228,6 +2233,104 @@ def evaluate_paper_release_command(
         typer.echo(f"reviewer_bundle_summary={result.reviewer_summary_artifact.path}")
 
 
+@app.command("ingest-human-review")
+def ingest_human_review_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    review_file: Annotated[Path, typer.Option("--review-file")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate and persist a local human-review artifact without evidence upgrades."""
+    try:
+        result = ingest_human_review(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            review_file=review_file,
+        )
+    except HumanReviewIntakeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "human_review_artifact": result.review.model_dump(mode="json"),
+                    "publication_ready": False,
+                    "creates_scientific_validation": False,
+                    "implies_publication_readiness": False,
+                    "is_verification_evidence": False,
+                    "artifacts": {
+                        "human_review_artifact": result.review_artifact.model_dump(
+                            mode="json"
+                        ),
+                        "human_review_summary": (
+                            result.review_summary_artifact.model_dump(mode="json")
+                        ),
+                        "reviewer_summary": (
+                            result.reviewer_summary_artifact.model_dump(mode="json")
+                        ),
+                        "reviewer_summary_markdown": (
+                            result.reviewer_summary_markdown_artifact.model_dump(
+                                mode="json"
+                            )
+                        ),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"human_review_status={result.review.review_status}")
+    typer.echo(f"blocking_concerns={len(result.review.blocking_concerns)}")
+    typer.echo(f"requested_changes={len(result.review.requested_changes)}")
+    typer.echo(f"recommended_next_action={result.review.recommended_next_action}")
+    typer.echo("publication_ready=false")
+    typer.echo("creates_scientific_validation=false")
+    typer.echo("is_verification_evidence=false")
+    typer.echo(f"human_review_artifact={result.review_artifact.path}")
+    typer.echo(f"human_review_summary={result.review_summary_artifact.path}")
+
+
+@app.command("inspect-human-review")
+def inspect_human_review_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect a persisted human-review artifact without mutation."""
+    try:
+        summary = inspect_human_review(run_id=run_id, root=root)
+    except HumanReviewIntakeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Human review: {summary['run_id']}")
+    typer.echo(f"Status: {summary.get('review_status') or 'unknown'}")
+    typer.echo(
+        "Blocking concerns: "
+        f"{int(summary.get('human_review_blocking_concern_count') or 0)}"
+    )
+    typer.echo(
+        "Requested changes: "
+        f"{int(summary.get('human_review_requested_change_count') or 0)}"
+    )
+    typer.echo(
+        "Recommended next action: "
+        f"{summary.get('recommended_next_action') or 'none'}"
+    )
+    typer.echo(
+        "Publication ready: "
+        f"{str(summary.get('publication_ready', False)).lower()}"
+    )
+    typer.echo(f"Artifact: {summary.get('human_review_artifact_path')}")
+
+
 @app.command("run-llm-paper")
 def run_llm_paper_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -2746,6 +2849,26 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('reviewer_summary_human_checklist_count') or 0)}"
     )
     typer.echo(
+        "Human review: "
+        f"{'present' if summary.get('human_review_artifact_present') else 'absent'}"
+    )
+    typer.echo(
+        "Human review status: "
+        f"{summary.get('human_review_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Blocking human-review concerns: "
+        f"{int(summary.get('human_review_blocking_concern_count') or 0)}"
+    )
+    typer.echo(
+        "Requested changes: "
+        f"{int(summary.get('human_review_requested_change_count') or 0)}"
+    )
+    typer.echo(
+        "Recommended next action: "
+        f"{summary.get('human_review_recommended_next_action') or 'none'}"
+    )
+    typer.echo(
         "Quality repair backend: "
         f"{summary.get('quality_repair_backend') or 'off'}"
     )
@@ -2880,6 +3003,8 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
             "quality repair report",
             "quality_repair_report",
         )
+        _echo_named_artifact(artifacts, "human review", "human_review_artifact")
+        _echo_named_artifact(artifacts, "human review summary", "human_review_summary")
         _echo_named_artifact(
             artifacts,
             "reviewer summary",
@@ -2889,6 +3014,11 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
             artifacts,
             "reviewer summary markdown",
             "reviewer_bundle_summary_markdown",
+        )
+        _echo_named_artifact(
+            artifacts,
+            "reviewer summary after human review",
+            "reviewer_bundle_summary_after_human_review_json",
         )
         _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
         _echo_named_artifact(
@@ -2949,6 +3079,26 @@ def _print_reviewer_bundle_summary(summary: dict[str, object]) -> None:
         "Retrieval/source: "
         f"{summary.get('retrieval_quality_status') or 'unknown'} / "
         f"{summary.get('source_relevance_status') or 'unknown'}"
+    )
+    typer.echo(
+        "Human review: "
+        f"{'present' if summary.get('human_review_artifact_present') else 'absent'}"
+    )
+    typer.echo(
+        "Human review status: "
+        f"{summary.get('human_review_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Blocking human-review concerns: "
+        f"{int(summary.get('human_review_blocking_concern_count') or 0)}"
+    )
+    typer.echo(
+        "Requested changes: "
+        f"{int(summary.get('human_review_requested_change_count') or 0)}"
+    )
+    typer.echo(
+        "Recommended next action: "
+        f"{summary.get('human_review_recommended_next_action') or 'none'}"
     )
     typer.echo(f"Evidence gaps: {len(evidence_gaps)}")
     for gap in evidence_gaps:

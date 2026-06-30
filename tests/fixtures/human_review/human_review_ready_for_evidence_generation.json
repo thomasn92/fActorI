@@ -1,0 +1,41 @@
+{
+  "accepted_limitations": [
+    "Retrieval remains bounded background context only.",
+    "Proof artifact is absent.",
+    "Experiment artifact is absent.",
+    "publication_ready remains false."
+  ],
+  "blocking_concerns": [],
+  "checklist_items": [
+    "problem framing checked",
+    "citation registry checked",
+    "accepted sources checked",
+    "claim-support audit checked",
+    "evidence gaps acknowledged",
+    "proof artifact absent acknowledged",
+    "experiment artifact absent acknowledged",
+    "publication_ready remains false acknowledged"
+  ],
+  "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "llm_generated": false,
+  "non_blocking_comments": [
+    "The draft can proceed to evidence-generation planning with retrieval limits preserved."
+  ],
+  "recommended_next_action": "Proceed to evidence generation planning without publication-readiness claims.",
+  "requested_changes": [],
+  "review_id": "human-review-ready-for-evidence-generation-001",
+  "review_status": "reviewed_ready_for_evidence_generation",
+  "reviewed_artifact_paths": [
+    "runs/local-human-review-intake-smoke-001/reports/revised-manuscript-draft.md",
+    "runs/local-human-review-intake-smoke-001/reports/reviewer-bundle-summary.json",
+    "runs/local-human-review-intake-smoke-001/reports/claim-support-audit.json"
+  ],
+  "reviewed_at": "2026-06-30T00:00:00Z",
+  "reviewer_attestation": "I performed this human review locally and understand that it records review occurrence only.",
+  "reviewer_is_human": true,
+  "reviewer_name_optional": "Fixture Reviewer",
+  "reviewer_role": "internal_human_reviewer",
+  "run_id": "local-human-review-intake-smoke-001"
+}
