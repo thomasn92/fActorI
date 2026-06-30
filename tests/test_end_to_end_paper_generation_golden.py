@@ -260,8 +260,8 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
 
     protocol_check = require_protocols_current()
     assert protocol_check.up_to_date is True
-    assert PROTOCOL_VERSION == "0.27.0"
-    assert len(protocol_check.schema_files) == 155
+    assert PROTOCOL_VERSION == "0.28.0"
+    assert len(protocol_check.schema_files) == 156
     examples = validate_protocol_examples()
     assert examples.examples_checked == 43
     assert examples.examples_valid == 43

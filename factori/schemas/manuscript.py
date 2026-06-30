@@ -480,6 +480,35 @@ class QualityRepairReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+class EvidenceAwareRefreshReport(StrictModel):
+    """Bounded evidence-aware manuscript refresh report; not scientific approval."""
+
+    run_id: str = Field(min_length=1)
+    refresh_enabled: bool = False
+    refresh_backend: Literal["off", "deterministic", "fake", "openai"] = "off"
+    refresh_status: Literal[
+        "disabled",
+        "refreshed",
+        "no_action_needed",
+        "blocked",
+        "failed",
+    ] = "disabled"
+    claim_evidence_map_path: str | None = None
+    proof_supported_claim_count: int = Field(default=0, ge=0)
+    experiment_supported_claim_count: int = Field(default=0, ge=0)
+    citation_supported_claim_count: int = Field(default=0, ge=0)
+    sections_refreshed: list[str] = Field(default_factory=list)
+    proof_language_inserted: bool = False
+    experiment_language_inserted: bool = False
+    unsupported_claims_removed_or_downgraded: int = Field(default=0, ge=0)
+    claim_support_rechecked_after_refresh: bool = False
+    claim_evidence_map_rechecked_after_refresh: bool = False
+    citation_safety_rechecked_after_refresh: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class ReviewerBundleSummary(StrictModel):
     """Reviewer-facing paper-bundle summary; explanatory context only."""
 

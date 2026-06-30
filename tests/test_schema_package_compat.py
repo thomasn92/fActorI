@@ -13,6 +13,7 @@ from factori.schemas import (
     ClaimEvidenceMapLink,
     CompleteMarkdownDraft,
     DataRequirement,
+    EvidenceAwareRefreshReport,
     ExperimentArtifact,
     FullPaperGenerationReport,
     HumanReviewArtifact,
@@ -53,6 +54,7 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert ReviewerBundleSummary in vars(schemas).values()
     assert ClaimEvidenceMap in vars(schemas).values()
     assert ClaimEvidenceMapLink in vars(schemas).values()
+    assert EvidenceAwareRefreshReport in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -82,6 +84,7 @@ def test_schema_all_contains_expected_public_names() -> None:
         "ReviewerBundleSummary",
         "ClaimEvidenceMap",
         "ClaimEvidenceMapLink",
+        "EvidenceAwareRefreshReport",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -122,4 +125,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 155
+    assert len(get_protocol_definitions()) == 156

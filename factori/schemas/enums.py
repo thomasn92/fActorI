@@ -345,6 +345,7 @@ class ControllerActionType(StrEnum):
     PROOF_ARTIFACT_INGESTED = "ProofArtifactIngested"
     EXPERIMENT_ARTIFACT_INGESTED = "ExperimentArtifactIngested"
     CLAIM_EVIDENCE_MAP_WRITTEN = "ClaimEvidenceMapWritten"
+    EVIDENCE_AWARE_REFRESH_WRITTEN = "EvidenceAwareRefreshWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

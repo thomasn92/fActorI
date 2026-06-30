@@ -1,0 +1,132 @@
+{
+  "$id": "https://schemas.factori.local/0.28.0/evidence-aware-refresh-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded evidence-aware manuscript wording refresh report.",
+  "properties": {
+    "citation_safety_rechecked_after_refresh": {
+      "default": false,
+      "title": "Citation Safety Rechecked After Refresh",
+      "type": "boolean"
+    },
+    "citation_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Citation Supported Claim Count",
+      "type": "integer"
+    },
+    "claim_evidence_map_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Evidence Map Path"
+    },
+    "claim_evidence_map_rechecked_after_refresh": {
+      "default": false,
+      "title": "Claim Evidence Map Rechecked After Refresh",
+      "type": "boolean"
+    },
+    "claim_support_rechecked_after_refresh": {
+      "default": false,
+      "title": "Claim Support Rechecked After Refresh",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "experiment_language_inserted": {
+      "default": false,
+      "title": "Experiment Language Inserted",
+      "type": "boolean"
+    },
+    "experiment_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Supported Claim Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proof_language_inserted": {
+      "default": false,
+      "title": "Proof Language Inserted",
+      "type": "boolean"
+    },
+    "proof_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Supported Claim Count",
+      "type": "integer"
+    },
+    "refresh_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Refresh Backend",
+      "type": "string"
+    },
+    "refresh_enabled": {
+      "default": false,
+      "title": "Refresh Enabled",
+      "type": "boolean"
+    },
+    "refresh_status": {
+      "default": "disabled",
+      "enum": [
+        "disabled",
+        "refreshed",
+        "no_action_needed",
+        "blocked",
+        "failed"
+      ],
+      "title": "Refresh Status",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sections_refreshed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sections Refreshed",
+      "type": "array"
+    },
+    "unsupported_claims_removed_or_downgraded": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Unsupported Claims Removed Or Downgraded",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "EvidenceAwareRefreshReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.28.0",
+  "x-factori-source-model": "factori.schemas.EvidenceAwareRefreshReport",
+  "x-factori-verification-evidence": false
+}

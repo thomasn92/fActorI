@@ -54,6 +54,7 @@ from factori.schemas import (
     ClaimEvidenceMap,
     ClaimSupportAuditReport,
     ControllerActionType,
+    EvidenceAwareRefreshReport,
     ExperimentArtifact,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
@@ -694,6 +695,9 @@ def inspect_paper_bundle_summary(
     quality_repair_report = _read_quality_repair_report(
         paths["quality_repair_report"]
     )
+    evidence_aware_refresh_report = _read_evidence_aware_refresh_report(
+        paths["evidence_aware_refresh_report"]
+    )
     human_review_artifact = _read_human_review_artifact(paths["human_review_artifact"])
     proof_artifacts = _read_proof_artifacts(run_path)
     experiment_artifacts = _read_experiment_artifacts(run_path)
@@ -787,6 +791,39 @@ def inspect_paper_bundle_summary(
         "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
         "quality_repair_report_exists": paths["quality_repair_report"].is_file(),
         "quality_repair_report_present": quality_repair_report is not None,
+        "evidence_aware_refresh_report_present": (
+            evidence_aware_refresh_report is not None
+        ),
+        "evidence_aware_refresh_backend": (
+            evidence_aware_refresh_report.refresh_backend
+            if evidence_aware_refresh_report is not None
+            else "off"
+        ),
+        "evidence_aware_refresh_status": (
+            evidence_aware_refresh_report.refresh_status
+            if evidence_aware_refresh_report is not None
+            else "disabled"
+        ),
+        "proof_language_inserted": bool(
+            evidence_aware_refresh_report
+            and evidence_aware_refresh_report.proof_language_inserted
+        ),
+        "experiment_language_inserted": bool(
+            evidence_aware_refresh_report
+            and evidence_aware_refresh_report.experiment_language_inserted
+        ),
+        "claim_evidence_map_rechecked_after_refresh": bool(
+            evidence_aware_refresh_report
+            and evidence_aware_refresh_report.claim_evidence_map_rechecked_after_refresh
+        ),
+        "claim_support_rechecked_after_refresh": bool(
+            evidence_aware_refresh_report
+            and evidence_aware_refresh_report.claim_support_rechecked_after_refresh
+        ),
+        "citation_safety_rechecked_after_refresh": bool(
+            evidence_aware_refresh_report
+            and evidence_aware_refresh_report.citation_safety_rechecked_after_refresh
+        ),
         "human_review_artifact_exists": paths["human_review_artifact"].is_file(),
         "human_review_artifact_present": human_review_artifact is not None,
         "human_review_status": (
@@ -875,6 +912,11 @@ def inspect_paper_bundle_summary(
         ),
         "reviewer_bundle_summary_after_human_review_exists": (
             paths["reviewer_bundle_summary_after_human_review_json"].is_file()
+        ),
+        "reviewer_bundle_summary_after_evidence_aware_refresh_exists": (
+            paths[
+                "reviewer_bundle_summary_after_evidence_aware_refresh_json"
+            ].is_file()
         ),
         "reviewer_bundle_summary_markdown_exists": (
             paths["reviewer_bundle_summary_markdown"].is_file()
@@ -1292,6 +1334,25 @@ def lint_paper_bundle_summary(
     )
     citation_safety_rechecked_after_quality_repair = bool(
         bundle.get("citation_safety_rechecked_after_quality_repair")
+    )
+    evidence_aware_refresh_report_present = bool(
+        bundle.get("evidence_aware_refresh_report_present")
+    )
+    evidence_aware_refresh_backend = str(
+        bundle.get("evidence_aware_refresh_backend") or "off"
+    )
+    proof_language_inserted = bool(bundle.get("proof_language_inserted"))
+    experiment_language_inserted = bool(
+        bundle.get("experiment_language_inserted")
+    )
+    claim_evidence_map_rechecked_after_refresh = bool(
+        bundle.get("claim_evidence_map_rechecked_after_refresh")
+    )
+    claim_support_rechecked_after_refresh = bool(
+        bundle.get("claim_support_rechecked_after_refresh")
+    )
+    citation_safety_rechecked_after_refresh = bool(
+        bundle.get("citation_safety_rechecked_after_refresh")
     )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(
@@ -1731,6 +1792,21 @@ def lint_paper_bundle_summary(
         "citation_safety_rechecked_after_quality_repair": (
             citation_safety_rechecked_after_quality_repair
         ),
+        "evidence_aware_refresh_report_present": (
+            evidence_aware_refresh_report_present
+        ),
+        "evidence_aware_refresh_backend": evidence_aware_refresh_backend,
+        "proof_language_inserted": proof_language_inserted,
+        "experiment_language_inserted": experiment_language_inserted,
+        "claim_evidence_map_rechecked_after_refresh": (
+            claim_evidence_map_rechecked_after_refresh
+        ),
+        "claim_support_rechecked_after_refresh": (
+            claim_support_rechecked_after_refresh
+        ),
+        "citation_safety_rechecked_after_refresh": (
+            citation_safety_rechecked_after_refresh
+        ),
         "reviewer_bundle_summary_present": bool(
             bundle.get("reviewer_bundle_summary_present")
         ),
@@ -1917,19 +1993,32 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "complete_manuscript_draft": run_path
         / "reports"
         / "complete-manuscript-draft.md",
-        "revised_manuscript_draft": run_path
-        / "reports"
-        / "revised-manuscript-draft.md",
+        "revised_manuscript_draft": _preferred_existing_path(
+            run_path / "reports" / "evidence-aware-refreshed-manuscript-draft.md",
+            run_path / "reports" / "revised-manuscript-draft.md",
+        ),
         "paper": run_path / "latex" / "paper.tex",
-        "revised_paper": run_path / "latex" / "revised-paper.tex",
+        "revised_paper": _preferred_existing_path(
+            run_path / "latex" / "evidence-aware-refreshed-paper.tex",
+            run_path / "latex" / "revised-paper.tex",
+        ),
         "latex_source_map": run_path / "latex" / "latex-source-map.json",
-        "revised_latex_source_map": run_path
-        / "latex"
-        / "revised-latex-source-map.json",
+        "revised_latex_source_map": _preferred_existing_path(
+            run_path / "latex" / "evidence-aware-refreshed-latex-source-map.json",
+            run_path / "latex" / "revised-latex-source-map.json",
+        ),
         "generation_report": run_path / "reports" / "full-paper-generation-report.json",
-        "release_report": run_path / "reports" / "full-paper-release-report.json",
+        "release_report": _preferred_existing_path(
+            run_path
+            / "reports"
+            / "full-paper-release-report-after-evidence-aware-refresh.json",
+            run_path / "reports" / "full-paper-release-report.json",
+        ),
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "quality_repair_report": run_path / "reports" / "quality-repair-report.json",
+        "evidence_aware_refresh_report": run_path
+        / "reports"
+        / "evidence-aware-refresh-report.json",
         "human_review_artifact": run_path / "reports" / "human-review-artifact.json",
         "human_review_summary": run_path / "reports" / "human-review-summary.md",
         "reviewer_bundle_summary_json": run_path
@@ -1972,6 +2061,12 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 "reviewer-bundle-summary-after-claim-evidence-map-0000.md",
             )
         ),
+        "reviewer_bundle_summary_after_evidence_aware_refresh_json": run_path
+        / "reports"
+        / "reviewer-bundle-summary-after-evidence-aware-refresh.json",
+        "reviewer_bundle_summary_after_evidence_aware_refresh_markdown": run_path
+        / "reports"
+        / "reviewer-bundle-summary-after-evidence-aware-refresh.md",
         "claim_evidence_map": (
             latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
             or run_path / "reports" / "claim-evidence-map.json"
@@ -1985,10 +2080,22 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         / "reports"
         / "retrieval-quality-report.json",
         "citation_registry": run_path / "reports" / "citation-registry.json",
-        "claim_support_audit": run_path / "reports" / "claim-support-audit.json",
+        "claim_support_audit": _preferred_existing_path(
+            run_path
+            / "reports"
+            / "claim-support-audit-after-evidence-aware-refresh.json",
+            run_path / "reports" / "claim-support-audit.json",
+        ),
         "references": run_path / "latex" / "references.bib",
-        "revised_references": run_path / "latex" / "revised-references.bib",
+        "revised_references": _preferred_existing_path(
+            run_path / "latex" / "evidence-aware-refreshed-references.bib",
+            run_path / "latex" / "revised-references.bib",
+        ),
     }
+
+
+def _preferred_existing_path(preferred: Path, fallback: Path) -> Path:
+    return preferred if preferred.is_file() else fallback
 
 
 def _read_citation_registry(path: Path) -> CitationRegistry | None:
@@ -2023,6 +2130,19 @@ def _read_quality_repair_report(path: Path) -> QualityRepairReport | None:
         return None
     try:
         return QualityRepairReport.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def _read_evidence_aware_refresh_report(
+    path: Path,
+) -> EvidenceAwareRefreshReport | None:
+    if not path.is_file():
+        return None
+    try:
+        return EvidenceAwareRefreshReport.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
     except ValueError:
         return None
 
@@ -2092,6 +2212,8 @@ def _read_preferred_reviewer_bundle_summary(
     paths: dict[str, Path],
 ) -> ReviewerBundleSummary | None:
     return _read_reviewer_bundle_summary(
+        paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
+    ) or _read_reviewer_bundle_summary(
         paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
     ) or _read_reviewer_bundle_summary(
         paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
@@ -2440,7 +2562,11 @@ def inspect_reviewer_bundle_summary(
         )
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
+        paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
+        if paths[
+            "reviewer_bundle_summary_after_evidence_aware_refresh_json"
+        ].is_file()
+        else paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
         if paths["reviewer_bundle_summary_after_claim_evidence_map_json"].is_file()
         else paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
         if paths["reviewer_bundle_summary_after_evidence_artifacts_json"].is_file()
@@ -2449,7 +2575,11 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"]
+        paths["reviewer_bundle_summary_after_evidence_aware_refresh_markdown"]
+        if paths[
+            "reviewer_bundle_summary_after_evidence_aware_refresh_markdown"
+        ].is_file()
+        else paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"]
         if paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_evidence_artifacts_markdown"]
         if paths["reviewer_bundle_summary_after_evidence_artifacts_markdown"].is_file()
@@ -2592,6 +2722,7 @@ def _reviewer_audit_artifact_paths(
         "release_report",
         "safe_repair_report",
         "quality_repair_report",
+        "evidence_aware_refresh_report",
         "retrieval_report",
         "retrieval_quality_report",
         "citation_registry",
@@ -3008,6 +3139,16 @@ def _reviewer_quality_summary(lint: dict[str, Any]) -> dict[str, Any]:
         "warnings_reduced_count": int(lint.get("warnings_reduced_count") or 0),
         "irreducible_quality_warnings": list(
             lint.get("irreducible_quality_warnings") or []
+        ),
+        "evidence_aware_refresh_report_present": bool(
+            lint.get("evidence_aware_refresh_report_present")
+        ),
+        "evidence_aware_refresh_backend": str(
+            lint.get("evidence_aware_refresh_backend") or "off"
+        ),
+        "proof_language_inserted": bool(lint.get("proof_language_inserted")),
+        "experiment_language_inserted": bool(
+            lint.get("experiment_language_inserted")
         ),
     }
 

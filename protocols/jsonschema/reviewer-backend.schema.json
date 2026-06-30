@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.27.0/reviewer-backend.schema.json",
+  "$id": "https://schemas.factori.local/0.28.0/reviewer-backend.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Reviewer backend enum.",
   "enum": [
@@ -8,7 +8,7 @@
   ],
   "title": "ReviewerBackend",
   "type": "string",
-  "x-factori-protocol-version": "0.27.0",
+  "x-factori-protocol-version": "0.28.0",
   "x-factori-source-model": "factori.protocols.ReviewerBackend",
   "x-factori-verification-evidence": false
 }

@@ -72,13 +72,14 @@ def build_claim_evidence_map(
     *,
     run_id: str,
     root: str | Path = ".",
+    claim_support_audit: ClaimSupportAuditReport | None = None,
 ) -> ClaimEvidenceMap:
     """Build a deterministic final claim-evidence map without mutation."""
     root_path = Path(root)
     run_path = _require_run_path(root_path, run_id)
     reports = run_path / "reports"
-    claim_support = _read_model(
-        reports / "claim-support-audit.json",
+    claim_support = claim_support_audit or _read_model(
+        latest_claim_support_audit_path(root_path, run_id),
         ClaimSupportAuditReport,
     )
     if claim_support is None:
@@ -340,6 +341,15 @@ def latest_claim_evidence_map_path(root: Path, run_id: str) -> Path | None:
     return sorted(paths, key=_claim_evidence_map_sort_key)[-1]
 
 
+def latest_claim_support_audit_path(root: Path, run_id: str) -> Path:
+    """Return the latest final claim-support audit path for a run."""
+    reports = root / "runs" / run_id / "reports"
+    refreshed = reports / "claim-support-audit-after-evidence-aware-refresh.json"
+    if refreshed.is_file():
+        return refreshed
+    return reports / "claim-support-audit.json"
+
+
 def claim_evidence_summary_fields(claim_map: ClaimEvidenceMap | None) -> dict[str, int | bool]:
     """Return stable summary fields for inspect/lint/reviewer summaries."""
     if claim_map is None:
@@ -443,13 +453,6 @@ def _link_from_claim_support_item(
     human_link = _human_review_link(base=base, item=item, human_review=human_review)
     if human_link is not None:
         return human_link
-    if item.claim_class in _CITATION_CLAIM_CLASSES:
-        return _citation_link(
-            base=base,
-            item=item,
-            citation_registry=citation_registry,
-            retrieval_quality=retrieval_quality,
-        )
     if (
         item.support_status == "not_required_scaffold"
         or item.claim_class in _SCAFFOLD_OR_BOUNDARY_CLASSES
@@ -462,6 +465,13 @@ def _link_from_claim_support_item(
             support_type="none_required",
             support_scope="scaffold, method, limitation, provenance, or evidence-boundary wording",
             unsupported_reason=None,
+        )
+    if item.claim_class in _CITATION_CLAIM_CLASSES:
+        return _citation_link(
+            base=base,
+            item=item,
+            citation_registry=citation_registry,
+            retrieval_quality=retrieval_quality,
         )
     return _make_link(
         **base,
@@ -905,6 +915,7 @@ __all__ = [
     "claim_evidence_summary_fields",
     "inspect_claim_evidence_map",
     "latest_claim_evidence_map_path",
+    "latest_claim_support_audit_path",
     "persist_claim_evidence_map",
     "render_claim_evidence_map_markdown",
     "summary_count",

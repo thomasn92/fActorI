@@ -78,6 +78,10 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     inspect_experiment = runner.invoke(app, ["inspect-experiment-artifacts", "--help"])
     build_claim_map = runner.invoke(app, ["build-claim-evidence-map", "--help"])
     inspect_claim_map = runner.invoke(app, ["inspect-claim-evidence-map", "--help"])
+    refresh_manuscript = runner.invoke(
+        app,
+        ["refresh-evidence-aware-manuscript", "--help"],
+    )
 
     assert ingest_proof.exit_code == 0, ingest_proof.output
     assert inspect_proof.exit_code == 0, inspect_proof.output
@@ -85,6 +89,7 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_experiment.exit_code == 0, inspect_experiment.output
     assert build_claim_map.exit_code == 0, build_claim_map.output
     assert inspect_claim_map.exit_code == 0, inspect_claim_map.output
+    assert refresh_manuscript.exit_code == 0, refresh_manuscript.output
     assert "--run-id" in ingest_proof.output
     assert "--proof-file" in ingest_proof.output
     assert "--run-id" in inspect_proof.output
@@ -97,6 +102,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--json" in build_claim_map.output
     assert "--run-id" in inspect_claim_map.output
     assert "--json" in inspect_claim_map.output
+    assert "--run-id" in refresh_manuscript.output
+    assert "--json" in refresh_manuscript.output
 
 
 def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
@@ -562,6 +569,28 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     claim_map_build_payload = json.loads(claim_map_build.output)
     assert claim_map_build_payload["publication_ready"] is False
     assert claim_map_build_payload["claim_evidence_map_present"] is True
+    refresh = runner.invoke(
+        app,
+        [
+            "refresh-evidence-aware-manuscript",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--evidence-aware-refresh-backend",
+            "deterministic",
+            "--json",
+        ],
+    )
+    assert refresh.exit_code == 0, refresh.output
+    refresh_payload = json.loads(refresh.output)
+    assert refresh_payload["publication_ready"] is False
+    assert refresh_payload["evidence_aware_refresh_report"][
+        "proof_language_inserted"
+    ] is True
+    assert refresh_payload["evidence_aware_refresh_report"][
+        "experiment_language_inserted"
+    ] is False
 
     inspect_proof_json = runner.invoke(
         app,
@@ -690,6 +719,9 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert "Completed experiments: 1" in paper_bundle.output
     assert "Claim-evidence map: present" in paper_bundle.output
     assert "Proof-supported claims:" in paper_bundle.output
+    assert "Evidence-aware refresh: present" in paper_bundle.output
+    assert "Proof language inserted: true" in paper_bundle.output
+    assert "Experiment language inserted: false" in paper_bundle.output
 
     lint_payload = json.loads(lint_result.output)
     assert lint_payload["proof_artifact_count"] == 1
@@ -701,6 +733,13 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert lint_payload["claim_evidence_map_present"] is True
     assert lint_payload["proof_supported_claim_count"] >= 1
     assert lint_payload["experiment_supported_claim_count"] >= 0
+    assert lint_payload["evidence_aware_refresh_report_present"] is True
+    assert lint_payload["evidence_aware_refresh_backend"] == "deterministic"
+    assert lint_payload["proof_language_inserted"] is True
+    assert lint_payload["experiment_language_inserted"] is False
+    assert lint_payload["claim_evidence_map_rechecked_after_refresh"] is True
+    assert lint_payload["claim_support_rechecked_after_refresh"] is True
+    assert lint_payload["citation_safety_rechecked_after_refresh"] is True
     assert lint_payload["publication_ready"] is False
 
 

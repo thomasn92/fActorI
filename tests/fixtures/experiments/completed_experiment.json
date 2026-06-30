@@ -1,7 +1,7 @@
 {
   "artifact_paths": [
-    "runs/local-claim-evidence-linkage-smoke-001/reports/revised-manuscript-draft.md",
-    "runs/local-claim-evidence-linkage-smoke-001/reports/claim-support-audit.json"
+    "runs/local-evidence-aware-refresh-smoke-001/reports/revised-manuscript-draft.md",
+    "runs/local-evidence-aware-refresh-smoke-001/reports/claim-support-audit.json"
   ],
   "claim_ids_or_section_ids": [
     "demonstration-status",
@@ -29,6 +29,6 @@
     "runs": 1
   },
   "result_summary": "The fixture experiment completed and records bounded results only.",
-  "run_id": "local-claim-evidence-linkage-smoke-001",
+  "run_id": "local-evidence-aware-refresh-smoke-001",
   "status": "completed"
 }

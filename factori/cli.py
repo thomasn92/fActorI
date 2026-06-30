@@ -60,6 +60,10 @@ from factori.evidence_artifact_intake import (
     inspect_experiment_artifacts,
     inspect_proof_artifacts,
 )
+from factori.evidence_aware_refresh import (
+    EvidenceAwareRefreshError,
+    refresh_evidence_aware_manuscript,
+)
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
@@ -2599,6 +2603,80 @@ def inspect_claim_evidence_map_command(
     typer.echo(f"Artifact: {summary.get('claim_evidence_map_path')}")
 
 
+@app.command("refresh-evidence-aware-manuscript")
+def refresh_evidence_aware_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    backend: Annotated[
+        str,
+        typer.Option("--evidence-aware-refresh-backend"),
+    ] = "off",
+    model: Annotated[
+        str,
+        typer.Option("--evidence-aware-refresh-model"),
+    ] = DEFAULT_LLM_MODEL,
+    max_calls: Annotated[
+        int,
+        typer.Option("--max-evidence-aware-refresh-calls"),
+    ] = 0,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Refresh final manuscript wording from scoped claim-evidence links."""
+    try:
+        result = refresh_evidence_aware_manuscript(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            backend=backend,
+            model=model,
+            max_calls=max_calls,
+            allow_external_calls=allow_external_calls,
+        )
+    except EvidenceAwareRefreshError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "evidence_aware_refresh_report": result.report.model_dump(mode="json"),
+        "release": result.release_status,
+        "publication_ready": False,
+        "artifacts": {
+            "refresh_report": result.report_artifact.model_dump(mode="json"),
+            "manuscript": result.manuscript_artifact.model_dump(mode="json"),
+            "claim_evidence_map": result.claim_evidence_map_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
+                mode="json"
+            ),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"refresh_backend={result.report.refresh_backend}")
+    typer.echo(f"refresh_status={result.report.refresh_status}")
+    typer.echo(
+        f"proof_language_inserted={str(result.report.proof_language_inserted).lower()}"
+    )
+    typer.echo(
+        "experiment_language_inserted="
+        f"{str(result.report.experiment_language_inserted).lower()}"
+    )
+    typer.echo(
+        "claim_evidence_map_rechecked="
+        f"{str(result.report.claim_evidence_map_rechecked_after_refresh).lower()}"
+    )
+    typer.echo(f"release={result.release_status}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"refresh_report={result.report_artifact.path}")
+
+
 @app.command("run-llm-paper")
 def run_llm_paper_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -3103,6 +3181,26 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Release: {release}")
     typer.echo(f"Safe repair: {safe_repair}")
     typer.echo(f"Quality repair: {quality_repair}")
+    typer.echo(
+        "Evidence-aware refresh: "
+        f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"
+    )
+    typer.echo(
+        "Refresh backend: "
+        f"{summary.get('evidence_aware_refresh_backend') or 'off'}"
+    )
+    typer.echo(
+        "Proof language inserted: "
+        f"{str(bool(summary.get('proof_language_inserted'))).lower()}"
+    )
+    typer.echo(
+        "Experiment language inserted: "
+        f"{str(bool(summary.get('experiment_language_inserted'))).lower()}"
+    )
+    typer.echo(
+        "Claim-evidence map rechecked: "
+        f"{str(bool(summary.get('claim_evidence_map_rechecked_after_refresh'))).lower()}"
+    )
     typer.echo(f"Reviewer summary: {reviewer_summary}")
     typer.echo(
         "Reviewer summary status: "
@@ -3315,6 +3413,11 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
             artifacts,
             "quality repair report",
             "quality_repair_report",
+        )
+        _echo_named_artifact(
+            artifacts,
+            "evidence-aware refresh report",
+            "evidence_aware_refresh_report",
         )
         _echo_named_artifact(artifacts, "human review", "human_review_artifact")
         _echo_named_artifact(artifacts, "human review summary", "human_review_summary")
@@ -3549,6 +3652,14 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Quality repair: "
         f"{'present' if summary.get('quality_repair_report_present') else 'absent'}"
+    )
+    typer.echo(
+        "Evidence-aware refresh: "
+        f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"
+    )
+    typer.echo(
+        "Evidence-aware refresh backend: "
+        f"{summary.get('evidence_aware_refresh_backend') or 'off'}"
     )
     typer.echo(
         "Quality repair backend: "

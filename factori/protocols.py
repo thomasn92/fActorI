@@ -34,6 +34,7 @@ from factori.schemas import (
     DiagnosticReport,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
+    EvidenceAwareRefreshReport,
     ExperimentArtifact,
     ExperimentKind,
     ExperimentRunContract,
@@ -159,7 +160,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.27.0"
+PROTOCOL_VERSION = "0.28.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -345,6 +346,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ClaimEvidenceMap",
         ClaimEvidenceMap,
         "Deterministic final claim-evidence support map.",
+    ),
+    ProtocolDefinition(
+        "EvidenceAwareRefreshReport",
+        EvidenceAwareRefreshReport,
+        "Bounded evidence-aware manuscript wording refresh report.",
     ),
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
     ProtocolDefinition(

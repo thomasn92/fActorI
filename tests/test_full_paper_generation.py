@@ -22,6 +22,10 @@ from factori.evidence_artifact_intake import (
     inspect_experiment_artifacts,
     inspect_proof_artifacts,
 )
+from factori.evidence_aware_refresh import (
+    EvidenceAwareRefreshError,
+    refresh_evidence_aware_manuscript,
+)
 from factori.full_paper_generation import (
     generate_full_paper,
     inspect_reviewer_bundle_summary,
@@ -45,6 +49,7 @@ from factori.schemas import (
     ClaimSupportAuditReport,
     ClaimSupportItem,
     ControllerActionType,
+    EvidenceAwareRefreshReport,
     ExperimentArtifact,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
@@ -73,6 +78,7 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ExperimentArtifact
     assert ClaimEvidenceMap
     assert ClaimEvidenceMapLink
+    assert EvidenceAwareRefreshReport
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -1344,6 +1350,205 @@ def test_claim_evidence_map_blocks_proof_for_novelty_or_readiness_claim(
     assert link.support_status == "blocked_forbidden_claim"
     assert link.supporting_proof_artifact_ids == []
     assert claim_map.publication_ready is False
+
+
+def test_evidence_aware_refresh_writes_bounded_artifact_wording_and_rechecks_gates(
+    tmp_path,
+) -> None:
+    run_id = "run-evidence-aware-refresh"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_statement_ids=[
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
+        ],
+    )
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_section_ids=["demonstration-status"],
+    )
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    result = refresh_evidence_aware_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    report_path = (
+        tmp_path
+        / "runs"
+        / run_id
+        / "reports"
+        / "evidence-aware-refresh-report.json"
+    )
+    refreshed_path = (
+        tmp_path
+        / "runs"
+        / run_id
+        / "reports"
+        / "evidence-aware-refreshed-manuscript-draft.md"
+    )
+    report = EvidenceAwareRefreshReport.model_validate_json(
+        report_path.read_text(encoding="utf-8")
+    )
+    refreshed = refreshed_path.read_text(encoding="utf-8")
+    lowered = refreshed.casefold()
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.EVIDENCE_AWARE_REFRESH_WRITTEN
+    )
+    assert report.refresh_backend == "deterministic"
+    assert report.proof_language_inserted is True
+    assert report.experiment_language_inserted is True
+    assert report.claim_support_rechecked_after_refresh is True
+    assert report.claim_evidence_map_rechecked_after_refresh is True
+    assert report.citation_safety_rechecked_after_refresh is True
+    assert "formal proof artifact linked to a specific mapped claim" in lowered
+    assert "completed experiment artifact linked to a bounded result claim" in lowered
+    assert "does not establish novelty" in lowered
+    assert "does not imply broad empirical validation" in lowered
+    assert "publication readiness" in lowered
+    assert "publication ready" not in lowered
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["evidence_aware_refresh_report_present"] is True
+    assert lint["evidence_aware_refresh_backend"] == "deterministic"
+    assert lint["proof_language_inserted"] is True
+    assert lint["experiment_language_inserted"] is True
+    assert lint["claim_evidence_map_rechecked_after_refresh"] is True
+    assert lint["claim_support_rechecked_after_refresh"] is True
+    assert lint["citation_safety_rechecked_after_refresh"] is True
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["claim_support_forbidden_claim_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
+    assert lint["claim_evidence_unsupported_count"] == 0
+    assert lint["publication_ready"] is False
+    assert result.release_status in {
+        "ReadyForHumanReview",
+        "ReadyForHumanReviewWithWarnings",
+    }
+
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert reviewer["proof_supported_claim_count"] >= 1
+    assert reviewer["experiment_supported_claim_count"] >= 1
+    assert reviewer["citation_supported_claim_count"] >= 0
+    assert reviewer["publication_ready"] is False
+
+
+def test_evidence_aware_refresh_does_not_use_informal_proof_as_formal_wording(
+    tmp_path,
+) -> None:
+    run_id = "run-evidence-aware-refresh-informal"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        proof_type="informal_proof_note",
+        checker_status="not_checked",
+        is_verification_evidence=False,
+        claim_ids_or_statement_ids=[
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
+        ],
+    )
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    result = refresh_evidence_aware_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    assert result.report.proof_language_inserted is False
+    assert "formal proof artifact linked" not in result.refreshed_markdown.casefold()
+    assert result.report.implies_publication_readiness is False
+    assert result.report.creates_scientific_validation is False
+
+
+def test_evidence_aware_refresh_blocks_unsupported_claim_evidence_map(tmp_path) -> None:
+    run_id = "run-evidence-aware-refresh-blocked"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        checker_status="failed",
+        is_verification_evidence=False,
+        claim_ids_or_statement_ids=[
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
+        ],
+    )
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    with pytest.raises(EvidenceAwareRefreshError, match="unsupported non-scaffold"):
+        refresh_evidence_aware_manuscript(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            backend="deterministic",
+        )
+
+    assert not (
+        tmp_path
+        / "runs"
+        / run_id
+        / "reports"
+        / "evidence-aware-refreshed-manuscript-draft.md"
+    ).exists()
 
 
 def test_claim_evidence_map_links_human_review_occurrence_only(tmp_path) -> None:

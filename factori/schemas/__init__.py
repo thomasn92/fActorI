@@ -195,6 +195,7 @@ from factori.schemas.manuscript import (
     DraftSection,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
+    EvidenceAwareRefreshReport,
     ExperimentArtifact,
     FinalNucleus,
     FullPaperArtifactBundle,
@@ -568,6 +569,7 @@ __all__ = [
     "ControllerAction",
     "RunState",
     "assert_mvp_data_admissible",
+    "EvidenceAwareRefreshReport",
 ]
 
 # Preserve the historical public module path used by protocol schemas and callers.
