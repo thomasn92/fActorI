@@ -61,6 +61,7 @@ from factori.schemas import (
     QualityRepairReport,
     RerunPolicy,
     RetrievalQualityReport,
+    ReviewerBundleSummary,
 )
 
 
@@ -685,6 +686,9 @@ def inspect_paper_bundle_summary(
     quality_repair_report = _read_quality_repair_report(
         paths["quality_repair_report"]
     )
+    reviewer_bundle_summary = _read_reviewer_bundle_summary(
+        paths["reviewer_bundle_summary_json"]
+    )
     markdown = (
         primary_draft.read_text(encoding="utf-8")
         if primary_draft is not None
@@ -760,6 +764,31 @@ def inspect_paper_bundle_summary(
         "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
         "quality_repair_report_exists": paths["quality_repair_report"].is_file(),
         "quality_repair_report_present": quality_repair_report is not None,
+        "reviewer_bundle_summary_exists": (
+            paths["reviewer_bundle_summary_json"].is_file()
+        ),
+        "reviewer_bundle_summary_markdown_exists": (
+            paths["reviewer_bundle_summary_markdown"].is_file()
+        ),
+        "reviewer_bundle_summary_present": reviewer_bundle_summary is not None,
+        "reviewer_summary_status": (
+            "present" if reviewer_bundle_summary is not None else "absent"
+        ),
+        "reviewer_summary_evidence_gap_count": (
+            len(reviewer_bundle_summary.evidence_gaps)
+            if reviewer_bundle_summary is not None
+            else 0
+        ),
+        "reviewer_summary_human_checklist_count": (
+            len(reviewer_bundle_summary.human_review_checklist)
+            if reviewer_bundle_summary is not None
+            else 0
+        ),
+        "reviewer_summary_recommended_action_count": (
+            len(reviewer_bundle_summary.recommended_next_actions)
+            if reviewer_bundle_summary is not None
+            else 0
+        ),
         "retrieval_quality_report_exists": paths["retrieval_quality_report"].is_file(),
         "release_report_exists": paths["release_report"].is_file(),
         "generation_report_exists": paths["generation_report"].is_file(),
@@ -1588,6 +1617,18 @@ def lint_paper_bundle_summary(
         "citation_safety_rechecked_after_quality_repair": (
             citation_safety_rechecked_after_quality_repair
         ),
+        "reviewer_bundle_summary_present": bool(
+            bundle.get("reviewer_bundle_summary_present")
+        ),
+        "reviewer_summary_evidence_gap_count": int(
+            bundle.get("reviewer_summary_evidence_gap_count") or 0
+        ),
+        "reviewer_summary_human_checklist_count": int(
+            bundle.get("reviewer_summary_human_checklist_count") or 0
+        ),
+        "reviewer_summary_recommended_action_count": int(
+            bundle.get("reviewer_summary_recommended_action_count") or 0
+        ),
         "citation_registry_present": citation_registry_present,
         "citation_registry_source_count": citation_registry_source_count,
         "citation_registry_sources_all_accepted": (
@@ -1712,6 +1753,12 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": run_path / "reports" / "full-paper-release-report.json",
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "quality_repair_report": run_path / "reports" / "quality-repair-report.json",
+        "reviewer_bundle_summary_json": run_path
+        / "reports"
+        / "reviewer-bundle-summary.json",
+        "reviewer_bundle_summary_markdown": run_path
+        / "reports"
+        / "reviewer-bundle-summary.md",
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
         "retrieval_quality_report": run_path
         / "reports"
@@ -1757,6 +1804,507 @@ def _read_quality_repair_report(path: Path) -> QualityRepairReport | None:
         return QualityRepairReport.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
+
+
+def _read_reviewer_bundle_summary(path: Path) -> ReviewerBundleSummary | None:
+    if not path.is_file():
+        return None
+    try:
+        return ReviewerBundleSummary.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def build_reviewer_bundle_summary(
+    *,
+    run_id: str,
+    root: str | Path = ".",
+    release_report: FullPaperReleaseReport | None = None,
+) -> ReviewerBundleSummary:
+    """Build a deterministic reviewer-facing summary from final paper reports."""
+    root_path = Path(root)
+    run_path = root_path / "runs" / run_id
+    paths = _paper_bundle_paths(run_path)
+    bundle = inspect_paper_bundle_summary(run_id=run_id, root=root_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=root_path)
+    release_status = (
+        release_report.decision.status.value
+        if release_report is not None
+        else str(bundle.get("release_status") or lint.get("paper_release_status") or "unknown")
+    )
+    release_warnings = (
+        list(release_report.decision.warnings) if release_report is not None else []
+    )
+    release_blocking = (
+        list(release_report.decision.blocking_reasons)
+        if release_report is not None
+        else []
+    )
+    warning_summary = _reviewer_remaining_warnings(
+        lint=lint,
+        release_warnings=release_warnings,
+    )
+    blocking_issues = sorted(
+        set(release_blocking + list(lint.get("quality_failure_reasons") or []))
+    )
+    paper_paths = _reviewer_paper_artifact_paths(bundle)
+    audit_paths = _reviewer_audit_artifact_paths(bundle, paths, root_path)
+    claim_support_status = _reviewer_claim_support_status(lint)
+    citation_status = _reviewer_citation_status(lint)
+    safety_status = (
+        "safe"
+        if not blocking_issues
+        and claim_support_status == "clean"
+        and citation_status in {"registry-backed", "no-citations-required"}
+        else "needs_review"
+    )
+    source_relevance_status = _reviewer_source_relevance_status(lint)
+    return ReviewerBundleSummary(
+        run_id=run_id,
+        release_status=release_status,
+        publication_ready=False,
+        safety_status=safety_status,
+        quality_status=str(lint.get("quality_status") or "unknown"),
+        claim_support_status=claim_support_status,
+        citation_status=citation_status,
+        retrieval_quality_status=str(
+            lint.get("retrieval_adequacy_status") or "not_evaluated"
+        ),
+        source_relevance_status=source_relevance_status,
+        quality_repair_status=str(lint.get("quality_repair_status") or "disabled"),
+        paper_artifact_paths=paper_paths,
+        audit_artifact_paths=audit_paths,
+        remaining_warnings=warning_summary,
+        blocking_issues=blocking_issues,
+        evidence_boundaries=_reviewer_evidence_boundaries(),
+        evidence_gaps=_reviewer_evidence_gaps(),
+        source_limitations=_reviewer_source_limitations(lint),
+        claim_support_summary=_reviewer_claim_support_summary(lint),
+        citation_summary=_reviewer_citation_summary(lint),
+        retrieval_summary=_reviewer_retrieval_summary(lint),
+        quality_summary=_reviewer_quality_summary(lint),
+        human_review_checklist=_reviewer_human_review_checklist(),
+        recommended_next_actions=_reviewer_recommended_next_actions(),
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+
+
+def render_reviewer_bundle_summary_markdown(
+    summary: ReviewerBundleSummary,
+) -> str:
+    """Render the reviewer bundle summary as deterministic Markdown."""
+    lines = [
+        "# Reviewer Bundle Summary",
+        "",
+        f"Run ID: `{summary.run_id}`",
+        f"Release: `{summary.release_status}`",
+        f"Publication ready: `{str(summary.publication_ready).lower()}`",
+        f"Safety: `{summary.safety_status}`",
+        f"Quality: `{summary.quality_status}`",
+        f"Claim support: `{summary.claim_support_status}`",
+        f"Citation status: `{summary.citation_status}`",
+        f"Retrieval quality: `{summary.retrieval_quality_status}`",
+        f"Source relevance: `{summary.source_relevance_status}`",
+        f"Quality repair: `{summary.quality_repair_status}`",
+        "",
+        "## Remaining Warnings",
+    ]
+    for category, warnings in summary.remaining_warnings.items():
+        lines.append(f"### {category.replace('_', ' ').title()}")
+        if warnings:
+            lines.extend(f"- {warning}" for warning in warnings)
+        else:
+            lines.append("- none")
+    lines.extend(["", "## Blocking Issues"])
+    if summary.blocking_issues:
+        lines.extend(f"- {issue}" for issue in summary.blocking_issues)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Evidence Boundaries"])
+    for category, items in summary.evidence_boundaries.items():
+        lines.append(f"### {category.replace('_', ' ').title()}")
+        lines.extend(f"- {item}" for item in items)
+    lines.extend(["", "## Evidence Gaps"])
+    lines.extend(f"- {gap}" for gap in summary.evidence_gaps)
+    lines.extend(["", "## Source Limitations"])
+    lines.extend(f"- {item}" for item in summary.source_limitations)
+    lines.extend(["", "## Human Review Checklist"])
+    lines.extend(f"- {item}" for item in summary.human_review_checklist)
+    lines.extend(["", "## Recommended Next Actions"])
+    lines.extend(f"- {item}" for item in summary.recommended_next_actions)
+    lines.extend(
+        [
+            "",
+            "## Non-Evidence Flags",
+            "- creates_scientific_validation: false",
+            "- implies_publication_readiness: false",
+            "- is_verification_evidence: false",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def inspect_reviewer_bundle_summary(
+    *,
+    run_id: str,
+    root: str | Path = ".",
+) -> dict[str, Any]:
+    """Inspect a persisted reviewer bundle summary without mutating the run."""
+    root_path = Path(root)
+    run_path = root_path / "runs" / run_id
+    if not run_path.is_dir():
+        raise PaperBundleInspectionError(f"No run directory found for run_id={run_id}.")
+    paths = _paper_bundle_paths(run_path)
+    summary = _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_json"])
+    if summary is None:
+        raise PaperBundleInspectionError(
+            f"No reviewer bundle summary found for run_id={run_id}."
+        )
+    payload = summary.model_dump(mode="json")
+    payload["summary_path"] = paths["reviewer_bundle_summary_json"].relative_to(
+        root_path
+    ).as_posix()
+    payload["markdown_summary_path"] = paths[
+        "reviewer_bundle_summary_markdown"
+    ].relative_to(root_path).as_posix()
+    return payload
+
+
+def _reviewer_remaining_warnings(
+    *,
+    lint: dict[str, Any],
+    release_warnings: list[str],
+) -> dict[str, list[str]]:
+    all_warnings = sorted(
+        set(list(lint.get("quality_warning_reasons") or []) + release_warnings)
+    )
+    retrieval_warnings = [
+        warning for warning in all_warnings if _reviewer_warning_is_retrieval(warning)
+    ]
+    quality_warnings = [
+        warning
+        for warning in all_warnings
+        if warning not in retrieval_warnings
+        and not _reviewer_warning_is_release(warning)
+    ]
+    claim_warnings: list[str] = []
+    if int(lint.get("claim_support_missing_required_citation_count") or 0):
+        claim_warnings.append("Some citation-required claims remain unresolved.")
+    if int(lint.get("claim_support_forbidden_claim_count") or 0):
+        claim_warnings.append("Forbidden proof, experiment, novelty, or readiness claims remain.")
+    if int(lint.get("claim_support_scope_mismatch_count") or 0):
+        claim_warnings.append("Some citations do not match claim-support scope.")
+    citation_warnings: list[str] = []
+    if list(lint.get("unregistered_citation_keys") or []):
+        citation_warnings.append("Unregistered citation keys are present.")
+    if int(lint.get("citation_as_validation_misuse_count") or 0):
+        citation_warnings.append("Some citation usage is framed as proof or validation.")
+    if not bool(lint.get("citation_registry_sources_all_accepted", True)):
+        citation_warnings.append("Citation registry includes non-accepted sources.")
+    release_warnings_only = [
+        warning
+        for warning in all_warnings
+        if _reviewer_warning_is_release(warning)
+        and warning not in retrieval_warnings
+    ]
+    release_warnings_only.append("Publication ready is false.")
+    return {
+        "retrieval_source_boundary_warnings": retrieval_warnings,
+        "quality_depth_warnings": quality_warnings,
+        "claim_support_warnings": sorted(set(claim_warnings)),
+        "citation_warnings": sorted(set(citation_warnings)),
+        "release_warnings": sorted(set(release_warnings_only)),
+    }
+
+
+def _reviewer_warning_is_retrieval(warning: str) -> bool:
+    key = warning.casefold()
+    return any(
+        phrase in key
+        for phrase in (
+            "retrieved sources",
+            "retrieval adequacy",
+            "retrieval quality",
+            "bounded background context",
+            "source relevance",
+            "source filtering",
+        )
+    )
+
+
+def _reviewer_warning_is_release(warning: str) -> bool:
+    key = warning.casefold()
+    return "human-review readiness" in key or "publication ready" in key
+
+
+def _reviewer_paper_artifact_paths(bundle: dict[str, Any]) -> dict[str, str]:
+    artifacts = dict(bundle.get("artifacts") or {})
+    keys = (
+        "complete_manuscript_draft",
+        "revised_manuscript_draft",
+        "paper",
+        "revised_paper",
+        "latex_source_map",
+        "revised_latex_source_map",
+        "references",
+        "revised_references",
+    )
+    paths = {key: str(artifacts[key]) for key in keys if artifacts.get(key)}
+    if bundle.get("primary_artifact_to_read"):
+        paths["primary_draft"] = str(bundle["primary_artifact_to_read"])
+    if bundle.get("primary_latex_to_read"):
+        paths["primary_latex"] = str(bundle["primary_latex_to_read"])
+    return paths
+
+
+def _reviewer_audit_artifact_paths(
+    bundle: dict[str, Any],
+    paths: dict[str, Path],
+    root_path: Path,
+) -> dict[str, str]:
+    artifacts = dict(bundle.get("artifacts") or {})
+    keys = (
+        "generation_report",
+        "release_report",
+        "safe_repair_report",
+        "quality_repair_report",
+        "retrieval_report",
+        "retrieval_quality_report",
+        "citation_registry",
+        "claim_support_audit",
+    )
+    result: dict[str, str] = {}
+    for key in keys:
+        if artifacts.get(key):
+            result[key] = str(artifacts[key])
+        elif key in paths:
+            result[key] = paths[key].relative_to(root_path).as_posix()
+    return result
+
+
+def _reviewer_claim_support_status(lint: dict[str, Any]) -> str:
+    unresolved = sum(
+        int(lint.get(key) or 0)
+        for key in (
+            "claim_support_missing_required_citation_count",
+            "claim_support_scope_mismatch_count",
+            "claim_support_forbidden_claim_count",
+            "citation_as_validation_misuse_count",
+        )
+    )
+    if unresolved:
+        return "needs_review"
+    if bool(lint.get("claim_support_audit_present")):
+        return "clean"
+    return "not_available"
+
+
+def _reviewer_citation_status(lint: dict[str, Any]) -> str:
+    if list(lint.get("unregistered_citation_keys") or []):
+        return "needs_review"
+    if not bool(lint.get("citation_registry_sources_all_accepted", True)):
+        return "needs_review"
+    if bool(lint.get("bibliography_registry_backed")):
+        return "registry-backed"
+    if not bool(lint.get("citations_present")):
+        return "no-citations-required"
+    return "needs_review"
+
+
+def _reviewer_source_relevance_status(lint: dict[str, Any]) -> str:
+    backend = str(lint.get("source_relevance_adjudicator_backend") or "off")
+    if backend == "off":
+        return "off"
+    return (
+        f"{backend}: {int(lint.get('source_relevance_adjudicated_count') or 0)} "
+        "adjudicated, "
+        f"{int(lint.get('source_relevance_llm_accepted_count') or 0)} accepted, "
+        f"{int(lint.get('source_relevance_llm_rejected_count') or 0)} rejected, "
+        f"{int(lint.get('source_relevance_hard_reject_count') or 0)} hard rejected"
+    )
+
+
+def _reviewer_evidence_boundaries() -> dict[str, list[str]]:
+    return {
+        "artifacts_that_are_evidence": [
+            "No linked proof artifact is present in this bundle.",
+            "No linked experiment artifact is present in this bundle.",
+            "No human-review artifact is present in this bundle.",
+            "Retrieval/source records are bounded background context only.",
+        ],
+        "artifacts_that_are_not_evidence": [
+            "LLM prose is not evidence.",
+            "LLM reviews are not evidence.",
+            "Source relevance adjudication is not evidence.",
+            "Retrieval adequacy scores are not evidence.",
+            "Citation registry is not evidence.",
+            "Claim-support audit is not evidence.",
+            "Quality repair is not evidence.",
+            "Release status is not evidence.",
+            "LaTeX/PDF export is not evidence.",
+        ],
+    }
+
+
+def _reviewer_evidence_gaps() -> list[str]:
+    return [
+        (
+            "No proof artifact is linked; theorem-style claims need proof work before "
+            "stronger wording."
+        ),
+        (
+            "No experiment artifact is linked; empirical claims need experiment work "
+            "before stronger wording."
+        ),
+        "No human-review artifact is linked; this summary is not human review.",
+    ]
+
+
+def _reviewer_source_limitations(lint: dict[str, Any]) -> list[str]:
+    limitations = [
+        (
+            "accepted_source_count="
+            f"{int(lint.get('accepted_source_count') or 0)}; "
+            "rejected_source_count="
+            f"{int(lint.get('rejected_source_count') or 0)}."
+        ),
+        (
+            "retrieval_adequacy_status="
+            f"{lint.get('retrieval_adequacy_status') or 'not_evaluated'}; "
+            "retrieval remains bounded background context only."
+        ),
+        "Rejected and hard-rejected sources cannot support manuscript claims.",
+    ]
+    if bool(lint.get("source_relevance_adjudication_enabled")):
+        limitations.append("Source relevance adjudication is non-evidential.")
+    return limitations
+
+
+def _reviewer_claim_support_summary(lint: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "claim_support_audit_present": bool(lint.get("claim_support_audit_present")),
+        "total_sentences": int(lint.get("claim_support_total_sentences") or 0),
+        "registry_supported": int(
+            lint.get("claim_support_registry_supported_count") or 0
+        ),
+        "scaffold_not_required": int(
+            lint.get("claim_support_scaffold_not_required_count") or 0
+        ),
+        "missing_required_citation": int(
+            lint.get("claim_support_missing_required_citation_count") or 0
+        ),
+        "scope_mismatch": int(lint.get("claim_support_scope_mismatch_count") or 0),
+        "forbidden_claim": int(lint.get("claim_support_forbidden_claim_count") or 0),
+        "citation_as_validation_misuse": int(
+            lint.get("citation_as_validation_misuse_count") or 0
+        ),
+        "claim_adjudicator_backend": str(lint.get("claim_adjudicator_backend") or "off"),
+        "adjudicated_sentence_count": int(lint.get("adjudicated_sentence_count") or 0),
+    }
+
+
+def _reviewer_citation_summary(lint: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "citation_registry_present": bool(lint.get("citation_registry_present")),
+        "citation_registry_source_count": int(
+            lint.get("citation_registry_source_count") or 0
+        ),
+        "citation_registry_sources_all_accepted": bool(
+            lint.get("citation_registry_sources_all_accepted", True)
+        ),
+        "registry_backed_citation_count": int(
+            lint.get("registry_backed_citation_count") or 0
+        ),
+        "unregistered_citation_keys": list(lint.get("unregistered_citation_keys") or []),
+        "bibliography_status": str(lint.get("bibliography_status") or "absent"),
+        "citation_policy": str(lint.get("citation_policy") or "none"),
+    }
+
+
+def _reviewer_retrieval_summary(lint: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "retrieval_quality_report_present": bool(
+            lint.get("retrieval_quality_report_present")
+        ),
+        "retrieved_source_count": int(lint.get("retrieved_source_count") or 0),
+        "accepted_source_count": int(lint.get("accepted_source_count") or 0),
+        "rejected_source_count": int(lint.get("rejected_source_count") or 0),
+        "retrieval_adequacy_status": str(
+            lint.get("retrieval_adequacy_status") or "not_evaluated"
+        ),
+        "source_relevance_adjudication_enabled": bool(
+            lint.get("source_relevance_adjudication_enabled")
+        ),
+        "source_relevance_adjudicator_backend": str(
+            lint.get("source_relevance_adjudicator_backend") or "off"
+        ),
+        "source_relevance_adjudicated_count": int(
+            lint.get("source_relevance_adjudicated_count") or 0
+        ),
+        "source_relevance_llm_accepted_count": int(
+            lint.get("source_relevance_llm_accepted_count") or 0
+        ),
+        "source_relevance_llm_rejected_count": int(
+            lint.get("source_relevance_llm_rejected_count") or 0
+        ),
+        "source_relevance_hard_reject_count": int(
+            lint.get("source_relevance_hard_reject_count") or 0
+        ),
+    }
+
+
+def _reviewer_quality_summary(lint: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "quality_status": str(lint.get("quality_status") or "unknown"),
+        "quality_repair_report_present": bool(
+            lint.get("quality_repair_report_present")
+        ),
+        "quality_repair_backend": str(lint.get("quality_repair_backend") or "off"),
+        "quality_repair_status": str(
+            lint.get("quality_repair_status") or "disabled"
+        ),
+        "quality_repaired_section_count": int(
+            lint.get("quality_repaired_section_count") or 0
+        ),
+        "section_depth_target_met_count": int(
+            lint.get("section_depth_target_met_count") or 0
+        ),
+        "section_depth_target_total": int(
+            lint.get("section_depth_target_total") or 0
+        ),
+        "sections_below_depth_target": list(
+            lint.get("sections_below_depth_target") or []
+        ),
+        "warnings_reduced_count": int(lint.get("warnings_reduced_count") or 0),
+        "irreducible_quality_warnings": list(
+            lint.get("irreducible_quality_warnings") or []
+        ),
+    }
+
+
+def _reviewer_human_review_checklist() -> list[str]:
+    return [
+        "Read the revised manuscript draft.",
+        "Verify that the problem framing matches the intended research question.",
+        "Check whether accepted sources are appropriate for bounded background context.",
+        "Check whether rejected or hard-rejected sources should be replaced by better retrieval.",
+        "Confirm that no proof or experiment claims are made without linked artifacts.",
+        "Decide whether to request real proof, experiment, or retrieval expansion.",
+        "Decide whether the draft should proceed to evidence generation.",
+    ]
+
+
+def _reviewer_recommended_next_actions() -> list[str]:
+    return [
+        "Expand real retrieval before making broader literature-context claims.",
+        "Add a proof artifact if theorem claims are desired.",
+        "Add an experiment artifact if empirical claims are desired.",
+        "Perform human review and record the result as a separate artifact.",
+        "Run a LaTeX/PDF export check if presentation fidelity is needed.",
+    ]
 
 
 def _manuscript_stats(markdown: str) -> dict[str, Any]:
@@ -3462,8 +4010,11 @@ __all__ = [
     "FullPaperGenerationError",
     "FullPaperGenerationRunResult",
     "PaperBundleInspectionError",
+    "build_reviewer_bundle_summary",
     "full_paper_generation_result_model",
     "generate_full_paper",
     "inspect_paper_bundle_summary",
+    "inspect_reviewer_bundle_summary",
     "lint_paper_bundle_summary",
+    "render_reviewer_bundle_summary_markdown",
 ]

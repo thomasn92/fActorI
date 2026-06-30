@@ -49,6 +49,14 @@ def test_inspect_paper_bundle_cli_is_registered() -> None:
     assert "--json" in result.output
 
 
+def test_inspect_reviewer_summary_cli_is_registered() -> None:
+    result = CliRunner().invoke(app, ["inspect-reviewer-summary", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "--run-id" in result.output
+    assert "--json" in result.output
+
+
 def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
     tmp_path,
 ) -> None:
@@ -235,6 +243,10 @@ def test_inspect_paper_bundle_with_revised_artifacts_is_read_only(tmp_path) -> N
     assert payload["revised_latex_exists"] is True
     assert payload["safe_repair_report_exists"] is True
     assert payload["release_report_exists"] is True
+    assert payload["reviewer_bundle_summary_present"] is True
+    assert payload["reviewer_summary_evidence_gap_count"] > 0
+    assert payload["reviewer_summary_human_checklist_count"] > 0
+    assert payload["reviewer_summary_recommended_action_count"] > 0
     assert payload["generation_report_exists"] is True
     assert payload["primary_artifact_to_read"].endswith(
         "reports/revised-manuscript-draft.md"
@@ -262,6 +274,10 @@ def test_inspect_paper_bundle_with_revised_artifacts_is_read_only(tmp_path) -> N
     assert "Primary draft: revised-manuscript-draft.md" in human_result.output
     assert "Release: ReadyForHumanReviewWithWarnings" in human_result.output
     assert "Safe repair: present" in human_result.output
+    assert "Reviewer summary: present" in human_result.output
+    assert "Reviewer summary status: present" in human_result.output
+    assert "Evidence gaps:" in human_result.output
+    assert "Human-review checklist items:" in human_result.output
     assert "Main-body sections:" in human_result.output
     assert "Appendix sections:" in human_result.output
     assert "Total headings:" in human_result.output
@@ -270,6 +286,72 @@ def test_inspect_paper_bundle_with_revised_artifacts_is_read_only(tmp_path) -> N
     assert "- revised manuscript:" in human_result.output
     assert "- revised latex:" in human_result.output
     assert "- release report:" in human_result.output
+    assert "- reviewer summary:" in human_result.output
+    assert _run_file_snapshot(tmp_path, run_id) == before
+
+
+def test_inspect_reviewer_summary_command_is_read_only(tmp_path) -> None:
+    run_id = "inspect-reviewer-summary"
+    _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
+    before = _run_file_snapshot(tmp_path, run_id)
+
+    json_result = CliRunner().invoke(
+        app,
+        [
+            "inspect-reviewer-summary",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert json_result.exit_code == 0, json_result.output
+    assert _run_file_snapshot(tmp_path, run_id) == before
+    payload = json.loads(json_result.output)
+    assert payload["run_id"] == run_id
+    assert payload["publication_ready"] is False
+    assert payload["release_status"] == "ReadyForHumanReviewWithWarnings"
+    assert payload["claim_support_status"] == "clean"
+    assert payload["citation_status"] in {"registry-backed", "no-citations-required"}
+    assert len(payload["evidence_gaps"]) > 0
+    assert len(payload["human_review_checklist"]) > 0
+    assert len(payload["recommended_next_actions"]) > 0
+    assert payload["creates_scientific_validation"] is False
+    assert payload["implies_publication_readiness"] is False
+    assert payload["is_verification_evidence"] is False
+
+    human_result = CliRunner().invoke(
+        app,
+        ["inspect-reviewer-summary", "--root", str(tmp_path), "--run-id", run_id],
+    )
+
+    assert human_result.exit_code == 0, human_result.output
+    assert f"Reviewer summary: {run_id}" in human_result.output
+    assert "Publication ready: false" in human_result.output
+    assert "Evidence gaps:" in human_result.output
+    assert "Human-review checklist:" in human_result.output
+    assert "Recommended next actions:" in human_result.output
+    assert _run_file_snapshot(tmp_path, run_id) == before
+
+    lint_result = CliRunner().invoke(
+        app,
+        [
+            "lint-paper-bundle",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    assert lint_result.exit_code == 0, lint_result.output
+    lint_payload = json.loads(lint_result.output)
+    assert lint_payload["reviewer_bundle_summary_present"] is True
+    assert lint_payload["reviewer_summary_evidence_gap_count"] > 0
+    assert lint_payload["reviewer_summary_human_checklist_count"] > 0
+    assert lint_payload["reviewer_summary_recommended_action_count"] > 0
     assert _run_file_snapshot(tmp_path, run_id) == before
 
 

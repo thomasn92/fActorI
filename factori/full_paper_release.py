@@ -13,6 +13,10 @@ from factori.evidence import (
     is_proof_evidence,
     is_synthetic_experiment_evidence,
 )
+from factori.full_paper_generation import (
+    build_reviewer_bundle_summary,
+    render_reviewer_bundle_summary_markdown,
+)
 from factori.hashing import sha256_file
 from factori.latex_safety import validate_latex_export
 from factori.ledger import ResearchLedger
@@ -68,6 +72,8 @@ class FullPaperReleaseRunResult:
     completeness_artifact: ArtifactRef | None = None
     evidence_boundary_artifact: ArtifactRef | None = None
     summary_artifact: ArtifactRef | None = None
+    reviewer_summary_artifact: ArtifactRef | None = None
+    reviewer_summary_markdown_artifact: ArtifactRef | None = None
 
 
 def evaluate_full_paper_release(
@@ -476,6 +482,18 @@ def run_full_paper_release_gate(
         "creates_scientific_validation": False,
         "implies_publication_readiness": False,
     }
+    reviewer_summary = build_reviewer_bundle_summary(
+        run_id=run_id,
+        root=root,
+        release_report=report,
+    )
+    reviewer_summary_markdown = render_reviewer_bundle_summary_markdown(
+        reviewer_summary
+    )
+    reviewer_metadata = {
+        **metadata,
+        "artifact_role": "reviewer_bundle_summary_context",
+    }
     persistence = persist_artifacts_with_commit(
         run_id=run_id,
         store=store,
@@ -505,6 +523,21 @@ def run_full_paper_release_gate(
                 "markdown",
                 metadata,
             ),
+            ArtifactWriteSpec(
+                "reviewer-bundle-summary",
+                ArtifactType.REPORT,
+                reviewer_summary,
+                "json",
+                reviewer_metadata,
+            ),
+            ArtifactWriteSpec(
+                "reviewer-bundle-summary-markdown",
+                ArtifactType.REPORT,
+                reviewer_summary_markdown,
+                "markdown",
+                reviewer_metadata,
+                filename_stem="reviewer-bundle-summary",
+            ),
         ],
         action_type=ControllerActionType.FULL_PAPER_RELEASE_EVALUATED,
         commit_payload={
@@ -512,11 +545,23 @@ def run_full_paper_release_gate(
             "status": report.decision.status.value,
             "ready_for_human_review": report.decision.ready_for_human_review,
             "publication_ready": False,
+            "reviewer_summary_written": True,
             "is_verification_evidence": False,
             "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
         },
     )
     by_id = {artifact.id: artifact for artifact in persistence.artifacts}
+    reviewer_summary_artifact = next(
+        artifact
+        for artifact in persistence.artifacts
+        if artifact.id == "reviewer-bundle-summary" and artifact.path.endswith(".json")
+    )
+    reviewer_summary_markdown_artifact = next(
+        artifact
+        for artifact in persistence.artifacts
+        if artifact.id == "reviewer-bundle-summary-markdown"
+    )
     return FullPaperReleaseRunResult(
         run_id=run_id,
         report=report,
@@ -525,6 +570,8 @@ def run_full_paper_release_gate(
         completeness_artifact=by_id["full-paper-bundle-completeness"],
         evidence_boundary_artifact=by_id["full-paper-evidence-boundary-report"],
         summary_artifact=by_id["full-paper-release-summary"],
+        reviewer_summary_artifact=reviewer_summary_artifact,
+        reviewer_summary_markdown_artifact=reviewer_summary_markdown_artifact,
     )
 
 

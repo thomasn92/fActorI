@@ -8,7 +8,12 @@ from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.claim_adjudication import FakeClaimAdjudicator
 from factori.cli import app
-from factori.full_paper_generation import generate_full_paper, lint_paper_bundle_summary
+from factori.full_paper_generation import (
+    generate_full_paper,
+    inspect_reviewer_bundle_summary,
+    lint_paper_bundle_summary,
+)
+from factori.full_paper_release import run_full_paper_release_gate
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.run_all import run_deterministic_pipeline
@@ -20,10 +25,12 @@ from factori.schemas import (
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
     FullPaperGenerationStatus,
+    FullPaperReleaseGateConfig,
     GeneratedSectionDraft,
     PipelineRunConfig,
     PipelineStage,
     QualityRepairReport,
+    ReviewerBundleSummary,
 )
 
 
@@ -32,6 +39,7 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperArtifactBundle
     assert FullPaperGenerationReport
     assert QualityRepairReport
+    assert ReviewerBundleSummary
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -374,6 +382,93 @@ def test_deterministic_quality_repair_writes_safe_report_and_revised_draft(
     assert lint["citation_as_validation_misuse_count"] == 0
     assert lint["unregistered_citation_keys"] == []
     assert lint["publication_ready"] is False
+
+
+def test_reviewer_bundle_summary_is_written_after_release(tmp_path) -> None:
+    _prepare_run(tmp_path, run_id="run-reviewer-summary")
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs/run-reviewer-summary/ledger.sqlite")
+
+    generate_full_paper(
+        run_id="run-reviewer-summary",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        prose_generator=FakeProseGenerator(),
+        config=FullPaperGenerationConfig(
+            run_id="run-reviewer-summary",
+            write_report=True,
+            quality_repair_backend="deterministic",
+        ),
+        enable_safe_repair=True,
+    )
+    release = run_full_paper_release_gate(
+        run_id="run-reviewer-summary",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FullPaperReleaseGateConfig(
+            run_id="run-reviewer-summary",
+            write_report=True,
+        ),
+    )
+
+    json_path = (
+        tmp_path
+        / "runs/run-reviewer-summary/reports/reviewer-bundle-summary.json"
+    )
+    markdown_path = (
+        tmp_path / "runs/run-reviewer-summary/reports/reviewer-bundle-summary.md"
+    )
+    assert json_path.is_file()
+    assert markdown_path.is_file()
+    assert release.reviewer_summary_artifact is not None
+    assert release.reviewer_summary_markdown_artifact is not None
+    _assert_non_evidence_artifact(tmp_path, release.reviewer_summary_artifact)
+    _assert_non_evidence_artifact(
+        tmp_path,
+        release.reviewer_summary_markdown_artifact,
+    )
+
+    summary = ReviewerBundleSummary.model_validate_json(
+        json_path.read_text(encoding="utf-8")
+    )
+    inspected = inspect_reviewer_bundle_summary(
+        run_id="run-reviewer-summary",
+        root=tmp_path,
+    )
+    markdown = markdown_path.read_text(encoding="utf-8")
+    lowered = markdown.casefold()
+
+    assert summary.release_status == release.report.decision.status.value
+    assert summary.publication_ready is False
+    assert summary.claim_support_status == "clean"
+    assert summary.citation_status in {"registry-backed", "no-citations-required"}
+    assert summary.retrieval_quality_status
+    assert summary.source_relevance_status
+    assert summary.quality_repair_status in {"repaired", "no_action_needed"}
+    assert summary.creates_scientific_validation is False
+    assert summary.implies_publication_readiness is False
+    assert summary.is_verification_evidence is False
+    assert any("No proof artifact" in gap for gap in summary.evidence_gaps)
+    assert any("No experiment artifact" in gap for gap in summary.evidence_gaps)
+    assert any("No human-review artifact" in gap for gap in summary.evidence_gaps)
+    assert len(summary.human_review_checklist) > 0
+    assert len(summary.recommended_next_actions) > 0
+    assert inspected["release_status"] == summary.release_status
+    assert inspected["publication_ready"] is False
+    assert inspected["summary_path"].endswith("reviewer-bundle-summary.json")
+    assert inspected["markdown_summary_path"].endswith("reviewer-bundle-summary.md")
+    for phrase in (
+        "scientifically validated",
+        "validated result",
+        "proves novelty",
+        "establishes correctness",
+        "ready to submit",
+        "ready for publication",
+        "approved",
+    ):
+        assert phrase not in lowered
 
 
 def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:

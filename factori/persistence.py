@@ -23,6 +23,7 @@ class ArtifactWriteSpec:
     metadata: Mapping[str, Any] | None = None
     extension: str | None = None
     format_label: str | None = None
+    filename_stem: str | None = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +178,7 @@ def _write_artifact(
             artifact_type=spec.artifact_type,
             data=spec.payload,
             metadata=metadata,
+            filename_stem=spec.filename_stem,
         )
     if not isinstance(spec.payload, str):
         raise TypeError("markdown artifact payload must be a string")
@@ -187,6 +189,7 @@ def _write_artifact(
             artifact_type=spec.artifact_type,
             markdown=spec.payload,
             metadata=metadata,
+            filename_stem=spec.filename_stem,
         )
     if spec.artifact_format == "latex":
         return store.write_text(
@@ -197,6 +200,7 @@ def _write_artifact(
             extension=spec.extension or "tex",
             format_label=spec.format_label or "latex",
             metadata=metadata,
+            filename_stem=spec.filename_stem,
         )
     if spec.artifact_format == "bib":
         return store.write_text(
@@ -207,6 +211,7 @@ def _write_artifact(
             extension=spec.extension or "bib",
             format_label=spec.format_label or "bibtex",
             metadata=metadata,
+            filename_stem=spec.filename_stem,
         )
     if spec.artifact_format == "text":
         return store.write_text(
@@ -217,6 +222,7 @@ def _write_artifact(
             extension=spec.extension or "txt",
             format_label=spec.format_label or "text",
             metadata=metadata,
+            filename_stem=spec.filename_stem,
         )
     raise ValueError(f"unsupported artifact format: {spec.artifact_format}")
 

@@ -1,0 +1,178 @@
+{
+  "$id": "https://schemas.factori.local/0.24.0/reviewer-bundle-summary.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Reviewer-facing generated-paper bundle summary.",
+  "properties": {
+    "audit_artifact_paths": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Audit Artifact Paths",
+      "type": "object"
+    },
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "citation_status": {
+      "minLength": 1,
+      "title": "Citation Status",
+      "type": "string"
+    },
+    "citation_summary": {
+      "additionalProperties": true,
+      "title": "Citation Summary",
+      "type": "object"
+    },
+    "claim_support_status": {
+      "minLength": 1,
+      "title": "Claim Support Status",
+      "type": "string"
+    },
+    "claim_support_summary": {
+      "additionalProperties": true,
+      "title": "Claim Support Summary",
+      "type": "object"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_boundaries": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Evidence Boundaries",
+      "type": "object"
+    },
+    "evidence_gaps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Gaps",
+      "type": "array"
+    },
+    "human_review_checklist": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Human Review Checklist",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "paper_artifact_paths": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Paper Artifact Paths",
+      "type": "object"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "quality_repair_status": {
+      "minLength": 1,
+      "title": "Quality Repair Status",
+      "type": "string"
+    },
+    "quality_status": {
+      "minLength": 1,
+      "title": "Quality Status",
+      "type": "string"
+    },
+    "quality_summary": {
+      "additionalProperties": true,
+      "title": "Quality Summary",
+      "type": "object"
+    },
+    "recommended_next_actions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Next Actions",
+      "type": "array"
+    },
+    "release_status": {
+      "minLength": 1,
+      "title": "Release Status",
+      "type": "string"
+    },
+    "remaining_warnings": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Remaining Warnings",
+      "type": "object"
+    },
+    "retrieval_quality_status": {
+      "minLength": 1,
+      "title": "Retrieval Quality Status",
+      "type": "string"
+    },
+    "retrieval_summary": {
+      "additionalProperties": true,
+      "title": "Retrieval Summary",
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_status": {
+      "minLength": 1,
+      "title": "Safety Status",
+      "type": "string"
+    },
+    "source_limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Limitations",
+      "type": "array"
+    },
+    "source_relevance_status": {
+      "minLength": 1,
+      "title": "Source Relevance Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "release_status",
+    "safety_status",
+    "quality_status",
+    "claim_support_status",
+    "citation_status",
+    "retrieval_quality_status",
+    "source_relevance_status",
+    "quality_repair_status"
+  ],
+  "title": "ReviewerBundleSummary",
+  "type": "object",
+  "x-factori-protocol-version": "0.24.0",
+  "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
+  "x-factori-verification-evidence": false
+}

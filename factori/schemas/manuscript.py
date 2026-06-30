@@ -480,6 +480,37 @@ class QualityRepairReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+class ReviewerBundleSummary(StrictModel):
+    """Reviewer-facing paper-bundle summary; explanatory context only."""
+
+    run_id: str = Field(min_length=1)
+    release_status: str = Field(min_length=1)
+    publication_ready: bool = False
+    safety_status: str = Field(min_length=1)
+    quality_status: str = Field(min_length=1)
+    claim_support_status: str = Field(min_length=1)
+    citation_status: str = Field(min_length=1)
+    retrieval_quality_status: str = Field(min_length=1)
+    source_relevance_status: str = Field(min_length=1)
+    quality_repair_status: str = Field(min_length=1)
+    paper_artifact_paths: dict[str, str] = Field(default_factory=dict)
+    audit_artifact_paths: dict[str, str] = Field(default_factory=dict)
+    remaining_warnings: dict[str, list[str]] = Field(default_factory=dict)
+    blocking_issues: list[str] = Field(default_factory=list)
+    evidence_boundaries: dict[str, list[str]] = Field(default_factory=dict)
+    evidence_gaps: list[str] = Field(default_factory=list)
+    source_limitations: list[str] = Field(default_factory=list)
+    claim_support_summary: dict[str, Any] = Field(default_factory=dict)
+    citation_summary: dict[str, Any] = Field(default_factory=dict)
+    retrieval_summary: dict[str, Any] = Field(default_factory=dict)
+    quality_summary: dict[str, Any] = Field(default_factory=dict)
+    human_review_checklist: list[str] = Field(default_factory=list)
+    recommended_next_actions: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class FullPaperGenerationConfig(StrictModel):
     """Configuration for the non-evidence full-paper generation workflow."""
 
@@ -1201,6 +1232,7 @@ __all__ = [
     "RevisionSafetyReport",
     "PaperRevisionResult",
     "QualityRepairReport",
+    "ReviewerBundleSummary",
     "FullPaperGenerationConfig",
     "FullPaperGenerationStep",
     "FullPaperArtifactBundle",

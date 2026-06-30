@@ -12,7 +12,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.23.0/full-paper-release-finding.schema.json",
+  "$id": "https://schemas.factori.local/0.24.0/full-paper-release-finding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One generated-paper readiness finding.",
@@ -51,7 +51,7 @@
   ],
   "title": "FullPaperReleaseFinding",
   "type": "object",
-  "x-factori-protocol-version": "0.23.0",
+  "x-factori-protocol-version": "0.24.0",
   "x-factori-source-model": "factori.schemas.FullPaperReleaseFinding",
   "x-factori-verification-evidence": false
 }

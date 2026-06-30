@@ -64,10 +64,17 @@ class ArtifactStore:
         data: Any,
         metadata: dict[str, Any] | None = None,
         producing_commit_hash: str | None = None,
+        filename_stem: str | None = None,
     ) -> ArtifactRef:
         """Write a canonical JSON artifact and return its reference."""
         self.init_run(run_id)
-        path = self._artifact_path(run_id, artifact_type, artifact_id, "json")
+        path = self._artifact_path(
+            run_id,
+            artifact_type,
+            artifact_id,
+            "json",
+            filename_stem=filename_stem,
+        )
         self._atomic_write_text(path, canonical_json(data) + "\n")
         return self._ref(
             artifact_id=artifact_id,
@@ -86,10 +93,17 @@ class ArtifactStore:
         markdown: str,
         metadata: dict[str, Any] | None = None,
         producing_commit_hash: str | None = None,
+        filename_stem: str | None = None,
     ) -> ArtifactRef:
         """Write a Markdown artifact and return its reference."""
         self.init_run(run_id)
-        path = self._artifact_path(run_id, artifact_type, artifact_id, "md")
+        path = self._artifact_path(
+            run_id,
+            artifact_type,
+            artifact_id,
+            "md",
+            filename_stem=filename_stem,
+        )
         self._atomic_write_text(path, markdown)
         return self._ref(
             artifact_id=artifact_id,
@@ -110,6 +124,7 @@ class ArtifactStore:
         format_label: str,
         metadata: dict[str, Any] | None = None,
         producing_commit_hash: str | None = None,
+        filename_stem: str | None = None,
     ) -> ArtifactRef:
         """Write a generic text artifact and return its reference."""
         if not extension or "/" in extension or "\\" in extension:
@@ -120,6 +135,7 @@ class ArtifactStore:
             artifact_type,
             artifact_id,
             extension.removeprefix("."),
+            filename_stem=filename_stem,
         )
         self._atomic_write_text(path, text)
         return self._ref(
@@ -192,9 +208,10 @@ class ArtifactStore:
         artifact_type: ArtifactType,
         artifact_id: str,
         extension: str,
+        filename_stem: str | None = None,
     ) -> Path:
         directory = ARTIFACT_DIRECTORY_BY_TYPE[artifact_type]
-        safe_id = artifact_id.replace("/", "_")
+        safe_id = (filename_stem or artifact_id).replace("/", "_")
         return self.run_path(run_id) / directory / f"{safe_id}.{extension}"
 
     def _ref(

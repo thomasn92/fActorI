@@ -630,7 +630,11 @@ def run_llm_paper_orchestration(
                     release_started,
                     clock.now(),
                     warnings=release_result.report.decision.warnings,
-                    artifact_ids=["full-paper-release-report"],
+                    artifact_ids=[
+                        "full-paper-release-report",
+                        "reviewer-bundle-summary",
+                        "reviewer-bundle-summary-markdown",
+                    ],
                 )
             )
     elif config.evaluate_release:
@@ -891,6 +895,16 @@ def _existing_llm_inspection_paths(root: Path, run_id: str) -> dict[str, str]:
         / run_id
         / "reports"
         / "full-paper-release-report.json",
+        "reviewer_bundle_summary": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "reviewer-bundle-summary.json",
+        "reviewer_bundle_summary_markdown": root
+        / "runs"
+        / run_id
+        / "reports"
+        / "reviewer-bundle-summary.md",
         "complete_manuscript_draft": root
         / "runs"
         / run_id

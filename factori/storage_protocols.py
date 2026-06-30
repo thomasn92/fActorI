@@ -85,6 +85,7 @@ class ArtifactStoreProtocol(Protocol):
         data: Any,
         metadata: dict[str, Any] | None = None,
         producing_commit_hash: str | None = None,
+        filename_stem: str | None = None,
     ) -> ArtifactRef: ...
 
     def write_markdown(
@@ -96,6 +97,7 @@ class ArtifactStoreProtocol(Protocol):
         markdown: str,
         metadata: dict[str, Any] | None = None,
         producing_commit_hash: str | None = None,
+        filename_stem: str | None = None,
     ) -> ArtifactRef: ...
 
     def write_text(
@@ -109,6 +111,7 @@ class ArtifactStoreProtocol(Protocol):
         format_label: str,
         metadata: dict[str, Any] | None = None,
         producing_commit_hash: str | None = None,
+        filename_stem: str | None = None,
     ) -> ArtifactRef: ...
 
     def link_artifact_to_commit(

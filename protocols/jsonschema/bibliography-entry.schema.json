@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.23.0/bibliography-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.24.0/bibliography-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic bibliography entry backed by source provenance.",
@@ -55,7 +55,7 @@
   ],
   "title": "BibliographyEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.23.0",
+  "x-factori-protocol-version": "0.24.0",
   "x-factori-source-model": "factori.schemas.BibliographyEntry",
   "x-factori-verification-evidence": false
 }

@@ -171,6 +171,12 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
         "full-paper-release-report": (
             "runs/golden-paper/reports/full-paper-release-report.json"
         ),
+        "reviewer-bundle-summary": (
+            "runs/golden-paper/reports/reviewer-bundle-summary.json"
+        ),
+        "reviewer-bundle-summary-markdown": (
+            "runs/golden-paper/reports/reviewer-bundle-summary.md"
+        ),
     }
     for artifact_id, expected_path in expected_paths.items():
         assert refs[artifact_id].path == expected_path
@@ -180,6 +186,8 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
         "full-paper-bundle-completeness",
         "full-paper-evidence-boundary-report",
         "full-paper-release-summary",
+        "reviewer-bundle-summary",
+        "reviewer-bundle-summary-markdown",
     }
     hash_snapshot = {}
     for artifact_id in sorted(paper_and_release_ids):
@@ -252,8 +260,8 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
 
     protocol_check = require_protocols_current()
     assert protocol_check.up_to_date is True
-    assert PROTOCOL_VERSION == "0.23.0"
-    assert len(protocol_check.schema_files) == 149
+    assert PROTOCOL_VERSION == "0.24.0"
+    assert len(protocol_check.schema_files) == 150
     examples = validate_protocol_examples()
     assert examples.examples_checked == 43
     assert examples.examples_valid == 43

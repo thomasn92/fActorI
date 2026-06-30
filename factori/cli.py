@@ -57,6 +57,7 @@ from factori.full_paper_generation import (
     full_paper_generation_result_model,
     generate_full_paper,
     inspect_paper_bundle_summary,
+    inspect_reviewer_bundle_summary,
     lint_paper_bundle_summary,
 )
 from factori.full_paper_release import (
@@ -2193,6 +2194,18 @@ def evaluate_paper_release_command(
                             if result.summary_artifact
                             else None
                         ),
+                        "reviewer_summary": (
+                            result.reviewer_summary_artifact.model_dump(mode="json")
+                            if result.reviewer_summary_artifact
+                            else None
+                        ),
+                        "reviewer_summary_markdown": (
+                            result.reviewer_summary_markdown_artifact.model_dump(
+                                mode="json"
+                            )
+                            if result.reviewer_summary_markdown_artifact
+                            else None
+                        ),
                     },
                 },
                 indent=2,
@@ -2211,6 +2224,8 @@ def evaluate_paper_release_command(
     typer.echo("is_verification_evidence=false")
     if result.report_artifact is not None:
         typer.echo(f"full_paper_release_report={result.report_artifact.path}")
+    if result.reviewer_summary_artifact is not None:
+        typer.echo(f"reviewer_bundle_summary={result.reviewer_summary_artifact.path}")
 
 
 @app.command("run-llm-paper")
@@ -2706,6 +2721,9 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     quality_repair = (
         "present" if summary.get("quality_repair_report_present") else "absent"
     )
+    reviewer_summary = (
+        "present" if summary.get("reviewer_bundle_summary_present") else "absent"
+    )
     citations = "present" if summary.get("citations_present") else "absent"
     blocking_count = int(summary.get("blocking_issue_count") or 0)
     warning_count = int(summary.get("warning_count") or 0)
@@ -2714,6 +2732,19 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Release: {release}")
     typer.echo(f"Safe repair: {safe_repair}")
     typer.echo(f"Quality repair: {quality_repair}")
+    typer.echo(f"Reviewer summary: {reviewer_summary}")
+    typer.echo(
+        "Reviewer summary status: "
+        f"{summary.get('reviewer_summary_status') or 'absent'}"
+    )
+    typer.echo(
+        "Evidence gaps: "
+        f"{int(summary.get('reviewer_summary_evidence_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Human-review checklist items: "
+        f"{int(summary.get('reviewer_summary_human_checklist_count') or 0)}"
+    )
     typer.echo(
         "Quality repair backend: "
         f"{summary.get('quality_repair_backend') or 'off'}"
@@ -2849,6 +2880,16 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
             "quality repair report",
             "quality_repair_report",
         )
+        _echo_named_artifact(
+            artifacts,
+            "reviewer summary",
+            "reviewer_bundle_summary_json",
+        )
+        _echo_named_artifact(
+            artifacts,
+            "reviewer summary markdown",
+            "reviewer_bundle_summary_markdown",
+        )
         _echo_named_artifact(artifacts, "retrieval report", "retrieval_report")
         _echo_named_artifact(
             artifacts,
@@ -2867,6 +2908,57 @@ def _echo_named_artifact(
     path = artifacts.get(key)
     if path is not None:
         typer.echo(f"- {label}: {path}")
+
+
+@app.command("inspect-reviewer-summary")
+def inspect_reviewer_summary_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect a persisted reviewer-facing paper-bundle summary without mutation."""
+    try:
+        summary = inspect_reviewer_bundle_summary(run_id=run_id, root=root)
+    except PaperBundleInspectionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    _print_reviewer_bundle_summary(summary)
+
+
+def _print_reviewer_bundle_summary(summary: dict[str, object]) -> None:
+    evidence_gaps = list(summary.get("evidence_gaps") or [])
+    checklist = list(summary.get("human_review_checklist") or [])
+    actions = list(summary.get("recommended_next_actions") or [])
+    typer.echo(f"Reviewer summary: {summary['run_id']}")
+    typer.echo(f"Release: {summary.get('release_status') or 'unknown'}")
+    typer.echo(
+        "Publication ready: "
+        f"{str(summary.get('publication_ready', False)).lower()}"
+    )
+    typer.echo(f"Safety: {summary.get('safety_status') or 'unknown'}")
+    typer.echo(f"Quality: {summary.get('quality_status') or 'unknown'}")
+    typer.echo(
+        "Claim/citation: "
+        f"{summary.get('claim_support_status') or 'unknown'} / "
+        f"{summary.get('citation_status') or 'unknown'}"
+    )
+    typer.echo(
+        "Retrieval/source: "
+        f"{summary.get('retrieval_quality_status') or 'unknown'} / "
+        f"{summary.get('source_relevance_status') or 'unknown'}"
+    )
+    typer.echo(f"Evidence gaps: {len(evidence_gaps)}")
+    for gap in evidence_gaps:
+        typer.echo(f"- {gap}")
+    typer.echo(f"Human-review checklist: {len(checklist)}")
+    for item in checklist:
+        typer.echo(f"- {item}")
+    typer.echo(f"Recommended next actions: {len(actions)}")
+    for item in actions:
+        typer.echo(f"- {item}")
 
 
 @app.command("lint-paper-bundle")
