@@ -351,6 +351,8 @@ class ControllerActionType(StrEnum):
     HUMAN_REVIEW_RECONCILIATION_INDEX_WRITTEN = (
         "HumanReviewReconciliationIndexWritten"
     )
+    AUTONOMOUS_EVIDENCE_PLAN_WRITTEN = "AutonomousEvidencePlanWritten"
+    AUTONOMOUS_PLAN_EXECUTION_WRITTEN = "AutonomousPlanExecutionWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

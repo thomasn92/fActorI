@@ -12,6 +12,16 @@ from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synt
 from factori.adapters.config import AdapterConfig
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.artifacts import ArtifactStore
+from factori.autonomous_evidence_plan import (
+    AutonomousEvidencePlanError,
+    inspect_autonomous_evidence_gap_plan,
+    persist_autonomous_evidence_gap_plan,
+)
+from factori.autonomous_plan_execution import (
+    AutonomousPlanExecutionError,
+    execute_autonomous_evidence_plan,
+    inspect_autonomous_plan_execution,
+)
 from factori.citations import (
     build_citation_registry_from_ledger,
     validate_citation_usage,
@@ -1258,14 +1268,10 @@ def run_stage_c_command(
             store=store,
             ledger=ledger,
             proof_verifier=(
-                registry.proof_verifier
-                if registry.config.proof_backend != "fake"
-                else None
+                registry.proof_verifier if registry.config.proof_backend != "fake" else None
             ),
             experiment_runner=(
-                registry.experiment_runner
-                if registry.config.experiment_backend != "fake"
-                else None
+                registry.experiment_runner if registry.config.experiment_backend != "fake" else None
             ),
         )
     except StageCError as exc:
@@ -1286,8 +1292,7 @@ def run_stage_c_command(
     )
     typer.echo(f"fake_synthetic_experiments={fake_experiment_runs}")
     typer.echo(
-        "real_synthetic_experiments="
-        f"{len(result.experiment_results) - fake_experiment_runs}"
+        f"real_synthetic_experiments={len(result.experiment_results) - fake_experiment_runs}"
     )
     typer.echo(f"lean_verified={labels.count(VerificationLabel.LEAN_VERIFIED)}")
     typer.echo(
@@ -1431,10 +1436,7 @@ def critique_paper_shape_command(
     typer.echo(f"paper_shape_score={critique.score.total:.3f}")
     typer.echo(f"missing_items={len(critique.missing_items)}")
     typer.echo(f"warnings={len(critique.warnings)}")
-    typer.echo(
-        "is_verification_evidence="
-        f"{str(critique.is_verification_evidence).lower()}"
-    )
+    typer.echo(f"is_verification_evidence={str(critique.is_verification_evidence).lower()}")
     if artifacts is not None:
         typer.echo(f"narrative_contract={artifacts.narrative_contract_artifact.path}")
         typer.echo(f"paper_shape_critique={artifacts.critique_markdown_artifact.path}")
@@ -1645,8 +1647,7 @@ def draft_manuscript_command(
     if result.citation_registry is not None:
         typer.echo(f"citations={len(result.citation_registry.citations)}")
         typer.echo(
-            "citation_safety="
-            f"{str(result.citation_safety_report.safe).lower()}"
+            f"citation_safety={str(result.citation_safety_report.safe).lower()}"
             if result.citation_safety_report is not None
             else "citation_safety=missing"
         )
@@ -1702,9 +1703,7 @@ def build_citation_registry_command(
                                 artifacts.citation_registry_artifact.model_dump(mode="json")
                             ),
                             "literature_positioning": (
-                                artifacts.literature_positioning_artifact.model_dump(
-                                    mode="json"
-                                )
+                                artifacts.literature_positioning_artifact.model_dump(mode="json")
                             ),
                             "citation_safety": (
                                 artifacts.citation_safety_artifact.model_dump(mode="json")
@@ -1971,8 +1970,7 @@ def revise_paper_command(
         )
     )
     typer.echo(
-        "patches="
-        + (str(len(revision_result.patches)) if revision_result is not None else "0")
+        "patches=" + (str(len(revision_result.patches)) if revision_result is not None else "0")
     )
     typer.echo("publication_ready=false")
     typer.echo("is_verification_evidence=false")
@@ -2115,9 +2113,7 @@ def generate_paper_command(
                             else None
                         ),
                         "quality_repair_report": (
-                            result.quality_repair_report_artifact.model_dump(
-                                mode="json"
-                            )
+                            result.quality_repair_report_artifact.model_dump(mode="json")
                             if result.quality_repair_report_artifact
                             else None
                         ),
@@ -2145,8 +2141,7 @@ def generate_paper_command(
     typer.echo("creates_scientific_validation=false")
     typer.echo(f"citation_registry={bundle.citation_registry_artifact_id or 'missing'}")
     typer.echo(
-        "complete_manuscript_draft="
-        f"{bundle.complete_manuscript_draft_artifact_id or 'missing'}"
+        f"complete_manuscript_draft={bundle.complete_manuscript_draft_artifact_id or 'missing'}"
     )
     typer.echo(f"latex_artifact={bundle.latex_artifact_id or 'missing'}")
     typer.echo(f"paper_critic_report={bundle.paper_critic_report_artifact_id or 'missing'}")
@@ -2231,9 +2226,7 @@ def evaluate_paper_release_command(
                             else None
                         ),
                         "reviewer_summary_markdown": (
-                            result.reviewer_summary_markdown_artifact.model_dump(
-                                mode="json"
-                            )
+                            result.reviewer_summary_markdown_artifact.model_dump(mode="json")
                             if result.reviewer_summary_markdown_artifact
                             else None
                         ),
@@ -2288,9 +2281,7 @@ def ingest_human_review_command(
                     "implies_publication_readiness": False,
                     "is_verification_evidence": False,
                     "artifacts": {
-                        "human_review_artifact": result.review_artifact.model_dump(
-                            mode="json"
-                        ),
+                        "human_review_artifact": result.review_artifact.model_dump(mode="json"),
                         "human_review_summary": (
                             result.review_summary_artifact.model_dump(mode="json")
                         ),
@@ -2298,9 +2289,7 @@ def ingest_human_review_command(
                             result.reviewer_summary_artifact.model_dump(mode="json")
                         ),
                         "reviewer_summary_markdown": (
-                            result.reviewer_summary_markdown_artifact.model_dump(
-                                mode="json"
-                            )
+                            result.reviewer_summary_markdown_artifact.model_dump(mode="json")
                         ),
                     },
                 },
@@ -2338,22 +2327,10 @@ def inspect_human_review_command(
         return
     typer.echo(f"Human review: {summary['run_id']}")
     typer.echo(f"Status: {summary.get('review_status') or 'unknown'}")
-    typer.echo(
-        "Blocking concerns: "
-        f"{int(summary.get('human_review_blocking_concern_count') or 0)}"
-    )
-    typer.echo(
-        "Requested changes: "
-        f"{int(summary.get('human_review_requested_change_count') or 0)}"
-    )
-    typer.echo(
-        "Recommended next action: "
-        f"{summary.get('recommended_next_action') or 'none'}"
-    )
-    typer.echo(
-        "Publication ready: "
-        f"{str(summary.get('publication_ready', False)).lower()}"
-    )
+    typer.echo(f"Blocking concerns: {int(summary.get('human_review_blocking_concern_count') or 0)}")
+    typer.echo(f"Requested changes: {int(summary.get('human_review_requested_change_count') or 0)}")
+    typer.echo(f"Recommended next action: {summary.get('recommended_next_action') or 'none'}")
+    typer.echo(f"Publication ready: {str(summary.get('publication_ready', False)).lower()}")
     typer.echo(f"Artifact: {summary.get('human_review_artifact_path')}")
 
 
@@ -2385,9 +2362,7 @@ def ingest_proof_artifact_command(
         "artifacts": {
             "proof_artifact": result.proof_artifact.model_dump(mode="json"),
             "proof_index": result.proof_index_artifact.model_dump(mode="json"),
-            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
-                mode="json"
-            ),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(mode="json"),
             "reviewer_summary_markdown": (
                 result.reviewer_summary_markdown_artifact.model_dump(mode="json")
             ),
@@ -2400,10 +2375,7 @@ def ingest_proof_artifact_command(
     typer.echo(f"proof_id={result.proof.proof_id}")
     typer.echo(f"proof_type={result.proof.proof_type}")
     typer.echo(f"checker_status={result.proof.checker_status}")
-    typer.echo(
-        "formal_verification_passed="
-        f"{str(result.proof.is_verification_evidence).lower()}"
-    )
+    typer.echo(f"formal_verification_passed={str(result.proof.is_verification_evidence).lower()}")
     typer.echo("publication_ready=false")
     typer.echo("creates_scientific_validation=false")
     typer.echo(f"proof_artifact={result.proof_artifact.path}")
@@ -2427,14 +2399,10 @@ def inspect_proof_artifacts_command(
     typer.echo(f"Proof artifacts: {summary['run_id']}")
     typer.echo(f"Proof artifact count: {summary['proof_artifact_count']}")
     typer.echo(
-        "Formal verification artifacts passed: "
-        f"{summary['formal_verification_passed_count']}"
+        f"Formal verification artifacts passed: {summary['formal_verification_passed_count']}"
     )
     typer.echo(f"Informal proof artifacts: {summary['informal_proof_artifact_count']}")
-    typer.echo(
-        "Proof evidence gap present: "
-        f"{str(summary['proof_evidence_gap_present']).lower()}"
-    )
+    typer.echo(f"Proof evidence gap present: {str(summary['proof_evidence_gap_present']).lower()}")
     typer.echo("Publication ready: false")
     for path in summary["proof_artifact_paths"]:
         typer.echo(f"- {path}")
@@ -2467,12 +2435,8 @@ def ingest_experiment_artifact_command(
         "is_verification_evidence": False,
         "artifacts": {
             "experiment_artifact": result.experiment_artifact.model_dump(mode="json"),
-            "experiment_index": result.experiment_index_artifact.model_dump(
-                mode="json"
-            ),
-            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
-                mode="json"
-            ),
+            "experiment_index": result.experiment_index_artifact.model_dump(mode="json"),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(mode="json"),
             "reviewer_summary_markdown": (
                 result.reviewer_summary_markdown_artifact.model_dump(mode="json")
             ),
@@ -2546,12 +2510,8 @@ def build_claim_evidence_map_command(
         "is_verification_evidence": False,
         "artifacts": {
             "claim_evidence_map": result.map_artifact.model_dump(mode="json"),
-            "claim_evidence_map_markdown": result.markdown_artifact.model_dump(
-                mode="json"
-            ),
-            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
-                mode="json"
-            ),
+            "claim_evidence_map_markdown": result.markdown_artifact.model_dump(mode="json"),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(mode="json"),
             "reviewer_summary_markdown": (
                 result.reviewer_summary_markdown_artifact.model_dump(mode="json")
             ),
@@ -2566,17 +2526,10 @@ def build_claim_evidence_map_command(
     typer.echo(f"supported_claims={int(counts.get('supported_within_scope') or 0)}")
     typer.echo(f"partial_claims={int(counts.get('partially_supported') or 0)}")
     typer.echo(f"unsupported_claims={int(counts.get('unsupported') or 0)}")
+    typer.echo(f"proof_supported_claims={int(counts.get('proof_supported_claim') or 0)}")
+    typer.echo(f"experiment_supported_claims={int(counts.get('experiment_supported_claim') or 0)}")
     typer.echo(
-        "proof_supported_claims="
-        f"{int(counts.get('proof_supported_claim') or 0)}"
-    )
-    typer.echo(
-        "experiment_supported_claims="
-        f"{int(counts.get('experiment_supported_claim') or 0)}"
-    )
-    typer.echo(
-        "citation_supported_claims="
-        f"{int(counts.get('citation_supported_background_claim') or 0)}"
+        f"citation_supported_claims={int(counts.get('citation_supported_background_claim') or 0)}"
     )
     typer.echo("publication_ready=false")
     typer.echo(f"claim_evidence_map={result.map_artifact.path}")
@@ -2602,15 +2555,208 @@ def inspect_claim_evidence_map_command(
     typer.echo(f"Partially supported claims: {summary['claim_evidence_partial_count']}")
     typer.echo(f"Unsupported claims: {summary['claim_evidence_unsupported_count']}")
     typer.echo(f"Proof-supported claims: {summary['proof_supported_claim_count']}")
-    typer.echo(
-        f"Experiment-supported claims: {summary['experiment_supported_claim_count']}"
-    )
+    typer.echo(f"Experiment-supported claims: {summary['experiment_supported_claim_count']}")
     typer.echo(f"Citation-supported claims: {summary['citation_supported_claim_count']}")
-    typer.echo(
-        f"Human-review-linked claims: {summary['human_review_linked_claim_count']}"
-    )
+    typer.echo(f"Human-review-linked claims: {summary['human_review_linked_claim_count']}")
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary.get('claim_evidence_map_path')}")
+
+
+@app.command("build-autonomous-evidence-plan")
+def build_autonomous_evidence_plan_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    planner_backend: Annotated[
+        str,
+        typer.Option("--planner-backend"),
+    ] = "off",
+    planner_model: Annotated[
+        str,
+        typer.Option("--planner-model"),
+    ] = DEFAULT_LLM_MODEL,
+    max_calls: Annotated[
+        int,
+        typer.Option("--max-autonomous-evidence-planner-calls"),
+    ] = 0,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build and persist a deterministic autonomous evidence-gap plan."""
+    try:
+        result = persist_autonomous_evidence_gap_plan(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            backend=planner_backend,
+            model=planner_model,
+            max_calls=max_calls,
+            allow_external_calls=allow_external_calls,
+        )
+    except AutonomousEvidencePlanError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "autonomous_evidence_gap_plan": result.plan.model_dump(mode="json"),
+        "autonomous_evidence_plan_present": True,
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+        "artifacts": {
+            "autonomous_evidence_gap_plan": result.plan_artifact.model_dump(mode="json"),
+            "autonomous_evidence_gap_plan_markdown": (
+                result.markdown_artifact.model_dump(mode="json")
+            ),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(mode="json"),
+            "reviewer_summary_markdown": (
+                result.reviewer_summary_markdown_artifact.model_dump(mode="json")
+            ),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"planner_backend={result.plan.planner_backend}")
+    typer.echo(f"planner_status={result.plan.planner_status}")
+    typer.echo(f"plan_items={len(result.plan.plan_items)}")
+    typer.echo(
+        "automation_ready_items="
+        f"{sum(1 for item in result.plan.plan_items if item.automation_ready)}"
+    )
+    typer.echo(
+        f"human_intervention_required={str(result.plan.requires_human_intervention).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"autonomous_evidence_gap_plan={result.plan_artifact.path}")
+
+
+@app.command("inspect-autonomous-evidence-plan")
+def inspect_autonomous_evidence_plan_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect a persisted autonomous evidence-gap plan without mutation."""
+    try:
+        summary = inspect_autonomous_evidence_gap_plan(run_id=run_id, root=root)
+    except AutonomousEvidencePlanError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Autonomous evidence-gap plan: {summary['run_id']}")
+    typer.echo(f"Planner backend: {summary['planner_backend']}")
+    typer.echo(f"Planner status: {summary['planner_status']}")
+    typer.echo(f"Plan items: {summary['autonomous_plan_item_count']}")
+    typer.echo(f"Python experiment items: {summary['autonomous_python_experiment_item_count']}")
+    typer.echo(f"Formal proof items: {summary['autonomous_formal_proof_item_count']}")
+    typer.echo(f"Retrieval expansion items: {summary['autonomous_retrieval_expansion_item_count']}")
+    typer.echo(f"Claim downgrade items: {summary['autonomous_claim_downgrade_item_count']}")
+    typer.echo(f"Claim removal items: {summary['autonomous_claim_removal_item_count']}")
+    typer.echo(f"Automation-ready items: {summary['automation_ready_item_count']}")
+    typer.echo(
+        "Human intervention required: "
+        f"{str(summary['autonomous_human_intervention_required']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['autonomous_evidence_plan_path']}")
+
+
+@app.command("execute-autonomous-evidence-plan")
+def execute_autonomous_evidence_plan_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    execution_mode: Annotated[
+        str,
+        typer.Option("--execution-mode"),
+    ] = "dry-run",
+    executor_backend: Annotated[
+        str,
+        typer.Option("--executor-backend"),
+    ] = "deterministic",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Execute the current autonomous plan in deterministic dry-run or apply mode."""
+    try:
+        result = execute_autonomous_evidence_plan(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            execution_mode=execution_mode,
+            executor_backend=executor_backend,
+        )
+    except AutonomousPlanExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "autonomous_plan_execution": result.report.model_dump(mode="json"),
+        "autonomous_plan_execution_index": result.index.model_dump(mode="json"),
+        "autonomous_execution_present": True,
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+        "artifacts": {
+            "execution_report": result.report_artifact.model_dump(mode="json"),
+            "execution_report_markdown": result.report_markdown_artifact.model_dump(mode="json"),
+            "execution_index": result.index_artifact.model_dump(mode="json"),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"execution_id={result.report.execution_id}")
+    typer.echo(f"execution_mode={result.report.execution_mode}")
+    typer.echo(f"execution_status={result.report.execution_status}")
+    typer.echo(f"actions_applied={result.report.actions_applied}")
+    typer.echo(f"actions_deferred={result.report.actions_deferred}")
+    typer.echo(f"actions_rejected={result.report.actions_rejected}")
+    typer.echo(f"actions_failed={result.report.actions_failed}")
+    typer.echo(
+        f"human_intervention_required={str(result.report.requires_human_intervention).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"autonomous_plan_execution={result.report_artifact.path}")
+
+
+@app.command("inspect-autonomous-plan-execution")
+def inspect_autonomous_plan_execution_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest autonomous plan execution without mutation."""
+    try:
+        summary = inspect_autonomous_plan_execution(run_id=run_id, root=root)
+    except AutonomousPlanExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Autonomous plan execution: {summary['run_id']}")
+    typer.echo(f"Execution count: {summary['autonomous_execution_count']}")
+    typer.echo(f"Latest mode: {summary['latest_autonomous_execution_mode']}")
+    typer.echo(f"Latest status: {summary['latest_autonomous_execution_status']}")
+    typer.echo(f"Actions applied: {summary['autonomous_actions_applied']}")
+    typer.echo(f"Actions deferred: {summary['autonomous_actions_deferred']}")
+    typer.echo(f"Actions rejected: {summary['autonomous_actions_rejected']}")
+    typer.echo(f"Actions failed: {summary['autonomous_actions_failed']}")
+    typer.echo(f"Created specs: {summary['autonomous_created_spec_count']}")
+    typer.echo(
+        "Human intervention required: "
+        f"{str(summary['autonomous_execution_requires_human_intervention']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['autonomous_execution_report_path']}")
 
 
 @app.command("refresh-evidence-aware-manuscript")
@@ -2657,12 +2803,8 @@ def refresh_evidence_aware_manuscript_command(
         "artifacts": {
             "refresh_report": result.report_artifact.model_dump(mode="json"),
             "manuscript": result.manuscript_artifact.model_dump(mode="json"),
-            "claim_evidence_map": result.claim_evidence_map_artifact.model_dump(
-                mode="json"
-            ),
-            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
-                mode="json"
-            ),
+            "claim_evidence_map": result.claim_evidence_map_artifact.model_dump(mode="json"),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(mode="json"),
         },
     }
     if json_output:
@@ -2671,12 +2813,9 @@ def refresh_evidence_aware_manuscript_command(
     typer.echo(f"run_id={run_id}")
     typer.echo(f"refresh_backend={result.report.refresh_backend}")
     typer.echo(f"refresh_status={result.report.refresh_status}")
+    typer.echo(f"proof_language_inserted={str(result.report.proof_language_inserted).lower()}")
     typer.echo(
-        f"proof_language_inserted={str(result.report.proof_language_inserted).lower()}"
-    )
-    typer.echo(
-        "experiment_language_inserted="
-        f"{str(result.report.experiment_language_inserted).lower()}"
+        f"experiment_language_inserted={str(result.report.experiment_language_inserted).lower()}"
     )
     typer.echo(
         "claim_evidence_map_rechecked="
@@ -2769,19 +2908,11 @@ def reconcile_human_review_command(
         "publication_ready": False,
         "artifacts": {
             "reconciliation_report": result.report_artifact.model_dump(mode="json"),
-            "reconciliation_markdown": result.report_markdown_artifact.model_dump(
-                mode="json"
-            ),
+            "reconciliation_markdown": result.report_markdown_artifact.model_dump(mode="json"),
             "manuscript": result.manuscript_artifact.model_dump(mode="json"),
-            "claim_evidence_map": result.claim_evidence_map_artifact.model_dump(
-                mode="json"
-            ),
-            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
-                mode="json"
-            ),
-            "reconciliation_index": result.reconciliation_index_artifact.model_dump(
-                mode="json"
-            ),
+            "claim_evidence_map": result.claim_evidence_map_artifact.model_dump(mode="json"),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(mode="json"),
+            "reconciliation_index": result.reconciliation_index_artifact.model_dump(mode="json"),
         },
     }
     if json_output:
@@ -3058,9 +3189,7 @@ def run_llm_paper_command(
             max_review_calls=max_review_calls,
             max_prose_calls=max_prose_calls,
             max_claim_adjudication_calls=max_claim_adjudication_calls,
-            max_source_relevance_adjudication_calls=(
-                max_source_relevance_adjudication_calls
-            ),
+            max_source_relevance_adjudication_calls=(max_source_relevance_adjudication_calls),
             max_quality_repair_calls=max_quality_repair_calls,
             max_total_input_tokens=max_total_input_tokens,
             max_total_output_tokens=max_total_output_tokens,
@@ -3139,8 +3268,7 @@ def run_llm_paper_command(
                                 mode="json"
                             )
                             if result.generation_result is not None
-                            and result.generation_result.quality_repair_report_artifact
-                            is not None
+                            and result.generation_result.quality_repair_report_artifact is not None
                             else None
                         ),
                     },
@@ -3160,14 +3288,8 @@ def run_llm_paper_command(
     typer.echo(f"reviewer_model={reviewer_model}")
     typer.echo(f"prose_backend={prose_backend}")
     typer.echo(f"prose_model={prose_model}")
-    typer.echo(
-        "source_relevance_adjudicator_backend="
-        f"{source_relevance_adjudicator_backend}"
-    )
-    typer.echo(
-        "source_relevance_adjudicator_model="
-        f"{source_relevance_adjudicator_model}"
-    )
+    typer.echo(f"source_relevance_adjudicator_backend={source_relevance_adjudicator_backend}")
+    typer.echo(f"source_relevance_adjudicator_model={source_relevance_adjudicator_model}")
     typer.echo(f"quality_repair_backend={quality_repair_backend}")
     typer.echo(f"quality_repair_model={quality_repair_model}")
     typer.echo(f"allow_external_calls={str(allow_external_calls).lower()}")
@@ -3177,22 +3299,14 @@ def run_llm_paper_command(
         "source_relevance_adjudication_calls="
         f"{preflight_summary['source_relevance_adjudication_calls']}"
     )
+    typer.echo(f"quality_repair_calls={preflight_summary['quality_repair_calls']}")
     typer.echo(
-        "quality_repair_calls="
-        f"{preflight_summary['quality_repair_calls']}"
+        f"generate_paper_effective={str(preflight_summary['generate_paper_effective']).lower()}"
     )
     typer.echo(
-        "generate_paper_effective="
-        f"{str(preflight_summary['generate_paper_effective']).lower()}"
+        f"evaluate_release_effective={str(preflight_summary['evaluate_release_effective']).lower()}"
     )
-    typer.echo(
-        "evaluate_release_effective="
-        f"{str(preflight_summary['evaluate_release_effective']).lower()}"
-    )
-    typer.echo(
-        "export_latex_effective="
-        f"{str(preflight_summary['export_latex_effective']).lower()}"
-    )
+    typer.echo(f"export_latex_effective={str(preflight_summary['export_latex_effective']).lower()}")
     typer.echo(f"budget_status={report.budget_decision.decision_status.value}")
     typer.echo(f"total_llm_calls={report.budget_usage.total_calls}")
     typer.echo(f"rate_limit_per_minute={rate_limit_per_minute or 'none'}")
@@ -3242,9 +3356,7 @@ def _print_llm_run_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Run: {summary['run_id']}")
     typer.echo(f"Status: {summary['orchestration_status']}")
     typer.echo(f"Release: {summary.get('paper_release_status') or 'unknown'}")
-    typer.echo(
-        f"Publication ready: {str(summary.get('publication_ready', False)).lower()}"
-    )
+    typer.echo(f"Publication ready: {str(summary.get('publication_ready', False)).lower()}")
     typer.echo("Safety: safe" if summary.get("safety_report_safe") else "Safety: unsafe")
     typer.echo(
         "Calls: "
@@ -3258,8 +3370,7 @@ def _print_llm_run_summary(summary: dict[str, object]) -> None:
     )
     typer.echo(f"Budget: {budget_line}")
     typer.echo(
-        "Runtime budget blocked: "
-        f"{str(summary.get('runtime_budget_blocked', False)).lower()}"
+        f"Runtime budget blocked: {str(summary.get('runtime_budget_blocked', False)).lower()}"
     )
     typer.echo(
         "Call records: "
@@ -3269,8 +3380,7 @@ def _print_llm_run_summary(summary: dict[str, object]) -> None:
         f"{summary['skipped_call_count']} skipped"
     )
     typer.echo(
-        "Safe repair: "
-        f"{'present' if summary.get('safe_repair_report_present') else 'absent'}"
+        f"Safe repair: {'present' if summary.get('safe_repair_report_present') else 'absent'}"
     )
     typer.echo("Blocking issues:")
     if blocking:
@@ -3314,12 +3424,8 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     primary_name = Path(primary).name if primary != "none" else "none"
     release = summary.get("release_status") or "unknown"
     safe_repair = "present" if summary.get("safe_repair_report_exists") else "absent"
-    quality_repair = (
-        "present" if summary.get("quality_repair_report_present") else "absent"
-    )
-    reviewer_summary = (
-        "present" if summary.get("reviewer_bundle_summary_present") else "absent"
-    )
+    quality_repair = "present" if summary.get("quality_repair_report_present") else "absent"
+    reviewer_summary = "present" if summary.get("reviewer_bundle_summary_present") else "absent"
     citations = "present" if summary.get("citations_present") else "absent"
     blocking_count = int(summary.get("blocking_issue_count") or 0)
     warning_count = int(summary.get("warning_count") or 0)
@@ -3332,13 +3438,9 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Evidence-aware refresh: "
         f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"
     )
+    typer.echo(f"Refresh backend: {summary.get('evidence_aware_refresh_backend') or 'off'}")
     typer.echo(
-        "Refresh backend: "
-        f"{summary.get('evidence_aware_refresh_backend') or 'off'}"
-    )
-    typer.echo(
-        "Proof language inserted: "
-        f"{str(bool(summary.get('proof_language_inserted'))).lower()}"
+        f"Proof language inserted: {str(bool(summary.get('proof_language_inserted'))).lower()}"
     )
     typer.echo(
         "Experiment language inserted: "
@@ -3356,18 +3458,9 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Reconciliation status: "
         f"{summary.get('human_review_reconciliation_status') or 'not_available'}"
     )
-    typer.echo(
-        "Applied changes: "
-        f"{int(summary.get('human_review_applied_change_count') or 0)}"
-    )
-    typer.echo(
-        "Rejected changes: "
-        f"{int(summary.get('human_review_rejected_change_count') or 0)}"
-    )
-    typer.echo(
-        "Deferred changes: "
-        f"{int(summary.get('human_review_deferred_change_count') or 0)}"
-    )
+    typer.echo(f"Applied changes: {int(summary.get('human_review_applied_change_count') or 0)}")
+    typer.echo(f"Rejected changes: {int(summary.get('human_review_rejected_change_count') or 0)}")
+    typer.echo(f"Deferred changes: {int(summary.get('human_review_deferred_change_count') or 0)}")
     typer.echo(
         "Requires new evidence: "
         f"{int(summary.get('human_review_requires_new_evidence_count') or 0)}"
@@ -3376,121 +3469,98 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Reviewer change requests: "
         f"{'present' if summary.get('reviewer_change_requests_present') else 'absent'}"
     )
+    typer.echo(f"Reviewer request sets: {int(summary.get('reviewer_request_set_count') or 0)}")
     typer.echo(
-        "Reviewer request sets: "
-        f"{int(summary.get('reviewer_request_set_count') or 0)}"
+        f"Reconciliation cycles: {int(summary.get('human_review_reconciliation_cycle_count') or 0)}"
     )
     typer.echo(
-        "Reconciliation cycles: "
-        f"{int(summary.get('human_review_reconciliation_cycle_count') or 0)}"
+        f"Latest reconciliation cycle: {int(summary.get('latest_reconciliation_cycle') or 0)}"
+    )
+    typer.echo(f"Unresolved requests: {int(summary.get('unresolved_reviewer_request_count') or 0)}")
+    typer.echo(
+        "Autonomous evidence plan: "
+        f"{'present' if summary.get('autonomous_evidence_plan_present') else 'absent'}"
+    )
+    typer.echo(f"Autonomous plan items: {int(summary.get('autonomous_plan_item_count') or 0)}")
+    typer.echo(f"Automation-ready items: {int(summary.get('automation_ready_item_count') or 0)}")
+    typer.echo(
+        "Human intervention required: "
+        f"{str(bool(summary.get('autonomous_human_intervention_required'))).lower()}"
     )
     typer.echo(
-        "Latest reconciliation cycle: "
-        f"{int(summary.get('latest_reconciliation_cycle') or 0)}"
+        "Autonomous execution: "
+        f"{'present' if summary.get('autonomous_execution_present') else 'absent'}"
     )
     typer.echo(
-        "Unresolved requests: "
-        f"{int(summary.get('unresolved_reviewer_request_count') or 0)}"
+        "Latest execution mode: "
+        f"{summary.get('latest_autonomous_execution_mode') or 'not_available'}"
     )
+    typer.echo(
+        "Latest execution status: "
+        f"{summary.get('latest_autonomous_execution_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Autonomous actions applied/deferred/rejected/failed: "
+        f"{int(summary.get('autonomous_actions_applied') or 0)}/"
+        f"{int(summary.get('autonomous_actions_deferred') or 0)}/"
+        f"{int(summary.get('autonomous_actions_rejected') or 0)}/"
+        f"{int(summary.get('autonomous_actions_failed') or 0)}"
+    )
+    typer.echo(f"Created specs: {int(summary.get('autonomous_created_spec_count') or 0)}")
     typer.echo(f"Reviewer summary: {reviewer_summary}")
-    typer.echo(
-        "Reviewer summary status: "
-        f"{summary.get('reviewer_summary_status') or 'absent'}"
-    )
-    typer.echo(
-        "Evidence gaps: "
-        f"{int(summary.get('reviewer_summary_evidence_gap_count') or 0)}"
-    )
+    typer.echo(f"Reviewer summary status: {summary.get('reviewer_summary_status') or 'absent'}")
+    typer.echo(f"Evidence gaps: {int(summary.get('reviewer_summary_evidence_gap_count') or 0)}")
     typer.echo(
         "Human-review checklist items: "
         f"{int(summary.get('reviewer_summary_human_checklist_count') or 0)}"
     )
     typer.echo(
-        "Human review: "
-        f"{'present' if summary.get('human_review_artifact_present') else 'absent'}"
+        f"Human review: {'present' if summary.get('human_review_artifact_present') else 'absent'}"
     )
-    typer.echo(
-        "Human review status: "
-        f"{summary.get('human_review_status') or 'not_available'}"
-    )
+    typer.echo(f"Human review status: {summary.get('human_review_status') or 'not_available'}")
     typer.echo(
         "Blocking human-review concerns: "
         f"{int(summary.get('human_review_blocking_concern_count') or 0)}"
     )
+    typer.echo(f"Requested changes: {int(summary.get('human_review_requested_change_count') or 0)}")
     typer.echo(
-        "Requested changes: "
-        f"{int(summary.get('human_review_requested_change_count') or 0)}"
-    )
-    typer.echo(
-        "Recommended next action: "
-        f"{summary.get('human_review_recommended_next_action') or 'none'}"
+        f"Recommended next action: {summary.get('human_review_recommended_next_action') or 'none'}"
     )
     typer.echo(f"Proof artifacts: {int(summary.get('proof_artifact_count') or 0)}")
     typer.echo(
         "Formal verification artifacts passed: "
         f"{int(summary.get('formal_verification_passed_count') or 0)}"
     )
-    typer.echo(
-        "Experiment artifacts: "
-        f"{int(summary.get('experiment_artifact_count') or 0)}"
-    )
-    typer.echo(
-        "Completed experiments: "
-        f"{int(summary.get('completed_experiment_count') or 0)}"
-    )
-    typer.echo(
-        "Remaining evidence gaps: "
-        f"{int(summary.get('remaining_evidence_gap_count') or 0)}"
-    )
+    typer.echo(f"Experiment artifacts: {int(summary.get('experiment_artifact_count') or 0)}")
+    typer.echo(f"Completed experiments: {int(summary.get('completed_experiment_count') or 0)}")
+    typer.echo(f"Remaining evidence gaps: {int(summary.get('remaining_evidence_gap_count') or 0)}")
     typer.echo(
         "Claim-evidence map: "
         f"{'present' if summary.get('claim_evidence_map_present') else 'absent'}"
     )
+    typer.echo(f"Supported claims: {int(summary.get('claim_evidence_supported_count') or 0)}")
     typer.echo(
-        "Supported claims: "
-        f"{int(summary.get('claim_evidence_supported_count') or 0)}"
+        f"Partially supported claims: {int(summary.get('claim_evidence_partial_count') or 0)}"
+    )
+    typer.echo(f"Unsupported claims: {int(summary.get('claim_evidence_unsupported_count') or 0)}")
+    typer.echo(f"Proof-supported claims: {int(summary.get('proof_supported_claim_count') or 0)}")
+    typer.echo(
+        f"Experiment-supported claims: {int(summary.get('experiment_supported_claim_count') or 0)}"
     )
     typer.echo(
-        "Partially supported claims: "
-        f"{int(summary.get('claim_evidence_partial_count') or 0)}"
+        f"Citation-supported claims: {int(summary.get('citation_supported_claim_count') or 0)}"
     )
+    typer.echo(f"Quality repair backend: {summary.get('quality_repair_backend') or 'off'}")
     typer.echo(
-        "Unsupported claims: "
-        f"{int(summary.get('claim_evidence_unsupported_count') or 0)}"
+        f"Quality repaired sections: {int(summary.get('quality_repaired_section_count') or 0)}"
     )
-    typer.echo(
-        "Proof-supported claims: "
-        f"{int(summary.get('proof_supported_claim_count') or 0)}"
-    )
-    typer.echo(
-        "Experiment-supported claims: "
-        f"{int(summary.get('experiment_supported_claim_count') or 0)}"
-    )
-    typer.echo(
-        "Citation-supported claims: "
-        f"{int(summary.get('citation_supported_claim_count') or 0)}"
-    )
-    typer.echo(
-        "Quality repair backend: "
-        f"{summary.get('quality_repair_backend') or 'off'}"
-    )
-    typer.echo(
-        "Quality repaired sections: "
-        f"{int(summary.get('quality_repaired_section_count') or 0)}"
-    )
-    typer.echo(
-        "Sections repaired: "
-        f"{int(summary.get('quality_repaired_section_count') or 0)}"
-    )
+    typer.echo(f"Sections repaired: {int(summary.get('quality_repaired_section_count') or 0)}")
     typer.echo(
         "Depth targets met: "
         f"{int(summary.get('section_depth_target_met_count') or 0)}/"
         f"{int(summary.get('section_depth_target_total') or 0)}"
     )
-    typer.echo(
-        "Warnings reduced: "
-        f"{int(summary.get('warnings_reduced_count') or 0)}"
-    )
+    typer.echo(f"Warnings reduced: {int(summary.get('warnings_reduced_count') or 0)}")
     typer.echo(
         "Quality status before/after: "
         f"{summary.get('quality_status_before_repair') or 'unknown'} / "
@@ -3502,64 +3572,39 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
     typer.echo(f"Citations: {citations}")
     typer.echo(
-        "Citation registry: "
-        f"{'present' if summary.get('citation_registry_present') else 'absent'}"
+        f"Citation registry: {'present' if summary.get('citation_registry_present') else 'absent'}"
     )
+    typer.echo(f"Registry sources: {int(summary.get('citation_registry_source_count') or 0)}")
     typer.echo(
-        "Registry sources: "
-        f"{int(summary.get('citation_registry_source_count') or 0)}"
+        f"Unregistered citations: {len(list(summary.get('unregistered_citation_keys') or []))}"
     )
-    typer.echo(
-        "Unregistered citations: "
-        f"{len(list(summary.get('unregistered_citation_keys') or []))}"
-    )
-    typer.echo(
-        "Bibliography: "
-        f"{summary.get('bibliography_status') or 'absent'}"
-    )
+    typer.echo(f"Bibliography: {summary.get('bibliography_status') or 'absent'}")
     typer.echo(
         "Retrieval quality: "
         f"{'present' if summary.get('retrieval_quality_report_present') else 'absent'}"
     )
-    typer.echo(
-        "Retrieved sources: "
-        f"{int(summary.get('retrieved_source_count') or 0)}"
-    )
-    typer.echo(
-        "Accepted sources: "
-        f"{int(summary.get('accepted_source_count') or 0)}"
-    )
-    typer.echo(
-        "Rejected sources: "
-        f"{int(summary.get('rejected_source_count') or 0)}"
-    )
-    typer.echo(
-        "Adequacy: "
-        f"{summary.get('retrieval_adequacy_status') or 'not_evaluated'}"
-    )
+    typer.echo(f"Retrieved sources: {int(summary.get('retrieved_source_count') or 0)}")
+    typer.echo(f"Accepted sources: {int(summary.get('accepted_source_count') or 0)}")
+    typer.echo(f"Rejected sources: {int(summary.get('rejected_source_count') or 0)}")
+    typer.echo(f"Adequacy: {summary.get('retrieval_adequacy_status') or 'not_evaluated'}")
     typer.echo(
         "Source relevance adjudication: "
         f"{summary.get('source_relevance_adjudicator_backend') or 'off'}"
     )
     typer.echo(
-        "Adjudicated sources: "
-        f"{int(summary.get('source_relevance_adjudicated_count') or 0)}"
+        f"Adjudicated sources: {int(summary.get('source_relevance_adjudicated_count') or 0)}"
     )
     typer.echo(
-        "LLM accepted sources: "
-        f"{int(summary.get('source_relevance_llm_accepted_count') or 0)}"
+        f"LLM accepted sources: {int(summary.get('source_relevance_llm_accepted_count') or 0)}"
     )
     typer.echo(
-        "LLM rejected sources: "
-        f"{int(summary.get('source_relevance_llm_rejected_count') or 0)}"
+        f"LLM rejected sources: {int(summary.get('source_relevance_llm_rejected_count') or 0)}"
     )
     typer.echo(
-        "Hard rejected sources: "
-        f"{int(summary.get('source_relevance_hard_reject_count') or 0)}"
+        f"Hard rejected sources: {int(summary.get('source_relevance_hard_reject_count') or 0)}"
     )
     typer.echo(
-        "Claim support: "
-        f"{'present' if summary.get('claim_support_audit_present') else 'absent'}"
+        f"Claim support: {'present' if summary.get('claim_support_audit_present') else 'absent'}"
     )
     typer.echo(
         "Registry-supported claims: "
@@ -3569,10 +3614,7 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Missing citation claims: "
         f"{int(summary.get('claim_support_missing_required_citation_count') or 0)}"
     )
-    typer.echo(
-        "Scope mismatches: "
-        f"{int(summary.get('claim_support_scope_mismatch_count') or 0)}"
-    )
+    typer.echo(f"Scope mismatches: {int(summary.get('claim_support_scope_mismatch_count') or 0)}")
     typer.echo(
         "Citation validation misuse: "
         f"{int(summary.get('citation_as_validation_misuse_count') or 0)}"
@@ -3585,10 +3627,7 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Blocking issues: {blocking_count if blocking_count else 'none'}")
     typer.echo(f"Warnings: {warning_count}")
     typer.echo(f"Title: {summary.get('title_detected') or 'unknown'}")
-    typer.echo(
-        "Abstract: "
-        f"{'present' if summary.get('abstract_detected') else 'absent'}"
-    )
+    typer.echo(f"Abstract: {'present' if summary.get('abstract_detected') else 'absent'}")
     if artifacts:
         typer.echo("Artifacts:")
         _echo_named_artifact(artifacts, "revised manuscript", "revised_manuscript_draft")
@@ -3687,10 +3726,7 @@ def _print_reviewer_bundle_summary(summary: dict[str, object]) -> None:
     actions = list(summary.get("recommended_next_actions") or [])
     typer.echo(f"Reviewer summary: {summary['run_id']}")
     typer.echo(f"Release: {summary.get('release_status') or 'unknown'}")
-    typer.echo(
-        "Publication ready: "
-        f"{str(summary.get('publication_ready', False)).lower()}"
-    )
+    typer.echo(f"Publication ready: {str(summary.get('publication_ready', False)).lower()}")
     typer.echo(f"Safety: {summary.get('safety_status') or 'unknown'}")
     typer.echo(f"Quality: {summary.get('quality_status') or 'unknown'}")
     typer.echo(
@@ -3704,65 +3740,39 @@ def _print_reviewer_bundle_summary(summary: dict[str, object]) -> None:
         f"{summary.get('source_relevance_status') or 'unknown'}"
     )
     typer.echo(
-        "Human review: "
-        f"{'present' if summary.get('human_review_artifact_present') else 'absent'}"
+        f"Human review: {'present' if summary.get('human_review_artifact_present') else 'absent'}"
     )
-    typer.echo(
-        "Human review status: "
-        f"{summary.get('human_review_status') or 'not_available'}"
-    )
+    typer.echo(f"Human review status: {summary.get('human_review_status') or 'not_available'}")
     typer.echo(
         "Blocking human-review concerns: "
         f"{int(summary.get('human_review_blocking_concern_count') or 0)}"
     )
+    typer.echo(f"Requested changes: {int(summary.get('human_review_requested_change_count') or 0)}")
     typer.echo(
-        "Requested changes: "
-        f"{int(summary.get('human_review_requested_change_count') or 0)}"
-    )
-    typer.echo(
-        "Recommended next action: "
-        f"{summary.get('human_review_recommended_next_action') or 'none'}"
+        f"Recommended next action: {summary.get('human_review_recommended_next_action') or 'none'}"
     )
     typer.echo(f"Proof artifacts: {int(summary.get('proof_artifact_count') or 0)}")
     typer.echo(
         "Formal verification artifacts passed: "
         f"{int(summary.get('formal_verification_artifact_count') or 0)}"
     )
-    typer.echo(
-        "Experiment artifacts: "
-        f"{int(summary.get('experiment_artifact_count') or 0)}"
-    )
-    typer.echo(
-        "Completed experiments: "
-        f"{int(summary.get('completed_experiment_count') or 0)}"
-    )
+    typer.echo(f"Experiment artifacts: {int(summary.get('experiment_artifact_count') or 0)}")
+    typer.echo(f"Completed experiments: {int(summary.get('completed_experiment_count') or 0)}")
     typer.echo(
         "Claim-evidence map: "
         f"{'present' if summary.get('claim_evidence_map_present') else 'absent'}"
     )
+    typer.echo(f"Supported claims: {int(summary.get('claim_evidence_supported_count') or 0)}")
     typer.echo(
-        "Supported claims: "
-        f"{int(summary.get('claim_evidence_supported_count') or 0)}"
+        f"Partially supported claims: {int(summary.get('claim_evidence_partial_count') or 0)}"
+    )
+    typer.echo(f"Unsupported claims: {int(summary.get('claim_evidence_unsupported_count') or 0)}")
+    typer.echo(f"Proof-supported claims: {int(summary.get('proof_supported_claim_count') or 0)}")
+    typer.echo(
+        f"Experiment-supported claims: {int(summary.get('experiment_supported_claim_count') or 0)}"
     )
     typer.echo(
-        "Partially supported claims: "
-        f"{int(summary.get('claim_evidence_partial_count') or 0)}"
-    )
-    typer.echo(
-        "Unsupported claims: "
-        f"{int(summary.get('claim_evidence_unsupported_count') or 0)}"
-    )
-    typer.echo(
-        "Proof-supported claims: "
-        f"{int(summary.get('proof_supported_claim_count') or 0)}"
-    )
-    typer.echo(
-        "Experiment-supported claims: "
-        f"{int(summary.get('experiment_supported_claim_count') or 0)}"
-    )
-    typer.echo(
-        "Citation-supported claims: "
-        f"{int(summary.get('citation_supported_claim_count') or 0)}"
+        f"Citation-supported claims: {int(summary.get('citation_supported_claim_count') or 0)}"
     )
     typer.echo(f"Evidence gaps: {len(evidence_gaps)}")
     for gap in evidence_gaps:
@@ -3825,14 +3835,8 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Paper quality: {summary['run_id']}")
     typer.echo(f"Status: {summary['quality_status']}")
     typer.echo(f"Words: {int(summary.get('word_count') or 0):,}")
-    typer.echo(
-        "Main-body sections: "
-        f"{int(summary.get('main_body_section_count') or 0)}"
-    )
-    typer.echo(
-        "Appendix sections: "
-        f"{int(summary.get('appendix_section_count') or 0)}"
-    )
+    typer.echo(f"Main-body sections: {int(summary.get('main_body_section_count') or 0)}")
+    typer.echo(f"Appendix sections: {int(summary.get('appendix_section_count') or 0)}")
     typer.echo(f"Total headings: {int(summary.get('total_heading_count') or 0)}")
     typer.echo(
         "Average main-body words/section: "
@@ -3841,16 +3845,14 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Title: {title_state}")
     typer.echo(f"Citations: {citations}")
     typer.echo(
-        "Quality repair: "
-        f"{'present' if summary.get('quality_repair_report_present') else 'absent'}"
+        f"Quality repair: {'present' if summary.get('quality_repair_report_present') else 'absent'}"
     )
     typer.echo(
         "Evidence-aware refresh: "
         f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"
     )
     typer.echo(
-        "Evidence-aware refresh backend: "
-        f"{summary.get('evidence_aware_refresh_backend') or 'off'}"
+        f"Evidence-aware refresh backend: {summary.get('evidence_aware_refresh_backend') or 'off'}"
     )
     typer.echo(
         "Human-review reconciliation: "
@@ -3861,22 +3863,41 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{summary.get('human_review_reconciliation_status') or 'not_available'}"
     )
     typer.echo(
-        "Quality repair backend: "
-        f"{summary.get('quality_repair_backend') or 'off'}"
+        "Autonomous evidence plan: "
+        f"{'present' if summary.get('autonomous_evidence_plan_present') else 'absent'}"
+    )
+    typer.echo(f"Autonomous plan items: {int(summary.get('autonomous_plan_item_count') or 0)}")
+    typer.echo(f"Automation-ready items: {int(summary.get('automation_ready_item_count') or 0)}")
+    typer.echo(
+        "Human intervention required: "
+        f"{str(bool(summary.get('autonomous_human_intervention_required'))).lower()}"
     )
     typer.echo(
-        "Quality repaired sections: "
-        f"{int(summary.get('quality_repaired_section_count') or 0)}"
+        "Autonomous execution: "
+        f"{'present' if summary.get('autonomous_execution_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest autonomous execution: "
+        f"{summary.get('latest_autonomous_execution_mode') or 'not_available'} / "
+        f"{summary.get('latest_autonomous_execution_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Autonomous actions applied/deferred/rejected/failed: "
+        f"{int(summary.get('autonomous_actions_applied') or 0)}/"
+        f"{int(summary.get('autonomous_actions_deferred') or 0)}/"
+        f"{int(summary.get('autonomous_actions_rejected') or 0)}/"
+        f"{int(summary.get('autonomous_actions_failed') or 0)}"
+    )
+    typer.echo(f"Quality repair backend: {summary.get('quality_repair_backend') or 'off'}")
+    typer.echo(
+        f"Quality repaired sections: {int(summary.get('quality_repaired_section_count') or 0)}"
     )
     typer.echo(
         "Depth targets met: "
         f"{int(summary.get('section_depth_target_met_count') or 0)}/"
         f"{int(summary.get('section_depth_target_total') or 0)}"
     )
-    typer.echo(
-        "Warnings reduced: "
-        f"{int(summary.get('warnings_reduced_count') or 0)}"
-    )
+    typer.echo(f"Warnings reduced: {int(summary.get('warnings_reduced_count') or 0)}")
     typer.echo(
         "Quality status before/after: "
         f"{summary.get('quality_status_before_repair') or 'unknown'} / "
@@ -3887,13 +3908,9 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{'present' if summary.get('citation_registry_present') else 'absent'} "
         f"({int(summary.get('citation_registry_source_count') or 0)} sources)"
     )
+    typer.echo(f"Bibliography: {summary.get('bibliography_status') or 'absent'}")
     typer.echo(
-        "Bibliography: "
-        f"{summary.get('bibliography_status') or 'absent'}"
-    )
-    typer.echo(
-        "Claim support: "
-        f"{'present' if summary.get('claim_support_audit_present') else 'absent'}"
+        f"Claim support: {'present' if summary.get('claim_support_audit_present') else 'absent'}"
     )
     typer.echo(
         "Retrieval quality: "
@@ -3906,29 +3923,22 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{summary.get('source_relevance_adjudicator_backend') or 'off'}"
     )
     typer.echo(
-        "Adjudicated sources: "
-        f"{int(summary.get('source_relevance_adjudicated_count') or 0)}"
+        f"Adjudicated sources: {int(summary.get('source_relevance_adjudicated_count') or 0)}"
     )
     typer.echo(
-        "LLM accepted sources: "
-        f"{int(summary.get('source_relevance_llm_accepted_count') or 0)}"
+        f"LLM accepted sources: {int(summary.get('source_relevance_llm_accepted_count') or 0)}"
     )
     typer.echo(
-        "LLM rejected sources: "
-        f"{int(summary.get('source_relevance_llm_rejected_count') or 0)}"
+        f"LLM rejected sources: {int(summary.get('source_relevance_llm_rejected_count') or 0)}"
     )
     typer.echo(
-        "Hard rejected sources: "
-        f"{int(summary.get('source_relevance_hard_reject_count') or 0)}"
+        f"Hard rejected sources: {int(summary.get('source_relevance_hard_reject_count') or 0)}"
     )
     typer.echo(
         "Missing citation claims: "
         f"{int(summary.get('claim_support_missing_required_citation_count') or 0)}"
     )
-    typer.echo(
-        "Scope mismatches: "
-        f"{int(summary.get('claim_support_scope_mismatch_count') or 0)}"
-    )
+    typer.echo(f"Scope mismatches: {int(summary.get('claim_support_scope_mismatch_count') or 0)}")
     typer.echo(
         "Citation validation misuse: "
         f"{int(summary.get('citation_as_validation_misuse_count') or 0)}"
@@ -3938,10 +3948,7 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{summary.get('claim_adjudicator_backend') or 'off'} "
         f"({int(summary.get('adjudicated_sentence_count') or 0)} sentences)"
     )
-    typer.echo(
-        "Release: "
-        f"{summary.get('paper_release_status') or 'unknown'}"
-    )
+    typer.echo(f"Release: {summary.get('paper_release_status') or 'unknown'}")
     typer.echo("Publication ready: false")
     typer.echo("Semantic essentials:")
     for key, label in (

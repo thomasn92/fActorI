@@ -8,6 +8,15 @@ from typer.testing import CliRunner
 
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
+from factori.autonomous_evidence_plan import (
+    build_autonomous_evidence_gap_plan,
+    inspect_autonomous_evidence_gap_plan,
+    persist_autonomous_evidence_gap_plan,
+)
+from factori.autonomous_plan_execution import (
+    execute_autonomous_evidence_plan,
+    inspect_autonomous_plan_execution,
+)
 from factori.claim_adjudication import FakeClaimAdjudicator
 from factori.claim_evidence import (
     build_claim_evidence_map,
@@ -51,6 +60,9 @@ from factori.reviewer_change_requests import (
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
+    AutonomousEvidenceGapPlan,
+    AutonomousEvidenceGapPlanItem,
+    AutonomousPlanExecutionReport,
     CitationRecord,
     CitationRegistry,
     ClaimEvidenceMap,
@@ -91,6 +103,8 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ClaimEvidenceMapLink
     assert EvidenceAwareRefreshReport
     assert HumanReviewReconciliationReport
+    assert AutonomousEvidenceGapPlan
+    assert AutonomousPlanExecutionReport
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -201,16 +215,10 @@ def test_generate_paper_write_report_writes_full_report_and_bundle(tmp_path) -> 
     _assert_non_evidence_artifact(tmp_path, report_ref)
     _assert_non_evidence_artifact(tmp_path, bundle_ref)
     assert (tmp_path / "runs" / "run-report" / "reports" / "citation-registry.json").is_file()
-    assert (
-        tmp_path / "runs" / "run-report" / "reports" / "complete-manuscript-draft.md"
-    ).is_file()
+    assert (tmp_path / "runs" / "run-report" / "reports" / "complete-manuscript-draft.md").is_file()
     assert (tmp_path / "runs" / "run-report" / "latex" / "paper.tex").is_file()
-    assert (
-        tmp_path / "runs" / "run-report" / "reports" / "paper-critic-report.json"
-    ).is_file()
-    claim_support_path = (
-        tmp_path / "runs" / "run-report" / "reports" / "claim-support-audit.json"
-    )
+    assert (tmp_path / "runs" / "run-report" / "reports" / "paper-critic-report.json").is_file()
+    claim_support_path = tmp_path / "runs" / "run-report" / "reports" / "claim-support-audit.json"
     assert claim_support_path.is_file()
     claim_support = json.loads(claim_support_path.read_text(encoding="utf-8"))
     assert claim_support["creates_scientific_validation"] is False
@@ -377,9 +385,7 @@ def test_deterministic_quality_repair_writes_safe_report_and_revised_draft(
     assert result.quality_repair_report_artifact is not None
     _assert_non_evidence_artifact(tmp_path, result.quality_repair_report_artifact)
     report_path = tmp_path / result.quality_repair_report_artifact.path
-    report = QualityRepairReport.model_validate_json(
-        report_path.read_text(encoding="utf-8")
-    )
+    report = QualityRepairReport.model_validate_json(report_path.read_text(encoding="utf-8"))
     assert report.quality_repair_enabled is True
     assert report.quality_repair_backend == "deterministic"
     assert report.quality_repair_status in {"repaired", "no_action_needed"}
@@ -400,16 +406,13 @@ def test_deterministic_quality_repair_writes_safe_report_and_revised_draft(
     assert report.creates_scientific_validation is False
     assert report.implies_publication_readiness is False
     assert report.is_verification_evidence is False
-    assert result.artifact_bundle.quality_repair_report_artifact_id == (
-        "quality-repair-report"
-    )
+    assert result.artifact_bundle.quality_repair_report_artifact_id == ("quality-repair-report")
     assert result.artifact_bundle.revised_manuscript_draft_artifact_id == (
         "revised-manuscript-draft"
     )
-    revised = (
-        tmp_path
-        / "runs/run-quality-repair/reports/revised-manuscript-draft.md"
-    ).read_text(encoding="utf-8")
+    revised = (tmp_path / "runs/run-quality-repair/reports/revised-manuscript-draft.md").read_text(
+        encoding="utf-8"
+    )
     lowered = revised.lower()
     assert "publication_ready=false" in revised
     assert "publication ready" not in lowered
@@ -464,13 +467,8 @@ def test_reviewer_bundle_summary_is_written_after_release(tmp_path) -> None:
         ),
     )
 
-    json_path = (
-        tmp_path
-        / "runs/run-reviewer-summary/reports/reviewer-bundle-summary.json"
-    )
-    markdown_path = (
-        tmp_path / "runs/run-reviewer-summary/reports/reviewer-bundle-summary.md"
-    )
+    json_path = tmp_path / "runs/run-reviewer-summary/reports/reviewer-bundle-summary.json"
+    markdown_path = tmp_path / "runs/run-reviewer-summary/reports/reviewer-bundle-summary.md"
     assert json_path.is_file()
     assert markdown_path.is_file()
     assert release.reviewer_summary_artifact is not None
@@ -481,9 +479,7 @@ def test_reviewer_bundle_summary_is_written_after_release(tmp_path) -> None:
         release.reviewer_summary_markdown_artifact,
     )
 
-    summary = ReviewerBundleSummary.model_validate_json(
-        json_path.read_text(encoding="utf-8")
-    )
+    summary = ReviewerBundleSummary.model_validate_json(json_path.read_text(encoding="utf-8"))
     inspected = inspect_reviewer_bundle_summary(
         run_id="run-reviewer-summary",
         root=tmp_path,
@@ -551,9 +547,7 @@ def test_valid_human_review_artifact_is_ingested_and_updates_summary(tmp_path) -
     assert inspected_review["publication_ready"] is False
 
     summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
-    assert summary["summary_path"].endswith(
-        "reviewer-bundle-summary-after-human-review.json"
-    )
+    assert summary["summary_path"].endswith("reviewer-bundle-summary-after-human-review.json")
     assert summary["human_review_artifact_present"] is True
     assert summary["human_review_status"] == "reviewed_ready_for_evidence_generation"
     assert summary["human_review_blocking_concern_count"] == 0
@@ -596,8 +590,7 @@ def test_blocking_human_review_concerns_are_surfaced(tmp_path) -> None:
     assert summary["human_review_requested_change_count"] == 1
     assert "Problem framing needs human revision." in summary["blocking_issues"]
     assert any(
-        "blocking human-review concerns" in action
-        for action in summary["recommended_next_actions"]
+        "blocking human-review concerns" in action for action in summary["recommended_next_actions"]
     )
 
 
@@ -942,9 +935,7 @@ def test_completed_experiment_artifact_is_ingested_and_removes_experiment_gap(
     summary = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
     assert summary["experiment_artifact_count"] == 1
     assert summary["completed_experiment_count"] == 1
-    assert not any(
-        "No completed experiment artifact" in gap for gap in summary["evidence_gaps"]
-    )
+    assert not any("No completed experiment artifact" in gap for gap in summary["evidence_gaps"])
     assert any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
 
     lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
@@ -1084,9 +1075,7 @@ def test_proof_and_experiment_artifacts_update_reviewer_summary_together(
     assert summary["completed_experiment_count"] == 1
     assert summary["publication_ready"] is False
     assert not any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
-    assert not any(
-        "No completed experiment artifact" in gap for gap in summary["evidence_gaps"]
-    )
+    assert not any("No completed experiment artifact" in gap for gap in summary["evidence_gaps"])
     assert any("No human-review artifact" in gap for gap in summary["evidence_gaps"])
 
     lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
@@ -1364,6 +1353,443 @@ def test_claim_evidence_map_blocks_proof_for_novelty_or_readiness_claim(
     assert claim_map.publication_ready is False
 
 
+def test_autonomous_evidence_plan_is_persisted_and_exposed(tmp_path) -> None:
+    run_id = "run-autonomous-plan-persist"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    result = persist_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.AUTONOMOUS_EVIDENCE_PLAN_WRITTEN
+    )
+    assert result.plan.planner_backend == "deterministic"
+    assert result.plan.planner_status == "planned"
+    assert result.plan.plan_items
+    assert result.plan.publication_ready is False
+    assert result.plan.creates_scientific_validation is False
+    assert result.plan.implies_publication_readiness is False
+    assert result.plan.is_verification_evidence is False
+    _assert_non_evidence_artifact(tmp_path, result.plan_artifact)
+    _assert_non_evidence_artifact(tmp_path, result.markdown_artifact)
+    inspected = inspect_autonomous_evidence_gap_plan(run_id=run_id, root=tmp_path)
+    assert inspected["autonomous_evidence_plan_present"] is True
+    assert inspected["autonomous_plan_item_count"] == len(result.plan.plan_items)
+    assert inspected["autonomous_human_intervention_required"] is False
+
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert reviewer["summary_path"].endswith(
+        "reviewer-bundle-summary-after-autonomous-evidence-plan-0001.json"
+    )
+    assert reviewer["autonomous_evidence_plan_present"] is True
+    assert reviewer["automation_ready_item_count"] >= 0
+    assert reviewer["human_intervention_required"] is False
+    assert reviewer["publication_ready"] is False
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["autonomous_evidence_plan_present"] is True
+    assert lint["autonomous_plan_item_count"] == len(result.plan.plan_items)
+    assert lint["autonomous_human_intervention_required"] is False
+    assert lint["publication_ready"] is False
+
+
+def test_autonomous_evidence_plan_classifies_claim_gaps(tmp_path) -> None:
+    run_id = "run-autonomous-plan-gaps"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        citation_registry=_citation_registry_fixture(run_id=run_id),
+        retrieval_quality=_retrieval_quality_fixture(run_id=run_id),
+        items=[
+            _claim_support_item(
+                sentence_id="empirical-claim",
+                claim_class="experiment_claim",
+                support_status="forbidden_claim_without_evidence",
+            ),
+            _claim_support_item(
+                sentence_id="theorem-claim",
+                claim_class="proof_claim",
+                support_status="forbidden_claim_without_evidence",
+            ),
+            _claim_support_item(
+                sentence_id="background-claim",
+                claim_class="literature_background_claim",
+                support_status="missing_required_citation",
+            ),
+            _claim_support_item(
+                sentence_id="novelty-claim",
+                claim_class="novelty_claim",
+                support_status="forbidden_claim_without_evidence",
+            ),
+            _claim_support_item(
+                sentence_id="supported-background-claim",
+                claim_class="literature_background_claim",
+                citation_keys_present=["smith2021"],
+                supporting_source_ids=["source-1"],
+                support_status="registry_supported",
+            ),
+        ],
+    )
+    _write_claim_evidence_map_report(
+        tmp_path,
+        build_claim_evidence_map(run_id=run_id, root=tmp_path),
+    )
+
+    plan = build_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        backend="deterministic",
+    )
+
+    by_claim = {item.target_claim_id_optional: item for item in plan.plan_items}
+    assert by_claim["empirical-claim"].gap_type == "needs_python_experiment"
+    assert by_claim["theorem-claim"].gap_type == "needs_formal_proof"
+    assert by_claim["background-claim"].gap_type == "needs_retrieval_expansion"
+    assert by_claim["novelty-claim"].gap_type == "needs_claim_removal"
+    assert by_claim["supported-background-claim"].gap_type == (
+        "sufficiently_supported_for_bounded_draft"
+    )
+    assert plan.ready_for_python_experiment_runner is True
+    assert plan.ready_for_formal_proof_attempt is True
+    assert plan.ready_for_retrieval_expansion is True
+    assert plan.requires_human_intervention is False
+    assert plan.creates_scientific_validation is False
+    assert plan.implies_publication_readiness is False
+    assert plan.is_verification_evidence is False
+
+
+def test_autonomous_evidence_plan_treats_bounded_retrieval_as_nonblocking(
+    tmp_path,
+) -> None:
+    run_id = "run-autonomous-plan-bounded-retrieval"
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        citation_registry=_citation_registry_fixture(run_id=run_id),
+        retrieval_quality=_retrieval_quality_fixture(
+            run_id=run_id,
+            accepted_source_ids=["source-1"],
+            rejected_source_ids=["source-2"],
+            rejection_reasons={"source-2": "deterministic reject"},
+        ),
+        items=[
+            _claim_support_item(
+                sentence_id="supported-background-claim",
+                claim_class="literature_background_claim",
+                citation_keys_present=["smith2021"],
+                supporting_source_ids=["source-1"],
+                support_status="registry_supported",
+            )
+        ],
+    )
+    _write_claim_evidence_map_report(
+        tmp_path,
+        build_claim_evidence_map(run_id=run_id, root=tmp_path),
+    )
+
+    plan = build_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        backend="deterministic",
+    )
+
+    retrieval_items = [item for item in plan.plan_items if item.target_type == "retrieval"]
+    assert retrieval_items
+    assert retrieval_items[0].gap_type == "needs_retrieval_expansion"
+    assert retrieval_items[0].blocking is False
+    assert retrieval_items[0].automation_ready is True
+    assert plan.requires_human_intervention is False
+
+
+def test_autonomous_evidence_plan_requires_human_for_missing_or_corrupt_map(
+    tmp_path,
+) -> None:
+    run_id = "run-autonomous-plan-missing-map"
+    (tmp_path / "runs" / run_id / "reports").mkdir(parents=True)
+
+    missing = build_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        backend="deterministic",
+    )
+
+    assert missing.planner_status == "blocked_missing_claim_evidence_map"
+    assert missing.requires_human_intervention is True
+    assert missing.plan_items == []
+
+    corrupt_run_id = "run-autonomous-plan-corrupt-map"
+    reports = tmp_path / "runs" / corrupt_run_id / "reports"
+    reports.mkdir(parents=True)
+    (reports / "claim-evidence-map.json").write_text("{not-json}\n", encoding="utf-8")
+
+    corrupt = build_autonomous_evidence_gap_plan(
+        run_id=corrupt_run_id,
+        root=tmp_path,
+        backend="deterministic",
+    )
+
+    assert corrupt.planner_status == "blocked_corrupt_claim_evidence_map"
+    assert corrupt.requires_human_intervention is True
+    assert corrupt.human_intervention_reason_optional
+
+
+def test_autonomous_plan_executor_dry_run_and_apply_are_bounded(tmp_path) -> None:
+    run_id = "run-autonomous-executor"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    persist_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+    manuscript = tmp_path / "runs" / run_id / "reports" / "revised-manuscript-draft.md"
+    claim_map = tmp_path / "runs" / run_id / "reports" / "claim-evidence-map.json"
+    manuscript_hash = sha256_file(manuscript)
+    claim_map_hash = sha256_file(claim_map)
+
+    dry_run = execute_autonomous_evidence_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="dry-run",
+        executor_backend="deterministic",
+    )
+
+    assert dry_run.report.execution_status == "dry_run_completed"
+    assert dry_run.report.manuscript_modified is False
+    assert dry_run.report.claim_evidence_map_rebuilt is False
+    assert sha256_file(manuscript) == manuscript_hash
+    assert sha256_file(claim_map) == claim_map_hash
+    assert not list((tmp_path / "runs" / run_id / "reports").glob("proof-obligation-spec-*.json"))
+    assert not list((tmp_path / "runs" / run_id / "reports").glob("experiment-spec-*.json"))
+
+    applied = execute_autonomous_evidence_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        executor_backend="deterministic",
+    )
+    inspected = inspect_autonomous_plan_execution(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert applied.report.execution_status in {
+        "completed",
+        "completed_with_deferred_actions",
+    }
+    assert applied.report.claim_support_rechecked is True
+    assert applied.report.citation_safety_rechecked is True
+    assert applied.report.claim_evidence_map_rebuilt is True
+    assert applied.report.release_rechecked is True
+    assert applied.report.publication_ready is False
+    assert applied.report.creates_scientific_validation is False
+    assert inspected["autonomous_execution_count"] == 2
+    assert inspected["latest_autonomous_execution_mode"] == "apply"
+    assert lint["autonomous_execution_present"] is True
+    assert lint["autonomous_execution_count"] == 2
+    assert lint["publication_ready"] is False
+    assert not list((tmp_path / "runs" / run_id / "reports").glob("proof-artifact-*.json"))
+    assert not list((tmp_path / "runs" / run_id / "reports").glob("experiment-artifact-*.json"))
+
+
+def test_autonomous_plan_executor_applies_safe_text_and_creates_planned_specs(
+    tmp_path,
+) -> None:
+    run_id = "run-autonomous-executor-actions"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    map_result = persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    audit = ClaimSupportAuditReport.model_validate_json(
+        (reports / "claim-support-audit.json").read_text(encoding="utf-8")
+    )
+    targets = [
+        item
+        for item in audit.claim_support_items
+        if item.section_name not in {"Bibliography", "References"} and item.sentence_snippet
+    ][:2]
+    assert len(targets) == 2
+    plan = AutonomousEvidenceGapPlan(
+        run_id=run_id,
+        planner_backend="deterministic",
+        planner_status="planned",
+        claim_evidence_map_path=map_result.map_artifact.path,
+        claim_support_audit_path=f"runs/{run_id}/reports/claim-support-audit.json",
+        plan_items=[
+            AutonomousEvidenceGapPlanItem(
+                item_id="plan-item-downgrade",
+                target_type="claim",
+                target_claim_id_optional=targets[0].sentence_id,
+                target_section_optional=targets[0].section_name,
+                current_support_status="unsupported",
+                gap_type="needs_claim_downgrade",
+                recommended_action="Downgrade to bounded scaffold wording.",
+                priority="high",
+                blocking=True,
+                rationale="Fixture unsupported broad claim.",
+                expected_artifact_type="revised_manuscript",
+                automation_ready=True,
+            ),
+            AutonomousEvidenceGapPlanItem(
+                item_id="plan-item-removal",
+                target_type="claim",
+                target_claim_id_optional=targets[1].sentence_id,
+                target_section_optional=targets[1].section_name,
+                current_support_status="blocked_forbidden_claim",
+                gap_type="needs_claim_removal",
+                recommended_action="Remove forbidden unsupported wording.",
+                priority="blocking",
+                blocking=True,
+                rationale="Fixture forbidden authority claim.",
+                expected_artifact_type="revised_manuscript",
+                automation_ready=True,
+            ),
+            AutonomousEvidenceGapPlanItem(
+                item_id="plan-item-experiment",
+                target_type="claim",
+                target_claim_id_optional="fixture-empirical-claim",
+                target_section_optional="Demonstration Status",
+                current_support_status="unsupported",
+                gap_type="needs_python_experiment",
+                recommended_action="Plan a bounded local experiment.",
+                priority="high",
+                blocking=True,
+                rationale="Fixture empirical result requires an experiment.",
+                expected_artifact_type="experiment_artifact",
+                automation_ready=True,
+            ),
+            AutonomousEvidenceGapPlanItem(
+                item_id="plan-item-proof",
+                target_type="claim",
+                target_claim_id_optional="fixture-theorem-claim",
+                target_section_optional="Method and Model",
+                current_support_status="unsupported",
+                gap_type="needs_formal_proof",
+                recommended_action="Plan a scoped formal proof attempt.",
+                priority="high",
+                blocking=True,
+                rationale="Fixture theorem requires a passed checker.",
+                expected_artifact_type="proof_artifact",
+                automation_ready=True,
+            ),
+            AutonomousEvidenceGapPlanItem(
+                item_id="plan-item-retrieval",
+                target_type="retrieval",
+                current_support_status="bounded_context_only",
+                gap_type="needs_retrieval_expansion",
+                recommended_action="Plan bounded retrieval expansion.",
+                priority="low",
+                blocking=False,
+                rationale="Fixture retrieval remains bounded.",
+                expected_artifact_type="retrieval_quality_report",
+                automation_ready=True,
+            ),
+        ],
+        ready_for_python_experiment_runner=True,
+        ready_for_formal_proof_attempt=True,
+        ready_for_retrieval_expansion=True,
+    )
+    (reports / "autonomous-evidence-gap-plan-9999.json").write_text(
+        plan.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = execute_autonomous_evidence_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        executor_backend="deterministic",
+    )
+
+    assert result.report.manuscript_modified is True
+    assert result.report.actions_applied == 5
+    experiment_specs = [
+        path
+        for path in reports.glob("experiment-spec-*.json")
+        if not path.name.endswith(".meta.json")
+    ]
+    proof_specs = [
+        path
+        for path in reports.glob("proof-obligation-spec-*.json")
+        if not path.name.endswith(".meta.json")
+    ]
+    retrieval_specs = [
+        path
+        for path in reports.glob("retrieval-expansion-request-*.json")
+        if not path.name.endswith(".meta.json")
+    ]
+    assert len(experiment_specs) == len(proof_specs) == len(retrieval_specs) == 1
+    experiment_spec = json.loads(experiment_specs[0].read_text(encoding="utf-8"))
+    proof_spec = json.loads(proof_specs[0].read_text(encoding="utf-8"))
+    retrieval_spec = json.loads(retrieval_specs[0].read_text(encoding="utf-8"))
+    assert experiment_spec["status"] == "planned"
+    assert experiment_spec["is_verification_evidence"] is False
+    assert proof_spec["status"] == "planned"
+    assert proof_spec["is_verification_evidence"] is False
+    assert retrieval_spec["status"] == "planned"
+    assert retrieval_spec["is_verification_evidence"] is False
+    assert not list(reports.glob("proof-artifact-*.json"))
+    assert not list(reports.glob("experiment-artifact-*.json"))
+
+
+def test_autonomous_plan_executor_blocks_corrupt_plan_with_human_intervention(
+    tmp_path,
+) -> None:
+    run_id = "run-autonomous-executor-corrupt"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "autonomous-evidence-gap-plan-9999.json").write_text(
+        "{not-json}\n",
+        encoding="utf-8",
+    )
+
+    result = execute_autonomous_evidence_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        execution_mode="dry-run",
+        executor_backend="deterministic",
+    )
+
+    assert result.report.execution_status == "blocked"
+    assert result.report.requires_human_intervention is True
+    assert result.report.human_intervention_reason_optional
+    assert result.report.publication_ready is False
+
+
 def test_evidence_aware_refresh_writes_bounded_artifact_wording_and_rechecks_gates(
     tmp_path,
 ) -> None:
@@ -1412,23 +1838,11 @@ def test_evidence_aware_refresh_writes_bounded_artifact_wording_and_rechecks_gat
         backend="deterministic",
     )
 
-    report_path = (
-        tmp_path
-        / "runs"
-        / run_id
-        / "reports"
-        / "evidence-aware-refresh-report.json"
-    )
+    report_path = tmp_path / "runs" / run_id / "reports" / "evidence-aware-refresh-report.json"
     refreshed_path = (
-        tmp_path
-        / "runs"
-        / run_id
-        / "reports"
-        / "evidence-aware-refreshed-manuscript-draft.md"
+        tmp_path / "runs" / run_id / "reports" / "evidence-aware-refreshed-manuscript-draft.md"
     )
-    report = EvidenceAwareRefreshReport.model_validate_json(
-        report_path.read_text(encoding="utf-8")
-    )
+    report = EvidenceAwareRefreshReport.model_validate_json(report_path.read_text(encoding="utf-8"))
     refreshed = refreshed_path.read_text(encoding="utf-8")
     lowered = refreshed.casefold()
     assert result.persistence.commit.action_type == (
@@ -1555,11 +1969,7 @@ def test_evidence_aware_refresh_blocks_unsupported_claim_evidence_map(tmp_path) 
         )
 
     assert not (
-        tmp_path
-        / "runs"
-        / run_id
-        / "reports"
-        / "evidence-aware-refreshed-manuscript-draft.md"
+        tmp_path / "runs" / run_id / "reports" / "evidence-aware-refreshed-manuscript-draft.md"
     ).exists()
 
 
@@ -1662,9 +2072,7 @@ def test_human_review_reconciliation_applies_rejects_and_defers_safely(
     assert "deferred_requires_proof_artifact" in outcomes
     assert "deferred_requires_retrieval_expansion" in outcomes
     assert "say this manuscript is novel" not in result.reconciled_markdown.casefold()
-    assert "say this manuscript is publication ready" not in (
-        result.reconciled_markdown.casefold()
-    )
+    assert "say this manuscript is publication ready" not in (result.reconciled_markdown.casefold())
     assert "formal proof artifact linked to a specific mapped claim" in (
         result.reconciled_markdown.casefold()
     )
@@ -1674,20 +2082,10 @@ def test_human_review_reconciliation_applies_rejects_and_defers_safely(
     assert result.claim_evidence_map.unsupported_non_scaffold_claim_ids == []
 
     report_path = (
-        tmp_path
-        / "runs"
-            / run_id
-            / "reports"
-            / "human-review-reconciliation-cycle-001.json"
+        tmp_path / "runs" / run_id / "reports" / "human-review-reconciliation-cycle-001.json"
     )
     markdown_report_path = report_path.with_suffix(".md")
-    manuscript_path = (
-        tmp_path
-        / "runs"
-        / run_id
-        / "reports"
-        / "reconciled-manuscript-cycle-001.md"
-    )
+    manuscript_path = tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-001.md"
     assert report_path.is_file()
     assert markdown_report_path.is_file()
     assert manuscript_path.is_file()
@@ -1857,9 +2255,7 @@ def test_structured_reviewer_requests_support_two_immutable_cycles(tmp_path) -> 
     assert cycle_1.report.applied_change_count == 3
     assert cycle_1.report.rejected_change_count == 1
     assert cycle_1.report.deferred_change_count == 1
-    cycle_1_path = (
-        tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-001.md"
-    )
+    cycle_1_path = tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-001.md"
     cycle_1_hash = sha256_file(cycle_1_path)
 
     request_file_2 = _write_structured_request_set(
@@ -1867,9 +2263,7 @@ def test_structured_reviewer_requests_support_two_immutable_cycles(tmp_path) -> 
         run_id=run_id,
         request_set_id="request-set-002",
         review_id=review.review_id,
-        target_artifact_path=(
-            f"runs/{run_id}/reports/reconciled-manuscript-cycle-001.md"
-        ),
+        target_artifact_path=(f"runs/{run_id}/reports/reconciled-manuscript-cycle-001.md"),
         requests=[
             {
                 "request_id": "boundary-cycle-2",
@@ -1897,9 +2291,7 @@ def test_structured_reviewer_requests_support_two_immutable_cycles(tmp_path) -> 
     assert cycle_2.report.cycle_number == 2
     assert cycle_2.report.applied_change_count == 1
     assert sha256_file(cycle_1_path) == cycle_1_hash
-    assert (
-        tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-002.md"
-    ).is_file()
+    assert (tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-002.md").is_file()
     index = HumanReviewReconciliationIndex.model_validate_json(
         (tmp_path / cycle_2.reconciliation_index_artifact.path).read_text()
     )
@@ -2026,9 +2418,7 @@ def test_claim_evidence_map_links_human_review_occurrence_only(tmp_path) -> None
             _claim_support_item(
                 sentence_id="human-review-claim-1",
                 claim_class="pipeline_status_claim",
-                sentence_snippet=(
-                    "Human review recorded readiness for evidence generation."
-                ),
+                sentence_snippet=("Human review recorded readiness for evidence generation."),
                 support_status="not_required_scaffold",
             ),
             _claim_support_item(
@@ -2078,8 +2468,7 @@ def test_safe_repair_separates_pre_and_post_repair_warnings(tmp_path) -> None:
         assert repaired_warning not in payload["post_repair_warnings"]
         assert repaired_warning not in result.report.warnings
     assert all(
-        "synthetic or MVP evidence is described as real-world empirical validation"
-        not in warning
+        "synthetic or MVP evidence is described as real-world empirical validation" not in warning
         for warning in result.report.warnings
     )
 
@@ -2295,6 +2684,18 @@ def _write_claim_map_reports(
     return reports
 
 
+def _write_claim_evidence_map_report(
+    tmp_path,
+    claim_map: ClaimEvidenceMap,
+) -> None:
+    reports = tmp_path / "runs" / claim_map.run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / "claim-evidence-map.json").write_text(
+        claim_map.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _claim_support_item(
     *,
     sentence_id: str,
@@ -2327,9 +2728,7 @@ def _claim_support_item(
             if claim_class == "external_factual_claim"
             else "claim_class_no_citation_required"
         ),
-        required_support_type="accepted_registry_source"
-        if citation_keys_present
-        else "none",
+        required_support_type="accepted_registry_source" if citation_keys_present else "none",
         supporting_source_ids=supporting_source_ids or [],
         support_status=support_status,
         unsupported_reason=None
@@ -2431,9 +2830,7 @@ def _write_experiment_artifact_report(tmp_path, *, run_id: str, **kwargs) -> Non
         run_id=run_id,
         **kwargs,
     )
-    experiment = ExperimentArtifact.model_validate_json(
-        experiment_file.read_text(encoding="utf-8")
-    )
+    experiment = ExperimentArtifact.model_validate_json(experiment_file.read_text(encoding="utf-8"))
     reports = tmp_path / "runs" / run_id / "reports"
     reports.mkdir(parents=True, exist_ok=True)
     (reports / f"experiment-artifact-{experiment.experiment_id}.json").write_text(
@@ -2444,9 +2841,7 @@ def _write_experiment_artifact_report(tmp_path, *, run_id: str, **kwargs) -> Non
 
 def _write_human_review_artifact_report(tmp_path, *, run_id: str) -> None:
     review_file = _write_human_review_fixture(tmp_path, run_id=run_id)
-    review = HumanReviewArtifact.model_validate_json(
-        review_file.read_text(encoding="utf-8")
-    )
+    review = HumanReviewArtifact.model_validate_json(review_file.read_text(encoding="utf-8"))
     reports = tmp_path / "runs" / run_id / "reports"
     reports.mkdir(parents=True, exist_ok=True)
     (reports / "human-review-artifact.json").write_text(
@@ -2611,9 +3006,7 @@ def _write_proof_artifact_fixture(
     proof_type: str = "lean_verified",
     claim_ids_or_statement_ids: list[str] | None = None,
     checker_status: str = "passed",
-    statement: str = (
-        "A local checker report is linked for a bounded statement in this fixture."
-    ),
+    statement: str = ("A local checker report is linked for a bounded statement in this fixture."),
     is_verification_evidence: bool = True,
     proof_hash: str = "1" * 64,
 ) -> Path:
@@ -2624,9 +3017,7 @@ def _write_proof_artifact_fixture(
         "proof_type": proof_type,
         "claim_ids_or_statement_ids": claim_ids_or_statement_ids or ["statement-1"],
         "statement": statement,
-        "artifact_path_optional": (
-            f"runs/{reviewed_run_id}/reports/revised-manuscript-draft.md"
-        ),
+        "artifact_path_optional": (f"runs/{reviewed_run_id}/reports/revised-manuscript-draft.md"),
         "checker_name_optional": "fixture-local-checker",
         "checker_version_optional": "0.1.0",
         "checker_status": checker_status,
@@ -2681,9 +3072,7 @@ def _write_experiment_artifact_fixture(
             "sample_count": 3,
         },
         "result_summary": result_summary,
-        "artifact_paths": [
-            f"runs/{reviewed_run_id}/reports/revised-manuscript-draft.md"
-        ],
+        "artifact_paths": [f"runs/{reviewed_run_id}/reports/revised-manuscript-draft.md"],
         "limitations": [
             "This experiment artifact is local to the fixture run.",
             "It does not imply broad empirical validation or publication readiness.",
@@ -2748,9 +3137,7 @@ class _UnsafeFirstProseGenerator:
                     "Conjecture. The synthetic result is empirically validated. "
                     "This unsupported sentence is intentionally unsafe."
                 ),
-                "unsupported_sentences": [
-                    "This unsupported sentence is intentionally unsafe."
-                ],
+                "unsupported_sentences": ["This unsupported sentence is intentionally unsafe."],
             }
         )
 

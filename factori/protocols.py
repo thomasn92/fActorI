@@ -14,6 +14,11 @@ from factori.schemas import (
     ArtifactManifest,
     ArtifactRef,
     ArtifactType,
+    AutonomousEvidenceGapPlan,
+    AutonomousEvidenceGapPlanItem,
+    AutonomousPlanExecutionAction,
+    AutonomousPlanExecutionIndex,
+    AutonomousPlanExecutionReport,
     BaselineReport,
     BibliographyEntry,
     BridgeReport,
@@ -121,8 +126,10 @@ from factori.schemas import (
     PipelineRunConfig,
     PipelineRunReport,
     PipelineStageResult,
+    PlannedExperimentSpec,
     PlannedStage,
     ProofArtifact,
+    ProofObligationSpec,
     ProofVerificationContract,
     ProofVerificationResult,
     ProseGenerationParseResult,
@@ -140,6 +147,7 @@ from factori.schemas import (
     ResearchObjectManifest,
     ResumeValidationReport,
     RetrievalAdequacyCertificate,
+    RetrievalExpansionRequest,
     RetrievalParseReport,
     RetrievalQualityReport,
     RetrievalQuery,
@@ -166,7 +174,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.30.0"
+PROTOCOL_VERSION = "0.32.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -352,6 +360,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ClaimEvidenceMap",
         ClaimEvidenceMap,
         "Deterministic final claim-evidence support map.",
+    ),
+    ProtocolDefinition(
+        "AutonomousEvidenceGapPlanItem",
+        AutonomousEvidenceGapPlanItem,
+        "One deterministic autonomous evidence-gap planning item.",
+    ),
+    ProtocolDefinition(
+        "AutonomousEvidenceGapPlan",
+        AutonomousEvidenceGapPlan,
+        "Non-evidence autonomous next-action plan over evidence gaps.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPlanExecutionAction",
+        AutonomousPlanExecutionAction,
+        "One deterministic autonomous plan execution action.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPlanExecutionReport",
+        AutonomousPlanExecutionReport,
+        "Non-evidence autonomous plan execution report.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPlanExecutionIndex",
+        AutonomousPlanExecutionIndex,
+        "Derived latest pointer over immutable autonomous executions.",
+    ),
+    ProtocolDefinition(
+        "PlannedExperimentSpec",
+        PlannedExperimentSpec,
+        "Planned experiment specification without experiment-evidence authority.",
+    ),
+    ProtocolDefinition(
+        "ProofObligationSpec",
+        ProofObligationSpec,
+        "Planned formal proof obligation without verification authority.",
+    ),
+    ProtocolDefinition(
+        "RetrievalExpansionRequest",
+        RetrievalExpansionRequest,
+        "Planned bounded retrieval expansion request without source authority.",
     ),
     ProtocolDefinition(
         "EvidenceAwareRefreshReport",

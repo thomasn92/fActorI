@@ -1,0 +1,274 @@
+{
+  "$defs": {
+    "AutonomousEvidenceGapPlanItem": {
+      "additionalProperties": false,
+      "description": "One deterministic non-evidence planner item for a claim or bundle gap.",
+      "properties": {
+        "automation_ready": {
+          "default": false,
+          "title": "Automation Ready",
+          "type": "boolean"
+        },
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "current_support_status": {
+          "minLength": 1,
+          "title": "Current Support Status",
+          "type": "string"
+        },
+        "expected_artifact_type": {
+          "minLength": 1,
+          "title": "Expected Artifact Type",
+          "type": "string"
+        },
+        "gap_type": {
+          "enum": [
+            "needs_python_experiment",
+            "needs_formal_proof",
+            "needs_retrieval_expansion",
+            "needs_claim_downgrade",
+            "needs_claim_removal",
+            "needs_manuscript_refresh",
+            "sufficiently_supported_for_bounded_draft"
+          ],
+          "title": "Gap Type",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "item_id": {
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "priority": {
+          "default": "medium",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "blocking"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "recommended_action": {
+          "minLength": 1,
+          "title": "Recommended Action",
+          "type": "string"
+        },
+        "required_inputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Inputs",
+          "type": "array"
+        },
+        "target_claim_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Claim Id Optional"
+        },
+        "target_section_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Section Optional"
+        },
+        "target_type": {
+          "minLength": 1,
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "target_type",
+        "current_support_status",
+        "gap_type",
+        "recommended_action",
+        "rationale",
+        "expected_artifact_type"
+      ],
+      "title": "AutonomousEvidenceGapPlanItem",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.32.0/autonomous-evidence-gap-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-evidence autonomous next-action plan over evidence gaps.",
+  "properties": {
+    "claim_evidence_map_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Evidence Map Path"
+    },
+    "claim_support_audit_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Support Audit Path"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "human_intervention_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Intervention Reason Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "next_action_summary": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Next Action Summary",
+      "type": "array"
+    },
+    "plan_items": {
+      "items": {
+        "$ref": "#/$defs/AutonomousEvidenceGapPlanItem"
+      },
+      "title": "Plan Items",
+      "type": "array"
+    },
+    "planner_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Planner Backend",
+      "type": "string"
+    },
+    "planner_status": {
+      "minLength": 1,
+      "title": "Planner Status",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "ready_for_formal_proof_attempt": {
+      "default": false,
+      "title": "Ready For Formal Proof Attempt",
+      "type": "boolean"
+    },
+    "ready_for_manuscript_refresh": {
+      "default": false,
+      "title": "Ready For Manuscript Refresh",
+      "type": "boolean"
+    },
+    "ready_for_python_experiment_runner": {
+      "default": false,
+      "title": "Ready For Python Experiment Runner",
+      "type": "boolean"
+    },
+    "ready_for_retrieval_expansion": {
+      "default": false,
+      "title": "Ready For Retrieval Expansion",
+      "type": "boolean"
+    },
+    "requires_human_intervention": {
+      "default": false,
+      "title": "Requires Human Intervention",
+      "type": "boolean"
+    },
+    "retrieval_quality_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Quality Report Path"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "planner_status"
+  ],
+  "title": "AutonomousEvidenceGapPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.AutonomousEvidenceGapPlan",
+  "x-factori-verification-evidence": false
+}

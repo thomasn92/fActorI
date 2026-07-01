@@ -156,6 +156,16 @@ uv run factori revise-paper --run-id demo
 uv run factori revise-paper --run-id demo --json
 uv run factori revise-paper --run-id demo \
   --apply-safe-fake-revision --write-report
+uv run factori build-autonomous-evidence-plan \
+  --run-id demo --planner-backend deterministic
+uv run factori inspect-autonomous-evidence-plan --run-id demo
+uv run factori inspect-autonomous-evidence-plan --run-id demo --json
+uv run factori execute-autonomous-evidence-plan \
+  --run-id demo --execution-mode dry-run --executor-backend deterministic
+uv run factori execute-autonomous-evidence-plan \
+  --run-id demo --execution-mode apply --executor-backend deterministic
+uv run factori inspect-autonomous-plan-execution --run-id demo
+uv run factori inspect-autonomous-plan-execution --run-id demo --json
 uv run factori ingest-reviewer-change-requests \
   --run-id demo --request-file path/to/reviewer-change-requests.json
 uv run factori inspect-reviewer-change-requests --run-id demo

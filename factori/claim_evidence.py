@@ -344,6 +344,13 @@ def latest_claim_evidence_map_path(root: Path, run_id: str) -> Path | None:
 def latest_claim_support_audit_path(root: Path, run_id: str) -> Path:
     """Return the latest final claim-support audit path for a run."""
     reports = root / "runs" / run_id / "reports"
+    autonomous_paths = sorted(
+        path
+        for path in reports.glob("claim-support-audit-after-autonomous-execution-*.json")
+        if not path.name.endswith(".meta.json")
+    )
+    if autonomous_paths:
+        return autonomous_paths[-1]
     cycle_paths = sorted(
         path
         for path in reports.glob(

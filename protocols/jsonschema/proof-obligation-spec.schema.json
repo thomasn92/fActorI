@@ -1,0 +1,72 @@
+{
+  "$id": "https://schemas.factori.local/0.32.0/proof-obligation-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Planned formal proof obligation without verification authority.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "required_artifact_type": {
+      "minLength": 1,
+      "title": "Required Artifact Type",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "statement": {
+      "minLength": 1,
+      "title": "Statement",
+      "type": "string"
+    },
+    "status": {
+      "const": "planned",
+      "default": "planned",
+      "title": "Status",
+      "type": "string"
+    },
+    "suggested_checker": {
+      "minLength": 1,
+      "title": "Suggested Checker",
+      "type": "string"
+    },
+    "target_claim_id": {
+      "minLength": 1,
+      "title": "Target Claim Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "spec_id",
+    "target_claim_id",
+    "statement",
+    "suggested_checker",
+    "required_artifact_type"
+  ],
+  "title": "ProofObligationSpec",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.ProofObligationSpec",
+  "x-factori-verification-evidence": false
+}

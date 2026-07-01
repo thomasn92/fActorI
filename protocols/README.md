@@ -7,6 +7,16 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.32.0` adds autonomous plan execution action, report, immutable index, planned
+experiment, proof-obligation, and retrieval-expansion request contracts. Execution artifacts
+perform or schedule bounded deterministic workflow actions only; planned specs are not completed
+experiments, verified proofs, retrieved sources, scientific validation, or publication readiness.
+
+Protocol `0.31.0` adds autonomous evidence-gap plan and plan-item contracts. These planner
+contracts schedule or recommend next automatic actions only; they do not create proof,
+experiment evidence, novelty validation, correctness validation, human approval, or publication
+readiness.
+
 Protocol `0.30.0` adds structured reviewer change requests, immutable reconciliation-cycle index
 entries, and derived multi-cycle reconciliation indexes. These workflow contracts do not create
 evidence, scientific validation, approval, or publication readiness.

@@ -100,6 +100,22 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     inspect_experiment = runner.invoke(app, ["inspect-experiment-artifacts", "--help"])
     build_claim_map = runner.invoke(app, ["build-claim-evidence-map", "--help"])
     inspect_claim_map = runner.invoke(app, ["inspect-claim-evidence-map", "--help"])
+    build_autonomous_plan = runner.invoke(
+        app,
+        ["build-autonomous-evidence-plan", "--help"],
+    )
+    inspect_autonomous_plan = runner.invoke(
+        app,
+        ["inspect-autonomous-evidence-plan", "--help"],
+    )
+    execute_autonomous_plan = runner.invoke(
+        app,
+        ["execute-autonomous-evidence-plan", "--help"],
+    )
+    inspect_autonomous_execution = runner.invoke(
+        app,
+        ["inspect-autonomous-plan-execution", "--help"],
+    )
     refresh_manuscript = runner.invoke(
         app,
         ["refresh-evidence-aware-manuscript", "--help"],
@@ -111,11 +127,18 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_experiment.exit_code == 0, inspect_experiment.output
     assert build_claim_map.exit_code == 0, build_claim_map.output
     assert inspect_claim_map.exit_code == 0, inspect_claim_map.output
+    assert build_autonomous_plan.exit_code == 0, build_autonomous_plan.output
+    assert inspect_autonomous_plan.exit_code == 0, inspect_autonomous_plan.output
+    assert execute_autonomous_plan.exit_code == 0, execute_autonomous_plan.output
+    assert inspect_autonomous_execution.exit_code == 0, inspect_autonomous_execution.output
     assert refresh_manuscript.exit_code == 0, refresh_manuscript.output
     assert "--run-id" in ingest_proof.output
     assert "--proof-file" in ingest_proof.output
     assert "--run-id" in inspect_proof.output
     assert "--json" in inspect_proof.output
+    assert "--execution-mode" in execute_autonomous_plan.output
+    assert "--executor-backend" in execute_autonomous_plan.output
+    assert "--json" in inspect_autonomous_execution.output
     assert "--run-id" in ingest_experiment.output
     assert "--experiment-file" in ingest_experiment.output
     assert "--run-id" in inspect_experiment.output
@@ -124,8 +147,130 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--json" in build_claim_map.output
     assert "--run-id" in inspect_claim_map.output
     assert "--json" in inspect_claim_map.output
+    assert "--planner-backend" in build_autonomous_plan.output
+    assert "--run-id" in inspect_autonomous_plan.output
+    assert "--json" in inspect_autonomous_plan.output
     assert "--run-id" in refresh_manuscript.output
     assert "--json" in refresh_manuscript.output
+
+
+def test_autonomous_plan_execution_cli_dry_run_and_inspection(tmp_path) -> None:
+    run_id = "cli-autonomous-execution"
+    _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
+    runner = CliRunner()
+    claim_map = runner.invoke(
+        app,
+        [
+            "build-claim-evidence-map",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    plan = runner.invoke(
+        app,
+        [
+            "build-autonomous-evidence-plan",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--planner-backend",
+            "deterministic",
+            "--json",
+        ],
+    )
+    execute = runner.invoke(
+        app,
+        [
+            "execute-autonomous-evidence-plan",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--execution-mode",
+            "dry-run",
+            "--executor-backend",
+            "deterministic",
+            "--json",
+        ],
+    )
+    inspect_json = runner.invoke(
+        app,
+        [
+            "inspect-autonomous-plan-execution",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_human = runner.invoke(
+        app,
+        [
+            "inspect-autonomous-plan-execution",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+        ],
+    )
+    lint_result = runner.invoke(
+        app,
+        [
+            "lint-paper-bundle",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    paper_bundle = runner.invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    reviewer_summary = runner.invoke(
+        app,
+        [
+            "inspect-reviewer-summary",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert claim_map.exit_code == 0, claim_map.output
+    assert plan.exit_code == 0, plan.output
+    assert execute.exit_code == 0, execute.output
+    assert inspect_json.exit_code == 0, inspect_json.output
+    assert inspect_human.exit_code == 0, inspect_human.output
+    assert lint_result.exit_code == 0, lint_result.output
+    assert paper_bundle.exit_code == 0, paper_bundle.output
+    assert reviewer_summary.exit_code == 0, reviewer_summary.output
+    payload = json.loads(execute.output)
+    inspected = json.loads(inspect_json.output)
+    lint = json.loads(lint_result.output)
+    reviewer = json.loads(reviewer_summary.output)
+    assert payload["autonomous_plan_execution"]["execution_status"] == ("dry_run_completed")
+    assert payload["publication_ready"] is False
+    assert inspected["autonomous_execution_count"] == 1
+    assert inspected["latest_autonomous_execution_mode"] == "dry_run"
+    assert "Autonomous plan execution" in inspect_human.output
+    assert "Autonomous execution: present" in paper_bundle.output
+    assert "Latest execution mode: dry_run" in paper_bundle.output
+    assert lint["autonomous_execution_present"] is True
+    assert lint["autonomous_execution_count"] == 1
+    assert lint["latest_autonomous_execution_mode"] == "dry_run"
+    assert lint["publication_ready"] is False
+    assert reviewer["autonomous_execution_present"] is True
+    assert reviewer["latest_autonomous_execution_mode"] == "dry_run"
+    assert reviewer["publication_ready"] is False
 
 
 def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
@@ -319,9 +464,7 @@ def test_inspect_paper_bundle_with_revised_artifacts_is_read_only(tmp_path) -> N
     assert payload["reviewer_summary_human_checklist_count"] > 0
     assert payload["reviewer_summary_recommended_action_count"] > 0
     assert payload["generation_report_exists"] is True
-    assert payload["primary_artifact_to_read"].endswith(
-        "reports/revised-manuscript-draft.md"
-    )
+    assert payload["primary_artifact_to_read"].endswith("reports/revised-manuscript-draft.md")
     assert payload["primary_latex_to_read"].endswith("latex/revised-paper.tex")
     assert payload["line_count"] > 0
     assert payload["word_count"] > 0
@@ -519,9 +662,7 @@ def test_human_review_intake_and_inspection_cli(tmp_path) -> None:
     assert any("No proof artifact" in gap for gap in summary["evidence_gaps"])
     assert any("No experiment artifact" in gap for gap in summary["evidence_gaps"])
     assert "Human review: present" in paper_bundle.output
-    assert "Human review status: reviewed_ready_for_evidence_generation" in (
-        paper_bundle.output
-    )
+    assert "Human review status: reviewed_ready_for_evidence_generation" in (paper_bundle.output)
 
     lint_payload = json.loads(lint_result.output)
     assert lint_payload["human_review_artifact_present"] is True
@@ -529,6 +670,7 @@ def test_human_review_intake_and_inspection_cli(tmp_path) -> None:
     assert lint_payload["human_review_blocking_concern_count"] == 0
     assert lint_payload["human_review_requested_change_count"] == 0
     assert lint_payload["publication_ready"] is False
+
 
 def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     run_id = "inspect-evidence-artifacts"
@@ -590,6 +732,54 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     claim_map_build_payload = json.loads(claim_map_build.output)
     assert claim_map_build_payload["publication_ready"] is False
     assert claim_map_build_payload["claim_evidence_map_present"] is True
+    autonomous_plan_build = runner.invoke(
+        app,
+        [
+            "build-autonomous-evidence-plan",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--planner-backend",
+            "deterministic",
+            "--json",
+        ],
+    )
+    assert autonomous_plan_build.exit_code == 0, autonomous_plan_build.output
+    autonomous_plan_payload = json.loads(autonomous_plan_build.output)
+    assert autonomous_plan_payload["publication_ready"] is False
+    assert autonomous_plan_payload["autonomous_evidence_plan_present"] is True
+    assert (
+        autonomous_plan_payload["autonomous_evidence_gap_plan"]["requires_human_intervention"]
+        is False
+    )
+    inspect_autonomous_plan_json = runner.invoke(
+        app,
+        [
+            "inspect-autonomous-evidence-plan",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_autonomous_plan_human = runner.invoke(
+        app,
+        [
+            "inspect-autonomous-evidence-plan",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+        ],
+    )
+    assert inspect_autonomous_plan_json.exit_code == 0, inspect_autonomous_plan_json.output
+    assert inspect_autonomous_plan_human.exit_code == 0, inspect_autonomous_plan_human.output
+    autonomous_inspected = json.loads(inspect_autonomous_plan_json.output)
+    assert autonomous_inspected["autonomous_plan_item_count"] > 0
+    assert autonomous_inspected["autonomous_human_intervention_required"] is False
+    assert "Autonomous evidence-gap plan" in inspect_autonomous_plan_human.output
     refresh = runner.invoke(
         app,
         [
@@ -606,12 +796,8 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert refresh.exit_code == 0, refresh.output
     refresh_payload = json.loads(refresh.output)
     assert refresh_payload["publication_ready"] is False
-    assert refresh_payload["evidence_aware_refresh_report"][
-        "proof_language_inserted"
-    ] is True
-    assert refresh_payload["evidence_aware_refresh_report"][
-        "experiment_language_inserted"
-    ] is False
+    assert refresh_payload["evidence_aware_refresh_report"]["proof_language_inserted"] is True
+    assert refresh_payload["evidence_aware_refresh_report"]["experiment_language_inserted"] is False
 
     inspect_proof_json = runner.invoke(
         app,
@@ -730,9 +916,7 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert summary["experiment_supported_claim_count"] >= 0
     assert summary["publication_ready"] is False
     assert not any("No formal proof artifact" in gap for gap in summary["evidence_gaps"])
-    assert not any(
-        "No completed experiment artifact" in gap for gap in summary["evidence_gaps"]
-    )
+    assert not any("No completed experiment artifact" in gap for gap in summary["evidence_gaps"])
 
     assert "Proof artifacts: 1" in paper_bundle.output
     assert "Formal verification artifacts passed: 1" in paper_bundle.output
@@ -758,6 +942,9 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert lint_payload["evidence_aware_refresh_backend"] == "deterministic"
     assert lint_payload["proof_language_inserted"] is True
     assert lint_payload["experiment_language_inserted"] is False
+    assert lint_payload["autonomous_evidence_plan_present"] is True
+    assert lint_payload["autonomous_plan_item_count"] > 0
+    assert lint_payload["autonomous_human_intervention_required"] is False
     assert lint_payload["claim_evidence_map_rechecked_after_refresh"] is True
     assert lint_payload["claim_support_rechecked_after_refresh"] is True
     assert lint_payload["citation_safety_rechecked_after_refresh"] is True
@@ -792,9 +979,10 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert reconciliation.exit_code == 0, reconciliation.output
     reconciliation_payload = json.loads(reconciliation.output)
     assert reconciliation_payload["publication_ready"] is False
-    assert reconciliation_payload["human_review_reconciliation"][
-        "reconciliation_status"
-    ] == "no_action_needed"
+    assert (
+        reconciliation_payload["human_review_reconciliation"]["reconciliation_status"]
+        == "no_action_needed"
+    )
 
     inspect_reconciliation_json = runner.invoke(
         app,
@@ -861,9 +1049,7 @@ def test_inspect_paper_bundle_without_revised_artifacts_degrades_gracefully(tmp_
     assert summary["safe_repair_report_exists"] is False
     assert summary["release_report_exists"] is False
     assert summary["generation_report_exists"] is True
-    assert summary["primary_artifact_to_read"].endswith(
-        "reports/complete-manuscript-draft.md"
-    )
+    assert summary["primary_artifact_to_read"].endswith("reports/complete-manuscript-draft.md")
     assert summary["primary_latex_to_read"].endswith("latex/paper.tex")
     assert "safe_repair_report" not in summary["artifacts"]
     assert summary["release_status"] is None
@@ -996,8 +1182,9 @@ def test_inspect_and_lint_paper_bundle_report_quality_repair(tmp_path) -> None:
     assert inspect_summary["quality_repair_backend"] == "deterministic"
     assert inspect_summary["quality_repaired_section_count"] >= 1
     assert inspect_summary["section_depth_targets_present"] is True
-    assert inspect_summary["section_depth_target_met_count"] == (
-        inspect_summary["section_depth_target_total"]
+    assert (
+        inspect_summary["section_depth_target_met_count"]
+        == (inspect_summary["section_depth_target_total"])
     )
     assert inspect_summary["sections_below_depth_target"] == []
     assert inspect_summary["warnings_reduced_count"] >= 1
@@ -1140,9 +1327,9 @@ def test_lint_paper_bundle_is_not_length_only(tmp_path) -> None:
     assert payload["word_count"] < payload["thresholds"]["min_words"]
     assert payload["quality_status"] == "DraftQualityWarnings"
     assert payload["quality_failure_reasons"] == []
-    assert "Draft may be skeletal: below proxy word-count target." in payload[
-        "development_warnings"
-    ]
+    assert (
+        "Draft may be skeletal: below proxy word-count target." in payload["development_warnings"]
+    )
     assert payload["semantic_checks"]["problem_statement_present"] is True
     assert payload["semantic_checks"]["central_contribution_present"] is True
     assert payload["semantic_checks"]["evidence_boundary_statement_present"] is True
@@ -1152,8 +1339,7 @@ def test_lint_paper_bundle_is_not_length_only(tmp_path) -> None:
     assert payload["appendix_headings_present"] is True
     assert payload["semantic_section_audit"]
     assert all(
-        item["is_verification_evidence"] is False
-        for item in payload["semantic_section_audit"]
+        item["is_verification_evidence"] is False for item in payload["semantic_section_audit"]
     )
 
 
@@ -1189,9 +1375,8 @@ def test_lint_paper_bundle_concrete_limitations_are_not_placeholder_like(
     tmp_path,
 ) -> None:
     run_id = "lint-paper-concrete-limitations"
-    old_limitations = (
-        "## Limitations\n"
-        + _repeated_quality_paragraph("The limitations section keeps the scope bounded")
+    old_limitations = "## Limitations\n" + _repeated_quality_paragraph(
+        "The limitations section keeps the scope bounded"
     )
     concrete_limitations = (
         "## Limitations\n"
@@ -1229,9 +1414,7 @@ def test_lint_paper_bundle_detects_standalone_central_message_as_metadata(
     tmp_path,
 ) -> None:
     run_id = "lint-paper-central-message"
-    markdown = _short_semantically_complete_markdown(
-        include_citation=False
-    ).replace(
+    markdown = _short_semantically_complete_markdown(include_citation=False).replace(
         "## Claim and Evidence Boundaries",
         "## Central Message\n\n"
         "The central contribution of this draft remains bounded and non-evidential.\n\n"
@@ -1245,9 +1428,7 @@ def test_lint_paper_bundle_detects_standalone_central_message_as_metadata(
     assert payload["metadata_section_count"] == 1
     assert payload["heading_fragmentation_detected"] is True
     assert payload["main_body_section_count"] == 5
-    assert "Severe section fragmentation is present." not in payload[
-        "quality_failure_reasons"
-    ]
+    assert "Severe section fragmentation is present." not in payload["quality_failure_reasons"]
 
 
 def test_lint_paper_bundle_fails_missing_central_contribution(tmp_path) -> None:
@@ -1261,25 +1442,25 @@ def test_lint_paper_bundle_fails_missing_central_contribution(tmp_path) -> None:
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
     assert payload["quality_status"] == "DraftQualityFailed"
-    assert "Central contribution is missing or not explicit." in payload[
-        "quality_failure_reasons"
-    ]
+    assert "Central contribution is missing or not explicit." in payload["quality_failure_reasons"]
 
 
 def test_lint_paper_bundle_fails_missing_problem_statement(tmp_path) -> None:
     run_id = "lint-paper-missing-problem"
-    markdown = _short_semantically_complete_markdown(include_citation=False).replace(
-        "problem statement",
-        "setup note",
-    ).replace("research problem", "research setting")
+    markdown = (
+        _short_semantically_complete_markdown(include_citation=False)
+        .replace(
+            "problem statement",
+            "setup note",
+        )
+        .replace("research problem", "research setting")
+    )
     _write_paper_bundle_markdown(tmp_path, run_id=run_id, complete_markdown=markdown)
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
     assert payload["quality_status"] == "DraftQualityFailed"
-    assert "Problem statement is missing or not explicit." in payload[
-        "quality_failure_reasons"
-    ]
+    assert "Problem statement is missing or not explicit." in payload["quality_failure_reasons"]
 
 
 def test_lint_paper_bundle_fails_fake_empirical_claim(tmp_path) -> None:
@@ -1293,9 +1474,10 @@ def test_lint_paper_bundle_fails_fake_empirical_claim(tmp_path) -> None:
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
     assert payload["quality_status"] == "DraftQualityFailed"
-    assert "Fake empirical or real-world validation language is present." in payload[
-        "quality_failure_reasons"
-    ]
+    assert (
+        "Fake empirical or real-world validation language is present."
+        in payload["quality_failure_reasons"]
+    )
 
 
 def test_lint_paper_bundle_fails_external_facts_without_citations(tmp_path) -> None:
@@ -1309,9 +1491,10 @@ def test_lint_paper_bundle_fails_external_facts_without_citations(tmp_path) -> N
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
     assert payload["quality_status"] == "DraftQualityFailed"
-    assert "External factual claims appear without citation markers." in payload[
-        "quality_failure_reasons"
-    ]
+    assert (
+        "External factual claims appear without citation markers."
+        in payload["quality_failure_reasons"]
+    )
 
 
 def test_lint_paper_bundle_passes_acceptable_synthetic_fixture(tmp_path) -> None:
@@ -1328,9 +1511,9 @@ def test_lint_paper_bundle_passes_acceptable_synthetic_fixture(tmp_path) -> None
 
     assert payload["quality_status"] == "DraftQualityPass"
     assert payload["word_count"] >= payload["thresholds"]["min_words"]
-    assert payload["average_words_per_section"] >= payload["thresholds"][
-        "min_avg_words_per_section"
-    ]
+    assert (
+        payload["average_words_per_section"] >= payload["thresholds"]["min_avg_words_per_section"]
+    )
     assert payload["citation_marker_count"] >= 1
     assert payload["issues"] == []
     assert payload["warnings"] == []
@@ -1368,9 +1551,7 @@ def test_lint_paper_bundle_prefers_revised_artifact(tmp_path) -> None:
 
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
-    assert payload["primary_artifact_to_read"].endswith(
-        "reports/revised-manuscript-draft.md"
-    )
+    assert payload["primary_artifact_to_read"].endswith("reports/revised-manuscript-draft.md")
     assert payload["quality_status"] == "DraftQualityFailed"
     assert payload["title_is_placeholder"] is True
     assert payload["heading_fragmentation_detected"] is True
@@ -1405,9 +1586,7 @@ def test_lint_paper_bundle_missing_optional_artifacts_degrades_gracefully(tmp_pa
     payload = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
 
     assert payload["quality_status"] == "DraftQualityPass"
-    assert payload["primary_artifact_to_read"].endswith(
-        "reports/complete-manuscript-draft.md"
-    )
+    assert payload["primary_artifact_to_read"].endswith("reports/complete-manuscript-draft.md")
     assert payload["paper_release_status"] is None
     assert payload["release_status_unchanged"] is True
     assert payload["safety_status_unchanged"] is True
@@ -1651,9 +1830,7 @@ def _write_fixture_retrieval_quality_report(tmp_path, run_id: str) -> None:
         mean_relevance_score=0.5,
         min_relevance_score=0.2,
         queries_used=["human geography bounded literature context"],
-        coverage_limitations=[
-            "Bounded local source set; not validation or publication readiness."
-        ],
+        coverage_limitations=["Bounded local source set; not validation or publication readiness."],
         adequacy_status="bounded_context_only",
         source_relevance_adjudication_enabled=True,
         source_relevance_adjudicator_backend="fake",
@@ -1716,8 +1893,7 @@ def _write_fixture_claim_support_audit(tmp_path, run_id: str) -> None:
 
 def _short_placeholder_markdown() -> str:
     sections = "\n".join(
-        f"## Section {index}\nPlaceholder text for section {index}."
-        for index in range(1, 15)
+        f"## Section {index}\nPlaceholder text for section {index}." for index in range(1, 15)
     )
     return f"# Deterministic Branch Manuscript Plan\n\n{sections}\n"
 
@@ -1728,8 +1904,7 @@ def _acceptable_markdown(*, include_citation: bool) -> str:
         ("Abstract", "This abstract summarizes the bounded argument"),
         (
             "Introduction",
-            "This introduction gives problem framing for the research problem"
-            f"{citation}",
+            f"This introduction gives problem framing for the research problem{citation}",
         ),
         (
             "Central Contribution",
@@ -1750,8 +1925,7 @@ def _acceptable_markdown(*, include_citation: bool) -> str:
         ),
     ]
     body = "\n\n".join(
-        f"## {heading}\n{_repeated_quality_paragraph(seed)}"
-        for heading, seed in sections
+        f"## {heading}\n{_repeated_quality_paragraph(seed)}" for heading, seed in sections
     )
     return f"# Bounded Transport Calibration\n\n{body}\n"
 

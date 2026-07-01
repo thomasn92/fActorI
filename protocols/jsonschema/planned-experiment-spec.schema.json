@@ -1,0 +1,105 @@
+{
+  "$id": "https://schemas.factori.local/0.32.0/planned-experiment-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Planned experiment specification without experiment-evidence authority.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "expected_output_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Expected Output Artifacts",
+      "type": "array"
+    },
+    "hypothesis_or_question": {
+      "minLength": 1,
+      "title": "Hypothesis Or Question",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "status": {
+      "const": "planned",
+      "default": "planned",
+      "title": "Status",
+      "type": "string"
+    },
+    "suggested_baselines": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Suggested Baselines",
+      "type": "array"
+    },
+    "suggested_dataset": {
+      "minLength": 1,
+      "title": "Suggested Dataset",
+      "type": "string"
+    },
+    "suggested_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Suggested Metrics",
+      "type": "array"
+    },
+    "suggested_seed_policy": {
+      "minLength": 1,
+      "title": "Suggested Seed Policy",
+      "type": "string"
+    },
+    "target_claim_id": {
+      "minLength": 1,
+      "title": "Target Claim Id",
+      "type": "string"
+    },
+    "target_section": {
+      "minLength": 1,
+      "title": "Target Section",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "spec_id",
+    "target_claim_id",
+    "target_section",
+    "hypothesis_or_question",
+    "suggested_dataset",
+    "suggested_metrics",
+    "suggested_baselines",
+    "suggested_seed_policy",
+    "expected_output_artifacts"
+  ],
+  "title": "PlannedExperimentSpec",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.PlannedExperimentSpec",
+  "x-factori-verification-evidence": false
+}

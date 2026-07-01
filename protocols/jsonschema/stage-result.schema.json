@@ -32,7 +32,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.30.0/stage-result.schema.json",
+  "$id": "https://schemas.factori.local/0.32.0/stage-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One pipeline-stage execution result.",
@@ -88,7 +88,7 @@
   ],
   "title": "StageResult",
   "type": "object",
-  "x-factori-protocol-version": "0.30.0",
+  "x-factori-protocol-version": "0.32.0",
   "x-factori-source-model": "factori.schemas.PipelineStageResult",
   "x-factori-verification-evidence": false
 }

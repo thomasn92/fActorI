@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.30.0/citation-record.schema.json",
+  "$id": "https://schemas.factori.local/0.32.0/citation-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Retrieval-backed citation metadata for literature context only.",
@@ -314,7 +314,7 @@
   ],
   "title": "CitationRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.30.0",
+  "x-factori-protocol-version": "0.32.0",
   "x-factori-source-model": "factori.schemas.CitationRecord",
   "x-factori-verification-evidence": false
 }

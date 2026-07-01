@@ -1,0 +1,81 @@
+{
+  "$id": "https://schemas.factori.local/0.32.0/autonomous-plan-execution-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable autonomous executions.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_count": {
+      "minimum": 1,
+      "title": "Execution Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_created_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Latest Created Artifact Paths",
+      "type": "array"
+    },
+    "latest_execution_id": {
+      "minLength": 1,
+      "title": "Latest Execution Id",
+      "type": "string"
+    },
+    "latest_execution_mode": {
+      "enum": [
+        "dry_run",
+        "apply"
+      ],
+      "title": "Latest Execution Mode",
+      "type": "string"
+    },
+    "latest_execution_status": {
+      "enum": [
+        "completed",
+        "completed_with_deferred_actions",
+        "blocked",
+        "failed",
+        "dry_run_completed"
+      ],
+      "title": "Latest Execution Status",
+      "type": "string"
+    },
+    "latest_requires_human_intervention": {
+      "default": false,
+      "title": "Latest Requires Human Intervention",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_execution_id",
+    "execution_count",
+    "latest_execution_mode",
+    "latest_execution_status"
+  ],
+  "title": "AutonomousPlanExecutionIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionIndex",
+  "x-factori-verification-evidence": false
+}

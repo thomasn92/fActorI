@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.30.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.32.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -10,6 +10,60 @@
       },
       "title": "Audit Artifact Paths",
       "type": "object"
+    },
+    "automation_ready_item_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Automation Ready Item Count",
+      "type": "integer"
+    },
+    "autonomous_actions_applied": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Actions Applied",
+      "type": "integer"
+    },
+    "autonomous_actions_deferred": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Actions Deferred",
+      "type": "integer"
+    },
+    "autonomous_actions_failed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Actions Failed",
+      "type": "integer"
+    },
+    "autonomous_actions_rejected": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Actions Rejected",
+      "type": "integer"
+    },
+    "autonomous_evidence_plan_present": {
+      "default": false,
+      "title": "Autonomous Evidence Plan Present",
+      "type": "boolean"
+    },
+    "autonomous_execution_present": {
+      "default": false,
+      "title": "Autonomous Execution Present",
+      "type": "boolean"
+    },
+    "autonomous_next_actions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Autonomous Next Actions",
+      "type": "array"
+    },
+    "autonomous_next_required_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Autonomous Next Required Artifacts",
+      "type": "array"
     },
     "blocking_issues": {
       "items": {
@@ -130,6 +184,11 @@
       "minimum": 0,
       "title": "Formal Verification Artifact Count",
       "type": "integer"
+    },
+    "human_intervention_required": {
+      "default": false,
+      "title": "Human Intervention Required",
+      "type": "boolean"
     },
     "human_review_applied_change_count": {
       "default": 0,
@@ -272,6 +331,30 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "latest_autonomous_execution_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Autonomous Execution Mode"
+    },
+    "latest_autonomous_execution_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Autonomous Execution Status"
     },
     "latest_reconciliation_cycle": {
       "default": 0,
@@ -422,7 +505,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.30.0",
+  "x-factori-protocol-version": "0.32.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

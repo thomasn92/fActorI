@@ -164,7 +164,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.30.0/manuscript-drafting-report.schema.json",
+  "$id": "https://schemas.factori.local/0.32.0/manuscript-drafting-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Machine-readable section drafting report.",
@@ -303,7 +303,7 @@
   ],
   "title": "ManuscriptDraftingReport",
   "type": "object",
-  "x-factori-protocol-version": "0.30.0",
+  "x-factori-protocol-version": "0.32.0",
   "x-factori-source-model": "factori.schemas.ManuscriptDraftingReport",
   "x-factori-verification-evidence": false
 }

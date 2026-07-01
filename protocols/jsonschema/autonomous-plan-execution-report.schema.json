@@ -1,0 +1,369 @@
+{
+  "$defs": {
+    "AutonomousPlanExecutionAction": {
+      "additionalProperties": false,
+      "description": "One bounded deterministic disposition of an autonomous plan item.",
+      "properties": {
+        "action_id": {
+          "minLength": 1,
+          "title": "Action Id",
+          "type": "string"
+        },
+        "after_hash_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Hash Optional"
+        },
+        "applied": {
+          "default": false,
+          "title": "Applied",
+          "type": "boolean"
+        },
+        "before_hash_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before Hash Optional"
+        },
+        "created_artifact_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created Artifact Path Optional"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "deferred_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deferred Reason Optional"
+        },
+        "dry_run": {
+          "title": "Dry Run",
+          "type": "boolean"
+        },
+        "execution_decision": {
+          "enum": [
+            "would_apply",
+            "apply",
+            "noop",
+            "defer",
+            "reject"
+          ],
+          "title": "Execution Decision",
+          "type": "string"
+        },
+        "execution_status": {
+          "enum": [
+            "planned",
+            "completed",
+            "deferred",
+            "rejected",
+            "failed"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "gap_type": {
+          "enum": [
+            "needs_python_experiment",
+            "needs_formal_proof",
+            "needs_retrieval_expansion",
+            "needs_claim_downgrade",
+            "needs_claim_removal",
+            "needs_manuscript_refresh",
+            "sufficiently_supported_for_bounded_draft"
+          ],
+          "title": "Gap Type",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "plan_item_id": {
+          "minLength": 1,
+          "title": "Plan Item Id",
+          "type": "string"
+        },
+        "recommended_action": {
+          "minLength": 1,
+          "title": "Recommended Action",
+          "type": "string"
+        },
+        "rejected_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rejected Reason Optional"
+        },
+        "safety_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Safety Notes",
+          "type": "array"
+        },
+        "target_claim_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Claim Id Optional"
+        },
+        "target_section_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Section Optional"
+        }
+      },
+      "required": [
+        "action_id",
+        "plan_item_id",
+        "gap_type",
+        "recommended_action",
+        "execution_decision",
+        "execution_status",
+        "dry_run"
+      ],
+      "title": "AutonomousPlanExecutionAction",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.32.0/autonomous-plan-execution-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-evidence autonomous plan execution report.",
+  "properties": {
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/AutonomousPlanExecutionAction"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "actions_applied": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Actions Applied",
+      "type": "integer"
+    },
+    "actions_attempted": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Actions Attempted",
+      "type": "integer"
+    },
+    "actions_deferred": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Actions Deferred",
+      "type": "integer"
+    },
+    "actions_failed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Actions Failed",
+      "type": "integer"
+    },
+    "actions_rejected": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Actions Rejected",
+      "type": "integer"
+    },
+    "citation_safety_rechecked": {
+      "default": false,
+      "title": "Citation Safety Rechecked",
+      "type": "boolean"
+    },
+    "claim_evidence_map_rebuilt": {
+      "default": false,
+      "title": "Claim Evidence Map Rebuilt",
+      "type": "boolean"
+    },
+    "claim_support_rechecked": {
+      "default": false,
+      "title": "Claim Support Rechecked",
+      "type": "boolean"
+    },
+    "created_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Created Artifact Paths",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_id": {
+      "minLength": 1,
+      "title": "Execution Id",
+      "type": "string"
+    },
+    "execution_mode": {
+      "enum": [
+        "dry_run",
+        "apply"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "execution_status": {
+      "enum": [
+        "completed",
+        "completed_with_deferred_actions",
+        "blocked",
+        "failed",
+        "dry_run_completed"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "executor_backend": {
+      "default": "deterministic",
+      "enum": [
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Executor Backend",
+      "type": "string"
+    },
+    "human_intervention_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Intervention Reason Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manuscript_modified": {
+      "default": false,
+      "title": "Manuscript Modified",
+      "type": "boolean"
+    },
+    "next_required_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Next Required Artifacts",
+      "type": "array"
+    },
+    "plan_item_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Plan Item Count",
+      "type": "integer"
+    },
+    "plan_path": {
+      "minLength": 1,
+      "title": "Plan Path",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "release_rechecked": {
+      "default": false,
+      "title": "Release Rechecked",
+      "type": "boolean"
+    },
+    "requires_human_intervention": {
+      "default": false,
+      "title": "Requires Human Intervention",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "plan_path",
+    "execution_id",
+    "execution_mode",
+    "execution_status"
+  ],
+  "title": "AutonomousPlanExecutionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionReport",
+  "x-factori-verification-evidence": false
+}

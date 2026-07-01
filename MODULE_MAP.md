@@ -223,6 +223,14 @@ All implementation modules are under `factori/`.
 - `human_review_reconciliation.py`: deterministic classification and safe reconciliation of
   persisted human-review requests across immutable numbered cycles, with a versioned latest-cycle
   index and post-revision claim, citation, evidence-link, release, and reviewer-summary rechecks.
+- `autonomous_evidence_plan.py`: deterministic autonomous evidence-gap planning over the current
+  claim-evidence map, claim-support audit, retrieval quality, and reviewer summary to schedule
+  proof, experiment, retrieval, downgrade, removal, or manuscript-refresh next actions without
+  creating evidence or publication readiness.
+- `autonomous_plan_execution.py`: append-only deterministic dry-run/apply execution of autonomous
+  evidence plans, including safe claim wording changes, deterministic evidence-aware refresh,
+  planned proof/experiment/retrieval specifications, and post-apply safety/map/plan/release
+  rechecks without executing tools or creating evidence.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.

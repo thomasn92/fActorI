@@ -1,0 +1,93 @@
+{
+  "$id": "https://schemas.factori.local/0.32.0/retrieval-expansion-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Planned bounded retrieval expansion request without source authority.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "minimum_source_quality": {
+      "minLength": 1,
+      "title": "Minimum Source Quality",
+      "type": "string"
+    },
+    "query_terms": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Query Terms",
+      "type": "array"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "const": "planned",
+      "default": "planned",
+      "title": "Status",
+      "type": "string"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    },
+    "target_section_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section Optional"
+    }
+  },
+  "required": [
+    "run_id",
+    "request_id",
+    "query_terms",
+    "reason",
+    "minimum_source_quality"
+  ],
+  "title": "RetrievalExpansionRequest",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.RetrievalExpansionRequest",
+  "x-factori-verification-evidence": false
+}

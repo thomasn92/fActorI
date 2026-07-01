@@ -727,6 +727,18 @@ class ReviewerBundleSummary(StrictModel):
     latest_reconciliation_cycle: int = Field(default=0, ge=0)
     human_review_reconciliation_cycle_count: int = Field(default=0, ge=0)
     unresolved_reviewer_request_count: int = Field(default=0, ge=0)
+    autonomous_evidence_plan_present: bool = False
+    autonomous_next_actions: list[str] = Field(default_factory=list)
+    automation_ready_item_count: int = Field(default=0, ge=0)
+    human_intervention_required: bool = False
+    autonomous_execution_present: bool = False
+    latest_autonomous_execution_mode: str | None = None
+    latest_autonomous_execution_status: str | None = None
+    autonomous_actions_applied: int = Field(default=0, ge=0)
+    autonomous_actions_deferred: int = Field(default=0, ge=0)
+    autonomous_actions_rejected: int = Field(default=0, ge=0)
+    autonomous_actions_failed: int = Field(default=0, ge=0)
+    autonomous_next_required_artifacts: list[str] = Field(default_factory=list)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -882,6 +894,192 @@ class ClaimEvidenceMap(StrictModel):
     unsupported_non_scaffold_claim_ids: list[str] = Field(default_factory=list)
     evidence_limitations: list[str] = Field(default_factory=list)
     publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+AutonomousEvidenceGapType = Literal[
+    "needs_python_experiment",
+    "needs_formal_proof",
+    "needs_retrieval_expansion",
+    "needs_claim_downgrade",
+    "needs_claim_removal",
+    "needs_manuscript_refresh",
+    "sufficiently_supported_for_bounded_draft",
+]
+
+
+class AutonomousEvidenceGapPlanItem(StrictModel):
+    """One deterministic non-evidence planner item for a claim or bundle gap."""
+
+    item_id: str = Field(min_length=1)
+    target_type: str = Field(min_length=1)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    current_support_status: str = Field(min_length=1)
+    gap_type: AutonomousEvidenceGapType
+    recommended_action: str = Field(min_length=1)
+    priority: Literal["low", "medium", "high", "blocking"] = "medium"
+    blocking: bool = False
+    rationale: str = Field(min_length=1)
+    required_inputs: list[str] = Field(default_factory=list)
+    expected_artifact_type: str = Field(min_length=1)
+    automation_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousEvidenceGapPlan(StrictModel):
+    """Autonomous next-action plan over evidence gaps; scheduling context only."""
+
+    run_id: str = Field(min_length=1)
+    planner_backend: Literal["off", "deterministic", "fake", "openai"] = "off"
+    planner_status: str = Field(min_length=1)
+    claim_evidence_map_path: str | None = None
+    claim_support_audit_path: str | None = None
+    retrieval_quality_report_path: str | None = None
+    plan_items: list[AutonomousEvidenceGapPlanItem] = Field(default_factory=list)
+    next_action_summary: list[str] = Field(default_factory=list)
+    ready_for_python_experiment_runner: bool = False
+    ready_for_formal_proof_attempt: bool = False
+    ready_for_retrieval_expansion: bool = False
+    ready_for_manuscript_refresh: bool = False
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+AutonomousPlanExecutionMode = Literal["dry_run", "apply"]
+AutonomousPlanExecutorBackend = Literal["deterministic", "fake", "openai"]
+AutonomousPlanExecutionStatus = Literal[
+    "completed",
+    "completed_with_deferred_actions",
+    "blocked",
+    "failed",
+    "dry_run_completed",
+]
+
+
+class AutonomousPlanExecutionAction(StrictModel):
+    """One bounded deterministic disposition of an autonomous plan item."""
+
+    action_id: str = Field(min_length=1)
+    plan_item_id: str = Field(min_length=1)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    gap_type: AutonomousEvidenceGapType
+    recommended_action: str = Field(min_length=1)
+    execution_decision: Literal["would_apply", "apply", "noop", "defer", "reject"]
+    execution_status: Literal["planned", "completed", "deferred", "rejected", "failed"]
+    dry_run: bool
+    applied: bool = False
+    deferred_reason_optional: str | None = None
+    rejected_reason_optional: str | None = None
+    created_artifact_path_optional: str | None = None
+    before_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    after_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    safety_notes: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class PlannedExperimentSpec(StrictModel):
+    """Planned bounded experiment contract; never a completed experiment artifact."""
+
+    run_id: str = Field(min_length=1)
+    spec_id: str = Field(min_length=1)
+    target_claim_id: str = Field(min_length=1)
+    target_section: str = Field(min_length=1)
+    hypothesis_or_question: str = Field(min_length=1)
+    suggested_dataset: str = Field(min_length=1)
+    suggested_metrics: list[str] = Field(min_length=1)
+    suggested_baselines: list[str] = Field(min_length=1)
+    suggested_seed_policy: str = Field(min_length=1)
+    expected_output_artifacts: list[str] = Field(min_length=1)
+    status: Literal["planned"] = "planned"
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ProofObligationSpec(StrictModel):
+    """Planned formal proof obligation; never verification evidence."""
+
+    run_id: str = Field(min_length=1)
+    spec_id: str = Field(min_length=1)
+    target_claim_id: str = Field(min_length=1)
+    statement: str = Field(min_length=1)
+    suggested_checker: str = Field(min_length=1)
+    required_artifact_type: str = Field(min_length=1)
+    status: Literal["planned"] = "planned"
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class RetrievalExpansionRequest(StrictModel):
+    """Planned local retrieval expansion request; never source or claim evidence."""
+
+    run_id: str = Field(min_length=1)
+    request_id: str = Field(min_length=1)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    query_terms: list[str] = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    minimum_source_quality: str = Field(min_length=1)
+    status: Literal["planned"] = "planned"
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousPlanExecutionReport(StrictModel):
+    """Append-only autonomous plan execution report; workflow context only."""
+
+    run_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    execution_id: str = Field(min_length=1)
+    execution_mode: AutonomousPlanExecutionMode
+    executor_backend: AutonomousPlanExecutorBackend = "deterministic"
+    execution_status: AutonomousPlanExecutionStatus
+    plan_item_count: int = Field(default=0, ge=0)
+    actions: list[AutonomousPlanExecutionAction] = Field(default_factory=list)
+    actions_attempted: int = Field(default=0, ge=0)
+    actions_applied: int = Field(default=0, ge=0)
+    actions_deferred: int = Field(default=0, ge=0)
+    actions_rejected: int = Field(default=0, ge=0)
+    actions_failed: int = Field(default=0, ge=0)
+    manuscript_modified: bool = False
+    claim_evidence_map_rebuilt: bool = False
+    claim_support_rechecked: bool = False
+    citation_safety_rechecked: bool = False
+    release_rechecked: bool = False
+    next_required_artifacts: list[str] = Field(default_factory=list)
+    created_artifact_paths: list[str] = Field(default_factory=list)
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class AutonomousPlanExecutionIndex(StrictModel):
+    """Derived latest pointer over immutable autonomous execution reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_execution_id: str = Field(min_length=1)
+    execution_count: int = Field(ge=1)
+    latest_execution_mode: AutonomousPlanExecutionMode
+    latest_execution_status: AutonomousPlanExecutionStatus
+    latest_created_artifact_paths: list[str] = Field(default_factory=list)
+    latest_requires_human_intervention: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
@@ -1583,6 +1781,8 @@ __all__ = [
     "ClaimEvidenceLink",
     "ClaimEvidenceMapLink",
     "ClaimEvidenceMap",
+    "AutonomousEvidenceGapPlanItem",
+    "AutonomousEvidenceGapPlan",
     "Claim",
     "BlockedClaim",
     "ClaimTable",

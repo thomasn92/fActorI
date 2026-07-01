@@ -9,6 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from factori.artifacts import ArtifactStore
+from factori.autonomous_evidence_plan import (
+    autonomous_evidence_plan_summary_fields,
+    latest_autonomous_evidence_gap_plan_path,
+)
+from factori.autonomous_plan_execution import (
+    autonomous_execution_summary_fields,
+    latest_autonomous_plan_execution_report,
+)
 from factori.citations import (
     CITATION_MARKER_RE,
     build_citation_registry_from_ledger,
@@ -50,6 +58,8 @@ from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_ar
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    AutonomousEvidenceGapPlan,
+    AutonomousPlanExecutionReport,
     CitationRegistry,
     ClaimEvidenceMap,
     ClaimSupportAuditReport,
@@ -514,8 +524,7 @@ def generate_full_paper(
                 _quality_repair_step_warnings(quality_repair_report),
                 (
                     "Quality repair could not complete safely."
-                    if quality_repair_report.quality_repair_status
-                    in {"blocked", "failed"}
+                    if quality_repair_report.quality_repair_status in {"blocked", "failed"}
                     else None
                 ),
             )
@@ -536,9 +545,8 @@ def generate_full_paper(
         or (config.export_latex and quality_repaired_markdown is not None)
     )
     if reexport_requested:
-        if (
-            quality_repaired_markdown is None
-            and (revision_result is None or revision_result.revision_result is None)
+        if quality_repaired_markdown is None and (
+            revision_result is None or revision_result.revision_result is None
         ):
             raise FullPaperGenerationError(
                 "LaTeX re-export after revision requires --apply-safe-fake-revision."
@@ -694,9 +702,7 @@ def inspect_paper_bundle_summary(
     generation_report = _read_generation_report(paths["generation_report"])
     release_report = _read_release_report(paths["release_report"])
     safe_repair_report = _read_json_optional(paths["safe_repair_report"])
-    quality_repair_report = _read_quality_repair_report(
-        paths["quality_repair_report"]
-    )
+    quality_repair_report = _read_quality_repair_report(paths["quality_repair_report"])
     evidence_aware_refresh_report = _read_evidence_aware_refresh_report(
         paths["evidence_aware_refresh_report"]
     )
@@ -709,9 +715,7 @@ def inspect_paper_bundle_summary(
     reviewer_request_set_count = len(
         [
             path
-            for path in (run_path / "reports").glob(
-                "reviewer-change-request-set-*.json"
-            )
+            for path in (run_path / "reports").glob("reviewer-change-request-set-*.json")
             if not path.name.endswith(".meta.json")
         ]
     )
@@ -732,20 +736,23 @@ def inspect_paper_bundle_summary(
     )
     claim_evidence_map = _read_claim_evidence_map(paths["claim_evidence_map"])
     claim_evidence_summary = claim_evidence_summary_fields(claim_evidence_map)
-    reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
-    markdown = (
-        primary_draft.read_text(encoding="utf-8")
-        if primary_draft is not None
-        else ""
+    autonomous_evidence_plan = _read_autonomous_evidence_gap_plan(paths["autonomous_evidence_plan"])
+    autonomous_plan_summary = autonomous_evidence_plan_summary_fields(autonomous_evidence_plan)
+    autonomous_execution, autonomous_execution_index = latest_autonomous_plan_execution_report(
+        root_path, run_id
     )
+    autonomous_execution_summary = autonomous_execution_summary_fields(
+        autonomous_execution,
+        autonomous_execution_index,
+    )
+    reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
+    markdown = primary_draft.read_text(encoding="utf-8") if primary_draft is not None else ""
     section_accounting = _section_accounting(
         _markdown_sections(markdown),
         manuscript_stats.get("title_detected"),
     )
     citation_registry = _read_citation_registry(paths["citation_registry"])
-    retrieval_quality_report = _read_retrieval_quality_report(
-        paths["retrieval_quality_report"]
-    )
+    retrieval_quality_report = _read_retrieval_quality_report(paths["retrieval_quality_report"])
     marker_keys = sorted(set(CITATION_MARKER_RE.findall(markdown)))
     if citation_registry is not None:
         citation_safety = validate_citation_usage(markdown, citation_registry)
@@ -779,9 +786,7 @@ def inspect_paper_bundle_summary(
         claim_support_audit.summary_counts if claim_support_audit is not None else {}
     )
     claim_support_placement = (
-        claim_support_audit.citation_placement_violations
-        if claim_support_audit is not None
-        else []
+        claim_support_audit.citation_placement_violations if claim_support_audit is not None else []
     )
     generation_warning_count = (
         len(generation_report.warnings) if generation_report is not None else 0
@@ -793,9 +798,7 @@ def inspect_paper_bundle_summary(
         len(generation_report.blocking_issues) if generation_report is not None else 0
     )
     release_blocking_count = (
-        len(release_report.decision.blocking_reasons)
-        if release_report is not None
-        else 0
+        len(release_report.decision.blocking_reasons) if release_report is not None else 0
     )
     return {
         "run_id": run_id,
@@ -808,9 +811,7 @@ def inspect_paper_bundle_summary(
         "safe_repair_report_exists": paths["safe_repair_report"].is_file(),
         "quality_repair_report_exists": paths["quality_repair_report"].is_file(),
         "quality_repair_report_present": quality_repair_report is not None,
-        "evidence_aware_refresh_report_present": (
-            evidence_aware_refresh_report is not None
-        ),
+        "evidence_aware_refresh_report_present": (evidence_aware_refresh_report is not None),
         "evidence_aware_refresh_backend": (
             evidence_aware_refresh_report.refresh_backend
             if evidence_aware_refresh_report is not None
@@ -822,8 +823,7 @@ def inspect_paper_bundle_summary(
             else "disabled"
         ),
         "proof_language_inserted": bool(
-            evidence_aware_refresh_report
-            and evidence_aware_refresh_report.proof_language_inserted
+            evidence_aware_refresh_report and evidence_aware_refresh_report.proof_language_inserted
         ),
         "experiment_language_inserted": bool(
             evidence_aware_refresh_report
@@ -841,9 +841,7 @@ def inspect_paper_bundle_summary(
             evidence_aware_refresh_report
             and evidence_aware_refresh_report.citation_safety_rechecked_after_refresh
         ),
-        "human_review_reconciliation_present": (
-            human_review_reconciliation is not None
-        ),
+        "human_review_reconciliation_present": (human_review_reconciliation is not None),
         "human_review_reconciliation_status": (
             human_review_reconciliation.reconciliation_status
             if human_review_reconciliation is not None
@@ -882,6 +880,45 @@ def inspect_paper_bundle_summary(
             if human_review_reconciliation is not None
             else 0
         ),
+        "autonomous_evidence_plan_present": autonomous_evidence_plan is not None,
+        "autonomous_evidence_plan_path": (
+            paths["autonomous_evidence_plan"].relative_to(root_path).as_posix()
+            if autonomous_evidence_plan is not None
+            else None
+        ),
+        "autonomous_evidence_plan_markdown_path": (
+            paths["autonomous_evidence_plan_markdown"].relative_to(root_path).as_posix()
+            if paths["autonomous_evidence_plan_markdown"].is_file()
+            else None
+        ),
+        "autonomous_plan_item_count": autonomous_plan_summary["autonomous_plan_item_count"],
+        "autonomous_python_experiment_item_count": autonomous_plan_summary[
+            "autonomous_python_experiment_item_count"
+        ],
+        "autonomous_formal_proof_item_count": autonomous_plan_summary[
+            "autonomous_formal_proof_item_count"
+        ],
+        "autonomous_retrieval_expansion_item_count": autonomous_plan_summary[
+            "autonomous_retrieval_expansion_item_count"
+        ],
+        "autonomous_claim_downgrade_item_count": autonomous_plan_summary[
+            "autonomous_claim_downgrade_item_count"
+        ],
+        "autonomous_claim_removal_item_count": autonomous_plan_summary[
+            "autonomous_claim_removal_item_count"
+        ],
+        "autonomous_manuscript_refresh_item_count": autonomous_plan_summary[
+            "autonomous_manuscript_refresh_item_count"
+        ],
+        "automation_ready_item_count": autonomous_plan_summary["automation_ready_item_count"],
+        "autonomous_human_intervention_required": autonomous_plan_summary[
+            "autonomous_human_intervention_required"
+        ],
+        **autonomous_execution_summary,
+        "human_intervention_required": autonomous_plan_summary[
+            "autonomous_human_intervention_required"
+        ],
+        "autonomous_next_actions": autonomous_plan_summary["autonomous_next_actions"],
         "human_review_artifact_exists": paths["human_review_artifact"].is_file(),
         "human_review_artifact_present": human_review_artifact is not None,
         "human_review_status": (
@@ -893,14 +930,10 @@ def inspect_paper_bundle_summary(
             else None
         ),
         "human_review_blocking_concern_count": (
-            len(human_review_artifact.blocking_concerns)
-            if human_review_artifact is not None
-            else 0
+            len(human_review_artifact.blocking_concerns) if human_review_artifact is not None else 0
         ),
         "human_review_requested_change_count": (
-            len(human_review_artifact.requested_changes)
-            if human_review_artifact is not None
-            else 0
+            len(human_review_artifact.requested_changes) if human_review_artifact is not None else 0
         ),
         "human_review_recommended_next_action": (
             human_review_artifact.recommended_next_action
@@ -909,27 +942,17 @@ def inspect_paper_bundle_summary(
         ),
         "proof_artifacts_present": bool(proof_artifacts),
         "proof_artifact_count": proof_summary["proof_artifact_count"],
-        "formal_verification_passed_count": proof_summary[
-            "formal_verification_passed_count"
-        ],
-        "informal_proof_artifact_count": proof_summary[
-            "informal_proof_artifact_count"
-        ],
+        "formal_verification_passed_count": proof_summary["formal_verification_passed_count"],
+        "informal_proof_artifact_count": proof_summary["informal_proof_artifact_count"],
         "proof_artifact_paths": proof_summary["proof_artifact_paths"],
         "experiment_artifacts_present": bool(experiment_artifacts),
         "experiment_artifact_count": experiment_summary["experiment_artifact_count"],
         "completed_experiment_count": experiment_summary["completed_experiment_count"],
-        "inconclusive_experiment_count": experiment_summary[
-            "inconclusive_experiment_count"
-        ],
+        "inconclusive_experiment_count": experiment_summary["inconclusive_experiment_count"],
         "failed_experiment_count": experiment_summary["failed_experiment_count"],
         "experiment_artifact_paths": experiment_summary["experiment_artifact_paths"],
-        "proof_evidence_gap_present": (
-            proof_summary["formal_verification_passed_count"] == 0
-        ),
-        "experiment_evidence_gap_present": (
-            experiment_summary["completed_experiment_count"] == 0
-        ),
+        "proof_evidence_gap_present": (proof_summary["formal_verification_passed_count"] == 0),
+        "experiment_evidence_gap_present": (experiment_summary["completed_experiment_count"] == 0),
         "claim_evidence_map_present": claim_evidence_map is not None,
         "claim_evidence_map_path": (
             paths["claim_evidence_map"].relative_to(root_path).as_posix()
@@ -941,30 +964,20 @@ def inspect_paper_bundle_summary(
             if paths["claim_evidence_map_markdown"].is_file()
             else None
         ),
-        "claim_evidence_supported_count": claim_evidence_summary[
-            "claim_evidence_supported_count"
-        ],
-        "claim_evidence_partial_count": claim_evidence_summary[
-            "claim_evidence_partial_count"
-        ],
+        "claim_evidence_supported_count": claim_evidence_summary["claim_evidence_supported_count"],
+        "claim_evidence_partial_count": claim_evidence_summary["claim_evidence_partial_count"],
         "claim_evidence_unsupported_count": claim_evidence_summary[
             "claim_evidence_unsupported_count"
         ],
-        "proof_supported_claim_count": claim_evidence_summary[
-            "proof_supported_claim_count"
-        ],
+        "proof_supported_claim_count": claim_evidence_summary["proof_supported_claim_count"],
         "experiment_supported_claim_count": claim_evidence_summary[
             "experiment_supported_claim_count"
         ],
-        "citation_supported_claim_count": claim_evidence_summary[
-            "citation_supported_claim_count"
-        ],
+        "citation_supported_claim_count": claim_evidence_summary["citation_supported_claim_count"],
         "human_review_linked_claim_count": claim_evidence_summary[
             "human_review_linked_claim_count"
         ],
-        "reviewer_bundle_summary_exists": (
-            paths["reviewer_bundle_summary_json"].is_file()
-        ),
+        "reviewer_bundle_summary_exists": (paths["reviewer_bundle_summary_json"].is_file()),
         "reviewer_bundle_summary_after_evidence_artifacts_exists": (
             paths["reviewer_bundle_summary_after_evidence_artifacts_json"].is_file()
         ),
@@ -972,26 +985,18 @@ def inspect_paper_bundle_summary(
             paths["reviewer_bundle_summary_after_human_review_json"].is_file()
         ),
         "reviewer_bundle_summary_after_evidence_aware_refresh_exists": (
-            paths[
-                "reviewer_bundle_summary_after_evidence_aware_refresh_json"
-            ].is_file()
+            paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"].is_file()
         ),
         "reviewer_bundle_summary_markdown_exists": (
             paths["reviewer_bundle_summary_markdown"].is_file()
         ),
         "reviewer_bundle_summary_present": reviewer_bundle_summary is not None,
-        "reviewer_summary_status": (
-            "present" if reviewer_bundle_summary is not None else "absent"
-        ),
+        "reviewer_summary_status": ("present" if reviewer_bundle_summary is not None else "absent"),
         "reviewer_summary_evidence_gap_count": (
-            len(reviewer_bundle_summary.evidence_gaps)
-            if reviewer_bundle_summary is not None
-            else 0
+            len(reviewer_bundle_summary.evidence_gaps) if reviewer_bundle_summary is not None else 0
         ),
         "remaining_evidence_gap_count": (
-            len(reviewer_bundle_summary.evidence_gaps)
-            if reviewer_bundle_summary is not None
-            else 0
+            len(reviewer_bundle_summary.evidence_gaps) if reviewer_bundle_summary is not None else 0
         ),
         "reviewer_summary_human_checklist_count": (
             len(reviewer_bundle_summary.human_review_checklist)
@@ -1014,9 +1019,7 @@ def inspect_paper_bundle_summary(
             else None
         ),
         "primary_latex_to_read": (
-            primary_latex.relative_to(root_path).as_posix()
-            if primary_latex is not None
-            else None
+            primary_latex.relative_to(root_path).as_posix() if primary_latex is not None else None
         ),
         "primary_source_map_to_read": (
             primary_source_map.relative_to(root_path).as_posix()
@@ -1041,9 +1044,7 @@ def inspect_paper_bundle_summary(
             release_report.decision.status.value if release_report is not None else None
         ),
         "generation_status": (
-            generation_report.generation_status.value
-            if generation_report is not None
-            else None
+            generation_report.generation_status.value if generation_report is not None else None
         ),
         "safe_repair_applied_count": (
             int(safe_repair_report.get("repairs_applied", 0))
@@ -1061,9 +1062,7 @@ def inspect_paper_bundle_summary(
             else "disabled"
         ),
         "quality_repaired_section_count": (
-            len(quality_repair_report.sections_repaired)
-            if quality_repair_report is not None
-            else 0
+            len(quality_repair_report.sections_repaired) if quality_repair_report is not None else 0
         ),
         "quality_status_before_repair": (
             quality_repair_report.before_quality_status
@@ -1079,9 +1078,7 @@ def inspect_paper_bundle_summary(
             quality_repair_report and quality_repair_report.section_depth_targets
         ),
         "section_depth_targets": (
-            quality_repair_report.section_depth_targets
-            if quality_repair_report is not None
-            else {}
+            quality_repair_report.section_depth_targets if quality_repair_report is not None else {}
         ),
         "section_depth_target_total": (
             len(quality_repair_report.section_depth_targets)
@@ -1105,36 +1102,26 @@ def inspect_paper_bundle_summary(
             else []
         ),
         "warnings_reduced_count": (
-            quality_repair_report.warnings_reduced_count
-            if quality_repair_report is not None
-            else 0
+            quality_repair_report.warnings_reduced_count if quality_repair_report is not None else 0
         ),
         "irreducible_quality_warnings": (
-            quality_repair_report.irreducible_warnings
-            if quality_repair_report is not None
-            else []
+            quality_repair_report.irreducible_warnings if quality_repair_report is not None else []
         ),
         "claim_support_rechecked_after_quality_repair": bool(
-            quality_repair_report
-            and quality_repair_report.claim_support_rechecked_after_repair
+            quality_repair_report and quality_repair_report.claim_support_rechecked_after_repair
         ),
         "citation_safety_rechecked_after_quality_repair": bool(
-            quality_repair_report
-            and quality_repair_report.citation_safety_rechecked_after_repair
+            quality_repair_report and quality_repair_report.citation_safety_rechecked_after_repair
         ),
         "citation_registry_present": paths["citation_registry"].is_file(),
         "citation_registry_source_count": registry_source_count,
-        "citation_registry_sources_all_accepted": (
-            citation_registry_sources_all_accepted
-        ),
+        "citation_registry_sources_all_accepted": (citation_registry_sources_all_accepted),
         "registry_backed_citation_count": registry_backed_citation_count,
         "unregistered_citation_keys": unregistered_citation_keys,
         "bibliography_registry_backed": bibliography_registry_backed,
         "bibliography_status": bibliography_status,
         "citation_policy": citation_policy,
-        "retrieval_quality_report_present": (
-            retrieval_quality_report is not None
-        ),
+        "retrieval_quality_report_present": (retrieval_quality_report is not None),
         "retrieved_source_count": (
             retrieval_quality_report.total_retrieved_sources
             if retrieval_quality_report is not None
@@ -1156,9 +1143,7 @@ def inspect_paper_bundle_summary(
             else "not_evaluated"
         ),
         "retrieval_quality_duplicate_count": (
-            retrieval_quality_report.duplicate_count
-            if retrieval_quality_report is not None
-            else 0
+            retrieval_quality_report.duplicate_count if retrieval_quality_report is not None else 0
         ),
         "retrieval_quality_low_relevance_count": (
             retrieval_quality_report.low_relevance_count
@@ -1210,9 +1195,7 @@ def inspect_paper_bundle_summary(
             else 0
         ),
         "claim_support_audit_present": paths["claim_support_audit"].is_file(),
-        "claim_support_total_sentences": int(
-            claim_support_counts.get("total_sentences", 0)
-        ),
+        "claim_support_total_sentences": int(claim_support_counts.get("total_sentences", 0)),
         "claim_support_registry_supported_count": int(
             claim_support_counts.get("registry_supported", 0)
         ),
@@ -1222,12 +1205,8 @@ def inspect_paper_bundle_summary(
         "claim_support_missing_required_citation_count": int(
             claim_support_counts.get("missing_required_citation", 0)
         ),
-        "claim_support_scope_mismatch_count": int(
-            claim_support_counts.get("scope_mismatch", 0)
-        ),
-        "claim_support_forbidden_claim_count": int(
-            claim_support_counts.get("forbidden_claim", 0)
-        ),
+        "claim_support_scope_mismatch_count": int(claim_support_counts.get("scope_mismatch", 0)),
+        "claim_support_forbidden_claim_count": int(claim_support_counts.get("forbidden_claim", 0)),
         "citation_placement_violations": list(claim_support_placement),
         "citation_as_validation_misuse_count": int(
             claim_support_counts.get("citation_as_validation_misuse", 0)
@@ -1241,14 +1220,10 @@ def inspect_paper_bundle_summary(
             else "off"
         ),
         "claim_adjudication_calls": (
-            claim_support_audit.claim_adjudication_calls
-            if claim_support_audit is not None
-            else 0
+            claim_support_audit.claim_adjudication_calls if claim_support_audit is not None else 0
         ),
         "adjudicated_sentence_count": (
-            claim_support_audit.adjudicated_sentence_count
-            if claim_support_audit is not None
-            else 0
+            claim_support_audit.adjudicated_sentence_count if claim_support_audit is not None else 0
         ),
         "artifacts": existing,
         "is_verification_evidence": False,
@@ -1272,9 +1247,7 @@ def lint_paper_bundle_summary(
     if min_words < 0:
         raise PaperBundleInspectionError("min_words must be non-negative.")
     if min_avg_words_per_section < 0:
-        raise PaperBundleInspectionError(
-            "min_avg_words_per_section must be non-negative."
-        )
+        raise PaperBundleInspectionError("min_avg_words_per_section must be non-negative.")
     if min_citation_markers < 0:
         raise PaperBundleInspectionError("min_citation_markers must be non-negative.")
 
@@ -1297,9 +1270,7 @@ def lint_paper_bundle_summary(
         )
         bundle.update(override_stats)
         bundle.update(_public_section_accounting(override_accounting))
-        bundle["unregistered_citation_keys"] = sorted(
-            set(CITATION_MARKER_RE.findall(markdown))
-        )
+        bundle["unregistered_citation_keys"] = sorted(set(CITATION_MARKER_RE.findall(markdown)))
         if _citation_safety_override is not None:
             bundle["unregistered_citation_keys"] = list(
                 _citation_safety_override.unregistered_citation_keys
@@ -1319,8 +1290,7 @@ def lint_paper_bundle_summary(
             )
             bundle["bibliography_status"] = (
                 "registry-backed"
-                if bibliography_present
-                and _citation_safety_override.bibliography_registry_backed
+                if bibliography_present and _citation_safety_override.bibliography_registry_backed
                 else "unsafe"
                 if bibliography_present
                 else "absent"
@@ -1328,9 +1298,7 @@ def lint_paper_bundle_summary(
         if _claim_support_audit_override is not None:
             counts = _claim_support_audit_override.summary_counts
             bundle["claim_support_audit_present"] = True
-            bundle["claim_support_total_sentences"] = int(
-                counts.get("total_sentences", 0)
-            )
+            bundle["claim_support_total_sentences"] = int(counts.get("total_sentences", 0))
             bundle["claim_support_registry_supported_count"] = int(
                 counts.get("registry_supported", 0)
             )
@@ -1340,12 +1308,8 @@ def lint_paper_bundle_summary(
             bundle["claim_support_missing_required_citation_count"] = int(
                 counts.get("missing_required_citation", 0)
             )
-            bundle["claim_support_scope_mismatch_count"] = int(
-                counts.get("scope_mismatch", 0)
-            )
-            bundle["claim_support_forbidden_claim_count"] = int(
-                counts.get("forbidden_claim", 0)
-            )
+            bundle["claim_support_scope_mismatch_count"] = int(counts.get("scope_mismatch", 0))
+            bundle["claim_support_forbidden_claim_count"] = int(counts.get("forbidden_claim", 0))
             bundle["citation_placement_violations"] = list(
                 _claim_support_audit_override.citation_placement_violations
             )
@@ -1368,23 +1332,17 @@ def lint_paper_bundle_summary(
     headings = list(bundle.get("section_headings_detected") or [])
     word_count = int(bundle.get("word_count") or 0)
     section_count = int(bundle.get("section_count") or 0)
-    average_words_per_section = (
-        round(word_count / section_count, 1) if section_count else 0.0
-    )
+    average_words_per_section = round(word_count / section_count, 1) if section_count else 0.0
     title = bundle.get("title_detected")
     title_text = str(title) if title else ""
     title_is_placeholder = _title_is_placeholder(title_text)
     abstract_present = bool(bundle.get("abstract_detected"))
     citation_marker_count = int(bundle.get("citation_marker_count") or 0)
     citations_present = citation_marker_count > 0
-    quality_repair_report_present = bool(
-        bundle.get("quality_repair_report_present")
-    )
+    quality_repair_report_present = bool(bundle.get("quality_repair_report_present"))
     quality_repair_backend = str(bundle.get("quality_repair_backend") or "off")
     quality_repair_status = str(bundle.get("quality_repair_status") or "disabled")
-    quality_repaired_section_count = int(
-        bundle.get("quality_repaired_section_count") or 0
-    )
+    quality_repaired_section_count = int(bundle.get("quality_repaired_section_count") or 0)
     quality_status_before_repair = bundle.get("quality_status_before_repair")
     quality_status_after_repair = bundle.get("quality_status_after_repair")
     claim_support_rechecked_after_quality_repair = bool(
@@ -1396,13 +1354,9 @@ def lint_paper_bundle_summary(
     evidence_aware_refresh_report_present = bool(
         bundle.get("evidence_aware_refresh_report_present")
     )
-    evidence_aware_refresh_backend = str(
-        bundle.get("evidence_aware_refresh_backend") or "off"
-    )
+    evidence_aware_refresh_backend = str(bundle.get("evidence_aware_refresh_backend") or "off")
     proof_language_inserted = bool(bundle.get("proof_language_inserted"))
-    experiment_language_inserted = bool(
-        bundle.get("experiment_language_inserted")
-    )
+    experiment_language_inserted = bool(bundle.get("experiment_language_inserted"))
     claim_evidence_map_rechecked_after_refresh = bool(
         bundle.get("claim_evidence_map_rechecked_after_refresh")
     )
@@ -1412,54 +1366,59 @@ def lint_paper_bundle_summary(
     citation_safety_rechecked_after_refresh = bool(
         bundle.get("citation_safety_rechecked_after_refresh")
     )
-    citation_registry_present = bool(bundle.get("citation_registry_present"))
-    citation_registry_source_count = int(
-        bundle.get("citation_registry_source_count") or 0
+    autonomous_evidence_plan_present = bool(bundle.get("autonomous_evidence_plan_present"))
+    autonomous_plan_item_count = int(bundle.get("autonomous_plan_item_count") or 0)
+    autonomous_python_experiment_item_count = int(
+        bundle.get("autonomous_python_experiment_item_count") or 0
     )
+    autonomous_formal_proof_item_count = int(bundle.get("autonomous_formal_proof_item_count") or 0)
+    autonomous_retrieval_expansion_item_count = int(
+        bundle.get("autonomous_retrieval_expansion_item_count") or 0
+    )
+    autonomous_claim_downgrade_item_count = int(
+        bundle.get("autonomous_claim_downgrade_item_count") or 0
+    )
+    autonomous_claim_removal_item_count = int(
+        bundle.get("autonomous_claim_removal_item_count") or 0
+    )
+    automation_ready_item_count = int(bundle.get("automation_ready_item_count") or 0)
+    autonomous_human_intervention_required = bool(
+        bundle.get("autonomous_human_intervention_required")
+    )
+    autonomous_execution_present = bool(bundle.get("autonomous_execution_present"))
+    autonomous_execution_count = int(bundle.get("autonomous_execution_count") or 0)
+    latest_autonomous_execution_mode = bundle.get("latest_autonomous_execution_mode")
+    latest_autonomous_execution_status = bundle.get("latest_autonomous_execution_status")
+    citation_registry_present = bool(bundle.get("citation_registry_present"))
+    citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
         bundle.get("citation_registry_sources_all_accepted", True)
     )
-    registry_backed_citation_count = int(
-        bundle.get("registry_backed_citation_count") or 0
-    )
-    unregistered_citation_keys = list(
-        bundle.get("unregistered_citation_keys") or []
-    )
-    bibliography_registry_backed = bool(
-        bundle.get("bibliography_registry_backed")
-    )
+    registry_backed_citation_count = int(bundle.get("registry_backed_citation_count") or 0)
+    unregistered_citation_keys = list(bundle.get("unregistered_citation_keys") or [])
+    bibliography_registry_backed = bool(bundle.get("bibliography_registry_backed"))
     citation_policy = str(bundle.get("citation_policy") or "none")
-    retrieval_quality_report_present = bool(
-        bundle.get("retrieval_quality_report_present")
-    )
+    retrieval_quality_report_present = bool(bundle.get("retrieval_quality_report_present"))
     retrieved_source_count = int(bundle.get("retrieved_source_count") or 0)
     accepted_source_count = int(bundle.get("accepted_source_count") or 0)
     rejected_source_count = int(bundle.get("rejected_source_count") or 0)
-    retrieval_adequacy_status = str(
-        bundle.get("retrieval_adequacy_status") or "not_evaluated"
-    )
+    retrieval_adequacy_status = str(bundle.get("retrieval_adequacy_status") or "not_evaluated")
     source_relevance_adjudication_enabled = bool(
         bundle.get("source_relevance_adjudication_enabled")
     )
     source_relevance_adjudicator_backend = str(
         bundle.get("source_relevance_adjudicator_backend") or "off"
     )
-    source_relevance_adjudicated_count = int(
-        bundle.get("source_relevance_adjudicated_count") or 0
-    )
+    source_relevance_adjudicated_count = int(bundle.get("source_relevance_adjudicated_count") or 0)
     source_relevance_llm_accepted_count = int(
         bundle.get("source_relevance_llm_accepted_count") or 0
     )
     source_relevance_llm_rejected_count = int(
         bundle.get("source_relevance_llm_rejected_count") or 0
     )
-    source_relevance_hard_reject_count = int(
-        bundle.get("source_relevance_hard_reject_count") or 0
-    )
+    source_relevance_hard_reject_count = int(bundle.get("source_relevance_hard_reject_count") or 0)
     claim_support_audit_present = bool(bundle.get("claim_support_audit_present"))
-    claim_support_total_sentences = int(
-        bundle.get("claim_support_total_sentences") or 0
-    )
+    claim_support_total_sentences = int(bundle.get("claim_support_total_sentences") or 0)
     claim_support_registry_supported_count = int(
         bundle.get("claim_support_registry_supported_count") or 0
     )
@@ -1469,15 +1428,11 @@ def lint_paper_bundle_summary(
     claim_support_missing_required_citation_count = int(
         bundle.get("claim_support_missing_required_citation_count") or 0
     )
-    claim_support_scope_mismatch_count = int(
-        bundle.get("claim_support_scope_mismatch_count") or 0
-    )
+    claim_support_scope_mismatch_count = int(bundle.get("claim_support_scope_mismatch_count") or 0)
     claim_support_forbidden_claim_count = int(
         bundle.get("claim_support_forbidden_claim_count") or 0
     )
-    citation_placement_violations = list(
-        bundle.get("citation_placement_violations") or []
-    )
+    citation_placement_violations = list(bundle.get("citation_placement_violations") or [])
     citation_as_validation_misuse_count = int(
         bundle.get("citation_as_validation_misuse_count") or 0
     )
@@ -1490,9 +1445,7 @@ def lint_paper_bundle_summary(
     main_body_sections = section_accounting["main_body_sections"]
     appendix_sections = section_accounting["appendix_sections"]
     metadata_sections = section_accounting["metadata_sections"]
-    unplanned_main_body_sections = section_accounting[
-        "unplanned_main_body_sections"
-    ]
+    unplanned_main_body_sections = section_accounting["unplanned_main_body_sections"]
     body_sections = [
         *main_body_sections,
         *unplanned_main_body_sections,
@@ -1501,16 +1454,10 @@ def lint_paper_bundle_summary(
     appendix_section_count = len(appendix_sections)
     metadata_section_count = len(metadata_sections)
     total_heading_count = int(section_accounting["total_heading_count"])
-    main_body_word_count = sum(
-        int(section["word_count"]) for section in main_body_sections
-    )
-    appendix_word_count = sum(
-        int(section["word_count"]) for section in appendix_sections
-    )
+    main_body_word_count = sum(int(section["word_count"]) for section in main_body_sections)
+    appendix_word_count = sum(int(section["word_count"]) for section in appendix_sections)
     main_body_avg_words_per_section = (
-        round(main_body_word_count / main_body_section_count, 1)
-        if main_body_section_count
-        else 0.0
+        round(main_body_word_count / main_body_section_count, 1) if main_body_section_count else 0.0
     )
     section_word_counts = _canonical_section_word_counts(body_sections)
     depth_summary = _quality_depth_target_summary(section_word_counts)
@@ -1568,30 +1515,21 @@ def lint_paper_bundle_summary(
         "claim/evidence" in heading or ("claim" in heading and "evidence" in heading)
         for heading in lower_headings
     )
-    missing_provenance_appendix = not any(
-        "provenance" in heading for heading in lower_headings
-    )
+    missing_provenance_appendix = not any("provenance" in heading for heading in lower_headings)
     max_section_count_for_short_draft = 10
-    paper_body_heading_count = (
-        main_body_section_count + len(unplanned_main_body_sections)
-    )
+    paper_body_heading_count = main_body_section_count + len(unplanned_main_body_sections)
     too_many_sections_for_length = (
-        word_count < min_words
-        and paper_body_heading_count > max_section_count_for_short_draft
+        word_count < min_words and paper_body_heading_count > max_section_count_for_short_draft
     )
-    nested_main_body_heading_count = sum(
-        1 for section in body_sections if section["level"] > 2
-    )
+    nested_main_body_heading_count = sum(1 for section in body_sections if section["level"] > 2)
     unplanned_main_body_headings = [
         str(section["heading"]) for section in unplanned_main_body_sections
     ]
     standalone_central_message_detected = any(
-        str(section["heading"]).casefold() == "central message"
-        for section in metadata_sections
+        str(section["heading"]).casefold() == "central message" for section in metadata_sections
     )
-    central_message_merged = (
-        not standalone_central_message_detected
-        and _contains_any(lower_body_text, _CONTRIBUTION_LANGUAGE)
+    central_message_merged = not standalone_central_message_detected and _contains_any(
+        lower_body_text, _CONTRIBUTION_LANGUAGE
     )
     conclusion_section = next(
         (
@@ -1602,8 +1540,7 @@ def lint_paper_bundle_summary(
         None,
     )
     conclusion_placeholder_like = bool(
-        conclusion_section is not None
-        and _section_is_placeholder_like(conclusion_section)
+        conclusion_section is not None and _section_is_placeholder_like(conclusion_section)
     )
     main_body_heading_fragmentation_detected = bool(
         unplanned_main_body_headings
@@ -1623,9 +1560,8 @@ def lint_paper_bundle_summary(
         len(body_sections) // 2,
     )
     section_structure_coherent = not severe_section_fragmentation
-    unsupported_external_claims_without_citations = (
-        citation_marker_count == 0
-        and _contains_any(lower_body_text, _UNSUPPORTED_EXTERNAL_FACT_PATTERNS)
+    unsupported_external_claims_without_citations = citation_marker_count == 0 and _contains_any(
+        lower_body_text, _UNSUPPORTED_EXTERNAL_FACT_PATTERNS
     )
     semantic_checks = {
         "problem_statement_present": problem_statement_present,
@@ -1641,9 +1577,7 @@ def lint_paper_bundle_summary(
         "title_is_grammatical_enough": title_is_grammatical_enough,
         "section_structure_coherent": section_structure_coherent,
         "section_fragmentation_detected": heading_fragmentation_detected,
-        "main_body_heading_fragmentation_detected": (
-            main_body_heading_fragmentation_detected
-        ),
+        "main_body_heading_fragmentation_detected": (main_body_heading_fragmentation_detected),
         "placeholder_sections_detected": placeholder_sections_detected,
         "claim_evidence_appendix_present": not missing_claim_evidence_appendix,
         "provenance_appendix_present": not missing_provenance_appendix,
@@ -1651,9 +1585,7 @@ def lint_paper_bundle_summary(
             unsupported_external_claims_without_citations
         ),
     }
-    semantic_section_audit = _semantic_section_audit(
-        _body_sections(sections, title_text)
-    )
+    semantic_section_audit = _semantic_section_audit(_body_sections(sections, title_text))
 
     failure_reasons: list[str] = []
     development_warnings: list[str] = []
@@ -1681,8 +1613,7 @@ def lint_paper_bundle_summary(
         failure_reasons.append("External factual claims appear without citation markers.")
     if unregistered_citation_keys:
         failure_reasons.append(
-            "Unregistered citation keys are present: "
-            + ", ".join(unregistered_citation_keys)
+            "Unregistered citation keys are present: " + ", ".join(unregistered_citation_keys)
         )
     if bundle.get("bibliography_status") == "unsafe":
         failure_reasons.append("Bibliography is not fully backed by the citation registry.")
@@ -1718,22 +1649,16 @@ def lint_paper_bundle_summary(
             "Claim-support audit found external/source claims without local citations."
         )
     if claim_support_scope_mismatch_count:
-        failure_reasons.append(
-            "Claim-support audit found citation scope mismatches."
-        )
+        failure_reasons.append("Claim-support audit found citation scope mismatches.")
     if claim_support_forbidden_claim_count:
         failure_reasons.append(
             "Claim-support audit found forbidden proof, experiment, novelty, or "
             "publication-readiness claims."
         )
     if citation_as_validation_misuse_count:
-        failure_reasons.append(
-            "Claim-support audit found citations used as validation or proof."
-        )
+        failure_reasons.append("Claim-support audit found citations used as validation or proof.")
     if citation_placement_violations:
-        failure_reasons.append(
-            "Citation placement violations are present."
-        )
+        failure_reasons.append("Citation placement violations are present.")
     if word_count < min_words:
         development_warnings.append("Draft may be skeletal: below proxy word-count target.")
     if average_words_per_section < min_avg_words_per_section:
@@ -1744,9 +1669,7 @@ def lint_paper_bundle_summary(
         failure_reasons.append("Title appears to be a placeholder.")
     elif not title_is_grammatical_enough:
         development_warnings.append("Title may be grammatically weak.")
-    if sections_too_short or (
-        quality_repair_report_present and sections_below_depth_target
-    ):
+    if sections_too_short or (quality_repair_report_present and sections_below_depth_target):
         development_warnings.append("One or more sections may be underdeveloped.")
     if placeholder_sections_detected:
         development_warnings.append("One or more sections are empty or placeholder-like.")
@@ -1814,16 +1737,10 @@ def lint_paper_bundle_summary(
         "section_depth_targets_present": True,
         "section_depth_targets": QUALITY_SECTION_DEPTH_TARGETS,
         "section_word_counts": section_word_counts,
-        "section_depth_target_total": depth_summary[
-            "section_depth_target_total"
-        ],
-        "section_depth_target_met_count": depth_summary[
-            "section_depth_target_met_count"
-        ],
+        "section_depth_target_total": depth_summary["section_depth_target_total"],
+        "section_depth_target_met_count": depth_summary["section_depth_target_met_count"],
         "sections_below_depth_target": sections_below_depth_target,
-        "placeholder_sections_after_quality_repair": (
-            placeholder_like_section_headings
-        ),
+        "placeholder_sections_after_quality_repair": (placeholder_like_section_headings),
         "warnings_reduced_count": int(bundle.get("warnings_reduced_count") or 0),
         "irreducible_quality_warnings": irreducible_quality_warnings,
         "limitations_concrete_constraint_count": limitations_concrete_constraint_count,
@@ -1838,9 +1755,7 @@ def lint_paper_bundle_summary(
         "quality_repaired_section_count": quality_repaired_section_count,
         "quality_status_before_repair": quality_status_before_repair,
         "quality_status_after_repair": quality_status_after_repair,
-        "quality_repair_warnings_reduced_count": int(
-            bundle.get("warnings_reduced_count") or 0
-        ),
+        "quality_repair_warnings_reduced_count": int(bundle.get("warnings_reduced_count") or 0),
         "quality_repair_irreducible_warnings": list(
             bundle.get("irreducible_quality_warnings") or []
         ),
@@ -1850,27 +1765,39 @@ def lint_paper_bundle_summary(
         "citation_safety_rechecked_after_quality_repair": (
             citation_safety_rechecked_after_quality_repair
         ),
-        "evidence_aware_refresh_report_present": (
-            evidence_aware_refresh_report_present
-        ),
+        "evidence_aware_refresh_report_present": (evidence_aware_refresh_report_present),
         "evidence_aware_refresh_backend": evidence_aware_refresh_backend,
         "proof_language_inserted": proof_language_inserted,
         "experiment_language_inserted": experiment_language_inserted,
-        "claim_evidence_map_rechecked_after_refresh": (
-            claim_evidence_map_rechecked_after_refresh
-        ),
-        "claim_support_rechecked_after_refresh": (
-            claim_support_rechecked_after_refresh
-        ),
-        "citation_safety_rechecked_after_refresh": (
-            citation_safety_rechecked_after_refresh
+        "claim_evidence_map_rechecked_after_refresh": (claim_evidence_map_rechecked_after_refresh),
+        "claim_support_rechecked_after_refresh": (claim_support_rechecked_after_refresh),
+        "citation_safety_rechecked_after_refresh": (citation_safety_rechecked_after_refresh),
+        "autonomous_evidence_plan_present": autonomous_evidence_plan_present,
+        "autonomous_plan_item_count": autonomous_plan_item_count,
+        "autonomous_python_experiment_item_count": (autonomous_python_experiment_item_count),
+        "autonomous_formal_proof_item_count": autonomous_formal_proof_item_count,
+        "autonomous_retrieval_expansion_item_count": (autonomous_retrieval_expansion_item_count),
+        "autonomous_claim_downgrade_item_count": (autonomous_claim_downgrade_item_count),
+        "autonomous_claim_removal_item_count": autonomous_claim_removal_item_count,
+        "automation_ready_item_count": automation_ready_item_count,
+        "autonomous_human_intervention_required": (autonomous_human_intervention_required),
+        "human_intervention_required": autonomous_human_intervention_required,
+        "autonomous_execution_present": autonomous_execution_present,
+        "autonomous_execution_count": autonomous_execution_count,
+        "latest_autonomous_execution_mode": latest_autonomous_execution_mode,
+        "latest_autonomous_execution_status": latest_autonomous_execution_status,
+        "autonomous_actions_applied": int(bundle.get("autonomous_actions_applied") or 0),
+        "autonomous_actions_deferred": int(bundle.get("autonomous_actions_deferred") or 0),
+        "autonomous_actions_rejected": int(bundle.get("autonomous_actions_rejected") or 0),
+        "autonomous_actions_failed": int(bundle.get("autonomous_actions_failed") or 0),
+        "autonomous_created_spec_count": int(bundle.get("autonomous_created_spec_count") or 0),
+        "autonomous_execution_requires_human_intervention": bool(
+            bundle.get("autonomous_execution_requires_human_intervention")
         ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
-        "human_review_reconciliation_status": bundle.get(
-            "human_review_reconciliation_status"
-        ),
+        "human_review_reconciliation_status": bundle.get("human_review_reconciliation_status"),
         "human_review_applied_change_count": int(
             bundle.get("human_review_applied_change_count") or 0
         ),
@@ -1883,36 +1810,22 @@ def lint_paper_bundle_summary(
         "human_review_requires_new_evidence_count": int(
             bundle.get("human_review_requires_new_evidence_count") or 0
         ),
-        "reviewer_change_requests_present": bool(
-            bundle.get("reviewer_change_requests_present")
-        ),
-        "reviewer_request_set_count": int(
-            bundle.get("reviewer_request_set_count") or 0
-        ),
+        "reviewer_change_requests_present": bool(bundle.get("reviewer_change_requests_present")),
+        "reviewer_request_set_count": int(bundle.get("reviewer_request_set_count") or 0),
         "human_review_reconciliation_cycle_count": int(
             bundle.get("human_review_reconciliation_cycle_count") or 0
         ),
-        "latest_reconciliation_cycle": int(
-            bundle.get("latest_reconciliation_cycle") or 0
-        ),
-        "latest_applied_change_count": int(
-            bundle.get("human_review_applied_change_count") or 0
-        ),
-        "latest_rejected_change_count": int(
-            bundle.get("human_review_rejected_change_count") or 0
-        ),
-        "latest_deferred_change_count": int(
-            bundle.get("human_review_deferred_change_count") or 0
-        ),
+        "latest_reconciliation_cycle": int(bundle.get("latest_reconciliation_cycle") or 0),
+        "latest_applied_change_count": int(bundle.get("human_review_applied_change_count") or 0),
+        "latest_rejected_change_count": int(bundle.get("human_review_rejected_change_count") or 0),
+        "latest_deferred_change_count": int(bundle.get("human_review_deferred_change_count") or 0),
         "latest_requires_new_evidence_count": int(
             bundle.get("human_review_requires_new_evidence_count") or 0
         ),
         "unresolved_reviewer_request_count": int(
             bundle.get("unresolved_reviewer_request_count") or 0
         ),
-        "reviewer_bundle_summary_present": bool(
-            bundle.get("reviewer_bundle_summary_present")
-        ),
+        "reviewer_bundle_summary_present": bool(bundle.get("reviewer_bundle_summary_present")),
         "reviewer_summary_evidence_gap_count": int(
             bundle.get("reviewer_summary_evidence_gap_count") or 0
         ),
@@ -1922,9 +1835,7 @@ def lint_paper_bundle_summary(
         "reviewer_summary_recommended_action_count": int(
             bundle.get("reviewer_summary_recommended_action_count") or 0
         ),
-        "human_review_artifact_present": bool(
-            bundle.get("human_review_artifact_present")
-        ),
+        "human_review_artifact_present": bool(bundle.get("human_review_artifact_present")),
         "human_review_status": bundle.get("human_review_status"),
         "human_review_blocking_concern_count": int(
             bundle.get("human_review_blocking_concern_count") or 0
@@ -1932,64 +1843,34 @@ def lint_paper_bundle_summary(
         "human_review_requested_change_count": int(
             bundle.get("human_review_requested_change_count") or 0
         ),
-        "human_review_recommended_next_action": bundle.get(
-            "human_review_recommended_next_action"
-        ),
+        "human_review_recommended_next_action": bundle.get("human_review_recommended_next_action"),
         "proof_artifact_count": int(bundle.get("proof_artifact_count") or 0),
         "formal_verification_passed_count": int(
             bundle.get("formal_verification_passed_count") or 0
         ),
-        "informal_proof_artifact_count": int(
-            bundle.get("informal_proof_artifact_count") or 0
-        ),
-        "experiment_artifact_count": int(
-            bundle.get("experiment_artifact_count") or 0
-        ),
-        "completed_experiment_count": int(
-            bundle.get("completed_experiment_count") or 0
-        ),
-        "inconclusive_experiment_count": int(
-            bundle.get("inconclusive_experiment_count") or 0
-        ),
+        "informal_proof_artifact_count": int(bundle.get("informal_proof_artifact_count") or 0),
+        "experiment_artifact_count": int(bundle.get("experiment_artifact_count") or 0),
+        "completed_experiment_count": int(bundle.get("completed_experiment_count") or 0),
+        "inconclusive_experiment_count": int(bundle.get("inconclusive_experiment_count") or 0),
         "failed_experiment_count": int(bundle.get("failed_experiment_count") or 0),
-        "remaining_evidence_gap_count": int(
-            bundle.get("reviewer_summary_evidence_gap_count") or 0
-        ),
-        "proof_evidence_gap_present": bool(
-            bundle.get("proof_evidence_gap_present")
-        ),
-        "experiment_evidence_gap_present": bool(
-            bundle.get("experiment_evidence_gap_present")
-        ),
-        "claim_evidence_map_present": bool(
-            bundle.get("claim_evidence_map_present")
-        ),
-        "claim_evidence_supported_count": int(
-            bundle.get("claim_evidence_supported_count") or 0
-        ),
-        "claim_evidence_partial_count": int(
-            bundle.get("claim_evidence_partial_count") or 0
-        ),
+        "remaining_evidence_gap_count": int(bundle.get("reviewer_summary_evidence_gap_count") or 0),
+        "proof_evidence_gap_present": bool(bundle.get("proof_evidence_gap_present")),
+        "experiment_evidence_gap_present": bool(bundle.get("experiment_evidence_gap_present")),
+        "claim_evidence_map_present": bool(bundle.get("claim_evidence_map_present")),
+        "claim_evidence_supported_count": int(bundle.get("claim_evidence_supported_count") or 0),
+        "claim_evidence_partial_count": int(bundle.get("claim_evidence_partial_count") or 0),
         "claim_evidence_unsupported_count": int(
             bundle.get("claim_evidence_unsupported_count") or 0
         ),
-        "proof_supported_claim_count": int(
-            bundle.get("proof_supported_claim_count") or 0
-        ),
+        "proof_supported_claim_count": int(bundle.get("proof_supported_claim_count") or 0),
         "experiment_supported_claim_count": int(
             bundle.get("experiment_supported_claim_count") or 0
         ),
-        "citation_supported_claim_count": int(
-            bundle.get("citation_supported_claim_count") or 0
-        ),
-        "human_review_linked_claim_count": int(
-            bundle.get("human_review_linked_claim_count") or 0
-        ),
+        "citation_supported_claim_count": int(bundle.get("citation_supported_claim_count") or 0),
+        "human_review_linked_claim_count": int(bundle.get("human_review_linked_claim_count") or 0),
         "citation_registry_present": citation_registry_present,
         "citation_registry_source_count": citation_registry_source_count,
-        "citation_registry_sources_all_accepted": (
-            citation_registry_sources_all_accepted
-        ),
+        "citation_registry_sources_all_accepted": (citation_registry_sources_all_accepted),
         "registry_backed_citation_count": registry_backed_citation_count,
         "unregistered_citation_keys": unregistered_citation_keys,
         "bibliography_registry_backed": bibliography_registry_backed,
@@ -2000,32 +1881,16 @@ def lint_paper_bundle_summary(
         "accepted_source_count": accepted_source_count,
         "rejected_source_count": rejected_source_count,
         "retrieval_adequacy_status": retrieval_adequacy_status,
-        "source_relevance_adjudication_enabled": (
-            source_relevance_adjudication_enabled
-        ),
-        "source_relevance_adjudicator_backend": (
-            source_relevance_adjudicator_backend
-        ),
-        "source_relevance_adjudicated_count": (
-            source_relevance_adjudicated_count
-        ),
-        "source_relevance_llm_accepted_count": (
-            source_relevance_llm_accepted_count
-        ),
-        "source_relevance_llm_rejected_count": (
-            source_relevance_llm_rejected_count
-        ),
-        "source_relevance_hard_reject_count": (
-            source_relevance_hard_reject_count
-        ),
+        "source_relevance_adjudication_enabled": (source_relevance_adjudication_enabled),
+        "source_relevance_adjudicator_backend": (source_relevance_adjudicator_backend),
+        "source_relevance_adjudicated_count": (source_relevance_adjudicated_count),
+        "source_relevance_llm_accepted_count": (source_relevance_llm_accepted_count),
+        "source_relevance_llm_rejected_count": (source_relevance_llm_rejected_count),
+        "source_relevance_hard_reject_count": (source_relevance_hard_reject_count),
         "claim_support_audit_present": claim_support_audit_present,
         "claim_support_total_sentences": claim_support_total_sentences,
-        "claim_support_registry_supported_count": (
-            claim_support_registry_supported_count
-        ),
-        "claim_support_scaffold_not_required_count": (
-            claim_support_scaffold_not_required_count
-        ),
+        "claim_support_registry_supported_count": (claim_support_registry_supported_count),
+        "claim_support_scaffold_not_required_count": (claim_support_scaffold_not_required_count),
         "claim_support_missing_required_citation_count": (
             claim_support_missing_required_citation_count
         ),
@@ -2047,14 +1912,10 @@ def lint_paper_bundle_summary(
         "missing_provenance_appendix": missing_provenance_appendix,
         "too_many_sections_for_length": too_many_sections_for_length,
         "heading_fragmentation_detected": heading_fragmentation_detected,
-        "main_body_heading_fragmentation_detected": (
-            main_body_heading_fragmentation_detected
-        ),
+        "main_body_heading_fragmentation_detected": (main_body_heading_fragmentation_detected),
         "appendix_headings_present": appendix_section_count > 0,
         "unplanned_main_body_headings": unplanned_main_body_headings,
-        "standalone_central_message_detected": (
-            standalone_central_message_detected
-        ),
+        "standalone_central_message_detected": (standalone_central_message_detected),
         "central_message_merged": central_message_merged,
         "conclusion_placeholder_like": conclusion_placeholder_like,
         "semantic_checks": semantic_checks,
@@ -2093,22 +1954,25 @@ def _validate_upstream_prerequisites(run_id: str, ledger: ResearchLedger) -> Non
 
 def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
     return {
-        "complete_manuscript_draft": run_path
-        / "reports"
-        / "complete-manuscript-draft.md",
+        "complete_manuscript_draft": run_path / "reports" / "complete-manuscript-draft.md",
         "revised_manuscript_draft": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "reconciled-manuscript-cycle-*.md",
-                "reconciled-manuscript-cycle-000.md",
+                "autonomous-revised-manuscript-execution-*.md",
+                "autonomous-revised-manuscript-execution-0000.md",
             ),
             _preferred_existing_path(
-                run_path / "reports" / "reconciled-manuscript-draft.md",
+                _latest_report_path(
+                    run_path,
+                    "reconciled-manuscript-cycle-*.md",
+                    "reconciled-manuscript-cycle-000.md",
+                ),
                 _preferred_existing_path(
-                    run_path
-                    / "reports"
-                    / "evidence-aware-refreshed-manuscript-draft.md",
-                    run_path / "reports" / "revised-manuscript-draft.md",
+                    run_path / "reports" / "reconciled-manuscript-draft.md",
+                    _preferred_existing_path(
+                        run_path / "reports" / "evidence-aware-refreshed-manuscript-draft.md",
+                        run_path / "reports" / "revised-manuscript-draft.md",
+                    ),
                 ),
             ),
         ),
@@ -2136,14 +2000,21 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "full-paper-release-report-after-reconciliation-cycle-*.json",
-                "full-paper-release-report-after-human-review-reconciliation.json",
+                "full-paper-release-report-after-autonomous-execution-*.json",
+                "full-paper-release-report-after-autonomous-execution-0000.json",
             ),
             _preferred_existing_path(
-                run_path
-                / "reports"
-                / "full-paper-release-report-after-evidence-aware-refresh.json",
-                run_path / "reports" / "full-paper-release-report.json",
+                _latest_report_path(
+                    run_path,
+                    "full-paper-release-report-after-reconciliation-cycle-*.json",
+                    "full-paper-release-report-after-human-review-reconciliation.json",
+                ),
+                _preferred_existing_path(
+                    run_path
+                    / "reports"
+                    / "full-paper-release-report-after-evidence-aware-refresh.json",
+                    run_path / "reports" / "full-paper-release-report.json",
+                ),
             ),
         ),
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
@@ -2173,12 +2044,8 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         ),
         "human_review_artifact": run_path / "reports" / "human-review-artifact.json",
         "human_review_summary": run_path / "reports" / "human-review-summary.md",
-        "reviewer_bundle_summary_json": run_path
-        / "reports"
-        / "reviewer-bundle-summary.json",
-        "reviewer_bundle_summary_markdown": run_path
-        / "reports"
-        / "reviewer-bundle-summary.md",
+        "reviewer_bundle_summary_json": run_path / "reports" / "reviewer-bundle-summary.json",
+        "reviewer_bundle_summary_markdown": run_path / "reports" / "reviewer-bundle-summary.md",
         "reviewer_bundle_summary_after_human_review_json": run_path
         / "reports"
         / "reviewer-bundle-summary-after-human-review.json",
@@ -2229,6 +2096,34 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
             "reviewer-bundle-summary-after-reconciliation-cycle-*.md",
             "reviewer-bundle-summary-after-reconciliation.md",
         ),
+        "reviewer_bundle_summary_after_autonomous_evidence_plan_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-autonomous-evidence-plan-*.json",
+                "reviewer-bundle-summary-after-autonomous-evidence-plan-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_autonomous_evidence_plan_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-autonomous-evidence-plan-*.md",
+                "reviewer-bundle-summary-after-autonomous-evidence-plan-0000.md",
+            )
+        ),
+        "reviewer_bundle_summary_after_autonomous_execution_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-autonomous-execution-*.json",
+                "reviewer-bundle-summary-after-autonomous-execution-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_autonomous_execution_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-autonomous-execution-*.md",
+                "reviewer-bundle-summary-after-autonomous-execution-0000.md",
+            )
+        ),
         "claim_evidence_map": (
             latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
             or run_path / "reports" / "claim-evidence-map.json"
@@ -2237,22 +2132,36 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
             _latest_claim_evidence_markdown_path(run_path)
             or run_path / "reports" / "claim-evidence-map.md"
         ),
+        "autonomous_evidence_plan": (
+            latest_autonomous_evidence_gap_plan_path(
+                run_path.parent.parent,
+                run_path.name,
+            )
+            or run_path / "reports" / "autonomous-evidence-gap-plan.json"
+        ),
+        "autonomous_evidence_plan_markdown": (
+            _latest_autonomous_evidence_plan_markdown_path(run_path)
+            or run_path / "reports" / "autonomous-evidence-gap-plan.md"
+        ),
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
-        "retrieval_quality_report": run_path
-        / "reports"
-        / "retrieval-quality-report.json",
+        "retrieval_quality_report": run_path / "reports" / "retrieval-quality-report.json",
         "citation_registry": run_path / "reports" / "citation-registry.json",
         "claim_support_audit": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "claim-support-audit-after-reconciliation-cycle-*.json",
-                "claim-support-audit-after-human-review-reconciliation.json",
+                "claim-support-audit-after-autonomous-execution-*.json",
+                "claim-support-audit-after-autonomous-execution-0000.json",
             ),
             _preferred_existing_path(
-                run_path
-                / "reports"
-                / "claim-support-audit-after-evidence-aware-refresh.json",
-                run_path / "reports" / "claim-support-audit.json",
+                _latest_report_path(
+                    run_path,
+                    "claim-support-audit-after-reconciliation-cycle-*.json",
+                    "claim-support-audit-after-human-review-reconciliation.json",
+                ),
+                _preferred_existing_path(
+                    run_path / "reports" / "claim-support-audit-after-evidence-aware-refresh.json",
+                    run_path / "reports" / "claim-support-audit.json",
+                ),
             ),
         ),
         "references": run_path / "latex" / "references.bib",
@@ -2316,9 +2225,7 @@ def _read_evidence_aware_refresh_report(
     if not path.is_file():
         return None
     try:
-        return EvidenceAwareRefreshReport.model_validate_json(
-            path.read_text(encoding="utf-8")
-        )
+        return EvidenceAwareRefreshReport.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
 
@@ -2329,9 +2236,7 @@ def _read_human_review_reconciliation_report(
     if not path.is_file():
         return None
     try:
-        return HumanReviewReconciliationReport.model_validate_json(
-            path.read_text(encoding="utf-8")
-        )
+        return HumanReviewReconciliationReport.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
 
@@ -2342,9 +2247,7 @@ def _read_human_review_reconciliation_index(
     if not path.is_file():
         return None
     try:
-        return HumanReviewReconciliationIndex.model_validate_json(
-            path.read_text(encoding="utf-8")
-        )
+        return HumanReviewReconciliationIndex.model_validate_json(path.read_text(encoding="utf-8"))
     except ValueError:
         return None
 
@@ -2362,14 +2265,10 @@ def _read_proof_artifacts(run_path: Path) -> list[ProofArtifact]:
     reports = run_path / "reports"
     proofs: list[ProofArtifact] = []
     for path in sorted(reports.glob("proof-artifact-*.json")):
-        if path.name.startswith("proof-artifact-index-") or path.name.endswith(
-            ".meta.json"
-        ):
+        if path.name.startswith("proof-artifact-index-") or path.name.endswith(".meta.json"):
             continue
         try:
-            proofs.append(
-                ProofArtifact.model_validate_json(path.read_text(encoding="utf-8"))
-            )
+            proofs.append(ProofArtifact.model_validate_json(path.read_text(encoding="utf-8")))
         except ValueError:
             continue
     return sorted(proofs, key=lambda item: item.proof_id)
@@ -2379,9 +2278,7 @@ def _read_experiment_artifacts(run_path: Path) -> list[ExperimentArtifact]:
     reports = run_path / "reports"
     experiments: list[ExperimentArtifact] = []
     for path in sorted(reports.glob("experiment-artifact-*.json")):
-        if path.name.startswith("experiment-artifact-index-") or path.name.endswith(
-            ".meta.json"
-        ):
+        if path.name.startswith("experiment-artifact-index-") or path.name.endswith(".meta.json"):
             continue
         try:
             experiments.append(
@@ -2401,6 +2298,17 @@ def _read_claim_evidence_map(path: Path) -> ClaimEvidenceMap | None:
         return None
 
 
+def _read_autonomous_evidence_gap_plan(
+    path: Path,
+) -> AutonomousEvidenceGapPlan | None:
+    if not path.is_file():
+        return None
+    try:
+        return AutonomousEvidenceGapPlan.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
 def _read_reviewer_bundle_summary(path: Path) -> ReviewerBundleSummary | None:
     if not path.is_file():
         return None
@@ -2413,17 +2321,26 @@ def _read_reviewer_bundle_summary(path: Path) -> ReviewerBundleSummary | None:
 def _read_preferred_reviewer_bundle_summary(
     paths: dict[str, Path],
 ) -> ReviewerBundleSummary | None:
-    return _read_reviewer_bundle_summary(
-        paths["reviewer_bundle_summary_after_reconciliation_json"]
-    ) or _read_reviewer_bundle_summary(
-        paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
-    ) or _read_reviewer_bundle_summary(
-        paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
-    ) or _read_reviewer_bundle_summary(
-        paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
-    ) or _read_reviewer_bundle_summary(
-        paths["reviewer_bundle_summary_after_human_review_json"]
-    ) or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_json"])
+    return (
+        _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_autonomous_execution_json"]
+        )
+        or _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_autonomous_evidence_plan_json"]
+        )
+        or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_after_reconciliation_json"])
+        or _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
+        )
+        or _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
+        )
+        or _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
+        )
+        or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_after_human_review_json"])
+        or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_json"])
+    )
 
 
 def _latest_report_path(run_path: Path, pattern: str, default_name: str) -> Path:
@@ -2437,9 +2354,7 @@ def _latest_report_path(run_path: Path, pattern: str, default_name: str) -> Path
 
 def _latest_latex_path(run_path: Path, pattern: str, default_name: str) -> Path:
     matches = sorted(
-        path
-        for path in (run_path / "latex").glob(pattern)
-        if not path.name.endswith(".meta.json")
+        path for path in (run_path / "latex").glob(pattern) if not path.name.endswith(".meta.json")
     )
     return matches[-1] if matches else run_path / "latex" / default_name
 
@@ -2465,6 +2380,27 @@ def _claim_evidence_markdown_sort_key(path: Path) -> tuple[int, str]:
     return (-1, path.name)
 
 
+def _latest_autonomous_evidence_plan_markdown_path(run_path: Path) -> Path | None:
+    reports = run_path / "reports"
+    matches = [
+        path
+        for path in reports.glob("autonomous-evidence-gap-plan*.md")
+        if not path.name.endswith(".meta.json")
+    ]
+    if not matches:
+        return None
+    return sorted(matches, key=_autonomous_evidence_plan_markdown_sort_key)[-1]
+
+
+def _autonomous_evidence_plan_markdown_sort_key(path: Path) -> tuple[int, str]:
+    if path.name == "autonomous-evidence-gap-plan.md":
+        return (0, path.name)
+    match = re.match(r"autonomous-evidence-gap-plan-(\d+)\.md$", path.name)
+    if match:
+        return (int(match.group(1)), path.name)
+    return (-1, path.name)
+
+
 def build_reviewer_bundle_summary(
     *,
     run_id: str,
@@ -2477,6 +2413,8 @@ def build_reviewer_bundle_summary(
     additional_experiment_artifact_paths: list[str] | None = None,
     claim_evidence_map: ClaimEvidenceMap | None = None,
     human_review_reconciliation: HumanReviewReconciliationReport | None = None,
+    autonomous_evidence_plan: AutonomousEvidenceGapPlan | None = None,
+    autonomous_execution_report: AutonomousPlanExecutionReport | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -2488,11 +2426,8 @@ def build_reviewer_bundle_summary(
         paths["human_review_artifact"]
     )
     human_review_present = _human_review_counts_as_present(human_review)
-    reconciliation = (
-        human_review_reconciliation
-        or _read_human_review_reconciliation_report(
-            paths["human_review_reconciliation_report"]
-        )
+    reconciliation = human_review_reconciliation or _read_human_review_reconciliation_report(
+        paths["human_review_reconciliation_report"]
     )
     proof_artifacts = _merge_proof_artifacts(
         _read_proof_artifacts(run_path),
@@ -2516,22 +2451,29 @@ def build_reviewer_bundle_summary(
         experiment_artifacts=experiment_artifacts,
         additional_paths=additional_experiment_artifact_paths,
     )
-    claim_map = claim_evidence_map or _read_claim_evidence_map(
-        paths["claim_evidence_map"]
-    )
+    claim_map = claim_evidence_map or _read_claim_evidence_map(paths["claim_evidence_map"])
     claim_evidence_summary = claim_evidence_summary_fields(claim_map)
+    autonomous_plan = autonomous_evidence_plan or _read_autonomous_evidence_gap_plan(
+        paths["autonomous_evidence_plan"]
+    )
+    autonomous_plan_summary = autonomous_evidence_plan_summary_fields(autonomous_plan)
+    execution_report, execution_index = latest_autonomous_plan_execution_report(
+        root_path,
+        run_id,
+    )
+    execution_report = autonomous_execution_report or execution_report
+    execution_summary = autonomous_execution_summary_fields(
+        execution_report,
+        execution_index,
+    )
     release_status = (
         release_report.decision.status.value
         if release_report is not None
         else str(bundle.get("release_status") or lint.get("paper_release_status") or "unknown")
     )
-    release_warnings = (
-        list(release_report.decision.warnings) if release_report is not None else []
-    )
+    release_warnings = list(release_report.decision.warnings) if release_report is not None else []
     release_blocking = (
-        list(release_report.decision.blocking_reasons)
-        if release_report is not None
-        else []
+        list(release_report.decision.blocking_reasons) if release_report is not None else []
     )
     warning_summary = _reviewer_remaining_warnings(
         lint=lint,
@@ -2574,9 +2516,7 @@ def build_reviewer_bundle_summary(
         quality_status=str(lint.get("quality_status") or "unknown"),
         claim_support_status=claim_support_status,
         citation_status=citation_status,
-        retrieval_quality_status=str(
-            lint.get("retrieval_adequacy_status") or "not_evaluated"
-        ),
+        retrieval_quality_status=str(lint.get("retrieval_adequacy_status") or "not_evaluated"),
         source_relevance_status=source_relevance_status,
         quality_repair_status=str(lint.get("quality_repair_status") or "disabled"),
         paper_artifact_paths=paper_paths,
@@ -2612,48 +2552,24 @@ def build_reviewer_bundle_summary(
         ),
         proof_artifacts_present=proof_summary["proof_artifact_count"] > 0,
         proof_artifact_count=proof_summary["proof_artifact_count"],
-        formal_verification_artifact_count=proof_summary[
-            "formal_verification_passed_count"
-        ],
-        informal_proof_artifact_count=proof_summary[
-            "informal_proof_artifact_count"
-        ],
+        formal_verification_artifact_count=proof_summary["formal_verification_passed_count"],
+        informal_proof_artifact_count=proof_summary["informal_proof_artifact_count"],
         proof_artifact_paths=proof_summary["proof_artifact_paths"],
-        experiment_artifacts_present=(
-            experiment_summary["experiment_artifact_count"] > 0
-        ),
+        experiment_artifacts_present=(experiment_summary["experiment_artifact_count"] > 0),
         experiment_artifact_count=experiment_summary["experiment_artifact_count"],
         completed_experiment_count=experiment_summary["completed_experiment_count"],
-        inconclusive_experiment_count=experiment_summary[
-            "inconclusive_experiment_count"
-        ],
+        inconclusive_experiment_count=experiment_summary["inconclusive_experiment_count"],
         failed_experiment_count=experiment_summary["failed_experiment_count"],
         experiment_artifact_paths=experiment_summary["experiment_artifact_paths"],
         remaining_evidence_gaps=evidence_gaps,
-        claim_evidence_map_present=claim_evidence_summary[
-            "claim_evidence_map_present"
-        ],
-        claim_evidence_supported_count=claim_evidence_summary[
-            "claim_evidence_supported_count"
-        ],
-        claim_evidence_partial_count=claim_evidence_summary[
-            "claim_evidence_partial_count"
-        ],
-        claim_evidence_unsupported_count=claim_evidence_summary[
-            "claim_evidence_unsupported_count"
-        ],
-        proof_supported_claim_count=claim_evidence_summary[
-            "proof_supported_claim_count"
-        ],
-        experiment_supported_claim_count=claim_evidence_summary[
-            "experiment_supported_claim_count"
-        ],
-        citation_supported_claim_count=claim_evidence_summary[
-            "citation_supported_claim_count"
-        ],
-        human_review_linked_claim_count=claim_evidence_summary[
-            "human_review_linked_claim_count"
-        ],
+        claim_evidence_map_present=claim_evidence_summary["claim_evidence_map_present"],
+        claim_evidence_supported_count=claim_evidence_summary["claim_evidence_supported_count"],
+        claim_evidence_partial_count=claim_evidence_summary["claim_evidence_partial_count"],
+        claim_evidence_unsupported_count=claim_evidence_summary["claim_evidence_unsupported_count"],
+        proof_supported_claim_count=claim_evidence_summary["proof_supported_claim_count"],
+        experiment_supported_claim_count=claim_evidence_summary["experiment_supported_claim_count"],
+        citation_supported_claim_count=claim_evidence_summary["citation_supported_claim_count"],
+        human_review_linked_claim_count=claim_evidence_summary["human_review_linked_claim_count"],
         human_review_reconciliation_present=reconciliation is not None,
         human_review_reconciliation_status=(
             reconciliation.reconciliation_status if reconciliation else None
@@ -2673,12 +2589,8 @@ def build_reviewer_bundle_summary(
         human_review_remaining_requested_changes=(
             reconciliation.remaining_requested_changes if reconciliation else []
         ),
-        reviewer_change_requests_present=bool(
-            bundle.get("reviewer_change_requests_present")
-        ),
-        reviewer_request_set_count=int(
-            bundle.get("reviewer_request_set_count") or 0
-        ),
+        reviewer_change_requests_present=bool(bundle.get("reviewer_change_requests_present")),
+        reviewer_request_set_count=int(bundle.get("reviewer_request_set_count") or 0),
         latest_reconciliation_cycle=int(
             reconciliation.cycle_number
             if reconciliation
@@ -2691,6 +2603,24 @@ def build_reviewer_bundle_summary(
         ),
         unresolved_reviewer_request_count=(
             len(reconciliation.remaining_requested_changes) if reconciliation else 0
+        ),
+        autonomous_evidence_plan_present=bool(
+            autonomous_plan_summary["autonomous_evidence_plan_present"]
+        ),
+        autonomous_next_actions=list(autonomous_plan_summary["autonomous_next_actions"]),
+        automation_ready_item_count=int(autonomous_plan_summary["automation_ready_item_count"]),
+        human_intervention_required=bool(
+            autonomous_plan_summary["autonomous_human_intervention_required"]
+        ),
+        autonomous_execution_present=bool(execution_summary["autonomous_execution_present"]),
+        latest_autonomous_execution_mode=execution_summary["latest_autonomous_execution_mode"],
+        latest_autonomous_execution_status=execution_summary["latest_autonomous_execution_status"],
+        autonomous_actions_applied=int(execution_summary["autonomous_actions_applied"]),
+        autonomous_actions_deferred=int(execution_summary["autonomous_actions_deferred"]),
+        autonomous_actions_rejected=int(execution_summary["autonomous_actions_rejected"]),
+        autonomous_actions_failed=int(execution_summary["autonomous_actions_failed"]),
+        autonomous_next_required_artifacts=list(
+            execution_summary["autonomous_next_required_artifacts"]
         ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
@@ -2721,37 +2651,22 @@ def render_reviewer_bundle_summary_markdown(
         f"Retrieval quality: `{summary.retrieval_quality_status}`",
         f"Source relevance: `{summary.source_relevance_status}`",
         f"Quality repair: `{summary.quality_repair_status}`",
-        (
-            "Human review: "
-            f"`{'present' if summary.human_review_artifact_present else 'absent'}`"
-        ),
+        (f"Human review: `{'present' if summary.human_review_artifact_present else 'absent'}`"),
         f"Human review status: `{summary.human_review_status or 'not_available'}`",
-        (
-            "Blocking human-review concerns: "
-            f"`{summary.human_review_blocking_concern_count}`"
-        ),
-        (
-            "Requested human-review changes: "
-            f"`{summary.human_review_requested_change_count}`"
-        ),
+        (f"Blocking human-review concerns: `{summary.human_review_blocking_concern_count}`"),
+        (f"Requested human-review changes: `{summary.human_review_requested_change_count}`"),
         (
             "Human-review recommended next action: "
             f"`{summary.human_review_recommended_next_action or 'none'}`"
         ),
         f"Proof artifacts: `{summary.proof_artifact_count}`",
-        (
-            "Formal verification artifacts passed: "
-            f"`{summary.formal_verification_artifact_count}`"
-        ),
+        (f"Formal verification artifacts passed: `{summary.formal_verification_artifact_count}`"),
         f"Informal proof artifacts: `{summary.informal_proof_artifact_count}`",
         f"Experiment artifacts: `{summary.experiment_artifact_count}`",
         f"Completed experiments: `{summary.completed_experiment_count}`",
         f"Inconclusive experiments: `{summary.inconclusive_experiment_count}`",
         f"Failed experiments: `{summary.failed_experiment_count}`",
-        (
-            "Claim-evidence map: "
-            f"`{'present' if summary.claim_evidence_map_present else 'absent'}`"
-        ),
+        (f"Claim-evidence map: `{'present' if summary.claim_evidence_map_present else 'absent'}`"),
         f"Supported claims: `{summary.claim_evidence_supported_count}`",
         f"Partially supported claims: `{summary.claim_evidence_partial_count}`",
         f"Unsupported claims: `{summary.claim_evidence_unsupported_count}`",
@@ -2782,6 +2697,31 @@ def render_reviewer_bundle_summary_markdown(
         f"Reconciliation cycles: `{summary.human_review_reconciliation_cycle_count}`",
         f"Latest reconciliation cycle: `{summary.latest_reconciliation_cycle}`",
         f"Unresolved reviewer requests: `{summary.unresolved_reviewer_request_count}`",
+        (
+            "Autonomous evidence plan: "
+            f"`{'present' if summary.autonomous_evidence_plan_present else 'absent'}`"
+        ),
+        f"Automation-ready plan items: `{summary.automation_ready_item_count}`",
+        (
+            "Human intervention required by planner: "
+            f"`{str(summary.human_intervention_required).lower()}`"
+        ),
+        (
+            "Autonomous execution: "
+            f"`{'present' if summary.autonomous_execution_present else 'absent'}`"
+        ),
+        (
+            "Latest autonomous execution: "
+            f"`{summary.latest_autonomous_execution_mode or 'none'}` / "
+            f"`{summary.latest_autonomous_execution_status or 'none'}`"
+        ),
+        (
+            "Autonomous actions applied/deferred/rejected/failed: "
+            f"`{summary.autonomous_actions_applied}/"
+            f"{summary.autonomous_actions_deferred}/"
+            f"{summary.autonomous_actions_rejected}/"
+            f"{summary.autonomous_actions_failed}`"
+        ),
         "",
         "## Remaining Warnings",
     ]
@@ -2798,9 +2738,10 @@ def render_reviewer_bundle_summary_markdown(
         lines.append("- none")
     lines.extend(["", "## Remaining Requested Changes"])
     lines.extend(
-        f"- {item}"
-        for item in summary.human_review_remaining_requested_changes or ["none"]
+        f"- {item}" for item in summary.human_review_remaining_requested_changes or ["none"]
     )
+    lines.extend(["", "## Autonomous Next Actions"])
+    lines.extend(f"- {item}" for item in summary.autonomous_next_actions or ["none"])
     lines.extend(["", "## Evidence Boundaries"])
     for category, items in summary.evidence_boundaries.items():
         lines.append(f"### {category.replace('_', ' ').title()}")
@@ -2843,17 +2784,17 @@ def inspect_reviewer_bundle_summary(
     paths = _paper_bundle_paths(run_path)
     summary = _read_preferred_reviewer_bundle_summary(paths)
     if summary is None:
-        raise PaperBundleInspectionError(
-            f"No reviewer bundle summary found for run_id={run_id}."
-        )
+        raise PaperBundleInspectionError(f"No reviewer bundle summary found for run_id={run_id}.")
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_reconciliation_json"]
+        paths["reviewer_bundle_summary_after_autonomous_execution_json"]
+        if paths["reviewer_bundle_summary_after_autonomous_execution_json"].is_file()
+        else paths["reviewer_bundle_summary_after_autonomous_evidence_plan_json"]
+        if paths["reviewer_bundle_summary_after_autonomous_evidence_plan_json"].is_file()
+        else paths["reviewer_bundle_summary_after_reconciliation_json"]
         if paths["reviewer_bundle_summary_after_reconciliation_json"].is_file()
         else paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
-        if paths[
-            "reviewer_bundle_summary_after_evidence_aware_refresh_json"
-        ].is_file()
+        if paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"].is_file()
         else paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
         if paths["reviewer_bundle_summary_after_claim_evidence_map_json"].is_file()
         else paths["reviewer_bundle_summary_after_evidence_artifacts_json"]
@@ -2863,12 +2804,14 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_reconciliation_markdown"]
+        paths["reviewer_bundle_summary_after_autonomous_execution_markdown"]
+        if paths["reviewer_bundle_summary_after_autonomous_execution_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_autonomous_evidence_plan_markdown"]
+        if paths["reviewer_bundle_summary_after_autonomous_evidence_plan_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_reconciliation_markdown"]
         if paths["reviewer_bundle_summary_after_reconciliation_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_evidence_aware_refresh_markdown"]
-        if paths[
-            "reviewer_bundle_summary_after_evidence_aware_refresh_markdown"
-        ].is_file()
+        if paths["reviewer_bundle_summary_after_evidence_aware_refresh_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"]
         if paths["reviewer_bundle_summary_after_claim_evidence_map_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_evidence_artifacts_markdown"]
@@ -2891,17 +2834,14 @@ def _reviewer_remaining_warnings(
     experiment_summary: dict[str, Any],
     claim_evidence_summary: dict[str, int | bool],
 ) -> dict[str, list[str]]:
-    all_warnings = sorted(
-        set(list(lint.get("quality_warning_reasons") or []) + release_warnings)
-    )
+    all_warnings = sorted(set(list(lint.get("quality_warning_reasons") or []) + release_warnings))
     retrieval_warnings = [
         warning for warning in all_warnings if _reviewer_warning_is_retrieval(warning)
     ]
     quality_warnings = [
         warning
         for warning in all_warnings
-        if warning not in retrieval_warnings
-        and not _reviewer_warning_is_release(warning)
+        if warning not in retrieval_warnings and not _reviewer_warning_is_release(warning)
     ]
     claim_warnings: list[str] = []
     if int(lint.get("claim_support_missing_required_citation_count") or 0):
@@ -2924,8 +2864,7 @@ def _reviewer_remaining_warnings(
     release_warnings_only = [
         warning
         for warning in all_warnings
-        if _reviewer_warning_is_release(warning)
-        and warning not in retrieval_warnings
+        if _reviewer_warning_is_release(warning) and warning not in retrieval_warnings
     ]
     release_warnings_only.append("Publication ready is false.")
     human_review_warnings: list[str] = []
@@ -2945,9 +2884,7 @@ def _reviewer_remaining_warnings(
             "Proof artifacts are present, but no formal verification artifact passed."
         )
     if int(experiment_summary.get("inconclusive_experiment_count") or 0):
-        evidence_artifact_warnings.append(
-            "One or more experiment artifacts are inconclusive."
-        )
+        evidence_artifact_warnings.append("One or more experiment artifacts are inconclusive.")
     if int(experiment_summary.get("failed_experiment_count") or 0):
         evidence_artifact_warnings.append("One or more experiment artifacts failed.")
     return {
@@ -3016,6 +2953,8 @@ def _reviewer_audit_artifact_paths(
         "human_review_reconciliation_report",
         "human_review_reconciliation_index",
         "reviewer_change_request_set",
+        "autonomous_evidence_plan",
+        "autonomous_evidence_plan_markdown",
         "retrieval_report",
         "retrieval_quality_report",
         "citation_registry",
@@ -3099,9 +3038,7 @@ def _proof_artifact_summary(
         proof_artifacts=proof_artifacts,
         additional_paths=additional_paths,
     )
-    formal_passed = [
-        proof for proof in proof_artifacts if _proof_is_verification_evidence(proof)
-    ]
+    formal_passed = [proof for proof in proof_artifacts if _proof_is_verification_evidence(proof)]
     informal = [
         proof
         for proof in proof_artifacts
@@ -3177,9 +3114,7 @@ def _experiment_artifact_paths(
 ) -> list[str]:
     paths = set(additional_paths or [])
     for experiment in experiment_artifacts:
-        artifact_id = (
-            f"experiment-artifact-{_safe_report_suffix(experiment.experiment_id)}"
-        )
+        artifact_id = f"experiment-artifact-{_safe_report_suffix(experiment.experiment_id)}"
         path = run_path / "reports" / f"{artifact_id}.json"
         if path.is_file():
             paths.add(path.relative_to(root_path).as_posix())
@@ -3205,17 +3140,19 @@ def _merge_experiment_artifacts(
 
 
 def _proof_is_verification_evidence(proof: ProofArtifact) -> bool:
-    return proof.proof_type in {
-        "lean_verified",
-        "formal_verified",
-        "external_certificate",
-    } and proof.checker_status == "passed"
+    return (
+        proof.proof_type
+        in {
+            "lean_verified",
+            "formal_verified",
+            "external_certificate",
+        }
+        and proof.checker_status == "passed"
+    )
 
 
 def _safe_report_suffix(value: str) -> str:
-    return "".join(
-        character if character.isalnum() else "-" for character in value
-    ).strip("-")
+    return "".join(character if character.isalnum() else "-" for character in value).strip("-")
 
 
 def _reviewer_evidence_boundaries(
@@ -3286,9 +3223,7 @@ def _reviewer_evidence_gaps(
     formal_proofs = int(proof_summary.get("formal_verification_passed_count") or 0)
     completed_experiments = int(experiment_summary.get("completed_experiment_count") or 0)
     if claim_map_present and formal_proofs and not proof_claim_links:
-        gaps.append(
-            "Proof artifacts are present, but no proof-linked claims are mapped."
-        )
+        gaps.append("Proof artifacts are present, but no proof-linked claims are mapped.")
     elif not formal_proofs:
         gaps.append(
             "No proof artifact with formal verification is linked; No formal proof "
@@ -3296,9 +3231,7 @@ def _reviewer_evidence_gaps(
             "proof work before stronger wording."
         )
     if claim_map_present and completed_experiments and not experiment_claim_links:
-        gaps.append(
-            "Experiment artifacts are present, but no experiment-linked claims are mapped."
-        )
+        gaps.append("Experiment artifacts are present, but no experiment-linked claims are mapped.")
     elif not completed_experiments:
         gaps.append(
             "No experiment artifact with completed status is linked; No completed "
@@ -3338,20 +3271,14 @@ def _reviewer_claim_support_summary(lint: dict[str, Any]) -> dict[str, Any]:
     return {
         "claim_support_audit_present": bool(lint.get("claim_support_audit_present")),
         "total_sentences": int(lint.get("claim_support_total_sentences") or 0),
-        "registry_supported": int(
-            lint.get("claim_support_registry_supported_count") or 0
-        ),
-        "scaffold_not_required": int(
-            lint.get("claim_support_scaffold_not_required_count") or 0
-        ),
+        "registry_supported": int(lint.get("claim_support_registry_supported_count") or 0),
+        "scaffold_not_required": int(lint.get("claim_support_scaffold_not_required_count") or 0),
         "missing_required_citation": int(
             lint.get("claim_support_missing_required_citation_count") or 0
         ),
         "scope_mismatch": int(lint.get("claim_support_scope_mismatch_count") or 0),
         "forbidden_claim": int(lint.get("claim_support_forbidden_claim_count") or 0),
-        "citation_as_validation_misuse": int(
-            lint.get("citation_as_validation_misuse_count") or 0
-        ),
+        "citation_as_validation_misuse": int(lint.get("citation_as_validation_misuse_count") or 0),
         "claim_adjudicator_backend": str(lint.get("claim_adjudicator_backend") or "off"),
         "adjudicated_sentence_count": int(lint.get("adjudicated_sentence_count") or 0),
     }
@@ -3360,15 +3287,11 @@ def _reviewer_claim_support_summary(lint: dict[str, Any]) -> dict[str, Any]:
 def _reviewer_citation_summary(lint: dict[str, Any]) -> dict[str, Any]:
     return {
         "citation_registry_present": bool(lint.get("citation_registry_present")),
-        "citation_registry_source_count": int(
-            lint.get("citation_registry_source_count") or 0
-        ),
+        "citation_registry_source_count": int(lint.get("citation_registry_source_count") or 0),
         "citation_registry_sources_all_accepted": bool(
             lint.get("citation_registry_sources_all_accepted", True)
         ),
-        "registry_backed_citation_count": int(
-            lint.get("registry_backed_citation_count") or 0
-        ),
+        "registry_backed_citation_count": int(lint.get("registry_backed_citation_count") or 0),
         "unregistered_citation_keys": list(lint.get("unregistered_citation_keys") or []),
         "bibliography_status": str(lint.get("bibliography_status") or "absent"),
         "citation_policy": str(lint.get("citation_policy") or "none"),
@@ -3377,15 +3300,11 @@ def _reviewer_citation_summary(lint: dict[str, Any]) -> dict[str, Any]:
 
 def _reviewer_retrieval_summary(lint: dict[str, Any]) -> dict[str, Any]:
     return {
-        "retrieval_quality_report_present": bool(
-            lint.get("retrieval_quality_report_present")
-        ),
+        "retrieval_quality_report_present": bool(lint.get("retrieval_quality_report_present")),
         "retrieved_source_count": int(lint.get("retrieved_source_count") or 0),
         "accepted_source_count": int(lint.get("accepted_source_count") or 0),
         "rejected_source_count": int(lint.get("rejected_source_count") or 0),
-        "retrieval_adequacy_status": str(
-            lint.get("retrieval_adequacy_status") or "not_evaluated"
-        ),
+        "retrieval_adequacy_status": str(lint.get("retrieval_adequacy_status") or "not_evaluated"),
         "source_relevance_adjudication_enabled": bool(
             lint.get("source_relevance_adjudication_enabled")
         ),
@@ -3410,39 +3329,21 @@ def _reviewer_retrieval_summary(lint: dict[str, Any]) -> dict[str, Any]:
 def _reviewer_quality_summary(lint: dict[str, Any]) -> dict[str, Any]:
     return {
         "quality_status": str(lint.get("quality_status") or "unknown"),
-        "quality_repair_report_present": bool(
-            lint.get("quality_repair_report_present")
-        ),
+        "quality_repair_report_present": bool(lint.get("quality_repair_report_present")),
         "quality_repair_backend": str(lint.get("quality_repair_backend") or "off"),
-        "quality_repair_status": str(
-            lint.get("quality_repair_status") or "disabled"
-        ),
-        "quality_repaired_section_count": int(
-            lint.get("quality_repaired_section_count") or 0
-        ),
-        "section_depth_target_met_count": int(
-            lint.get("section_depth_target_met_count") or 0
-        ),
-        "section_depth_target_total": int(
-            lint.get("section_depth_target_total") or 0
-        ),
-        "sections_below_depth_target": list(
-            lint.get("sections_below_depth_target") or []
-        ),
+        "quality_repair_status": str(lint.get("quality_repair_status") or "disabled"),
+        "quality_repaired_section_count": int(lint.get("quality_repaired_section_count") or 0),
+        "section_depth_target_met_count": int(lint.get("section_depth_target_met_count") or 0),
+        "section_depth_target_total": int(lint.get("section_depth_target_total") or 0),
+        "sections_below_depth_target": list(lint.get("sections_below_depth_target") or []),
         "warnings_reduced_count": int(lint.get("warnings_reduced_count") or 0),
-        "irreducible_quality_warnings": list(
-            lint.get("irreducible_quality_warnings") or []
-        ),
+        "irreducible_quality_warnings": list(lint.get("irreducible_quality_warnings") or []),
         "evidence_aware_refresh_report_present": bool(
             lint.get("evidence_aware_refresh_report_present")
         ),
-        "evidence_aware_refresh_backend": str(
-            lint.get("evidence_aware_refresh_backend") or "off"
-        ),
+        "evidence_aware_refresh_backend": str(lint.get("evidence_aware_refresh_backend") or "off"),
         "proof_language_inserted": bool(lint.get("proof_language_inserted")),
-        "experiment_language_inserted": bool(
-            lint.get("experiment_language_inserted")
-        ),
+        "experiment_language_inserted": bool(lint.get("experiment_language_inserted")),
     }
 
 
@@ -3492,9 +3393,7 @@ def _reviewer_recommended_next_actions(
 def _manuscript_stats(markdown: str) -> dict[str, Any]:
     headings = _markdown_headings(markdown)
     title = _markdown_title(markdown)
-    abstract_detected = any(
-        heading.lower() == "abstract" for heading in headings
-    )
+    abstract_detected = any(heading.lower() == "abstract" for heading in headings)
     citation_marker_count = len(re.findall(r"\[@[A-Za-z0-9][A-Za-z0-9_.:-]*\]", markdown))
     return {
         "line_count": len(markdown.splitlines()),
@@ -3551,12 +3450,8 @@ def _section_accounting(
         "appendix_section_count": len(appendix_sections),
         "metadata_section_count": len(metadata_sections),
         "total_heading_count": len(sections),
-        "main_body_word_count": sum(
-            int(section["word_count"]) for section in main_body_sections
-        ),
-        "appendix_word_count": sum(
-            int(section["word_count"]) for section in appendix_sections
-        ),
+        "main_body_word_count": sum(int(section["word_count"]) for section in main_body_sections),
+        "appendix_word_count": sum(int(section["word_count"]) for section in appendix_sections),
         "main_body_avg_words_per_section": (
             round(
                 sum(int(section["word_count"]) for section in main_body_sections)
@@ -3622,10 +3517,7 @@ def _irreducible_quality_warnings(warnings: list[str]) -> list[str]:
     return [
         warning
         for warning in warnings
-        if any(
-            warning.startswith(prefix)
-            for prefix in _IRREDUCIBLE_QUALITY_WARNING_PREFIXES
-        )
+        if any(warning.startswith(prefix) for prefix in _IRREDUCIBLE_QUALITY_WARNING_PREFIXES)
     ]
 
 
@@ -3694,9 +3586,7 @@ def _markdown_sections(markdown: str) -> list[dict[str, Any]]:
 
 
 def _markdown_body_text(markdown: str) -> str:
-    return "\n".join(
-        line for line in markdown.splitlines() if not line.strip().startswith("#")
-    )
+    return "\n".join(line for line in markdown.splitlines() if not line.strip().startswith("#"))
 
 
 def _body_sections(
@@ -3708,9 +3598,7 @@ def _body_sections(
         section
         for section in sections
         if not (
-            section["level"] == 1
-            and title_key
-            and str(section["heading"]).casefold() == title_key
+            section["level"] == 1 and title_key and str(section["heading"]).casefold() == title_key
         )
     ]
 
@@ -3725,10 +3613,7 @@ def _major_body_sections(sections: list[dict[str, Any]]) -> list[dict[str, Any]]
     return [
         section
         for section in sections
-        if not any(
-            fragment in str(section["heading"]).casefold()
-            for fragment in skipped_fragments
-        )
+        if not any(fragment in str(section["heading"]).casefold() for fragment in skipped_fragments)
     ]
 
 
@@ -3958,9 +3843,7 @@ def _run_quality_repair_if_requested(
         return None, None, None
     if backend == "openai":
         if not config.allow_external_calls:
-            raise FullPaperGenerationError(
-                "OpenAI quality repair requires --allow-external-calls."
-            )
+            raise FullPaperGenerationError("OpenAI quality repair requires --allow-external-calls.")
         raise FullPaperGenerationError(
             "OpenAI quality repair is gated but not implemented for M57; "
             "use --quality-repair-backend deterministic."
@@ -4060,12 +3943,8 @@ def _run_quality_repair_if_requested(
         section_depth_targets=QUALITY_SECTION_DEPTH_TARGETS,
         section_word_counts_before=dict(before.get("section_word_counts") or {}),
         section_word_counts_after=dict(after.get("section_word_counts") or {}),
-        sections_below_target_before=list(
-            before.get("sections_below_depth_target") or []
-        ),
-        sections_below_target_after=list(
-            after.get("sections_below_depth_target") or []
-        ),
+        sections_below_target_before=list(before.get("sections_below_depth_target") or []),
+        sections_below_target_after=list(after.get("sections_below_depth_target") or []),
         placeholder_like_sections_before=placeholder_like_sections_before,
         placeholder_like_sections_after=placeholder_like_sections_after,
         warnings_reduced_count=_warnings_reduced_count(
@@ -4078,12 +3957,8 @@ def _run_quality_repair_if_requested(
         method_summary_repaired=bool(repair_state["method_summary_repaired"]),
         limitations_repaired=bool(repair_state["limitations_repaired"]),
         conclusion_repaired=bool(repair_state["conclusion_repaired"]),
-        placeholder_sections_repaired=int(
-            repair_state["placeholder_sections_repaired"]
-        ),
-        underdeveloped_sections_repaired=int(
-            repair_state["underdeveloped_sections_repaired"]
-        ),
+        placeholder_sections_repaired=int(repair_state["placeholder_sections_repaired"]),
+        underdeveloped_sections_repaired=int(repair_state["underdeveloped_sections_repaired"]),
         claim_support_rechecked_after_repair=True,
         citation_safety_rechecked_after_repair=True,
     )
@@ -4143,9 +4018,7 @@ def _deterministic_quality_repair_markdown(
     semantic = dict(before_lint.get("semantic_checks") or {})
     if needs(
         "Introduction and Problem Framing",
-        QUALITY_SECTION_DEPTH_TARGETS["Introduction and Problem Framing"][
-            "min_words"
-        ],
+        QUALITY_SECTION_DEPTH_TARGETS["Introduction and Problem Framing"]["min_words"],
     ):
         revised = _replace_or_insert_markdown_section(
             revised,
@@ -4166,13 +4039,10 @@ def _deterministic_quality_repair_markdown(
         state["sections_repaired"].append("Introduction and Problem Framing")
         state["problem_statement_repaired"] = True
 
-    if (
-        needs(
-            "Method and Model",
-            QUALITY_SECTION_DEPTH_TARGETS["Method and Model"]["min_words"],
-        )
-        or not semantic.get("method_summary_present")
-    ):
+    if needs(
+        "Method and Model",
+        QUALITY_SECTION_DEPTH_TARGETS["Method and Model"]["min_words"],
+    ) or not semantic.get("method_summary_present"):
         revised = _replace_or_insert_markdown_section(
             revised,
             "Method and Model",
@@ -4212,13 +4082,10 @@ def _deterministic_quality_repair_markdown(
         if "Demonstration Status" in placeholder_headings:
             state["placeholder_sections_repaired"] += 1
 
-    if (
-        needs(
-            "Limitations",
-            QUALITY_SECTION_DEPTH_TARGETS["Limitations"]["min_words"],
-        )
-        or not semantic.get("limitations_present")
-    ):
+    if needs(
+        "Limitations",
+        QUALITY_SECTION_DEPTH_TARGETS["Limitations"]["min_words"],
+    ) or not semantic.get("limitations_present"):
         revised = _replace_or_insert_markdown_section(
             revised,
             "Limitations",
@@ -4230,13 +4097,10 @@ def _deterministic_quality_repair_markdown(
         if "Limitations" in placeholder_headings:
             state["placeholder_sections_repaired"] += 1
 
-    if (
-        needs(
-            "Conclusion",
-            QUALITY_SECTION_DEPTH_TARGETS["Conclusion"]["min_words"],
-        )
-        or before_lint.get("conclusion_placeholder_like")
-    ):
+    if needs(
+        "Conclusion",
+        QUALITY_SECTION_DEPTH_TARGETS["Conclusion"]["min_words"],
+    ) or before_lint.get("conclusion_placeholder_like"):
         revised = _replace_or_insert_markdown_section(
             revised,
             "Conclusion",
@@ -4517,11 +4381,7 @@ def _available_evidence_artifacts(
     ledger: ResearchLedger,
     run_id: str,
 ) -> dict[str, bool]:
-    refs = [
-        artifact
-        for commit in ledger.list_commits(run_id)
-        for artifact in commit.artifact_refs
-    ]
+    refs = [artifact for commit in ledger.list_commits(run_id) for artifact in commit.artifact_refs]
     return {
         "proof": any(
             artifact.type == ArtifactType.LEAN
@@ -4649,18 +4509,14 @@ def _write_full_paper_generation_artifacts(
             "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",
             "claim_support_audit_artifact_id": "claim-support-audit",
             "quality_repair_report_artifact_id": (
-                "quality-repair-report"
-                if quality_repair_report is not None
-                else None
+                "quality-repair-report" if quality_repair_report is not None else None
             ),
             "revised_manuscript_draft_artifact_id": (
                 "revised-manuscript-draft"
                 if quality_repaired_markdown is not None
                 else bundle.revised_manuscript_draft_artifact_id
             ),
-            "revised_latex_artifact_id": (
-                "revised-paper" if revised_export is not None else None
-            ),
+            "revised_latex_artifact_id": ("revised-paper" if revised_export is not None else None),
             "revised_references_artifact_id": (
                 "revised-references" if revised_export is not None else None
             ),
@@ -4781,8 +4637,7 @@ def _write_full_paper_generation_artifacts(
             "warnings": len(report.warnings),
             "revision_applied": report.revision_applied,
             "quality_repair_applied": quality_repair_report is not None
-            and quality_repair_report.quality_repair_status
-            in {"repaired", "no_action_needed"},
+            and quality_repair_report.quality_repair_status in {"repaired", "no_action_needed"},
             "render_check_requested": report.render_check_requested,
             "is_verification_evidence": False,
             "creates_scientific_validation": False,
@@ -4812,9 +4667,7 @@ def _handle_existing_generation_report(
         report = FullPaperGenerationReport.model_validate_json(
             _read_text_artifact(root, report_ref)
         )
-        bundle = FullPaperArtifactBundle.model_validate_json(
-            _read_text_artifact(root, bundle_ref)
-        )
+        bundle = FullPaperArtifactBundle.model_validate_json(_read_text_artifact(root, bundle_ref))
         return FullPaperGenerationRunResult(
             run_id=run_id,
             report=report,
@@ -4847,16 +4700,10 @@ def _with_persisted_generation_artifacts(
         update={
             "full_paper_generation_report_artifact_id": "full-paper-generation-report",
             "full_paper_artifact_bundle_artifact_id": "full-paper-artifact-bundle",
-            "claim_support_audit_artifact_id": _id_if_present(
-                refs, "claim-support-audit"
-            ),
-            "quality_repair_report_artifact_id": _id_if_present(
-                refs, "quality-repair-report"
-            )
+            "claim_support_audit_artifact_id": _id_if_present(refs, "claim-support-audit"),
+            "quality_repair_report_artifact_id": _id_if_present(refs, "quality-repair-report")
             or bundle.quality_repair_report_artifact_id,
-            "revised_manuscript_draft_artifact_id": _id_if_present(
-                refs, "revised-manuscript-draft"
-            )
+            "revised_manuscript_draft_artifact_id": _id_if_present(refs, "revised-manuscript-draft")
             or bundle.revised_manuscript_draft_artifact_id,
             "revised_latex_artifact_id": _id_if_present(refs, "revised-paper"),
             "revised_references_artifact_id": _id_if_present(refs, "revised-references"),
@@ -4924,48 +4771,30 @@ def _collect_artifact_bundle(
         literature_positioning_report_artifact_id=_id_if_present(
             citation, "literature-positioning-report"
         ),
-        citation_safety_report_artifact_id=_id_if_present(
-            citation, "citation-safety-report"
-        ),
+        citation_safety_report_artifact_id=_id_if_present(citation, "citation-safety-report"),
         claim_support_audit_artifact_id=_id_if_present(
             generation,
             "claim-support-audit",
         ),
-        manuscript_drafting_plan_artifact_id=_id_if_present(
-            draft, "manuscript-drafting-plan"
-        ),
-        manuscript_drafting_report_artifact_id=_id_if_present(
-            draft, "manuscript-drafting-report"
-        ),
-        complete_manuscript_draft_artifact_id=_id_if_present(
-            draft, "complete-manuscript-draft"
-        ),
-        manuscript_assembly_report_artifact_id=_id_if_present(
-            draft, "manuscript-assembly-report"
-        ),
+        manuscript_drafting_plan_artifact_id=_id_if_present(draft, "manuscript-drafting-plan"),
+        manuscript_drafting_report_artifact_id=_id_if_present(draft, "manuscript-drafting-report"),
+        complete_manuscript_draft_artifact_id=_id_if_present(draft, "complete-manuscript-draft"),
+        manuscript_assembly_report_artifact_id=_id_if_present(draft, "manuscript-assembly-report"),
         latex_artifact_id=_id_if_present(latex, "paper"),
         references_artifact_id=_id_if_present(latex, "references"),
         latex_source_map_artifact_id=_id_if_present(latex, "latex-source-map"),
         latex_export_report_artifact_id=_id_if_present(latex, "latex-export-report"),
         latex_safety_report_artifact_id=_id_if_present(latex, "latex-safety-report"),
-        latex_compile_check_report_artifact_id=_id_if_present(
-            latex, "latex-compile-check-report"
-        ),
+        latex_compile_check_report_artifact_id=_id_if_present(latex, "latex-compile-check-report"),
         paper_critic_report_artifact_id=_id_if_present(critic, "paper-critic-report"),
         paper_revision_plan_artifact_id=_id_if_present(revision, "paper-revision-plan"),
-        revision_safety_report_artifact_id=_id_if_present(
-            revision, "revision-safety-report"
-        ),
-        revised_manuscript_draft_artifact_id=_id_if_present(
-            generation, "revised-manuscript-draft"
-        )
+        revision_safety_report_artifact_id=_id_if_present(revision, "revision-safety-report"),
+        revised_manuscript_draft_artifact_id=_id_if_present(generation, "revised-manuscript-draft")
         or _id_if_present(
             revision,
             "revised-manuscript-draft",
         ),
-        paper_revision_result_artifact_id=_id_if_present(
-            revision, "paper-revision-result"
-        ),
+        paper_revision_result_artifact_id=_id_if_present(revision, "paper-revision-result"),
         quality_repair_report_artifact_id=_id_if_present(
             generation,
             "quality-repair-report",
@@ -4991,8 +4820,7 @@ def _latest_refs(
     action_type: ControllerActionType,
 ) -> dict[str, ArtifactRef]:
     commits = [
-        commit for commit in ledger.list_commits(run_id)
-        if commit.action_type == action_type
+        commit for commit in ledger.list_commits(run_id) if commit.action_type == action_type
     ]
     if not commits:
         return {}
@@ -5002,8 +4830,10 @@ def _latest_refs(
 def _citation_refs(ledger: ResearchLedger, run_id: str) -> dict[str, ArtifactRef]:
     draft = _latest_refs(ledger, run_id, ControllerActionType.MANUSCRIPT_DRAFT_WRITTEN)
     refs = {
-        key: artifact for key, artifact in draft.items()
-        if key in {
+        key: artifact
+        for key, artifact in draft.items()
+        if key
+        in {
             "citation-registry",
             "literature-positioning-report",
             "citation-safety-report",
@@ -5085,7 +4915,8 @@ def _blocking_issues(steps: list[FullPaperGenerationStep]) -> list[str]:
     return [
         step.error_message or step.summary
         for step in steps
-        if step.status in {
+        if step.status
+        in {
             FullPaperGenerationStepStatus.BLOCKED,
             FullPaperGenerationStepStatus.FAILED,
         }
@@ -5120,7 +4951,8 @@ def _critic_warnings(result: PaperCriticRunResult) -> list[str]:
 
 def _critic_report_warnings(report: PaperCriticReport) -> list[str]:
     warnings = [
-        finding.message for finding in report.findings
+        finding.message
+        for finding in report.findings
         if finding.severity.value in {"Warning", "Major", "Blocking"}
     ]
     return sorted(set(warnings))

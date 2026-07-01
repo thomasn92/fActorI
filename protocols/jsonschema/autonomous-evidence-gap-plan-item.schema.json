@@ -1,0 +1,132 @@
+{
+  "$id": "https://schemas.factori.local/0.32.0/autonomous-evidence-gap-plan-item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic autonomous evidence-gap planning item.",
+  "properties": {
+    "automation_ready": {
+      "default": false,
+      "title": "Automation Ready",
+      "type": "boolean"
+    },
+    "blocking": {
+      "default": false,
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "current_support_status": {
+      "minLength": 1,
+      "title": "Current Support Status",
+      "type": "string"
+    },
+    "expected_artifact_type": {
+      "minLength": 1,
+      "title": "Expected Artifact Type",
+      "type": "string"
+    },
+    "gap_type": {
+      "enum": [
+        "needs_python_experiment",
+        "needs_formal_proof",
+        "needs_retrieval_expansion",
+        "needs_claim_downgrade",
+        "needs_claim_removal",
+        "needs_manuscript_refresh",
+        "sufficiently_supported_for_bounded_draft"
+      ],
+      "title": "Gap Type",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "item_id": {
+      "minLength": 1,
+      "title": "Item Id",
+      "type": "string"
+    },
+    "priority": {
+      "default": "medium",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "blocking"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "recommended_action": {
+      "minLength": 1,
+      "title": "Recommended Action",
+      "type": "string"
+    },
+    "required_inputs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Inputs",
+      "type": "array"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    },
+    "target_section_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section Optional"
+    },
+    "target_type": {
+      "minLength": 1,
+      "title": "Target Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "item_id",
+    "target_type",
+    "current_support_status",
+    "gap_type",
+    "recommended_action",
+    "rationale",
+    "expected_artifact_type"
+  ],
+  "title": "AutonomousEvidenceGapPlanItem",
+  "type": "object",
+  "x-factori-protocol-version": "0.32.0",
+  "x-factori-source-model": "factori.schemas.AutonomousEvidenceGapPlanItem",
+  "x-factori-verification-evidence": false
+}
