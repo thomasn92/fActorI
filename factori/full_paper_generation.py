@@ -13,6 +13,10 @@ from factori.autonomous_evidence_plan import (
     autonomous_evidence_plan_summary_fields,
     latest_autonomous_evidence_gap_plan_path,
 )
+from factori.autonomous_loop import (
+    autonomous_loop_summary_fields,
+    latest_autonomous_loop_report,
+)
 from factori.autonomous_plan_execution import (
     autonomous_execution_summary_fields,
     latest_autonomous_plan_execution_report,
@@ -63,6 +67,7 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     AutonomousEvidenceGapPlan,
+    AutonomousLoopRunReport,
     AutonomousPlanExecutionReport,
     CitationRegistry,
     ClaimEvidenceMap,
@@ -758,6 +763,14 @@ def inspect_paper_bundle_summary(
         planned_spec_execution,
         planned_spec_execution_index,
     )
+    autonomous_loop_report, autonomous_loop_index = latest_autonomous_loop_report(
+        root_path,
+        run_id,
+    )
+    autonomous_loop_summary = autonomous_loop_summary_fields(
+        autonomous_loop_report,
+        autonomous_loop_index,
+    )
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
     markdown = primary_draft.read_text(encoding="utf-8") if primary_draft is not None else ""
     section_accounting = _section_accounting(
@@ -929,11 +942,13 @@ def inspect_paper_bundle_summary(
         ],
         **autonomous_execution_summary,
         **planned_spec_execution_summary,
+        **autonomous_loop_summary,
         "human_intervention_required": bool(
             autonomous_plan_summary["autonomous_human_intervention_required"]
             or planned_spec_execution_summary[
                 "planned_spec_execution_requires_human_intervention"
             ]
+            or autonomous_loop_summary["autonomous_loop_requires_human_intervention"]
         ),
         "autonomous_next_actions": autonomous_plan_summary["autonomous_next_actions"],
         "human_review_artifact_exists": paths["human_review_artifact"].is_file(),
@@ -1410,6 +1425,22 @@ def lint_paper_bundle_summary(
     planned_spec_execution_count = int(bundle.get("planned_spec_execution_count") or 0)
     latest_planned_spec_execution_mode = bundle.get("latest_planned_spec_execution_mode")
     latest_planned_spec_execution_status = bundle.get("latest_planned_spec_execution_status")
+    autonomous_loop_present = bool(bundle.get("autonomous_loop_present"))
+    autonomous_loop_count = int(bundle.get("autonomous_loop_count") or 0)
+    latest_autonomous_loop_status = bundle.get("latest_autonomous_loop_status")
+    latest_autonomous_loop_iterations_completed = int(
+        bundle.get("latest_autonomous_loop_iterations_completed") or 0
+    )
+    latest_autonomous_loop_stop_reason = bundle.get("latest_autonomous_loop_stop_reason")
+    autonomous_loop_final_unsupported_claim_count = int(
+        bundle.get("autonomous_loop_final_unsupported_claim_count") or 0
+    )
+    autonomous_loop_final_automation_ready_item_count = int(
+        bundle.get("autonomous_loop_final_automation_ready_item_count") or 0
+    )
+    autonomous_loop_requires_human_intervention = bool(
+        bundle.get("autonomous_loop_requires_human_intervention")
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -1802,7 +1833,11 @@ def lint_paper_bundle_summary(
         "autonomous_claim_removal_item_count": autonomous_claim_removal_item_count,
         "automation_ready_item_count": automation_ready_item_count,
         "autonomous_human_intervention_required": (autonomous_human_intervention_required),
-        "human_intervention_required": autonomous_human_intervention_required,
+        "human_intervention_required": bool(
+            autonomous_human_intervention_required
+            or bool(bundle.get("planned_spec_execution_requires_human_intervention"))
+            or autonomous_loop_requires_human_intervention
+        ),
         "autonomous_execution_present": autonomous_execution_present,
         "autonomous_execution_count": autonomous_execution_count,
         "latest_autonomous_execution_mode": latest_autonomous_execution_mode,
@@ -1827,6 +1862,22 @@ def lint_paper_bundle_summary(
         "retrieval_artifacts_created": int(bundle.get("retrieval_artifacts_created") or 0),
         "planned_spec_execution_requires_human_intervention": bool(
             bundle.get("planned_spec_execution_requires_human_intervention")
+        ),
+        "autonomous_loop_present": autonomous_loop_present,
+        "autonomous_loop_count": autonomous_loop_count,
+        "latest_autonomous_loop_status": latest_autonomous_loop_status,
+        "latest_autonomous_loop_iterations_completed": (
+            latest_autonomous_loop_iterations_completed
+        ),
+        "latest_autonomous_loop_stop_reason": latest_autonomous_loop_stop_reason,
+        "autonomous_loop_final_unsupported_claim_count": (
+            autonomous_loop_final_unsupported_claim_count
+        ),
+        "autonomous_loop_final_automation_ready_item_count": (
+            autonomous_loop_final_automation_ready_item_count
+        ),
+        "autonomous_loop_requires_human_intervention": (
+            autonomous_loop_requires_human_intervention
         ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
@@ -2034,26 +2085,33 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "full-paper-release-report-after-planned-spec-execution-*.json",
-                "full-paper-release-report-after-planned-spec-execution-0000.json",
+                "full-paper-release-report-after-autonomous-loop-*.json",
+                "full-paper-release-report-after-autonomous-loop-0000.json",
             ),
             _preferred_existing_path(
                 _latest_report_path(
                     run_path,
-                    "full-paper-release-report-after-autonomous-execution-*.json",
-                    "full-paper-release-report-after-autonomous-execution-0000.json",
+                    "full-paper-release-report-after-planned-spec-execution-*.json",
+                    "full-paper-release-report-after-planned-spec-execution-0000.json",
                 ),
                 _preferred_existing_path(
                     _latest_report_path(
                         run_path,
-                        "full-paper-release-report-after-reconciliation-cycle-*.json",
-                        "full-paper-release-report-after-human-review-reconciliation.json",
+                        "full-paper-release-report-after-autonomous-execution-*.json",
+                        "full-paper-release-report-after-autonomous-execution-0000.json",
                     ),
                     _preferred_existing_path(
-                        run_path
-                        / "reports"
-                        / "full-paper-release-report-after-evidence-aware-refresh.json",
-                        run_path / "reports" / "full-paper-release-report.json",
+                        _latest_report_path(
+                            run_path,
+                            "full-paper-release-report-after-reconciliation-cycle-*.json",
+                            "full-paper-release-report-after-human-review-reconciliation.json",
+                        ),
+                        _preferred_existing_path(
+                            run_path
+                            / "reports"
+                            / "full-paper-release-report-after-evidence-aware-refresh.json",
+                            run_path / "reports" / "full-paper-release-report.json",
+                        ),
                     ),
                 ),
             ),
@@ -2177,6 +2235,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 run_path,
                 "reviewer-bundle-summary-after-planned-spec-execution-*.md",
                 "reviewer-bundle-summary-after-planned-spec-execution-0000.md",
+            )
+        ),
+        "reviewer_bundle_summary_after_autonomous_loop_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-autonomous-loop-*.json",
+                "reviewer-bundle-summary-after-autonomous-loop-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_autonomous_loop_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-autonomous-loop-*.md",
+                "reviewer-bundle-summary-after-autonomous-loop-0000.md",
             )
         ),
         "claim_evidence_map": (
@@ -2387,6 +2459,9 @@ def _read_preferred_reviewer_bundle_summary(
 ) -> ReviewerBundleSummary | None:
     return (
         _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_autonomous_loop_json"]
+        )
+        or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
         )
         or _read_reviewer_bundle_summary(
@@ -2483,6 +2558,7 @@ def build_reviewer_bundle_summary(
     autonomous_evidence_plan: AutonomousEvidenceGapPlan | None = None,
     autonomous_execution_report: AutonomousPlanExecutionReport | None = None,
     planned_spec_execution_report: PlannedSpecExecutionReport | None = None,
+    autonomous_loop_report: AutonomousLoopRunReport | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -2543,6 +2619,9 @@ def build_reviewer_bundle_summary(
         planned_execution_report,
         planned_execution_index,
     )
+    loop_report, loop_index = latest_autonomous_loop_report(root_path, run_id)
+    loop_report = autonomous_loop_report or loop_report
+    loop_summary = autonomous_loop_summary_fields(loop_report, loop_index)
     release_status = (
         release_report.decision.status.value
         if release_report is not None
@@ -2688,6 +2767,8 @@ def build_reviewer_bundle_summary(
         automation_ready_item_count=int(autonomous_plan_summary["automation_ready_item_count"]),
         human_intervention_required=bool(
             autonomous_plan_summary["autonomous_human_intervention_required"]
+            or planned_execution_summary["planned_spec_execution_requires_human_intervention"]
+            or loop_summary["autonomous_loop_requires_human_intervention"]
         ),
         autonomous_execution_present=bool(execution_summary["autonomous_execution_present"]),
         latest_autonomous_execution_mode=execution_summary["latest_autonomous_execution_mode"],
@@ -2717,6 +2798,20 @@ def build_reviewer_bundle_summary(
         proof_artifacts_created=int(planned_execution_summary["proof_artifacts_created"]),
         retrieval_artifacts_created=int(
             planned_execution_summary["retrieval_artifacts_created"]
+        ),
+        autonomous_loop_present=bool(loop_summary["autonomous_loop_present"]),
+        latest_autonomous_loop_status=loop_summary["latest_autonomous_loop_status"],
+        latest_autonomous_loop_iterations_completed=int(
+            loop_summary["latest_autonomous_loop_iterations_completed"]
+        ),
+        latest_autonomous_loop_stop_reason=loop_summary[
+            "latest_autonomous_loop_stop_reason"
+        ],
+        final_gap_counts=(
+            loop_report.final_gap_counts if loop_report is not None else {}
+        ),
+        autonomous_loop_requires_human_intervention=bool(
+            loop_summary["autonomous_loop_requires_human_intervention"]
         ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
@@ -2839,6 +2934,23 @@ def render_reviewer_bundle_summary_markdown(
             f"{summary.proof_artifacts_created}/"
             f"{summary.retrieval_artifacts_created}`"
         ),
+        (
+            "Autonomous loop: "
+            f"`{'present' if summary.autonomous_loop_present else 'absent'}`"
+        ),
+        f"Latest autonomous loop status: `{summary.latest_autonomous_loop_status or 'none'}`",
+        (
+            "Latest autonomous loop iterations completed: "
+            f"`{summary.latest_autonomous_loop_iterations_completed}`"
+        ),
+        (
+            "Latest autonomous loop stop reason: "
+            f"`{summary.latest_autonomous_loop_stop_reason or 'none'}`"
+        ),
+        (
+            "Autonomous loop human intervention required: "
+            f"`{str(summary.autonomous_loop_requires_human_intervention).lower()}`"
+        ),
         "",
         "## Remaining Warnings",
     ]
@@ -2859,6 +2971,13 @@ def render_reviewer_bundle_summary_markdown(
     )
     lines.extend(["", "## Autonomous Next Actions"])
     lines.extend(f"- {item}" for item in summary.autonomous_next_actions or ["none"])
+    lines.extend(["", "## Autonomous Loop Final Gaps"])
+    if summary.final_gap_counts:
+        lines.extend(
+            f"- `{key}`: `{value}`" for key, value in sorted(summary.final_gap_counts.items())
+        )
+    else:
+        lines.append("- none")
     lines.extend(["", "## Evidence Boundaries"])
     for category, items in summary.evidence_boundaries.items():
         lines.append(f"### {category.replace('_', ' ').title()}")
@@ -2904,7 +3023,9 @@ def inspect_reviewer_bundle_summary(
         raise PaperBundleInspectionError(f"No reviewer bundle summary found for run_id={run_id}.")
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
+        paths["reviewer_bundle_summary_after_autonomous_loop_json"]
+        if paths["reviewer_bundle_summary_after_autonomous_loop_json"].is_file()
+        else paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
         if paths["reviewer_bundle_summary_after_planned_spec_execution_json"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_execution_json"]
         if paths["reviewer_bundle_summary_after_autonomous_execution_json"].is_file()
@@ -2923,7 +3044,9 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"]
+        paths["reviewer_bundle_summary_after_autonomous_loop_markdown"]
+        if paths["reviewer_bundle_summary_after_autonomous_loop_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"]
         if paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_execution_markdown"]
         if paths["reviewer_bundle_summary_after_autonomous_execution_markdown"].is_file()

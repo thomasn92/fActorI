@@ -13,6 +13,7 @@ from factori.autonomous_evidence_plan import (
     inspect_autonomous_evidence_gap_plan,
     persist_autonomous_evidence_gap_plan,
 )
+from factori.autonomous_loop import inspect_autonomous_loop, run_autonomous_loop
 from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
@@ -66,6 +67,8 @@ from factori.schemas import (
     ArtifactRef,
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
+    AutonomousLoopIndex,
+    AutonomousLoopRunReport,
     AutonomousPlanExecutionReport,
     CitationRecord,
     CitationRegistry,
@@ -114,6 +117,8 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert AutonomousEvidenceGapPlan
     assert AutonomousPlanExecutionReport
     assert PlannedSpecExecutionReport
+    assert AutonomousLoopRunReport
+    assert AutonomousLoopIndex
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -1986,6 +1991,81 @@ def test_planned_spec_execution_failed_experiment_does_not_create_artifact(
     assert result.report.specs_rejected == 1
     assert result.report.experiment_artifacts_created == 0
     assert experiment["experiment_artifact_count"] == 0
+    assert result.report.publication_ready is False
+
+
+def test_autonomous_loop_runs_plan_specs_and_updates_bundle_views(tmp_path) -> None:
+    run_id = "run-autonomous-loop"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=2,
+    )
+    inspected = inspect_autonomous_loop(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    reports = tmp_path / "runs" / run_id / "reports"
+
+    assert result.persistence.commit.action_type == ControllerActionType.AUTONOMOUS_LOOP_WRITTEN
+    assert result.report.iterations_completed >= 1
+    assert result.report.loop_status in {
+        "completed",
+        "completed_with_deferred_gaps",
+        "stopped_no_progress",
+        "stopped_max_iterations",
+    }
+    assert result.report.publication_ready is False
+    assert result.report.creates_scientific_validation is False
+    assert result.report.implies_publication_readiness is False
+    assert result.report.is_verification_evidence is False
+    assert result.report.requires_human_intervention is False
+    assert result.report.iterations[0].claim_evidence_map_path
+    assert result.report.iterations[0].autonomous_plan_path
+    assert result.report.iterations[0].autonomous_execution_report_path
+    assert result.report.iterations[0].planned_spec_execution_report_path
+    assert result.report.iterations[0].release_report_path
+    assert (reports / "autonomous-loop-0001.json").is_file()
+    assert (reports / "autonomous-loop-index-0001.json").is_file()
+    assert (reports / "autonomous-loop-iteration-0001-001.json").is_file()
+    assert inspected["autonomous_loop_present"] is True
+    assert inspected["autonomous_loop_count"] == 1
+    assert lint["autonomous_loop_present"] is True
+    assert lint["autonomous_loop_count"] == 1
+    assert lint["latest_autonomous_loop_iterations_completed"] >= 1
+    assert lint["autonomous_loop_requires_human_intervention"] is False
+    assert lint["publication_ready"] is False
+    assert reviewer["autonomous_loop_present"] is True
+    assert reviewer["latest_autonomous_loop_status"] == result.report.loop_status
+    assert reviewer["publication_ready"] is False
+
+
+def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:
+    run_id = "run-autonomous-loop-corrupt-map"
+    _prepare_run(tmp_path, run_id=run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / "claim-evidence-map.json").write_text("{not-json}\n", encoding="utf-8")
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        loop_backend="deterministic",
+        max_iterations=1,
+    )
+
+    assert result.report.loop_status == "blocked_requires_human_intervention"
+    assert result.report.stop_reason == "safety_gate_blocked"
+    assert result.report.iterations_completed == 0
+    assert result.report.requires_human_intervention is True
     assert result.report.publication_ready is False
 
 

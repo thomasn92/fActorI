@@ -16,6 +16,10 @@ from factori.schemas import (
     ArtifactType,
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
+    AutonomousLoopDecision,
+    AutonomousLoopIndex,
+    AutonomousLoopIterationReport,
+    AutonomousLoopRunReport,
     AutonomousPlanExecutionAction,
     AutonomousPlanExecutionIndex,
     AutonomousPlanExecutionReport,
@@ -177,7 +181,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.33.0"
+PROTOCOL_VERSION = "0.34.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -418,6 +422,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "PlannedSpecExecutionIndex",
         PlannedSpecExecutionIndex,
         "Derived latest pointer over immutable planned-spec executions.",
+    ),
+    ProtocolDefinition(
+        "AutonomousLoopDecision",
+        AutonomousLoopDecision,
+        "Deterministic stop or continue decision for one autonomous loop iteration.",
+    ),
+    ProtocolDefinition(
+        "AutonomousLoopIterationReport",
+        AutonomousLoopIterationReport,
+        "One autonomous loop iteration report.",
+    ),
+    ProtocolDefinition(
+        "AutonomousLoopRunReport",
+        AutonomousLoopRunReport,
+        "Non-evidence autonomous iterative loop controller report.",
+    ),
+    ProtocolDefinition(
+        "AutonomousLoopIndex",
+        AutonomousLoopIndex,
+        "Derived latest pointer over immutable autonomous loop runs.",
     ),
     ProtocolDefinition(
         "EvidenceAwareRefreshReport",

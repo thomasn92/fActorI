@@ -235,6 +235,10 @@ All implementation modules are under `factori/`.
   experiment, and retrieval specs through deterministic local adapters, producing validated
   scoped proof/experiment artifacts only through intake checks and never running arbitrary code,
   network calls, external proof tools, or publication-readiness upgrades.
+- `autonomous_loop.py`: deterministic iterative controller that repeatedly rebuilds
+  claim-evidence maps, plans, executes safe actions/specs, refreshes manuscript context, reruns
+  safety gates, and stops by explicit no-progress, max-iteration, completion, or safety policy
+  without treating orchestration as evidence.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.

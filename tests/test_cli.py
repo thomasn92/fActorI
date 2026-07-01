@@ -124,6 +124,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
         app,
         ["inspect-planned-spec-execution", "--help"],
     )
+    run_loop = runner.invoke(app, ["run-autonomous-loop", "--help"])
+    inspect_loop = runner.invoke(app, ["inspect-autonomous-loop", "--help"])
     refresh_manuscript = runner.invoke(
         app,
         ["refresh-evidence-aware-manuscript", "--help"],
@@ -141,6 +143,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_autonomous_execution.exit_code == 0, inspect_autonomous_execution.output
     assert execute_planned_specs.exit_code == 0, execute_planned_specs.output
     assert inspect_planned_specs.exit_code == 0, inspect_planned_specs.output
+    assert run_loop.exit_code == 0, run_loop.output
+    assert inspect_loop.exit_code == 0, inspect_loop.output
     assert refresh_manuscript.exit_code == 0, refresh_manuscript.output
     assert "--run-id" in ingest_proof.output
     assert "--proof-file" in ingest_proof.output
@@ -152,6 +156,9 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--execution-mode" in execute_planned_specs.output
     assert "--spec-executor-backend" in execute_planned_specs.output
     assert "--json" in inspect_planned_specs.output
+    assert "--loop-backend" in run_loop.output
+    assert "--max-iterations" in run_loop.output
+    assert "--json" in inspect_loop.output
     assert "--run-id" in ingest_experiment.output
     assert "--experiment-file" in ingest_experiment.output
     assert "--run-id" in inspect_experiment.output
@@ -367,6 +374,62 @@ def test_planned_spec_execution_cli_apply_and_inspection(tmp_path) -> None:
     assert lint["planned_spec_execution_count"] == 2
     assert lint["latest_planned_spec_execution_mode"] == "apply"
     assert lint["experiment_artifacts_created"] == 1
+    assert lint["publication_ready"] is False
+
+
+def test_autonomous_loop_cli_run_and_inspection(tmp_path) -> None:
+    run_id = "cli-autonomous-loop"
+    _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
+    runner = CliRunner()
+
+    run_result = runner.invoke(
+        app,
+        [
+            "run-autonomous-loop",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--loop-backend",
+            "deterministic",
+            "--max-iterations",
+            "1",
+            "--json",
+        ],
+    )
+    inspect_json = runner.invoke(
+        app,
+        ["inspect-autonomous-loop", "--root", str(tmp_path), "--run-id", run_id, "--json"],
+    )
+    inspect_human = runner.invoke(
+        app,
+        ["inspect-autonomous-loop", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    paper_bundle = runner.invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    lint_result = runner.invoke(
+        app,
+        ["lint-paper-bundle", "--root", str(tmp_path), "--run-id", run_id, "--json"],
+    )
+
+    assert run_result.exit_code == 0, run_result.output
+    assert inspect_json.exit_code == 0, inspect_json.output
+    assert inspect_human.exit_code == 0, inspect_human.output
+    assert paper_bundle.exit_code == 0, paper_bundle.output
+    assert lint_result.exit_code == 0, lint_result.output
+    payload = json.loads(run_result.output)
+    inspected = json.loads(inspect_json.output)
+    lint = json.loads(lint_result.output)
+    assert payload["autonomous_loop_present"] is True
+    assert payload["autonomous_loop"]["publication_ready"] is False
+    assert inspected["autonomous_loop_count"] == 1
+    assert inspected["latest_autonomous_loop_iterations_completed"] >= 1
+    assert "Autonomous loop" in inspect_human.output
+    assert "Autonomous loop: present" in paper_bundle.output
+    assert lint["autonomous_loop_present"] is True
+    assert lint["autonomous_loop_count"] == 1
     assert lint["publication_ready"] is False
 
 

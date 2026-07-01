@@ -334,7 +334,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.33.0/full-paper-release-report.schema.json",
+  "$id": "https://schemas.factori.local/0.34.0/full-paper-release-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "End-to-end generated-paper readiness report.",
@@ -436,7 +436,7 @@
   ],
   "title": "FullPaperReleaseReport",
   "type": "object",
-  "x-factori-protocol-version": "0.33.0",
+  "x-factori-protocol-version": "0.34.0",
   "x-factori-source-model": "factori.schemas.FullPaperReleaseReport",
   "x-factori-verification-evidence": false
 }

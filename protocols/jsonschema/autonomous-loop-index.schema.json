@@ -1,0 +1,93 @@
+{
+  "$id": "https://schemas.factori.local/0.34.0/autonomous-loop-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable autonomous loop runs.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Latest Artifact Paths",
+      "type": "array"
+    },
+    "latest_iterations_completed": {
+      "minimum": 0,
+      "title": "Latest Iterations Completed",
+      "type": "integer"
+    },
+    "latest_loop_id": {
+      "minLength": 1,
+      "title": "Latest Loop Id",
+      "type": "string"
+    },
+    "latest_loop_status": {
+      "enum": [
+        "completed",
+        "completed_with_deferred_gaps",
+        "stopped_no_progress",
+        "stopped_max_iterations",
+        "blocked_requires_human_intervention",
+        "failed"
+      ],
+      "title": "Latest Loop Status",
+      "type": "string"
+    },
+    "latest_requires_human_intervention": {
+      "default": false,
+      "title": "Latest Requires Human Intervention",
+      "type": "boolean"
+    },
+    "latest_stop_reason": {
+      "enum": [
+        "no_unsupported_claims",
+        "no_automation_ready_items",
+        "no_progress",
+        "max_iterations_reached",
+        "safety_gate_blocked",
+        "ledger_invalid",
+        "requires_human_intervention"
+      ],
+      "title": "Latest Stop Reason",
+      "type": "string"
+    },
+    "loop_count": {
+      "minimum": 1,
+      "title": "Loop Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_loop_id",
+    "loop_count",
+    "latest_loop_status",
+    "latest_iterations_completed",
+    "latest_stop_reason"
+  ],
+  "title": "AutonomousLoopIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.34.0",
+  "x-factori-source-model": "factori.schemas.AutonomousLoopIndex",
+  "x-factori-verification-evidence": false
+}

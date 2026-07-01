@@ -172,6 +172,10 @@ uv run factori execute-planned-specs \
   --run-id demo --execution-mode apply --spec-executor-backend deterministic_local
 uv run factori inspect-planned-spec-execution --run-id demo
 uv run factori inspect-planned-spec-execution --run-id demo --json
+uv run factori run-autonomous-loop \
+  --run-id demo --loop-backend deterministic --max-iterations 3
+uv run factori inspect-autonomous-loop --run-id demo
+uv run factori inspect-autonomous-loop --run-id demo --json
 uv run factori ingest-reviewer-change-requests \
   --run-id demo --request-file path/to/reviewer-change-requests.json
 uv run factori inspect-reviewer-change-requests --run-id demo
@@ -780,3 +784,9 @@ Default commands do not call external APIs, real Lean, experiment runners, LaTeX
 server, or a frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI reviewer, Stage B
 OpenAlex, OpenAI prose, end-to-end LLM orchestration, Stage C Lean/local synthetic, and LaTeX
 render-check commands above may call an external API or local external tool.
+
+Future Python experiment execution must use an isolated `uv` environment, capture
+`pyproject.toml` and `uv.lock` where applicable, disable network by default, enforce dependency
+allowlists, fixed seeds, timeouts, resource limits, stdout/stderr capture, `metrics.json`, and
+hashed inputs/outputs. Planned specs and runner configuration remain workflow context until a
+validated artifact passes evidence-artifact intake.

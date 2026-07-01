@@ -1,0 +1,547 @@
+{
+  "$defs": {
+    "AutonomousLoopDecision": {
+      "additionalProperties": false,
+      "description": "Deterministic stop/continue decision for one autonomous loop iteration.",
+      "properties": {
+        "continue_loop": {
+          "title": "Continue Loop",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "loop_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "completed",
+                "completed_with_deferred_gaps",
+                "stopped_no_progress",
+                "stopped_max_iterations",
+                "blocked_requires_human_intervention",
+                "failed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Loop Status"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "stop_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "no_unsupported_claims",
+                "no_automation_ready_items",
+                "no_progress",
+                "max_iterations_reached",
+                "safety_gate_blocked",
+                "ledger_invalid",
+                "requires_human_intervention"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stop Reason"
+        }
+      },
+      "required": [
+        "continue_loop",
+        "rationale"
+      ],
+      "title": "AutonomousLoopDecision",
+      "type": "object"
+    },
+    "AutonomousLoopIterationReport": {
+      "additionalProperties": false,
+      "description": "One iteration of the autonomous orchestration loop.",
+      "properties": {
+        "actions_applied": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Actions Applied",
+          "type": "integer"
+        },
+        "actions_deferred": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Actions Deferred",
+          "type": "integer"
+        },
+        "actions_rejected": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Actions Rejected",
+          "type": "integer"
+        },
+        "automation_ready_item_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Automation Ready Item Count",
+          "type": "integer"
+        },
+        "autonomous_execution_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Autonomous Execution Report Path"
+        },
+        "autonomous_plan_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Autonomous Plan Path"
+        },
+        "claim_evidence_map_hash_after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Evidence Map Hash After"
+        },
+        "claim_evidence_map_hash_before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Evidence Map Hash Before"
+        },
+        "claim_evidence_map_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Evidence Map Path"
+        },
+        "created_artifact_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Created Artifact Count",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "decision": {
+          "$ref": "#/$defs/AutonomousLoopDecision"
+        },
+        "evidence_aware_refresh_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Aware Refresh Report Path"
+        },
+        "experiment_artifacts_created": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Experiment Artifacts Created",
+          "type": "integer"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "iteration": {
+          "minimum": 1,
+          "title": "Iteration",
+          "type": "integer"
+        },
+        "manuscript_hash_after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manuscript Hash After"
+        },
+        "manuscript_hash_before": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manuscript Hash Before"
+        },
+        "manuscript_modified": {
+          "default": false,
+          "title": "Manuscript Modified",
+          "type": "boolean"
+        },
+        "new_evidence_artifact_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "New Evidence Artifact Count",
+          "type": "integer"
+        },
+        "new_spec_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "New Spec Count",
+          "type": "integer"
+        },
+        "partial_claim_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Partial Claim Count",
+          "type": "integer"
+        },
+        "planned_spec_execution_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned Spec Execution Report Path"
+        },
+        "planned_specs_created": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Planned Specs Created",
+          "type": "integer"
+        },
+        "planned_specs_executed": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Planned Specs Executed",
+          "type": "integer"
+        },
+        "proof_artifacts_created": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Proof Artifacts Created",
+          "type": "integer"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "release_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Release Report Path"
+        },
+        "release_status": {
+          "minLength": 1,
+          "title": "Release Status",
+          "type": "string"
+        },
+        "retrieval_artifacts_created": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Retrieval Artifacts Created",
+          "type": "integer"
+        },
+        "reviewer_summary_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer Summary Path Optional"
+        },
+        "supported_claim_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Supported Claim Count",
+          "type": "integer"
+        },
+        "unsupported_claim_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Unsupported Claim Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "iteration",
+        "release_status",
+        "decision"
+      ],
+      "title": "AutonomousLoopIterationReport",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.34.0/autonomous-loop-run-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-evidence autonomous iterative loop controller report.",
+  "properties": {
+    "artifacts_created": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifacts Created",
+      "type": "array"
+    },
+    "completed_at": {
+      "minLength": 1,
+      "title": "Completed At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "final_claim_evidence_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Final Claim Evidence Counts",
+      "type": "object"
+    },
+    "final_gap_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Final Gap Counts",
+      "type": "object"
+    },
+    "final_publication_ready": {
+      "default": false,
+      "title": "Final Publication Ready",
+      "type": "boolean"
+    },
+    "final_release_status": {
+      "minLength": 1,
+      "title": "Final Release Status",
+      "type": "string"
+    },
+    "human_intervention_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Intervention Reason Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "initial_claim_evidence_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Initial Claim Evidence Counts",
+      "type": "object"
+    },
+    "initial_gap_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Initial Gap Counts",
+      "type": "object"
+    },
+    "initial_publication_ready": {
+      "default": false,
+      "title": "Initial Publication Ready",
+      "type": "boolean"
+    },
+    "initial_release_status": {
+      "minLength": 1,
+      "title": "Initial Release Status",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "iterations": {
+      "items": {
+        "$ref": "#/$defs/AutonomousLoopIterationReport"
+      },
+      "title": "Iterations",
+      "type": "array"
+    },
+    "iterations_completed": {
+      "minimum": 0,
+      "title": "Iterations Completed",
+      "type": "integer"
+    },
+    "loop_backend": {
+      "default": "deterministic",
+      "enum": [
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Loop Backend",
+      "type": "string"
+    },
+    "loop_id": {
+      "minLength": 1,
+      "title": "Loop Id",
+      "type": "string"
+    },
+    "loop_status": {
+      "enum": [
+        "completed",
+        "completed_with_deferred_gaps",
+        "stopped_no_progress",
+        "stopped_max_iterations",
+        "blocked_requires_human_intervention",
+        "failed"
+      ],
+      "title": "Loop Status",
+      "type": "string"
+    },
+    "max_iterations": {
+      "minimum": 1,
+      "title": "Max Iterations",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "requires_human_intervention": {
+      "default": false,
+      "title": "Requires Human Intervention",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "stop_reason": {
+      "enum": [
+        "no_unsupported_claims",
+        "no_automation_ready_items",
+        "no_progress",
+        "max_iterations_reached",
+        "safety_gate_blocked",
+        "ledger_invalid",
+        "requires_human_intervention"
+      ],
+      "title": "Stop Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "loop_id",
+    "loop_status",
+    "max_iterations",
+    "iterations_completed",
+    "stop_reason",
+    "started_at",
+    "completed_at",
+    "initial_release_status",
+    "final_release_status"
+  ],
+  "title": "AutonomousLoopRunReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.34.0",
+  "x-factori-source-model": "factori.schemas.AutonomousLoopRunReport",
+  "x-factori-verification-evidence": false
+}

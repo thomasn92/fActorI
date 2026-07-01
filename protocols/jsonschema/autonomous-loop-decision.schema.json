@@ -1,0 +1,87 @@
+{
+  "$id": "https://schemas.factori.local/0.34.0/autonomous-loop-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic stop or continue decision for one autonomous loop iteration.",
+  "properties": {
+    "continue_loop": {
+      "title": "Continue Loop",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "loop_status": {
+      "anyOf": [
+        {
+          "enum": [
+            "completed",
+            "completed_with_deferred_gaps",
+            "stopped_no_progress",
+            "stopped_max_iterations",
+            "blocked_requires_human_intervention",
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Loop Status"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "stop_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "no_unsupported_claims",
+            "no_automation_ready_items",
+            "no_progress",
+            "max_iterations_reached",
+            "safety_gate_blocked",
+            "ledger_invalid",
+            "requires_human_intervention"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stop Reason"
+    }
+  },
+  "required": [
+    "continue_loop",
+    "rationale"
+  ],
+  "title": "AutonomousLoopDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.34.0",
+  "x-factori-source-model": "factori.schemas.AutonomousLoopDecision",
+  "x-factori-verification-evidence": false
+}

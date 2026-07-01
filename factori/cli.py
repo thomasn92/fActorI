@@ -17,6 +17,11 @@ from factori.autonomous_evidence_plan import (
     inspect_autonomous_evidence_gap_plan,
     persist_autonomous_evidence_gap_plan,
 )
+from factori.autonomous_loop import (
+    AutonomousLoopError,
+    inspect_autonomous_loop,
+    run_autonomous_loop,
+)
 from factori.autonomous_plan_execution import (
     AutonomousPlanExecutionError,
     execute_autonomous_evidence_plan,
@@ -2859,6 +2864,98 @@ def inspect_planned_spec_execution_command(
     typer.echo(f"Artifact: {summary['planned_spec_execution_report_path']}")
 
 
+@app.command("run-autonomous-loop")
+def run_autonomous_loop_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    loop_backend: Annotated[str, typer.Option("--loop-backend")] = "deterministic",
+    max_iterations: Annotated[int, typer.Option("--max-iterations")] = 3,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the deterministic autonomous evidence-gap loop controller."""
+    try:
+        result = run_autonomous_loop(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            loop_backend=loop_backend,
+            max_iterations=max_iterations,
+        )
+    except AutonomousLoopError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "autonomous_loop": result.report.model_dump(mode="json"),
+        "autonomous_loop_index": result.index.model_dump(mode="json"),
+        "autonomous_loop_present": True,
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+        "artifacts": {
+            "autonomous_loop_report": result.report_artifact.model_dump(mode="json"),
+            "autonomous_loop_markdown": result.report_markdown_artifact.model_dump(
+                mode="json"
+            ),
+            "autonomous_loop_index": result.index_artifact.model_dump(mode="json"),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"loop_id={result.report.loop_id}")
+    typer.echo(f"loop_status={result.report.loop_status}")
+    typer.echo(f"iterations_completed={result.report.iterations_completed}")
+    typer.echo(f"stop_reason={result.report.stop_reason}")
+    typer.echo(
+        "human_intervention_required="
+        f"{str(result.report.requires_human_intervention).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"autonomous_loop={result.report_artifact.path}")
+
+
+@app.command("inspect-autonomous-loop")
+def inspect_autonomous_loop_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest autonomous loop controller report."""
+    try:
+        summary = inspect_autonomous_loop(run_id=run_id, root=root)
+    except AutonomousLoopError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Autonomous loop: {summary['run_id']}")
+    typer.echo(f"Loop count: {summary['autonomous_loop_count']}")
+    typer.echo(f"Latest status: {summary['latest_autonomous_loop_status']}")
+    typer.echo(
+        "Iterations completed: "
+        f"{summary['latest_autonomous_loop_iterations_completed']}"
+    )
+    typer.echo(f"Stop reason: {summary['latest_autonomous_loop_stop_reason']}")
+    typer.echo(
+        "Final unsupported claims: "
+        f"{summary['autonomous_loop_final_unsupported_claim_count']}"
+    )
+    typer.echo(
+        "Final automation-ready items: "
+        f"{summary['autonomous_loop_final_automation_ready_item_count']}"
+    )
+    typer.echo(
+        "Human intervention required: "
+        f"{str(summary['autonomous_loop_requires_human_intervention']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['autonomous_loop_report_path']}")
+
+
 @app.command("refresh-evidence-aware-manuscript")
 def refresh_evidence_aware_manuscript_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -3634,6 +3731,34 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Retrieval artifacts created: "
         f"{int(summary.get('retrieval_artifacts_created') or 0)}"
     )
+    typer.echo(
+        "Autonomous loop: "
+        f"{'present' if summary.get('autonomous_loop_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest loop status: "
+        f"{summary.get('latest_autonomous_loop_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Iterations completed: "
+        f"{int(summary.get('latest_autonomous_loop_iterations_completed') or 0)}"
+    )
+    typer.echo(
+        "Stop reason: "
+        f"{summary.get('latest_autonomous_loop_stop_reason') or 'not_available'}"
+    )
+    typer.echo(
+        "Final unsupported claims: "
+        f"{int(summary.get('autonomous_loop_final_unsupported_claim_count') or 0)}"
+    )
+    typer.echo(
+        "Final automation-ready items: "
+        f"{int(summary.get('autonomous_loop_final_automation_ready_item_count') or 0)}"
+    )
+    typer.echo(
+        "Human intervention required by loop: "
+        f"{str(bool(summary.get('autonomous_loop_requires_human_intervention'))).lower()}"
+    )
     typer.echo(f"Reviewer summary: {reviewer_summary}")
     typer.echo(f"Reviewer summary status: {summary.get('reviewer_summary_status') or 'absent'}")
     typer.echo(f"Evidence gaps: {int(summary.get('reviewer_summary_evidence_gap_count') or 0)}")
@@ -4029,6 +4154,23 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('experiment_artifacts_created') or 0)}/"
         f"{int(summary.get('proof_artifacts_created') or 0)}/"
         f"{int(summary.get('retrieval_artifacts_created') or 0)}"
+    )
+    typer.echo(
+        "Autonomous loop: "
+        f"{'present' if summary.get('autonomous_loop_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest autonomous loop: "
+        f"{summary.get('latest_autonomous_loop_status') or 'not_available'} / "
+        f"{summary.get('latest_autonomous_loop_stop_reason') or 'not_available'}"
+    )
+    typer.echo(
+        "Autonomous loop iterations completed: "
+        f"{int(summary.get('latest_autonomous_loop_iterations_completed') or 0)}"
+    )
+    typer.echo(
+        "Autonomous loop final unsupported claims: "
+        f"{int(summary.get('autonomous_loop_final_unsupported_claim_count') or 0)}"
     )
     typer.echo(f"Quality repair backend: {summary.get('quality_repair_backend') or 'off'}")
     typer.echo(

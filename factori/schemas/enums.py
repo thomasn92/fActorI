@@ -354,6 +354,7 @@ class ControllerActionType(StrEnum):
     AUTONOMOUS_EVIDENCE_PLAN_WRITTEN = "AutonomousEvidencePlanWritten"
     AUTONOMOUS_PLAN_EXECUTION_WRITTEN = "AutonomousPlanExecutionWritten"
     PLANNED_SPEC_EXECUTION_WRITTEN = "PlannedSpecExecutionWritten"
+    AUTONOMOUS_LOOP_WRITTEN = "AutonomousLoopWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

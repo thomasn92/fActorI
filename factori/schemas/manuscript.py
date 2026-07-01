@@ -748,6 +748,12 @@ class ReviewerBundleSummary(StrictModel):
     experiment_artifacts_created: int = Field(default=0, ge=0)
     proof_artifacts_created: int = Field(default=0, ge=0)
     retrieval_artifacts_created: int = Field(default=0, ge=0)
+    autonomous_loop_present: bool = False
+    latest_autonomous_loop_status: str | None = None
+    latest_autonomous_loop_iterations_completed: int = Field(default=0, ge=0)
+    latest_autonomous_loop_stop_reason: str | None = None
+    final_gap_counts: dict[str, int] = Field(default_factory=dict)
+    autonomous_loop_requires_human_intervention: bool = False
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1191,6 +1197,124 @@ class PlannedSpecExecutionIndex(StrictModel):
     latest_execution_status: PlannedSpecExecutionStatus
     latest_created_artifact_paths: list[str] = Field(default_factory=list)
     latest_ingested_artifact_paths: list[str] = Field(default_factory=list)
+    latest_requires_human_intervention: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
+AutonomousLoopStatus = Literal[
+    "completed",
+    "completed_with_deferred_gaps",
+    "stopped_no_progress",
+    "stopped_max_iterations",
+    "blocked_requires_human_intervention",
+    "failed",
+]
+AutonomousLoopStopReason = Literal[
+    "no_unsupported_claims",
+    "no_automation_ready_items",
+    "no_progress",
+    "max_iterations_reached",
+    "safety_gate_blocked",
+    "ledger_invalid",
+    "requires_human_intervention",
+]
+
+
+class AutonomousLoopDecision(StrictModel):
+    """Deterministic stop/continue decision for one autonomous loop iteration."""
+
+    continue_loop: bool
+    stop_reason: AutonomousLoopStopReason | None = None
+    loop_status: AutonomousLoopStatus | None = None
+    rationale: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class AutonomousLoopIterationReport(StrictModel):
+    """One iteration of the autonomous orchestration loop."""
+
+    iteration: int = Field(ge=1)
+    claim_evidence_map_path: str | None = None
+    autonomous_plan_path: str | None = None
+    autonomous_execution_report_path: str | None = None
+    planned_spec_execution_report_path: str | None = None
+    evidence_aware_refresh_report_path: str | None = None
+    release_report_path: str | None = None
+    reviewer_summary_path_optional: str | None = None
+    supported_claim_count: int = Field(default=0, ge=0)
+    unsupported_claim_count: int = Field(default=0, ge=0)
+    partial_claim_count: int = Field(default=0, ge=0)
+    automation_ready_item_count: int = Field(default=0, ge=0)
+    actions_applied: int = Field(default=0, ge=0)
+    actions_deferred: int = Field(default=0, ge=0)
+    actions_rejected: int = Field(default=0, ge=0)
+    planned_specs_created: int = Field(default=0, ge=0)
+    planned_specs_executed: int = Field(default=0, ge=0)
+    experiment_artifacts_created: int = Field(default=0, ge=0)
+    proof_artifacts_created: int = Field(default=0, ge=0)
+    retrieval_artifacts_created: int = Field(default=0, ge=0)
+    manuscript_modified: bool = False
+    release_status: str = Field(min_length=1)
+    publication_ready: bool = False
+    created_artifact_count: int = Field(default=0, ge=0)
+    new_evidence_artifact_count: int = Field(default=0, ge=0)
+    new_spec_count: int = Field(default=0, ge=0)
+    manuscript_hash_before: str | None = None
+    manuscript_hash_after: str | None = None
+    claim_evidence_map_hash_before: str | None = None
+    claim_evidence_map_hash_after: str | None = None
+    decision: AutonomousLoopDecision
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousLoopRunReport(StrictModel):
+    """Append-only autonomous loop orchestration report; not evidence."""
+
+    run_id: str = Field(min_length=1)
+    loop_id: str = Field(min_length=1)
+    loop_backend: AutonomousLoopBackend = "deterministic"
+    loop_status: AutonomousLoopStatus
+    max_iterations: int = Field(ge=1)
+    iterations_completed: int = Field(ge=0)
+    stop_reason: AutonomousLoopStopReason
+    started_at: str = Field(min_length=1)
+    completed_at: str = Field(min_length=1)
+    initial_release_status: str = Field(min_length=1)
+    final_release_status: str = Field(min_length=1)
+    initial_publication_ready: bool = False
+    final_publication_ready: bool = False
+    initial_claim_evidence_counts: dict[str, int] = Field(default_factory=dict)
+    final_claim_evidence_counts: dict[str, int] = Field(default_factory=dict)
+    initial_gap_counts: dict[str, int] = Field(default_factory=dict)
+    final_gap_counts: dict[str, int] = Field(default_factory=dict)
+    iterations: list[AutonomousLoopIterationReport] = Field(default_factory=list)
+    artifacts_created: list[str] = Field(default_factory=list)
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class AutonomousLoopIndex(StrictModel):
+    """Derived latest pointer over immutable autonomous loop runs."""
+
+    run_id: str = Field(min_length=1)
+    latest_loop_id: str = Field(min_length=1)
+    loop_count: int = Field(ge=1)
+    latest_loop_status: AutonomousLoopStatus
+    latest_iterations_completed: int = Field(ge=0)
+    latest_stop_reason: AutonomousLoopStopReason
+    latest_artifact_paths: list[str] = Field(default_factory=list)
     latest_requires_human_intervention: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -1895,6 +2019,19 @@ __all__ = [
     "ClaimEvidenceMap",
     "AutonomousEvidenceGapPlanItem",
     "AutonomousEvidenceGapPlan",
+    "AutonomousPlanExecutionAction",
+    "AutonomousPlanExecutionReport",
+    "AutonomousPlanExecutionIndex",
+    "PlannedExperimentSpec",
+    "ProofObligationSpec",
+    "RetrievalExpansionRequest",
+    "PlannedSpecExecutionItem",
+    "PlannedSpecExecutionReport",
+    "PlannedSpecExecutionIndex",
+    "AutonomousLoopDecision",
+    "AutonomousLoopIterationReport",
+    "AutonomousLoopRunReport",
+    "AutonomousLoopIndex",
     "Claim",
     "BlockedClaim",
     "ClaimTable",

@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.34.0` adds autonomous loop decision, iteration, run report, and immutable index
+contracts. The loop controller orchestrates deterministic planning, safe plan execution,
+planned-spec execution, scoped artifact intake, evidence-map rebuilds, manuscript refreshes, and
+safety rechecks. Loop reports are workflow context only and do not create evidence, validation, or
+publication readiness.
+
 Protocol `0.33.0` adds planned-spec execution item, report, and immutable index contracts for
 gated deterministic local execution of planned proof, experiment, and retrieval specs. These
 execution reports are workflow context only; local synthetic experiments remain bounded to mapped

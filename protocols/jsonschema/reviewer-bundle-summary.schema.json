@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.33.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.34.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -49,6 +49,16 @@
     "autonomous_execution_present": {
       "default": false,
       "title": "Autonomous Execution Present",
+      "type": "boolean"
+    },
+    "autonomous_loop_present": {
+      "default": false,
+      "title": "Autonomous Loop Present",
+      "type": "boolean"
+    },
+    "autonomous_loop_requires_human_intervention": {
+      "default": false,
+      "title": "Autonomous Loop Requires Human Intervention",
       "type": "boolean"
     },
     "autonomous_next_actions": {
@@ -190,6 +200,13 @@
       "minimum": 0,
       "title": "Failed Experiment Count",
       "type": "integer"
+    },
+    "final_gap_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Final Gap Counts",
+      "type": "object"
     },
     "formal_verification_artifact_count": {
       "default": 0,
@@ -367,6 +384,36 @@
       ],
       "default": null,
       "title": "Latest Autonomous Execution Status"
+    },
+    "latest_autonomous_loop_iterations_completed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Latest Autonomous Loop Iterations Completed",
+      "type": "integer"
+    },
+    "latest_autonomous_loop_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Autonomous Loop Status"
+    },
+    "latest_autonomous_loop_stop_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Autonomous Loop Stop Reason"
     },
     "latest_planned_spec_execution_mode": {
       "anyOf": [
@@ -570,7 +617,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.33.0",
+  "x-factori-protocol-version": "0.34.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

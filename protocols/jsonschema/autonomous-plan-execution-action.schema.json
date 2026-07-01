@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.33.0/autonomous-plan-execution-action.schema.json",
+  "$id": "https://schemas.factori.local/0.34.0/autonomous-plan-execution-action.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic autonomous plan execution action.",
@@ -183,7 +183,7 @@
   ],
   "title": "AutonomousPlanExecutionAction",
   "type": "object",
-  "x-factori-protocol-version": "0.33.0",
+  "x-factori-protocol-version": "0.34.0",
   "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionAction",
   "x-factori-verification-evidence": false
 }
