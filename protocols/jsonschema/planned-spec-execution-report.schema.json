@@ -1,45 +1,9 @@
 {
   "$defs": {
-    "AutonomousPlanExecutionAction": {
+    "PlannedSpecExecutionItem": {
       "additionalProperties": false,
-      "description": "One bounded deterministic disposition of an autonomous plan item.",
+      "description": "One bounded disposition of a planned proof/experiment/retrieval spec.",
       "properties": {
-        "action_id": {
-          "minLength": 1,
-          "title": "Action Id",
-          "type": "string"
-        },
-        "after_hash_optional": {
-          "anyOf": [
-            {
-              "pattern": "^[0-9a-f]{64}$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "After Hash Optional"
-        },
-        "applied": {
-          "default": false,
-          "title": "Applied",
-          "type": "boolean"
-        },
-        "before_hash_optional": {
-          "anyOf": [
-            {
-              "pattern": "^[0-9a-f]{64}$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Before Hash Optional"
-        },
         "created_artifact_path_optional": {
           "anyOf": [
             {
@@ -69,63 +33,66 @@
           "default": null,
           "title": "Deferred Reason Optional"
         },
-        "dry_run": {
-          "title": "Dry Run",
-          "type": "boolean"
-        },
-        "execution_decision": {
-          "enum": [
-            "would_apply",
-            "apply",
-            "noop",
-            "defer",
-            "reject"
-          ],
-          "title": "Execution Decision",
-          "type": "string"
-        },
         "execution_status": {
           "enum": [
             "planned",
-            "completed",
+            "executed",
             "deferred",
             "rejected",
-            "failed"
+            "failed",
+            "skipped"
           ],
           "title": "Execution Status",
           "type": "string"
         },
-        "gap_type": {
+        "executor_decision": {
           "enum": [
-            "needs_python_experiment",
-            "needs_formal_proof",
-            "needs_retrieval_expansion",
-            "needs_claim_downgrade",
-            "needs_claim_removal",
-            "needs_manuscript_refresh",
-            "sufficiently_supported_for_bounded_draft"
+            "would_execute",
+            "execute",
+            "defer",
+            "reject",
+            "skip"
           ],
-          "title": "Gap Type",
+          "title": "Executor Decision",
           "type": "string"
+        },
+        "failed_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failed Reason Optional"
         },
         "implies_publication_readiness": {
           "default": false,
           "title": "Implies Publication Readiness",
           "type": "boolean"
         },
+        "ingested_artifact_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ingested Artifact Path Optional"
+        },
         "is_verification_evidence": {
           "default": false,
           "title": "Is Verification Evidence",
           "type": "boolean"
         },
-        "plan_item_id": {
+        "item_id": {
           "minLength": 1,
-          "title": "Plan Item Id",
-          "type": "string"
-        },
-        "recommended_action": {
-          "minLength": 1,
-          "title": "Recommended Action",
+          "title": "Item Id",
           "type": "string"
         },
         "rejected_reason_optional": {
@@ -147,6 +114,20 @@
           "title": "Safety Notes",
           "type": "array"
         },
+        "spec_id": {
+          "minLength": 1,
+          "title": "Spec Id",
+          "type": "string"
+        },
+        "spec_type": {
+          "enum": [
+            "experiment_spec",
+            "proof_obligation_spec",
+            "retrieval_expansion_request"
+          ],
+          "title": "Spec Type",
+          "type": "string"
+        },
         "target_claim_id_optional": {
           "anyOf": [
             {
@@ -158,88 +139,32 @@
           ],
           "default": null,
           "title": "Target Claim Id Optional"
-        },
-        "target_section_optional": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Target Section Optional"
         }
       },
       "required": [
-        "action_id",
-        "plan_item_id",
-        "gap_type",
-        "recommended_action",
-        "execution_decision",
-        "execution_status",
-        "dry_run"
+        "item_id",
+        "spec_id",
+        "spec_type",
+        "executor_decision",
+        "execution_status"
       ],
-      "title": "AutonomousPlanExecutionAction",
+      "title": "PlannedSpecExecutionItem",
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.33.0/autonomous-plan-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.33.0/planned-spec-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Non-evidence autonomous plan execution report.",
+  "description": "Non-evidence planned local spec execution report.",
   "properties": {
-    "actions": {
-      "items": {
-        "$ref": "#/$defs/AutonomousPlanExecutionAction"
-      },
-      "title": "Actions",
-      "type": "array"
-    },
-    "actions_applied": {
-      "default": 0,
-      "minimum": 0,
-      "title": "Actions Applied",
-      "type": "integer"
-    },
-    "actions_attempted": {
-      "default": 0,
-      "minimum": 0,
-      "title": "Actions Attempted",
-      "type": "integer"
-    },
-    "actions_deferred": {
-      "default": 0,
-      "minimum": 0,
-      "title": "Actions Deferred",
-      "type": "integer"
-    },
-    "actions_failed": {
-      "default": 0,
-      "minimum": 0,
-      "title": "Actions Failed",
-      "type": "integer"
-    },
-    "actions_rejected": {
-      "default": 0,
-      "minimum": 0,
-      "title": "Actions Rejected",
-      "type": "integer"
-    },
-    "citation_safety_rechecked": {
+    "autonomous_plan_rebuilt": {
       "default": false,
-      "title": "Citation Safety Rechecked",
+      "title": "Autonomous Plan Rebuilt",
       "type": "boolean"
     },
     "claim_evidence_map_rebuilt": {
       "default": false,
       "title": "Claim Evidence Map Rebuilt",
-      "type": "boolean"
-    },
-    "claim_support_rechecked": {
-      "default": false,
-      "title": "Claim Support Rechecked",
       "type": "boolean"
     },
     "created_artifact_paths": {
@@ -270,7 +195,7 @@
     "execution_status": {
       "enum": [
         "completed",
-        "completed_with_deferred_actions",
+        "completed_with_deferred_specs",
         "blocked",
         "failed",
         "dry_run_completed"
@@ -278,15 +203,23 @@
       "title": "Execution Status",
       "type": "string"
     },
-    "executor_backend": {
-      "default": "deterministic",
-      "enum": [
-        "deterministic",
-        "fake",
-        "openai"
-      ],
-      "title": "Executor Backend",
-      "type": "string"
+    "experiment_artifacts_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Artifacts Created",
+      "type": "integer"
+    },
+    "experiment_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Specs Executed",
+      "type": "integer"
+    },
+    "experiment_specs_found": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Specs Found",
+      "type": "integer"
     },
     "human_intervention_reason_optional": {
       "anyOf": [
@@ -305,33 +238,47 @@
       "title": "Implies Publication Readiness",
       "type": "boolean"
     },
+    "ingested_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ingested Artifact Paths",
+      "type": "array"
+    },
     "is_verification_evidence": {
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
     },
-    "manuscript_modified": {
-      "default": false,
-      "title": "Manuscript Modified",
-      "type": "boolean"
-    },
-    "next_required_artifacts": {
+    "items": {
       "items": {
-        "type": "string"
+        "$ref": "#/$defs/PlannedSpecExecutionItem"
       },
-      "title": "Next Required Artifacts",
+      "title": "Items",
       "type": "array"
     },
-    "plan_item_count": {
+    "manuscript_refreshed": {
+      "default": false,
+      "title": "Manuscript Refreshed",
+      "type": "boolean"
+    },
+    "proof_artifacts_created": {
       "default": 0,
       "minimum": 0,
-      "title": "Plan Item Count",
+      "title": "Proof Artifacts Created",
       "type": "integer"
     },
-    "plan_path": {
-      "minLength": 1,
-      "title": "Plan Path",
-      "type": "string"
+    "proof_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Specs Executed",
+      "type": "integer"
+    },
+    "proof_specs_found": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Specs Found",
+      "type": "integer"
     },
     "publication_ready": {
       "default": false,
@@ -348,22 +295,85 @@
       "title": "Requires Human Intervention",
       "type": "boolean"
     },
+    "retrieval_artifacts_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Artifacts Created",
+      "type": "integer"
+    },
+    "retrieval_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Specs Executed",
+      "type": "integer"
+    },
+    "retrieval_specs_found": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Specs Found",
+      "type": "integer"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
+    },
+    "spec_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Spec Count",
+      "type": "integer"
+    },
+    "spec_executor_backend": {
+      "default": "deterministic_local",
+      "enum": [
+        "deterministic_local",
+        "fake",
+        "external_tool"
+      ],
+      "title": "Spec Executor Backend",
+      "type": "string"
+    },
+    "specs_attempted": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Specs Attempted",
+      "type": "integer"
+    },
+    "specs_deferred": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Specs Deferred",
+      "type": "integer"
+    },
+    "specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Specs Executed",
+      "type": "integer"
+    },
+    "specs_failed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Specs Failed",
+      "type": "integer"
+    },
+    "specs_rejected": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Specs Rejected",
+      "type": "integer"
     }
   },
   "required": [
     "run_id",
-    "plan_path",
     "execution_id",
     "execution_mode",
     "execution_status"
   ],
-  "title": "AutonomousPlanExecutionReport",
+  "title": "PlannedSpecExecutionReport",
   "type": "object",
   "x-factori-protocol-version": "0.33.0",
-  "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionReport",
+  "x-factori-source-model": "factori.schemas.PlannedSpecExecutionReport",
   "x-factori-verification-evidence": false
 }

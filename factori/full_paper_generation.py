@@ -55,6 +55,10 @@ from factori.paper_critic import (
 )
 from factori.paper_revision import PaperRevisionRunResult, revise_paper_from_run
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.planned_spec_execution import (
+    latest_planned_spec_execution_report,
+    planned_spec_execution_summary_fields,
+)
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
@@ -78,6 +82,7 @@ from factori.schemas import (
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
     PaperCriticReport,
+    PlannedSpecExecutionReport,
     ProofArtifact,
     QualityRepairReport,
     RerunPolicy,
@@ -745,6 +750,14 @@ def inspect_paper_bundle_summary(
         autonomous_execution,
         autonomous_execution_index,
     )
+    planned_spec_execution, planned_spec_execution_index = latest_planned_spec_execution_report(
+        root_path,
+        run_id,
+    )
+    planned_spec_execution_summary = planned_spec_execution_summary_fields(
+        planned_spec_execution,
+        planned_spec_execution_index,
+    )
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
     markdown = primary_draft.read_text(encoding="utf-8") if primary_draft is not None else ""
     section_accounting = _section_accounting(
@@ -915,9 +928,13 @@ def inspect_paper_bundle_summary(
             "autonomous_human_intervention_required"
         ],
         **autonomous_execution_summary,
-        "human_intervention_required": autonomous_plan_summary[
-            "autonomous_human_intervention_required"
-        ],
+        **planned_spec_execution_summary,
+        "human_intervention_required": bool(
+            autonomous_plan_summary["autonomous_human_intervention_required"]
+            or planned_spec_execution_summary[
+                "planned_spec_execution_requires_human_intervention"
+            ]
+        ),
         "autonomous_next_actions": autonomous_plan_summary["autonomous_next_actions"],
         "human_review_artifact_exists": paths["human_review_artifact"].is_file(),
         "human_review_artifact_present": human_review_artifact is not None,
@@ -1389,6 +1406,10 @@ def lint_paper_bundle_summary(
     autonomous_execution_count = int(bundle.get("autonomous_execution_count") or 0)
     latest_autonomous_execution_mode = bundle.get("latest_autonomous_execution_mode")
     latest_autonomous_execution_status = bundle.get("latest_autonomous_execution_status")
+    planned_spec_execution_present = bool(bundle.get("planned_spec_execution_present"))
+    planned_spec_execution_count = int(bundle.get("planned_spec_execution_count") or 0)
+    latest_planned_spec_execution_mode = bundle.get("latest_planned_spec_execution_mode")
+    latest_planned_spec_execution_status = bundle.get("latest_planned_spec_execution_status")
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -1794,6 +1815,19 @@ def lint_paper_bundle_summary(
         "autonomous_execution_requires_human_intervention": bool(
             bundle.get("autonomous_execution_requires_human_intervention")
         ),
+        "planned_spec_execution_present": planned_spec_execution_present,
+        "planned_spec_execution_count": planned_spec_execution_count,
+        "latest_planned_spec_execution_mode": latest_planned_spec_execution_mode,
+        "latest_planned_spec_execution_status": latest_planned_spec_execution_status,
+        "experiment_specs_executed": int(bundle.get("experiment_specs_executed") or 0),
+        "proof_specs_executed": int(bundle.get("proof_specs_executed") or 0),
+        "retrieval_specs_executed": int(bundle.get("retrieval_specs_executed") or 0),
+        "experiment_artifacts_created": int(bundle.get("experiment_artifacts_created") or 0),
+        "proof_artifacts_created": int(bundle.get("proof_artifacts_created") or 0),
+        "retrieval_artifacts_created": int(bundle.get("retrieval_artifacts_created") or 0),
+        "planned_spec_execution_requires_human_intervention": bool(
+            bundle.get("planned_spec_execution_requires_human_intervention")
+        ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
@@ -2000,20 +2034,27 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "full-paper-release-report-after-autonomous-execution-*.json",
-                "full-paper-release-report-after-autonomous-execution-0000.json",
+                "full-paper-release-report-after-planned-spec-execution-*.json",
+                "full-paper-release-report-after-planned-spec-execution-0000.json",
             ),
             _preferred_existing_path(
                 _latest_report_path(
                     run_path,
-                    "full-paper-release-report-after-reconciliation-cycle-*.json",
-                    "full-paper-release-report-after-human-review-reconciliation.json",
+                    "full-paper-release-report-after-autonomous-execution-*.json",
+                    "full-paper-release-report-after-autonomous-execution-0000.json",
                 ),
                 _preferred_existing_path(
-                    run_path
-                    / "reports"
-                    / "full-paper-release-report-after-evidence-aware-refresh.json",
-                    run_path / "reports" / "full-paper-release-report.json",
+                    _latest_report_path(
+                        run_path,
+                        "full-paper-release-report-after-reconciliation-cycle-*.json",
+                        "full-paper-release-report-after-human-review-reconciliation.json",
+                    ),
+                    _preferred_existing_path(
+                        run_path
+                        / "reports"
+                        / "full-paper-release-report-after-evidence-aware-refresh.json",
+                        run_path / "reports" / "full-paper-release-report.json",
+                    ),
                 ),
             ),
         ),
@@ -2124,6 +2165,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 "reviewer-bundle-summary-after-autonomous-execution-0000.md",
             )
         ),
+        "reviewer_bundle_summary_after_planned_spec_execution_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-planned-spec-execution-*.json",
+                "reviewer-bundle-summary-after-planned-spec-execution-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_planned_spec_execution_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-planned-spec-execution-*.md",
+                "reviewer-bundle-summary-after-planned-spec-execution-0000.md",
+            )
+        ),
         "claim_evidence_map": (
             latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
             or run_path / "reports" / "claim-evidence-map.json"
@@ -2149,18 +2204,27 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "claim_support_audit": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "claim-support-audit-after-autonomous-execution-*.json",
-                "claim-support-audit-after-autonomous-execution-0000.json",
+                "claim-support-audit-after-planned-spec-execution-*.json",
+                "claim-support-audit-after-planned-spec-execution-0000.json",
             ),
             _preferred_existing_path(
                 _latest_report_path(
                     run_path,
-                    "claim-support-audit-after-reconciliation-cycle-*.json",
-                    "claim-support-audit-after-human-review-reconciliation.json",
+                    "claim-support-audit-after-autonomous-execution-*.json",
+                    "claim-support-audit-after-autonomous-execution-0000.json",
                 ),
                 _preferred_existing_path(
-                    run_path / "reports" / "claim-support-audit-after-evidence-aware-refresh.json",
-                    run_path / "reports" / "claim-support-audit.json",
+                    _latest_report_path(
+                        run_path,
+                        "claim-support-audit-after-reconciliation-cycle-*.json",
+                        "claim-support-audit-after-human-review-reconciliation.json",
+                    ),
+                    _preferred_existing_path(
+                        run_path
+                        / "reports"
+                        / "claim-support-audit-after-evidence-aware-refresh.json",
+                        run_path / "reports" / "claim-support-audit.json",
+                    ),
                 ),
             ),
         ),
@@ -2323,6 +2387,9 @@ def _read_preferred_reviewer_bundle_summary(
 ) -> ReviewerBundleSummary | None:
     return (
         _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
+        )
+        or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_autonomous_execution_json"]
         )
         or _read_reviewer_bundle_summary(
@@ -2415,6 +2482,7 @@ def build_reviewer_bundle_summary(
     human_review_reconciliation: HumanReviewReconciliationReport | None = None,
     autonomous_evidence_plan: AutonomousEvidenceGapPlan | None = None,
     autonomous_execution_report: AutonomousPlanExecutionReport | None = None,
+    planned_spec_execution_report: PlannedSpecExecutionReport | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -2465,6 +2533,15 @@ def build_reviewer_bundle_summary(
     execution_summary = autonomous_execution_summary_fields(
         execution_report,
         execution_index,
+    )
+    planned_execution_report, planned_execution_index = latest_planned_spec_execution_report(
+        root_path,
+        run_id,
+    )
+    planned_execution_report = planned_spec_execution_report or planned_execution_report
+    planned_execution_summary = planned_spec_execution_summary_fields(
+        planned_execution_report,
+        planned_execution_index,
     )
     release_status = (
         release_report.decision.status.value
@@ -2622,6 +2699,25 @@ def build_reviewer_bundle_summary(
         autonomous_next_required_artifacts=list(
             execution_summary["autonomous_next_required_artifacts"]
         ),
+        planned_spec_execution_present=bool(
+            planned_execution_summary["planned_spec_execution_present"]
+        ),
+        latest_planned_spec_execution_mode=planned_execution_summary[
+            "latest_planned_spec_execution_mode"
+        ],
+        latest_planned_spec_execution_status=planned_execution_summary[
+            "latest_planned_spec_execution_status"
+        ],
+        experiment_specs_executed=int(planned_execution_summary["experiment_specs_executed"]),
+        proof_specs_executed=int(planned_execution_summary["proof_specs_executed"]),
+        retrieval_specs_executed=int(planned_execution_summary["retrieval_specs_executed"]),
+        experiment_artifacts_created=int(
+            planned_execution_summary["experiment_artifacts_created"]
+        ),
+        proof_artifacts_created=int(planned_execution_summary["proof_artifacts_created"]),
+        retrieval_artifacts_created=int(
+            planned_execution_summary["retrieval_artifacts_created"]
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -2722,6 +2818,27 @@ def render_reviewer_bundle_summary_markdown(
             f"{summary.autonomous_actions_rejected}/"
             f"{summary.autonomous_actions_failed}`"
         ),
+        (
+            "Planned spec execution: "
+            f"`{'present' if summary.planned_spec_execution_present else 'absent'}`"
+        ),
+        (
+            "Latest planned spec execution: "
+            f"`{summary.latest_planned_spec_execution_mode or 'none'}` / "
+            f"`{summary.latest_planned_spec_execution_status or 'none'}`"
+        ),
+        (
+            "Planned specs executed experiment/proof/retrieval: "
+            f"`{summary.experiment_specs_executed}/"
+            f"{summary.proof_specs_executed}/"
+            f"{summary.retrieval_specs_executed}`"
+        ),
+        (
+            "Planned spec artifacts created experiment/proof/retrieval: "
+            f"`{summary.experiment_artifacts_created}/"
+            f"{summary.proof_artifacts_created}/"
+            f"{summary.retrieval_artifacts_created}`"
+        ),
         "",
         "## Remaining Warnings",
     ]
@@ -2787,7 +2904,9 @@ def inspect_reviewer_bundle_summary(
         raise PaperBundleInspectionError(f"No reviewer bundle summary found for run_id={run_id}.")
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_autonomous_execution_json"]
+        paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
+        if paths["reviewer_bundle_summary_after_planned_spec_execution_json"].is_file()
+        else paths["reviewer_bundle_summary_after_autonomous_execution_json"]
         if paths["reviewer_bundle_summary_after_autonomous_execution_json"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_evidence_plan_json"]
         if paths["reviewer_bundle_summary_after_autonomous_evidence_plan_json"].is_file()
@@ -2804,7 +2923,9 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_autonomous_execution_markdown"]
+        paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"]
+        if paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_autonomous_execution_markdown"]
         if paths["reviewer_bundle_summary_after_autonomous_execution_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_evidence_plan_markdown"]
         if paths["reviewer_bundle_summary_after_autonomous_evidence_plan_markdown"].is_file()

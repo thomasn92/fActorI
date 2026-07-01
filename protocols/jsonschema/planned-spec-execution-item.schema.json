@@ -1,0 +1,156 @@
+{
+  "$id": "https://schemas.factori.local/0.33.0/planned-spec-execution-item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One bounded disposition of a planned local spec execution.",
+  "properties": {
+    "created_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created Artifact Path Optional"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deferred Reason Optional"
+    },
+    "execution_status": {
+      "enum": [
+        "planned",
+        "executed",
+        "deferred",
+        "rejected",
+        "failed",
+        "skipped"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "executor_decision": {
+      "enum": [
+        "would_execute",
+        "execute",
+        "defer",
+        "reject",
+        "skip"
+      ],
+      "title": "Executor Decision",
+      "type": "string"
+    },
+    "failed_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failed Reason Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "ingested_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ingested Artifact Path Optional"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "item_id": {
+      "minLength": 1,
+      "title": "Item Id",
+      "type": "string"
+    },
+    "rejected_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rejected Reason Optional"
+    },
+    "safety_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Notes",
+      "type": "array"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "spec_type": {
+      "enum": [
+        "experiment_spec",
+        "proof_obligation_spec",
+        "retrieval_expansion_request"
+      ],
+      "title": "Spec Type",
+      "type": "string"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    }
+  },
+  "required": [
+    "item_id",
+    "spec_id",
+    "spec_type",
+    "executor_decision",
+    "execution_status"
+  ],
+  "title": "PlannedSpecExecutionItem",
+  "type": "object",
+  "x-factori-protocol-version": "0.33.0",
+  "x-factori-source-model": "factori.schemas.PlannedSpecExecutionItem",
+  "x-factori-verification-evidence": false
+}

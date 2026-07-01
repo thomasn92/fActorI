@@ -739,6 +739,15 @@ class ReviewerBundleSummary(StrictModel):
     autonomous_actions_rejected: int = Field(default=0, ge=0)
     autonomous_actions_failed: int = Field(default=0, ge=0)
     autonomous_next_required_artifacts: list[str] = Field(default_factory=list)
+    planned_spec_execution_present: bool = False
+    latest_planned_spec_execution_mode: str | None = None
+    latest_planned_spec_execution_status: str | None = None
+    experiment_specs_executed: int = Field(default=0, ge=0)
+    proof_specs_executed: int = Field(default=0, ge=0)
+    retrieval_specs_executed: int = Field(default=0, ge=0)
+    experiment_artifacts_created: int = Field(default=0, ge=0)
+    proof_artifacts_created: int = Field(default=0, ge=0)
+    retrieval_artifacts_created: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1079,6 +1088,109 @@ class AutonomousPlanExecutionIndex(StrictModel):
     latest_execution_mode: AutonomousPlanExecutionMode
     latest_execution_status: AutonomousPlanExecutionStatus
     latest_created_artifact_paths: list[str] = Field(default_factory=list)
+    latest_requires_human_intervention: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+PlannedSpecExecutionMode = Literal["dry_run", "apply"]
+PlannedSpecExecutorBackend = Literal["deterministic_local", "fake", "external_tool"]
+PlannedSpecExecutionStatus = Literal[
+    "completed",
+    "completed_with_deferred_specs",
+    "blocked",
+    "failed",
+    "dry_run_completed",
+]
+PlannedSpecType = Literal[
+    "experiment_spec",
+    "proof_obligation_spec",
+    "retrieval_expansion_request",
+]
+
+
+class PlannedSpecExecutionItem(StrictModel):
+    """One bounded disposition of a planned proof/experiment/retrieval spec."""
+
+    item_id: str = Field(min_length=1)
+    spec_id: str = Field(min_length=1)
+    spec_type: PlannedSpecType
+    target_claim_id_optional: str | None = None
+    executor_decision: Literal[
+        "would_execute",
+        "execute",
+        "defer",
+        "reject",
+        "skip",
+    ]
+    execution_status: Literal[
+        "planned",
+        "executed",
+        "deferred",
+        "rejected",
+        "failed",
+        "skipped",
+    ]
+    created_artifact_path_optional: str | None = None
+    ingested_artifact_path_optional: str | None = None
+    deferred_reason_optional: str | None = None
+    rejected_reason_optional: str | None = None
+    failed_reason_optional: str | None = None
+    safety_notes: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class PlannedSpecExecutionReport(StrictModel):
+    """Append-only execution report for planned local specs; workflow context only."""
+
+    run_id: str = Field(min_length=1)
+    execution_id: str = Field(min_length=1)
+    execution_mode: PlannedSpecExecutionMode
+    spec_executor_backend: PlannedSpecExecutorBackend = "deterministic_local"
+    execution_status: PlannedSpecExecutionStatus
+    spec_count: int = Field(default=0, ge=0)
+    experiment_specs_found: int = Field(default=0, ge=0)
+    proof_specs_found: int = Field(default=0, ge=0)
+    retrieval_specs_found: int = Field(default=0, ge=0)
+    specs_attempted: int = Field(default=0, ge=0)
+    specs_executed: int = Field(default=0, ge=0)
+    specs_deferred: int = Field(default=0, ge=0)
+    specs_rejected: int = Field(default=0, ge=0)
+    specs_failed: int = Field(default=0, ge=0)
+    experiment_artifacts_created: int = Field(default=0, ge=0)
+    proof_artifacts_created: int = Field(default=0, ge=0)
+    retrieval_artifacts_created: int = Field(default=0, ge=0)
+    experiment_specs_executed: int = Field(default=0, ge=0)
+    proof_specs_executed: int = Field(default=0, ge=0)
+    retrieval_specs_executed: int = Field(default=0, ge=0)
+    items: list[PlannedSpecExecutionItem] = Field(default_factory=list)
+    created_artifact_paths: list[str] = Field(default_factory=list)
+    ingested_artifact_paths: list[str] = Field(default_factory=list)
+    claim_evidence_map_rebuilt: bool = False
+    autonomous_plan_rebuilt: bool = False
+    manuscript_refreshed: bool = False
+    release_rechecked: bool = False
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class PlannedSpecExecutionIndex(StrictModel):
+    """Derived latest pointer over immutable planned-spec execution reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_execution_id: str = Field(min_length=1)
+    execution_count: int = Field(ge=1)
+    latest_execution_mode: PlannedSpecExecutionMode
+    latest_execution_status: PlannedSpecExecutionStatus
+    latest_created_artifact_paths: list[str] = Field(default_factory=list)
+    latest_ingested_artifact_paths: list[str] = Field(default_factory=list)
     latest_requires_human_intervention: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False

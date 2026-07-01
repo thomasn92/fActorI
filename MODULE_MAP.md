@@ -231,6 +231,10 @@ All implementation modules are under `factori/`.
   evidence plans, including safe claim wording changes, deterministic evidence-aware refresh,
   planned proof/experiment/retrieval specifications, and post-apply safety/map/plan/release
   rechecks without executing tools or creating evidence.
+- `planned_spec_execution.py`: append-only dry-run/apply execution of planned local proof,
+  experiment, and retrieval specs through deterministic local adapters, producing validated
+  scoped proof/experiment artifacts only through intake checks and never running arbitrary code,
+  network calls, external proof tools, or publication-readiness upgrades.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.

@@ -166,6 +166,12 @@ uv run factori execute-autonomous-evidence-plan \
   --run-id demo --execution-mode apply --executor-backend deterministic
 uv run factori inspect-autonomous-plan-execution --run-id demo
 uv run factori inspect-autonomous-plan-execution --run-id demo --json
+uv run factori execute-planned-specs \
+  --run-id demo --execution-mode dry-run --spec-executor-backend deterministic_local
+uv run factori execute-planned-specs \
+  --run-id demo --execution-mode apply --spec-executor-backend deterministic_local
+uv run factori inspect-planned-spec-execution --run-id demo
+uv run factori inspect-planned-spec-execution --run-id demo --json
 uv run factori ingest-reviewer-change-requests \
   --run-id demo --request-file path/to/reviewer-change-requests.json
 uv run factori inspect-reviewer-change-requests --run-id demo

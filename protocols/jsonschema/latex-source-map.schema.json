@@ -71,7 +71,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.32.0/latex-source-map.schema.json",
+  "$id": "https://schemas.factori.local/0.33.0/latex-source-map.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "LaTeX source map back to manuscript, claim, evidence, and citation sources.",
@@ -122,7 +122,7 @@
   ],
   "title": "LatexSourceMap",
   "type": "object",
-  "x-factori-protocol-version": "0.32.0",
+  "x-factori-protocol-version": "0.33.0",
   "x-factori-source-model": "factori.schemas.LatexSourceMap",
   "x-factori-verification-evidence": false
 }

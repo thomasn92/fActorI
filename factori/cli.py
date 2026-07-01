@@ -136,6 +136,11 @@ from factori.output_hygiene import (
 from factori.paper_critic import PaperCriticError, critique_paper_from_run
 from factori.paper_revision import revise_paper_from_run
 from factori.paper_shape import critique_paper_shape, write_paper_shape_reports
+from factori.planned_spec_execution import (
+    PlannedSpecExecutionError,
+    execute_planned_specs,
+    inspect_planned_spec_execution,
+)
 from factori.prose_contract import SectionDraftGenerationError, generate_section_draft
 from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
 from factori.protocol_validation import (
@@ -2759,6 +2764,101 @@ def inspect_autonomous_plan_execution_command(
     typer.echo(f"Artifact: {summary['autonomous_execution_report_path']}")
 
 
+@app.command("execute-planned-specs")
+def execute_planned_specs_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    execution_mode: Annotated[
+        str,
+        typer.Option("--execution-mode"),
+    ] = "dry-run",
+    spec_executor_backend: Annotated[
+        str,
+        typer.Option("--spec-executor-backend"),
+    ] = "deterministic_local",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Execute planned local proof, experiment, and retrieval specs."""
+    try:
+        result = execute_planned_specs(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            execution_mode=execution_mode,
+            spec_executor_backend=spec_executor_backend,
+        )
+    except PlannedSpecExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "planned_spec_execution": result.report.model_dump(mode="json"),
+        "planned_spec_execution_index": result.index.model_dump(mode="json"),
+        "planned_spec_execution_present": True,
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+        "artifacts": {
+            "execution_report": result.report_artifact.model_dump(mode="json"),
+            "execution_report_markdown": result.report_markdown_artifact.model_dump(mode="json"),
+            "execution_index": result.index_artifact.model_dump(mode="json"),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"execution_id={result.report.execution_id}")
+    typer.echo(f"execution_mode={result.report.execution_mode}")
+    typer.echo(f"execution_status={result.report.execution_status}")
+    typer.echo(f"specs_executed={result.report.specs_executed}")
+    typer.echo(f"specs_deferred={result.report.specs_deferred}")
+    typer.echo(f"specs_rejected={result.report.specs_rejected}")
+    typer.echo(f"specs_failed={result.report.specs_failed}")
+    typer.echo(f"experiment_artifacts_created={result.report.experiment_artifacts_created}")
+    typer.echo(f"proof_artifacts_created={result.report.proof_artifacts_created}")
+    typer.echo(f"retrieval_artifacts_created={result.report.retrieval_artifacts_created}")
+    typer.echo(
+        f"human_intervention_required={str(result.report.requires_human_intervention).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"planned_spec_execution={result.report_artifact.path}")
+
+
+@app.command("inspect-planned-spec-execution")
+def inspect_planned_spec_execution_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest planned-spec execution without mutation."""
+    try:
+        summary = inspect_planned_spec_execution(run_id=run_id, root=root)
+    except PlannedSpecExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Planned spec execution: {summary['run_id']}")
+    typer.echo(f"Execution count: {summary['planned_spec_execution_count']}")
+    typer.echo(f"Latest mode: {summary['latest_planned_spec_execution_mode']}")
+    typer.echo(f"Latest status: {summary['latest_planned_spec_execution_status']}")
+    typer.echo(f"Experiment specs executed: {summary['experiment_specs_executed']}")
+    typer.echo(f"Proof specs executed: {summary['proof_specs_executed']}")
+    typer.echo(f"Retrieval specs executed: {summary['retrieval_specs_executed']}")
+    typer.echo(f"Experiment artifacts created: {summary['experiment_artifacts_created']}")
+    typer.echo(f"Proof artifacts created: {summary['proof_artifacts_created']}")
+    typer.echo(f"Retrieval artifacts created: {summary['retrieval_artifacts_created']}")
+    typer.echo(
+        "Human intervention required: "
+        f"{str(summary['planned_spec_execution_requires_human_intervention']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['planned_spec_execution_report_path']}")
+
+
 @app.command("refresh-evidence-aware-manuscript")
 def refresh_evidence_aware_manuscript_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -3507,6 +3607,33 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('autonomous_actions_failed') or 0)}"
     )
     typer.echo(f"Created specs: {int(summary.get('autonomous_created_spec_count') or 0)}")
+    typer.echo(
+        "Planned spec execution: "
+        f"{'present' if summary.get('planned_spec_execution_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest planned spec execution: "
+        f"{summary.get('latest_planned_spec_execution_mode') or 'not_available'} / "
+        f"{summary.get('latest_planned_spec_execution_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Experiment specs executed: "
+        f"{int(summary.get('experiment_specs_executed') or 0)}"
+    )
+    typer.echo(f"Proof specs executed: {int(summary.get('proof_specs_executed') or 0)}")
+    typer.echo(
+        "Retrieval specs executed: "
+        f"{int(summary.get('retrieval_specs_executed') or 0)}"
+    )
+    typer.echo(
+        "Experiment artifacts created: "
+        f"{int(summary.get('experiment_artifacts_created') or 0)}"
+    )
+    typer.echo(f"Proof artifacts created: {int(summary.get('proof_artifacts_created') or 0)}")
+    typer.echo(
+        "Retrieval artifacts created: "
+        f"{int(summary.get('retrieval_artifacts_created') or 0)}"
+    )
     typer.echo(f"Reviewer summary: {reviewer_summary}")
     typer.echo(f"Reviewer summary status: {summary.get('reviewer_summary_status') or 'absent'}")
     typer.echo(f"Evidence gaps: {int(summary.get('reviewer_summary_evidence_gap_count') or 0)}")
@@ -3887,6 +4014,21 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('autonomous_actions_deferred') or 0)}/"
         f"{int(summary.get('autonomous_actions_rejected') or 0)}/"
         f"{int(summary.get('autonomous_actions_failed') or 0)}"
+    )
+    typer.echo(
+        "Planned spec execution: "
+        f"{'present' if summary.get('planned_spec_execution_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest planned spec execution: "
+        f"{summary.get('latest_planned_spec_execution_mode') or 'not_available'} / "
+        f"{summary.get('latest_planned_spec_execution_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Planned spec artifacts created experiment/proof/retrieval: "
+        f"{int(summary.get('experiment_artifacts_created') or 0)}/"
+        f"{int(summary.get('proof_artifacts_created') or 0)}/"
+        f"{int(summary.get('retrieval_artifacts_created') or 0)}"
     )
     typer.echo(f"Quality repair backend: {summary.get('quality_repair_backend') or 'off'}")
     typer.echo(

@@ -52,6 +52,10 @@ from factori.human_review_reconciliation import (
     reconcile_human_review,
 )
 from factori.ledger import ResearchLedger
+from factori.planned_spec_execution import (
+    execute_planned_specs,
+    inspect_planned_spec_execution,
+)
 from factori.reviewer_change_requests import (
     ReviewerChangeRequestError,
     ingest_reviewer_change_requests,
@@ -83,8 +87,12 @@ from factori.schemas import (
     HumanReviewReconciliationReport,
     PipelineRunConfig,
     PipelineStage,
+    PlannedExperimentSpec,
+    PlannedSpecExecutionReport,
     ProofArtifact,
+    ProofObligationSpec,
     QualityRepairReport,
+    RetrievalExpansionRequest,
     RetrievalQualityReport,
     ReviewerBundleSummary,
 )
@@ -105,6 +113,7 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert HumanReviewReconciliationReport
     assert AutonomousEvidenceGapPlan
     assert AutonomousPlanExecutionReport
+    assert PlannedSpecExecutionReport
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -1790,6 +1799,196 @@ def test_autonomous_plan_executor_blocks_corrupt_plan_with_human_intervention(
     assert result.report.publication_ready is False
 
 
+def test_planned_spec_execution_dry_run_does_not_create_evidence(tmp_path) -> None:
+    run_id = "run-planned-spec-dry-run"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    reports = tmp_path / "runs" / run_id / "reports"
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    _write_planned_experiment_spec(reports, run_id=run_id)
+    _write_planned_proof_spec(reports, run_id=run_id)
+    _write_retrieval_expansion_request(reports, run_id=run_id)
+    claim_map = reports / "claim-evidence-map.json"
+    claim_map_hash = sha256_file(claim_map)
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="dry-run",
+        spec_executor_backend="deterministic_local",
+    )
+    inspected = inspect_planned_spec_execution(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.execution_status == "dry_run_completed"
+    assert result.report.spec_count == 3
+    assert result.report.experiment_artifacts_created == 0
+    assert result.report.proof_artifacts_created == 0
+    assert result.report.claim_evidence_map_rebuilt is False
+    assert sha256_file(claim_map) == claim_map_hash
+    assert not list(reports.glob("experiment-artifact-*.json"))
+    assert not list(reports.glob("proof-artifact-*.json"))
+    assert inspected["planned_spec_execution_count"] == 1
+    assert lint["planned_spec_execution_present"] is True
+    assert lint["latest_planned_spec_execution_mode"] == "dry_run"
+    assert lint["publication_ready"] is False
+
+
+def test_planned_spec_execution_apply_runs_local_templates_and_rechecks(
+    tmp_path,
+) -> None:
+    run_id = "run-planned-spec-apply"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    reports = tmp_path / "runs" / run_id / "reports"
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    _write_planned_experiment_spec(
+        reports,
+        run_id=run_id,
+        spec_id="experiment-spec-fixture-001",
+        target_claim_id="experiment-claim-1",
+        target_section="Demonstration Status",
+    )
+    _write_planned_proof_spec(
+        reports,
+        run_id=run_id,
+        spec_id="proof-obligation-spec-plan-001",
+        target_claim_id="fixture-theorem-claim",
+    )
+    _write_retrieval_expansion_request(reports, run_id=run_id)
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+    )
+    inspected = inspect_planned_spec_execution(run_id=run_id, root=tmp_path)
+    proof = inspect_proof_artifacts(run_id=run_id, root=tmp_path)
+    experiment = inspect_experiment_artifacts(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.execution_status == "completed"
+    assert result.report.experiment_specs_executed == 1
+    assert result.report.proof_specs_executed == 1
+    assert result.report.retrieval_specs_executed == 1
+    assert result.report.experiment_artifacts_created == 1
+    assert result.report.proof_artifacts_created == 1
+    assert result.report.retrieval_artifacts_created == 1
+    assert result.report.claim_evidence_map_rebuilt is True
+    assert result.report.autonomous_plan_rebuilt is True
+    assert result.report.release_rechecked is True
+    assert result.report.publication_ready is False
+    assert result.report.creates_scientific_validation is False
+    assert inspected["latest_planned_spec_execution_mode"] == "apply"
+    assert experiment["completed_experiment_count"] == 1
+    assert proof["informal_proof_artifact_count"] == 1
+    assert proof["formal_verification_passed_count"] == 0
+    assert lint["planned_spec_execution_present"] is True
+    assert lint["experiment_artifacts_created"] == 1
+    assert lint["proof_artifacts_created"] == 1
+    assert lint["retrieval_artifacts_created"] == 1
+    assert lint["publication_ready"] is False
+
+
+def test_planned_spec_execution_fixture_formal_proof_is_scoped(
+    tmp_path,
+) -> None:
+    run_id = "run-planned-spec-formal-fixture"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    reports = tmp_path / "runs" / run_id / "reports"
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    _write_planned_proof_spec(
+        reports,
+        run_id=run_id,
+        spec_id="proof-obligation-spec-formal-001",
+        target_claim_id=(
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-"
+            "conjecture-form"
+        ),
+        suggested_checker="deterministic fixture formal proof checker",
+        required_artifact_type="deterministic fixture formal verified passed artifact",
+    )
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+    )
+    proof = inspect_proof_artifacts(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.proof_artifacts_created == 1
+    assert proof["formal_verification_passed_count"] == 1
+    assert lint["proof_artifact_count"] == 1
+    assert lint["formal_verification_passed_count"] == 1
+    assert lint["publication_ready"] is False
+
+
+def test_planned_spec_execution_failed_experiment_does_not_create_artifact(
+    tmp_path,
+) -> None:
+    run_id = "run-planned-spec-failed-experiment"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    reports = tmp_path / "runs" / run_id / "reports"
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    _write_planned_experiment_spec(
+        reports,
+        run_id=run_id,
+        spec_id="experiment-spec-force-failed-001",
+        hypothesis_or_question="force_failed_experiment",
+    )
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+    )
+    experiment = inspect_experiment_artifacts(run_id=run_id, root=tmp_path)
+
+    assert result.report.execution_status == "completed_with_deferred_specs"
+    assert result.report.specs_rejected == 1
+    assert result.report.experiment_artifacts_created == 0
+    assert experiment["experiment_artifact_count"] == 0
+    assert result.report.publication_ready is False
+
+
 def test_evidence_aware_refresh_writes_bounded_artifact_wording_and_rechecks_gates(
     tmp_path,
 ) -> None:
@@ -2994,6 +3193,75 @@ def _write_structured_request_set(
     }
     path = tmp_path / f"{request_set_id}.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    return path
+
+
+def _write_planned_experiment_spec(
+    reports: Path,
+    *,
+    run_id: str,
+    spec_id: str = "experiment-spec-fixture-001",
+    target_claim_id: str = "experiment-claim-1",
+    target_section: str = "Demonstration Status",
+    hypothesis_or_question: str = "Can the local synthetic template record bounded metrics?",
+) -> Path:
+    spec = PlannedExperimentSpec(
+        run_id=run_id,
+        spec_id=spec_id,
+        target_claim_id=target_claim_id,
+        target_section=target_section,
+        hypothesis_or_question=hypothesis_or_question,
+        suggested_dataset="deterministic synthetic calibration fixture",
+        suggested_metrics=["bounded_improvement", "method_error"],
+        suggested_baselines=["deterministic baseline"],
+        suggested_seed_policy="fixed seed 1729",
+        expected_output_artifacts=["metrics", "log"],
+    )
+    path = reports / f"{spec_id}.json"
+    path.write_text(spec.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_planned_proof_spec(
+    reports: Path,
+    *,
+    run_id: str,
+    spec_id: str = "proof-obligation-spec-fixture-001",
+    target_claim_id: str = "fixture-theorem-claim",
+    statement: str = "A bounded fixture statement requires proof evidence.",
+    suggested_checker: str = "explicitly configured local formal proof backend",
+    required_artifact_type: str = "passed scoped proof artifact",
+) -> Path:
+    spec = ProofObligationSpec(
+        run_id=run_id,
+        spec_id=spec_id,
+        target_claim_id=target_claim_id,
+        statement=statement,
+        suggested_checker=suggested_checker,
+        required_artifact_type=required_artifact_type,
+    )
+    path = reports / f"{spec_id}.json"
+    path.write_text(spec.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_retrieval_expansion_request(
+    reports: Path,
+    *,
+    run_id: str,
+    request_id: str = "retrieval-expansion-request-fixture-001",
+) -> Path:
+    request = RetrievalExpansionRequest(
+        run_id=run_id,
+        request_id=request_id,
+        target_claim_id_optional=None,
+        target_section_optional="Introduction and Problem Framing",
+        query_terms=["human", "geography", "bounded", "retrieval"],
+        reason="Fixture bounded retrieval expansion request.",
+        minimum_source_quality="accepted registry source after deterministic checks",
+    )
+    path = reports / f"{request_id}.json"
+    path.write_text(request.model_dump_json(indent=2) + "\n", encoding="utf-8")
     return path
 
 

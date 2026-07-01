@@ -1,8 +1,8 @@
 {
-  "$id": "https://schemas.factori.local/0.33.0/autonomous-plan-execution-index.schema.json",
+  "$id": "https://schemas.factori.local/0.33.0/planned-spec-execution-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Derived latest pointer over immutable autonomous executions.",
+  "description": "Derived latest pointer over immutable planned-spec executions.",
   "properties": {
     "creates_scientific_validation": {
       "default": false,
@@ -47,13 +47,20 @@
     "latest_execution_status": {
       "enum": [
         "completed",
-        "completed_with_deferred_actions",
+        "completed_with_deferred_specs",
         "blocked",
         "failed",
         "dry_run_completed"
       ],
       "title": "Latest Execution Status",
       "type": "string"
+    },
+    "latest_ingested_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Latest Ingested Artifact Paths",
+      "type": "array"
     },
     "latest_requires_human_intervention": {
       "default": false,
@@ -73,9 +80,9 @@
     "latest_execution_mode",
     "latest_execution_status"
   ],
-  "title": "AutonomousPlanExecutionIndex",
+  "title": "PlannedSpecExecutionIndex",
   "type": "object",
   "x-factori-protocol-version": "0.33.0",
-  "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionIndex",
+  "x-factori-source-model": "factori.schemas.PlannedSpecExecutionIndex",
   "x-factori-verification-evidence": false
 }

@@ -7,6 +7,13 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.33.0` adds planned-spec execution item, report, and immutable index contracts for
+gated deterministic local execution of planned proof, experiment, and retrieval specs. These
+execution reports are workflow context only; local synthetic experiments remain bounded to mapped
+claims, proof plans are not formal verification, fixture-backed proof artifacts require explicit
+passed-checker scope, retrieval expansion is local/fixture-only, and publication readiness remains
+false.
+
 Protocol `0.32.0` adds autonomous plan execution action, report, immutable index, planned
 experiment, proof-obligation, and retrieval-expansion request contracts. Execution artifacts
 perform or schedule bounded deterministic workflow actions only; planned specs are not completed

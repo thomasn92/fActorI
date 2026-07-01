@@ -116,6 +116,14 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
         app,
         ["inspect-autonomous-plan-execution", "--help"],
     )
+    execute_planned_specs = runner.invoke(
+        app,
+        ["execute-planned-specs", "--help"],
+    )
+    inspect_planned_specs = runner.invoke(
+        app,
+        ["inspect-planned-spec-execution", "--help"],
+    )
     refresh_manuscript = runner.invoke(
         app,
         ["refresh-evidence-aware-manuscript", "--help"],
@@ -131,6 +139,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_autonomous_plan.exit_code == 0, inspect_autonomous_plan.output
     assert execute_autonomous_plan.exit_code == 0, execute_autonomous_plan.output
     assert inspect_autonomous_execution.exit_code == 0, inspect_autonomous_execution.output
+    assert execute_planned_specs.exit_code == 0, execute_planned_specs.output
+    assert inspect_planned_specs.exit_code == 0, inspect_planned_specs.output
     assert refresh_manuscript.exit_code == 0, refresh_manuscript.output
     assert "--run-id" in ingest_proof.output
     assert "--proof-file" in ingest_proof.output
@@ -139,6 +149,9 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--execution-mode" in execute_autonomous_plan.output
     assert "--executor-backend" in execute_autonomous_plan.output
     assert "--json" in inspect_autonomous_execution.output
+    assert "--execution-mode" in execute_planned_specs.output
+    assert "--spec-executor-backend" in execute_planned_specs.output
+    assert "--json" in inspect_planned_specs.output
     assert "--run-id" in ingest_experiment.output
     assert "--experiment-file" in ingest_experiment.output
     assert "--run-id" in inspect_experiment.output
@@ -271,6 +284,90 @@ def test_autonomous_plan_execution_cli_dry_run_and_inspection(tmp_path) -> None:
     assert reviewer["autonomous_execution_present"] is True
     assert reviewer["latest_autonomous_execution_mode"] == "dry_run"
     assert reviewer["publication_ready"] is False
+
+
+def test_planned_spec_execution_cli_apply_and_inspection(tmp_path) -> None:
+    run_id = "cli-planned-spec-execution"
+    _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
+    reports = tmp_path / "runs" / run_id / "reports"
+    _write_cli_planned_experiment_spec(reports, run_id=run_id)
+    runner = CliRunner()
+    dry_run = runner.invoke(
+        app,
+        [
+            "execute-planned-specs",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--execution-mode",
+            "dry-run",
+            "--spec-executor-backend",
+            "deterministic_local",
+            "--json",
+        ],
+    )
+    apply = runner.invoke(
+        app,
+        [
+            "execute-planned-specs",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--execution-mode",
+            "apply",
+            "--spec-executor-backend",
+            "deterministic_local",
+            "--json",
+        ],
+    )
+    inspect_json = runner.invoke(
+        app,
+        [
+            "inspect-planned-spec-execution",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_human = runner.invoke(
+        app,
+        ["inspect-planned-spec-execution", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    lint_result = runner.invoke(
+        app,
+        ["lint-paper-bundle", "--root", str(tmp_path), "--run-id", run_id, "--json"],
+    )
+    paper_bundle = runner.invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+
+    assert dry_run.exit_code == 0, dry_run.output
+    assert apply.exit_code == 0, apply.output
+    assert inspect_json.exit_code == 0, inspect_json.output
+    assert inspect_human.exit_code == 0, inspect_human.output
+    assert lint_result.exit_code == 0, lint_result.output
+    assert paper_bundle.exit_code == 0, paper_bundle.output
+    dry_payload = json.loads(dry_run.output)
+    apply_payload = json.loads(apply.output)
+    inspected = json.loads(inspect_json.output)
+    lint = json.loads(lint_result.output)
+    assert dry_payload["planned_spec_execution"]["execution_status"] == "dry_run_completed"
+    assert apply_payload["planned_spec_execution"]["execution_status"] == "completed"
+    assert apply_payload["planned_spec_execution"]["experiment_artifacts_created"] == 1
+    assert inspected["planned_spec_execution_count"] == 2
+    assert inspected["latest_planned_spec_execution_mode"] == "apply"
+    assert "Planned spec execution" in inspect_human.output
+    assert "Planned spec execution: present" in paper_bundle.output
+    assert lint["planned_spec_execution_present"] is True
+    assert lint["planned_spec_execution_count"] == 2
+    assert lint["latest_planned_spec_execution_mode"] == "apply"
+    assert lint["experiment_artifacts_created"] == 1
+    assert lint["publication_ready"] is False
 
 
 def test_run_llm_paper_accepts_fake_claim_adjudicator_preflight_without_mutation(
@@ -1626,6 +1723,28 @@ def _prepare_paper_bundle(
             ledger=ledger,
             config=FullPaperReleaseGateConfig(run_id=run_id, write_report=True),
         )
+
+
+def _write_cli_planned_experiment_spec(reports: Path, *, run_id: str) -> Path:
+    payload = {
+        "run_id": run_id,
+        "spec_id": "experiment-spec-cli-001",
+        "target_claim_id": "experiment-claim-cli",
+        "target_section": "Demonstration Status",
+        "hypothesis_or_question": "Can a local synthetic template record bounded metrics?",
+        "suggested_dataset": "deterministic synthetic calibration fixture",
+        "suggested_metrics": ["bounded_improvement", "method_error"],
+        "suggested_baselines": ["deterministic baseline"],
+        "suggested_seed_policy": "fixed seed 1729",
+        "expected_output_artifacts": ["metrics", "log"],
+        "status": "planned",
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+    }
+    path = reports / "experiment-spec-cli-001.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def _write_human_review_fixture(tmp_path, *, run_id: str):

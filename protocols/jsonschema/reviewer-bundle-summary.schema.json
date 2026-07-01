@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.32.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.33.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -162,10 +162,22 @@
       "title": "Experiment Artifact Paths",
       "type": "array"
     },
+    "experiment_artifacts_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Artifacts Created",
+      "type": "integer"
+    },
     "experiment_artifacts_present": {
       "default": false,
       "title": "Experiment Artifacts Present",
       "type": "boolean"
+    },
+    "experiment_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Specs Executed",
+      "type": "integer"
     },
     "experiment_supported_claim_count": {
       "default": 0,
@@ -356,6 +368,30 @@
       "default": null,
       "title": "Latest Autonomous Execution Status"
     },
+    "latest_planned_spec_execution_mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Planned Spec Execution Mode"
+    },
+    "latest_planned_spec_execution_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Planned Spec Execution Status"
+    },
     "latest_reconciliation_cycle": {
       "default": 0,
       "minimum": 0,
@@ -368,6 +404,11 @@
       },
       "title": "Paper Artifact Paths",
       "type": "object"
+    },
+    "planned_spec_execution_present": {
+      "default": false,
+      "title": "Planned Spec Execution Present",
+      "type": "boolean"
     },
     "proof_artifact_count": {
       "default": 0,
@@ -382,10 +423,22 @@
       "title": "Proof Artifact Paths",
       "type": "array"
     },
+    "proof_artifacts_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Artifacts Created",
+      "type": "integer"
+    },
     "proof_artifacts_present": {
       "default": false,
       "title": "Proof Artifacts Present",
       "type": "boolean"
+    },
+    "proof_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Specs Executed",
+      "type": "integer"
     },
     "proof_supported_claim_count": {
       "default": 0,
@@ -442,10 +495,22 @@
       "title": "Remaining Warnings",
       "type": "object"
     },
+    "retrieval_artifacts_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Artifacts Created",
+      "type": "integer"
+    },
     "retrieval_quality_status": {
       "minLength": 1,
       "title": "Retrieval Quality Status",
       "type": "string"
+    },
+    "retrieval_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Specs Executed",
+      "type": "integer"
     },
     "retrieval_summary": {
       "additionalProperties": true,
@@ -505,7 +570,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.32.0",
+  "x-factori-protocol-version": "0.33.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

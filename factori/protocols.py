@@ -127,6 +127,9 @@ from factori.schemas import (
     PipelineRunReport,
     PipelineStageResult,
     PlannedExperimentSpec,
+    PlannedSpecExecutionIndex,
+    PlannedSpecExecutionItem,
+    PlannedSpecExecutionReport,
     PlannedStage,
     ProofArtifact,
     ProofObligationSpec,
@@ -174,7 +177,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.32.0"
+PROTOCOL_VERSION = "0.33.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -400,6 +403,21 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "RetrievalExpansionRequest",
         RetrievalExpansionRequest,
         "Planned bounded retrieval expansion request without source authority.",
+    ),
+    ProtocolDefinition(
+        "PlannedSpecExecutionItem",
+        PlannedSpecExecutionItem,
+        "One bounded disposition of a planned local spec execution.",
+    ),
+    ProtocolDefinition(
+        "PlannedSpecExecutionReport",
+        PlannedSpecExecutionReport,
+        "Non-evidence planned local spec execution report.",
+    ),
+    ProtocolDefinition(
+        "PlannedSpecExecutionIndex",
+        PlannedSpecExecutionIndex,
+        "Derived latest pointer over immutable planned-spec executions.",
     ),
     ProtocolDefinition(
         "EvidenceAwareRefreshReport",
