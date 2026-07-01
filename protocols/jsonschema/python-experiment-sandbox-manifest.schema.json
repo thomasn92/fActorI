@@ -1,0 +1,96 @@
+{
+  "$id": "https://schemas.factori.local/0.37.0/python-experiment-sandbox-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Hashed approved files and closed local Python sandbox policy.",
+  "properties": {
+    "allow_file_write_outside_workspace": {
+      "default": false,
+      "title": "Allow File Write Outside Workspace",
+      "type": "boolean"
+    },
+    "allow_network": {
+      "default": false,
+      "title": "Allow Network",
+      "type": "boolean"
+    },
+    "allow_subprocess": {
+      "default": false,
+      "title": "Allow Subprocess",
+      "type": "boolean"
+    },
+    "allowed_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Dependencies",
+      "type": "array"
+    },
+    "blocked_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocked Dependencies",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "files": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Files",
+      "type": "object"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "platform": {
+      "minLength": 1,
+      "title": "Platform",
+      "type": "string"
+    },
+    "python_version": {
+      "minLength": 1,
+      "title": "Python Version",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_run_id": {
+      "minLength": 1,
+      "title": "Sandbox Run Id",
+      "type": "string"
+    },
+    "uv_version": {
+      "minLength": 1,
+      "title": "Uv Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "sandbox_run_id",
+    "python_version",
+    "platform",
+    "uv_version"
+  ],
+  "title": "PythonExperimentSandboxManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.37.0",
+  "x-factori-source-model": "factori.schemas.PythonExperimentSandboxManifest",
+  "x-factori-verification-evidence": false
+}

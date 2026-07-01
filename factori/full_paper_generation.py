@@ -73,6 +73,10 @@ from factori.planned_spec_execution import (
     latest_planned_spec_execution_report,
     planned_spec_execution_summary_fields,
 )
+from factori.python_experiment_sandbox import (
+    latest_python_experiment_sandbox_report,
+    python_experiment_sandbox_summary_fields,
+)
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
@@ -775,6 +779,14 @@ def inspect_paper_bundle_summary(
         planned_spec_execution,
         planned_spec_execution_index,
     )
+    python_sandbox_report, python_sandbox_index = latest_python_experiment_sandbox_report(
+        root_path,
+        run_id,
+    )
+    python_sandbox_summary = python_experiment_sandbox_summary_fields(
+        python_sandbox_report,
+        python_sandbox_index,
+    )
     autonomous_loop_report, autonomous_loop_index = latest_autonomous_loop_report(
         root_path,
         run_id,
@@ -965,6 +977,7 @@ def inspect_paper_bundle_summary(
         ],
         **autonomous_execution_summary,
         **planned_spec_execution_summary,
+        **python_sandbox_summary,
         **autonomous_loop_summary,
         **gap_attempt_summary,
         **planned_spec_dedup_summary,
@@ -1461,6 +1474,9 @@ def lint_paper_bundle_summary(
     planned_spec_execution_count = int(bundle.get("planned_spec_execution_count") or 0)
     latest_planned_spec_execution_mode = bundle.get("latest_planned_spec_execution_mode")
     latest_planned_spec_execution_status = bundle.get("latest_planned_spec_execution_status")
+    python_experiment_sandbox_present = bool(
+        bundle.get("python_experiment_sandbox_present")
+    )
     autonomous_loop_present = bool(bundle.get("autonomous_loop_present"))
     autonomous_loop_count = int(bundle.get("autonomous_loop_count") or 0)
     latest_autonomous_loop_status = bundle.get("latest_autonomous_loop_status")
@@ -1922,6 +1938,23 @@ def lint_paper_bundle_summary(
         "planned_spec_execution_requires_human_intervention": bool(
             bundle.get("planned_spec_execution_requires_human_intervention")
         ),
+        "python_experiment_sandbox_present": python_experiment_sandbox_present,
+        "python_experiment_sandbox_run_count": int(
+            bundle.get("python_experiment_sandbox_run_count") or 0
+        ),
+        "latest_python_sandbox_status": bundle.get("latest_python_sandbox_status"),
+        "python_experiment_sandbox_completed_count": int(
+            bundle.get("python_experiment_sandbox_completed_count") or 0
+        ),
+        "python_experiment_sandbox_failed_count": int(
+            bundle.get("python_experiment_sandbox_failed_count") or 0
+        ),
+        "python_experiment_artifacts_created_count": int(
+            bundle.get("python_experiment_artifacts_created_count") or 0
+        ),
+        "python_experiment_sandbox_network_disabled": bool(
+            bundle.get("python_experiment_sandbox_network_disabled", True)
+        ),
         "autonomous_loop_present": autonomous_loop_present,
         "autonomous_loop_count": autonomous_loop_count,
         "latest_autonomous_loop_status": latest_autonomous_loop_status,
@@ -2315,6 +2348,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 "reviewer-bundle-summary-after-planned-spec-execution-0000.md",
             )
         ),
+        "reviewer_bundle_summary_after_python_sandbox_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-python-sandbox-*.json",
+                "reviewer-bundle-summary-after-python-sandbox-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_python_sandbox_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-python-sandbox-*.md",
+                "reviewer-bundle-summary-after-python-sandbox-0000.md",
+            )
+        ),
         "reviewer_bundle_summary_after_autonomous_loop_json": (
             _latest_report_path(
                 run_path,
@@ -2557,6 +2604,9 @@ def _read_preferred_reviewer_bundle_summary(
 ) -> ReviewerBundleSummary | None:
     return (
         _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_python_sandbox_json"]
+        )
+        or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_autonomous_loop_json"]
         )
         or _read_reviewer_bundle_summary(
@@ -2924,6 +2974,19 @@ def build_reviewer_bundle_summary(
         gaps_deferred_after_strategy_exhaustion=int(
             bundle.get("gaps_deferred_after_strategy_exhaustion") or 0
         ),
+        python_experiment_sandbox_present=bool(
+            bundle.get("python_experiment_sandbox_present")
+        ),
+        latest_python_sandbox_status=bundle.get("latest_python_sandbox_status"),
+        python_sandbox_completed_count=int(
+            bundle.get("python_experiment_sandbox_completed_count") or 0
+        ),
+        python_sandbox_failed_count=int(
+            bundle.get("python_experiment_sandbox_failed_count") or 0
+        ),
+        python_sandbox_artifacts_created=int(
+            bundle.get("python_experiment_artifacts_created_count") or 0
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -3044,6 +3107,17 @@ def render_reviewer_bundle_summary_markdown(
             f"`{summary.experiment_artifacts_created}/"
             f"{summary.proof_artifacts_created}/"
             f"{summary.retrieval_artifacts_created}`"
+        ),
+        (
+            "Python experiment sandbox: "
+            f"`{'present' if summary.python_experiment_sandbox_present else 'absent'}`"
+        ),
+        (
+            "Latest Python sandbox status/completed/failed/artifacts: "
+            f"`{summary.latest_python_sandbox_status or 'none'}` / "
+            f"`{summary.python_sandbox_completed_count}/"
+            f"{summary.python_sandbox_failed_count}/"
+            f"{summary.python_sandbox_artifacts_created}`"
         ),
         (
             "Autonomous loop: "

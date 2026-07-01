@@ -1,0 +1,31 @@
+{
+  "allow_network": false,
+  "creates_scientific_validation": false,
+  "expected_output_artifacts": [
+    "metrics.json",
+    "outputs/summary.json"
+  ],
+  "experiment_bundle_path_optional": "tests/fixtures/experiments/bundles/synthetic_calibration",
+  "hypothesis_or_question": "Does the bounded synthetic method reduce calibration error relative to the fixture baseline?",
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "requested_dependencies": [],
+  "run_id": "local-uv-python-sandbox-smoke-001",
+  "seed": 1729,
+  "shell_command_optional": null,
+  "spec_id": "synthetic-calibration-experiment-spec",
+  "status": "planned",
+  "suggested_baselines": [
+    "synthetic identity baseline"
+  ],
+  "suggested_dataset": "deterministic synthetic calibration grid",
+  "suggested_metrics": [
+    "baseline_mae",
+    "method_mae",
+    "bounded_improvement"
+  ],
+  "suggested_seed_policy": "fixed seed 1729",
+  "target_claim_id": "demonstration-status-p0-s0",
+  "target_section": "Demonstration Status",
+  "timeout_seconds": 30
+}

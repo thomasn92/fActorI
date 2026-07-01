@@ -218,7 +218,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.36.0/autonomous-evidence-gap-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.37.0/autonomous-evidence-gap-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous next-action plan over evidence gaps.",
@@ -375,7 +375,7 @@
   ],
   "title": "AutonomousEvidenceGapPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.36.0",
+  "x-factori-protocol-version": "0.37.0",
   "x-factori-source-model": "factori.schemas.AutonomousEvidenceGapPlan",
   "x-factori-verification-evidence": false
 }

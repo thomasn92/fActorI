@@ -53,6 +53,10 @@ from factori.schemas import (
     ProsePromptContract,
     ProseSafetyReport,
     ProseSectionContract,
+    PythonExperimentSandboxIndex,
+    PythonExperimentSandboxManifest,
+    PythonExperimentSandboxReport,
+    PythonExperimentSandboxRun,
     QualityRepairReport,
     ReviewerBundleSummary,
     RevisionSafetyReport,
@@ -72,9 +76,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 184
+    assert len(first) == 188
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.36.0"
+    assert PROTOCOL_VERSION == "0.37.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -131,6 +135,18 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("HumanReviewArtifact").model is HumanReviewArtifact
     assert get_protocol_definition("ProofArtifact").model is ProofArtifact
     assert get_protocol_definition("ExperimentArtifact").model is ExperimentArtifact
+    assert get_protocol_definition("PythonExperimentSandboxManifest").model is (
+        PythonExperimentSandboxManifest
+    )
+    assert get_protocol_definition("PythonExperimentSandboxRun").model is (
+        PythonExperimentSandboxRun
+    )
+    assert get_protocol_definition("PythonExperimentSandboxReport").model is (
+        PythonExperimentSandboxReport
+    )
+    assert get_protocol_definition("PythonExperimentSandboxIndex").model is (
+        PythonExperimentSandboxIndex
+    )
     assert get_protocol_definition("FullPaperGenerationConfig").model is (
         FullPaperGenerationConfig
     )
@@ -229,6 +245,10 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "HumanReviewArtifact",
         "ProofArtifact",
         "ExperimentArtifact",
+        "PythonExperimentSandboxManifest",
+        "PythonExperimentSandboxRun",
+        "PythonExperimentSandboxReport",
+        "PythonExperimentSandboxIndex",
         "FullPaperGenerationStep",
         "FullPaperArtifactBundle",
         "FullPaperGenerationReport",

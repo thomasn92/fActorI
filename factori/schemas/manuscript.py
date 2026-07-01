@@ -763,6 +763,11 @@ class ReviewerBundleSummary(StrictModel):
     selected_strategy_count: int = Field(default=0, ge=0)
     duplicate_strategy_count: int = Field(default=0, ge=0)
     gaps_deferred_after_strategy_exhaustion: int = Field(default=0, ge=0)
+    python_experiment_sandbox_present: bool = False
+    latest_python_sandbox_status: str | None = None
+    python_sandbox_completed_count: int = Field(default=0, ge=0)
+    python_sandbox_failed_count: int = Field(default=0, ge=0)
+    python_sandbox_artifacts_created: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1052,6 +1057,12 @@ class PlannedExperimentSpec(StrictModel):
     suggested_baselines: list[str] = Field(min_length=1)
     suggested_seed_policy: str = Field(min_length=1)
     expected_output_artifacts: list[str] = Field(min_length=1)
+    experiment_bundle_path_optional: str | None = None
+    requested_dependencies: list[str] = Field(default_factory=list)
+    allow_network: bool = False
+    shell_command_optional: str | None = None
+    seed: int = 1729
+    timeout_seconds: int = Field(default=30, ge=1, le=300)
     status: Literal["planned"] = "planned"
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -1247,6 +1258,95 @@ class PlannedSpecExecutionIndex(StrictModel):
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
+
+
+PythonExperimentSandboxStatus = Literal[
+    "dry_run_ready",
+    "completed",
+    "failed",
+    "timed_out",
+    "rejected_policy_violation",
+    "not_reproducible",
+]
+
+
+class PythonExperimentSandboxManifest(StrictModel):
+    """Hashed files and closed execution policy for one local Python sandbox run."""
+
+    run_id: str = Field(min_length=1)
+    sandbox_run_id: str = Field(min_length=1)
+    files: dict[str, str] = Field(default_factory=dict)
+    allowed_dependencies: list[str] = Field(default_factory=list)
+    blocked_dependencies: list[str] = Field(default_factory=list)
+    python_version: str = Field(min_length=1)
+    platform: str = Field(min_length=1)
+    uv_version: str = Field(min_length=1)
+    allow_network: bool = False
+    allow_subprocess: bool = False
+    allow_file_write_outside_workspace: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class PythonExperimentSandboxRun(StrictModel):
+    """One bounded uv-based local experiment execution record."""
+
+    run_id: str = Field(min_length=1)
+    experiment_spec_id: str = Field(min_length=1)
+    sandbox_run_id: str = Field(min_length=1)
+    sandbox_backend: Literal["uv_local", "fake"]
+    execution_mode: Literal["dry_run", "apply"]
+    sandbox_status: PythonExperimentSandboxStatus
+    experiment_bundle_path: str = Field(min_length=1)
+    working_directory: str = Field(min_length=1)
+    pyproject_path: str = Field(min_length=1)
+    uv_lock_path_optional: str | None = None
+    dependency_policy: dict[str, Any] = Field(default_factory=dict)
+    network_disabled: bool = True
+    seed: int
+    timeout_seconds: int = Field(ge=1)
+    resource_limits: dict[str, int] = Field(default_factory=dict)
+    command_executed: list[str] = Field(default_factory=list)
+    stdout_path: str = Field(min_length=1)
+    stderr_path: str = Field(min_length=1)
+    metrics_path: str = Field(min_length=1)
+    artifact_manifest_path: str = Field(min_length=1)
+    config_hash: str = Field(pattern=HASH_RE.pattern)
+    code_hash: str = Field(pattern=HASH_RE.pattern)
+    input_hash: str = Field(pattern=HASH_RE.pattern)
+    metrics_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    output_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    created_experiment_artifact_path_optional: str | None = None
+    ingested_experiment_artifact_path_optional: str | None = None
+    claim_evidence_map_rebuilt: bool = False
+    release_rechecked: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class PythonExperimentSandboxReport(PythonExperimentSandboxRun):
+    """Canonical append-only report for one sandbox run."""
+
+
+class PythonExperimentSandboxIndex(StrictModel):
+    """Derived latest pointer over immutable Python sandbox reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_sandbox_run_id: str = Field(min_length=1)
+    sandbox_run_count: int = Field(ge=1)
+    latest_sandbox_status: PythonExperimentSandboxStatus
+    completed_count: int = Field(default=0, ge=0)
+    failed_count: int = Field(default=0, ge=0)
+    experiment_artifacts_created_count: int = Field(default=0, ge=0)
+    network_disabled: bool = True
+    latest_report_path: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
 
 
 GapAttemptStatus = Literal[
@@ -2272,6 +2372,10 @@ __all__ = [
     "PlannedSpecExecutionItem",
     "PlannedSpecExecutionReport",
     "PlannedSpecExecutionIndex",
+    "PythonExperimentSandboxManifest",
+    "PythonExperimentSandboxRun",
+    "PythonExperimentSandboxReport",
+    "PythonExperimentSandboxIndex",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

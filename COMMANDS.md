@@ -172,6 +172,14 @@ uv run factori execute-planned-specs \
   --run-id demo --execution-mode apply --spec-executor-backend deterministic_local
 uv run factori inspect-planned-spec-execution --run-id demo
 uv run factori inspect-planned-spec-execution --run-id demo --json
+uv run factori run-python-experiment-sandbox \
+  --run-id demo --experiment-spec path/to/experiment-spec.json \
+  --sandbox-backend uv_local --execution-mode dry-run
+uv run factori run-python-experiment-sandbox \
+  --run-id demo --experiment-spec path/to/experiment-spec.json \
+  --sandbox-backend uv_local --execution-mode apply
+uv run factori inspect-python-experiment-sandbox --run-id demo
+uv run factori inspect-python-experiment-sandbox --run-id demo --json
 uv run factori run-autonomous-loop \
   --run-id demo --loop-backend deterministic --max-iterations 3 \
   --max-attempts-per-gap 2
@@ -797,8 +805,9 @@ server, or a frontend. Only the explicitly gated Stage A OpenAI, Stage B OpenAI 
 OpenAlex, OpenAI prose, end-to-end LLM orchestration, Stage C Lean/local synthetic, and LaTeX
 render-check commands above may call an external API or local external tool.
 
-Future Python experiment execution must use an isolated `uv` environment, capture
-`pyproject.toml` and `uv.lock` where applicable, disable network by default, enforce dependency
-allowlists, fixed seeds, timeouts, resource limits, stdout/stderr capture, `metrics.json`, and
-hashed inputs/outputs. Planned specs and runner configuration remain workflow context until a
-validated artifact passes evidence-artifact intake.
+The gated `uv_local` Python experiment sandbox accepts only approved local bundles, runs a fixed
+offline command without shell interpolation, captures `pyproject.toml`, `uv.lock`, fixed seeds,
+timeouts, resource limits, stdout/stderr, `metrics.json`, and hashed inputs/outputs. It rejects
+network requests, shell commands, path escapes, and dependencies outside the allowlist. Planned
+specs and sandbox reports remain workflow context; only a successful result that passes existing
+experiment-artifact intake can support its mapped bounded claim.

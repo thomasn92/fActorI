@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.37.0` adds gated uv-local Python experiment sandbox manifests, append-only run reports,
+and derived sandbox indices. The sandbox uses approved local bundles, offline dependency policy,
+fixed seeds, timeouts, resource limits, logs, metrics, and content hashes. Only successful outputs
+that pass existing experiment-artifact intake can support a mapped bounded result claim; sandbox
+reports remain non-evidence and cannot imply publication readiness.
+
 Protocol `0.36.0` adds deterministic gap-strategy options, append-only diversification reports and
 indexes, strategy provenance on autonomous plan/execution records, and strategy-aware exhaustion
 history. Diversification schedules local-only alternatives and creates no evidence, validation, or

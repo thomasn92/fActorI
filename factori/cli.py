@@ -167,6 +167,11 @@ from factori.protocol_versioning import (
     check_protocol_version_dirs,
 )
 from factori.protocols import PROTOCOL_VERSION
+from factori.python_experiment_sandbox import (
+    PythonExperimentSandboxError,
+    inspect_python_experiment_sandbox,
+    run_python_experiment_sandbox,
+)
 from factori.regression_diagnostics import summarize_cross_run_comparison
 from factori.replay import (
     ReplayVerificationError,
@@ -2792,6 +2797,10 @@ def execute_planned_specs_command(
         str,
         typer.Option("--spec-executor-backend"),
     ] = "deterministic_local",
+    python_sandbox_backend: Annotated[
+        str,
+        typer.Option("--python-sandbox-backend"),
+    ] = "off",
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Execute planned local proof, experiment, and retrieval specs."""
@@ -2803,6 +2812,7 @@ def execute_planned_specs_command(
             ledger=_ledger(root, run_id),
             execution_mode=execution_mode,
             spec_executor_backend=spec_executor_backend,
+            python_sandbox_backend=python_sandbox_backend,
         )
     except PlannedSpecExecutionError as exc:
         typer.echo(str(exc), err=True)
@@ -2877,6 +2887,81 @@ def inspect_planned_spec_execution_command(
     )
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['planned_spec_execution_report_path']}")
+
+
+@app.command("run-python-experiment-sandbox")
+def run_python_experiment_sandbox_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    experiment_spec: Annotated[Path, typer.Option("--experiment-spec")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    sandbox_backend: Annotated[str, typer.Option("--sandbox-backend")] = "uv_local",
+    execution_mode: Annotated[str, typer.Option("--execution-mode")] = "dry-run",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate or execute one approved local Python experiment bundle."""
+    try:
+        result = run_python_experiment_sandbox(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            experiment_spec=experiment_spec,
+            sandbox_backend=sandbox_backend,
+            execution_mode=execution_mode,
+        )
+    except PythonExperimentSandboxError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        **result.report.model_dump(mode="json"),
+        "python_experiment_sandbox_present": True,
+        "python_experiment_sandbox_index": result.index.model_dump(mode="json"),
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"sandbox_run_id={result.report.sandbox_run_id}")
+    typer.echo(f"execution_mode={result.report.execution_mode}")
+    typer.echo(f"sandbox_status={result.report.sandbox_status}")
+    typer.echo(f"network_disabled={str(result.report.network_disabled).lower()}")
+    typer.echo(
+        "experiment_artifact_created="
+        f"{str(bool(result.report.ingested_experiment_artifact_path_optional)).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"sandbox_report={result.report_artifact.path}")
+
+
+@app.command("inspect-python-experiment-sandbox")
+def inspect_python_experiment_sandbox_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest local Python experiment sandbox run."""
+    try:
+        summary = inspect_python_experiment_sandbox(run_id=run_id, root=root)
+    except PythonExperimentSandboxError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Python experiment sandbox: {summary['run_id']}")
+    typer.echo(f"Sandbox runs: {summary['python_experiment_sandbox_run_count']}")
+    typer.echo(f"Latest status: {summary['latest_python_sandbox_status']}")
+    typer.echo(f"Completed runs: {summary['python_experiment_sandbox_completed_count']}")
+    typer.echo(f"Failed runs: {summary['python_experiment_sandbox_failed_count']}")
+    typer.echo(
+        "Experiment artifacts created: "
+        f"{summary['python_experiment_artifacts_created_count']}"
+    )
+    typer.echo(
+        "Network disabled: "
+        f"{str(summary['python_experiment_sandbox_network_disabled']).lower()}"
+    )
+    typer.echo("Publication ready: false")
 
 
 @app.command("run-autonomous-loop")
@@ -3904,6 +3989,26 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('retrieval_artifacts_created') or 0)}"
     )
     typer.echo(
+        "Python sandbox: "
+        f"{'present' if summary.get('python_experiment_sandbox_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest sandbox status: "
+        f"{summary.get('latest_python_sandbox_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Completed sandbox runs: "
+        f"{int(summary.get('python_experiment_sandbox_completed_count') or 0)}"
+    )
+    typer.echo(
+        "Python experiment artifacts created: "
+        f"{int(summary.get('python_experiment_artifacts_created_count') or 0)}"
+    )
+    typer.echo(
+        "Python sandbox network disabled: "
+        f"{str(summary.get('python_experiment_sandbox_network_disabled', True)).lower()}"
+    )
+    typer.echo(
         "Autonomous loop: "
         f"{'present' if summary.get('autonomous_loop_present') else 'absent'}"
     )
@@ -4354,6 +4459,17 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('experiment_artifacts_created') or 0)}/"
         f"{int(summary.get('proof_artifacts_created') or 0)}/"
         f"{int(summary.get('retrieval_artifacts_created') or 0)}"
+    )
+    typer.echo(
+        "Python sandbox: "
+        f"{'present' if summary.get('python_experiment_sandbox_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest Python sandbox status/completed/failed/artifacts: "
+        f"{summary.get('latest_python_sandbox_status') or 'not_available'} / "
+        f"{int(summary.get('python_experiment_sandbox_completed_count') or 0)}/"
+        f"{int(summary.get('python_experiment_sandbox_failed_count') or 0)}/"
+        f"{int(summary.get('python_experiment_artifacts_created_count') or 0)}"
     )
     typer.echo(
         "Autonomous loop: "

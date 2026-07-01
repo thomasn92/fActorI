@@ -77,6 +77,7 @@ def execute_planned_specs(
     ledger: ResearchLedger,
     execution_mode: str = "dry_run",
     spec_executor_backend: str = "deterministic_local",
+    python_sandbox_backend: str = "off",
     max_attempts_per_gap: int = 2,
 ) -> PlannedSpecExecutionResult:
     """Execute or dry-run deterministic local planned specs."""
@@ -93,6 +94,10 @@ def execute_planned_specs(
         )
     if max_attempts_per_gap < 1:
         raise PlannedSpecExecutionError("max attempts per gap must be at least 1")
+    if python_sandbox_backend not in {"off", "uv_local", "fake"}:
+        raise PlannedSpecExecutionError(
+            "python sandbox backend must be off, uv_local, or fake"
+        )
 
     root_path = Path(root)
     run_path = root_path / "runs" / run_id
@@ -185,15 +190,30 @@ def execute_planned_specs(
             )
             continue
         if record.spec_type == "experiment_spec":
-            item, created, ingested = _execute_experiment_spec(
-                run_id=run_id,
-                root=root_path,
-                store=store,
-                ledger=ledger,
-                execution_id=execution_id,
-                index=index,
-                spec=record.spec,
-            )
+            if (
+                python_sandbox_backend != "off"
+                and record.spec.experiment_bundle_path_optional is not None
+            ):
+                item, created, ingested = _execute_uv_sandbox_experiment_spec(
+                    run_id=run_id,
+                    root=root_path,
+                    store=store,
+                    ledger=ledger,
+                    execution_id=execution_id,
+                    index=index,
+                    spec=record.spec,
+                    sandbox_backend=python_sandbox_backend,
+                )
+            else:
+                item, created, ingested = _execute_experiment_spec(
+                    run_id=run_id,
+                    root=root_path,
+                    store=store,
+                    ledger=ledger,
+                    execution_id=execution_id,
+                    index=index,
+                    spec=record.spec,
+                )
         elif record.spec_type == "proof_obligation_spec":
             item, created, ingested = _execute_proof_spec(
                 run_id=run_id,
@@ -451,6 +471,111 @@ def render_planned_spec_execution_markdown(report: PlannedSpecExecutionReport) -
         ]
     )
     return "\n".join(lines)
+
+
+def _execute_uv_sandbox_experiment_spec(
+    *,
+    run_id: str,
+    root: Path,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    execution_id: str,
+    index: int,
+    spec: PlannedExperimentSpec,
+    sandbox_backend: str,
+) -> tuple[PlannedSpecExecutionItem, list[str], list[str]]:
+    from factori.python_experiment_sandbox import (  # noqa: PLC0415
+        PythonExperimentSandboxError,
+        run_python_experiment_sandbox,
+    )
+
+    gap_fingerprint = _gap_fingerprint_for_spec(spec)
+    spec_fingerprint = planned_spec_fingerprint(spec)
+    try:
+        sandbox = run_python_experiment_sandbox(
+            run_id=run_id,
+            root=root,
+            store=store,
+            ledger=ledger,
+            experiment_spec=spec,
+            sandbox_backend=sandbox_backend,
+            execution_mode="apply",
+        )
+    except PythonExperimentSandboxError as exc:
+        return (
+            PlannedSpecExecutionItem(
+                item_id=f"item-{index:04d}",
+                spec_id=spec.spec_id,
+                spec_type="experiment_spec",
+                target_claim_id_optional=spec.target_claim_id,
+                gap_fingerprint=gap_fingerprint,
+                planned_spec_fingerprint=spec_fingerprint,
+                execution_attempt_fingerprint=execution_attempt_fingerprint(
+                    run_id=run_id,
+                    execution_id=execution_id,
+                    target_id=spec.spec_id,
+                    gap_fingerprint=gap_fingerprint,
+                    planned_spec_fingerprint_value=spec_fingerprint,
+                    decision="reject",
+                    status="rejected",
+                ),
+                executor_decision="reject",
+                execution_status="rejected",
+                rejected_reason_optional=f"Python sandbox policy rejected spec: {exc}",
+                safety_notes=_standard_safety_notes(),
+            ),
+            [],
+            [],
+        )
+    report = sandbox.report
+    created = [
+        sandbox.report_artifact.path,
+        sandbox.markdown_artifact.path,
+        sandbox.index_artifact.path,
+    ]
+    if report.created_experiment_artifact_path_optional:
+        created.append(report.created_experiment_artifact_path_optional)
+    ingested = (
+        [report.ingested_experiment_artifact_path_optional]
+        if report.ingested_experiment_artifact_path_optional
+        else []
+    )
+    successful = report.sandbox_status == "completed" and bool(ingested)
+    return (
+        PlannedSpecExecutionItem(
+            item_id=f"item-{index:04d}",
+            spec_id=spec.spec_id,
+            spec_type="experiment_spec",
+            target_claim_id_optional=spec.target_claim_id,
+            gap_fingerprint=gap_fingerprint,
+            planned_spec_fingerprint=spec_fingerprint,
+            execution_attempt_fingerprint=execution_attempt_fingerprint(
+                run_id=run_id,
+                execution_id=execution_id,
+                target_id=spec.spec_id,
+                gap_fingerprint=gap_fingerprint,
+                planned_spec_fingerprint_value=spec_fingerprint,
+                decision="execute",
+                status="executed" if successful else "failed",
+            ),
+            executor_decision="execute",
+            execution_status="executed" if successful else "failed",
+            created_artifact_path_optional=sandbox.report_artifact.path,
+            ingested_artifact_path_optional=(ingested[0] if ingested else None),
+            failed_reason_optional=(
+                None
+                if successful
+                else f"Python sandbox ended with status={report.sandbox_status}."
+            ),
+            safety_notes=[
+                *_standard_safety_notes(),
+                "uv_local executed a fixed approved bundle command in offline mode.",
+                "Only a completed intake-validated artifact counts as bounded experiment evidence.",
+            ],
+        ),
+        created,
+        ingested,
+    )
 
 
 def _execute_experiment_spec(

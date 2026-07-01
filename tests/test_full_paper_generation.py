@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -69,6 +70,11 @@ from factori.ledger import ResearchLedger
 from factori.planned_spec_execution import (
     execute_planned_specs,
     inspect_planned_spec_execution,
+)
+from factori.python_experiment_sandbox import (
+    PythonExperimentSandboxError,
+    inspect_python_experiment_sandbox,
+    run_python_experiment_sandbox,
 )
 from factori.reviewer_change_requests import (
     ReviewerChangeRequestError,
@@ -2324,6 +2330,141 @@ def test_planned_spec_execution_failed_experiment_does_not_create_artifact(
     assert result.report.publication_ready is False
 
 
+def test_python_experiment_sandbox_dry_run_is_non_evidence(tmp_path) -> None:
+    run_id = "run-python-sandbox-dry-run"
+    spec = _prepare_python_sandbox_fixture(tmp_path, run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    map_path = tmp_path / "runs" / run_id / "reports" / "claim-evidence-map.json"
+    before_hash = sha256_file(map_path)
+
+    result = run_python_experiment_sandbox(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_spec=spec,
+        sandbox_backend="uv_local",
+        execution_mode="dry-run",
+    )
+
+    assert result.report.sandbox_status == "dry_run_ready"
+    assert result.report.network_disabled is True
+    assert result.report.ingested_experiment_artifact_path_optional is None
+    assert result.report.claim_evidence_map_rebuilt is False
+    assert sha256_file(map_path) == before_hash
+    assert not (tmp_path / "runs" / run_id / "experiments" / result.report.sandbox_run_id).exists()
+    assert not list((tmp_path / "runs" / run_id / "reports").glob("experiment-artifact-*.json"))
+
+
+def test_python_experiment_sandbox_apply_executes_uv_and_ingests(tmp_path) -> None:
+    run_id = "run-python-sandbox-apply"
+    spec = _prepare_python_sandbox_fixture(tmp_path, run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = run_python_experiment_sandbox(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_spec=spec,
+        sandbox_backend="uv_local",
+        execution_mode="apply",
+    )
+    inspected = inspect_python_experiment_sandbox(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    workdir = tmp_path / result.report.working_directory
+
+    assert result.report.sandbox_status == "completed"
+    assert (workdir / "stdout.txt").is_file()
+    assert (workdir / "stderr.txt").is_file()
+    assert (workdir / "metrics.json").is_file()
+    assert (workdir / "artifact-manifest.json").is_file()
+    assert (workdir / "pyproject.toml").is_file()
+    assert (workdir / "uv.lock").is_file()
+    assert result.report.metrics_hash_optional
+    assert result.report.output_hash_optional
+    assert result.report.ingested_experiment_artifact_path_optional
+    assert result.report.claim_evidence_map_rebuilt is True
+    assert result.report.release_rechecked is True
+    assert result.report.publication_ready is False
+    assert inspected["python_experiment_sandbox_completed_count"] == 1
+    assert inspected["python_experiment_artifacts_created_count"] == 1
+    assert lint["python_experiment_sandbox_present"] is True
+    assert lint["python_experiment_sandbox_network_disabled"] is True
+    assert reviewer["python_experiment_sandbox_present"] is True
+    assert reviewer["latest_python_sandbox_status"] == "completed"
+    artifact = ExperimentArtifact.model_validate_json(
+        (tmp_path / result.report.created_experiment_artifact_path_optional).read_text()
+    )
+    assert artifact.status == "completed"
+    assert artifact.experiment_type == "synthetic_uv_local"
+    assert artifact.implies_publication_readiness is False
+    assert artifact.is_verification_evidence is False
+
+
+def test_python_experiment_sandbox_rejects_network_and_unapproved_dependencies(
+    tmp_path,
+) -> None:
+    run_id = "run-python-sandbox-policy"
+    spec = _prepare_python_sandbox_fixture(tmp_path, run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    with pytest.raises(PythonExperimentSandboxError, match="network access"):
+        run_python_experiment_sandbox(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            experiment_spec=spec.model_copy(update={"allow_network": True}),
+            execution_mode="dry-run",
+        )
+    with pytest.raises(PythonExperimentSandboxError, match="outside the allowlist"):
+        run_python_experiment_sandbox(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            experiment_spec=spec.model_copy(
+                update={"requested_dependencies": ["unapproved-package"]}
+            ),
+            execution_mode="dry-run",
+        )
+
+
+def test_planned_spec_execution_uses_explicit_uv_sandbox_backend(tmp_path) -> None:
+    run_id = "run-planned-python-sandbox"
+    spec = _prepare_python_sandbox_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "experiment-spec-synthetic-calibration.json").write_text(
+        spec.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+        python_sandbox_backend="uv_local",
+    )
+
+    assert result.report.experiment_specs_executed == 1
+    assert result.report.experiment_artifacts_created == 1
+    assert result.report.items[0].execution_status == "executed"
+    assert result.report.items[0].ingested_artifact_path_optional
+    assert result.report.publication_ready is False
+    assert inspect_python_experiment_sandbox(
+        run_id=run_id,
+        root=tmp_path,
+    )["latest_python_sandbox_status"] == "completed"
+
+
 def test_autonomous_loop_runs_plan_specs_and_updates_bundle_views(tmp_path) -> None:
     run_id = "run-autonomous-loop"
     _prepare_reviewable_bundle(tmp_path, run_id=run_id)
@@ -3538,6 +3679,53 @@ def _write_human_review_artifact_report(tmp_path, *, run_id: str) -> None:
     (reports / "human-review-artifact.json").write_text(
         review.model_dump_json(indent=2) + "\n",
         encoding="utf-8",
+    )
+
+
+def _prepare_python_sandbox_fixture(tmp_path, run_id: str) -> PlannedExperimentSpec:
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "experiments"
+        / "bundles"
+        / "synthetic_calibration"
+    )
+    destination = (
+        tmp_path
+        / "runs"
+        / run_id
+        / "approved-experiment-bundles"
+        / "synthetic_calibration"
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, destination)
+    return PlannedExperimentSpec(
+        run_id=run_id,
+        spec_id="synthetic-calibration-experiment-spec",
+        target_claim_id="demonstration-status-p0-s0",
+        target_section="Demonstration Status",
+        hypothesis_or_question=(
+            "Does the bounded synthetic method reduce calibration error relative to baseline?"
+        ),
+        suggested_dataset="deterministic synthetic calibration grid",
+        suggested_metrics=["baseline_mae", "method_mae", "bounded_improvement"],
+        suggested_baselines=["synthetic identity baseline"],
+        suggested_seed_policy="fixed seed 1729",
+        expected_output_artifacts=["metrics.json", "outputs/summary.json"],
+        experiment_bundle_path_optional=destination.relative_to(tmp_path).as_posix(),
+        requested_dependencies=[],
+        allow_network=False,
+        seed=1729,
+        timeout_seconds=30,
     )
 
 

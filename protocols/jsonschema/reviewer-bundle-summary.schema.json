@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.36.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.37.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -468,6 +468,18 @@
       "default": null,
       "title": "Latest Planned Spec Execution Status"
     },
+    "latest_python_sandbox_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Python Sandbox Status"
+    },
     "latest_reconciliation_cycle": {
       "default": 0,
       "minimum": 0,
@@ -526,6 +538,29 @@
       "default": false,
       "title": "Publication Ready",
       "type": "boolean"
+    },
+    "python_experiment_sandbox_present": {
+      "default": false,
+      "title": "Python Experiment Sandbox Present",
+      "type": "boolean"
+    },
+    "python_sandbox_artifacts_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Python Sandbox Artifacts Created",
+      "type": "integer"
+    },
+    "python_sandbox_completed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Python Sandbox Completed Count",
+      "type": "integer"
+    },
+    "python_sandbox_failed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Python Sandbox Failed Count",
+      "type": "integer"
     },
     "quality_repair_status": {
       "minLength": 1,
@@ -669,7 +704,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.36.0",
+  "x-factori-protocol-version": "0.37.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

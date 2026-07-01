@@ -1,0 +1,251 @@
+{
+  "$id": "https://schemas.factori.local/0.37.0/python-experiment-sandbox-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only non-evidence report for one Python sandbox run.",
+  "properties": {
+    "artifact_manifest_path": {
+      "minLength": 1,
+      "title": "Artifact Manifest Path",
+      "type": "string"
+    },
+    "claim_evidence_map_rebuilt": {
+      "default": false,
+      "title": "Claim Evidence Map Rebuilt",
+      "type": "boolean"
+    },
+    "code_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Code Hash",
+      "type": "string"
+    },
+    "command_executed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Command Executed",
+      "type": "array"
+    },
+    "config_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Hash",
+      "type": "string"
+    },
+    "created_experiment_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created Experiment Artifact Path Optional"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "dependency_policy": {
+      "additionalProperties": true,
+      "title": "Dependency Policy",
+      "type": "object"
+    },
+    "execution_mode": {
+      "enum": [
+        "dry_run",
+        "apply"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "experiment_bundle_path": {
+      "minLength": 1,
+      "title": "Experiment Bundle Path",
+      "type": "string"
+    },
+    "experiment_spec_id": {
+      "minLength": 1,
+      "title": "Experiment Spec Id",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "ingested_experiment_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ingested Experiment Artifact Path Optional"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metrics_hash_optional": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Metrics Hash Optional"
+    },
+    "metrics_path": {
+      "minLength": 1,
+      "title": "Metrics Path",
+      "type": "string"
+    },
+    "network_disabled": {
+      "default": true,
+      "title": "Network Disabled",
+      "type": "boolean"
+    },
+    "output_hash_optional": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Hash Optional"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "pyproject_path": {
+      "minLength": 1,
+      "title": "Pyproject Path",
+      "type": "string"
+    },
+    "release_rechecked": {
+      "default": false,
+      "title": "Release Rechecked",
+      "type": "boolean"
+    },
+    "resource_limits": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Resource Limits",
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_backend": {
+      "enum": [
+        "uv_local",
+        "fake"
+      ],
+      "title": "Sandbox Backend",
+      "type": "string"
+    },
+    "sandbox_run_id": {
+      "minLength": 1,
+      "title": "Sandbox Run Id",
+      "type": "string"
+    },
+    "sandbox_status": {
+      "enum": [
+        "dry_run_ready",
+        "completed",
+        "failed",
+        "timed_out",
+        "rejected_policy_violation",
+        "not_reproducible"
+      ],
+      "title": "Sandbox Status",
+      "type": "string"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "stderr_path": {
+      "minLength": 1,
+      "title": "Stderr Path",
+      "type": "string"
+    },
+    "stdout_path": {
+      "minLength": 1,
+      "title": "Stdout Path",
+      "type": "string"
+    },
+    "timeout_seconds": {
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    },
+    "uv_lock_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Uv Lock Path Optional"
+    },
+    "working_directory": {
+      "minLength": 1,
+      "title": "Working Directory",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "experiment_spec_id",
+    "sandbox_run_id",
+    "sandbox_backend",
+    "execution_mode",
+    "sandbox_status",
+    "experiment_bundle_path",
+    "working_directory",
+    "pyproject_path",
+    "seed",
+    "timeout_seconds",
+    "stdout_path",
+    "stderr_path",
+    "metrics_path",
+    "artifact_manifest_path",
+    "config_hash",
+    "code_hash",
+    "input_hash"
+  ],
+  "title": "PythonExperimentSandboxReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.37.0",
+  "x-factori-source-model": "factori.schemas.PythonExperimentSandboxReport",
+  "x-factori-verification-evidence": false
+}

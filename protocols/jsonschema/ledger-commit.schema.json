@@ -169,6 +169,7 @@
         "AutonomousEvidencePlanWritten",
         "AutonomousPlanExecutionWritten",
         "PlannedSpecExecutionWritten",
+        "PythonExperimentSandboxWritten",
         "AutonomousLoopWritten",
         "GapAttemptHistoryWritten",
         "GapStrategyDiversificationWritten",
@@ -179,7 +180,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.36.0/ledger-commit.schema.json",
+  "$id": "https://schemas.factori.local/0.37.0/ledger-commit.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only provenance commit.",
@@ -247,7 +248,7 @@
   ],
   "title": "LedgerCommit",
   "type": "object",
-  "x-factori-protocol-version": "0.36.0",
+  "x-factori-protocol-version": "0.37.0",
   "x-factori-source-model": "factori.schemas.LedgerCommit",
   "x-factori-verification-evidence": false
 }

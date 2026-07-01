@@ -1,0 +1,6 @@
+{
+  "approved_local_bundle": true,
+  "bundle_format": "factori-python-experiment-v1",
+  "experiment_template": "synthetic_calibration",
+  "seed": 1729
+}

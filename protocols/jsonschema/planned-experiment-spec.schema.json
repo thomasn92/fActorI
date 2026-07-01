@@ -1,9 +1,14 @@
 {
-  "$id": "https://schemas.factori.local/0.36.0/planned-experiment-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.37.0/planned-experiment-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned experiment specification without experiment-evidence authority.",
   "properties": {
+    "allow_network": {
+      "default": false,
+      "title": "Allow Network",
+      "type": "boolean"
+    },
     "creates_scientific_validation": {
       "default": false,
       "title": "Creates Scientific Validation",
@@ -16,6 +21,18 @@
       "minItems": 1,
       "title": "Expected Output Artifacts",
       "type": "array"
+    },
+    "experiment_bundle_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Bundle Path Optional"
     },
     "hypothesis_or_question": {
       "minLength": 1,
@@ -32,10 +49,34 @@
       "title": "Is Verification Evidence",
       "type": "boolean"
     },
+    "requested_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested Dependencies",
+      "type": "array"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
+    },
+    "seed": {
+      "default": 1729,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "shell_command_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shell Command Optional"
     },
     "spec_id": {
       "minLength": 1,
@@ -83,6 +124,13 @@
       "minLength": 1,
       "title": "Target Section",
       "type": "string"
+    },
+    "timeout_seconds": {
+      "default": 30,
+      "maximum": 300,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
     }
   },
   "required": [
@@ -99,7 +147,7 @@
   ],
   "title": "PlannedExperimentSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.36.0",
+  "x-factori-protocol-version": "0.37.0",
   "x-factori-source-model": "factori.schemas.PlannedExperimentSpec",
   "x-factori-verification-evidence": false
 }

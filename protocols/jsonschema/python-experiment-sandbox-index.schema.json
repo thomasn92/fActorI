@@ -1,0 +1,95 @@
+{
+  "$id": "https://schemas.factori.local/0.37.0/python-experiment-sandbox-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable Python sandbox reports.",
+  "properties": {
+    "completed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Completed Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "experiment_artifacts_created_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Artifacts Created Count",
+      "type": "integer"
+    },
+    "failed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Failed Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_report_path": {
+      "minLength": 1,
+      "title": "Latest Report Path",
+      "type": "string"
+    },
+    "latest_sandbox_run_id": {
+      "minLength": 1,
+      "title": "Latest Sandbox Run Id",
+      "type": "string"
+    },
+    "latest_sandbox_status": {
+      "enum": [
+        "dry_run_ready",
+        "completed",
+        "failed",
+        "timed_out",
+        "rejected_policy_violation",
+        "not_reproducible"
+      ],
+      "title": "Latest Sandbox Status",
+      "type": "string"
+    },
+    "network_disabled": {
+      "default": true,
+      "title": "Network Disabled",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_run_count": {
+      "minimum": 1,
+      "title": "Sandbox Run Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_sandbox_run_id",
+    "sandbox_run_count",
+    "latest_sandbox_status",
+    "latest_report_path"
+  ],
+  "title": "PythonExperimentSandboxIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.37.0",
+  "x-factori-source-model": "factori.schemas.PythonExperimentSandboxIndex",
+  "x-factori-verification-evidence": false
+}

@@ -151,6 +151,10 @@ from factori.schemas import (
     ProsePromptContract,
     ProseSafetyReport,
     ProseSectionContract,
+    PythonExperimentSandboxIndex,
+    PythonExperimentSandboxManifest,
+    PythonExperimentSandboxReport,
+    PythonExperimentSandboxRun,
     QualityRepairReport,
     ReleaseGateDecision,
     ReleaseGateStatus,
@@ -188,7 +192,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.36.0"
+PROTOCOL_VERSION = "0.37.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -429,6 +433,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "PlannedSpecExecutionIndex",
         PlannedSpecExecutionIndex,
         "Derived latest pointer over immutable planned-spec executions.",
+    ),
+    ProtocolDefinition(
+        "PythonExperimentSandboxManifest",
+        PythonExperimentSandboxManifest,
+        "Hashed approved files and closed local Python sandbox policy.",
+    ),
+    ProtocolDefinition(
+        "PythonExperimentSandboxRun",
+        PythonExperimentSandboxRun,
+        "One bounded uv-based local Python experiment execution record.",
+    ),
+    ProtocolDefinition(
+        "PythonExperimentSandboxReport",
+        PythonExperimentSandboxReport,
+        "Append-only non-evidence report for one Python sandbox run.",
+    ),
+    ProtocolDefinition(
+        "PythonExperimentSandboxIndex",
+        PythonExperimentSandboxIndex,
+        "Derived latest pointer over immutable Python sandbox reports.",
     ),
     ProtocolDefinition(
         "GapAttemptRecord",

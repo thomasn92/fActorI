@@ -124,6 +124,14 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
         app,
         ["inspect-planned-spec-execution", "--help"],
     )
+    run_python_sandbox = runner.invoke(
+        app,
+        ["run-python-experiment-sandbox", "--help"],
+    )
+    inspect_python_sandbox = runner.invoke(
+        app,
+        ["inspect-python-experiment-sandbox", "--help"],
+    )
     run_loop = runner.invoke(app, ["run-autonomous-loop", "--help"])
     inspect_loop = runner.invoke(app, ["inspect-autonomous-loop", "--help"])
     inspect_gap_history = runner.invoke(app, ["inspect-gap-attempt-history", "--help"])
@@ -152,6 +160,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_strategies.exit_code == 0, inspect_strategies.output
     assert execute_planned_specs.exit_code == 0, execute_planned_specs.output
     assert inspect_planned_specs.exit_code == 0, inspect_planned_specs.output
+    assert run_python_sandbox.exit_code == 0, run_python_sandbox.output
+    assert inspect_python_sandbox.exit_code == 0, inspect_python_sandbox.output
     assert run_loop.exit_code == 0, run_loop.output
     assert inspect_loop.exit_code == 0, inspect_loop.output
     assert inspect_gap_history.exit_code == 0, inspect_gap_history.output
@@ -166,7 +176,12 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--json" in inspect_autonomous_execution.output
     assert "--execution-mode" in execute_planned_specs.output
     assert "--spec-executor-backend" in execute_planned_specs.output
+    assert "--python-sandbox-backend" in execute_planned_specs.output
     assert "--json" in inspect_planned_specs.output
+    assert "--experiment-spec" in run_python_sandbox.output
+    assert "--sandbox-backend" in run_python_sandbox.output
+    assert "--execution-mode" in run_python_sandbox.output
+    assert "--json" in inspect_python_sandbox.output
     assert "--loop-backend" in run_loop.output
     assert "--max-iterations" in run_loop.output
     assert "--max-attempts-per-gap" in run_loop.output
