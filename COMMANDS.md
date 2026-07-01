@@ -173,9 +173,14 @@ uv run factori execute-planned-specs \
 uv run factori inspect-planned-spec-execution --run-id demo
 uv run factori inspect-planned-spec-execution --run-id demo --json
 uv run factori run-autonomous-loop \
-  --run-id demo --loop-backend deterministic --max-iterations 3
+  --run-id demo --loop-backend deterministic --max-iterations 3 \
+  --max-attempts-per-gap 2
 uv run factori inspect-autonomous-loop --run-id demo
 uv run factori inspect-autonomous-loop --run-id demo --json
+uv run factori inspect-gap-attempt-history --run-id demo
+uv run factori inspect-gap-attempt-history --run-id demo --json
+uv run factori inspect-planned-spec-dedup --run-id demo
+uv run factori inspect-planned-spec-dedup --run-id demo --json
 uv run factori ingest-reviewer-change-requests \
   --run-id demo --request-file path/to/reviewer-change-requests.json
 uv run factori inspect-reviewer-change-requests --run-id demo

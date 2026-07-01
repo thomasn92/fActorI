@@ -63,7 +63,9 @@
                 "max_iterations_reached",
                 "safety_gate_blocked",
                 "ledger_invalid",
-                "requires_human_intervention"
+                "requires_human_intervention",
+                "exhausted_gaps",
+                "deferred_gaps"
               ],
               "type": "string"
             },
@@ -184,6 +186,12 @@
         "decision": {
           "$ref": "#/$defs/AutonomousLoopDecision"
         },
+        "duplicate_specs_skipped": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Duplicate Specs Skipped",
+          "type": "integer"
+        },
         "evidence_aware_refresh_report_path": {
           "anyOf": [
             {
@@ -202,6 +210,12 @@
           "title": "Experiment Artifacts Created",
           "type": "integer"
         },
+        "gaps_marked_exhausted": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Gaps Marked Exhausted",
+          "type": "integer"
+        },
         "implies_publication_readiness": {
           "default": false,
           "title": "Implies Publication Readiness",
@@ -215,6 +229,12 @@
         "iteration": {
           "minimum": 1,
           "title": "Iteration",
+          "type": "integer"
+        },
+        "iterations_without_progress": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Iterations Without Progress",
           "type": "integer"
         },
         "manuscript_hash_after": {
@@ -356,7 +376,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.34.0/autonomous-loop-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/autonomous-loop-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous iterative loop controller report.",
@@ -377,6 +397,24 @@
       "default": false,
       "title": "Creates Scientific Validation",
       "type": "boolean"
+    },
+    "dedup_index_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dedup Index Path"
+    },
+    "duplicate_specs_skipped": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Specs Skipped",
+      "type": "integer"
     },
     "final_claim_evidence_counts": {
       "additionalProperties": {
@@ -401,6 +439,24 @@
       "minLength": 1,
       "title": "Final Release Status",
       "type": "string"
+    },
+    "gap_attempt_history_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Attempt History Path"
+    },
+    "gaps_marked_exhausted": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gaps Marked Exhausted",
+      "type": "integer"
     },
     "human_intervention_reason_optional": {
       "anyOf": [
@@ -458,6 +514,12 @@
     "iterations_completed": {
       "minimum": 0,
       "title": "Iterations Completed",
+      "type": "integer"
+    },
+    "iterations_without_progress": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Iterations Without Progress",
       "type": "integer"
     },
     "loop_backend": {
@@ -521,10 +583,17 @@
         "max_iterations_reached",
         "safety_gate_blocked",
         "ledger_invalid",
-        "requires_human_intervention"
+        "requires_human_intervention",
+        "exhausted_gaps",
+        "deferred_gaps"
       ],
       "title": "Stop Reason",
       "type": "string"
+    },
+    "stopped_due_to_exhausted_gaps": {
+      "default": false,
+      "title": "Stopped Due To Exhausted Gaps",
+      "type": "boolean"
     }
   },
   "required": [
@@ -541,7 +610,7 @@
   ],
   "title": "AutonomousLoopRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopRunReport",
   "x-factori-verification-evidence": false
 }

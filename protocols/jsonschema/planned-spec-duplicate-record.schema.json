@@ -1,0 +1,73 @@
+{
+  "$id": "https://schemas.factori.local/0.35.0/planned-spec-duplicate-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One planned-spec duplicate record keyed by stable fingerprint.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "duplicate_spec_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Duplicate Spec Fingerprint",
+      "type": "string"
+    },
+    "duplicate_spec_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duplicate Spec Path Optional"
+    },
+    "existing_spec_path": {
+      "minLength": 1,
+      "title": "Existing Spec Path",
+      "type": "string"
+    },
+    "gap_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Fingerprint"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "skipped_new_spec_reason": {
+      "minLength": 1,
+      "title": "Skipped New Spec Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "duplicate_spec_fingerprint",
+    "existing_spec_path",
+    "skipped_new_spec_reason"
+  ],
+  "title": "PlannedSpecDuplicateRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.35.0",
+  "x-factori-source-model": "factori.schemas.PlannedSpecDuplicateRecord",
+  "x-factori-verification-evidence": false
+}

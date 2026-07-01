@@ -42,6 +42,12 @@ from factori.full_paper_generation import (
     lint_paper_bundle_summary,
 )
 from factori.full_paper_release import run_full_paper_release_gate
+from factori.gap_attempts import (
+    gap_fingerprint_for_plan_item,
+    inspect_gap_attempt_history,
+    inspect_planned_spec_dedup,
+    planned_spec_fingerprint,
+)
 from factori.hashing import sha256_file
 from factori.human_review import (
     HumanReviewIntakeError,
@@ -84,6 +90,8 @@ from factori.schemas import (
     FullPaperGenerationReport,
     FullPaperGenerationStatus,
     FullPaperReleaseGateConfig,
+    GapAttemptHistory,
+    GapAttemptRecord,
     GeneratedSectionDraft,
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
@@ -91,6 +99,8 @@ from factori.schemas import (
     PipelineRunConfig,
     PipelineStage,
     PlannedExperimentSpec,
+    PlannedSpecDedupIndex,
+    PlannedSpecDuplicateRecord,
     PlannedSpecExecutionReport,
     ProofArtifact,
     ProofObligationSpec,
@@ -119,6 +129,10 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert PlannedSpecExecutionReport
     assert AutonomousLoopRunReport
     assert AutonomousLoopIndex
+    assert GapAttemptRecord
+    assert GapAttemptHistory
+    assert PlannedSpecDuplicateRecord
+    assert PlannedSpecDedupIndex
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -1778,6 +1792,115 @@ def test_autonomous_plan_executor_applies_safe_text_and_creates_planned_specs(
     assert not list(reports.glob("experiment-artifact-*.json"))
 
 
+def test_gap_and_spec_fingerprints_are_stable() -> None:
+    item_a = AutonomousEvidenceGapPlanItem(
+        item_id="plan-item-001",
+        target_type="claim",
+        target_claim_id_optional="claim-1",
+        target_section_optional="Method and Model",
+        current_support_status="unsupported",
+        gap_type="needs_formal_proof",
+        recommended_action="Schedule a scoped formal proof attempt.",
+        priority="high",
+        blocking=True,
+        rationale="Theorem-like claim needs proof.",
+        required_inputs=["claim_id=claim-1", "claim_text_hash=" + "a" * 64],
+        expected_artifact_type="proof_artifact",
+        automation_ready=True,
+    )
+    item_b = item_a.model_copy(update={"item_id": "plan-item-999"})
+    assert gap_fingerprint_for_plan_item(run_id="run-1", item=item_a) == (
+        gap_fingerprint_for_plan_item(run_id="run-1", item=item_b)
+    )
+
+    spec_a = ProofObligationSpec(
+        run_id="run-1",
+        spec_id="proof-obligation-spec-a",
+        target_claim_id="claim-1",
+        statement="A scoped statement requires proof evidence.",
+        suggested_checker="explicitly configured local formal proof backend",
+        required_artifact_type="passed scoped proof artifact",
+    )
+    spec_b = spec_a.model_copy(update={"spec_id": "proof-obligation-spec-b"})
+    assert planned_spec_fingerprint(spec_a) == planned_spec_fingerprint(spec_b)
+
+
+def test_autonomous_plan_executor_deduplicates_equivalent_planned_specs(
+    tmp_path,
+) -> None:
+    run_id = "run-autonomous-dedup"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    map_result = persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    plan = AutonomousEvidenceGapPlan(
+        run_id=run_id,
+        planner_backend="deterministic",
+        planner_status="planned",
+        claim_evidence_map_path=map_result.map_artifact.path,
+        claim_support_audit_path=f"runs/{run_id}/reports/claim-support-audit.json",
+        plan_items=[
+            AutonomousEvidenceGapPlanItem(
+                item_id="plan-item-proof",
+                target_type="claim",
+                target_claim_id_optional="fixture-theorem-claim",
+                target_section_optional="Method and Model",
+                current_support_status="unsupported",
+                gap_type="needs_formal_proof",
+                recommended_action="Plan a scoped formal proof attempt.",
+                priority="high",
+                blocking=True,
+                rationale="Fixture theorem requires a passed checker.",
+                expected_artifact_type="proof_artifact",
+                automation_ready=True,
+            )
+        ],
+        ready_for_formal_proof_attempt=True,
+    )
+    (reports / "autonomous-evidence-gap-plan-9999.json").write_text(
+        plan.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    first = execute_autonomous_evidence_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        executor_backend="deterministic",
+    )
+    second = execute_autonomous_evidence_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        executor_backend="deterministic",
+    )
+    proof_specs = [
+        path
+        for path in reports.glob("proof-obligation-spec-*.json")
+        if not path.name.endswith(".meta.json")
+    ]
+    history = inspect_gap_attempt_history(run_id=run_id, root=tmp_path)
+    dedup = inspect_planned_spec_dedup(run_id=run_id, root=tmp_path)
+
+    assert first.report.actions_applied == 1
+    assert second.report.duplicate_specs_skipped == 1
+    assert len(proof_specs) == 1
+    assert history["gap_attempt_history_present"] is True
+    assert history["gap_attempt_count"] >= 1
+    assert dedup["planned_spec_dedup_index_present"] is True
+    assert dedup["duplicate_planned_spec_count"] >= 1
+
+
 def test_autonomous_plan_executor_blocks_corrupt_plan_with_human_intervention(
     tmp_path,
 ) -> None:
@@ -1912,6 +2035,63 @@ def test_planned_spec_execution_apply_runs_local_templates_and_rechecks(
     assert lint["publication_ready"] is False
 
 
+def test_planned_spec_execution_skips_equivalent_duplicate_specs(tmp_path) -> None:
+    run_id = "run-planned-spec-dedup"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    reports = tmp_path / "runs" / run_id / "reports"
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    _write_planned_proof_spec(
+        reports,
+        run_id=run_id,
+        spec_id="proof-obligation-spec-dedup-a",
+    )
+    _write_planned_proof_spec(
+        reports,
+        run_id=run_id,
+        spec_id="proof-obligation-spec-dedup-b",
+    )
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+    )
+    proof_artifacts_after_first = sorted(reports.glob("proof-artifact-*.json"))
+    second = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+    )
+    dedup = inspect_planned_spec_dedup(run_id=run_id, root=tmp_path)
+    history = inspect_gap_attempt_history(run_id=run_id, root=tmp_path)
+
+    assert result.report.spec_count == 2
+    assert result.report.proof_specs_executed == 1
+    assert result.report.duplicate_specs_skipped == 1
+    assert result.report.items[1].execution_status == "skipped"
+    assert second.report.proof_specs_executed == 0
+    assert second.report.unique_specs_executed == 0
+    assert second.report.duplicate_specs_skipped == 2
+    assert second.report.proof_artifacts_created == 0
+    assert sorted(reports.glob("proof-artifact-*.json")) == proof_artifacts_after_first
+    assert dedup["duplicate_planned_spec_count"] >= 1
+    assert history["gap_attempt_history_present"] is True
+    assert history["gap_attempt_count"] >= 1
+
+
 def test_planned_spec_execution_fixture_formal_proof_is_scoped(
     tmp_path,
 ) -> None:
@@ -2044,6 +2224,42 @@ def test_autonomous_loop_runs_plan_specs_and_updates_bundle_views(tmp_path) -> N
     assert reviewer["autonomous_loop_present"] is True
     assert reviewer["latest_autonomous_loop_status"] == result.report.loop_status
     assert reviewer["publication_ready"] is False
+
+
+def test_autonomous_loop_stops_before_max_iterations_for_exhausted_gaps(tmp_path) -> None:
+    run_id = "run-autonomous-loop-dedup"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=5,
+        max_attempts_per_gap=1,
+    )
+    inspected = inspect_autonomous_loop(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    history = inspect_gap_attempt_history(run_id=run_id, root=tmp_path)
+    dedup = inspect_planned_spec_dedup(run_id=run_id, root=tmp_path)
+
+    assert result.report.iterations_completed < 5
+    assert result.report.loop_status in {
+        "completed_with_deferred_gaps",
+        "stopped_no_progress",
+        "completed",
+    }
+    assert result.report.stop_reason != "max_iterations_reached"
+    assert result.report.publication_ready is False
+    assert inspected["gap_exhausted_no_progress_count"] >= 0
+    assert lint["gap_attempt_history_present"] is True
+    assert lint["planned_spec_dedup_index_present"] is True
+    assert lint["latest_autonomous_loop_stop_reason"] != "max_iterations_reached"
+    assert history["gap_attempt_history_present"] is True
+    assert dedup["planned_spec_dedup_index_present"] is True
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:

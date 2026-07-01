@@ -34,6 +34,12 @@ from factori.claim_evidence import (
     claim_evidence_summary_fields,
     latest_claim_evidence_map_path,
 )
+from factori.gap_attempts import (
+    gap_attempt_summary_fields,
+    latest_gap_attempt_history_path,
+    latest_planned_spec_dedup_index_path,
+    planned_spec_dedup_summary_fields,
+)
 from factori.latex_export import (
     LatexExportError,
     LatexExportRunResult,
@@ -83,10 +89,12 @@ from factori.schemas import (
     FullPaperGenerationStep,
     FullPaperGenerationStepStatus,
     FullPaperReleaseReport,
+    GapAttemptHistory,
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
     PaperCriticReport,
+    PlannedSpecDedupIndex,
     PlannedSpecExecutionReport,
     ProofArtifact,
     QualityRepairReport,
@@ -771,6 +779,12 @@ def inspect_paper_bundle_summary(
         autonomous_loop_report,
         autonomous_loop_index,
     )
+    gap_attempt_history = _read_gap_attempt_history(root_path, run_id)
+    gap_attempt_summary = gap_attempt_summary_fields(gap_attempt_history)
+    planned_spec_dedup_index = _read_planned_spec_dedup_index(root_path, run_id)
+    planned_spec_dedup_summary = planned_spec_dedup_summary_fields(planned_spec_dedup_index)
+    gap_attempt_history_path = latest_gap_attempt_history_path(root_path, run_id)
+    planned_spec_dedup_index_path = latest_planned_spec_dedup_index_path(root_path, run_id)
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
     markdown = primary_draft.read_text(encoding="utf-8") if primary_draft is not None else ""
     section_accounting = _section_accounting(
@@ -943,6 +957,18 @@ def inspect_paper_bundle_summary(
         **autonomous_execution_summary,
         **planned_spec_execution_summary,
         **autonomous_loop_summary,
+        **gap_attempt_summary,
+        **planned_spec_dedup_summary,
+        "gap_attempt_history_path": (
+            gap_attempt_history_path.relative_to(root_path).as_posix()
+            if gap_attempt_history_path is not None
+            else None
+        ),
+        "planned_spec_dedup_index_path": (
+            planned_spec_dedup_index_path.relative_to(root_path).as_posix()
+            if planned_spec_dedup_index_path is not None
+            else None
+        ),
         "human_intervention_required": bool(
             autonomous_plan_summary["autonomous_human_intervention_required"]
             or planned_spec_execution_summary[
@@ -1441,6 +1467,20 @@ def lint_paper_bundle_summary(
     autonomous_loop_requires_human_intervention = bool(
         bundle.get("autonomous_loop_requires_human_intervention")
     )
+    gap_attempt_history_present = bool(bundle.get("gap_attempt_history_present"))
+    gap_attempt_count = int(bundle.get("gap_attempt_count") or 0)
+    gap_exhausted_no_progress_count = int(
+        bundle.get("gap_exhausted_no_progress_count") or 0
+    )
+    planned_spec_dedup_index_present = bool(bundle.get("planned_spec_dedup_index_present"))
+    duplicate_planned_spec_count = int(bundle.get("duplicate_planned_spec_count") or 0)
+    duplicate_specs_skipped = int(bundle.get("duplicate_specs_skipped") or 0)
+    autonomous_loop_iterations_without_progress = int(
+        bundle.get("autonomous_loop_iterations_without_progress") or 0
+    )
+    autonomous_loop_stopped_due_to_exhausted_gaps = bool(
+        bundle.get("autonomous_loop_stopped_due_to_exhausted_gaps")
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -1878,6 +1918,18 @@ def lint_paper_bundle_summary(
         ),
         "autonomous_loop_requires_human_intervention": (
             autonomous_loop_requires_human_intervention
+        ),
+        "gap_attempt_history_present": gap_attempt_history_present,
+        "gap_attempt_count": gap_attempt_count,
+        "gap_exhausted_no_progress_count": gap_exhausted_no_progress_count,
+        "planned_spec_dedup_index_present": planned_spec_dedup_index_present,
+        "duplicate_planned_spec_count": duplicate_planned_spec_count,
+        "duplicate_specs_skipped": duplicate_specs_skipped,
+        "autonomous_loop_iterations_without_progress": (
+            autonomous_loop_iterations_without_progress
+        ),
+        "autonomous_loop_stopped_due_to_exhausted_gaps": (
+            autonomous_loop_stopped_due_to_exhausted_gaps
         ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
@@ -2434,6 +2486,26 @@ def _read_claim_evidence_map(path: Path) -> ClaimEvidenceMap | None:
         return None
 
 
+def _read_gap_attempt_history(root: Path, run_id: str) -> GapAttemptHistory | None:
+    path = latest_gap_attempt_history_path(root, run_id)
+    if path is None or not path.is_file():
+        return None
+    try:
+        return GapAttemptHistory.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _read_planned_spec_dedup_index(root: Path, run_id: str) -> PlannedSpecDedupIndex | None:
+    path = latest_planned_spec_dedup_index_path(root, run_id)
+    if path is None or not path.is_file():
+        return None
+    try:
+        return PlannedSpecDedupIndex.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def _read_autonomous_evidence_gap_plan(
     path: Path,
 ) -> AutonomousEvidenceGapPlan | None:
@@ -2813,6 +2885,10 @@ def build_reviewer_bundle_summary(
         autonomous_loop_requires_human_intervention=bool(
             loop_summary["autonomous_loop_requires_human_intervention"]
         ),
+        gap_attempt_history_present=bool(bundle.get("gap_attempt_history_present")),
+        duplicate_specs_skipped=int(bundle.get("duplicate_specs_skipped") or 0),
+        gaps_exhausted_no_progress=int(bundle.get("gap_exhausted_no_progress_count") or 0),
+        remaining_deferred_gaps=int(bundle.get("remaining_deferred_gap_count") or 0),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -2951,6 +3027,13 @@ def render_reviewer_bundle_summary_markdown(
             "Autonomous loop human intervention required: "
             f"`{str(summary.autonomous_loop_requires_human_intervention).lower()}`"
         ),
+        (
+            "Gap attempt history: "
+            f"`{'present' if summary.gap_attempt_history_present else 'absent'}`"
+        ),
+        f"Duplicate specs skipped: `{summary.duplicate_specs_skipped}`",
+        f"Gaps exhausted/no-progress: `{summary.gaps_exhausted_no_progress}`",
+        f"Remaining deferred gaps: `{summary.remaining_deferred_gaps}`",
         "",
         "## Remaining Warnings",
     ]

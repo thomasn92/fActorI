@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.34.0/autonomous-evidence-gap-plan-item.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/autonomous-evidence-gap-plan-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic autonomous evidence-gap planning item.",
@@ -7,6 +7,11 @@
     "automation_ready": {
       "default": false,
       "title": "Automation Ready",
+      "type": "boolean"
+    },
+    "automation_ready_after_history": {
+      "default": false,
+      "title": "Automation Ready After History",
       "type": "boolean"
     },
     "blocking": {
@@ -28,6 +33,40 @@
       "minLength": 1,
       "title": "Expected Artifact Type",
       "type": "string"
+    },
+    "gap_already_attempted": {
+      "default": false,
+      "title": "Gap Already Attempted",
+      "type": "boolean"
+    },
+    "gap_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gap Attempt Count",
+      "type": "integer"
+    },
+    "gap_attempt_history_present": {
+      "default": false,
+      "title": "Gap Attempt History Present",
+      "type": "boolean"
+    },
+    "gap_exhausted": {
+      "default": false,
+      "title": "Gap Exhausted",
+      "type": "boolean"
+    },
+    "gap_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Fingerprint"
     },
     "gap_type": {
       "enum": [
@@ -56,6 +95,19 @@
       "minLength": 1,
       "title": "Item Id",
       "type": "string"
+    },
+    "plan_item_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plan Item Fingerprint"
     },
     "priority": {
       "default": "medium",
@@ -126,7 +178,7 @@
   ],
   "title": "AutonomousEvidenceGapPlanItem",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.AutonomousEvidenceGapPlanItem",
   "x-factori-verification-evidence": false
 }

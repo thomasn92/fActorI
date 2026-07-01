@@ -12,7 +12,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.34.0/full-paper-generation-config.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/full-paper-generation-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Configuration for end-to-end non-evidence paper generation.",
@@ -192,7 +192,7 @@
   ],
   "title": "FullPaperGenerationConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationConfig",
   "x-factori-verification-evidence": false
 }

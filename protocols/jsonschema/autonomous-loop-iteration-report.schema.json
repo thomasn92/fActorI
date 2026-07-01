@@ -63,7 +63,9 @@
                 "max_iterations_reached",
                 "safety_gate_blocked",
                 "ledger_invalid",
-                "requires_human_intervention"
+                "requires_human_intervention",
+                "exhausted_gaps",
+                "deferred_gaps"
               ],
               "type": "string"
             },
@@ -83,7 +85,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.34.0/autonomous-loop-iteration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/autonomous-loop-iteration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One autonomous loop iteration report.",
@@ -186,6 +188,12 @@
     "decision": {
       "$ref": "#/$defs/AutonomousLoopDecision"
     },
+    "duplicate_specs_skipped": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Specs Skipped",
+      "type": "integer"
+    },
     "evidence_aware_refresh_report_path": {
       "anyOf": [
         {
@@ -204,6 +212,12 @@
       "title": "Experiment Artifacts Created",
       "type": "integer"
     },
+    "gaps_marked_exhausted": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gaps Marked Exhausted",
+      "type": "integer"
+    },
     "implies_publication_readiness": {
       "default": false,
       "title": "Implies Publication Readiness",
@@ -217,6 +231,12 @@
     "iteration": {
       "minimum": 1,
       "title": "Iteration",
+      "type": "integer"
+    },
+    "iterations_without_progress": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Iterations Without Progress",
       "type": "integer"
     },
     "manuscript_hash_after": {
@@ -356,7 +376,7 @@
   ],
   "title": "AutonomousLoopIterationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopIterationReport",
   "x-factori-verification-evidence": false
 }

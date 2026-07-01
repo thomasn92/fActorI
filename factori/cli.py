@@ -95,6 +95,11 @@ from factori.full_paper_release import (
     FullPaperReleaseError,
     run_full_paper_release_gate,
 )
+from factori.gap_attempts import (
+    GapAttemptHistoryError,
+    inspect_gap_attempt_history,
+    inspect_planned_spec_dedup,
+)
 from factori.human_review import (
     HumanReviewIntakeError,
     ingest_human_review,
@@ -2761,6 +2766,7 @@ def inspect_autonomous_plan_execution_command(
     typer.echo(f"Actions rejected: {summary['autonomous_actions_rejected']}")
     typer.echo(f"Actions failed: {summary['autonomous_actions_failed']}")
     typer.echo(f"Created specs: {summary['autonomous_created_spec_count']}")
+    typer.echo(f"Duplicate specs skipped: {int(summary.get('duplicate_specs_skipped') or 0)}")
     typer.echo(
         "Human intervention required: "
         f"{str(summary['autonomous_execution_requires_human_intervention']).lower()}"
@@ -2857,6 +2863,10 @@ def inspect_planned_spec_execution_command(
     typer.echo(f"Proof artifacts created: {summary['proof_artifacts_created']}")
     typer.echo(f"Retrieval artifacts created: {summary['retrieval_artifacts_created']}")
     typer.echo(
+        "Duplicate specs skipped: "
+        f"{int(summary.get('planned_spec_duplicate_specs_skipped') or 0)}"
+    )
+    typer.echo(
         "Human intervention required: "
         f"{str(summary['planned_spec_execution_requires_human_intervention']).lower()}"
     )
@@ -2870,6 +2880,7 @@ def run_autonomous_loop_command(
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     loop_backend: Annotated[str, typer.Option("--loop-backend")] = "deterministic",
     max_iterations: Annotated[int, typer.Option("--max-iterations")] = 3,
+    max_attempts_per_gap: Annotated[int, typer.Option("--max-attempts-per-gap")] = 2,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run the deterministic autonomous evidence-gap loop controller."""
@@ -2881,6 +2892,7 @@ def run_autonomous_loop_command(
             ledger=_ledger(root, run_id),
             loop_backend=loop_backend,
             max_iterations=max_iterations,
+            max_attempts_per_gap=max_attempts_per_gap,
         )
     except AutonomousLoopError as exc:
         typer.echo(str(exc), err=True)
@@ -2949,11 +2961,73 @@ def inspect_autonomous_loop_command(
         f"{summary['autonomous_loop_final_automation_ready_item_count']}"
     )
     typer.echo(
+        "Iterations without progress: "
+        f"{summary.get('autonomous_loop_iterations_without_progress', 0)}"
+    )
+    typer.echo(
+        "Stopped due to exhausted gaps: "
+        f"{str(bool(summary.get('autonomous_loop_stopped_due_to_exhausted_gaps'))).lower()}"
+    )
+    typer.echo(f"Duplicate specs skipped: {int(summary.get('duplicate_specs_skipped') or 0)}")
+    typer.echo(
+        "Gaps exhausted/no-progress: "
+        f"{int(summary.get('gap_exhausted_no_progress_count') or 0)}"
+    )
+    typer.echo(
         "Human intervention required: "
         f"{str(summary['autonomous_loop_requires_human_intervention']).lower()}"
     )
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['autonomous_loop_report_path']}")
+
+
+@app.command("inspect-gap-attempt-history")
+def inspect_gap_attempt_history_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest gap-attempt history without mutation."""
+    try:
+        summary = inspect_gap_attempt_history(run_id=run_id, root=root)
+    except GapAttemptHistoryError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Gap attempt history: {summary['run_id']}")
+    typer.echo(f"Gap count: {summary['gap_count']}")
+    typer.echo(f"Attempt count: {summary['gap_attempt_count']}")
+    typer.echo(f"Open gaps: {summary['open_gap_count']}")
+    typer.echo(f"Exhausted/no-progress gaps: {summary['gap_exhausted_no_progress_count']}")
+    typer.echo(f"Deferred gaps: {summary['remaining_deferred_gap_count']}")
+    typer.echo(f"Resolved gaps: {summary['resolved_gap_count']}")
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['gap_attempt_history_path']}")
+
+
+@app.command("inspect-planned-spec-dedup")
+def inspect_planned_spec_dedup_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest planned-spec de-duplication index without mutation."""
+    try:
+        summary = inspect_planned_spec_dedup(run_id=run_id, root=root)
+    except GapAttemptHistoryError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Planned spec de-dup index: {summary['run_id']}")
+    typer.echo(f"Spec count: {summary['spec_count']}")
+    typer.echo(f"Unique specs: {summary['unique_spec_count']}")
+    typer.echo(f"Duplicate specs: {summary['duplicate_planned_spec_count']}")
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['planned_spec_dedup_index_path']}")
 
 
 @app.command("refresh-evidence-aware-manuscript")
@@ -3758,6 +3832,19 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Human intervention required by loop: "
         f"{str(bool(summary.get('autonomous_loop_requires_human_intervention'))).lower()}"
+    )
+    typer.echo(
+        "Gap attempt history: "
+        f"{'present' if summary.get('gap_attempt_history_present') else 'absent'}"
+    )
+    typer.echo(f"Duplicate specs skipped: {int(summary.get('duplicate_specs_skipped') or 0)}")
+    typer.echo(
+        "Gaps exhausted/no-progress: "
+        f"{int(summary.get('gap_exhausted_no_progress_count') or 0)}"
+    )
+    typer.echo(
+        "Remaining automation-ready items after history: "
+        f"{int(summary.get('automation_ready_item_count') or 0)}"
     )
     typer.echo(f"Reviewer summary: {reviewer_summary}")
     typer.echo(f"Reviewer summary status: {summary.get('reviewer_summary_status') or 'absent'}")

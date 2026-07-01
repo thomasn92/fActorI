@@ -67,6 +67,8 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     FullPaperReleaseReport,
     FullPaperReleaseStatus,
+    GapAttemptHistory,
+    GapAttemptRecord,
     GeneratedSectionDraft,
     HumanReviewArtifact,
     HumanReviewDecision,
@@ -131,6 +133,8 @@ from factori.schemas import (
     PipelineRunReport,
     PipelineStageResult,
     PlannedExperimentSpec,
+    PlannedSpecDedupIndex,
+    PlannedSpecDuplicateRecord,
     PlannedSpecExecutionIndex,
     PlannedSpecExecutionItem,
     PlannedSpecExecutionReport,
@@ -181,7 +185,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.34.0"
+PROTOCOL_VERSION = "0.35.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -422,6 +426,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "PlannedSpecExecutionIndex",
         PlannedSpecExecutionIndex,
         "Derived latest pointer over immutable planned-spec executions.",
+    ),
+    ProtocolDefinition(
+        "GapAttemptRecord",
+        GapAttemptRecord,
+        "One stable gap-attempt history record.",
+    ),
+    ProtocolDefinition(
+        "GapAttemptHistory",
+        GapAttemptHistory,
+        "Derived append-only history of gap attempts and exhaustion state.",
+    ),
+    ProtocolDefinition(
+        "PlannedSpecDuplicateRecord",
+        PlannedSpecDuplicateRecord,
+        "One planned-spec duplicate record keyed by stable fingerprint.",
+    ),
+    ProtocolDefinition(
+        "PlannedSpecDedupIndex",
+        PlannedSpecDedupIndex,
+        "Derived de-duplication index over planned proof, experiment, and retrieval specs.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

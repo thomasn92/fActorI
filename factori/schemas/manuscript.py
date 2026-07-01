@@ -754,6 +754,10 @@ class ReviewerBundleSummary(StrictModel):
     latest_autonomous_loop_stop_reason: str | None = None
     final_gap_counts: dict[str, int] = Field(default_factory=dict)
     autonomous_loop_requires_human_intervention: bool = False
+    gap_attempt_history_present: bool = False
+    duplicate_specs_skipped: int = Field(default=0, ge=0)
+    gaps_exhausted_no_progress: int = Field(default=0, ge=0)
+    remaining_deferred_gaps: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -941,6 +945,13 @@ class AutonomousEvidenceGapPlanItem(StrictModel):
     required_inputs: list[str] = Field(default_factory=list)
     expected_artifact_type: str = Field(min_length=1)
     automation_ready: bool = False
+    gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    plan_item_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    gap_attempt_history_present: bool = False
+    gap_attempt_count: int = Field(default=0, ge=0)
+    gap_already_attempted: bool = False
+    gap_exhausted: bool = False
+    automation_ready_after_history: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
@@ -961,6 +972,9 @@ class AutonomousEvidenceGapPlan(StrictModel):
     ready_for_formal_proof_attempt: bool = False
     ready_for_retrieval_expansion: bool = False
     ready_for_manuscript_refresh: bool = False
+    gap_attempt_history_present: bool = False
+    gap_attempt_count: int = Field(default=0, ge=0)
+    exhausted_gap_count: int = Field(default=0, ge=0)
     requires_human_intervention: bool = False
     human_intervention_reason_optional: str | None = None
     publication_ready: bool = False
@@ -989,10 +1003,20 @@ class AutonomousPlanExecutionAction(StrictModel):
     target_section_optional: str | None = None
     gap_type: AutonomousEvidenceGapType
     recommended_action: str = Field(min_length=1)
-    execution_decision: Literal["would_apply", "apply", "noop", "defer", "reject"]
-    execution_status: Literal["planned", "completed", "deferred", "rejected", "failed"]
+    execution_decision: Literal["would_apply", "apply", "noop", "defer", "reject", "skip"]
+    execution_status: Literal[
+        "planned",
+        "completed",
+        "deferred",
+        "rejected",
+        "failed",
+        "skipped",
+    ]
     dry_run: bool
     applied: bool = False
+    gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    plan_item_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    planned_spec_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
     deferred_reason_optional: str | None = None
     rejected_reason_optional: str | None = None
     created_artifact_path_optional: str | None = None
@@ -1070,6 +1094,10 @@ class AutonomousPlanExecutionReport(StrictModel):
     actions_deferred: int = Field(default=0, ge=0)
     actions_rejected: int = Field(default=0, ge=0)
     actions_failed: int = Field(default=0, ge=0)
+    duplicate_specs_skipped: int = Field(default=0, ge=0)
+    existing_specs_reused: int = Field(default=0, ge=0)
+    gap_attempt_history_updated: bool = False
+    actions_marked_exhausted: int = Field(default=0, ge=0)
     manuscript_modified: bool = False
     claim_evidence_map_rebuilt: bool = False
     claim_support_rechecked: bool = False
@@ -1123,6 +1151,9 @@ class PlannedSpecExecutionItem(StrictModel):
     spec_id: str = Field(min_length=1)
     spec_type: PlannedSpecType
     target_claim_id_optional: str | None = None
+    gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    planned_spec_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    execution_attempt_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
     executor_decision: Literal[
         "would_execute",
         "execute",
@@ -1172,6 +1203,10 @@ class PlannedSpecExecutionReport(StrictModel):
     experiment_specs_executed: int = Field(default=0, ge=0)
     proof_specs_executed: int = Field(default=0, ge=0)
     retrieval_specs_executed: int = Field(default=0, ge=0)
+    duplicate_specs_skipped: int = Field(default=0, ge=0)
+    unique_specs_executed: int = Field(default=0, ge=0)
+    gap_attempt_history_updated: bool = False
+    executions_marked_no_progress: int = Field(default=0, ge=0)
     items: list[PlannedSpecExecutionItem] = Field(default_factory=list)
     created_artifact_paths: list[str] = Field(default_factory=list)
     ingested_artifact_paths: list[str] = Field(default_factory=list)
@@ -1203,6 +1238,92 @@ class PlannedSpecExecutionIndex(StrictModel):
     is_verification_evidence: bool = False
 
 
+GapAttemptStatus = Literal[
+    "open",
+    "resolved",
+    "deferred",
+    "exhausted_no_progress",
+    "blocked",
+]
+
+
+class GapAttemptRecord(StrictModel):
+    """Attempt history for one stable evidence/workflow gap fingerprint."""
+
+    gap_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    gap_type: str = Field(min_length=1)
+    recommended_action: str = Field(min_length=1)
+    expected_artifact_type: str = Field(min_length=1)
+    first_seen_iteration_optional: int | None = Field(default=None, ge=1)
+    latest_seen_iteration_optional: int | None = Field(default=None, ge=1)
+    attempt_count: int = Field(default=0, ge=0)
+    successful_attempt_count: int = Field(default=0, ge=0)
+    deferred_attempt_count: int = Field(default=0, ge=0)
+    failed_attempt_count: int = Field(default=0, ge=0)
+    no_op_attempt_count: int = Field(default=0, ge=0)
+    latest_attempt_status: str | None = None
+    current_gap_status: GapAttemptStatus = "open"
+    created_spec_fingerprints: list[str] = Field(default_factory=list)
+    created_artifact_paths: list[str] = Field(default_factory=list)
+    linked_evidence_artifact_ids: list[str] = Field(default_factory=list)
+    resolution_reason_optional: str | None = None
+    exhaustion_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GapAttemptHistory(StrictModel):
+    """Append-only derived history over autonomous gap attempts."""
+
+    run_id: str = Field(min_length=1)
+    history_version: int = Field(ge=1)
+    gap_count: int = Field(default=0, ge=0)
+    attempt_count: int = Field(default=0, ge=0)
+    open_gap_count: int = Field(default=0, ge=0)
+    exhausted_gap_count: int = Field(default=0, ge=0)
+    deferred_gap_count: int = Field(default=0, ge=0)
+    resolved_gap_count: int = Field(default=0, ge=0)
+    records: list[GapAttemptRecord] = Field(default_factory=list)
+    created_at: str = Field(min_length=1)
+    updated_at: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class PlannedSpecDuplicateRecord(StrictModel):
+    """One duplicate planned spec skipped by stable fingerprint."""
+
+    duplicate_spec_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    existing_spec_path: str = Field(min_length=1)
+    skipped_new_spec_reason: str = Field(min_length=1)
+    gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    duplicate_spec_path_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class PlannedSpecDedupIndex(StrictModel):
+    """Derived index over planned spec fingerprints and duplicates."""
+
+    run_id: str = Field(min_length=1)
+    spec_count: int = Field(default=0, ge=0)
+    unique_spec_count: int = Field(default=0, ge=0)
+    duplicate_spec_count: int = Field(default=0, ge=0)
+    spec_fingerprints: list[str] = Field(default_factory=list)
+    duplicate_records: list[PlannedSpecDuplicateRecord] = Field(default_factory=list)
+    latest_updated_at: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
 AutonomousLoopStatus = Literal[
     "completed",
@@ -1220,6 +1341,8 @@ AutonomousLoopStopReason = Literal[
     "safety_gate_blocked",
     "ledger_invalid",
     "requires_human_intervention",
+    "exhausted_gaps",
+    "deferred_gaps",
 ]
 
 
@@ -1269,6 +1392,9 @@ class AutonomousLoopIterationReport(StrictModel):
     manuscript_hash_after: str | None = None
     claim_evidence_map_hash_before: str | None = None
     claim_evidence_map_hash_after: str | None = None
+    duplicate_specs_skipped: int = Field(default=0, ge=0)
+    gaps_marked_exhausted: int = Field(default=0, ge=0)
+    iterations_without_progress: int = Field(default=0, ge=0)
     decision: AutonomousLoopDecision
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -1295,6 +1421,12 @@ class AutonomousLoopRunReport(StrictModel):
     final_claim_evidence_counts: dict[str, int] = Field(default_factory=dict)
     initial_gap_counts: dict[str, int] = Field(default_factory=dict)
     final_gap_counts: dict[str, int] = Field(default_factory=dict)
+    gap_attempt_history_path: str | None = None
+    dedup_index_path: str | None = None
+    duplicate_specs_skipped: int = Field(default=0, ge=0)
+    gaps_marked_exhausted: int = Field(default=0, ge=0)
+    iterations_without_progress: int = Field(default=0, ge=0)
+    stopped_due_to_exhausted_gaps: bool = False
     iterations: list[AutonomousLoopIterationReport] = Field(default_factory=list)
     artifacts_created: list[str] = Field(default_factory=list)
     requires_human_intervention: bool = False
@@ -2028,6 +2160,10 @@ __all__ = [
     "PlannedSpecExecutionItem",
     "PlannedSpecExecutionReport",
     "PlannedSpecExecutionIndex",
+    "GapAttemptRecord",
+    "GapAttemptHistory",
+    "PlannedSpecDuplicateRecord",
+    "PlannedSpecDedupIndex",
     "AutonomousLoopDecision",
     "AutonomousLoopIterationReport",
     "AutonomousLoopRunReport",

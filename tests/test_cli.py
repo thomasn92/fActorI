@@ -126,6 +126,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     )
     run_loop = runner.invoke(app, ["run-autonomous-loop", "--help"])
     inspect_loop = runner.invoke(app, ["inspect-autonomous-loop", "--help"])
+    inspect_gap_history = runner.invoke(app, ["inspect-gap-attempt-history", "--help"])
+    inspect_dedup = runner.invoke(app, ["inspect-planned-spec-dedup", "--help"])
     refresh_manuscript = runner.invoke(
         app,
         ["refresh-evidence-aware-manuscript", "--help"],
@@ -145,6 +147,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_planned_specs.exit_code == 0, inspect_planned_specs.output
     assert run_loop.exit_code == 0, run_loop.output
     assert inspect_loop.exit_code == 0, inspect_loop.output
+    assert inspect_gap_history.exit_code == 0, inspect_gap_history.output
+    assert inspect_dedup.exit_code == 0, inspect_dedup.output
     assert refresh_manuscript.exit_code == 0, refresh_manuscript.output
     assert "--run-id" in ingest_proof.output
     assert "--proof-file" in ingest_proof.output
@@ -158,7 +162,10 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--json" in inspect_planned_specs.output
     assert "--loop-backend" in run_loop.output
     assert "--max-iterations" in run_loop.output
+    assert "--max-attempts-per-gap" in run_loop.output
     assert "--json" in inspect_loop.output
+    assert "--json" in inspect_gap_history.output
+    assert "--json" in inspect_dedup.output
     assert "--run-id" in ingest_experiment.output
     assert "--experiment-file" in ingest_experiment.output
     assert "--run-id" in inspect_experiment.output

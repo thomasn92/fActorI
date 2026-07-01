@@ -1,0 +1,303 @@
+{
+  "$defs": {
+    "GapAttemptRecord": {
+      "additionalProperties": false,
+      "description": "Attempt history for one stable evidence/workflow gap fingerprint.",
+      "properties": {
+        "attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Attempt Count",
+          "type": "integer"
+        },
+        "created_artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created Artifact Paths",
+          "type": "array"
+        },
+        "created_spec_fingerprints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created Spec Fingerprints",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "current_gap_status": {
+          "default": "open",
+          "enum": [
+            "open",
+            "resolved",
+            "deferred",
+            "exhausted_no_progress",
+            "blocked"
+          ],
+          "title": "Current Gap Status",
+          "type": "string"
+        },
+        "deferred_attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Deferred Attempt Count",
+          "type": "integer"
+        },
+        "exhaustion_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exhaustion Reason Optional"
+        },
+        "expected_artifact_type": {
+          "minLength": 1,
+          "title": "Expected Artifact Type",
+          "type": "string"
+        },
+        "failed_attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Failed Attempt Count",
+          "type": "integer"
+        },
+        "first_seen_iteration_optional": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Seen Iteration Optional"
+        },
+        "gap_fingerprint": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Gap Fingerprint",
+          "type": "string"
+        },
+        "gap_type": {
+          "minLength": 1,
+          "title": "Gap Type",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "latest_attempt_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Attempt Status"
+        },
+        "latest_seen_iteration_optional": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latest Seen Iteration Optional"
+        },
+        "linked_evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Linked Evidence Artifact Ids",
+          "type": "array"
+        },
+        "no_op_attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "No Op Attempt Count",
+          "type": "integer"
+        },
+        "recommended_action": {
+          "minLength": 1,
+          "title": "Recommended Action",
+          "type": "string"
+        },
+        "resolution_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution Reason Optional"
+        },
+        "successful_attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Successful Attempt Count",
+          "type": "integer"
+        },
+        "target_claim_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Claim Id Optional"
+        },
+        "target_section_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Section Optional"
+        }
+      },
+      "required": [
+        "gap_fingerprint",
+        "gap_type",
+        "recommended_action",
+        "expected_artifact_type"
+      ],
+      "title": "GapAttemptRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.35.0/gap-attempt-history.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived append-only history of gap attempts and exhaustion state.",
+  "properties": {
+    "attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Attempt Count",
+      "type": "integer"
+    },
+    "created_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred Gap Count",
+      "type": "integer"
+    },
+    "exhausted_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Exhausted Gap Count",
+      "type": "integer"
+    },
+    "gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gap Count",
+      "type": "integer"
+    },
+    "history_version": {
+      "minimum": 1,
+      "title": "History Version",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "open_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Open Gap Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/GapAttemptRecord"
+      },
+      "title": "Records",
+      "type": "array"
+    },
+    "resolved_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Resolved Gap Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "minLength": 1,
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "history_version",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "GapAttemptHistory",
+  "type": "object",
+  "x-factori-protocol-version": "0.35.0",
+  "x-factori-source-model": "factori.schemas.GapAttemptHistory",
+  "x-factori-verification-evidence": false
+}

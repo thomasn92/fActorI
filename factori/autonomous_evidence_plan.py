@@ -13,6 +13,10 @@ from factori.claim_evidence import (
     latest_claim_evidence_map_path,
     latest_claim_support_audit_path,
 )
+from factori.gap_attempts import (
+    annotate_plan_items_with_history,
+    load_latest_gap_attempt_history,
+)
 from factori.ledger import ResearchLedger
 from factori.persistence import (
     ArtifactWriteSpec,
@@ -63,6 +67,7 @@ def build_autonomous_evidence_gap_plan(
     model: str | None = None,
     max_calls: int = 0,
     allow_external_calls: bool = False,
+    max_attempts_per_gap: int = 2,
 ) -> AutonomousEvidenceGapPlan:
     """Build a deterministic autonomous next-action plan without mutation."""
     del model
@@ -74,6 +79,8 @@ def build_autonomous_evidence_gap_plan(
         raise AutonomousEvidencePlanError(
             "max autonomous evidence planner calls must be non-negative"
         )
+    if max_attempts_per_gap < 1:
+        raise AutonomousEvidencePlanError("max attempts per gap must be at least 1")
     if backend == "off":
         raise AutonomousEvidencePlanError(
             "Autonomous evidence-gap planning is disabled; select deterministic or fake."
@@ -182,6 +189,12 @@ def build_autonomous_evidence_gap_plan(
         item.model_copy(update={"item_id": f"plan-item-{index:03d}"})
         for index, item in enumerate(items, start=1)
     ]
+    history = load_latest_gap_attempt_history(root_path, run_id)
+    items = annotate_plan_items_with_history(
+        run_id=run_id,
+        items=items,
+        history=history,
+    )
     return _finalize_plan(
         run_id=run_id,
         backend=backend,
@@ -205,6 +218,7 @@ def persist_autonomous_evidence_gap_plan(
     model: str | None = None,
     max_calls: int = 0,
     allow_external_calls: bool = False,
+    max_attempts_per_gap: int = 2,
 ) -> AutonomousEvidenceGapPlanPersistResult:
     """Persist an autonomous evidence-gap plan and refreshed reviewer summary."""
     root_path = Path(root)
@@ -215,6 +229,7 @@ def persist_autonomous_evidence_gap_plan(
         model=model,
         max_calls=max_calls,
         allow_external_calls=allow_external_calls,
+        max_attempts_per_gap=max_attempts_per_gap,
     )
     plan_id = _next_plan_id(root_path, run_id)
     reviewer_summary_id = _next_plan_reviewer_summary_id(root_path, run_id)
@@ -366,6 +381,10 @@ def render_autonomous_evidence_gap_plan_markdown(
                 f"  - priority: `{item.priority}`",
                 f"  - blocking: `{str(item.blocking).lower()}`",
                 f"  - automation_ready: `{str(item.automation_ready).lower()}`",
+                (
+                    "  - gap exhausted: "
+                    f"`{str(item.gap_exhausted).lower()}`"
+                ),
                 f"  - expected artifact: `{item.expected_artifact_type}`",
                 f"  - rationale: {item.rationale}",
             ]
@@ -399,6 +418,9 @@ def autonomous_evidence_plan_summary_fields(
             "autonomous_claim_removal_item_count": 0,
             "autonomous_manuscript_refresh_item_count": 0,
             "automation_ready_item_count": 0,
+            "gap_attempt_history_present": False,
+            "gap_attempt_count": 0,
+            "gap_exhausted_no_progress_count": 0,
             "autonomous_human_intervention_required": False,
             "autonomous_next_actions": [],
         }
@@ -419,6 +441,9 @@ def autonomous_evidence_plan_summary_fields(
         "automation_ready_item_count": sum(
             1 for item in plan.plan_items if item.automation_ready
         ),
+        "gap_attempt_history_present": plan.gap_attempt_history_present,
+        "gap_attempt_count": plan.gap_attempt_count,
+        "gap_exhausted_no_progress_count": plan.exhausted_gap_count,
         "autonomous_human_intervention_required": plan.requires_human_intervention,
         "autonomous_next_actions": list(plan.next_action_summary),
     }
@@ -934,6 +959,9 @@ def _finalize_plan(
     human_reason: str | None,
 ) -> AutonomousEvidenceGapPlan:
     next_actions = _next_action_summary(items, human_reason)
+    history_present = any(item.gap_attempt_history_present for item in items)
+    gap_attempt_count = sum(item.gap_attempt_count for item in items)
+    exhausted_gap_count = sum(item.gap_exhausted for item in items)
     return AutonomousEvidenceGapPlan(
         run_id=run_id,
         planner_backend=backend,
@@ -956,6 +984,9 @@ def _finalize_plan(
             items,
             "needs_manuscript_refresh",
         ),
+        gap_attempt_history_present=history_present,
+        gap_attempt_count=gap_attempt_count,
+        exhausted_gap_count=exhausted_gap_count,
         requires_human_intervention=requires_human_intervention,
         human_intervention_reason_optional=human_reason,
         creates_scientific_validation=False,

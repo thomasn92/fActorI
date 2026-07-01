@@ -33,6 +33,19 @@
           "default": null,
           "title": "Deferred Reason Optional"
         },
+        "execution_attempt_fingerprint": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Attempt Fingerprint"
+        },
         "execution_status": {
           "enum": [
             "planned",
@@ -68,6 +81,19 @@
           "default": null,
           "title": "Failed Reason Optional"
         },
+        "gap_fingerprint": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gap Fingerprint"
+        },
         "implies_publication_readiness": {
           "default": false,
           "title": "Implies Publication Readiness",
@@ -94,6 +120,19 @@
           "minLength": 1,
           "title": "Item Id",
           "type": "string"
+        },
+        "planned_spec_fingerprint": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planned Spec Fingerprint"
         },
         "rejected_reason_optional": {
           "anyOf": [
@@ -152,7 +191,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.34.0/planned-spec-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/planned-spec-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence planned local spec execution report.",
@@ -179,6 +218,12 @@
       "title": "Creates Scientific Validation",
       "type": "boolean"
     },
+    "duplicate_specs_skipped": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Specs Skipped",
+      "type": "integer"
+    },
     "execution_id": {
       "minLength": 1,
       "title": "Execution Id",
@@ -203,6 +248,12 @@
       "title": "Execution Status",
       "type": "string"
     },
+    "executions_marked_no_progress": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Executions Marked No Progress",
+      "type": "integer"
+    },
     "experiment_artifacts_created": {
       "default": 0,
       "minimum": 0,
@@ -220,6 +271,11 @@
       "minimum": 0,
       "title": "Experiment Specs Found",
       "type": "integer"
+    },
+    "gap_attempt_history_updated": {
+      "default": false,
+      "title": "Gap Attempt History Updated",
+      "type": "boolean"
     },
     "human_intervention_reason_optional": {
       "anyOf": [
@@ -363,6 +419,12 @@
       "minimum": 0,
       "title": "Specs Rejected",
       "type": "integer"
+    },
+    "unique_specs_executed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Unique Specs Executed",
+      "type": "integer"
     }
   },
   "required": [
@@ -373,7 +435,7 @@
   ],
   "title": "PlannedSpecExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecExecutionReport",
   "x-factori-verification-evidence": false
 }

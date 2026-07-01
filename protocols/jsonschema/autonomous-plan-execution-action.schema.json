@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.34.0/autonomous-plan-execution-action.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/autonomous-plan-execution-action.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic autonomous plan execution action.",
@@ -79,7 +79,8 @@
         "apply",
         "noop",
         "defer",
-        "reject"
+        "reject",
+        "skip"
       ],
       "title": "Execution Decision",
       "type": "string"
@@ -90,10 +91,24 @@
         "completed",
         "deferred",
         "rejected",
-        "failed"
+        "failed",
+        "skipped"
       ],
       "title": "Execution Status",
       "type": "string"
+    },
+    "gap_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Fingerprint"
     },
     "gap_type": {
       "enum": [
@@ -118,10 +133,36 @@
       "title": "Is Verification Evidence",
       "type": "boolean"
     },
+    "plan_item_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plan Item Fingerprint"
+    },
     "plan_item_id": {
       "minLength": 1,
       "title": "Plan Item Id",
       "type": "string"
+    },
+    "planned_spec_fingerprint_optional": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Planned Spec Fingerprint Optional"
     },
     "recommended_action": {
       "minLength": 1,
@@ -183,7 +224,7 @@
   ],
   "title": "AutonomousPlanExecutionAction",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionAction",
   "x-factori-verification-evidence": false
 }

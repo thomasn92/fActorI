@@ -23,6 +23,13 @@ from factori.claim_evidence import (
     latest_claim_support_audit_path,
     persist_claim_evidence_map,
 )
+from factori.gap_attempts import (
+    find_existing_planned_spec,
+    gap_fingerprint_for_plan_item,
+    persist_gap_attempt_artifacts,
+    plan_item_fingerprint,
+    planned_spec_fingerprint,
+)
 from factori.hashing import sha256_file, sha256_text
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -80,6 +87,7 @@ def execute_autonomous_evidence_plan(
     ledger: ResearchLedger,
     execution_mode: str = "dry_run",
     executor_backend: str = "deterministic",
+    max_attempts_per_gap: int = 2,
 ) -> AutonomousPlanExecutionResult:
     """Validate and execute the latest autonomous plan within bounded policy."""
     execution_mode = execution_mode.replace("-", "_")
@@ -93,6 +101,8 @@ def execute_autonomous_evidence_plan(
         raise AutonomousPlanExecutionError(
             "OpenAI autonomous plan execution is schema-gated but not implemented in M67."
         )
+    if max_attempts_per_gap < 1:
+        raise AutonomousPlanExecutionError("max attempts per gap must be at least 1")
 
     root_path = Path(root)
     run_path = root_path / "runs" / run_id
@@ -151,7 +161,7 @@ def execute_autonomous_evidence_plan(
     claim_map_before_hash = sha256_file(claim_map_path) if claim_map_path else None
     if execution_mode == "dry_run":
         actions = [
-            _dry_run_action(index, item, manuscript_before_hash)
+            _dry_run_action(run_id, index, item, manuscript_before_hash)
             for index, item in enumerate(plan.plan_items, start=1)
         ]
         report = _build_report(
@@ -225,6 +235,7 @@ def execute_autonomous_evidence_plan(
     markdown = manuscript_path.read_text(encoding="utf-8")
     actions, revised_markdown, specs = _apply_actions(
         run_id=run_id,
+        root=root_path,
         execution_id=execution_id,
         plan=plan,
         markdown=markdown,
@@ -348,6 +359,7 @@ def execute_autonomous_evidence_plan(
         store=store,
         ledger=ledger,
         backend="deterministic",
+        max_attempts_per_gap=max_attempts_per_gap,
     )
     created_paths.append(plan_result.plan_artifact.path)
     from factori.full_paper_release import evaluate_full_paper_release  # noqa: PLC0415
@@ -386,7 +398,7 @@ def execute_autonomous_evidence_plan(
             else None
         ),
     )
-    return _persist_final_execution(
+    result = _persist_final_execution(
         report=report,
         root=root_path,
         store=store,
@@ -394,6 +406,14 @@ def execute_autonomous_evidence_plan(
         execution_number=execution_number,
         release_report=release_report,
     )
+    persist_gap_attempt_artifacts(
+        run_id=run_id,
+        root=root_path,
+        store=store,
+        ledger=ledger,
+        max_attempts_per_gap=max_attempts_per_gap,
+    )
+    return result
 
 
 def inspect_autonomous_plan_execution(*, run_id: str, root: str | Path = ".") -> dict[str, Any]:
@@ -435,6 +455,7 @@ def autonomous_execution_summary_fields(
             "autonomous_actions_rejected": 0,
             "autonomous_actions_failed": 0,
             "autonomous_created_spec_count": 0,
+            "duplicate_specs_skipped": 0,
             "autonomous_execution_requires_human_intervention": False,
             "autonomous_next_required_artifacts": [],
         }
@@ -451,6 +472,8 @@ def autonomous_execution_summary_fields(
             1
             for action in report.actions
             if action.created_artifact_path_optional
+            and action.applied
+            and action.execution_status == "completed"
             and any(
                 token in action.created_artifact_path_optional
                 for token in (
@@ -460,6 +483,7 @@ def autonomous_execution_summary_fields(
                 )
             )
         ),
+        "duplicate_specs_skipped": report.duplicate_specs_skipped,
         "autonomous_execution_requires_human_intervention": (report.requires_human_intervention),
         "autonomous_next_required_artifacts": list(report.next_required_artifacts),
     }
@@ -513,6 +537,7 @@ def render_autonomous_plan_execution_markdown(
         f"Status: `{report.execution_status}`",
         f"Actions applied/deferred/rejected/failed: `{report.actions_applied}/"
         f"{report.actions_deferred}/{report.actions_rejected}/{report.actions_failed}`",
+        f"Duplicate specs skipped: `{report.duplicate_specs_skipped}`",
         f"Manuscript modified: `{str(report.manuscript_modified).lower()}`",
         "",
         "## Actions",
@@ -542,6 +567,7 @@ def render_autonomous_plan_execution_markdown(
 def _apply_actions(
     *,
     run_id: str,
+    root: Path,
     execution_id: str,
     plan: AutonomousEvidenceGapPlan,
     markdown: str,
@@ -565,6 +591,10 @@ def _apply_actions(
             "gap_type": item.gap_type,
             "recommended_action": item.recommended_action,
             "dry_run": False,
+            "gap_fingerprint": item.gap_fingerprint
+            or gap_fingerprint_for_plan_item(run_id=run_id, item=item),
+            "plan_item_fingerprint": item.plan_item_fingerprint
+            or plan_item_fingerprint(run_id=run_id, item=item),
             "before_hash_optional": manuscript_before_hash,
             "safety_notes": [
                 "Execution creates workflow/specification artifacts only.",
@@ -620,16 +650,24 @@ def _apply_actions(
                 ],
             )
             path = f"runs/{run_id}/reports/{stem}.json"
-            specs.append(
-                ArtifactWriteSpec(
-                    stem,
-                    ArtifactType.REPORT,
-                    spec,
-                    "json",
-                    _metadata("planned_experiment_spec_context"),
+            actions.append(
+                _planned_spec_action(
+                    common=common,
+                    markdown=revised,
+                    root=root,
+                    run_id=run_id,
+                    spec=spec,
+                    path=path,
+                    artifact_spec=ArtifactWriteSpec(
+                        stem,
+                        ArtifactType.REPORT,
+                        spec,
+                        "json",
+                        _metadata("planned_experiment_spec_context"),
+                    ),
+                    specs=specs,
                 )
             )
-            actions.append(_applied_spec_action(common, revised, path))
             continue
         if item.gap_type == "needs_formal_proof":
             if not item.target_claim_id_optional:
@@ -652,16 +690,24 @@ def _apply_actions(
                 required_artifact_type="passed scoped proof artifact",
             )
             path = f"runs/{run_id}/reports/{stem}.json"
-            specs.append(
-                ArtifactWriteSpec(
-                    stem,
-                    ArtifactType.REPORT,
-                    spec,
-                    "json",
-                    _metadata("planned_proof_obligation_context"),
+            actions.append(
+                _planned_spec_action(
+                    common=common,
+                    markdown=revised,
+                    root=root,
+                    run_id=run_id,
+                    spec=spec,
+                    path=path,
+                    artifact_spec=ArtifactWriteSpec(
+                        stem,
+                        ArtifactType.REPORT,
+                        spec,
+                        "json",
+                        _metadata("planned_proof_obligation_context"),
+                    ),
+                    specs=specs,
                 )
             )
-            actions.append(_applied_spec_action(common, revised, path))
             continue
         if item.gap_type == "needs_retrieval_expansion":
             stem = _spec_stem("retrieval-expansion-request", item, execution_id)
@@ -678,16 +724,24 @@ def _apply_actions(
                 ),
             )
             path = f"runs/{run_id}/reports/{stem}.json"
-            specs.append(
-                ArtifactWriteSpec(
-                    stem,
-                    ArtifactType.REPORT,
-                    request,
-                    "json",
-                    _metadata("planned_retrieval_expansion_context"),
+            actions.append(
+                _planned_spec_action(
+                    common=common,
+                    markdown=revised,
+                    root=root,
+                    run_id=run_id,
+                    spec=request,
+                    path=path,
+                    artifact_spec=ArtifactWriteSpec(
+                        stem,
+                        ArtifactType.REPORT,
+                        request,
+                        "json",
+                        _metadata("planned_retrieval_expansion_context"),
+                    ),
+                    specs=specs,
                 )
             )
-            actions.append(_applied_spec_action(common, revised, path))
             continue
         if item.gap_type in {"needs_claim_downgrade", "needs_claim_removal"}:
             target = support_by_id.get(item.target_claim_id_optional or "")
@@ -752,11 +806,14 @@ def _apply_actions(
 
 
 def _dry_run_action(
+    run_id: str,
     index: int,
     item: AutonomousEvidenceGapPlanItem,
     manuscript_hash: str,
 ) -> AutonomousPlanExecutionAction:
     noop = item.gap_type == "sufficiently_supported_for_bounded_draft"
+    gap_fp = item.gap_fingerprint or gap_fingerprint_for_plan_item(run_id=run_id, item=item)
+    item_fp = item.plan_item_fingerprint or plan_item_fingerprint(run_id=run_id, item=item)
     return AutonomousPlanExecutionAction(
         action_id=f"action-{index:04d}",
         plan_item_id=item.item_id,
@@ -770,6 +827,8 @@ def _dry_run_action(
         ),
         dry_run=True,
         applied=False,
+        gap_fingerprint=gap_fp,
+        plan_item_fingerprint=item_fp,
         deferred_reason_optional=(
             None if item.automation_ready or noop else "Plan item is not automation-ready."
         ),
@@ -814,6 +873,13 @@ def _build_report(
         actions_deferred=sum(action.execution_status == "deferred" for action in actions),
         actions_rejected=sum(action.execution_status == "rejected" for action in actions),
         actions_failed=sum(action.execution_status == "failed" for action in actions),
+        duplicate_specs_skipped=sum(action.execution_status == "skipped" for action in actions),
+        existing_specs_reused=sum(
+            action.execution_status == "skipped" and bool(action.created_artifact_path_optional)
+            for action in actions
+        ),
+        gap_attempt_history_updated=status not in {"blocked", "dry_run_completed"},
+        actions_marked_exhausted=0,
         manuscript_modified=manuscript_modified,
         claim_evidence_map_rebuilt=claim_map_rebuilt,
         claim_support_rechecked=claim_support_rechecked,
@@ -1119,14 +1185,40 @@ def _sentences(markdown: str) -> list[str]:
     return result
 
 
-def _applied_spec_action(
-    common: dict[str, Any], markdown: str, path: str
+def _planned_spec_action(
+    *,
+    common: dict[str, Any],
+    markdown: str,
+    root: Path,
+    run_id: str,
+    spec: PlannedExperimentSpec | ProofObligationSpec | RetrievalExpansionRequest,
+    path: str,
+    artifact_spec: ArtifactWriteSpec,
+    specs: list[ArtifactWriteSpec],
 ) -> AutonomousPlanExecutionAction:
+    spec_fp = planned_spec_fingerprint(spec)
+    existing = find_existing_planned_spec(run_id=run_id, root=root, spec=spec)
+    if existing is not None:
+        existing_path, existing_fp = existing
+        return AutonomousPlanExecutionAction(
+            **common,
+            execution_decision="skip",
+            execution_status="skipped",
+            applied=False,
+            planned_spec_fingerprint_optional=existing_fp,
+            rejected_reason_optional=(
+                "Equivalent planned spec already exists; reused existing spec."
+            ),
+            created_artifact_path_optional=existing_path,
+            after_hash_optional=sha256_text(markdown),
+        )
+    specs.append(artifact_spec)
     return AutonomousPlanExecutionAction(
         **common,
         execution_decision="apply",
         execution_status="completed",
         applied=True,
+        planned_spec_fingerprint_optional=spec_fp,
         created_artifact_path_optional=path,
         after_hash_optional=sha256_text(markdown),
     )

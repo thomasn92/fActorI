@@ -10,6 +10,12 @@ from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import persist_autonomous_evidence_gap_plan
 from factori.citations import build_claim_support_audit, validate_citation_usage
 from factori.claim_evidence import latest_claim_evidence_map_path, persist_claim_evidence_map
+from factori.gap_attempts import (
+    execution_attempt_fingerprint,
+    gap_fingerprint_for_plan_item,
+    persist_gap_attempt_artifacts,
+    planned_spec_fingerprint,
+)
 from factori.hashing import sha256_json, sha256_text
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -18,6 +24,7 @@ from factori.rerun_policy import validate_ledger_tip
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    AutonomousEvidenceGapPlanItem,
     CitationRegistry,
     ControllerActionType,
     ExperimentArtifact,
@@ -58,6 +65,7 @@ class _SpecRecord:
     spec_type: str
     path: Path
     spec: PlannedExperimentSpec | ProofObligationSpec | RetrievalExpansionRequest | None
+    planned_spec_fingerprint: str | None = None
     load_error: str | None = None
 
 
@@ -69,6 +77,7 @@ def execute_planned_specs(
     ledger: ResearchLedger,
     execution_mode: str = "dry_run",
     spec_executor_backend: str = "deterministic_local",
+    max_attempts_per_gap: int = 2,
 ) -> PlannedSpecExecutionResult:
     """Execute or dry-run deterministic local planned specs."""
     execution_mode = execution_mode.replace("-", "_")
@@ -82,6 +91,8 @@ def execute_planned_specs(
         raise PlannedSpecExecutionError(
             "external planned-spec execution is gated but not implemented in M68."
         )
+    if max_attempts_per_gap < 1:
+        raise PlannedSpecExecutionError("max attempts per gap must be at least 1")
 
     root_path = Path(root)
     run_path = root_path / "runs" / run_id
@@ -97,11 +108,27 @@ def execute_planned_specs(
     execution_number = _next_execution_number(reports)
     execution_id = f"planned-spec-execution-{execution_number:04d}"
     records = _load_specs(reports, run_id)
+    previously_attempted = _previously_attempted_spec_fingerprints(reports, run_id)
     if execution_mode == "dry_run":
-        items = [
-            _dry_run_item(index, record)
-            for index, record in enumerate(records, start=1)
-        ]
+        seen: dict[str, str] = {
+            record.planned_spec_fingerprint: record.path.relative_to(root_path).as_posix()
+            for record in records
+            if record.planned_spec_fingerprint in previously_attempted
+        }
+        items = []
+        for index, record in enumerate(records, start=1):
+            if record.planned_spec_fingerprint and record.planned_spec_fingerprint in seen:
+                items.append(
+                    _skipped_duplicate_item(
+                        index, record, seen[record.planned_spec_fingerprint]
+                    )
+                )
+                continue
+            if record.planned_spec_fingerprint:
+                seen[record.planned_spec_fingerprint] = record.path.relative_to(
+                    root_path
+                ).as_posix()
+            items.append(_dry_run_item(index, record, execution_id))
         report = _build_report(
             run_id=run_id,
             execution_id=execution_id,
@@ -131,7 +158,23 @@ def execute_planned_specs(
     items: list[PlannedSpecExecutionItem] = []
     created_paths: list[str] = []
     ingested_paths: list[str] = []
+    seen_specs: dict[str, str] = {
+        record.planned_spec_fingerprint: record.path.relative_to(root_path).as_posix()
+        for record in records
+        if record.planned_spec_fingerprint in previously_attempted
+    }
     for index, record in enumerate(records, start=1):
+        if record.planned_spec_fingerprint and record.planned_spec_fingerprint in seen_specs:
+            items.append(
+                _skipped_duplicate_item(
+                    index, record, seen_specs[record.planned_spec_fingerprint]
+                )
+            )
+            continue
+        if record.planned_spec_fingerprint:
+            seen_specs[record.planned_spec_fingerprint] = record.path.relative_to(
+                root_path
+            ).as_posix()
         if record.load_error is not None or record.spec is None:
             items.append(
                 _failed_item(
@@ -202,6 +245,7 @@ def execute_planned_specs(
         store=store,
         ledger=ledger,
         backend="deterministic",
+        max_attempts_per_gap=max_attempts_per_gap,
     )
     created_paths.append(plan_result.plan_artifact.path)
 
@@ -251,7 +295,7 @@ def execute_planned_specs(
             else None
         ),
     )
-    return _persist_execution_report(
+    result = _persist_execution_report(
         report=report,
         root=root_path,
         store=store,
@@ -259,6 +303,14 @@ def execute_planned_specs(
         execution_number=execution_number,
         release_report=release_report,
     )
+    persist_gap_attempt_artifacts(
+        run_id=run_id,
+        root=root_path,
+        store=store,
+        ledger=ledger,
+        max_attempts_per_gap=max_attempts_per_gap,
+    )
+    return result
 
 
 def inspect_planned_spec_execution(*, run_id: str, root: str | Path = ".") -> dict[str, Any]:
@@ -301,6 +353,8 @@ def planned_spec_execution_summary_fields(
             "experiment_artifacts_created": 0,
             "proof_artifacts_created": 0,
             "retrieval_artifacts_created": 0,
+            "planned_spec_duplicate_specs_skipped": 0,
+            "planned_spec_unique_specs_executed": 0,
             "planned_spec_execution_requires_human_intervention": False,
         }
     return {
@@ -314,6 +368,8 @@ def planned_spec_execution_summary_fields(
         "experiment_artifacts_created": report.experiment_artifacts_created,
         "proof_artifacts_created": report.proof_artifacts_created,
         "retrieval_artifacts_created": report.retrieval_artifacts_created,
+        "planned_spec_duplicate_specs_skipped": report.duplicate_specs_skipped,
+        "planned_spec_unique_specs_executed": report.unique_specs_executed,
         "planned_spec_execution_requires_human_intervention": (
             report.requires_human_intervention
         ),
@@ -368,6 +424,7 @@ def render_planned_spec_execution_markdown(report: PlannedSpecExecutionReport) -
         f"Specs found: `{report.spec_count}`",
         f"Specs executed/deferred/rejected/failed: `{report.specs_executed}/"
         f"{report.specs_deferred}/{report.specs_rejected}/{report.specs_failed}`",
+        f"Duplicate specs skipped: `{report.duplicate_specs_skipped}`",
         f"Experiment artifacts created: `{report.experiment_artifacts_created}`",
         f"Proof artifacts created: `{report.proof_artifacts_created}`",
         f"Retrieval artifacts created: `{report.retrieval_artifacts_created}`",
@@ -426,6 +483,17 @@ def _execute_experiment_spec(
                 spec_id=spec.spec_id,
                 spec_type="experiment_spec",
                 target_claim_id_optional=spec.target_claim_id,
+                gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                planned_spec_fingerprint=planned_spec_fingerprint(spec),
+                execution_attempt_fingerprint=execution_attempt_fingerprint(
+                    run_id=run_id,
+                    execution_id=execution_id,
+                    target_id=spec.spec_id,
+                    gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                    planned_spec_fingerprint_value=planned_spec_fingerprint(spec),
+                    decision="reject",
+                    status="rejected",
+                ),
                 executor_decision="reject",
                 execution_status="rejected",
                 rejected_reason_optional=(
@@ -584,6 +652,17 @@ def _execute_experiment_spec(
                 spec_id=spec.spec_id,
                 spec_type="experiment_spec",
                 target_claim_id_optional=spec.target_claim_id,
+                gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                planned_spec_fingerprint=planned_spec_fingerprint(spec),
+                execution_attempt_fingerprint=execution_attempt_fingerprint(
+                    run_id=run_id,
+                    execution_id=execution_id,
+                    target_id=spec.spec_id,
+                    gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                    planned_spec_fingerprint_value=planned_spec_fingerprint(spec),
+                    decision="execute",
+                    status="failed",
+                ),
                 executor_decision="execute",
                 execution_status="failed",
                 failed_reason_optional=f"Experiment artifact intake rejected output: {exc}",
@@ -600,6 +679,17 @@ def _execute_experiment_spec(
             spec_id=spec.spec_id,
             spec_type="experiment_spec",
             target_claim_id_optional=spec.target_claim_id,
+            gap_fingerprint=_gap_fingerprint_for_spec(spec),
+            planned_spec_fingerprint=planned_spec_fingerprint(spec),
+            execution_attempt_fingerprint=execution_attempt_fingerprint(
+                run_id=run_id,
+                execution_id=execution_id,
+                target_id=spec.spec_id,
+                gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                planned_spec_fingerprint_value=planned_spec_fingerprint(spec),
+                decision="execute",
+                status="executed",
+            ),
             executor_decision="execute",
             execution_status="executed",
             created_artifact_path_optional=adapter_output.artifacts[0].path,
@@ -760,6 +850,17 @@ def _execute_proof_spec(
                 spec_id=spec.spec_id,
                 spec_type="proof_obligation_spec",
                 target_claim_id_optional=spec.target_claim_id,
+                gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                planned_spec_fingerprint=planned_spec_fingerprint(spec),
+                execution_attempt_fingerprint=execution_attempt_fingerprint(
+                    run_id=run_id,
+                    execution_id=execution_id,
+                    target_id=spec.spec_id,
+                    gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                    planned_spec_fingerprint_value=planned_spec_fingerprint(spec),
+                    decision="execute",
+                    status="failed",
+                ),
                 executor_decision="execute",
                 execution_status="failed",
                 failed_reason_optional=f"Proof artifact intake rejected output: {exc}",
@@ -776,6 +877,17 @@ def _execute_proof_spec(
             spec_id=spec.spec_id,
             spec_type="proof_obligation_spec",
             target_claim_id_optional=spec.target_claim_id,
+            gap_fingerprint=_gap_fingerprint_for_spec(spec),
+            planned_spec_fingerprint=planned_spec_fingerprint(spec),
+            execution_attempt_fingerprint=execution_attempt_fingerprint(
+                run_id=run_id,
+                execution_id=execution_id,
+                target_id=spec.spec_id,
+                gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                planned_spec_fingerprint_value=planned_spec_fingerprint(spec),
+                decision="execute",
+                status="executed",
+            ),
             executor_decision="execute",
             execution_status="executed",
             created_artifact_path_optional=adapter_output.artifacts[0].path,
@@ -882,6 +994,17 @@ def _execute_retrieval_spec(
             spec_id=spec.request_id,
             spec_type="retrieval_expansion_request",
             target_claim_id_optional=spec.target_claim_id_optional,
+            gap_fingerprint=_gap_fingerprint_for_spec(spec),
+            planned_spec_fingerprint=planned_spec_fingerprint(spec),
+            execution_attempt_fingerprint=execution_attempt_fingerprint(
+                run_id=run_id,
+                execution_id=execution_id,
+                target_id=spec.request_id,
+                gap_fingerprint=_gap_fingerprint_for_spec(spec),
+                planned_spec_fingerprint_value=planned_spec_fingerprint(spec),
+                decision="execute",
+                status="executed",
+            ),
             executor_decision="execute",
             execution_status="executed",
             created_artifact_path_optional=artifact_path,
@@ -1177,6 +1300,29 @@ def _load_specs(reports: Path, run_id: str) -> list[_SpecRecord]:
     return sorted(records, key=lambda item: (item.spec_type, item.spec_id))
 
 
+def _previously_attempted_spec_fingerprints(reports: Path, run_id: str) -> set[str]:
+    fingerprints: set[str] = set()
+    for path in sorted(reports.glob("planned-spec-execution-*.json")):
+        if path.name.endswith(".meta.json") or path.name.startswith(
+            "planned-spec-execution-index-"
+        ):
+            continue
+        try:
+            report = PlannedSpecExecutionReport.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            continue
+        if report.run_id != run_id or report.execution_mode != "apply":
+            continue
+        fingerprints.update(
+            item.planned_spec_fingerprint
+            for item in report.items
+            if item.planned_spec_fingerprint and item.execution_status != "planned"
+        )
+    return fingerprints
+
+
 def _load_one_spec(path: Path, spec_type: str, run_id: str) -> _SpecRecord:
     try:
         if spec_type == "experiment_spec":
@@ -1202,20 +1348,39 @@ def _load_one_spec(path: Path, spec_type: str, run_id: str) -> _SpecRecord:
             spec_type=spec_type,
             path=path,
             spec=spec,
+            planned_spec_fingerprint=planned_spec_fingerprint(spec),
             load_error="spec run_id does not match requested run",
         )
-    return _SpecRecord(spec_id=spec_id, spec_type=spec_type, path=path, spec=spec)
+    return _SpecRecord(
+        spec_id=spec_id,
+        spec_type=spec_type,
+        path=path,
+        spec=spec,
+        planned_spec_fingerprint=planned_spec_fingerprint(spec),
+    )
 
 
-def _dry_run_item(index: int, record: _SpecRecord) -> PlannedSpecExecutionItem:
+def _dry_run_item(index: int, record: _SpecRecord, execution_id: str) -> PlannedSpecExecutionItem:
     if record.load_error is not None:
         return _failed_item(index, record, record.load_error)
     target_claim = _target_claim(record.spec)
+    gap_fp = _gap_fingerprint_from_record(record)
     return PlannedSpecExecutionItem(
         item_id=f"item-{index:04d}",
         spec_id=record.spec_id,
         spec_type=record.spec_type,
         target_claim_id_optional=target_claim,
+        gap_fingerprint=gap_fp,
+        planned_spec_fingerprint=record.planned_spec_fingerprint,
+        execution_attempt_fingerprint=execution_attempt_fingerprint(
+            run_id=record.spec.run_id if record.spec is not None else "",
+            execution_id=execution_id,
+            target_id=record.spec_id,
+            gap_fingerprint=gap_fp,
+            planned_spec_fingerprint_value=record.planned_spec_fingerprint,
+            decision="would_execute",
+            status="planned",
+        ),
         executor_decision="would_execute",
         execution_status="planned",
         safety_notes=[
@@ -1228,12 +1393,38 @@ def _dry_run_item(index: int, record: _SpecRecord) -> PlannedSpecExecutionItem:
     )
 
 
+def _skipped_duplicate_item(
+    index: int,
+    record: _SpecRecord,
+    existing_path: str,
+) -> PlannedSpecExecutionItem:
+    gap_fp = _gap_fingerprint_from_record(record)
+    return PlannedSpecExecutionItem(
+        item_id=f"item-{index:04d}",
+        spec_id=record.spec_id,
+        spec_type=record.spec_type,
+        target_claim_id_optional=_target_claim(record.spec),
+        gap_fingerprint=gap_fp,
+        planned_spec_fingerprint=record.planned_spec_fingerprint,
+        executor_decision="skip",
+        execution_status="skipped",
+        created_artifact_path_optional=existing_path,
+        rejected_reason_optional="Equivalent planned spec already exists; skipped duplicate.",
+        safety_notes=[
+            *_standard_safety_notes(),
+            "Duplicate planned specs do not count as progress.",
+        ],
+    )
+
+
 def _failed_item(index: int, record: _SpecRecord, reason: str) -> PlannedSpecExecutionItem:
     return PlannedSpecExecutionItem(
         item_id=f"item-{index:04d}",
         spec_id=record.spec_id,
         spec_type=record.spec_type,
         target_claim_id_optional=_target_claim(record.spec),
+        gap_fingerprint=_gap_fingerprint_from_record(record),
+        planned_spec_fingerprint=record.planned_spec_fingerprint,
         executor_decision="reject",
         execution_status="failed",
         failed_reason_optional=reason,
@@ -1311,17 +1502,37 @@ def _build_report(
         specs_deferred=sum(item.execution_status == "deferred" for item in items),
         specs_rejected=sum(item.execution_status == "rejected" for item in items),
         specs_failed=sum(item.execution_status == "failed" for item in items),
+        duplicate_specs_skipped=sum(item.execution_status == "skipped" for item in items),
+        unique_specs_executed=sum(item.execution_status == "executed" for item in items),
+        gap_attempt_history_updated=status not in {"blocked", "dry_run_completed"},
+        executions_marked_no_progress=sum(
+            item.execution_status == "executed"
+            and not (
+                item.spec_type == "experiment_spec"
+                and bool(item.ingested_artifact_path_optional)
+            )
+            for item in items
+        ),
         experiment_artifacts_created=sum(
-            bool(item.ingested_artifact_path_optional and item.spec_type == "experiment_spec")
+            bool(
+                item.execution_status == "executed"
+                and item.ingested_artifact_path_optional
+                and item.spec_type == "experiment_spec"
+            )
             for item in items
         ),
         proof_artifacts_created=sum(
-            bool(item.ingested_artifact_path_optional and item.spec_type == "proof_obligation_spec")
+            bool(
+                item.execution_status == "executed"
+                and item.ingested_artifact_path_optional
+                and item.spec_type == "proof_obligation_spec"
+            )
             for item in items
         ),
         retrieval_artifacts_created=sum(
             bool(
-                item.created_artifact_path_optional
+                item.execution_status == "executed"
+                and item.created_artifact_path_optional
                 and item.spec_type == "retrieval_expansion_request"
             )
             for item in items
@@ -1455,6 +1666,54 @@ def _target_claim(
     if isinstance(spec, RetrievalExpansionRequest):
         return spec.target_claim_id_optional
     return None
+
+
+def _gap_fingerprint_from_record(record: _SpecRecord) -> str | None:
+    return _gap_fingerprint_for_spec(record.spec) if record.spec is not None else None
+
+
+def _gap_fingerprint_for_spec(
+    spec: PlannedExperimentSpec | ProofObligationSpec | RetrievalExpansionRequest,
+) -> str:
+    if isinstance(spec, PlannedExperimentSpec):
+        item = AutonomousEvidenceGapPlanItem(
+            item_id=spec.spec_id,
+            target_type="claim",
+            target_claim_id_optional=spec.target_claim_id,
+            target_section_optional=spec.target_section,
+            current_support_status="unknown",
+            gap_type="needs_python_experiment",
+            recommended_action="Execute planned experiment spec.",
+            rationale="Stable fingerprint projection for a planned experiment spec.",
+            expected_artifact_type="experiment_artifact",
+            automation_ready=True,
+        )
+    elif isinstance(spec, ProofObligationSpec):
+        item = AutonomousEvidenceGapPlanItem(
+            item_id=spec.spec_id,
+            target_type="claim",
+            target_claim_id_optional=spec.target_claim_id,
+            current_support_status="unknown",
+            gap_type="needs_formal_proof",
+            recommended_action="Execute planned proof obligation spec.",
+            rationale="Stable fingerprint projection for a planned proof obligation spec.",
+            expected_artifact_type="proof_artifact",
+            automation_ready=True,
+        )
+    else:
+        item = AutonomousEvidenceGapPlanItem(
+            item_id=spec.request_id,
+            target_type="retrieval",
+            target_claim_id_optional=spec.target_claim_id_optional,
+            target_section_optional=spec.target_section_optional,
+            current_support_status="unknown",
+            gap_type="needs_retrieval_expansion",
+            recommended_action="Execute planned retrieval expansion request.",
+            rationale="Stable fingerprint projection for a retrieval expansion request.",
+            expected_artifact_type="retrieval_quality_report",
+            automation_ready=True,
+        )
+    return gap_fingerprint_for_plan_item(run_id=spec.run_id, item=item)
 
 
 def _metadata(role: str) -> dict[str, Any]:

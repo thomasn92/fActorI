@@ -239,6 +239,9 @@ All implementation modules are under `factori/`.
   claim-evidence maps, plans, executes safe actions/specs, refreshes manuscript context, reruns
   safety gates, and stops by explicit no-progress, max-iteration, completion, or safety policy
   without treating orchestration as evidence.
+- `gap_attempts.py`: stable gap, plan-item, planned-spec, and execution-attempt fingerprints;
+  append-only derived gap-attempt histories; planned-spec de-dup indexes; and exhaustion-aware
+  planner annotations without evidence or publication-readiness authority.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.

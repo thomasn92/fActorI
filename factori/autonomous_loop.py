@@ -21,6 +21,12 @@ from factori.claim_evidence import (
     latest_claim_evidence_map_path,
     persist_claim_evidence_map,
 )
+from factori.gap_attempts import (
+    build_gap_attempt_history,
+    latest_gap_attempt_history_path,
+    latest_planned_spec_dedup_index_path,
+    persist_gap_attempt_artifacts,
+)
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -71,6 +77,7 @@ def run_autonomous_loop(
     ledger: ResearchLedger,
     loop_backend: str = "deterministic",
     max_iterations: int = 3,
+    max_attempts_per_gap: int = 2,
 ) -> AutonomousLoopResult:
     """Run the deterministic autonomous plan/spec/recheck loop."""
     if loop_backend not in _LOOP_BACKENDS:
@@ -81,6 +88,8 @@ def run_autonomous_loop(
         )
     if max_iterations < 1:
         raise AutonomousLoopError("max iterations must be at least 1")
+    if max_attempts_per_gap < 1:
+        raise AutonomousLoopError("max attempts per gap must be at least 1")
 
     root_path = Path(root)
     run_path = root_path / "runs" / run_id
@@ -163,6 +172,7 @@ def run_autonomous_loop(
             store=store,
             ledger=ledger,
             backend="deterministic",
+            max_attempts_per_gap=max_attempts_per_gap,
         )
         artifacts_created.append(plan_result.plan_artifact.path)
         if plan_result.plan.requires_human_intervention:
@@ -190,6 +200,7 @@ def run_autonomous_loop(
                 decision=decision,
                 created_paths=[map_result.map_artifact.path, plan_result.plan_artifact.path],
                 claim_map_before=claim_map_before,
+                iterations_without_progress=0,
             )
             iterations.append(iteration)
             final_decision = decision
@@ -202,6 +213,7 @@ def run_autonomous_loop(
             ledger=ledger,
             execution_mode="apply",
             executor_backend="deterministic",
+            max_attempts_per_gap=max_attempts_per_gap,
         )
         artifacts_created.append(autonomous_execution.report_artifact.path)
         artifacts_created.extend(autonomous_execution.report.created_artifact_paths)
@@ -214,6 +226,20 @@ def run_autonomous_loop(
             ledger=ledger,
             execution_mode="apply",
             spec_executor_backend="deterministic_local",
+            max_attempts_per_gap=max_attempts_per_gap,
+        )
+        history_result = persist_gap_attempt_artifacts(
+            run_id=run_id,
+            root=root_path,
+            store=store,
+            ledger=ledger,
+            max_attempts_per_gap=max_attempts_per_gap,
+        )
+        artifacts_created.extend(
+            [
+                history_result.history_artifact.path,
+                history_result.dedup_index_artifact.path,
+            ]
         )
         artifacts_created.append(planned_execution.report_artifact.path)
         artifacts_created.extend(planned_execution.report.created_artifact_paths)
@@ -232,6 +258,7 @@ def run_autonomous_loop(
             store=store,
             ledger=ledger,
             backend="deterministic",
+            max_attempts_per_gap=max_attempts_per_gap,
         )
         artifacts_created.append(final_plan_result.plan_artifact.path)
 
@@ -295,6 +322,7 @@ def run_autonomous_loop(
             decision=decision,
             created_paths=iteration_paths,
             claim_map_before=claim_map_before,
+            iterations_without_progress=no_progress_streak,
         )
         iterations.append(iteration)
         previous_snapshot = snapshot
@@ -316,6 +344,14 @@ def run_autonomous_loop(
         if release_report is not None
         else _current_release_status(root_path, run_id)
     )
+    history_path = latest_gap_attempt_history_path(root_path, run_id)
+    dedup_path = latest_planned_spec_dedup_index_path(root_path, run_id)
+    latest_history = build_gap_attempt_history(
+        run_id=run_id,
+        root=root_path,
+        max_attempts_per_gap=max_attempts_per_gap,
+        now=_now(ledger),
+    )
     report = AutonomousLoopRunReport(
         run_id=run_id,
         loop_id=loop_id,
@@ -334,6 +370,17 @@ def run_autonomous_loop(
         final_claim_evidence_counts=final_claim_counts,
         initial_gap_counts=initial_gap_counts,
         final_gap_counts=final_gap_counts,
+        gap_attempt_history_path=(
+            history_path.relative_to(root_path).as_posix() if history_path else None
+        ),
+        dedup_index_path=(dedup_path.relative_to(root_path).as_posix() if dedup_path else None),
+        duplicate_specs_skipped=sum(iteration.duplicate_specs_skipped for iteration in iterations),
+        gaps_marked_exhausted=latest_history.exhausted_gap_count,
+        iterations_without_progress=no_progress_streak,
+        stopped_due_to_exhausted_gaps=(
+            final_decision.stop_reason in {"exhausted_gaps", "deferred_gaps", "no_progress"}
+            and latest_history.exhausted_gap_count > 0
+        ),
         iterations=iterations,
         artifacts_created=sorted(set(artifacts_created)),
         requires_human_intervention=(
@@ -389,6 +436,10 @@ def autonomous_loop_summary_fields(
             "autonomous_loop_final_unsupported_claim_count": 0,
             "autonomous_loop_final_automation_ready_item_count": 0,
             "autonomous_loop_requires_human_intervention": False,
+            "autonomous_loop_iterations_without_progress": 0,
+            "autonomous_loop_stopped_due_to_exhausted_gaps": False,
+            "gap_exhausted_no_progress_count": 0,
+            "duplicate_specs_skipped": 0,
         }
     return {
         "autonomous_loop_present": True,
@@ -403,6 +454,10 @@ def autonomous_loop_summary_fields(
             report.final_gap_counts.get("automation_ready", 0)
         ),
         "autonomous_loop_requires_human_intervention": report.requires_human_intervention,
+        "autonomous_loop_iterations_without_progress": report.iterations_without_progress,
+        "autonomous_loop_stopped_due_to_exhausted_gaps": report.stopped_due_to_exhausted_gaps,
+        "gap_exhausted_no_progress_count": report.gaps_marked_exhausted,
+        "duplicate_specs_skipped": report.duplicate_specs_skipped,
     }
 
 
@@ -450,6 +505,9 @@ def render_autonomous_loop_markdown(report: AutonomousLoopRunReport) -> str:
         f"Stop reason: `{report.stop_reason}`",
         f"Final release: `{report.final_release_status}`",
         f"Publication ready: `{str(report.final_publication_ready).lower()}`",
+        f"Duplicate specs skipped: `{report.duplicate_specs_skipped}`",
+        f"Gaps exhausted/no-progress: `{report.gaps_marked_exhausted}`",
+        f"Iterations without progress: `{report.iterations_without_progress}`",
         (
             "Human intervention required: "
             f"`{str(report.requires_human_intervention).lower()}`"
@@ -465,7 +523,8 @@ def render_autonomous_loop_markdown(report: AutonomousLoopRunReport) -> str:
             f"- `{iteration.iteration}`: release `{iteration.release_status}`, "
             f"unsupported `{iteration.unsupported_claim_count}`, automation-ready "
             f"`{iteration.automation_ready_item_count}`, decision "
-            f"`{iteration.decision.stop_reason or 'continue'}`"
+            f"`{iteration.decision.stop_reason or 'continue'}`, duplicate skips "
+            f"`{iteration.duplicate_specs_skipped}`"
         )
     lines.extend(
         [
@@ -495,6 +554,9 @@ class _ProgressSnapshot:
     experiment_artifacts_created: int
     proof_artifacts_created: int
     retrieval_artifacts_created: int
+    duplicate_specs_skipped: int
+    exhausted_gap_count: int
+    deferred_gap_count: int
     manuscript_before: str | None
     manuscript_after: str | None
 
@@ -520,6 +582,12 @@ def _snapshot(
         experiment_artifacts_created=int(planned_summary.get("experiment_artifacts_created") or 0),
         proof_artifacts_created=int(planned_summary.get("proof_artifacts_created") or 0),
         retrieval_artifacts_created=int(planned_summary.get("retrieval_artifacts_created") or 0),
+        duplicate_specs_skipped=(
+            int(autonomous_summary.get("duplicate_specs_skipped") or 0)
+            + int(planned_summary.get("planned_spec_duplicate_specs_skipped") or 0)
+        ),
+        exhausted_gap_count=int(plan_summary.get("gap_exhausted_no_progress_count") or 0),
+        deferred_gap_count=int(plan_summary.get("remaining_deferred_gap_count") or 0),
         manuscript_before=manuscript_before,
         manuscript_after=manuscript_after,
     )
@@ -537,9 +605,9 @@ def _meaningful_progress(
         return True
     if previous is None:
         return (
-            current.unsupported == 0
-            or current.automation_ready == 0
-            or current.experiment_artifacts_created > 0
+            current.experiment_artifacts_created > 0
+            or current.created_spec_count > 0
+            or current.unsupported < 1 and current.automation_ready == 0
         )
     return (
         current.unsupported < previous.unsupported
@@ -555,6 +623,34 @@ def _decide_iteration(
     max_iterations: int,
     no_progress_streak: int,
 ) -> AutonomousLoopDecision:
+    if (
+        snapshot.unsupported == 0
+        and snapshot.automation_ready == 0
+        and snapshot.exhausted_gap_count > 0
+    ):
+        return AutonomousLoopDecision(
+            continue_loop=False,
+            stop_reason="exhausted_gaps",
+            loop_status="completed_with_deferred_gaps",
+            rationale=(
+                "All non-scaffold claims are supported within scope, and remaining "
+                "automatic gaps are exhausted or duplicate-only."
+            ),
+        )
+    if (
+        snapshot.unsupported == 0
+        and snapshot.automation_ready == 0
+        and snapshot.deferred_gap_count > 0
+    ):
+        return AutonomousLoopDecision(
+            continue_loop=False,
+            stop_reason="deferred_gaps",
+            loop_status="completed_with_deferred_gaps",
+            rationale=(
+                "All non-scaffold claims are supported within scope, and only "
+                "deferred non-executable gaps remain."
+            ),
+        )
     if snapshot.unsupported == 0 and snapshot.automation_ready == 0:
         return AutonomousLoopDecision(
             continue_loop=False,
@@ -574,13 +670,6 @@ def _decide_iteration(
                 "Only repeated executable gaps remain, and two consecutive iterations "
                 "made no meaningful evidence, manuscript, or gap-count progress."
             ),
-        )
-    if snapshot.unsupported == 0 and snapshot.automation_ready == 0:
-        return AutonomousLoopDecision(
-            continue_loop=False,
-            stop_reason="no_automation_ready_items",
-            loop_status="completed_with_deferred_gaps",
-            rationale="No automation-ready items remain.",
         )
     if no_progress_streak >= 2:
         return AutonomousLoopDecision(
@@ -621,6 +710,7 @@ def _iteration_report(
     decision: AutonomousLoopDecision,
     created_paths: list[str],
     claim_map_before: str | None,
+    iterations_without_progress: int,
 ) -> AutonomousLoopIterationReport:
     claim_map_path = latest_claim_evidence_map_path(root, run_id)
     claim_map = _read_claim_map(claim_map_path)
@@ -680,6 +770,12 @@ def _iteration_report(
         manuscript_hash_after=manuscript_after,
         claim_evidence_map_hash_before=claim_map_before,
         claim_evidence_map_hash_after=_hash_if_exists(claim_map_path),
+        duplicate_specs_skipped=(
+            int(autonomous_execution_summary.get("duplicate_specs_skipped") or 0)
+            + int(planned_spec_execution_summary.get("planned_spec_duplicate_specs_skipped") or 0)
+        ),
+        gaps_marked_exhausted=int(plan_summary.get("gap_exhausted_no_progress_count") or 0),
+        iterations_without_progress=iterations_without_progress,
         decision=decision,
     )
 
@@ -890,6 +986,7 @@ def _current_gap_counts(root: Path, run_id: str) -> dict[str, int]:
         "retrieval_expansion": int(summary["autonomous_retrieval_expansion_item_count"]),
         "claim_downgrade": int(summary["autonomous_claim_downgrade_item_count"]),
         "claim_removal": int(summary["autonomous_claim_removal_item_count"]),
+        "exhausted_no_progress": int(summary.get("gap_exhausted_no_progress_count") or 0),
     }
 
 

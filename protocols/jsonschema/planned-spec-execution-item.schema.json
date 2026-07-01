@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.34.0/planned-spec-execution-item.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/planned-spec-execution-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One bounded disposition of a planned local spec execution.",
@@ -32,6 +32,19 @@
       ],
       "default": null,
       "title": "Deferred Reason Optional"
+    },
+    "execution_attempt_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Execution Attempt Fingerprint"
     },
     "execution_status": {
       "enum": [
@@ -68,6 +81,19 @@
       "default": null,
       "title": "Failed Reason Optional"
     },
+    "gap_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Fingerprint"
+    },
     "implies_publication_readiness": {
       "default": false,
       "title": "Implies Publication Readiness",
@@ -94,6 +120,19 @@
       "minLength": 1,
       "title": "Item Id",
       "type": "string"
+    },
+    "planned_spec_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Planned Spec Fingerprint"
     },
     "rejected_reason_optional": {
       "anyOf": [
@@ -150,7 +189,7 @@
   ],
   "title": "PlannedSpecExecutionItem",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecExecutionItem",
   "x-factori-verification-evidence": false
 }

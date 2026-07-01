@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.34.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.35.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -142,6 +142,12 @@
       "title": "Creates Scientific Validation",
       "type": "boolean"
     },
+    "duplicate_specs_skipped": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Specs Skipped",
+      "type": "integer"
+    },
     "evidence_boundaries": {
       "additionalProperties": {
         "items": {
@@ -212,6 +218,17 @@
       "default": 0,
       "minimum": 0,
       "title": "Formal Verification Artifact Count",
+      "type": "integer"
+    },
+    "gap_attempt_history_present": {
+      "default": false,
+      "title": "Gap Attempt History Present",
+      "type": "boolean"
+    },
+    "gaps_exhausted_no_progress": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gaps Exhausted No Progress",
       "type": "integer"
     },
     "human_intervention_required": {
@@ -525,6 +542,12 @@
       "title": "Release Status",
       "type": "string"
     },
+    "remaining_deferred_gaps": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Remaining Deferred Gaps",
+      "type": "integer"
+    },
     "remaining_evidence_gaps": {
       "items": {
         "type": "string"
@@ -617,7 +640,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.34.0",
+  "x-factori-protocol-version": "0.35.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }
