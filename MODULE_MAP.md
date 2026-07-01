@@ -242,6 +242,9 @@ All implementation modules are under `factori/`.
 - `gap_attempts.py`: stable gap, plan-item, planned-spec, and execution-attempt fingerprints;
   append-only derived gap-attempt histories; planned-spec de-dup indexes; and exhaustion-aware
   planner annotations without evidence or publication-readiness authority.
+- `gap_strategy_diversification.py`: deterministic local-only alternative strategy generation for
+  exhausted proof, experiment, retrieval, downgrade, and removal gaps; stable strategy
+  fingerprints; immutable reports/indexes; and selected strategy-to-plan conversion.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.

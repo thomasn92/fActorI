@@ -128,6 +128,11 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     inspect_loop = runner.invoke(app, ["inspect-autonomous-loop", "--help"])
     inspect_gap_history = runner.invoke(app, ["inspect-gap-attempt-history", "--help"])
     inspect_dedup = runner.invoke(app, ["inspect-planned-spec-dedup", "--help"])
+    diversify_strategies = runner.invoke(app, ["diversify-gap-strategies", "--help"])
+    inspect_strategies = runner.invoke(
+        app,
+        ["inspect-gap-strategy-diversification", "--help"],
+    )
     refresh_manuscript = runner.invoke(
         app,
         ["refresh-evidence-aware-manuscript", "--help"],
@@ -143,6 +148,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_autonomous_plan.exit_code == 0, inspect_autonomous_plan.output
     assert execute_autonomous_plan.exit_code == 0, execute_autonomous_plan.output
     assert inspect_autonomous_execution.exit_code == 0, inspect_autonomous_execution.output
+    assert diversify_strategies.exit_code == 0, diversify_strategies.output
+    assert inspect_strategies.exit_code == 0, inspect_strategies.output
     assert execute_planned_specs.exit_code == 0, execute_planned_specs.output
     assert inspect_planned_specs.exit_code == 0, inspect_planned_specs.output
     assert run_loop.exit_code == 0, run_loop.output

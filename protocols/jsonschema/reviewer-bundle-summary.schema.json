@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.35.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -148,6 +148,12 @@
       "title": "Duplicate Specs Skipped",
       "type": "integer"
     },
+    "duplicate_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Strategy Count",
+      "type": "integer"
+    },
     "evidence_boundaries": {
       "additionalProperties": {
         "items": {
@@ -224,6 +230,12 @@
       "default": false,
       "title": "Gap Attempt History Present",
       "type": "boolean"
+    },
+    "gaps_deferred_after_strategy_exhaustion": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Gaps Deferred After Strategy Exhaustion",
+      "type": "integer"
     },
     "gaps_exhausted_no_progress": {
       "default": 0,
@@ -608,6 +620,12 @@
       "title": "Safety Status",
       "type": "string"
     },
+    "selected_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Strategy Count",
+      "type": "integer"
+    },
     "source_limitations": {
       "items": {
         "type": "string"
@@ -619,6 +637,17 @@
       "minLength": 1,
       "title": "Source Relevance Status",
       "type": "string"
+    },
+    "strategy_diversification_present": {
+      "default": false,
+      "title": "Strategy Diversification Present",
+      "type": "boolean"
+    },
+    "strategy_option_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Strategy Option Count",
+      "type": "integer"
     },
     "unresolved_reviewer_request_count": {
       "default": 0,
@@ -640,7 +669,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

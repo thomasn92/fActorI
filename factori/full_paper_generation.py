@@ -40,6 +40,10 @@ from factori.gap_attempts import (
     latest_planned_spec_dedup_index_path,
     planned_spec_dedup_summary_fields,
 )
+from factori.gap_strategy_diversification import (
+    latest_gap_strategy_diversification,
+    strategy_diversification_summary_fields,
+)
 from factori.latex_export import (
     LatexExportError,
     LatexExportRunResult,
@@ -783,6 +787,11 @@ def inspect_paper_bundle_summary(
     gap_attempt_summary = gap_attempt_summary_fields(gap_attempt_history)
     planned_spec_dedup_index = _read_planned_spec_dedup_index(root_path, run_id)
     planned_spec_dedup_summary = planned_spec_dedup_summary_fields(planned_spec_dedup_index)
+    strategy_report, strategy_index = latest_gap_strategy_diversification(root_path, run_id)
+    strategy_summary = strategy_diversification_summary_fields(
+        strategy_report,
+        strategy_index,
+    )
     gap_attempt_history_path = latest_gap_attempt_history_path(root_path, run_id)
     planned_spec_dedup_index_path = latest_planned_spec_dedup_index_path(root_path, run_id)
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
@@ -959,6 +968,7 @@ def inspect_paper_bundle_summary(
         **autonomous_loop_summary,
         **gap_attempt_summary,
         **planned_spec_dedup_summary,
+        **strategy_summary,
         "gap_attempt_history_path": (
             gap_attempt_history_path.relative_to(root_path).as_posix()
             if gap_attempt_history_path is not None
@@ -1481,6 +1491,15 @@ def lint_paper_bundle_summary(
     autonomous_loop_stopped_due_to_exhausted_gaps = bool(
         bundle.get("autonomous_loop_stopped_due_to_exhausted_gaps")
     )
+    strategy_diversification_present = bool(
+        bundle.get("strategy_diversification_present")
+    )
+    strategy_option_count = int(bundle.get("strategy_option_count") or 0)
+    selected_strategy_count = int(bundle.get("selected_strategy_count") or 0)
+    duplicate_strategy_count = int(bundle.get("duplicate_strategy_count") or 0)
+    gaps_deferred_after_strategy_exhaustion = int(
+        bundle.get("gaps_deferred_after_strategy_exhaustion") or 0
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -1930,6 +1949,13 @@ def lint_paper_bundle_summary(
         ),
         "autonomous_loop_stopped_due_to_exhausted_gaps": (
             autonomous_loop_stopped_due_to_exhausted_gaps
+        ),
+        "strategy_diversification_present": strategy_diversification_present,
+        "strategy_option_count": strategy_option_count,
+        "selected_strategy_count": selected_strategy_count,
+        "duplicate_strategy_count": duplicate_strategy_count,
+        "gaps_deferred_after_strategy_exhaustion": (
+            gaps_deferred_after_strategy_exhaustion
         ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
@@ -2889,6 +2915,15 @@ def build_reviewer_bundle_summary(
         duplicate_specs_skipped=int(bundle.get("duplicate_specs_skipped") or 0),
         gaps_exhausted_no_progress=int(bundle.get("gap_exhausted_no_progress_count") or 0),
         remaining_deferred_gaps=int(bundle.get("remaining_deferred_gap_count") or 0),
+        strategy_diversification_present=bool(
+            bundle.get("strategy_diversification_present")
+        ),
+        strategy_option_count=int(bundle.get("strategy_option_count") or 0),
+        selected_strategy_count=int(bundle.get("selected_strategy_count") or 0),
+        duplicate_strategy_count=int(bundle.get("duplicate_strategy_count") or 0),
+        gaps_deferred_after_strategy_exhaustion=int(
+            bundle.get("gaps_deferred_after_strategy_exhaustion") or 0
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -3034,6 +3069,17 @@ def render_reviewer_bundle_summary_markdown(
         f"Duplicate specs skipped: `{summary.duplicate_specs_skipped}`",
         f"Gaps exhausted/no-progress: `{summary.gaps_exhausted_no_progress}`",
         f"Remaining deferred gaps: `{summary.remaining_deferred_gaps}`",
+        (
+            "Strategy diversification: "
+            f"`{'present' if summary.strategy_diversification_present else 'absent'}`"
+        ),
+        f"Strategy options: `{summary.strategy_option_count}`",
+        f"Selected strategies: `{summary.selected_strategy_count}`",
+        f"Duplicate strategies: `{summary.duplicate_strategy_count}`",
+        (
+            "Deferred after all strategies exhausted: "
+            f"`{summary.gaps_deferred_after_strategy_exhaustion}`"
+        ),
         "",
         "## Remaining Warnings",
     ]

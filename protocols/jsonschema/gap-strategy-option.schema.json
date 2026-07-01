@@ -1,0 +1,156 @@
+{
+  "$id": "https://schemas.factori.local/0.36.0/gap-strategy-option.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One bounded deterministic alternative for an exhausted workflow gap.",
+  "properties": {
+    "alternative_action": {
+      "minLength": 1,
+      "title": "Alternative Action",
+      "type": "string"
+    },
+    "automation_ready": {
+      "title": "Automation Ready",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "expected_artifact_type": {
+      "minLength": 1,
+      "title": "Expected Artifact Type",
+      "type": "string"
+    },
+    "gap_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Gap Fingerprint",
+      "type": "string"
+    },
+    "gap_type": {
+      "enum": [
+        "needs_python_experiment",
+        "needs_formal_proof",
+        "needs_retrieval_expansion",
+        "needs_claim_downgrade",
+        "needs_claim_removal",
+        "needs_manuscript_refresh",
+        "sufficiently_supported_for_bounded_draft"
+      ],
+      "title": "Gap Type",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "novel_relative_to_previous_attempts": {
+      "title": "Novel Relative To Previous Attempts",
+      "type": "boolean"
+    },
+    "original_recommended_action": {
+      "minLength": 1,
+      "title": "Original Recommended Action",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "required_inputs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Inputs",
+      "type": "array"
+    },
+    "safety_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Notes",
+      "type": "array"
+    },
+    "selected": {
+      "default": false,
+      "title": "Selected",
+      "type": "boolean"
+    },
+    "strategy_family": {
+      "enum": [
+        "retrieval_query_variant",
+        "retrieval_source_type_variant",
+        "proof_decomposition_variant",
+        "proof_checker_variant",
+        "experiment_metric_variant",
+        "experiment_baseline_variant",
+        "experiment_dataset_variant",
+        "claim_downgrade_variant",
+        "claim_removal_variant",
+        "manuscript_boundary_variant"
+      ],
+      "title": "Strategy Family",
+      "type": "string"
+    },
+    "strategy_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Strategy Fingerprint",
+      "type": "string"
+    },
+    "strategy_id": {
+      "minLength": 1,
+      "title": "Strategy Id",
+      "type": "string"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    },
+    "target_section_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section Optional"
+    }
+  },
+  "required": [
+    "strategy_id",
+    "gap_fingerprint",
+    "gap_type",
+    "original_recommended_action",
+    "alternative_action",
+    "strategy_family",
+    "strategy_fingerprint",
+    "novel_relative_to_previous_attempts",
+    "expected_artifact_type",
+    "automation_ready",
+    "rationale"
+  ],
+  "title": "GapStrategyOption",
+  "type": "object",
+  "x-factori-protocol-version": "0.36.0",
+  "x-factori-source-model": "factori.schemas.GapStrategyOption",
+  "x-factori-verification-evidence": false
+}

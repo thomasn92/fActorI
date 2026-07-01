@@ -100,6 +100,11 @@ from factori.gap_attempts import (
     inspect_gap_attempt_history,
     inspect_planned_spec_dedup,
 )
+from factori.gap_strategy_diversification import (
+    GapStrategyDiversificationError,
+    inspect_gap_strategy_diversification,
+    persist_gap_strategy_diversification,
+)
 from factori.human_review import (
     HumanReviewIntakeError,
     ingest_human_review,
@@ -2881,6 +2886,10 @@ def run_autonomous_loop_command(
     loop_backend: Annotated[str, typer.Option("--loop-backend")] = "deterministic",
     max_iterations: Annotated[int, typer.Option("--max-iterations")] = 3,
     max_attempts_per_gap: Annotated[int, typer.Option("--max-attempts-per-gap")] = 2,
+    enable_strategy_diversification: Annotated[
+        bool,
+        typer.Option("--enable-strategy-diversification"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run the deterministic autonomous evidence-gap loop controller."""
@@ -2893,6 +2902,7 @@ def run_autonomous_loop_command(
             loop_backend=loop_backend,
             max_iterations=max_iterations,
             max_attempts_per_gap=max_attempts_per_gap,
+            enable_strategy_diversification=enable_strategy_diversification,
         )
     except AutonomousLoopError as exc:
         typer.echo(str(exc), err=True)
@@ -2927,6 +2937,71 @@ def run_autonomous_loop_command(
     )
     typer.echo("publication_ready=false")
     typer.echo(f"autonomous_loop={result.report_artifact.path}")
+
+
+@app.command("diversify-gap-strategies")
+def diversify_gap_strategies_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    strategy_backend: Annotated[
+        str,
+        typer.Option("--strategy-backend"),
+    ] = "deterministic",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Persist deterministic alternatives for exhausted autonomous gaps."""
+    try:
+        result = persist_gap_strategy_diversification(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            backend=strategy_backend,
+        )
+    except GapStrategyDiversificationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "gap_strategy_diversification": result.report.model_dump(mode="json"),
+        "gap_strategy_diversification_index": result.index.model_dump(mode="json"),
+        "strategy_diversification_present": True,
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"diversification_id={result.report.diversification_id}")
+    typer.echo(f"strategy_status={result.report.strategy_status}")
+    typer.echo(f"strategy_options={result.report.strategy_option_count}")
+    typer.echo(f"selected_strategies={result.report.selected_strategy_count}")
+    typer.echo(f"duplicate_strategies={result.report.duplicate_strategy_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"strategy_diversification={result.report_artifact.path}")
+
+
+@app.command("inspect-gap-strategy-diversification")
+def inspect_gap_strategy_diversification_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest gap strategy diversification without mutation."""
+    try:
+        summary = inspect_gap_strategy_diversification(run_id=run_id, root=root)
+    except GapStrategyDiversificationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Gap strategy diversification: {summary['run_id']}")
+    typer.echo(f"Status: {summary['strategy_status']}")
+    typer.echo(f"Strategy options: {summary['strategy_option_count']}")
+    typer.echo(f"Selected strategies: {summary['selected_strategy_count']}")
+    typer.echo(f"Duplicate strategies: {summary['duplicate_strategy_count']}")
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['gap_strategy_diversification_report_path']}")
 
 
 @app.command("inspect-autonomous-loop")
@@ -2974,6 +3049,21 @@ def inspect_autonomous_loop_command(
         f"{int(summary.get('gap_exhausted_no_progress_count') or 0)}"
     )
     typer.echo(
+        "Strategy diversification: "
+        f"{'present' if summary.get('strategy_diversification_present') else 'absent'}"
+    )
+    typer.echo(f"Strategy options: {int(summary.get('strategy_option_count') or 0)}")
+    typer.echo(
+        f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}"
+    )
+    typer.echo(
+        f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred after all strategies exhausted: "
+        f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"
+    )
+    typer.echo(
         "Human intervention required: "
         f"{str(summary['autonomous_loop_requires_human_intervention']).lower()}"
     )
@@ -3002,6 +3092,14 @@ def inspect_gap_attempt_history_command(
     typer.echo(f"Open gaps: {summary['open_gap_count']}")
     typer.echo(f"Exhausted/no-progress gaps: {summary['gap_exhausted_no_progress_count']}")
     typer.echo(f"Deferred gaps: {summary['remaining_deferred_gap_count']}")
+    typer.echo(f"Strategy attempts: {summary.get('strategy_attempt_count', 0)}")
+    typer.echo(
+        f"Diversified strategies: {summary.get('diversified_strategy_count', 0)}"
+    )
+    typer.echo(
+        "Deferred after strategy exhaustion: "
+        f"{summary.get('gaps_deferred_after_strategy_exhaustion', 0)}"
+    )
     typer.echo(f"Resolved gaps: {summary['resolved_gap_count']}")
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['gap_attempt_history_path']}")
@@ -3843,6 +3941,21 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('gap_exhausted_no_progress_count') or 0)}"
     )
     typer.echo(
+        "Strategy diversification: "
+        f"{'present' if summary.get('strategy_diversification_present') else 'absent'}"
+    )
+    typer.echo(f"Strategy options: {int(summary.get('strategy_option_count') or 0)}")
+    typer.echo(
+        f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}"
+    )
+    typer.echo(
+        f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred after all strategies exhausted: "
+        f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"
+    )
+    typer.echo(
         "Remaining automation-ready items after history: "
         f"{int(summary.get('automation_ready_item_count') or 0)}"
     )
@@ -4258,6 +4371,21 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Autonomous loop final unsupported claims: "
         f"{int(summary.get('autonomous_loop_final_unsupported_claim_count') or 0)}"
+    )
+    typer.echo(
+        "Strategy diversification: "
+        f"{'present' if summary.get('strategy_diversification_present') else 'absent'}"
+    )
+    typer.echo(f"Strategy options: {int(summary.get('strategy_option_count') or 0)}")
+    typer.echo(
+        f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}"
+    )
+    typer.echo(
+        f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred after all strategies exhausted: "
+        f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"
     )
     typer.echo(f"Quality repair backend: {summary.get('quality_repair_backend') or 'off'}")
     typer.echo(

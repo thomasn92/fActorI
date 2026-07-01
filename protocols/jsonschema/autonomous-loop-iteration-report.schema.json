@@ -85,7 +85,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.35.0/autonomous-loop-iteration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/autonomous-loop-iteration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One autonomous loop iteration report.",
@@ -356,6 +356,30 @@
       "default": null,
       "title": "Reviewer Summary Path Optional"
     },
+    "selected_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Strategy Count",
+      "type": "integer"
+    },
+    "strategy_diversification_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Strategy Diversification Report Path"
+    },
+    "strategy_option_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Strategy Option Count",
+      "type": "integer"
+    },
     "supported_claim_count": {
       "default": 0,
       "minimum": 0,
@@ -376,7 +400,7 @@
   ],
   "title": "AutonomousLoopIterationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopIterationReport",
   "x-factori-verification-evidence": false
 }

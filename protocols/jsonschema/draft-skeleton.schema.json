@@ -271,7 +271,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.35.0/draft-skeleton.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/draft-skeleton.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic draft scaffold.",
@@ -345,7 +345,7 @@
   ],
   "title": "DraftSkeleton",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.DraftSkeleton",
   "x-factori-verification-evidence": false
 }

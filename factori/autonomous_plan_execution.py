@@ -595,6 +595,9 @@ def _apply_actions(
             or gap_fingerprint_for_plan_item(run_id=run_id, item=item),
             "plan_item_fingerprint": item.plan_item_fingerprint
             or plan_item_fingerprint(run_id=run_id, item=item),
+            "source_gap_fingerprint_optional": item.source_gap_fingerprint,
+            "strategy_fingerprint_optional": item.strategy_fingerprint,
+            "strategy_family_optional": item.strategy_family,
             "before_hash_optional": manuscript_before_hash,
             "safety_notes": [
                 "Execution creates workflow/specification artifacts only.",
@@ -639,9 +642,9 @@ def _apply_actions(
                     if item.target_claim_id_optional in support_by_id
                     else item.recommended_action
                 ),
-                suggested_dataset="local deterministic fixture or explicitly configured dataset",
-                suggested_metrics=["primary bounded result metric", "failure/robustness metric"],
-                suggested_baselines=["declared deterministic baseline"],
+                suggested_dataset=_strategy_experiment_dataset(item),
+                suggested_metrics=_strategy_experiment_metrics(item),
+                suggested_baselines=_strategy_experiment_baselines(item),
                 suggested_seed_policy="fixed seeds recorded in the future experiment artifact",
                 expected_output_artifacts=[
                     "experiment configuration",
@@ -685,9 +688,9 @@ def _apply_actions(
                 run_id=run_id,
                 spec_id=stem,
                 target_claim_id=item.target_claim_id_optional,
-                statement=statement,
-                suggested_checker="explicitly configured local formal proof backend",
-                required_artifact_type="passed scoped proof artifact",
+                statement=_strategy_proof_statement(item, statement),
+                suggested_checker=_strategy_proof_checker(item),
+                required_artifact_type=_strategy_proof_artifact_type(item),
             )
             path = f"runs/{run_id}/reports/{stem}.json"
             actions.append(
@@ -720,7 +723,8 @@ def _apply_actions(
                 reason=item.rationale,
                 minimum_source_quality=(
                     "accepted registry source after deterministic metadata, duplicate, "
-                    "relevance, and hard-rejection checks"
+                    "relevance, and hard-rejection checks; "
+                    f"strategy={item.strategy_family or 'initial'}"
                 ),
             )
             path = f"runs/{run_id}/reports/{stem}.json"
@@ -1245,7 +1249,16 @@ def _spec_stem(prefix: str, item: AutonomousEvidenceGapPlanItem, execution_id: s
 
 def _query_terms(item: AutonomousEvidenceGapPlanItem) -> list[str]:
     text = " ".join(
-        filter(None, [item.target_section_optional, item.target_claim_id_optional, item.rationale])
+        filter(
+            None,
+            [
+                item.target_section_optional,
+                item.target_claim_id_optional,
+                item.recommended_action,
+                item.rationale,
+                *item.required_inputs,
+            ],
+        )
     )
     terms = [
         token
@@ -1253,6 +1266,51 @@ def _query_terms(item: AutonomousEvidenceGapPlanItem) -> list[str]:
         if token not in {"claim", "current", "requires", "support", "source"}
     ]
     return list(dict.fromkeys(terms))[:12] or ["bounded background context"]
+
+
+def _strategy_experiment_dataset(item: AutonomousEvidenceGapPlanItem) -> str:
+    if item.strategy_family == "experiment_dataset_variant":
+        return "built-in fixed-seed synthetic calibration template"
+    return "local deterministic fixture or explicitly configured dataset"
+
+
+def _strategy_experiment_metrics(item: AutonomousEvidenceGapPlanItem) -> list[str]:
+    if item.strategy_family == "experiment_metric_variant":
+        return ["bounded robustness metric", "failure-rate diagnostic"]
+    return ["primary bounded result metric", "failure/robustness metric"]
+
+
+def _strategy_experiment_baselines(item: AutonomousEvidenceGapPlanItem) -> list[str]:
+    if item.strategy_family == "experiment_baseline_variant":
+        return ["deterministic null baseline", "declared deterministic baseline"]
+    return ["declared deterministic baseline"]
+
+
+def _strategy_proof_statement(
+    item: AutonomousEvidenceGapPlanItem,
+    statement: str,
+) -> str:
+    if item.strategy_family == "proof_decomposition_variant":
+        return f"Decompose into scoped subclaims before checking: {statement}"
+    if item.strategy_family == "proof_checker_variant":
+        return f"Checker-neutral certificate obligation: {statement}"
+    return statement
+
+
+def _strategy_proof_checker(item: AutonomousEvidenceGapPlanItem) -> str:
+    if item.strategy_family == "proof_decomposition_variant":
+        return "deterministic local proof-plan decomposition adapter"
+    if item.strategy_family == "proof_checker_variant":
+        return "deterministic local checker-neutral certificate contract"
+    return "explicitly configured local formal proof backend"
+
+
+def _strategy_proof_artifact_type(item: AutonomousEvidenceGapPlanItem) -> str:
+    if item.strategy_family == "proof_decomposition_variant":
+        return "proof_plan"
+    if item.strategy_family == "proof_checker_variant":
+        return "external_certificate contract pending checker"
+    return "passed scoped proof artifact"
 
 
 def _next_required_artifacts(

@@ -137,7 +137,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.35.0/claim-table.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/claim-table.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Claim and evidence-link table.",
@@ -168,7 +168,7 @@
   ],
   "title": "ClaimTable",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.ClaimTable",
   "x-factori-verification-evidence": false
 }

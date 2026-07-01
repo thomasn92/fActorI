@@ -36,6 +36,9 @@
             "resolved",
             "deferred",
             "exhausted_no_progress",
+            "exhausted_initial_strategy",
+            "exhausted_all_strategies",
+            "deferred_after_diversification",
             "blocked"
           ],
           "title": "Current Gap Status",
@@ -45,6 +48,12 @@
           "default": 0,
           "minimum": 0,
           "title": "Deferred Attempt Count",
+          "type": "integer"
+        },
+        "diversified_strategy_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Diversified Strategy Count",
           "type": "integer"
         },
         "exhaustion_reason_optional": {
@@ -69,6 +78,11 @@
           "minimum": 0,
           "title": "Failed Attempt Count",
           "type": "integer"
+        },
+        "final_deferral_after_strategy_exhaustion": {
+          "default": false,
+          "title": "Final Deferral After Strategy Exhaustion",
+          "type": "boolean"
         },
         "first_seen_iteration_optional": {
           "anyOf": [
@@ -158,6 +172,19 @@
           "default": null,
           "title": "Resolution Reason Optional"
         },
+        "strategy_attempt_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Strategy Attempt Count",
+          "type": "integer"
+        },
+        "strategy_fingerprints_attempted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Strategy Fingerprints Attempted",
+          "type": "array"
+        },
         "successful_attempt_count": {
           "default": 0,
           "minimum": 0,
@@ -199,7 +226,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.35.0/gap-attempt-history.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/gap-attempt-history.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived append-only history of gap attempts and exhaustion state.",
@@ -221,10 +248,22 @@
       "title": "Creates Scientific Validation",
       "type": "boolean"
     },
+    "deferred_after_strategy_exhaustion_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred After Strategy Exhaustion Count",
+      "type": "integer"
+    },
     "deferred_gap_count": {
       "default": 0,
       "minimum": 0,
       "title": "Deferred Gap Count",
+      "type": "integer"
+    },
+    "diversified_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Diversified Strategy Count",
       "type": "integer"
     },
     "exhausted_gap_count": {
@@ -283,6 +322,12 @@
       "title": "Run Id",
       "type": "string"
     },
+    "strategy_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Strategy Attempt Count",
+      "type": "integer"
+    },
     "updated_at": {
       "minLength": 1,
       "title": "Updated At",
@@ -297,7 +342,7 @@
   ],
   "title": "GapAttemptHistory",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.GapAttemptHistory",
   "x-factori-verification-evidence": false
 }

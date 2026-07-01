@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.35.0/full-paper-release-finding-severity.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/full-paper-release-finding-severity.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Generated-paper readiness finding severity enum.",
   "enum": [
@@ -10,7 +10,7 @@
   ],
   "title": "FullPaperReleaseFindingSeverity",
   "type": "string",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.FullPaperReleaseFindingSeverity",
   "x-factori-verification-evidence": false
 }

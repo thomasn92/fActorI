@@ -12,7 +12,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.35.0/full-paper-release-check.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/full-paper-release-check.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic generated-paper readiness check.",
@@ -50,7 +50,7 @@
   ],
   "title": "FullPaperReleaseCheck",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.FullPaperReleaseCheck",
   "x-factori-verification-evidence": false
 }

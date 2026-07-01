@@ -27,6 +27,9 @@ from factori.gap_attempts import (
     latest_planned_spec_dedup_index_path,
     persist_gap_attempt_artifacts,
 )
+from factori.gap_strategy_diversification import (
+    persist_gap_strategy_diversification,
+)
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -78,6 +81,7 @@ def run_autonomous_loop(
     loop_backend: str = "deterministic",
     max_iterations: int = 3,
     max_attempts_per_gap: int = 2,
+    enable_strategy_diversification: bool = False,
 ) -> AutonomousLoopResult:
     """Run the deterministic autonomous plan/spec/recheck loop."""
     if loop_backend not in _LOOP_BACKENDS:
@@ -154,6 +158,10 @@ def run_autonomous_loop(
     no_progress_streak = 0
     final_decision: AutonomousLoopDecision | None = None
     release_report = None
+    diversification_report_paths: list[str] = []
+    strategy_option_count = 0
+    selected_strategy_count = 0
+    duplicate_strategy_count = 0
 
     for iteration_number in range(1, max_iterations + 1):
         manuscript_before = _hash_if_exists(_preferred_manuscript_path(reports))
@@ -252,6 +260,40 @@ def run_autonomous_loop(
             ledger=ledger,
         )
         artifacts_created.append(rebuilt_map.map_artifact.path)
+        diversification_result = None
+        if enable_strategy_diversification and history_result.history.exhausted_gap_count > 0:
+            diversification_result = persist_gap_strategy_diversification(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                backend="deterministic",
+            )
+            diversification_paths = [
+                diversification_result.report_artifact.path,
+                diversification_result.report_markdown_artifact.path,
+                diversification_result.index_artifact.path,
+            ]
+            artifacts_created.extend(diversification_paths)
+            diversification_report_paths.append(
+                diversification_result.report_artifact.path
+            )
+            strategy_option_count += diversification_result.report.strategy_option_count
+            selected_strategy_count += diversification_result.report.selected_strategy_count
+            duplicate_strategy_count += diversification_result.report.duplicate_strategy_count
+            history_result = persist_gap_attempt_artifacts(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                max_attempts_per_gap=max_attempts_per_gap,
+            )
+            artifacts_created.extend(
+                [
+                    history_result.history_artifact.path,
+                    history_result.dedup_index_artifact.path,
+                ]
+            )
         final_plan_result = persist_autonomous_evidence_gap_plan(
             run_id=run_id,
             root=root_path,
@@ -277,6 +319,14 @@ def run_autonomous_loop(
             rebuilt_map.map_artifact.path,
             final_plan_result.plan_artifact.path,
         ]
+        if diversification_result is not None:
+            iteration_paths.extend(
+                [
+                    diversification_result.report_artifact.path,
+                    diversification_result.report_markdown_artifact.path,
+                    diversification_result.index_artifact.path,
+                ]
+            )
         if release_path is not None:
             iteration_paths.append(release_path)
         if reviewer_summary_path is not None:
@@ -290,6 +340,11 @@ def run_autonomous_loop(
             planned_summary=planned_summary,
             manuscript_before=manuscript_before,
             manuscript_after=_hash_if_exists(_preferred_manuscript_path(reports)),
+            selected_strategy_count=(
+                diversification_result.report.selected_strategy_count
+                if diversification_result is not None
+                else 0
+            ),
         )
         meaningful_progress = _meaningful_progress(previous_snapshot, snapshot)
         no_progress_streak = 0 if meaningful_progress else no_progress_streak + 1
@@ -323,6 +378,21 @@ def run_autonomous_loop(
             created_paths=iteration_paths,
             claim_map_before=claim_map_before,
             iterations_without_progress=no_progress_streak,
+            strategy_diversification_report_path=(
+                diversification_result.report_artifact.path
+                if diversification_result is not None
+                else None
+            ),
+            strategy_option_count=(
+                diversification_result.report.strategy_option_count
+                if diversification_result is not None
+                else 0
+            ),
+            selected_strategy_count=(
+                diversification_result.report.selected_strategy_count
+                if diversification_result is not None
+                else 0
+            ),
         )
         iterations.append(iteration)
         previous_snapshot = snapshot
@@ -381,6 +451,11 @@ def run_autonomous_loop(
             final_decision.stop_reason in {"exhausted_gaps", "deferred_gaps", "no_progress"}
             and latest_history.exhausted_gap_count > 0
         ),
+        strategy_diversification_enabled=enable_strategy_diversification,
+        strategy_diversification_report_paths=diversification_report_paths,
+        strategy_option_count=strategy_option_count,
+        selected_strategy_count=selected_strategy_count,
+        duplicate_strategy_count=duplicate_strategy_count,
         iterations=iterations,
         artifacts_created=sorted(set(artifacts_created)),
         requires_human_intervention=(
@@ -440,6 +515,10 @@ def autonomous_loop_summary_fields(
             "autonomous_loop_stopped_due_to_exhausted_gaps": False,
             "gap_exhausted_no_progress_count": 0,
             "duplicate_specs_skipped": 0,
+            "strategy_diversification_enabled": False,
+            "strategy_option_count": 0,
+            "selected_strategy_count": 0,
+            "duplicate_strategy_count": 0,
         }
     return {
         "autonomous_loop_present": True,
@@ -458,6 +537,10 @@ def autonomous_loop_summary_fields(
         "autonomous_loop_stopped_due_to_exhausted_gaps": report.stopped_due_to_exhausted_gaps,
         "gap_exhausted_no_progress_count": report.gaps_marked_exhausted,
         "duplicate_specs_skipped": report.duplicate_specs_skipped,
+        "strategy_diversification_enabled": report.strategy_diversification_enabled,
+        "strategy_option_count": report.strategy_option_count,
+        "selected_strategy_count": report.selected_strategy_count,
+        "duplicate_strategy_count": report.duplicate_strategy_count,
     }
 
 
@@ -557,6 +640,7 @@ class _ProgressSnapshot:
     duplicate_specs_skipped: int
     exhausted_gap_count: int
     deferred_gap_count: int
+    selected_strategy_count: int
     manuscript_before: str | None
     manuscript_after: str | None
 
@@ -569,6 +653,7 @@ def _snapshot(
     planned_summary: dict[str, Any],
     manuscript_before: str | None,
     manuscript_after: str | None,
+    selected_strategy_count: int = 0,
 ) -> _ProgressSnapshot:
     claim_summary = claim_evidence_summary_fields(claim_map)
     plan_summary = autonomous_evidence_plan_summary_fields(plan)
@@ -588,6 +673,7 @@ def _snapshot(
         ),
         exhausted_gap_count=int(plan_summary.get("gap_exhausted_no_progress_count") or 0),
         deferred_gap_count=int(plan_summary.get("remaining_deferred_gap_count") or 0),
+        selected_strategy_count=selected_strategy_count,
         manuscript_before=manuscript_before,
         manuscript_after=manuscript_after,
     )
@@ -600,6 +686,8 @@ def _meaningful_progress(
     if current.manuscript_before != current.manuscript_after:
         return True
     if current.actions_applied > current.created_spec_count:
+        return True
+    if current.selected_strategy_count > 0:
         return True
     if current.experiment_artifacts_created > 0:
         return True
@@ -711,6 +799,9 @@ def _iteration_report(
     created_paths: list[str],
     claim_map_before: str | None,
     iterations_without_progress: int,
+    strategy_diversification_report_path: str | None = None,
+    strategy_option_count: int = 0,
+    selected_strategy_count: int = 0,
 ) -> AutonomousLoopIterationReport:
     claim_map_path = latest_claim_evidence_map_path(root, run_id)
     claim_map = _read_claim_map(claim_map_path)
@@ -734,6 +825,9 @@ def _iteration_report(
         evidence_aware_refresh_report_path=_latest_refresh_path(root, run_id),
         release_report_path=release_report_path,
         reviewer_summary_path_optional=reviewer_summary_path,
+        strategy_diversification_report_path=strategy_diversification_report_path,
+        strategy_option_count=strategy_option_count,
+        selected_strategy_count=selected_strategy_count,
         supported_claim_count=int(claim_summary["claim_evidence_supported_count"]),
         unsupported_claim_count=int(claim_summary["claim_evidence_unsupported_count"]),
         partial_claim_count=int(claim_summary["claim_evidence_partial_count"]),

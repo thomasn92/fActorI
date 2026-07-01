@@ -175,8 +175,15 @@ uv run factori inspect-planned-spec-execution --run-id demo --json
 uv run factori run-autonomous-loop \
   --run-id demo --loop-backend deterministic --max-iterations 3 \
   --max-attempts-per-gap 2
+uv run factori run-autonomous-loop \
+  --run-id demo --loop-backend deterministic --max-iterations 6 \
+  --max-attempts-per-gap 1 --enable-strategy-diversification
 uv run factori inspect-autonomous-loop --run-id demo
 uv run factori inspect-autonomous-loop --run-id demo --json
+uv run factori diversify-gap-strategies \
+  --run-id demo --strategy-backend deterministic
+uv run factori inspect-gap-strategy-diversification --run-id demo
+uv run factori inspect-gap-strategy-diversification --run-id demo --json
 uv run factori inspect-gap-attempt-history --run-id demo
 uv run factori inspect-gap-attempt-history --run-id demo --json
 uv run factori inspect-planned-spec-dedup --run-id demo

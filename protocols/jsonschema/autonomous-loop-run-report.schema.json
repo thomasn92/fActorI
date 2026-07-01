@@ -354,6 +354,30 @@
           "default": null,
           "title": "Reviewer Summary Path Optional"
         },
+        "selected_strategy_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Selected Strategy Count",
+          "type": "integer"
+        },
+        "strategy_diversification_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Strategy Diversification Report Path"
+        },
+        "strategy_option_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Strategy Option Count",
+          "type": "integer"
+        },
         "supported_claim_count": {
           "default": 0,
           "minimum": 0,
@@ -376,7 +400,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.35.0/autonomous-loop-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.36.0/autonomous-loop-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous iterative loop controller report.",
@@ -414,6 +438,12 @@
       "default": 0,
       "minimum": 0,
       "title": "Duplicate Specs Skipped",
+      "type": "integer"
+    },
+    "duplicate_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Strategy Count",
       "type": "integer"
     },
     "final_claim_evidence_counts": {
@@ -569,6 +599,12 @@
       "title": "Run Id",
       "type": "string"
     },
+    "selected_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Strategy Count",
+      "type": "integer"
+    },
     "started_at": {
       "format": "date-time",
       "minLength": 1,
@@ -594,6 +630,24 @@
       "default": false,
       "title": "Stopped Due To Exhausted Gaps",
       "type": "boolean"
+    },
+    "strategy_diversification_enabled": {
+      "default": false,
+      "title": "Strategy Diversification Enabled",
+      "type": "boolean"
+    },
+    "strategy_diversification_report_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Strategy Diversification Report Paths",
+      "type": "array"
+    },
+    "strategy_option_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Strategy Option Count",
+      "type": "integer"
     }
   },
   "required": [
@@ -610,7 +664,7 @@
   ],
   "title": "AutonomousLoopRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.35.0",
+  "x-factori-protocol-version": "0.36.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopRunReport",
   "x-factori-verification-evidence": false
 }

@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.36.0` adds deterministic gap-strategy options, append-only diversification reports and
+indexes, strategy provenance on autonomous plan/execution records, and strategy-aware exhaustion
+history. Diversification schedules local-only alternatives and creates no evidence, validation, or
+publication readiness.
+
 Protocol `0.35.0` adds stable autonomous gap/spec fingerprint fields, gap-attempt history records,
 planned-spec de-duplication indexes, and attempt-aware execution/loop report fields. These workflow
 contracts prevent duplicate spec churn and classify exhausted automation gaps without hiding them,

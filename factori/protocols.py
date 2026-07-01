@@ -69,6 +69,9 @@ from factori.schemas import (
     FullPaperReleaseStatus,
     GapAttemptHistory,
     GapAttemptRecord,
+    GapStrategyDiversificationIndex,
+    GapStrategyDiversificationReport,
+    GapStrategyOption,
     GeneratedSectionDraft,
     HumanReviewArtifact,
     HumanReviewDecision,
@@ -185,7 +188,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.35.0"
+PROTOCOL_VERSION = "0.36.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -446,6 +449,21 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "PlannedSpecDedupIndex",
         PlannedSpecDedupIndex,
         "Derived de-duplication index over planned proof, experiment, and retrieval specs.",
+    ),
+    ProtocolDefinition(
+        "GapStrategyOption",
+        GapStrategyOption,
+        "One bounded deterministic alternative for an exhausted workflow gap.",
+    ),
+    ProtocolDefinition(
+        "GapStrategyDiversificationReport",
+        GapStrategyDiversificationReport,
+        "Append-only non-evidence strategy diversification report.",
+    ),
+    ProtocolDefinition(
+        "GapStrategyDiversificationIndex",
+        GapStrategyDiversificationIndex,
+        "Derived latest pointer over immutable strategy diversification reports.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

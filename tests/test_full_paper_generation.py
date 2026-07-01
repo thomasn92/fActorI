@@ -48,6 +48,13 @@ from factori.gap_attempts import (
     inspect_planned_spec_dedup,
     planned_spec_fingerprint,
 )
+from factori.gap_strategy_diversification import (
+    build_gap_strategy_diversification,
+    inspect_gap_strategy_diversification,
+    persist_gap_strategy_diversification,
+    strategy_fingerprint,
+    strategy_is_automation_ready,
+)
 from factori.hashing import sha256_file
 from factori.human_review import (
     HumanReviewIntakeError,
@@ -92,6 +99,7 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     GapAttemptHistory,
     GapAttemptRecord,
+    GapStrategyOption,
     GeneratedSectionDraft,
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
@@ -1825,6 +1833,148 @@ def test_gap_and_spec_fingerprints_are_stable() -> None:
     assert planned_spec_fingerprint(spec_a) == planned_spec_fingerprint(spec_b)
 
 
+def test_strategy_fingerprint_is_stable() -> None:
+    inputs = {
+        "gap_fingerprint": "a" * 64,
+        "target_claim_id_optional": "claim-1",
+        "target_section_optional": "Method and Model",
+        "gap_type": "needs_formal_proof",
+        "alternative_action": "Split the statement into scoped subclaims.",
+        "strategy_family": "proof_decomposition_variant",
+        "expected_artifact_type": "proof_artifact",
+        "required_inputs": ["proof_plan_only", "target=claim-1"],
+    }
+    assert strategy_fingerprint(**inputs) == strategy_fingerprint(**inputs)
+
+
+@pytest.mark.parametrize(
+    ("gap_type", "expected_family"),
+    [
+        ("needs_retrieval_expansion", "retrieval_query_variant"),
+        ("needs_formal_proof", "proof_decomposition_variant"),
+        ("needs_python_experiment", "experiment_metric_variant"),
+        ("needs_claim_removal", "claim_removal_variant"),
+    ],
+)
+def test_exhausted_gaps_get_safe_diversified_strategies(
+    tmp_path,
+    gap_type: str,
+    expected_family: str,
+) -> None:
+    run_id = f"run-strategy-{gap_type}"
+    _write_exhausted_gap_inputs(tmp_path, run_id=run_id, gap_type=gap_type)
+
+    report = build_gap_strategy_diversification(
+        run_id=run_id,
+        root=tmp_path,
+        backend="deterministic",
+    )
+
+    assert report.candidate_gap_count == 1
+    assert report.selected_strategy_count == 1
+    assert any(option.strategy_family == expected_family for option in report.strategy_options)
+    assert all(
+        "network" not in option.alternative_action.casefold()
+        for option in report.strategy_options
+    )
+    assert report.publication_ready is False
+
+
+def test_unsafe_strategy_is_not_automation_ready() -> None:
+    common = {
+        "strategy_id": "strategy-unsafe",
+        "gap_fingerprint": "b" * 64,
+        "target_claim_id_optional": "claim-1",
+        "target_section_optional": "Demonstration Status",
+        "gap_type": "needs_python_experiment",
+        "original_recommended_action": "Plan an experiment.",
+        "strategy_family": "experiment_dataset_variant",
+        "expected_artifact_type": "experiment_artifact",
+        "novel_relative_to_previous_attempts": True,
+        "automation_ready": True,
+        "selected": False,
+        "rationale": "Test safety classification.",
+        "safety_notes": [],
+    }
+    network = GapStrategyOption(
+        **common,
+        alternative_action="Call an external API over the network.",
+        strategy_fingerprint="c" * 64,
+        required_inputs=["external api"],
+    )
+    arbitrary_python = GapStrategyOption(
+        **common,
+        alternative_action="Execute arbitrary Python supplied by the spec.",
+        strategy_fingerprint="d" * 64,
+        required_inputs=["arbitrary python"],
+    )
+    assert strategy_is_automation_ready(network) is False
+    assert strategy_is_automation_ready(arbitrary_python) is False
+
+
+def test_strategy_diversification_persists_and_detects_duplicates(tmp_path) -> None:
+    run_id = "run-strategy-persistence"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    _write_exhausted_gap_inputs(
+        tmp_path,
+        run_id=run_id,
+        gap_type="needs_formal_proof",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    first = persist_gap_strategy_diversification(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    second = persist_gap_strategy_diversification(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    third = persist_gap_strategy_diversification(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    fourth = persist_gap_strategy_diversification(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    inspected = inspect_gap_strategy_diversification(run_id=run_id, root=tmp_path)
+    cli_json = CliRunner().invoke(
+        app,
+        [
+            "inspect-gap-strategy-diversification",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert first.report.selected_strategy_count == 1
+    assert second.report.selected_strategy_count == 1
+    assert second.report.duplicate_strategy_count >= 1
+    assert third.report.selected_strategy_count == 1
+    assert fourth.report.selected_strategy_count == 0
+    assert fourth.report.duplicate_strategy_count == fourth.report.strategy_option_count
+    assert first.report_artifact.path.endswith("gap-strategy-diversification-0001.json")
+    assert first.report_markdown_artifact.path.endswith("gap-strategy-diversification-0001.md")
+    assert inspected["strategy_diversification_present"] is True
+    assert inspected["duplicate_strategy_count"] >= 1
+    assert inspected["publication_ready"] is False
+    assert cli_json.exit_code == 0, cli_json.output
+    assert json.loads(cli_json.output)["strategy_diversification_present"] is True
+
+
 def test_autonomous_plan_executor_deduplicates_equivalent_planned_specs(
     tmp_path,
 ) -> None:
@@ -2260,6 +2410,52 @@ def test_autonomous_loop_stops_before_max_iterations_for_exhausted_gaps(tmp_path
     assert lint["latest_autonomous_loop_stop_reason"] != "max_iterations_reached"
     assert history["gap_attempt_history_present"] is True
     assert dedup["planned_spec_dedup_index_present"] is True
+
+
+def test_autonomous_loop_diversifies_before_final_deferral(tmp_path) -> None:
+    run_id = "run-autonomous-loop-strategy-diversification"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=6,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+    )
+    strategy = inspect_gap_strategy_diversification(run_id=run_id, root=tmp_path)
+    history = inspect_gap_attempt_history(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.strategy_diversification_enabled is True
+    assert result.report.strategy_option_count >= 1
+    assert result.report.selected_strategy_count >= 1
+    assert result.report.iterations_completed <= 6
+    assert result.report.stop_reason != "max_iterations_reached"
+    assert strategy["strategy_diversification_present"] is True
+    assert strategy["strategy_option_count"] >= 1
+    assert history["strategy_attempt_count"] >= 1
+    assert any(
+        record["current_gap_status"]
+        in {
+            "exhausted_initial_strategy",
+            "exhausted_all_strategies",
+            "deferred_after_diversification",
+            "resolved",
+        }
+        for record in history["records"]
+    )
+    assert lint["strategy_diversification_present"] is True
+    assert lint["selected_strategy_count"] >= 0
+    assert lint["publication_ready"] is False
+    assert reviewer["strategy_diversification_present"] is True
+    assert reviewer["publication_ready"] is False
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:
@@ -3559,6 +3755,94 @@ def _write_retrieval_expansion_request(
     path = reports / f"{request_id}.json"
     path.write_text(request.model_dump_json(indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def _write_exhausted_gap_inputs(
+    tmp_path: Path,
+    *,
+    run_id: str,
+    gap_type: str,
+) -> None:
+    reports = tmp_path / "runs" / run_id / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    gap_fingerprint = "a" * 64
+    target_claim = None if gap_type == "needs_retrieval_expansion" else "claim-1"
+    target_section = (
+        "Demonstration Status"
+        if gap_type == "needs_python_experiment"
+        else "Method and Model"
+        if target_claim
+        else None
+    )
+    expected_artifact = {
+        "needs_retrieval_expansion": "retrieval_quality_report",
+        "needs_formal_proof": "proof_artifact",
+        "needs_python_experiment": "experiment_artifact",
+        "needs_claim_removal": "revised_manuscript",
+        "needs_claim_downgrade": "revised_manuscript",
+    }[gap_type]
+    record = GapAttemptRecord(
+        gap_fingerprint=gap_fingerprint,
+        target_claim_id_optional=target_claim,
+        target_section_optional=target_section,
+        gap_type=gap_type,
+        recommended_action=f"Initial exhausted action for {gap_type}.",
+        expected_artifact_type=expected_artifact,
+        attempt_count=1,
+        no_op_attempt_count=1,
+        latest_attempt_status="skipped",
+        current_gap_status="exhausted_no_progress",
+    )
+    history = GapAttemptHistory(
+        run_id=run_id,
+        history_version=9999,
+        gap_count=1,
+        attempt_count=1,
+        exhausted_gap_count=1,
+        records=[record],
+        created_at="2026-07-01T00:00:00Z",
+        updated_at="2026-07-01T00:00:00Z",
+    )
+    plan_item = AutonomousEvidenceGapPlanItem(
+        item_id="plan-item-exhausted",
+        target_type="claim" if target_claim else "retrieval",
+        target_claim_id_optional=target_claim,
+        target_section_optional=target_section,
+        current_support_status="unsupported",
+        gap_type=gap_type,
+        recommended_action=record.recommended_action,
+        priority="high",
+        blocking=False,
+        rationale="The initial deterministic strategy made no progress.",
+        required_inputs=[f"target={target_claim or 'bounded-context'}"],
+        expected_artifact_type=expected_artifact,
+        automation_ready=False,
+        gap_fingerprint=gap_fingerprint,
+        gap_attempt_history_present=True,
+        gap_attempt_count=1,
+        gap_already_attempted=True,
+        gap_exhausted=True,
+        automation_ready_after_history=False,
+    )
+    plan = AutonomousEvidenceGapPlan(
+        run_id=run_id,
+        planner_backend="deterministic",
+        planner_status="planned",
+        claim_evidence_map_path=f"runs/{run_id}/reports/claim-evidence-map.json",
+        claim_support_audit_path=f"runs/{run_id}/reports/claim-support-audit.json",
+        plan_items=[plan_item],
+        gap_attempt_history_present=True,
+        gap_attempt_count=1,
+        exhausted_gap_count=1,
+    )
+    (reports / "gap-attempt-history-9999.json").write_text(
+        history.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (reports / "autonomous-evidence-gap-plan-9999.json").write_text(
+        plan.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _write_proof_artifact_fixture(

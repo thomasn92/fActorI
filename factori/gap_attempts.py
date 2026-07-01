@@ -21,6 +21,7 @@ from factori.schemas import (
     ControllerActionType,
     GapAttemptHistory,
     GapAttemptRecord,
+    GapStrategyDiversificationReport,
     PlannedExperimentSpec,
     PlannedSpecDedupIndex,
     PlannedSpecDuplicateRecord,
@@ -74,6 +75,10 @@ class _MutableGapAttemptRecord:
     deferred_attempt_count: int = 0
     failed_attempt_count: int = 0
     no_op_attempt_count: int = 0
+    strategy_attempt_count: int = 0
+    strategy_fingerprints_attempted: list[str] = field(default_factory=list)
+    diversified_strategy_count: int = 0
+    final_deferral_after_strategy_exhaustion: bool = False
     latest_attempt_status: str | None = None
     current_gap_status: str = "open"
     created_spec_fingerprints: list[str] = field(default_factory=list)
@@ -119,6 +124,8 @@ def plan_item_fingerprint(
             "priority": item.priority,
             "blocking": item.blocking,
             "automation_ready": item.automation_ready,
+            "strategy_fingerprint": item.strategy_fingerprint,
+            "strategy_family": item.strategy_family,
         }
     )
 
@@ -203,11 +210,29 @@ def annotate_plan_items_with_history(
     records = {record.gap_fingerprint: record for record in history.records} if history else {}
     annotated: list[AutonomousEvidenceGapPlanItem] = []
     for item in items:
-        gap_fp = gap_fingerprint_for_plan_item(run_id=run_id, item=item)
+        gap_fp = item.source_gap_fingerprint or gap_fingerprint_for_plan_item(
+            run_id=run_id,
+            item=item,
+        )
         item_fp = plan_item_fingerprint(run_id=run_id, item=item)
         record = records.get(gap_fp)
-        exhausted = bool(record and record.current_gap_status == "exhausted_no_progress")
-        automation_ready = bool(item.automation_ready and not exhausted)
+        exhausted_statuses = {
+            "exhausted_no_progress",
+            "exhausted_initial_strategy",
+            "exhausted_all_strategies",
+            "deferred_after_diversification",
+        }
+        exhausted = bool(record and record.current_gap_status in exhausted_statuses)
+        strategy_attempted = bool(
+            record
+            and item.strategy_fingerprint
+            and item.strategy_fingerprint in record.strategy_fingerprints_attempted
+        )
+        automation_ready = bool(
+            item.automation_ready
+            and not strategy_attempted
+            and (not exhausted or bool(item.strategy_fingerprint))
+        )
         annotated.append(
             item.model_copy(
                 update={
@@ -298,6 +323,7 @@ def build_gap_attempt_history(
             record = _ensure_record(records, gap_fp, item)
             _record_planned_spec_item(root_path, record, item)
 
+    strategy_catalog, final_deferred_gaps = _strategy_catalog(root_path, run_id)
     for gap_fp, record in records.items():
         in_current_plan = gap_fp in current_open
         record.current_gap_status = _current_status(
@@ -305,10 +331,27 @@ def build_gap_attempt_history(
             in_current_plan=in_current_plan,
             max_attempts=max_attempts,
         )
+        known_strategies = strategy_catalog.get(gap_fp, set())
+        record.diversified_strategy_count = len(known_strategies)
+        if record.current_gap_status == "exhausted_no_progress" and known_strategies:
+            attempted = set(record.strategy_fingerprints_attempted)
+            if gap_fp in final_deferred_gaps and known_strategies <= attempted:
+                record.current_gap_status = "deferred_after_diversification"
+                record.final_deferral_after_strategy_exhaustion = True
+            elif known_strategies <= attempted:
+                record.current_gap_status = "exhausted_all_strategies"
+            else:
+                record.current_gap_status = "exhausted_initial_strategy"
         if record.current_gap_status == "resolved" and not record.resolution_reason_optional:
             record.resolution_reason_optional = "Gap no longer appears as an open automation item."
         if (
-            record.current_gap_status == "exhausted_no_progress"
+            record.current_gap_status
+            in {
+                "exhausted_no_progress",
+                "exhausted_initial_strategy",
+                "exhausted_all_strategies",
+                "deferred_after_diversification",
+            }
             and not record.exhaustion_reason_optional
         ):
             record.exhaustion_reason_optional = (
@@ -327,10 +370,25 @@ def build_gap_attempt_history(
         attempt_count=sum(record.attempt_count for record in ordered),
         open_gap_count=sum(record.current_gap_status == "open" for record in ordered),
         exhausted_gap_count=sum(
-            record.current_gap_status == "exhausted_no_progress" for record in ordered
+            record.current_gap_status
+            in {
+                "exhausted_no_progress",
+                "exhausted_initial_strategy",
+                "exhausted_all_strategies",
+                "deferred_after_diversification",
+            }
+            for record in ordered
         ),
-        deferred_gap_count=sum(record.current_gap_status == "deferred" for record in ordered),
+        deferred_gap_count=sum(
+            record.current_gap_status in {"deferred", "deferred_after_diversification"}
+            for record in ordered
+        ),
         resolved_gap_count=sum(record.current_gap_status == "resolved" for record in ordered),
+        strategy_attempt_count=sum(record.strategy_attempt_count for record in ordered),
+        diversified_strategy_count=sum(record.diversified_strategy_count for record in ordered),
+        deferred_after_strategy_exhaustion_count=sum(
+            record.final_deferral_after_strategy_exhaustion for record in ordered
+        ),
         records=ordered,
         created_at=previous.created_at if previous else now,
         updated_at=now,
@@ -529,12 +587,20 @@ def gap_attempt_summary_fields(history: GapAttemptHistory | None) -> dict[str, A
             "gap_attempt_count": 0,
             "gap_exhausted_no_progress_count": 0,
             "remaining_deferred_gap_count": 0,
+            "strategy_attempt_count": 0,
+            "diversified_strategy_count": 0,
+            "gaps_deferred_after_strategy_exhaustion": 0,
         }
     return {
         "gap_attempt_history_present": True,
         "gap_attempt_count": history.attempt_count,
         "gap_exhausted_no_progress_count": history.exhausted_gap_count,
         "remaining_deferred_gap_count": history.deferred_gap_count,
+        "strategy_attempt_count": history.strategy_attempt_count,
+        "diversified_strategy_count": history.diversified_strategy_count,
+        "gaps_deferred_after_strategy_exhaustion": (
+            history.deferred_after_strategy_exhaustion_count
+        ),
     }
 
 
@@ -575,7 +641,7 @@ def _current_open_gap_fingerprints(
         if item.gap_type == "sufficiently_supported_for_bounded_draft":
             continue
         gap_fp = item.gap_fingerprint or gap_fingerprint_for_plan_item(run_id=run_id, item=item)
-        result[gap_fp] = item
+        result.setdefault(gap_fp, item)
     return result
 
 
@@ -732,6 +798,16 @@ def _record_autonomous_action(
     if action.created_artifact_path_optional:
         record.created_artifact_paths = sorted(
             set([*record.created_artifact_paths, action.created_artifact_path_optional])
+        )
+    if action.strategy_fingerprint_optional:
+        record.strategy_attempt_count += 1
+        record.strategy_fingerprints_attempted = sorted(
+            set(
+                [
+                    *record.strategy_fingerprints_attempted,
+                    action.strategy_fingerprint_optional,
+                ]
+            )
         )
 
 
@@ -959,6 +1035,12 @@ def _record_from_mutable(record: _MutableGapAttemptRecord) -> GapAttemptRecord:
         deferred_attempt_count=record.deferred_attempt_count,
         failed_attempt_count=record.failed_attempt_count,
         no_op_attempt_count=record.no_op_attempt_count,
+        strategy_attempt_count=record.strategy_attempt_count,
+        strategy_fingerprints_attempted=record.strategy_fingerprints_attempted,
+        diversified_strategy_count=record.diversified_strategy_count,
+        final_deferral_after_strategy_exhaustion=(
+            record.final_deferral_after_strategy_exhaustion
+        ),
         latest_attempt_status=record.latest_attempt_status,
         current_gap_status=record.current_gap_status,
         created_spec_fingerprints=record.created_spec_fingerprints,
@@ -970,6 +1052,32 @@ def _record_from_mutable(record: _MutableGapAttemptRecord) -> GapAttemptRecord:
         implies_publication_readiness=False,
         is_verification_evidence=False,
     )
+
+
+def _strategy_catalog(root: Path, run_id: str) -> tuple[dict[str, set[str]], set[str]]:
+    catalog: dict[str, set[str]] = {}
+    final_deferred: set[str] = set()
+    reports = _reports(root, run_id)
+    for path in sorted(reports.glob("gap-strategy-diversification-*.json")):
+        if "index" in path.name or path.name.endswith(".meta.json"):
+            continue
+        try:
+            report = GapStrategyDiversificationReport.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            continue
+        if report.run_id != run_id:
+            continue
+        report_gaps: set[str] = set()
+        for option in report.strategy_options:
+            catalog.setdefault(option.gap_fingerprint, set()).add(
+                option.strategy_fingerprint
+            )
+            report_gaps.add(option.gap_fingerprint)
+        if report.strategy_status == "all_strategies_exhausted":
+            final_deferred.update(report_gaps)
+    return catalog, final_deferred
 
 
 def _metadata(role: str) -> dict[str, Any]:

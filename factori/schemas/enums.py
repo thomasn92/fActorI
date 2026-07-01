@@ -356,6 +356,7 @@ class ControllerActionType(StrEnum):
     PLANNED_SPEC_EXECUTION_WRITTEN = "PlannedSpecExecutionWritten"
     AUTONOMOUS_LOOP_WRITTEN = "AutonomousLoopWritten"
     GAP_ATTEMPT_HISTORY_WRITTEN = "GapAttemptHistoryWritten"
+    GAP_STRATEGY_DIVERSIFICATION_WRITTEN = "GapStrategyDiversificationWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

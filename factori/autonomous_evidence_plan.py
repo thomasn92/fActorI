@@ -185,11 +185,22 @@ def build_autonomous_evidence_gap_plan(
             first_index=len(items) + 1,
         )
     )
+    history = load_latest_gap_attempt_history(root_path, run_id)
+    from factori.gap_strategy_diversification import (  # noqa: PLC0415
+        selected_strategy_plan_items,
+    )
+
+    items.extend(
+        selected_strategy_plan_items(
+            root=root_path,
+            run_id=run_id,
+            history=history,
+        )
+    )
     items = [
         item.model_copy(update={"item_id": f"plan-item-{index:03d}"})
         for index, item in enumerate(items, start=1)
     ]
-    history = load_latest_gap_attempt_history(root_path, run_id)
     items = annotate_plan_items_with_history(
         run_id=run_id,
         items=items,

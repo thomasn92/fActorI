@@ -758,6 +758,11 @@ class ReviewerBundleSummary(StrictModel):
     duplicate_specs_skipped: int = Field(default=0, ge=0)
     gaps_exhausted_no_progress: int = Field(default=0, ge=0)
     remaining_deferred_gaps: int = Field(default=0, ge=0)
+    strategy_diversification_present: bool = False
+    strategy_option_count: int = Field(default=0, ge=0)
+    selected_strategy_count: int = Field(default=0, ge=0)
+    duplicate_strategy_count: int = Field(default=0, ge=0)
+    gaps_deferred_after_strategy_exhaustion: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -952,6 +957,9 @@ class AutonomousEvidenceGapPlanItem(StrictModel):
     gap_already_attempted: bool = False
     gap_exhausted: bool = False
     automation_ready_after_history: bool = False
+    source_gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    strategy_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    strategy_family: str | None = None
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
@@ -1017,6 +1025,9 @@ class AutonomousPlanExecutionAction(StrictModel):
     gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
     plan_item_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
     planned_spec_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    source_gap_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    strategy_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    strategy_family_optional: str | None = None
     deferred_reason_optional: str | None = None
     rejected_reason_optional: str | None = None
     created_artifact_path_optional: str | None = None
@@ -1243,6 +1254,9 @@ GapAttemptStatus = Literal[
     "resolved",
     "deferred",
     "exhausted_no_progress",
+    "exhausted_initial_strategy",
+    "exhausted_all_strategies",
+    "deferred_after_diversification",
     "blocked",
 ]
 
@@ -1263,6 +1277,10 @@ class GapAttemptRecord(StrictModel):
     deferred_attempt_count: int = Field(default=0, ge=0)
     failed_attempt_count: int = Field(default=0, ge=0)
     no_op_attempt_count: int = Field(default=0, ge=0)
+    strategy_attempt_count: int = Field(default=0, ge=0)
+    strategy_fingerprints_attempted: list[str] = Field(default_factory=list)
+    diversified_strategy_count: int = Field(default=0, ge=0)
+    final_deferral_after_strategy_exhaustion: bool = False
     latest_attempt_status: str | None = None
     current_gap_status: GapAttemptStatus = "open"
     created_spec_fingerprints: list[str] = Field(default_factory=list)
@@ -1286,6 +1304,9 @@ class GapAttemptHistory(StrictModel):
     exhausted_gap_count: int = Field(default=0, ge=0)
     deferred_gap_count: int = Field(default=0, ge=0)
     resolved_gap_count: int = Field(default=0, ge=0)
+    strategy_attempt_count: int = Field(default=0, ge=0)
+    diversified_strategy_count: int = Field(default=0, ge=0)
+    deferred_after_strategy_exhaustion_count: int = Field(default=0, ge=0)
     records: list[GapAttemptRecord] = Field(default_factory=list)
     created_at: str = Field(min_length=1)
     updated_at: str = Field(min_length=1)
@@ -1322,6 +1343,89 @@ class PlannedSpecDedupIndex(StrictModel):
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
     publication_ready: bool = False
+
+
+GapStrategyFamily = Literal[
+    "retrieval_query_variant",
+    "retrieval_source_type_variant",
+    "proof_decomposition_variant",
+    "proof_checker_variant",
+    "experiment_metric_variant",
+    "experiment_baseline_variant",
+    "experiment_dataset_variant",
+    "claim_downgrade_variant",
+    "claim_removal_variant",
+    "manuscript_boundary_variant",
+]
+
+
+class GapStrategyOption(StrictModel):
+    """One bounded alternative strategy for an exhausted workflow gap."""
+
+    strategy_id: str = Field(min_length=1)
+    gap_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    gap_type: AutonomousEvidenceGapType
+    original_recommended_action: str = Field(min_length=1)
+    alternative_action: str = Field(min_length=1)
+    strategy_family: GapStrategyFamily
+    strategy_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    novel_relative_to_previous_attempts: bool
+    expected_artifact_type: str = Field(min_length=1)
+    required_inputs: list[str] = Field(default_factory=list)
+    automation_ready: bool
+    selected: bool = False
+    rationale: str = Field(min_length=1)
+    safety_notes: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GapStrategyDiversificationReport(StrictModel):
+    """Append-only deterministic diversification report; workflow context only."""
+
+    run_id: str = Field(min_length=1)
+    diversification_id: str = Field(min_length=1)
+    source_gap_attempt_history_path: str = Field(min_length=1)
+    source_autonomous_plan_path: str = Field(min_length=1)
+    strategy_backend: Literal["deterministic", "fake", "openai"] = "deterministic"
+    strategy_status: str = Field(min_length=1)
+    candidate_gap_count: int = Field(default=0, ge=0)
+    strategy_option_count: int = Field(default=0, ge=0)
+    new_strategy_count: int = Field(default=0, ge=0)
+    duplicate_strategy_count: int = Field(default=0, ge=0)
+    selected_strategy_count: int = Field(default=0, ge=0)
+    selected_strategy_ids: list[str] = Field(default_factory=list)
+    created_plan_item_count: int = Field(default=0, ge=0)
+    created_spec_count: int = Field(default=0, ge=0)
+    strategy_options: list[GapStrategyOption] = Field(default_factory=list)
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class GapStrategyDiversificationIndex(StrictModel):
+    """Derived latest pointer over immutable diversification reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_diversification_id: str = Field(min_length=1)
+    diversification_count: int = Field(ge=1)
+    latest_strategy_status: str = Field(min_length=1)
+    latest_strategy_option_count: int = Field(default=0, ge=0)
+    latest_selected_strategy_count: int = Field(default=0, ge=0)
+    latest_duplicate_strategy_count: int = Field(default=0, ge=0)
+    strategy_option_count: int = Field(default=0, ge=0)
+    selected_strategy_count: int = Field(default=0, ge=0)
+    duplicate_strategy_count: int = Field(default=0, ge=0)
+    latest_requires_human_intervention: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
 
 
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
@@ -1370,6 +1474,9 @@ class AutonomousLoopIterationReport(StrictModel):
     evidence_aware_refresh_report_path: str | None = None
     release_report_path: str | None = None
     reviewer_summary_path_optional: str | None = None
+    strategy_diversification_report_path: str | None = None
+    strategy_option_count: int = Field(default=0, ge=0)
+    selected_strategy_count: int = Field(default=0, ge=0)
     supported_claim_count: int = Field(default=0, ge=0)
     unsupported_claim_count: int = Field(default=0, ge=0)
     partial_claim_count: int = Field(default=0, ge=0)
@@ -1427,6 +1534,11 @@ class AutonomousLoopRunReport(StrictModel):
     gaps_marked_exhausted: int = Field(default=0, ge=0)
     iterations_without_progress: int = Field(default=0, ge=0)
     stopped_due_to_exhausted_gaps: bool = False
+    strategy_diversification_enabled: bool = False
+    strategy_diversification_report_paths: list[str] = Field(default_factory=list)
+    strategy_option_count: int = Field(default=0, ge=0)
+    selected_strategy_count: int = Field(default=0, ge=0)
+    duplicate_strategy_count: int = Field(default=0, ge=0)
     iterations: list[AutonomousLoopIterationReport] = Field(default_factory=list)
     artifacts_created: list[str] = Field(default_factory=list)
     requires_human_intervention: bool = False

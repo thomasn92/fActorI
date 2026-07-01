@@ -1,0 +1,95 @@
+{
+  "$id": "https://schemas.factori.local/0.36.0/gap-strategy-diversification-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable strategy diversification reports.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "diversification_count": {
+      "minimum": 1,
+      "title": "Diversification Count",
+      "type": "integer"
+    },
+    "duplicate_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Duplicate Strategy Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_diversification_id": {
+      "minLength": 1,
+      "title": "Latest Diversification Id",
+      "type": "string"
+    },
+    "latest_duplicate_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Latest Duplicate Strategy Count",
+      "type": "integer"
+    },
+    "latest_requires_human_intervention": {
+      "default": false,
+      "title": "Latest Requires Human Intervention",
+      "type": "boolean"
+    },
+    "latest_selected_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Latest Selected Strategy Count",
+      "type": "integer"
+    },
+    "latest_strategy_option_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Latest Strategy Option Count",
+      "type": "integer"
+    },
+    "latest_strategy_status": {
+      "minLength": 1,
+      "title": "Latest Strategy Status",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_strategy_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Strategy Count",
+      "type": "integer"
+    },
+    "strategy_option_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Strategy Option Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_diversification_id",
+    "diversification_count",
+    "latest_strategy_status"
+  ],
+  "title": "GapStrategyDiversificationIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.36.0",
+  "x-factori-source-model": "factori.schemas.GapStrategyDiversificationIndex",
+  "x-factori-verification-evidence": false
+}
