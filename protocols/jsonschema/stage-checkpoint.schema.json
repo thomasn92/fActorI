@@ -21,7 +21,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.28.0/stage-checkpoint.schema.json",
+  "$id": "https://schemas.factori.local/0.30.0/stage-checkpoint.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Artifact-derived stage completion checkpoint.",
@@ -73,7 +73,7 @@
   ],
   "title": "StageCheckpoint",
   "type": "object",
-  "x-factori-protocol-version": "0.28.0",
+  "x-factori-protocol-version": "0.30.0",
   "x-factori-source-model": "factori.schemas.StageCheckpoint",
   "x-factori-verification-evidence": false
 }

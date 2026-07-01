@@ -38,7 +38,16 @@ from factori.human_review import (
     ingest_human_review,
     inspect_human_review,
 )
+from factori.human_review_reconciliation import (
+    inspect_human_review_reconciliation,
+    reconcile_human_review,
+)
 from factori.ledger import ResearchLedger
+from factori.reviewer_change_requests import (
+    ReviewerChangeRequestError,
+    ingest_reviewer_change_requests,
+    inspect_reviewer_change_requests,
+)
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
@@ -58,6 +67,8 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     GeneratedSectionDraft,
     HumanReviewArtifact,
+    HumanReviewReconciliationIndex,
+    HumanReviewReconciliationReport,
     PipelineRunConfig,
     PipelineStage,
     ProofArtifact,
@@ -79,6 +90,7 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ClaimEvidenceMap
     assert ClaimEvidenceMapLink
     assert EvidenceAwareRefreshReport
+    assert HumanReviewReconciliationReport
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -1551,6 +1563,460 @@ def test_evidence_aware_refresh_blocks_unsupported_claim_evidence_map(tmp_path) 
     ).exists()
 
 
+def test_human_review_reconciliation_applies_rejects_and_defers_safely(
+    tmp_path,
+) -> None:
+    run_id = "run-human-review-reconciliation"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_statement_ids=[
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
+        ],
+    )
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_section_ids=["demonstration-status"],
+    )
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+    review_file = _write_human_review_fixture(
+        tmp_path,
+        run_id=run_id,
+        review_status="reviewed_with_blocking_changes",
+        requested_changes=[
+            "Clarify the problem framing and intended research question.",
+            "Add an evidence-boundary clarification.",
+            "Reference the existing formal proof artifact within its mapped scope.",
+            "Mention the existing experiment artifact within its bounded result scope.",
+            "Say this manuscript is novel.",
+            "Say this manuscript is publication ready.",
+            "State that the experiment validates the method broadly.",
+            "State the theorem is proven without a matching proof artifact.",
+            "Cite a rejected source for the background claim.",
+            "Run expanded retrieval before stronger background claims.",
+        ],
+        blocking_concerns=["Requested changes require deterministic reconciliation."],
+    )
+    ingest_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        review_file=review_file,
+    )
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    refresh_evidence_aware_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    result = reconcile_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.HUMAN_REVIEW_RECONCILIATION_WRITTEN
+    )
+    assert result.report.applied_change_count == 4
+    assert result.report.rejected_change_count == 4
+    assert result.report.deferred_change_count == 2
+    assert result.report.requires_new_evidence_count == 2
+    assert result.report.claim_support_rechecked_after_reconciliation is True
+    assert result.report.claim_evidence_map_rechecked_after_reconciliation is True
+    assert result.report.citation_safety_rechecked_after_reconciliation is True
+    assert result.report.release_rechecked_after_reconciliation is True
+    outcomes = {item.outcome for item in result.report.change_outcomes}
+    assert "applied_safe_text_revision" in outcomes
+    assert "applied_boundary_clarification" in outcomes
+    assert "applied_existing_evidence_reference" in outcomes
+    assert "rejected_forbidden_authority_claim" in outcomes
+    assert "rejected_unsupported_claim" in outcomes
+    assert "deferred_requires_proof_artifact" in outcomes
+    assert "deferred_requires_retrieval_expansion" in outcomes
+    assert "say this manuscript is novel" not in result.reconciled_markdown.casefold()
+    assert "say this manuscript is publication ready" not in (
+        result.reconciled_markdown.casefold()
+    )
+    assert "formal proof artifact linked to a specific mapped claim" in (
+        result.reconciled_markdown.casefold()
+    )
+    assert "completed experiment artifact linked to a bounded result claim" in (
+        result.reconciled_markdown.casefold()
+    )
+    assert result.claim_evidence_map.unsupported_non_scaffold_claim_ids == []
+
+    report_path = (
+        tmp_path
+        / "runs"
+            / run_id
+            / "reports"
+            / "human-review-reconciliation-cycle-001.json"
+    )
+    markdown_report_path = report_path.with_suffix(".md")
+    manuscript_path = (
+        tmp_path
+        / "runs"
+        / run_id
+        / "reports"
+        / "reconciled-manuscript-cycle-001.md"
+    )
+    assert report_path.is_file()
+    assert markdown_report_path.is_file()
+    assert manuscript_path.is_file()
+    report = HumanReviewReconciliationReport.model_validate_json(
+        report_path.read_text(encoding="utf-8")
+    )
+    assert report.creates_scientific_validation is False
+    assert report.implies_publication_readiness is False
+    assert report.is_verification_evidence is False
+    inspected = inspect_human_review_reconciliation(run_id=run_id, root=tmp_path)
+    assert inspected["human_review_reconciliation_present"] is True
+    assert inspected["publication_ready"] is False
+
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["human_review_reconciliation_present"] is True
+    assert lint["human_review_applied_change_count"] == 4
+    assert lint["human_review_rejected_change_count"] == 4
+    assert lint["human_review_deferred_change_count"] == 2
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["claim_evidence_unsupported_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
+    assert lint["citation_registry_sources_all_accepted"] is True
+    assert lint["publication_ready"] is False
+
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    assert reviewer["summary_path"].endswith(
+        "reviewer-bundle-summary-after-reconciliation-cycle-001.json"
+    )
+    assert reviewer["human_review_reconciliation_present"] is True
+    assert reviewer["human_review_applied_change_count"] == 4
+    assert reviewer["human_review_remaining_requested_changes"]
+    assert reviewer["publication_ready"] is False
+
+
+def test_structured_reviewer_requests_support_two_immutable_cycles(tmp_path) -> None:
+    run_id = "run-structured-reviewer-cycles"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    proof_file = _write_proof_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_statement_ids=[
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
+        ],
+    )
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_section_ids=["demonstration-status"],
+    )
+    ingest_proof_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        proof_file=proof_file,
+    )
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+    review_file = _write_human_review_fixture(tmp_path, run_id=run_id)
+    review = ingest_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        review_file=review_file,
+    ).review
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    refresh_evidence_aware_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+    proof_link = next(
+        link for link in claim_map.links if link.support_type == "formal_proof_verification"
+    )
+    experiment_link = next(
+        link for link in claim_map.links if link.support_type == "experiment_result"
+    )
+    request_file_1 = _write_structured_request_set(
+        tmp_path,
+        run_id=run_id,
+        request_set_id="request-set-001",
+        review_id=review.review_id,
+        target_artifact_path=(
+            f"runs/{run_id}/reports/evidence-aware-refreshed-manuscript-draft.md"
+        ),
+        requests=[
+            {
+                "request_id": "clarify",
+                "target_type": "section",
+                "target_section_optional": "Introduction and Problem Framing",
+                "requested_action": "clarify_wording",
+                "priority": "high",
+                "requires_new_evidence": False,
+            },
+            {
+                "request_id": "proof",
+                "target_type": "proof_artifact",
+                "target_section_optional": "Claim and Evidence Boundaries",
+                "target_claim_id_optional": proof_link.claim_id,
+                "target_evidence_artifact_id_optional": (
+                    proof_link.supporting_proof_artifact_ids[0]
+                ),
+                "requested_action": "add_existing_proof_reference",
+                "priority": "high",
+                "requires_new_evidence": False,
+            },
+            {
+                "request_id": "experiment",
+                "target_type": "experiment_artifact",
+                "target_section_optional": "Demonstration Status",
+                "target_claim_id_optional": experiment_link.claim_id,
+                "target_evidence_artifact_id_optional": (
+                    experiment_link.supporting_experiment_artifact_ids[0]
+                ),
+                "requested_action": "add_existing_experiment_reference",
+                "priority": "high",
+                "requires_new_evidence": False,
+            },
+            {
+                "request_id": "forbidden",
+                "target_type": "release_report",
+                "requested_action": "forbidden_publication_ready_request",
+                "priority": "blocking",
+                "requires_new_evidence": False,
+            },
+            {
+                "request_id": "new-proof",
+                "target_type": "claim",
+                "target_claim_id_optional": proof_link.claim_id,
+                "requested_action": "request_new_proof_artifact",
+                "priority": "medium",
+                "requires_new_evidence": True,
+            },
+        ],
+    )
+    intake_1 = ingest_reviewer_change_requests(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        request_file=request_file_1,
+    )
+    assert intake_1.request_set_number == 1
+    cycle_1 = reconcile_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    assert cycle_1.report.cycle_number == 1
+    assert cycle_1.report.applied_change_count == 3
+    assert cycle_1.report.rejected_change_count == 1
+    assert cycle_1.report.deferred_change_count == 1
+    cycle_1_path = (
+        tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-001.md"
+    )
+    cycle_1_hash = sha256_file(cycle_1_path)
+
+    request_file_2 = _write_structured_request_set(
+        tmp_path,
+        run_id=run_id,
+        request_set_id="request-set-002",
+        review_id=review.review_id,
+        target_artifact_path=(
+            f"runs/{run_id}/reports/reconciled-manuscript-cycle-001.md"
+        ),
+        requests=[
+            {
+                "request_id": "boundary-cycle-2",
+                "target_type": "section",
+                "target_section_optional": "Limitations",
+                "requested_action": "add_boundary_language",
+                "priority": "medium",
+                "requires_new_evidence": False,
+            }
+        ],
+    )
+    ingest_reviewer_change_requests(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        request_file=request_file_2,
+    )
+    cycle_2 = reconcile_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    assert cycle_2.report.cycle_number == 2
+    assert cycle_2.report.applied_change_count == 1
+    assert sha256_file(cycle_1_path) == cycle_1_hash
+    assert (
+        tmp_path / "runs" / run_id / "reports" / "reconciled-manuscript-cycle-002.md"
+    ).is_file()
+    index = HumanReviewReconciliationIndex.model_validate_json(
+        (tmp_path / cycle_2.reconciliation_index_artifact.path).read_text()
+    )
+    assert index.latest_cycle == 2
+    assert index.cycle_count == 2
+    assert index.current_preferred_reconciled_manuscript.endswith(
+        "reconciled-manuscript-cycle-002.md"
+    )
+    inspected = inspect_reviewer_change_requests(run_id=run_id, root=tmp_path)
+    assert inspected["reviewer_request_set_count"] == 2
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint["human_review_reconciliation_cycle_count"] == 2
+    assert lint["latest_reconciliation_cycle"] == 2
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["claim_evidence_unsupported_count"] == 0
+    assert lint["publication_ready"] is False
+
+
+def test_structured_reviewer_request_intake_rejects_invalid_targets(tmp_path) -> None:
+    run_id = "run-structured-reviewer-invalid"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    review = ingest_human_review(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        review_file=_write_human_review_fixture(tmp_path, run_id=run_id),
+    ).review
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    target = f"runs/{run_id}/reports/revised-manuscript-draft.md"
+
+    unknown_section = _write_structured_request_set(
+        tmp_path,
+        run_id=run_id,
+        request_set_id="unknown-section",
+        review_id=review.review_id,
+        target_artifact_path=target,
+        requests=[
+            {
+                "request_id": "unknown-section-request",
+                "target_type": "section",
+                "target_section_optional": "Unknown Section",
+                "requested_action": "clarify_wording",
+                "priority": "medium",
+                "requires_new_evidence": False,
+            }
+        ],
+    )
+    with pytest.raises(ReviewerChangeRequestError, match="unknown target section"):
+        ingest_reviewer_change_requests(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            request_file=unknown_section,
+        )
+
+    unknown_claim = _write_structured_request_set(
+        tmp_path,
+        run_id=run_id,
+        request_set_id="unknown-claim",
+        review_id=review.review_id,
+        target_artifact_path=target,
+        requests=[
+            {
+                "request_id": "unknown-claim-request",
+                "target_type": "claim",
+                "target_claim_id_optional": "missing-claim-id",
+                "requested_action": "request_new_proof_artifact",
+                "priority": "medium",
+                "requires_new_evidence": True,
+            }
+        ],
+    )
+    with pytest.raises(ReviewerChangeRequestError, match="unknown claim"):
+        ingest_reviewer_change_requests(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            request_file=unknown_claim,
+        )
+
+    rejected_citation = _write_structured_request_set(
+        tmp_path,
+        run_id=run_id,
+        request_set_id="rejected-citation",
+        review_id=review.review_id,
+        target_artifact_path=target,
+        requests=[
+            {
+                "request_id": "rejected-citation-request",
+                "target_type": "citation",
+                "requested_action": "add_existing_citation",
+                "requested_text_optional": "RejectedSourceKey",
+                "priority": "medium",
+                "requires_new_evidence": False,
+            }
+        ],
+    )
+    with pytest.raises(ReviewerChangeRequestError, match="accepted registry"):
+        ingest_reviewer_change_requests(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            request_file=rejected_citation,
+        )
+
+
 def test_claim_evidence_map_links_human_review_occurrence_only(tmp_path) -> None:
     run_id = "run-claim-evidence-human-review"
     _write_claim_map_reports(
@@ -2094,6 +2560,45 @@ def _write_human_review_fixture(
     }
     path = tmp_path / filename
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_structured_request_set(
+    tmp_path,
+    *,
+    run_id: str,
+    request_set_id: str,
+    review_id: str,
+    target_artifact_path: str,
+    requests: list[dict[str, object]],
+) -> Path:
+    normalized_requests = [
+        {
+            "creates_scientific_validation": False,
+            "implies_publication_readiness": False,
+            "is_verification_evidence": False,
+            **request,
+        }
+        for request in requests
+    ]
+    payload = {
+        "run_id": run_id,
+        "request_set_id": request_set_id,
+        "review_id": review_id,
+        "reviewer_name_optional": "Fixture Reviewer",
+        "created_at": "2026-07-01T00:00:00Z",
+        "target_artifact_path": target_artifact_path,
+        "requests": normalized_requests,
+        "reviewer_attestation": (
+            "I authored these structured requests as a human reviewer and understand "
+            "that they do not create evidence or publication readiness."
+        ),
+        "creates_scientific_validation": False,
+        "implies_publication_readiness": False,
+        "is_verification_evidence": False,
+    }
+    path = tmp_path / f"{request_set_id}.json"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     return path
 
 

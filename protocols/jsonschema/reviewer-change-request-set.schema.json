@@ -1,0 +1,244 @@
+{
+  "$defs": {
+    "ReviewerChangeRequest": {
+      "additionalProperties": false,
+      "description": "One structured reviewer workflow request without evidence authority.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "priority": {
+          "default": "medium",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "blocking"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "rationale_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale Optional"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "requested_action": {
+          "enum": [
+            "clarify_wording",
+            "expand_section",
+            "add_boundary_language",
+            "add_existing_citation",
+            "add_existing_proof_reference",
+            "add_existing_experiment_reference",
+            "remove_unsupported_claim",
+            "downgrade_claim",
+            "request_new_proof_artifact",
+            "request_new_experiment_artifact",
+            "request_retrieval_expansion",
+            "forbidden_publication_ready_request",
+            "forbidden_validation_request"
+          ],
+          "title": "Requested Action",
+          "type": "string"
+        },
+        "requested_text_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Text Optional"
+        },
+        "requires_new_evidence": {
+          "default": false,
+          "title": "Requires New Evidence",
+          "type": "boolean"
+        },
+        "target_claim_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Claim Id Optional"
+        },
+        "target_claim_text_hash_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Claim Text Hash Optional"
+        },
+        "target_evidence_artifact_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Evidence Artifact Id Optional"
+        },
+        "target_section_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Section Optional"
+        },
+        "target_type": {
+          "enum": [
+            "section",
+            "claim",
+            "citation",
+            "proof_artifact",
+            "experiment_artifact",
+            "reviewer_summary",
+            "release_report"
+          ],
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "target_type",
+        "requested_action"
+      ],
+      "title": "ReviewerChangeRequest",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.30.0/reviewer-change-request-set.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Immutable structured reviewer request set.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "request_set_id": {
+      "minLength": 1,
+      "title": "Request Set Id",
+      "type": "string"
+    },
+    "requests": {
+      "items": {
+        "$ref": "#/$defs/ReviewerChangeRequest"
+      },
+      "minItems": 1,
+      "title": "Requests",
+      "type": "array"
+    },
+    "review_id": {
+      "minLength": 1,
+      "title": "Review Id",
+      "type": "string"
+    },
+    "reviewer_attestation": {
+      "minLength": 1,
+      "title": "Reviewer Attestation",
+      "type": "string"
+    },
+    "reviewer_name_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewer Name Optional"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "target_artifact_path": {
+      "minLength": 1,
+      "title": "Target Artifact Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "request_set_id",
+    "review_id",
+    "created_at",
+    "target_artifact_path",
+    "requests",
+    "reviewer_attestation"
+  ],
+  "title": "ReviewerChangeRequestSet",
+  "type": "object",
+  "x-factori-protocol-version": "0.30.0",
+  "x-factori-source-model": "factori.schemas.ReviewerChangeRequestSet",
+  "x-factori-verification-evidence": false
+}

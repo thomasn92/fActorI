@@ -156,6 +156,13 @@ uv run factori revise-paper --run-id demo
 uv run factori revise-paper --run-id demo --json
 uv run factori revise-paper --run-id demo \
   --apply-safe-fake-revision --write-report
+uv run factori ingest-reviewer-change-requests \
+  --run-id demo --request-file path/to/reviewer-change-requests.json
+uv run factori inspect-reviewer-change-requests --run-id demo
+uv run factori inspect-reviewer-change-requests --run-id demo --json
+uv run factori reconcile-human-review --run-id demo
+uv run factori inspect-human-review-reconciliation --run-id demo
+uv run factori inspect-human-review-reconciliation --run-id demo --json
 uv run factori generate-paper --run-id demo
 uv run factori generate-paper --run-id demo --write-report
 uv run factori generate-paper --run-id demo --json

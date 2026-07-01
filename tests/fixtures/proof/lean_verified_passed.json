@@ -1,5 +1,5 @@
 {
-  "artifact_path_optional": "runs/local-evidence-aware-refresh-smoke-001/reports/revised-manuscript-draft.md",
+  "artifact_path_optional": "runs/local-structured-reviewer-requests-smoke-001/reports/revised-manuscript-draft.md",
   "checker_log_hash_optional": "2222222222222222222222222222222222222222222222222222222222222222",
   "checker_name_optional": "fixture-lean-checker",
   "checker_status": "passed",
@@ -20,6 +20,6 @@
   "proof_id": "lean-verified-passed-001",
   "proof_type": "lean_verified",
   "review_status": "accepted_for_artifact_record",
-  "run_id": "local-evidence-aware-refresh-smoke-001",
+  "run_id": "local-structured-reviewer-requests-smoke-001",
   "statement": "Fixture proof artifact for a bounded formal statement in this run."
 }

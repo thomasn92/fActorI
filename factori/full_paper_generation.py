@@ -65,6 +65,8 @@ from factori.schemas import (
     FullPaperGenerationStepStatus,
     FullPaperReleaseReport,
     HumanReviewArtifact,
+    HumanReviewReconciliationIndex,
+    HumanReviewReconciliationReport,
     PaperCriticReport,
     ProofArtifact,
     QualityRepairReport,
@@ -698,6 +700,21 @@ def inspect_paper_bundle_summary(
     evidence_aware_refresh_report = _read_evidence_aware_refresh_report(
         paths["evidence_aware_refresh_report"]
     )
+    human_review_reconciliation = _read_human_review_reconciliation_report(
+        paths["human_review_reconciliation_report"]
+    )
+    reconciliation_index = _read_human_review_reconciliation_index(
+        paths["human_review_reconciliation_index"]
+    )
+    reviewer_request_set_count = len(
+        [
+            path
+            for path in (run_path / "reports").glob(
+                "reviewer-change-request-set-*.json"
+            )
+            if not path.name.endswith(".meta.json")
+        ]
+    )
     human_review_artifact = _read_human_review_artifact(paths["human_review_artifact"])
     proof_artifacts = _read_proof_artifacts(run_path)
     experiment_artifacts = _read_experiment_artifacts(run_path)
@@ -823,6 +840,47 @@ def inspect_paper_bundle_summary(
         "citation_safety_rechecked_after_refresh": bool(
             evidence_aware_refresh_report
             and evidence_aware_refresh_report.citation_safety_rechecked_after_refresh
+        ),
+        "human_review_reconciliation_present": (
+            human_review_reconciliation is not None
+        ),
+        "human_review_reconciliation_status": (
+            human_review_reconciliation.reconciliation_status
+            if human_review_reconciliation is not None
+            else None
+        ),
+        "human_review_applied_change_count": (
+            human_review_reconciliation.applied_change_count
+            if human_review_reconciliation is not None
+            else 0
+        ),
+        "human_review_rejected_change_count": (
+            human_review_reconciliation.rejected_change_count
+            if human_review_reconciliation is not None
+            else 0
+        ),
+        "human_review_deferred_change_count": (
+            human_review_reconciliation.deferred_change_count
+            if human_review_reconciliation is not None
+            else 0
+        ),
+        "human_review_requires_new_evidence_count": (
+            human_review_reconciliation.requires_new_evidence_count
+            if human_review_reconciliation is not None
+            else 0
+        ),
+        "reviewer_change_requests_present": reviewer_request_set_count > 0,
+        "reviewer_request_set_count": reviewer_request_set_count,
+        "human_review_reconciliation_cycle_count": (
+            reconciliation_index.cycle_count if reconciliation_index else 0
+        ),
+        "latest_reconciliation_cycle": (
+            reconciliation_index.latest_cycle if reconciliation_index else 0
+        ),
+        "unresolved_reviewer_request_count": (
+            len(human_review_reconciliation.remaining_requested_changes)
+            if human_review_reconciliation is not None
+            else 0
         ),
         "human_review_artifact_exists": paths["human_review_artifact"].is_file(),
         "human_review_artifact_present": human_review_artifact is not None,
@@ -1807,6 +1865,51 @@ def lint_paper_bundle_summary(
         "citation_safety_rechecked_after_refresh": (
             citation_safety_rechecked_after_refresh
         ),
+        "human_review_reconciliation_present": bool(
+            bundle.get("human_review_reconciliation_present")
+        ),
+        "human_review_reconciliation_status": bundle.get(
+            "human_review_reconciliation_status"
+        ),
+        "human_review_applied_change_count": int(
+            bundle.get("human_review_applied_change_count") or 0
+        ),
+        "human_review_rejected_change_count": int(
+            bundle.get("human_review_rejected_change_count") or 0
+        ),
+        "human_review_deferred_change_count": int(
+            bundle.get("human_review_deferred_change_count") or 0
+        ),
+        "human_review_requires_new_evidence_count": int(
+            bundle.get("human_review_requires_new_evidence_count") or 0
+        ),
+        "reviewer_change_requests_present": bool(
+            bundle.get("reviewer_change_requests_present")
+        ),
+        "reviewer_request_set_count": int(
+            bundle.get("reviewer_request_set_count") or 0
+        ),
+        "human_review_reconciliation_cycle_count": int(
+            bundle.get("human_review_reconciliation_cycle_count") or 0
+        ),
+        "latest_reconciliation_cycle": int(
+            bundle.get("latest_reconciliation_cycle") or 0
+        ),
+        "latest_applied_change_count": int(
+            bundle.get("human_review_applied_change_count") or 0
+        ),
+        "latest_rejected_change_count": int(
+            bundle.get("human_review_rejected_change_count") or 0
+        ),
+        "latest_deferred_change_count": int(
+            bundle.get("human_review_deferred_change_count") or 0
+        ),
+        "latest_requires_new_evidence_count": int(
+            bundle.get("human_review_requires_new_evidence_count") or 0
+        ),
+        "unresolved_reviewer_request_count": int(
+            bundle.get("unresolved_reviewer_request_count") or 0
+        ),
         "reviewer_bundle_summary_present": bool(
             bundle.get("reviewer_bundle_summary_present")
         ),
@@ -1994,31 +2097,80 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         / "reports"
         / "complete-manuscript-draft.md",
         "revised_manuscript_draft": _preferred_existing_path(
-            run_path / "reports" / "evidence-aware-refreshed-manuscript-draft.md",
-            run_path / "reports" / "revised-manuscript-draft.md",
+            _latest_report_path(
+                run_path,
+                "reconciled-manuscript-cycle-*.md",
+                "reconciled-manuscript-cycle-000.md",
+            ),
+            _preferred_existing_path(
+                run_path / "reports" / "reconciled-manuscript-draft.md",
+                _preferred_existing_path(
+                    run_path
+                    / "reports"
+                    / "evidence-aware-refreshed-manuscript-draft.md",
+                    run_path / "reports" / "revised-manuscript-draft.md",
+                ),
+            ),
         ),
         "paper": run_path / "latex" / "paper.tex",
         "revised_paper": _preferred_existing_path(
-            run_path / "latex" / "evidence-aware-refreshed-paper.tex",
-            run_path / "latex" / "revised-paper.tex",
+            _latest_latex_path(run_path, "reconciled-paper-cycle-*.tex", "missing.tex"),
+            _preferred_existing_path(
+                run_path / "latex" / "evidence-aware-refreshed-paper.tex",
+                run_path / "latex" / "revised-paper.tex",
+            ),
         ),
         "latex_source_map": run_path / "latex" / "latex-source-map.json",
         "revised_latex_source_map": _preferred_existing_path(
-            run_path / "latex" / "evidence-aware-refreshed-latex-source-map.json",
-            run_path / "latex" / "revised-latex-source-map.json",
+            _latest_latex_path(
+                run_path,
+                "reconciled-latex-source-map-cycle-*.json",
+                "missing-source-map.json",
+            ),
+            _preferred_existing_path(
+                run_path / "latex" / "evidence-aware-refreshed-latex-source-map.json",
+                run_path / "latex" / "revised-latex-source-map.json",
+            ),
         ),
         "generation_report": run_path / "reports" / "full-paper-generation-report.json",
         "release_report": _preferred_existing_path(
-            run_path
-            / "reports"
-            / "full-paper-release-report-after-evidence-aware-refresh.json",
-            run_path / "reports" / "full-paper-release-report.json",
+            _latest_report_path(
+                run_path,
+                "full-paper-release-report-after-reconciliation-cycle-*.json",
+                "full-paper-release-report-after-human-review-reconciliation.json",
+            ),
+            _preferred_existing_path(
+                run_path
+                / "reports"
+                / "full-paper-release-report-after-evidence-aware-refresh.json",
+                run_path / "reports" / "full-paper-release-report.json",
+            ),
         ),
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "quality_repair_report": run_path / "reports" / "quality-repair-report.json",
         "evidence_aware_refresh_report": run_path
         / "reports"
         / "evidence-aware-refresh-report.json",
+        "human_review_reconciliation_report": _latest_report_path(
+            run_path,
+            "human-review-reconciliation-cycle-*.json",
+            "human-review-reconciliation-report.json",
+        ),
+        "human_review_reconciliation_report_markdown": _latest_report_path(
+            run_path,
+            "human-review-reconciliation-cycle-*.md",
+            "human-review-reconciliation-report.md",
+        ),
+        "human_review_reconciliation_index": _latest_report_path(
+            run_path,
+            "human-review-reconciliation-index-*.json",
+            "human-review-reconciliation-index.json",
+        ),
+        "reviewer_change_request_set": _latest_report_path(
+            run_path,
+            "reviewer-change-request-set-*.json",
+            "reviewer-change-request-set-0000.json",
+        ),
         "human_review_artifact": run_path / "reports" / "human-review-artifact.json",
         "human_review_summary": run_path / "reports" / "human-review-summary.md",
         "reviewer_bundle_summary_json": run_path
@@ -2067,6 +2219,16 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "reviewer_bundle_summary_after_evidence_aware_refresh_markdown": run_path
         / "reports"
         / "reviewer-bundle-summary-after-evidence-aware-refresh.md",
+        "reviewer_bundle_summary_after_reconciliation_json": _latest_report_path(
+            run_path,
+            "reviewer-bundle-summary-after-reconciliation-cycle-*.json",
+            "reviewer-bundle-summary-after-reconciliation.json",
+        ),
+        "reviewer_bundle_summary_after_reconciliation_markdown": _latest_report_path(
+            run_path,
+            "reviewer-bundle-summary-after-reconciliation-cycle-*.md",
+            "reviewer-bundle-summary-after-reconciliation.md",
+        ),
         "claim_evidence_map": (
             latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
             or run_path / "reports" / "claim-evidence-map.json"
@@ -2081,15 +2243,29 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         / "retrieval-quality-report.json",
         "citation_registry": run_path / "reports" / "citation-registry.json",
         "claim_support_audit": _preferred_existing_path(
-            run_path
-            / "reports"
-            / "claim-support-audit-after-evidence-aware-refresh.json",
-            run_path / "reports" / "claim-support-audit.json",
+            _latest_report_path(
+                run_path,
+                "claim-support-audit-after-reconciliation-cycle-*.json",
+                "claim-support-audit-after-human-review-reconciliation.json",
+            ),
+            _preferred_existing_path(
+                run_path
+                / "reports"
+                / "claim-support-audit-after-evidence-aware-refresh.json",
+                run_path / "reports" / "claim-support-audit.json",
+            ),
         ),
         "references": run_path / "latex" / "references.bib",
         "revised_references": _preferred_existing_path(
-            run_path / "latex" / "evidence-aware-refreshed-references.bib",
-            run_path / "latex" / "revised-references.bib",
+            _latest_latex_path(
+                run_path,
+                "reconciled-references-cycle-*.bib",
+                "missing-references.bib",
+            ),
+            _preferred_existing_path(
+                run_path / "latex" / "evidence-aware-refreshed-references.bib",
+                run_path / "latex" / "revised-references.bib",
+            ),
         ),
     }
 
@@ -2141,6 +2317,32 @@ def _read_evidence_aware_refresh_report(
         return None
     try:
         return EvidenceAwareRefreshReport.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except ValueError:
+        return None
+
+
+def _read_human_review_reconciliation_report(
+    path: Path,
+) -> HumanReviewReconciliationReport | None:
+    if not path.is_file():
+        return None
+    try:
+        return HumanReviewReconciliationReport.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except ValueError:
+        return None
+
+
+def _read_human_review_reconciliation_index(
+    path: Path,
+) -> HumanReviewReconciliationIndex | None:
+    if not path.is_file():
+        return None
+    try:
+        return HumanReviewReconciliationIndex.model_validate_json(
             path.read_text(encoding="utf-8")
         )
     except ValueError:
@@ -2212,6 +2414,8 @@ def _read_preferred_reviewer_bundle_summary(
     paths: dict[str, Path],
 ) -> ReviewerBundleSummary | None:
     return _read_reviewer_bundle_summary(
+        paths["reviewer_bundle_summary_after_reconciliation_json"]
+    ) or _read_reviewer_bundle_summary(
         paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
     ) or _read_reviewer_bundle_summary(
         paths["reviewer_bundle_summary_after_claim_evidence_map_json"]
@@ -2229,6 +2433,15 @@ def _latest_report_path(run_path: Path, pattern: str, default_name: str) -> Path
         if not path.name.endswith(".meta.json")
     )
     return matches[-1] if matches else run_path / "reports" / default_name
+
+
+def _latest_latex_path(run_path: Path, pattern: str, default_name: str) -> Path:
+    matches = sorted(
+        path
+        for path in (run_path / "latex").glob(pattern)
+        if not path.name.endswith(".meta.json")
+    )
+    return matches[-1] if matches else run_path / "latex" / default_name
 
 
 def _latest_claim_evidence_markdown_path(run_path: Path) -> Path | None:
@@ -2263,6 +2476,7 @@ def build_reviewer_bundle_summary(
     additional_experiment_artifacts: list[ExperimentArtifact] | None = None,
     additional_experiment_artifact_paths: list[str] | None = None,
     claim_evidence_map: ClaimEvidenceMap | None = None,
+    human_review_reconciliation: HumanReviewReconciliationReport | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -2274,6 +2488,12 @@ def build_reviewer_bundle_summary(
         paths["human_review_artifact"]
     )
     human_review_present = _human_review_counts_as_present(human_review)
+    reconciliation = (
+        human_review_reconciliation
+        or _read_human_review_reconciliation_report(
+            paths["human_review_reconciliation_report"]
+        )
+    )
     proof_artifacts = _merge_proof_artifacts(
         _read_proof_artifacts(run_path),
         additional_proof_artifacts or [],
@@ -2434,6 +2654,44 @@ def build_reviewer_bundle_summary(
         human_review_linked_claim_count=claim_evidence_summary[
             "human_review_linked_claim_count"
         ],
+        human_review_reconciliation_present=reconciliation is not None,
+        human_review_reconciliation_status=(
+            reconciliation.reconciliation_status if reconciliation else None
+        ),
+        human_review_applied_change_count=(
+            reconciliation.applied_change_count if reconciliation else 0
+        ),
+        human_review_rejected_change_count=(
+            reconciliation.rejected_change_count if reconciliation else 0
+        ),
+        human_review_deferred_change_count=(
+            reconciliation.deferred_change_count if reconciliation else 0
+        ),
+        human_review_requires_new_evidence_count=(
+            reconciliation.requires_new_evidence_count if reconciliation else 0
+        ),
+        human_review_remaining_requested_changes=(
+            reconciliation.remaining_requested_changes if reconciliation else []
+        ),
+        reviewer_change_requests_present=bool(
+            bundle.get("reviewer_change_requests_present")
+        ),
+        reviewer_request_set_count=int(
+            bundle.get("reviewer_request_set_count") or 0
+        ),
+        latest_reconciliation_cycle=int(
+            reconciliation.cycle_number
+            if reconciliation
+            else bundle.get("latest_reconciliation_cycle") or 0
+        ),
+        human_review_reconciliation_cycle_count=int(
+            reconciliation.cycle_number
+            if reconciliation
+            else bundle.get("human_review_reconciliation_cycle_count") or 0
+        ),
+        unresolved_reviewer_request_count=(
+            len(reconciliation.remaining_requested_changes) if reconciliation else 0
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -2501,6 +2759,29 @@ def render_reviewer_bundle_summary_markdown(
         f"Experiment-supported claims: `{summary.experiment_supported_claim_count}`",
         f"Citation-supported claims: `{summary.citation_supported_claim_count}`",
         f"Human-review-linked claims: `{summary.human_review_linked_claim_count}`",
+        (
+            "Human-review reconciliation: "
+            f"`{'present' if summary.human_review_reconciliation_present else 'absent'}`"
+        ),
+        (
+            "Reconciliation status: "
+            f"`{summary.human_review_reconciliation_status or 'not_available'}`"
+        ),
+        f"Applied reviewer changes: `{summary.human_review_applied_change_count}`",
+        f"Rejected reviewer changes: `{summary.human_review_rejected_change_count}`",
+        f"Deferred reviewer changes: `{summary.human_review_deferred_change_count}`",
+        (
+            "Reviewer changes requiring new evidence: "
+            f"`{summary.human_review_requires_new_evidence_count}`"
+        ),
+        (
+            "Structured reviewer requests: "
+            f"`{'present' if summary.reviewer_change_requests_present else 'absent'}`"
+        ),
+        f"Reviewer request sets: `{summary.reviewer_request_set_count}`",
+        f"Reconciliation cycles: `{summary.human_review_reconciliation_cycle_count}`",
+        f"Latest reconciliation cycle: `{summary.latest_reconciliation_cycle}`",
+        f"Unresolved reviewer requests: `{summary.unresolved_reviewer_request_count}`",
         "",
         "## Remaining Warnings",
     ]
@@ -2515,6 +2796,11 @@ def render_reviewer_bundle_summary_markdown(
         lines.extend(f"- {issue}" for issue in summary.blocking_issues)
     else:
         lines.append("- none")
+    lines.extend(["", "## Remaining Requested Changes"])
+    lines.extend(
+        f"- {item}"
+        for item in summary.human_review_remaining_requested_changes or ["none"]
+    )
     lines.extend(["", "## Evidence Boundaries"])
     for category, items in summary.evidence_boundaries.items():
         lines.append(f"### {category.replace('_', ' ').title()}")
@@ -2562,7 +2848,9 @@ def inspect_reviewer_bundle_summary(
         )
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
+        paths["reviewer_bundle_summary_after_reconciliation_json"]
+        if paths["reviewer_bundle_summary_after_reconciliation_json"].is_file()
+        else paths["reviewer_bundle_summary_after_evidence_aware_refresh_json"]
         if paths[
             "reviewer_bundle_summary_after_evidence_aware_refresh_json"
         ].is_file()
@@ -2575,7 +2863,9 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_evidence_aware_refresh_markdown"]
+        paths["reviewer_bundle_summary_after_reconciliation_markdown"]
+        if paths["reviewer_bundle_summary_after_reconciliation_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_evidence_aware_refresh_markdown"]
         if paths[
             "reviewer_bundle_summary_after_evidence_aware_refresh_markdown"
         ].is_file()
@@ -2723,6 +3013,9 @@ def _reviewer_audit_artifact_paths(
         "safe_repair_report",
         "quality_repair_report",
         "evidence_aware_refresh_report",
+        "human_review_reconciliation_report",
+        "human_review_reconciliation_index",
+        "reviewer_change_request_set",
         "retrieval_report",
         "retrieval_quality_report",
         "citation_registry",

@@ -1,0 +1,113 @@
+{
+  "$id": "https://schemas.factori.local/0.30.0/human-review-reconciliation-item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic disposition of one human-review requested change.",
+  "properties": {
+    "applied_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Applied Text"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "outcome": {
+      "enum": [
+        "applied_safe_text_revision",
+        "applied_boundary_clarification",
+        "applied_existing_evidence_reference",
+        "rejected_unsupported_claim",
+        "rejected_forbidden_authority_claim",
+        "deferred_requires_proof_artifact",
+        "deferred_requires_experiment_artifact",
+        "deferred_requires_retrieval_expansion",
+        "deferred_requires_human_decision"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Request Id"
+    },
+    "requested_change": {
+      "minLength": 1,
+      "title": "Requested Change",
+      "type": "string"
+    },
+    "requires_new_evidence": {
+      "default": false,
+      "title": "Requires New Evidence",
+      "type": "boolean"
+    },
+    "supporting_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Artifact Ids",
+      "type": "array"
+    },
+    "supporting_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Citation Keys",
+      "type": "array"
+    },
+    "target_section": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section"
+    }
+  },
+  "required": [
+    "requested_change",
+    "outcome",
+    "rationale"
+  ],
+  "title": "HumanReviewReconciliationItem",
+  "type": "object",
+  "x-factori-protocol-version": "0.30.0",
+  "x-factori-source-model": "factori.schemas.HumanReviewReconciliationItem",
+  "x-factori-verification-evidence": false
+}

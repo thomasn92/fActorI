@@ -272,7 +272,7 @@ def _validate_human_review(
             "human review cannot create validation, publication readiness, or verification evidence"
         )
     _validate_reviewed_artifact_paths(run_id=run_id, root=root, review=review)
-    text = _flatten_review_text(review)
+    text = _flatten_review_text(review, include_requested_changes=False)
     for phrase in _FORBIDDEN_REVIEW_AUTHORITY_PHRASES:
         if phrase in text:
             raise HumanReviewIntakeError(
@@ -305,7 +305,11 @@ def _validate_reviewed_artifact_paths(
             )
 
 
-def _flatten_review_text(review: HumanReviewArtifact) -> str:
+def _flatten_review_text(
+    review: HumanReviewArtifact,
+    *,
+    include_requested_changes: bool = True,
+) -> str:
     parts: list[str] = [
         review.review_id,
         review.reviewer_name_optional or "",
@@ -319,7 +323,8 @@ def _flatten_review_text(review: HumanReviewArtifact) -> str:
     parts.extend(review.checklist_items)
     parts.extend(review.blocking_concerns)
     parts.extend(review.non_blocking_comments)
-    parts.extend(review.requested_changes)
+    if include_requested_changes:
+        parts.extend(review.requested_changes)
     parts.extend(review.accepted_limitations)
     return " ".join(parts).casefold()
 

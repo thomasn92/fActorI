@@ -85,6 +85,11 @@ from factori.human_review import (
     ingest_human_review,
     inspect_human_review,
 )
+from factori.human_review_reconciliation import (
+    HumanReviewReconciliationError,
+    inspect_human_review_reconciliation,
+    reconcile_human_review,
+)
 from factori.hygiene_plan import (
     build_hygiene_remediation_plan,
     summarize_hygiene_remediation_plan,
@@ -141,6 +146,11 @@ from factori.replay import (
 )
 from factori.rerun_policy import decide_stage_rerun, validate_ledger_tip
 from factori.research_object import ResearchObjectError, build_research_object
+from factori.reviewer_change_requests import (
+    ReviewerChangeRequestError,
+    ingest_reviewer_change_requests,
+    inspect_reviewer_change_requests,
+)
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
 from factori.schema_export import (
     DEFAULT_PROTOCOL_OUTPUT_DIR,
@@ -2677,6 +2687,143 @@ def refresh_evidence_aware_manuscript_command(
     typer.echo(f"refresh_report={result.report_artifact.path}")
 
 
+@app.command("ingest-reviewer-change-requests")
+def ingest_reviewer_change_requests_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    request_file: Annotated[Path, typer.Option("--request-file")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate and persist immutable structured reviewer requests."""
+    try:
+        result = ingest_reviewer_change_requests(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            request_file=request_file,
+        )
+    except ReviewerChangeRequestError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "reviewer_change_request_set": result.request_set.model_dump(mode="json"),
+        "request_set_number": result.request_set_number,
+        "reviewer_change_requests_present": True,
+        "publication_ready": False,
+        "artifact": result.request_set_artifact.model_dump(mode="json"),
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"request_set_id={result.request_set.request_set_id}")
+    typer.echo(f"request_set_number={result.request_set_number}")
+    typer.echo(f"request_count={len(result.request_set.requests)}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.request_set_artifact.path}")
+
+
+@app.command("inspect-reviewer-change-requests")
+def inspect_reviewer_change_requests_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect immutable structured reviewer request sets."""
+    try:
+        summary = inspect_reviewer_change_requests(run_id=run_id, root=root)
+    except ReviewerChangeRequestError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Reviewer change requests: {summary['run_id']}")
+    typer.echo(f"Request sets: {summary['reviewer_request_set_count']}")
+    typer.echo(f"Latest request set: {summary['latest_request_set_id']}")
+    typer.echo(f"Requests: {summary['request_count']}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("reconcile-human-review")
+def reconcile_human_review_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Reconcile human-review requests using bounded deterministic revisions."""
+    try:
+        result = reconcile_human_review(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except HumanReviewReconciliationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "human_review_reconciliation": result.report.model_dump(mode="json"),
+        "release": result.release_status,
+        "publication_ready": False,
+        "artifacts": {
+            "reconciliation_report": result.report_artifact.model_dump(mode="json"),
+            "reconciliation_markdown": result.report_markdown_artifact.model_dump(
+                mode="json"
+            ),
+            "manuscript": result.manuscript_artifact.model_dump(mode="json"),
+            "claim_evidence_map": result.claim_evidence_map_artifact.model_dump(
+                mode="json"
+            ),
+            "reviewer_summary": result.reviewer_summary_artifact.model_dump(
+                mode="json"
+            ),
+            "reconciliation_index": result.reconciliation_index_artifact.model_dump(
+                mode="json"
+            ),
+        },
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"cycle={result.report.cycle_number}")
+    typer.echo(f"reconciliation_status={result.report.reconciliation_status}")
+    typer.echo(f"applied_changes={result.report.applied_change_count}")
+    typer.echo(f"rejected_changes={result.report.rejected_change_count}")
+    typer.echo(f"deferred_changes={result.report.deferred_change_count}")
+    typer.echo(f"requires_new_evidence={result.report.requires_new_evidence_count}")
+    typer.echo(f"release={result.release_status}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"reconciliation_report={result.report_artifact.path}")
+
+
+@app.command("inspect-human-review-reconciliation")
+def inspect_human_review_reconciliation_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect a persisted human-review reconciliation without mutation."""
+    try:
+        summary = inspect_human_review_reconciliation(run_id=run_id, root=root)
+    except HumanReviewReconciliationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Human-review reconciliation: {summary['run_id']}")
+    typer.echo(f"Status: {summary['reconciliation_status']}")
+    typer.echo(f"Applied changes: {summary['applied_change_count']}")
+    typer.echo(f"Rejected changes: {summary['rejected_change_count']}")
+    typer.echo(f"Deferred changes: {summary['deferred_change_count']}")
+    typer.echo(f"Requires new evidence: {summary['requires_new_evidence_count']}")
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['human_review_reconciliation_report_path']}")
+
+
 @app.command("run-llm-paper")
 def run_llm_paper_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -3201,6 +3348,50 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Claim-evidence map rechecked: "
         f"{str(bool(summary.get('claim_evidence_map_rechecked_after_refresh'))).lower()}"
     )
+    typer.echo(
+        "Human-review reconciliation: "
+        f"{'present' if summary.get('human_review_reconciliation_present') else 'absent'}"
+    )
+    typer.echo(
+        "Reconciliation status: "
+        f"{summary.get('human_review_reconciliation_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Applied changes: "
+        f"{int(summary.get('human_review_applied_change_count') or 0)}"
+    )
+    typer.echo(
+        "Rejected changes: "
+        f"{int(summary.get('human_review_rejected_change_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred changes: "
+        f"{int(summary.get('human_review_deferred_change_count') or 0)}"
+    )
+    typer.echo(
+        "Requires new evidence: "
+        f"{int(summary.get('human_review_requires_new_evidence_count') or 0)}"
+    )
+    typer.echo(
+        "Reviewer change requests: "
+        f"{'present' if summary.get('reviewer_change_requests_present') else 'absent'}"
+    )
+    typer.echo(
+        "Reviewer request sets: "
+        f"{int(summary.get('reviewer_request_set_count') or 0)}"
+    )
+    typer.echo(
+        "Reconciliation cycles: "
+        f"{int(summary.get('human_review_reconciliation_cycle_count') or 0)}"
+    )
+    typer.echo(
+        "Latest reconciliation cycle: "
+        f"{int(summary.get('latest_reconciliation_cycle') or 0)}"
+    )
+    typer.echo(
+        "Unresolved requests: "
+        f"{int(summary.get('unresolved_reviewer_request_count') or 0)}"
+    )
     typer.echo(f"Reviewer summary: {reviewer_summary}")
     typer.echo(
         "Reviewer summary status: "
@@ -3660,6 +3851,14 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Evidence-aware refresh backend: "
         f"{summary.get('evidence_aware_refresh_backend') or 'off'}"
+    )
+    typer.echo(
+        "Human-review reconciliation: "
+        f"{'present' if summary.get('human_review_reconciliation_present') else 'absent'}"
+    )
+    typer.echo(
+        "Reconciliation status: "
+        f"{summary.get('human_review_reconciliation_status') or 'not_available'}"
     )
     typer.echo(
         "Quality repair backend: "

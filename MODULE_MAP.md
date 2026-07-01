@@ -218,6 +218,11 @@ All implementation modules are under `factori/`.
   safety, evidence-boundary language, LaTeX source maps, and appendix presence.
 - `paper_revision.py`: deterministic conservative fake revision planning/application that
   downgrades unsafe language and preserves claim/evidence/citation boundaries.
+- `reviewer_change_requests.py`: immutable structured reviewer-request intake with current
+  manuscript, claim, accepted-citation, and scoped evidence-artifact target validation.
+- `human_review_reconciliation.py`: deterministic classification and safe reconciliation of
+  persisted human-review requests across immutable numbered cycles, with a versioned latest-cycle
+  index and post-revision claim, citation, evidence-link, release, and reviewer-summary rechecks.
 - `full_paper_generation.py`: end-to-end non-evidence paper-package orchestration over citation
   registry construction, manuscript drafting, LaTeX export, paper critique, and optional safe fake
   revision/re-export.

@@ -346,6 +346,11 @@ class ControllerActionType(StrEnum):
     EXPERIMENT_ARTIFACT_INGESTED = "ExperimentArtifactIngested"
     CLAIM_EVIDENCE_MAP_WRITTEN = "ClaimEvidenceMapWritten"
     EVIDENCE_AWARE_REFRESH_WRITTEN = "EvidenceAwareRefreshWritten"
+    HUMAN_REVIEW_RECONCILIATION_WRITTEN = "HumanReviewReconciliationWritten"
+    REVIEWER_CHANGE_REQUESTS_INGESTED = "ReviewerChangeRequestsIngested"
+    HUMAN_REVIEW_RECONCILIATION_INDEX_WRITTEN = (
+        "HumanReviewReconciliationIndexWritten"
+    )
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

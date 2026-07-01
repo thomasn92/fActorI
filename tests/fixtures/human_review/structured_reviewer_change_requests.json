@@ -1,0 +1,98 @@
+{
+  "created_at": "2026-07-01T00:00:00Z",
+  "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "request_set_id": "structured-reviewer-requests-001",
+  "requests": [
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "high",
+      "request_id": "request-clarify-framing",
+      "requested_action": "clarify_wording",
+      "requested_text_optional": "Clarify the bounded problem framing.",
+      "requires_new_evidence": false,
+      "target_section_optional": "Introduction and Problem Framing",
+      "target_type": "section"
+    },
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "high",
+      "request_id": "request-boundary",
+      "requested_action": "add_boundary_language",
+      "requires_new_evidence": false,
+      "target_section_optional": "Claim and Evidence Boundaries",
+      "target_type": "section"
+    },
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "medium",
+      "request_id": "request-citation",
+      "requested_action": "add_existing_citation",
+      "requested_text_optional": "Smith2021HumanGeographySpatial",
+      "requires_new_evidence": false,
+      "target_section_optional": "Introduction and Problem Framing",
+      "target_type": "citation"
+    },
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "high",
+      "request_id": "request-proof-reference",
+      "requested_action": "add_existing_proof_reference",
+      "requires_new_evidence": false,
+      "target_claim_id_optional": "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form",
+      "target_evidence_artifact_id_optional": "lean-verified-passed-001",
+      "target_section_optional": "Claim and Evidence Boundaries",
+      "target_type": "proof_artifact"
+    },
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "high",
+      "request_id": "request-experiment-reference",
+      "requested_action": "add_existing_experiment_reference",
+      "requires_new_evidence": false,
+      "target_claim_id_optional": "demonstration-status-p0-s0",
+      "target_evidence_artifact_id_optional": "completed-experiment-001",
+      "target_section_optional": "Demonstration Status",
+      "target_type": "experiment_artifact"
+    },
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "blocking",
+      "request_id": "request-publication-ready",
+      "requested_action": "forbidden_publication_ready_request",
+      "requested_text_optional": "Say the manuscript is publication ready.",
+      "requires_new_evidence": false,
+      "target_type": "release_report"
+    },
+    {
+      "creates_scientific_validation": false,
+      "implies_publication_readiness": false,
+      "is_verification_evidence": false,
+      "priority": "medium",
+      "request_id": "request-new-proof",
+      "requested_action": "request_new_proof_artifact",
+      "requested_text_optional": "Request an additional proof artifact.",
+      "requires_new_evidence": true,
+      "target_claim_id_optional": "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form",
+      "target_type": "claim"
+    }
+  ],
+  "review_id": "human-review-ready-for-evidence-generation-001",
+  "reviewer_attestation": "I authored these structured requests as a human reviewer and understand that they do not create evidence or publication readiness.",
+  "reviewer_name_optional": "Fixture Reviewer",
+  "run_id": "local-structured-reviewer-requests-smoke-001",
+  "target_artifact_path": "runs/local-structured-reviewer-requests-smoke-001/reports/evidence-aware-refreshed-manuscript-draft.md"
+}

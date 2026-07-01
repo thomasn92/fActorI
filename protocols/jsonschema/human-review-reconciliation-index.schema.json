@@ -1,0 +1,165 @@
+{
+  "$defs": {
+    "HumanReviewReconciliationCycle": {
+      "additionalProperties": false,
+      "description": "Immutable index entry for one reconciliation cycle.",
+      "properties": {
+        "applied_change_count": {
+          "minimum": 0,
+          "title": "Applied Change Count",
+          "type": "integer"
+        },
+        "cycle_number": {
+          "minimum": 1,
+          "title": "Cycle Number",
+          "type": "integer"
+        },
+        "deferred_change_count": {
+          "minimum": 0,
+          "title": "Deferred Change Count",
+          "type": "integer"
+        },
+        "ledger_tip_after_cycle": {
+          "minLength": 1,
+          "title": "Ledger Tip After Cycle",
+          "type": "string"
+        },
+        "reconciled_manuscript_path": {
+          "minLength": 1,
+          "title": "Reconciled Manuscript Path",
+          "type": "string"
+        },
+        "reconciliation_report_path": {
+          "minLength": 1,
+          "title": "Reconciliation Report Path",
+          "type": "string"
+        },
+        "reconciliation_status": {
+          "minLength": 1,
+          "title": "Reconciliation Status",
+          "type": "string"
+        },
+        "rejected_change_count": {
+          "minimum": 0,
+          "title": "Rejected Change Count",
+          "type": "integer"
+        },
+        "request_set_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Request Set Id"
+        },
+        "requires_new_evidence_count": {
+          "minimum": 0,
+          "title": "Requires New Evidence Count",
+          "type": "integer"
+        },
+        "reviewer_summary_path": {
+          "minLength": 1,
+          "title": "Reviewer Summary Path",
+          "type": "string"
+        },
+        "unresolved_request_count": {
+          "minimum": 0,
+          "title": "Unresolved Request Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cycle_number",
+        "reconciliation_status",
+        "reconciliation_report_path",
+        "reconciled_manuscript_path",
+        "reviewer_summary_path",
+        "applied_change_count",
+        "rejected_change_count",
+        "deferred_change_count",
+        "requires_new_evidence_count",
+        "unresolved_request_count",
+        "ledger_tip_after_cycle"
+      ],
+      "title": "HumanReviewReconciliationCycle",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.30.0/human-review-reconciliation-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable reconciliation cycles.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "current_preferred_reconciled_manuscript": {
+      "minLength": 1,
+      "title": "Current Preferred Reconciled Manuscript",
+      "type": "string"
+    },
+    "current_preferred_reviewer_summary": {
+      "minLength": 1,
+      "title": "Current Preferred Reviewer Summary",
+      "type": "string"
+    },
+    "cycle_count": {
+      "minimum": 1,
+      "title": "Cycle Count",
+      "type": "integer"
+    },
+    "cycles": {
+      "items": {
+        "$ref": "#/$defs/HumanReviewReconciliationCycle"
+      },
+      "minItems": 1,
+      "title": "Cycles",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_cycle": {
+      "minimum": 1,
+      "title": "Latest Cycle",
+      "type": "integer"
+    },
+    "ledger_tip_after_latest_cycle": {
+      "minLength": 1,
+      "title": "Ledger Tip After Latest Cycle",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_cycle",
+    "cycle_count",
+    "cycles",
+    "current_preferred_reconciled_manuscript",
+    "current_preferred_reviewer_summary",
+    "ledger_tip_after_latest_cycle"
+  ],
+  "title": "HumanReviewReconciliationIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.30.0",
+  "x-factori-source-model": "factori.schemas.HumanReviewReconciliationIndex",
+  "x-factori-verification-evidence": false
+}

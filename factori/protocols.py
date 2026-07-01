@@ -61,6 +61,10 @@ from factori.schemas import (
     GeneratedSectionDraft,
     HumanReviewArtifact,
     HumanReviewDecision,
+    HumanReviewReconciliationCycle,
+    HumanReviewReconciliationIndex,
+    HumanReviewReconciliationItem,
+    HumanReviewReconciliationReport,
     HygieneRemediationPlan,
     LatexCompileCheckReport,
     LatexExportContract,
@@ -143,6 +147,8 @@ from factori.schemas import (
     RetrievalRunReport,
     RetrievedDocument,
     ReviewerBundleSummary,
+    ReviewerChangeRequest,
+    ReviewerChangeRequestSet,
     ReviewerPromptContract,
     RevisionSafetyReport,
     RunStatusReport,
@@ -160,7 +166,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.28.0"
+PROTOCOL_VERSION = "0.30.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -351,6 +357,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "EvidenceAwareRefreshReport",
         EvidenceAwareRefreshReport,
         "Bounded evidence-aware manuscript wording refresh report.",
+    ),
+    ProtocolDefinition(
+        "HumanReviewReconciliationItem",
+        HumanReviewReconciliationItem,
+        "Deterministic disposition of one human-review requested change.",
+    ),
+    ProtocolDefinition(
+        "HumanReviewReconciliationReport",
+        HumanReviewReconciliationReport,
+        "Bounded human-review manuscript reconciliation report.",
+    ),
+    ProtocolDefinition(
+        "HumanReviewReconciliationCycle",
+        HumanReviewReconciliationCycle,
+        "Immutable reconciliation-cycle index entry.",
+    ),
+    ProtocolDefinition(
+        "HumanReviewReconciliationIndex",
+        HumanReviewReconciliationIndex,
+        "Derived latest pointer over immutable reconciliation cycles.",
+    ),
+    ProtocolDefinition(
+        "ReviewerChangeRequest",
+        ReviewerChangeRequest,
+        "One structured reviewer workflow request.",
+    ),
+    ProtocolDefinition(
+        "ReviewerChangeRequestSet",
+        ReviewerChangeRequestSet,
+        "Immutable structured reviewer request set.",
     ),
     ProtocolDefinition("ClaimTable", ClaimTable, "Claim and evidence-link table."),
     ProtocolDefinition(

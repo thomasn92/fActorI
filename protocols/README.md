@@ -7,6 +7,15 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.30.0` adds structured reviewer change requests, immutable reconciliation-cycle index
+entries, and derived multi-cycle reconciliation indexes. These workflow contracts do not create
+evidence, scientific validation, approval, or publication readiness.
+
+Protocol `0.29.0` adds deterministic human-review reconciliation item and report contracts.
+Reconciliation records safe manuscript revisions, rejected authority requests, and deferred
+evidence work without creating proof, experiment evidence, scientific validation, human approval,
+or publication readiness.
+
 ## Layout
 
 - `version.json`: protocol metadata and explicit semantic version.

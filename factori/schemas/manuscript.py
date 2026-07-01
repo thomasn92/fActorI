@@ -509,6 +509,162 @@ class EvidenceAwareRefreshReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+HumanReviewReconciliationOutcome = Literal[
+    "applied_safe_text_revision",
+    "applied_boundary_clarification",
+    "applied_existing_evidence_reference",
+    "rejected_unsupported_claim",
+    "rejected_forbidden_authority_claim",
+    "deferred_requires_proof_artifact",
+    "deferred_requires_experiment_artifact",
+    "deferred_requires_retrieval_expansion",
+    "deferred_requires_human_decision",
+]
+
+
+class HumanReviewReconciliationItem(StrictModel):
+    """Deterministic disposition of one human-review requested change."""
+
+    requested_change: str = Field(min_length=1)
+    request_id: str | None = None
+    outcome: HumanReviewReconciliationOutcome
+    target_section: str | None = None
+    rationale: str = Field(min_length=1)
+    applied_text: str | None = None
+    supporting_artifact_ids: list[str] = Field(default_factory=list)
+    supporting_citation_keys: list[str] = Field(default_factory=list)
+    requires_new_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class HumanReviewReconciliationReport(StrictModel):
+    """Bounded human-review reconciliation report; revision context only."""
+
+    run_id: str = Field(min_length=1)
+    cycle_number: int = Field(default=1, ge=1)
+    request_set_id: str | None = None
+    source_manuscript_path: str | None = None
+    reconciled_manuscript_path: str | None = None
+    human_review_artifact_path: str = Field(min_length=1)
+    review_status: str = Field(min_length=1)
+    reconciliation_status: Literal[
+        "no_action_needed",
+        "reconciled",
+        "reconciled_with_rejections_or_deferrals",
+        "blocked",
+        "failed",
+    ]
+    requested_change_count: int = Field(ge=0)
+    applied_change_count: int = Field(ge=0)
+    rejected_change_count: int = Field(ge=0)
+    deferred_change_count: int = Field(ge=0)
+    requires_new_evidence_count: int = Field(ge=0)
+    sections_modified: list[str] = Field(default_factory=list)
+    change_outcomes: list[HumanReviewReconciliationItem] = Field(default_factory=list)
+    remaining_requested_changes: list[str] = Field(default_factory=list)
+    claim_support_rechecked_after_reconciliation: bool = False
+    claim_evidence_map_rechecked_after_reconciliation: bool = False
+    citation_safety_rechecked_after_reconciliation: bool = False
+    release_rechecked_after_reconciliation: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ReviewerChangeRequest(StrictModel):
+    """One structured reviewer workflow request without evidence authority."""
+
+    request_id: str = Field(min_length=1)
+    target_type: Literal[
+        "section",
+        "claim",
+        "citation",
+        "proof_artifact",
+        "experiment_artifact",
+        "reviewer_summary",
+        "release_report",
+    ]
+    target_section_optional: str | None = None
+    target_claim_id_optional: str | None = None
+    target_claim_text_hash_optional: str | None = Field(
+        default=None,
+        pattern=HASH_RE.pattern,
+    )
+    target_evidence_artifact_id_optional: str | None = None
+    requested_action: Literal[
+        "clarify_wording",
+        "expand_section",
+        "add_boundary_language",
+        "add_existing_citation",
+        "add_existing_proof_reference",
+        "add_existing_experiment_reference",
+        "remove_unsupported_claim",
+        "downgrade_claim",
+        "request_new_proof_artifact",
+        "request_new_experiment_artifact",
+        "request_retrieval_expansion",
+        "forbidden_publication_ready_request",
+        "forbidden_validation_request",
+    ]
+    requested_text_optional: str | None = None
+    rationale_optional: str | None = None
+    priority: Literal["low", "medium", "high", "blocking"] = "medium"
+    requires_new_evidence: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ReviewerChangeRequestSet(StrictModel):
+    """Immutable structured reviewer request set for one run."""
+
+    run_id: str = Field(min_length=1)
+    request_set_id: str = Field(min_length=1)
+    review_id: str = Field(min_length=1)
+    reviewer_name_optional: str | None = None
+    created_at: str = Field(min_length=1)
+    target_artifact_path: str = Field(min_length=1)
+    requests: list[ReviewerChangeRequest] = Field(min_length=1)
+    reviewer_attestation: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class HumanReviewReconciliationCycle(StrictModel):
+    """Immutable index entry for one reconciliation cycle."""
+
+    cycle_number: int = Field(ge=1)
+    request_set_id: str | None = None
+    reconciliation_status: str = Field(min_length=1)
+    reconciliation_report_path: str = Field(min_length=1)
+    reconciled_manuscript_path: str = Field(min_length=1)
+    reviewer_summary_path: str = Field(min_length=1)
+    applied_change_count: int = Field(ge=0)
+    rejected_change_count: int = Field(ge=0)
+    deferred_change_count: int = Field(ge=0)
+    requires_new_evidence_count: int = Field(ge=0)
+    unresolved_request_count: int = Field(ge=0)
+    ledger_tip_after_cycle: str = Field(min_length=1)
+
+
+class HumanReviewReconciliationIndex(StrictModel):
+    """Derived latest pointer over immutable reconciliation cycles."""
+
+    run_id: str = Field(min_length=1)
+    latest_cycle: int = Field(ge=1)
+    cycle_count: int = Field(ge=1)
+    cycles: list[HumanReviewReconciliationCycle] = Field(min_length=1)
+    current_preferred_reconciled_manuscript: str = Field(min_length=1)
+    current_preferred_reviewer_summary: str = Field(min_length=1)
+    ledger_tip_after_latest_cycle: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class ReviewerBundleSummary(StrictModel):
     """Reviewer-facing paper-bundle summary; explanatory context only."""
 
@@ -559,6 +715,18 @@ class ReviewerBundleSummary(StrictModel):
     experiment_supported_claim_count: int = Field(default=0, ge=0)
     citation_supported_claim_count: int = Field(default=0, ge=0)
     human_review_linked_claim_count: int = Field(default=0, ge=0)
+    human_review_reconciliation_present: bool = False
+    human_review_reconciliation_status: str | None = None
+    human_review_applied_change_count: int = Field(default=0, ge=0)
+    human_review_rejected_change_count: int = Field(default=0, ge=0)
+    human_review_deferred_change_count: int = Field(default=0, ge=0)
+    human_review_requires_new_evidence_count: int = Field(default=0, ge=0)
+    human_review_remaining_requested_changes: list[str] = Field(default_factory=list)
+    reviewer_change_requests_present: bool = False
+    reviewer_request_set_count: int = Field(default=0, ge=0)
+    latest_reconciliation_cycle: int = Field(default=0, ge=0)
+    human_review_reconciliation_cycle_count: int = Field(default=0, ge=0)
+    unresolved_reviewer_request_count: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1022,9 +1190,7 @@ class ClaimAdjudication(StrictModel):
     sentence_hash: str = Field(min_length=64, max_length=64)
     adjudicated_claim_class: ClaimSupportClaimClass
     requires_citation: bool
-    requires_citation_reason: ClaimCitationRequirementReason = (
-        "claim_class_no_citation_required"
-    )
+    requires_citation_reason: ClaimCitationRequirementReason = "claim_class_no_citation_required"
     citation_use: ClaimAdjudicationCitationUse = "none"
     forbidden_claim_detected: bool = False
     citation_as_validation_misuse: bool = False
@@ -1047,9 +1213,7 @@ class ClaimSupportItem(StrictModel):
     claim_class: ClaimSupportClaimClass
     citation_keys_present: list[str] = Field(default_factory=list)
     requires_citation: bool = False
-    requires_citation_reason: ClaimCitationRequirementReason = (
-        "claim_class_no_citation_required"
-    )
+    requires_citation_reason: ClaimCitationRequirementReason = "claim_class_no_citation_required"
     required_support_type: str = Field(default="none", min_length=1)
     supporting_source_ids: list[str] = Field(default_factory=list)
     support_status: ClaimSupportStatus
@@ -1408,6 +1572,7 @@ class PaperSkeleton(StrictModel):
     provenance_refs: dict[str, ArtifactRef]
     fake: bool = True
     is_verification_evidence: bool = False
+
 
 __all__ = [
     "InstantiationMap",

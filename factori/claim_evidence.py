@@ -344,6 +344,18 @@ def latest_claim_evidence_map_path(root: Path, run_id: str) -> Path | None:
 def latest_claim_support_audit_path(root: Path, run_id: str) -> Path:
     """Return the latest final claim-support audit path for a run."""
     reports = root / "runs" / run_id / "reports"
+    cycle_paths = sorted(
+        path
+        for path in reports.glob(
+            "claim-support-audit-after-reconciliation-cycle-*.json"
+        )
+        if not path.name.endswith(".meta.json")
+    )
+    if cycle_paths:
+        return cycle_paths[-1]
+    reconciled = reports / "claim-support-audit-after-human-review-reconciliation.json"
+    if reconciled.is_file():
+        return reconciled
     refreshed = reports / "claim-support-audit-after-evidence-aware-refresh.json"
     if refreshed.is_file():
         return refreshed

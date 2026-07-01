@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.28.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.30.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -131,6 +131,12 @@
       "title": "Formal Verification Artifact Count",
       "type": "integer"
     },
+    "human_review_applied_change_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Applied Change Count",
+      "type": "integer"
+    },
     "human_review_artifact_path": {
       "anyOf": [
         {
@@ -161,6 +167,12 @@
       "title": "Human Review Checklist",
       "type": "array"
     },
+    "human_review_deferred_change_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Deferred Change Count",
+      "type": "integer"
+    },
     "human_review_linked_claim_count": {
       "default": 0,
       "minimum": 0,
@@ -179,10 +191,52 @@
       "default": null,
       "title": "Human Review Recommended Next Action"
     },
+    "human_review_reconciliation_cycle_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Reconciliation Cycle Count",
+      "type": "integer"
+    },
+    "human_review_reconciliation_present": {
+      "default": false,
+      "title": "Human Review Reconciliation Present",
+      "type": "boolean"
+    },
+    "human_review_reconciliation_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Review Reconciliation Status"
+    },
+    "human_review_rejected_change_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Rejected Change Count",
+      "type": "integer"
+    },
+    "human_review_remaining_requested_changes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Human Review Remaining Requested Changes",
+      "type": "array"
+    },
     "human_review_requested_change_count": {
       "default": 0,
       "minimum": 0,
       "title": "Human Review Requested Change Count",
+      "type": "integer"
+    },
+    "human_review_requires_new_evidence_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Human Review Requires New Evidence Count",
       "type": "integer"
     },
     "human_review_status": {
@@ -218,6 +272,12 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "latest_reconciliation_cycle": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Latest Reconciliation Cycle",
+      "type": "integer"
     },
     "paper_artifact_paths": {
       "additionalProperties": {
@@ -309,6 +369,17 @@
       "title": "Retrieval Summary",
       "type": "object"
     },
+    "reviewer_change_requests_present": {
+      "default": false,
+      "title": "Reviewer Change Requests Present",
+      "type": "boolean"
+    },
+    "reviewer_request_set_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Reviewer Request Set Count",
+      "type": "integer"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
@@ -330,6 +401,12 @@
       "minLength": 1,
       "title": "Source Relevance Status",
       "type": "string"
+    },
+    "unresolved_reviewer_request_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Unresolved Reviewer Request Count",
+      "type": "integer"
     }
   },
   "required": [
@@ -345,7 +422,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.28.0",
+  "x-factori-protocol-version": "0.30.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

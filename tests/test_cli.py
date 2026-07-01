@@ -61,13 +61,35 @@ def test_inspect_reviewer_summary_cli_is_registered() -> None:
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])
+    reconcile = CliRunner().invoke(app, ["reconcile-human-review", "--help"])
+    inspect_reconciliation = CliRunner().invoke(
+        app,
+        ["inspect-human-review-reconciliation", "--help"],
+    )
+    ingest_requests = CliRunner().invoke(
+        app,
+        ["ingest-reviewer-change-requests", "--help"],
+    )
+    inspect_requests = CliRunner().invoke(
+        app,
+        ["inspect-reviewer-change-requests", "--help"],
+    )
 
     assert ingest.exit_code == 0, ingest.output
     assert inspect.exit_code == 0, inspect.output
+    assert reconcile.exit_code == 0, reconcile.output
+    assert inspect_reconciliation.exit_code == 0, inspect_reconciliation.output
+    assert ingest_requests.exit_code == 0, ingest_requests.output
+    assert inspect_requests.exit_code == 0, inspect_requests.output
     assert "--run-id" in ingest.output
     assert "--review-file" in ingest.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
+    assert "--run-id" in reconcile.output
+    assert "--run-id" in inspect_reconciliation.output
+    assert "--json" in inspect_reconciliation.output
+    assert "--request-file" in ingest_requests.output
+    assert "--json" in inspect_requests.output
 
 
 def test_evidence_artifact_cli_commands_are_registered() -> None:
@@ -508,7 +530,6 @@ def test_human_review_intake_and_inspection_cli(tmp_path) -> None:
     assert lint_payload["human_review_requested_change_count"] == 0
     assert lint_payload["publication_ready"] is False
 
-
 def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     run_id = "inspect-evidence-artifacts"
     _prepare_paper_bundle(tmp_path, run_id=run_id, revised=True, release=True)
@@ -741,6 +762,90 @@ def test_evidence_artifact_intake_and_inspection_cli(tmp_path) -> None:
     assert lint_payload["claim_support_rechecked_after_refresh"] is True
     assert lint_payload["citation_safety_rechecked_after_refresh"] is True
     assert lint_payload["publication_ready"] is False
+
+    review_file = _write_human_review_fixture(tmp_path, run_id=run_id)
+    review_ingest = runner.invoke(
+        app,
+        [
+            "ingest-human-review",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--review-file",
+            str(review_file),
+            "--json",
+        ],
+    )
+    assert review_ingest.exit_code == 0, review_ingest.output
+    reconciliation = runner.invoke(
+        app,
+        [
+            "reconcile-human-review",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    assert reconciliation.exit_code == 0, reconciliation.output
+    reconciliation_payload = json.loads(reconciliation.output)
+    assert reconciliation_payload["publication_ready"] is False
+    assert reconciliation_payload["human_review_reconciliation"][
+        "reconciliation_status"
+    ] == "no_action_needed"
+
+    inspect_reconciliation_json = runner.invoke(
+        app,
+        [
+            "inspect-human-review-reconciliation",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    inspect_reconciliation_human = runner.invoke(
+        app,
+        [
+            "inspect-human-review-reconciliation",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+        ],
+    )
+    assert inspect_reconciliation_json.exit_code == 0
+    assert inspect_reconciliation_human.exit_code == 0
+    reconciled = json.loads(inspect_reconciliation_json.output)
+    assert reconciled["human_review_reconciliation_present"] is True
+    assert reconciled["applied_change_count"] == 0
+    assert reconciled["publication_ready"] is False
+    assert "Status: no_action_needed" in inspect_reconciliation_human.output
+
+    post_bundle = runner.invoke(
+        app,
+        ["inspect-paper-bundle", "--root", str(tmp_path), "--run-id", run_id],
+    )
+    post_lint = runner.invoke(
+        app,
+        [
+            "lint-paper-bundle",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    assert post_bundle.exit_code == 0, post_bundle.output
+    assert post_lint.exit_code == 0, post_lint.output
+    assert "Human-review reconciliation: present" in post_bundle.output
+    post_lint_payload = json.loads(post_lint.output)
+    assert post_lint_payload["human_review_reconciliation_present"] is True
+    assert post_lint_payload["human_review_reconciliation_status"] == "no_action_needed"
 
 
 def test_inspect_paper_bundle_without_revised_artifacts_degrades_gracefully(tmp_path) -> None:
