@@ -147,6 +147,14 @@ def planned_spec_fingerprint(
             "suggested_baselines": sorted(spec.suggested_baselines),
             "suggested_seed_policy": spec.suggested_seed_policy,
             "expected_output_artifacts": sorted(spec.expected_output_artifacts),
+            "experiment_bundle_path_optional": spec.experiment_bundle_path_optional,
+            "template_id_optional": spec.template_id_optional,
+            "template_family_optional": spec.template_family_optional,
+            "sandbox_backend": spec.sandbox_backend,
+            "requested_dependencies": sorted(spec.requested_dependencies),
+            "allow_network": spec.allow_network,
+            "seed": spec.seed,
+            "timeout_seconds": spec.timeout_seconds,
             "status": spec.status,
         }
     elif isinstance(spec, ProofObligationSpec):

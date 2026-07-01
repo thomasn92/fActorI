@@ -85,7 +85,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.37.0/autonomous-loop-iteration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/autonomous-loop-iteration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One autonomous loop iteration report.",
@@ -211,6 +211,18 @@
       "minimum": 0,
       "title": "Experiment Artifacts Created",
       "type": "integer"
+    },
+    "experiment_gap_routing_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Gap Routing Report Path"
     },
     "gaps_marked_exhausted": {
       "default": 0,
@@ -356,6 +368,47 @@
       "default": null,
       "title": "Reviewer Summary Path Optional"
     },
+    "routed_experiment_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Experiment Gap Count",
+      "type": "integer"
+    },
+    "routed_experiment_spec_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Experiment Spec Count",
+      "type": "integer"
+    },
+    "sandbox_budget_exhausted": {
+      "default": false,
+      "title": "Sandbox Budget Exhausted",
+      "type": "boolean"
+    },
+    "sandbox_budget_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sandbox Budget Report Path"
+    },
+    "sandbox_budget_runs_remaining": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sandbox Budget Runs Remaining",
+      "type": "integer"
+    },
+    "sandbox_budget_runs_used": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sandbox Budget Runs Used",
+      "type": "integer"
+    },
     "selected_strategy_count": {
       "default": 0,
       "minimum": 0,
@@ -400,7 +453,7 @@
   ],
   "title": "AutonomousLoopIterationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopIterationReport",
   "x-factori-verification-evidence": false
 }

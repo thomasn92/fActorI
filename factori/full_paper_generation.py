@@ -34,6 +34,12 @@ from factori.claim_evidence import (
     claim_evidence_summary_fields,
     latest_claim_evidence_map_path,
 )
+from factori.experiment_template_routing import (
+    experiment_gap_routing_summary_fields,
+    latest_experiment_gap_routing_report,
+    latest_sandbox_budget_report,
+    sandbox_budget_summary_fields,
+)
 from factori.gap_attempts import (
     gap_attempt_summary_fields,
     latest_gap_attempt_history_path,
@@ -89,6 +95,7 @@ from factori.schemas import (
     ControllerActionType,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    ExperimentGapRoutingReport,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -804,6 +811,18 @@ def inspect_paper_bundle_summary(
         strategy_report,
         strategy_index,
     )
+    routing_report, routing_index = latest_experiment_gap_routing_report(root_path, run_id)
+    routing_summary = experiment_gap_routing_summary_fields(
+        routing_report,
+        routing_index,
+    )
+    sandbox_budget_report = latest_sandbox_budget_report(root_path, run_id)
+    sandbox_budget_summary = sandbox_budget_summary_fields(sandbox_budget_report)
+    routing_summary, sandbox_budget_summary = _prefer_loop_routing_and_budget(
+        routing_summary,
+        sandbox_budget_summary,
+        autonomous_loop_summary,
+    )
     gap_attempt_history_path = latest_gap_attempt_history_path(root_path, run_id)
     planned_spec_dedup_index_path = latest_planned_spec_dedup_index_path(root_path, run_id)
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
@@ -982,6 +1001,8 @@ def inspect_paper_bundle_summary(
         **gap_attempt_summary,
         **planned_spec_dedup_summary,
         **strategy_summary,
+        **routing_summary,
+        **sandbox_budget_summary,
         "gap_attempt_history_path": (
             gap_attempt_history_path.relative_to(root_path).as_posix()
             if gap_attempt_history_path is not None
@@ -1516,6 +1537,13 @@ def lint_paper_bundle_summary(
     gaps_deferred_after_strategy_exhaustion = int(
         bundle.get("gaps_deferred_after_strategy_exhaustion") or 0
     )
+    experiment_gap_routing_present = bool(bundle.get("experiment_gap_routing_present"))
+    routed_experiment_gap_count = int(bundle.get("routed_experiment_gap_count") or 0)
+    unrouted_experiment_gap_count = int(bundle.get("unrouted_experiment_gap_count") or 0)
+    created_experiment_spec_count = int(bundle.get("created_experiment_spec_count") or 0)
+    sandbox_budget_exhausted = bool(bundle.get("sandbox_budget_exhausted"))
+    sandbox_budget_runs_used = int(bundle.get("sandbox_budget_runs_used") or 0)
+    sandbox_budget_runs_remaining = int(bundle.get("sandbox_budget_runs_remaining") or 0)
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -1990,6 +2018,13 @@ def lint_paper_bundle_summary(
         "gaps_deferred_after_strategy_exhaustion": (
             gaps_deferred_after_strategy_exhaustion
         ),
+        "experiment_gap_routing_present": experiment_gap_routing_present,
+        "routed_experiment_gap_count": routed_experiment_gap_count,
+        "unrouted_experiment_gap_count": unrouted_experiment_gap_count,
+        "created_experiment_spec_count": created_experiment_spec_count,
+        "sandbox_budget_exhausted": sandbox_budget_exhausted,
+        "sandbox_budget_runs_used": sandbox_budget_runs_used,
+        "sandbox_budget_runs_remaining": sandbox_budget_runs_remaining,
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
@@ -2146,6 +2181,57 @@ def _validate_upstream_prerequisites(run_id: str, ledger: ResearchLedger) -> Non
         load_manuscript_drafting_inputs(run_id, ledger)
     except ManuscriptDraftingError as exc:
         raise FullPaperGenerationError(_clear_manuscript_error(str(exc))) from exc
+
+
+def _prefer_loop_routing_and_budget(
+    routing_summary: dict[str, Any],
+    sandbox_budget_summary: dict[str, Any],
+    loop_summary: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Prefer cumulative loop routing/budget counters when a loop report exists."""
+    if not loop_summary.get("autonomous_loop_present"):
+        return routing_summary, sandbox_budget_summary
+    loop_routed = int(loop_summary.get("routed_experiment_gap_count") or 0)
+    loop_specs = int(loop_summary.get("routed_experiment_spec_count") or 0)
+    loop_runs_used = int(loop_summary.get("sandbox_budget_runs_used") or 0)
+    loop_runs_remaining = int(loop_summary.get("sandbox_budget_runs_remaining") or 0)
+    merged_routing = {
+        **routing_summary,
+        "experiment_gap_routing_present": bool(
+            routing_summary.get("experiment_gap_routing_present")
+            or loop_summary.get("experiment_routing_enabled")
+            or loop_routed
+        ),
+        "routed_experiment_gap_count": max(
+            int(routing_summary.get("routed_experiment_gap_count") or 0),
+            loop_routed,
+        ),
+        "created_experiment_spec_count": max(
+            int(routing_summary.get("created_experiment_spec_count") or 0),
+            loop_specs,
+        ),
+    }
+    remaining = dict(sandbox_budget_summary.get("sandbox_budget_remaining") or {})
+    if loop_summary.get("experiment_routing_enabled"):
+        remaining["sandbox_runs"] = loop_runs_remaining
+    merged_budget = {
+        **sandbox_budget_summary,
+        "sandbox_budget_exhausted": bool(
+            sandbox_budget_summary.get("sandbox_budget_exhausted")
+            or loop_summary.get("sandbox_budget_exhausted")
+        ),
+        "sandbox_budget_runs_used": max(
+            int(sandbox_budget_summary.get("sandbox_budget_runs_used") or 0),
+            loop_runs_used,
+        ),
+        "sandbox_budget_runs_remaining": (
+            loop_runs_remaining
+            if loop_summary.get("experiment_routing_enabled")
+            else int(sandbox_budget_summary.get("sandbox_budget_runs_remaining") or 0)
+        ),
+        "sandbox_budget_remaining": remaining,
+    }
+    return merged_routing, merged_budget
 
 
 def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
@@ -2360,6 +2446,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 run_path,
                 "reviewer-bundle-summary-after-python-sandbox-*.md",
                 "reviewer-bundle-summary-after-python-sandbox-0000.md",
+            )
+        ),
+        "reviewer_bundle_summary_after_experiment_routing_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-experiment-routing-*.json",
+                "reviewer-bundle-summary-after-experiment-routing-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_experiment_routing_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-experiment-routing-*.md",
+                "reviewer-bundle-summary-after-experiment-routing-0000.md",
             )
         ),
         "reviewer_bundle_summary_after_autonomous_loop_json": (
@@ -2610,6 +2710,9 @@ def _read_preferred_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_autonomous_loop_json"]
         )
         or _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_experiment_routing_json"]
+        )
+        or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
         )
         or _read_reviewer_bundle_summary(
@@ -2707,6 +2810,7 @@ def build_reviewer_bundle_summary(
     autonomous_execution_report: AutonomousPlanExecutionReport | None = None,
     planned_spec_execution_report: PlannedSpecExecutionReport | None = None,
     autonomous_loop_report: AutonomousLoopRunReport | None = None,
+    experiment_gap_routing_report: ExperimentGapRoutingReport | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -2770,6 +2874,27 @@ def build_reviewer_bundle_summary(
     loop_report, loop_index = latest_autonomous_loop_report(root_path, run_id)
     loop_report = autonomous_loop_report or loop_report
     loop_summary = autonomous_loop_summary_fields(loop_report, loop_index)
+    routing_report, routing_index = latest_experiment_gap_routing_report(root_path, run_id)
+    routing_report = experiment_gap_routing_report or routing_report
+    routing_summary = experiment_gap_routing_summary_fields(routing_report, routing_index)
+    sandbox_budget_summary = sandbox_budget_summary_fields(
+        latest_sandbox_budget_report(root_path, run_id)
+    )
+    if loop_report is not None:
+        sandbox_budget_summary = {
+            **sandbox_budget_summary,
+            "sandbox_budget_exhausted": loop_report.sandbox_budget_exhausted,
+            "sandbox_budget_runs_used": loop_report.sandbox_budget_runs_used,
+            "sandbox_budget_runs_remaining": loop_report.sandbox_budget_runs_remaining,
+            "sandbox_budget_remaining": {
+                "sandbox_runs": loop_report.sandbox_budget_runs_remaining,
+            },
+        }
+    routing_summary, sandbox_budget_summary = _prefer_loop_routing_and_budget(
+        routing_summary,
+        sandbox_budget_summary,
+        loop_summary,
+    )
     release_status = (
         release_report.decision.status.value
         if release_report is not None
@@ -2987,6 +3112,16 @@ def build_reviewer_bundle_summary(
         python_sandbox_artifacts_created=int(
             bundle.get("python_experiment_artifacts_created_count") or 0
         ),
+        experiment_gap_routing_present=bool(
+            routing_summary["experiment_gap_routing_present"]
+        ),
+        routed_experiment_gap_count=int(routing_summary["routed_experiment_gap_count"]),
+        unrouted_experiment_gap_count=int(routing_summary["unrouted_experiment_gap_count"]),
+        created_experiment_spec_count=int(
+            routing_summary["created_experiment_spec_count"]
+        ),
+        sandbox_budget_exhausted=bool(sandbox_budget_summary["sandbox_budget_exhausted"]),
+        sandbox_budget_remaining=dict(sandbox_budget_summary["sandbox_budget_remaining"]),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -3120,6 +3255,16 @@ def render_reviewer_bundle_summary_markdown(
             f"{summary.python_sandbox_artifacts_created}`"
         ),
         (
+            "Experiment gap routing: "
+            f"`{'present' if summary.experiment_gap_routing_present else 'absent'}`"
+        ),
+        f"Routed experiment gaps: `{summary.routed_experiment_gap_count}`",
+        f"Created experiment specs: `{summary.created_experiment_spec_count}`",
+        (
+            "Sandbox budget exhausted: "
+            f"`{str(summary.sandbox_budget_exhausted).lower()}`"
+        ),
+        (
             "Autonomous loop: "
             f"`{'present' if summary.autonomous_loop_present else 'absent'}`"
         ),
@@ -3226,8 +3371,12 @@ def inspect_reviewer_bundle_summary(
         raise PaperBundleInspectionError(f"No reviewer bundle summary found for run_id={run_id}.")
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_autonomous_loop_json"]
+        paths["reviewer_bundle_summary_after_python_sandbox_json"]
+        if paths["reviewer_bundle_summary_after_python_sandbox_json"].is_file()
+        else paths["reviewer_bundle_summary_after_autonomous_loop_json"]
         if paths["reviewer_bundle_summary_after_autonomous_loop_json"].is_file()
+        else paths["reviewer_bundle_summary_after_experiment_routing_json"]
+        if paths["reviewer_bundle_summary_after_experiment_routing_json"].is_file()
         else paths["reviewer_bundle_summary_after_planned_spec_execution_json"]
         if paths["reviewer_bundle_summary_after_planned_spec_execution_json"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_execution_json"]
@@ -3247,8 +3396,12 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_autonomous_loop_markdown"]
+        paths["reviewer_bundle_summary_after_python_sandbox_markdown"]
+        if paths["reviewer_bundle_summary_after_python_sandbox_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_autonomous_loop_markdown"]
         if paths["reviewer_bundle_summary_after_autonomous_loop_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_experiment_routing_markdown"]
+        if paths["reviewer_bundle_summary_after_experiment_routing_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"]
         if paths["reviewer_bundle_summary_after_planned_spec_execution_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_execution_markdown"]

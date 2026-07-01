@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "SandboxBudgetPolicy": {
+      "additionalProperties": false,
+      "description": "Bounded uv sandbox budget for one autonomous loop.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_experiment_artifacts_per_loop": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Max Experiment Artifacts Per Loop",
+          "type": "integer"
+        },
+        "max_sandbox_failures_per_loop": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Max Sandbox Failures Per Loop",
+          "type": "integer"
+        },
+        "max_sandbox_runs_per_iteration": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Max Sandbox Runs Per Iteration",
+          "type": "integer"
+        },
+        "max_sandbox_runs_per_loop": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Max Sandbox Runs Per Loop",
+          "type": "integer"
+        },
+        "max_sandbox_seconds_per_loop": {
+          "default": 120,
+          "minimum": 0,
+          "title": "Max Sandbox Seconds Per Loop",
+          "type": "integer"
+        }
+      },
+      "title": "SandboxBudgetPolicy",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.38.0/sandbox-budget-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Sandbox budget accounting report for local experiment execution.",
+  "properties": {
+    "budget_exhausted": {
+      "default": false,
+      "title": "Budget Exhausted",
+      "type": "boolean"
+    },
+    "budget_id": {
+      "minLength": 1,
+      "title": "Budget Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deferred Reason Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "policy": {
+      "$ref": "#/$defs/SandboxBudgetPolicy"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_budget_remaining": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Sandbox Budget Remaining",
+      "type": "object"
+    },
+    "sandbox_budget_used": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Sandbox Budget Used",
+      "type": "object"
+    }
+  },
+  "required": [
+    "run_id",
+    "budget_id",
+    "policy"
+  ],
+  "title": "SandboxBudgetReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.38.0",
+  "x-factori-source-model": "factori.schemas.SandboxBudgetReport",
+  "x-factori-verification-evidence": false
+}

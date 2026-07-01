@@ -45,9 +45,15 @@ from factori.schemas import (
     EmpiricalBoundaryAssessment,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    ExperimentGapRoutingIndex,
+    ExperimentGapRoutingItem,
+    ExperimentGapRoutingReport,
     ExperimentKind,
     ExperimentRunContract,
     ExperimentRunResult,
+    ExperimentTemplate,
+    ExperimentTemplateRegistry,
+    ExperimentTemplateSelection,
     ExportReadinessReport,
     FinalAuditReport,
     FinalNucleus,
@@ -178,6 +184,8 @@ from factori.schemas import (
     ReviewerPromptContract,
     RevisionSafetyReport,
     RunStatusReport,
+    SandboxBudgetPolicy,
+    SandboxBudgetReport,
     ScoreVector,
     SectionDraftingResult,
     SectionDraftingTask,
@@ -192,7 +200,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.37.0"
+PROTOCOL_VERSION = "0.38.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -453,6 +461,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "PythonExperimentSandboxIndex",
         PythonExperimentSandboxIndex,
         "Derived latest pointer over immutable Python sandbox reports.",
+    ),
+    ProtocolDefinition(
+        "ExperimentTemplate",
+        ExperimentTemplate,
+        "Approved local experiment template metadata.",
+    ),
+    ProtocolDefinition(
+        "ExperimentTemplateRegistry",
+        ExperimentTemplateRegistry,
+        "Deterministic registry of approved local experiment templates.",
+    ),
+    ProtocolDefinition(
+        "ExperimentTemplateSelection",
+        ExperimentTemplateSelection,
+        "One deterministic experiment-template selection decision.",
+    ),
+    ProtocolDefinition(
+        "ExperimentGapRoutingItem",
+        ExperimentGapRoutingItem,
+        "One deterministic experiment-gap routing item.",
+    ),
+    ProtocolDefinition(
+        "ExperimentGapRoutingReport",
+        ExperimentGapRoutingReport,
+        "Append-only non-evidence experiment-gap routing report.",
+    ),
+    ProtocolDefinition(
+        "ExperimentGapRoutingIndex",
+        ExperimentGapRoutingIndex,
+        "Derived latest pointer over immutable experiment-gap routing reports.",
+    ),
+    ProtocolDefinition(
+        "SandboxBudgetPolicy",
+        SandboxBudgetPolicy,
+        "Bounded uv sandbox budget policy for autonomous loops.",
+    ),
+    ProtocolDefinition(
+        "SandboxBudgetReport",
+        SandboxBudgetReport,
+        "Sandbox budget accounting report for local experiment execution.",
     ),
     ProtocolDefinition(
         "GapAttemptRecord",

@@ -69,7 +69,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.37.0/planned-spec-dedup-index.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/planned-spec-dedup-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived de-duplication index over planned proof, experiment, and retrieval specs.",
@@ -143,7 +143,7 @@
   ],
   "title": "PlannedSpecDedupIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecDedupIndex",
   "x-factori-verification-evidence": false
 }

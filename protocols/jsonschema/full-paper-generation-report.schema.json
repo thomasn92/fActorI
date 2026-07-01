@@ -652,7 +652,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.37.0/full-paper-generation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/full-paper-generation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Summary report for full-paper package generation.",
@@ -737,7 +737,7 @@
   ],
   "title": "FullPaperGenerationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationReport",
   "x-factori-verification-evidence": false
 }

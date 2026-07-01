@@ -1,0 +1,67 @@
+{
+  "$id": "https://schemas.factori.local/0.38.0/experiment-template-selection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic experiment-template selection decision.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "gap_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Gap Fingerprint",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "rejected_template_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rejected Template Ids",
+      "type": "array"
+    },
+    "selected_template_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Template Id Optional"
+    },
+    "selection_reason": {
+      "minLength": 1,
+      "title": "Selection Reason",
+      "type": "string"
+    },
+    "target_claim_id": {
+      "minLength": 1,
+      "title": "Target Claim Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_claim_id",
+    "gap_fingerprint",
+    "selection_reason"
+  ],
+  "title": "ExperimentTemplateSelection",
+  "type": "object",
+  "x-factori-protocol-version": "0.38.0",
+  "x-factori-source-model": "factori.schemas.ExperimentTemplateSelection",
+  "x-factori-verification-evidence": false
+}

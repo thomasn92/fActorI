@@ -85,7 +85,13 @@ _AUTHORITY_MARKERS = (
     "novelty validated",
     "correctness validated",
 )
-_EXPERIMENT_CLAIM_CLASSES = {"experiment_claim", "pipeline_status_claim"}
+_EXPERIMENT_CLAIM_CLASSES = {
+    "demonstration_claim",
+    "experiment_claim",
+    "external_factual_claim",
+    "pipeline_status_claim",
+    "result_claim",
+}
 _RESOURCE_LIMITS = {
     "cpu_seconds": 30,
     "memory_bytes": 512 * 1024 * 1024,

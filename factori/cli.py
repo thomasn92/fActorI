@@ -79,6 +79,11 @@ from factori.evidence_aware_refresh import (
     EvidenceAwareRefreshError,
     refresh_evidence_aware_manuscript,
 )
+from factori.experiment_template_routing import (
+    ExperimentGapRoutingError,
+    inspect_experiment_gap_routing,
+    route_experiment_gaps,
+)
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
@@ -2964,6 +2969,71 @@ def inspect_python_experiment_sandbox_command(
     typer.echo("Publication ready: false")
 
 
+@app.command("route-experiment-gaps")
+def route_experiment_gaps_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    routing_backend: Annotated[str, typer.Option("--routing-backend")] = "deterministic",
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Route experiment gaps to approved local experiment templates."""
+    try:
+        result = route_experiment_gaps(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            routing_backend=routing_backend,
+        )
+    except ExperimentGapRoutingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "experiment_gap_routing": result.report.model_dump(mode="json"),
+        "experiment_gap_routing_index": result.index.model_dump(mode="json"),
+        "experiment_template_registry": result.registry.model_dump(mode="json"),
+        "experiment_gap_routing_present": True,
+        "routed_experiment_gap_count": result.report.routed_gap_count,
+        "unrouted_experiment_gap_count": result.report.unrouted_gap_count,
+        "created_experiment_spec_count": result.report.created_experiment_spec_count,
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"routing_id={result.report.routing_id}")
+    typer.echo(f"routing_status={result.report.routing_status}")
+    typer.echo(f"routed_experiment_gap_count={result.report.routed_gap_count}")
+    typer.echo(f"created_experiment_spec_count={result.report.created_experiment_spec_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"experiment_gap_routing={result.report_artifact.path}")
+
+
+@app.command("inspect-experiment-gap-routing")
+def inspect_experiment_gap_routing_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest experiment-gap routing report."""
+    try:
+        summary = inspect_experiment_gap_routing(run_id=run_id, root=root)
+    except ExperimentGapRoutingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Experiment gap routing: {summary['run_id']}")
+    typer.echo(f"Routing status: {summary['routing_status']}")
+    typer.echo(f"Routed experiment gaps: {summary['routed_experiment_gap_count']}")
+    typer.echo(f"Unrouted experiment gaps: {summary['unrouted_experiment_gap_count']}")
+    typer.echo(f"Created experiment specs: {summary['created_experiment_spec_count']}")
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['experiment_gap_routing_report_path']}")
+
+
 @app.command("run-autonomous-loop")
 def run_autonomous_loop_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -2975,6 +3045,27 @@ def run_autonomous_loop_command(
         bool,
         typer.Option("--enable-strategy-diversification"),
     ] = False,
+    enable_experiment_routing: Annotated[
+        bool,
+        typer.Option("--enable-experiment-routing"),
+    ] = False,
+    python_sandbox_backend: Annotated[
+        str,
+        typer.Option("--python-sandbox-backend"),
+    ] = "off",
+    max_sandbox_runs_per_loop: Annotated[int, typer.Option("--max-sandbox-runs-per-loop")] = 3,
+    max_sandbox_runs_per_iteration: Annotated[
+        int,
+        typer.Option("--max-sandbox-runs-per-iteration"),
+    ] = 1,
+    max_sandbox_seconds_per_loop: Annotated[
+        int,
+        typer.Option("--max-sandbox-seconds-per-loop"),
+    ] = 120,
+    max_sandbox_failures_per_loop: Annotated[
+        int,
+        typer.Option("--max-sandbox-failures-per-loop"),
+    ] = 1,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run the deterministic autonomous evidence-gap loop controller."""
@@ -2988,6 +3079,12 @@ def run_autonomous_loop_command(
             max_iterations=max_iterations,
             max_attempts_per_gap=max_attempts_per_gap,
             enable_strategy_diversification=enable_strategy_diversification,
+            enable_experiment_routing=enable_experiment_routing,
+            python_sandbox_backend=python_sandbox_backend,
+            max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
+            max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
+            max_sandbox_seconds_per_loop=max_sandbox_seconds_per_loop,
+            max_sandbox_failures_per_loop=max_sandbox_failures_per_loop,
         )
     except AutonomousLoopError as exc:
         typer.echo(str(exc), err=True)
@@ -3147,6 +3244,27 @@ def inspect_autonomous_loop_command(
     typer.echo(
         "Deferred after all strategies exhausted: "
         f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"
+    )
+    typer.echo(
+        "Experiment routing enabled: "
+        f"{str(bool(summary.get('experiment_routing_enabled'))).lower()}"
+    )
+    typer.echo(
+        "Routed experiment gaps: "
+        f"{int(summary.get('routed_experiment_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Routed experiment specs: "
+        f"{int(summary.get('routed_experiment_spec_count') or 0)}"
+    )
+    typer.echo(
+        "Sandbox budget exhausted: "
+        f"{str(bool(summary.get('sandbox_budget_exhausted'))).lower()}"
+    )
+    typer.echo(
+        "Sandbox runs used/remaining: "
+        f"{int(summary.get('sandbox_budget_runs_used') or 0)}/"
+        f"{int(summary.get('sandbox_budget_runs_remaining') or 0)}"
     )
     typer.echo(
         "Human intervention required: "
@@ -4007,6 +4125,27 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Python sandbox network disabled: "
         f"{str(summary.get('python_experiment_sandbox_network_disabled', True)).lower()}"
+    )
+    typer.echo(
+        "Experiment gap routing: "
+        f"{'present' if summary.get('experiment_gap_routing_present') else 'absent'}"
+    )
+    typer.echo(
+        "Routed experiment gaps: "
+        f"{int(summary.get('routed_experiment_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Created experiment specs: "
+        f"{int(summary.get('created_experiment_spec_count') or 0)}"
+    )
+    typer.echo(
+        "Sandbox budget used/remaining: "
+        f"{int(summary.get('sandbox_budget_runs_used') or 0)}/"
+        f"{int(summary.get('sandbox_budget_runs_remaining') or 0)}"
+    )
+    typer.echo(
+        "Budget exhausted: "
+        f"{str(bool(summary.get('sandbox_budget_exhausted'))).lower()}"
     )
     typer.echo(
         "Autonomous loop: "

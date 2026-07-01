@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.37.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -137,6 +137,12 @@
       "title": "Completed Experiment Count",
       "type": "integer"
     },
+    "created_experiment_spec_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Created Experiment Spec Count",
+      "type": "integer"
+    },
     "creates_scientific_validation": {
       "default": false,
       "title": "Creates Scientific Validation",
@@ -193,6 +199,11 @@
     "experiment_artifacts_present": {
       "default": false,
       "title": "Experiment Artifacts Present",
+      "type": "boolean"
+    },
+    "experiment_gap_routing_present": {
+      "default": false,
+      "title": "Experiment Gap Routing Present",
       "type": "boolean"
     },
     "experiment_specs_executed": {
@@ -645,6 +656,12 @@
       "title": "Reviewer Request Set Count",
       "type": "integer"
     },
+    "routed_experiment_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Experiment Gap Count",
+      "type": "integer"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
@@ -654,6 +671,18 @@
       "minLength": 1,
       "title": "Safety Status",
       "type": "string"
+    },
+    "sandbox_budget_exhausted": {
+      "default": false,
+      "title": "Sandbox Budget Exhausted",
+      "type": "boolean"
+    },
+    "sandbox_budget_remaining": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Sandbox Budget Remaining",
+      "type": "object"
     },
     "selected_strategy_count": {
       "default": 0,
@@ -689,6 +718,12 @@
       "minimum": 0,
       "title": "Unresolved Reviewer Request Count",
       "type": "integer"
+    },
+    "unrouted_experiment_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Unrouted Experiment Gap Count",
+      "type": "integer"
     }
   },
   "required": [
@@ -704,7 +739,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

@@ -132,6 +132,11 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
         app,
         ["inspect-python-experiment-sandbox", "--help"],
     )
+    route_experiment_gaps = runner.invoke(app, ["route-experiment-gaps", "--help"])
+    inspect_experiment_routing = runner.invoke(
+        app,
+        ["inspect-experiment-gap-routing", "--help"],
+    )
     run_loop = runner.invoke(app, ["run-autonomous-loop", "--help"])
     inspect_loop = runner.invoke(app, ["inspect-autonomous-loop", "--help"])
     inspect_gap_history = runner.invoke(app, ["inspect-gap-attempt-history", "--help"])
@@ -162,6 +167,8 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert inspect_planned_specs.exit_code == 0, inspect_planned_specs.output
     assert run_python_sandbox.exit_code == 0, run_python_sandbox.output
     assert inspect_python_sandbox.exit_code == 0, inspect_python_sandbox.output
+    assert route_experiment_gaps.exit_code == 0, route_experiment_gaps.output
+    assert inspect_experiment_routing.exit_code == 0, inspect_experiment_routing.output
     assert run_loop.exit_code == 0, run_loop.output
     assert inspect_loop.exit_code == 0, inspect_loop.output
     assert inspect_gap_history.exit_code == 0, inspect_gap_history.output
@@ -182,9 +189,15 @@ def test_evidence_artifact_cli_commands_are_registered() -> None:
     assert "--sandbox-backend" in run_python_sandbox.output
     assert "--execution-mode" in run_python_sandbox.output
     assert "--json" in inspect_python_sandbox.output
+    assert "--routing-backend" in route_experiment_gaps.output
+    assert "--json" in inspect_experiment_routing.output
     assert "--loop-backend" in run_loop.output
     assert "--max-iterations" in run_loop.output
     assert "--max-attempts-per-gap" in run_loop.output
+    assert "--enable-experiment-routing" in run_loop.output
+    assert "--python-sandbox-backend" in run_loop.output
+    assert "--max-sandbox-runs-per-loop" in run_loop.output
+    assert "--max-sandbox-runs-per-ite" in run_loop.output
     assert "--json" in inspect_loop.output
     assert "--json" in inspect_gap_history.output
     assert "--json" in inspect_dedup.output

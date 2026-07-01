@@ -768,6 +768,12 @@ class ReviewerBundleSummary(StrictModel):
     python_sandbox_completed_count: int = Field(default=0, ge=0)
     python_sandbox_failed_count: int = Field(default=0, ge=0)
     python_sandbox_artifacts_created: int = Field(default=0, ge=0)
+    experiment_gap_routing_present: bool = False
+    routed_experiment_gap_count: int = Field(default=0, ge=0)
+    unrouted_experiment_gap_count: int = Field(default=0, ge=0)
+    created_experiment_spec_count: int = Field(default=0, ge=0)
+    sandbox_budget_exhausted: bool = False
+    sandbox_budget_remaining: dict[str, int] = Field(default_factory=dict)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1058,6 +1064,9 @@ class PlannedExperimentSpec(StrictModel):
     suggested_seed_policy: str = Field(min_length=1)
     expected_output_artifacts: list[str] = Field(min_length=1)
     experiment_bundle_path_optional: str | None = None
+    template_id_optional: str | None = None
+    template_family_optional: str | None = None
+    sandbox_backend: Literal["off", "uv_local", "fake"] = "off"
     requested_dependencies: list[str] = Field(default_factory=list)
     allow_network: bool = False
     shell_command_optional: str | None = None
@@ -1349,6 +1358,166 @@ class PythonExperimentSandboxIndex(StrictModel):
     publication_ready: bool = False
 
 
+ExperimentTemplateFamily = Literal[
+    "synthetic_calibration",
+    "synthetic_ablation",
+    "baseline_vs_method",
+    "robustness_sanity_check",
+    "simulation_comparison",
+]
+
+
+class ExperimentTemplate(StrictModel):
+    """Approved local experiment template; template selection is not evidence."""
+
+    template_id: str = Field(min_length=1)
+    template_name: str = Field(min_length=1)
+    template_family: ExperimentTemplateFamily
+    bundle_path: str = Field(min_length=1)
+    supported_gap_types: list[AutonomousEvidenceGapType] = Field(min_length=1)
+    supported_claim_classes: list[str] = Field(min_length=1)
+    required_inputs: list[str] = Field(default_factory=list)
+    default_metrics: list[str] = Field(min_length=1)
+    default_baselines: list[str] = Field(min_length=1)
+    dependency_profile: list[str] = Field(default_factory=list)
+    network_required: bool = False
+    arbitrary_code_required: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ExperimentTemplateRegistry(StrictModel):
+    """Deterministic registry of approved local experiment templates."""
+
+    run_id: str = Field(min_length=1)
+    registry_id: str = Field(min_length=1)
+    templates: list[ExperimentTemplate] = Field(default_factory=list)
+    network_required_template_count: int = Field(default=0, ge=0)
+    arbitrary_code_required_template_count: int = Field(default=0, ge=0)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class ExperimentTemplateSelection(StrictModel):
+    """One deterministic template selection decision for a gap."""
+
+    target_claim_id: str = Field(min_length=1)
+    gap_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    selected_template_id_optional: str | None = None
+    rejected_template_ids: list[str] = Field(default_factory=list)
+    selection_reason: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+ExperimentGapRoutingStatus = Literal[
+    "routed",
+    "unrouted_no_template",
+    "rejected_policy",
+    "deferred_budget_exhausted",
+    "deferred_requires_inputs",
+]
+
+
+class ExperimentGapRoutingItem(StrictModel):
+    """One deterministic routing decision from an experiment gap to a template."""
+
+    item_id: str = Field(min_length=1)
+    target_claim_id: str = Field(min_length=1)
+    target_section_optional: str | None = None
+    gap_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    claim_class: str = Field(min_length=1)
+    gap_type: AutonomousEvidenceGapType
+    selected_template_id_optional: str | None = None
+    template_family_optional: str | None = None
+    routing_decision: str = Field(min_length=1)
+    routing_status: ExperimentGapRoutingStatus
+    created_experiment_spec_path_optional: str | None = None
+    existing_experiment_spec_path_optional: str | None = None
+    rejection_reason_optional: str | None = None
+    safety_notes: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ExperimentGapRoutingReport(StrictModel):
+    """Append-only non-evidence report for experiment-gap template routing."""
+
+    run_id: str = Field(min_length=1)
+    routing_id: str = Field(min_length=1)
+    routing_backend: Literal["deterministic", "fake", "openai"] = "deterministic"
+    routing_status: str = Field(min_length=1)
+    claim_evidence_map_path: str = Field(min_length=1)
+    autonomous_plan_path: str = Field(min_length=1)
+    template_registry_path: str = Field(min_length=1)
+    gap_count: int = Field(default=0, ge=0)
+    routed_gap_count: int = Field(default=0, ge=0)
+    unrouted_gap_count: int = Field(default=0, ge=0)
+    created_experiment_spec_count: int = Field(default=0, ge=0)
+    selected_template_count: int = Field(default=0, ge=0)
+    rejected_template_count: int = Field(default=0, ge=0)
+    items: list[ExperimentGapRoutingItem] = Field(default_factory=list)
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class ExperimentGapRoutingIndex(StrictModel):
+    """Derived latest pointer over immutable experiment-gap routing reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_routing_id: str = Field(min_length=1)
+    routing_count: int = Field(ge=1)
+    latest_routing_status: str = Field(min_length=1)
+    routed_gap_count: int = Field(default=0, ge=0)
+    unrouted_gap_count: int = Field(default=0, ge=0)
+    created_experiment_spec_count: int = Field(default=0, ge=0)
+    latest_report_path: str = Field(min_length=1)
+    latest_template_registry_path: str = Field(min_length=1)
+    latest_requires_human_intervention: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class SandboxBudgetPolicy(StrictModel):
+    """Bounded uv sandbox budget for one autonomous loop."""
+
+    max_sandbox_runs_per_loop: int = Field(default=3, ge=0)
+    max_sandbox_runs_per_iteration: int = Field(default=1, ge=0)
+    max_sandbox_seconds_per_loop: int = Field(default=120, ge=0)
+    max_sandbox_failures_per_loop: int = Field(default=1, ge=0)
+    max_experiment_artifacts_per_loop: int = Field(default=3, ge=0)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SandboxBudgetReport(StrictModel):
+    """Budget accounting for gated local Python sandbox execution."""
+
+    run_id: str = Field(min_length=1)
+    budget_id: str = Field(min_length=1)
+    policy: SandboxBudgetPolicy
+    sandbox_budget_used: dict[str, int] = Field(default_factory=dict)
+    sandbox_budget_remaining: dict[str, int] = Field(default_factory=dict)
+    budget_exhausted: bool = False
+    deferred_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
 GapAttemptStatus = Literal[
     "open",
     "resolved",
@@ -1575,8 +1744,15 @@ class AutonomousLoopIterationReport(StrictModel):
     release_report_path: str | None = None
     reviewer_summary_path_optional: str | None = None
     strategy_diversification_report_path: str | None = None
+    experiment_gap_routing_report_path: str | None = None
+    sandbox_budget_report_path: str | None = None
     strategy_option_count: int = Field(default=0, ge=0)
     selected_strategy_count: int = Field(default=0, ge=0)
+    routed_experiment_gap_count: int = Field(default=0, ge=0)
+    routed_experiment_spec_count: int = Field(default=0, ge=0)
+    sandbox_budget_runs_used: int = Field(default=0, ge=0)
+    sandbox_budget_runs_remaining: int = Field(default=0, ge=0)
+    sandbox_budget_exhausted: bool = False
     supported_claim_count: int = Field(default=0, ge=0)
     unsupported_claim_count: int = Field(default=0, ge=0)
     partial_claim_count: int = Field(default=0, ge=0)
@@ -1639,6 +1815,15 @@ class AutonomousLoopRunReport(StrictModel):
     strategy_option_count: int = Field(default=0, ge=0)
     selected_strategy_count: int = Field(default=0, ge=0)
     duplicate_strategy_count: int = Field(default=0, ge=0)
+    experiment_routing_enabled: bool = False
+    experiment_gap_routing_report_paths: list[str] = Field(default_factory=list)
+    sandbox_budget_report_path: str | None = None
+    sandbox_budget_policy: SandboxBudgetPolicy | None = None
+    routed_experiment_gap_count: int = Field(default=0, ge=0)
+    routed_experiment_spec_count: int = Field(default=0, ge=0)
+    sandbox_budget_exhausted: bool = False
+    sandbox_budget_runs_used: int = Field(default=0, ge=0)
+    sandbox_budget_runs_remaining: int = Field(default=0, ge=0)
     iterations: list[AutonomousLoopIterationReport] = Field(default_factory=list)
     artifacts_created: list[str] = Field(default_factory=list)
     requires_human_intervention: bool = False
@@ -2376,6 +2561,14 @@ __all__ = [
     "PythonExperimentSandboxRun",
     "PythonExperimentSandboxReport",
     "PythonExperimentSandboxIndex",
+    "ExperimentTemplate",
+    "ExperimentTemplateRegistry",
+    "ExperimentTemplateSelection",
+    "ExperimentGapRoutingItem",
+    "ExperimentGapRoutingReport",
+    "ExperimentGapRoutingIndex",
+    "SandboxBudgetPolicy",
+    "SandboxBudgetReport",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

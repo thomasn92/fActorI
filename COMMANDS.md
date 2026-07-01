@@ -180,12 +180,21 @@ uv run factori run-python-experiment-sandbox \
   --sandbox-backend uv_local --execution-mode apply
 uv run factori inspect-python-experiment-sandbox --run-id demo
 uv run factori inspect-python-experiment-sandbox --run-id demo --json
+uv run factori route-experiment-gaps \
+  --run-id demo --routing-backend deterministic
+uv run factori inspect-experiment-gap-routing --run-id demo
+uv run factori inspect-experiment-gap-routing --run-id demo --json
 uv run factori run-autonomous-loop \
   --run-id demo --loop-backend deterministic --max-iterations 3 \
   --max-attempts-per-gap 2
 uv run factori run-autonomous-loop \
   --run-id demo --loop-backend deterministic --max-iterations 6 \
   --max-attempts-per-gap 1 --enable-strategy-diversification
+uv run factori run-autonomous-loop \
+  --run-id demo --loop-backend deterministic --max-iterations 4 \
+  --max-attempts-per-gap 1 --enable-experiment-routing \
+  --python-sandbox-backend uv_local --max-sandbox-runs-per-loop 3 \
+  --max-sandbox-runs-per-iteration 1
 uv run factori inspect-autonomous-loop --run-id demo
 uv run factori inspect-autonomous-loop --run-id demo --json
 uv run factori diversify-gap-strategies \

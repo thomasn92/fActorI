@@ -78,6 +78,7 @@ def execute_planned_specs(
     execution_mode: str = "dry_run",
     spec_executor_backend: str = "deterministic_local",
     python_sandbox_backend: str = "off",
+    max_sandbox_runs: int | None = None,
     max_attempts_per_gap: int = 2,
 ) -> PlannedSpecExecutionResult:
     """Execute or dry-run deterministic local planned specs."""
@@ -98,6 +99,8 @@ def execute_planned_specs(
         raise PlannedSpecExecutionError(
             "python sandbox backend must be off, uv_local, or fake"
         )
+    if max_sandbox_runs is not None and max_sandbox_runs < 0:
+        raise PlannedSpecExecutionError("max sandbox runs must be non-negative")
 
     root_path = Path(root)
     run_path = root_path / "runs" / run_id
@@ -163,6 +166,7 @@ def execute_planned_specs(
     items: list[PlannedSpecExecutionItem] = []
     created_paths: list[str] = []
     ingested_paths: list[str] = []
+    sandbox_runs_used = 0
     seen_specs: dict[str, str] = {
         record.planned_spec_fingerprint: record.path.relative_to(root_path).as_posix()
         for record in records
@@ -194,16 +198,28 @@ def execute_planned_specs(
                 python_sandbox_backend != "off"
                 and record.spec.experiment_bundle_path_optional is not None
             ):
-                item, created, ingested = _execute_uv_sandbox_experiment_spec(
-                    run_id=run_id,
-                    root=root_path,
-                    store=store,
-                    ledger=ledger,
-                    execution_id=execution_id,
-                    index=index,
-                    spec=record.spec,
-                    sandbox_backend=python_sandbox_backend,
-                )
+                if max_sandbox_runs is not None and sandbox_runs_used >= max_sandbox_runs:
+                    item, created, ingested = (
+                        _deferred_budget_item(
+                            index=index,
+                            spec=record.spec,
+                            reason="Sandbox run budget exhausted for this planned-spec execution.",
+                        ),
+                        [],
+                        [],
+                    )
+                else:
+                    item, created, ingested = _execute_uv_sandbox_experiment_spec(
+                        run_id=run_id,
+                        root=root_path,
+                        store=store,
+                        ledger=ledger,
+                        execution_id=execution_id,
+                        index=index,
+                        spec=record.spec,
+                        sandbox_backend=python_sandbox_backend,
+                    )
+                    sandbox_runs_used += 1
             else:
                 item, created, ingested = _execute_experiment_spec(
                     run_id=run_id,
@@ -1554,6 +1570,29 @@ def _failed_item(index: int, record: _SpecRecord, reason: str) -> PlannedSpecExe
         execution_status="failed",
         failed_reason_optional=reason,
         safety_notes=_standard_safety_notes(),
+    )
+
+
+def _deferred_budget_item(
+    *,
+    index: int,
+    spec: PlannedExperimentSpec,
+    reason: str,
+) -> PlannedSpecExecutionItem:
+    return PlannedSpecExecutionItem(
+        item_id=f"item-{index:04d}",
+        spec_id=spec.spec_id,
+        spec_type="experiment_spec",
+        target_claim_id_optional=spec.target_claim_id,
+        gap_fingerprint=_gap_fingerprint_for_spec(spec),
+        planned_spec_fingerprint=planned_spec_fingerprint(spec),
+        executor_decision="defer",
+        execution_status="deferred",
+        deferred_reason_optional=reason,
+        safety_notes=[
+            *_standard_safety_notes(),
+            "Sandbox budget exhaustion defers execution without creating evidence.",
+        ],
     )
 
 

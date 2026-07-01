@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.37.0/planned-experiment-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/planned-experiment-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned experiment specification without experiment-evidence authority.",
@@ -59,6 +59,16 @@
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "uv_local",
+        "fake"
+      ],
+      "title": "Sandbox Backend",
       "type": "string"
     },
     "seed": {
@@ -125,6 +135,30 @@
       "title": "Target Section",
       "type": "string"
     },
+    "template_family_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Template Family Optional"
+    },
+    "template_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Template Id Optional"
+    },
     "timeout_seconds": {
       "default": 30,
       "maximum": 300,
@@ -147,7 +181,7 @@
   ],
   "title": "PlannedExperimentSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.PlannedExperimentSpec",
   "x-factori-verification-evidence": false
 }

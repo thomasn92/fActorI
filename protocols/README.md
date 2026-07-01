@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.38.0` adds approved local experiment template registries, deterministic
+experiment-gap routing reports, sandbox-compatible routed experiment specs, and loop-level sandbox
+budget reports. Template routing is workflow only; completed sandbox artifacts still require
+existing experiment-artifact intake and remain scoped to mapped bounded result claims.
+
 Protocol `0.37.0` adds gated uv-local Python experiment sandbox manifests, append-only run reports,
 and derived sandbox indices. The sandbox uses approved local bundles, offline dependency policy,
 fixed seeds, timeouts, resource limits, logs, metrics, and content hashes. Only successful outputs

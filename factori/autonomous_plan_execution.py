@@ -631,6 +631,29 @@ def _apply_actions(
             if not item.target_claim_id_optional or not item.target_section_optional:
                 actions.append(_failed_action(common, revised, "Experiment target is incomplete."))
                 continue
+            existing_experiment = _existing_experiment_spec_for_claim(
+                root=root,
+                run_id=run_id,
+                target_claim_id=item.target_claim_id_optional,
+            )
+            if existing_experiment is not None:
+                existing_path, existing_fp = existing_experiment
+                actions.append(
+                    AutonomousPlanExecutionAction(
+                        **common,
+                        execution_decision="skip",
+                        execution_status="skipped",
+                        applied=False,
+                        planned_spec_fingerprint_optional=existing_fp,
+                        rejected_reason_optional=(
+                            "Existing planned experiment spec for this claim already exists; "
+                            "reused existing spec."
+                        ),
+                        created_artifact_path_optional=existing_path,
+                        after_hash_optional=sha256_text(revised),
+                    )
+                )
+                continue
             stem = _spec_stem("experiment-spec", item, execution_id)
             spec = PlannedExperimentSpec(
                 run_id=run_id,
@@ -1226,6 +1249,25 @@ def _planned_spec_action(
         created_artifact_path_optional=path,
         after_hash_optional=sha256_text(markdown),
     )
+
+
+def _existing_experiment_spec_for_claim(
+    *,
+    root: Path,
+    run_id: str,
+    target_claim_id: str,
+) -> tuple[str, str] | None:
+    reports = root / "runs" / run_id / "reports"
+    for path in sorted(reports.glob("experiment-spec*.json")):
+        if path.name.endswith(".meta.json"):
+            continue
+        try:
+            spec = PlannedExperimentSpec.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if spec.run_id == run_id and spec.target_claim_id == target_claim_id:
+            return path.relative_to(root).as_posix(), planned_spec_fingerprint(spec)
+    return None
 
 
 def _failed_action(

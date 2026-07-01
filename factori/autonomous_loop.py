@@ -21,6 +21,11 @@ from factori.claim_evidence import (
     latest_claim_evidence_map_path,
     persist_claim_evidence_map,
 )
+from factori.experiment_template_routing import (
+    build_sandbox_budget_report,
+    render_sandbox_budget_markdown,
+    route_experiment_gaps,
+)
 from factori.gap_attempts import (
     build_gap_attempt_history,
     latest_gap_attempt_history_path,
@@ -50,6 +55,7 @@ from factori.schemas import (
     ClaimEvidenceMap,
     ControllerActionType,
     FullPaperReleaseGateConfig,
+    SandboxBudgetPolicy,
 )
 
 _LOOP_BACKENDS = {"deterministic", "fake", "openai"}
@@ -82,6 +88,12 @@ def run_autonomous_loop(
     max_iterations: int = 3,
     max_attempts_per_gap: int = 2,
     enable_strategy_diversification: bool = False,
+    enable_experiment_routing: bool = False,
+    python_sandbox_backend: str = "off",
+    max_sandbox_runs_per_loop: int = 3,
+    max_sandbox_runs_per_iteration: int = 1,
+    max_sandbox_seconds_per_loop: int = 120,
+    max_sandbox_failures_per_loop: int = 1,
 ) -> AutonomousLoopResult:
     """Run the deterministic autonomous plan/spec/recheck loop."""
     if loop_backend not in _LOOP_BACKENDS:
@@ -94,6 +106,15 @@ def run_autonomous_loop(
         raise AutonomousLoopError("max iterations must be at least 1")
     if max_attempts_per_gap < 1:
         raise AutonomousLoopError("max attempts per gap must be at least 1")
+    if python_sandbox_backend not in {"off", "uv_local", "fake"}:
+        raise AutonomousLoopError("python sandbox backend must be off, uv_local, or fake")
+    if min(
+        max_sandbox_runs_per_loop,
+        max_sandbox_runs_per_iteration,
+        max_sandbox_seconds_per_loop,
+        max_sandbox_failures_per_loop,
+    ) < 0:
+        raise AutonomousLoopError("sandbox budgets must be non-negative")
 
     root_path = Path(root)
     run_path = root_path / "runs" / run_id
@@ -162,6 +183,20 @@ def run_autonomous_loop(
     strategy_option_count = 0
     selected_strategy_count = 0
     duplicate_strategy_count = 0
+    experiment_routing_paths: list[str] = []
+    routed_experiment_gap_count = 0
+    routed_experiment_spec_count = 0
+    sandbox_runs_used = 0
+    sandbox_failures_used = 0
+    sandbox_experiment_artifacts = 0
+    sandbox_budget_exhausted = False
+    budget_policy = SandboxBudgetPolicy(
+        max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
+        max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
+        max_sandbox_seconds_per_loop=max_sandbox_seconds_per_loop,
+        max_sandbox_failures_per_loop=max_sandbox_failures_per_loop,
+        max_experiment_artifacts_per_loop=max_sandbox_runs_per_loop,
+    )
 
     for iteration_number in range(1, max_iterations + 1):
         manuscript_before = _hash_if_exists(_preferred_manuscript_path(reports))
@@ -214,6 +249,31 @@ def run_autonomous_loop(
             final_decision = decision
             break
 
+        routing_result = None
+        if enable_experiment_routing:
+            remaining_loop_runs = max(max_sandbox_runs_per_loop - sandbox_runs_used, 0)
+            routing_result = route_experiment_gaps(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                routing_backend="deterministic",
+                sandbox_budget_remaining=remaining_loop_runs,
+            )
+            experiment_routing_paths.extend(
+                [
+                    routing_result.report_artifact.path,
+                    routing_result.markdown_artifact.path,
+                    routing_result.index_artifact.path,
+                    routing_result.registry_artifact.path,
+                ]
+            )
+            artifacts_created.extend(experiment_routing_paths[-4:])
+            routed_experiment_gap_count += routing_result.report.routed_gap_count
+            routed_experiment_spec_count += (
+                routing_result.report.created_experiment_spec_count
+            )
+
         autonomous_execution = execute_autonomous_evidence_plan(
             run_id=run_id,
             root=root_path,
@@ -234,7 +294,22 @@ def run_autonomous_loop(
             ledger=ledger,
             execution_mode="apply",
             spec_executor_backend="deterministic_local",
+            python_sandbox_backend=python_sandbox_backend,
+            max_sandbox_runs=min(
+                max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),
+                max_sandbox_runs_per_iteration,
+            ),
             max_attempts_per_gap=max_attempts_per_gap,
+        )
+        iteration_sandbox_attempts = _sandbox_attempt_count(planned_execution.report)
+        iteration_sandbox_failures = _sandbox_failure_count(planned_execution.report)
+        sandbox_runs_used += iteration_sandbox_attempts
+        sandbox_failures_used += iteration_sandbox_failures
+        sandbox_experiment_artifacts += planned_execution.report.experiment_artifacts_created
+        sandbox_budget_exhausted = (
+            sandbox_runs_used >= max_sandbox_runs_per_loop
+            or sandbox_failures_used >= max_sandbox_failures_per_loop
+            or sandbox_experiment_artifacts >= max_sandbox_runs_per_loop
         )
         history_result = persist_gap_attempt_artifacts(
             run_id=run_id,
@@ -331,6 +406,15 @@ def run_autonomous_loop(
             iteration_paths.append(release_path)
         if reviewer_summary_path is not None:
             iteration_paths.append(reviewer_summary_path)
+        if routing_result is not None:
+            iteration_paths.extend(
+                [
+                    routing_result.report_artifact.path,
+                    routing_result.markdown_artifact.path,
+                    routing_result.index_artifact.path,
+                    routing_result.registry_artifact.path,
+                ]
+            )
         artifacts_created.extend(iteration_paths)
 
         snapshot = _snapshot(
@@ -343,6 +427,11 @@ def run_autonomous_loop(
             selected_strategy_count=(
                 diversification_result.report.selected_strategy_count
                 if diversification_result is not None
+                else 0
+            ),
+            routed_experiment_spec_count=(
+                routing_result.report.created_experiment_spec_count
+                if routing_result is not None
                 else 0
             ),
         )
@@ -393,6 +482,20 @@ def run_autonomous_loop(
                 if diversification_result is not None
                 else 0
             ),
+            experiment_gap_routing_report_path=(
+                routing_result.report_artifact.path if routing_result is not None else None
+            ),
+            routed_experiment_gap_count=(
+                routing_result.report.routed_gap_count if routing_result is not None else 0
+            ),
+            routed_experiment_spec_count=(
+                routing_result.report.created_experiment_spec_count
+                if routing_result is not None
+                else 0
+            ),
+            sandbox_budget_runs_used=sandbox_runs_used,
+            sandbox_budget_runs_remaining=max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),
+            sandbox_budget_exhausted=sandbox_budget_exhausted,
         )
         iterations.append(iteration)
         previous_snapshot = snapshot
@@ -456,6 +559,15 @@ def run_autonomous_loop(
         strategy_option_count=strategy_option_count,
         selected_strategy_count=selected_strategy_count,
         duplicate_strategy_count=duplicate_strategy_count,
+        experiment_routing_enabled=enable_experiment_routing,
+        experiment_gap_routing_report_paths=experiment_routing_paths,
+        sandbox_budget_report_path=f"runs/{run_id}/reports/sandbox-budget-report-{loop_number:04d}.json",
+        sandbox_budget_policy=budget_policy,
+        routed_experiment_gap_count=routed_experiment_gap_count,
+        routed_experiment_spec_count=routed_experiment_spec_count,
+        sandbox_budget_exhausted=sandbox_budget_exhausted,
+        sandbox_budget_runs_used=sandbox_runs_used,
+        sandbox_budget_runs_remaining=max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),
         iterations=iterations,
         artifacts_created=sorted(set(artifacts_created)),
         requires_human_intervention=(
@@ -519,6 +631,12 @@ def autonomous_loop_summary_fields(
             "strategy_option_count": 0,
             "selected_strategy_count": 0,
             "duplicate_strategy_count": 0,
+            "experiment_routing_enabled": False,
+            "routed_experiment_gap_count": 0,
+            "routed_experiment_spec_count": 0,
+            "sandbox_budget_exhausted": False,
+            "sandbox_budget_runs_used": 0,
+            "sandbox_budget_runs_remaining": 0,
         }
     return {
         "autonomous_loop_present": True,
@@ -541,6 +659,12 @@ def autonomous_loop_summary_fields(
         "strategy_option_count": report.strategy_option_count,
         "selected_strategy_count": report.selected_strategy_count,
         "duplicate_strategy_count": report.duplicate_strategy_count,
+        "experiment_routing_enabled": report.experiment_routing_enabled,
+        "routed_experiment_gap_count": report.routed_experiment_gap_count,
+        "routed_experiment_spec_count": report.routed_experiment_spec_count,
+        "sandbox_budget_exhausted": report.sandbox_budget_exhausted,
+        "sandbox_budget_runs_used": report.sandbox_budget_runs_used,
+        "sandbox_budget_runs_remaining": report.sandbox_budget_runs_remaining,
     }
 
 
@@ -591,6 +715,12 @@ def render_autonomous_loop_markdown(report: AutonomousLoopRunReport) -> str:
         f"Duplicate specs skipped: `{report.duplicate_specs_skipped}`",
         f"Gaps exhausted/no-progress: `{report.gaps_marked_exhausted}`",
         f"Iterations without progress: `{report.iterations_without_progress}`",
+        f"Experiment routing enabled: `{str(report.experiment_routing_enabled).lower()}`",
+        f"Routed experiment gaps: `{report.routed_experiment_gap_count}`",
+        f"Routed experiment specs: `{report.routed_experiment_spec_count}`",
+        f"Sandbox budget exhausted: `{str(report.sandbox_budget_exhausted).lower()}`",
+        f"Sandbox runs used/remaining: `{report.sandbox_budget_runs_used}/"
+        f"{report.sandbox_budget_runs_remaining}`",
         (
             "Human intervention required: "
             f"`{str(report.requires_human_intervention).lower()}`"
@@ -641,6 +771,7 @@ class _ProgressSnapshot:
     exhausted_gap_count: int
     deferred_gap_count: int
     selected_strategy_count: int
+    routed_experiment_spec_count: int
     manuscript_before: str | None
     manuscript_after: str | None
 
@@ -654,6 +785,7 @@ def _snapshot(
     manuscript_before: str | None,
     manuscript_after: str | None,
     selected_strategy_count: int = 0,
+    routed_experiment_spec_count: int = 0,
 ) -> _ProgressSnapshot:
     claim_summary = claim_evidence_summary_fields(claim_map)
     plan_summary = autonomous_evidence_plan_summary_fields(plan)
@@ -674,6 +806,7 @@ def _snapshot(
         exhausted_gap_count=int(plan_summary.get("gap_exhausted_no_progress_count") or 0),
         deferred_gap_count=int(plan_summary.get("remaining_deferred_gap_count") or 0),
         selected_strategy_count=selected_strategy_count,
+        routed_experiment_spec_count=routed_experiment_spec_count,
         manuscript_before=manuscript_before,
         manuscript_after=manuscript_after,
     )
@@ -689,6 +822,8 @@ def _meaningful_progress(
         return True
     if current.selected_strategy_count > 0:
         return True
+    if current.routed_experiment_spec_count > 0:
+        return True
     if current.experiment_artifacts_created > 0:
         return True
     if previous is None:
@@ -701,6 +836,26 @@ def _meaningful_progress(
         current.unsupported < previous.unsupported
         or current.partial < previous.partial
         or current.automation_ready < previous.automation_ready
+    )
+
+
+def _sandbox_attempt_count(report) -> int:
+    return sum(
+        1
+        for item in report.items
+        if item.spec_type == "experiment_spec"
+        and item.executor_decision == "execute"
+        and any("uv_local" in note for note in item.safety_notes)
+    )
+
+
+def _sandbox_failure_count(report) -> int:
+    return sum(
+        1
+        for item in report.items
+        if item.spec_type == "experiment_spec"
+        and item.execution_status == "failed"
+        and any("uv_local" in note for note in item.safety_notes)
     )
 
 
@@ -802,6 +957,12 @@ def _iteration_report(
     strategy_diversification_report_path: str | None = None,
     strategy_option_count: int = 0,
     selected_strategy_count: int = 0,
+    experiment_gap_routing_report_path: str | None = None,
+    routed_experiment_gap_count: int = 0,
+    routed_experiment_spec_count: int = 0,
+    sandbox_budget_runs_used: int = 0,
+    sandbox_budget_runs_remaining: int = 0,
+    sandbox_budget_exhausted: bool = False,
 ) -> AutonomousLoopIterationReport:
     claim_map_path = latest_claim_evidence_map_path(root, run_id)
     claim_map = _read_claim_map(claim_map_path)
@@ -826,8 +987,14 @@ def _iteration_report(
         release_report_path=release_report_path,
         reviewer_summary_path_optional=reviewer_summary_path,
         strategy_diversification_report_path=strategy_diversification_report_path,
+        experiment_gap_routing_report_path=experiment_gap_routing_report_path,
         strategy_option_count=strategy_option_count,
         selected_strategy_count=selected_strategy_count,
+        routed_experiment_gap_count=routed_experiment_gap_count,
+        routed_experiment_spec_count=routed_experiment_spec_count,
+        sandbox_budget_runs_used=sandbox_budget_runs_used,
+        sandbox_budget_runs_remaining=sandbox_budget_runs_remaining,
+        sandbox_budget_exhausted=sandbox_budget_exhausted,
         supported_claim_count=int(claim_summary["claim_evidence_supported_count"]),
         unsupported_claim_count=int(claim_summary["claim_evidence_unsupported_count"]),
         partial_claim_count=int(claim_summary["claim_evidence_partial_count"]),
@@ -892,12 +1059,15 @@ def _persist_loop_report(
     index_id = f"autonomous-loop-index-{loop_number:04d}"
     reviewer_id = f"reviewer-bundle-summary-after-autonomous-loop-{loop_number:04d}"
     release_id = f"full-paper-release-report-after-autonomous-loop-{loop_number:04d}"
+    budget_id = f"sandbox-budget-report-{loop_number:04d}"
     artifact_paths = list(report.artifacts_created)
     artifact_paths.extend(
         [
             f"runs/{report.run_id}/reports/{report_id}.json",
             f"runs/{report.run_id}/reports/{report_id}.md",
             f"runs/{report.run_id}/reports/{index_id}.json",
+            f"runs/{report.run_id}/reports/{budget_id}.json",
+            f"runs/{report.run_id}/reports/{budget_id}.md",
             f"runs/{report.run_id}/reports/{reviewer_id}.json",
             f"runs/{report.run_id}/reports/{reviewer_id}.md",
         ]
@@ -937,6 +1107,26 @@ def _persist_loop_report(
         latest_artifact_paths=report.artifacts_created,
         latest_requires_human_intervention=report.requires_human_intervention,
     )
+    budget_report = build_sandbox_budget_report(
+        run_id=report.run_id,
+        budget_id=budget_id,
+        policy=report.sandbox_budget_policy or SandboxBudgetPolicy(),
+        runs_used=report.sandbox_budget_runs_used,
+        failures_used=0,
+        experiment_artifacts_created=sum(
+            iteration.experiment_artifacts_created for iteration in report.iterations
+        ),
+        deferred_reason=(
+            "Sandbox run budget exhausted; remaining experiment specs were deferred."
+            if report.sandbox_budget_exhausted
+            else None
+        ),
+    )
+    report = report.model_copy(
+        update={
+            "sandbox_budget_report_path": f"runs/{report.run_id}/reports/{budget_id}.json",
+        }
+    )
     reviewer = build_reviewer_bundle_summary(
         run_id=report.run_id,
         root=root,
@@ -966,6 +1156,21 @@ def _persist_loop_report(
             index,
             "json",
             _metadata("autonomous_loop_index_context"),
+        ),
+        ArtifactWriteSpec(
+            budget_id,
+            ArtifactType.REPORT,
+            budget_report,
+            "json",
+            _metadata("sandbox_budget_context"),
+        ),
+        ArtifactWriteSpec(
+            f"{budget_id}-markdown",
+            ArtifactType.REPORT,
+            render_sandbox_budget_markdown(budget_report),
+            "markdown",
+            _metadata("sandbox_budget_context"),
+            filename_stem=budget_id,
         ),
         ArtifactWriteSpec(
             reviewer_id,

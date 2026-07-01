@@ -1,0 +1,94 @@
+{
+  "$id": "https://schemas.factori.local/0.38.0/experiment-gap-routing-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable experiment-gap routing reports.",
+  "properties": {
+    "created_experiment_spec_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Created Experiment Spec Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_report_path": {
+      "minLength": 1,
+      "title": "Latest Report Path",
+      "type": "string"
+    },
+    "latest_requires_human_intervention": {
+      "default": false,
+      "title": "Latest Requires Human Intervention",
+      "type": "boolean"
+    },
+    "latest_routing_id": {
+      "minLength": 1,
+      "title": "Latest Routing Id",
+      "type": "string"
+    },
+    "latest_routing_status": {
+      "minLength": 1,
+      "title": "Latest Routing Status",
+      "type": "string"
+    },
+    "latest_template_registry_path": {
+      "minLength": 1,
+      "title": "Latest Template Registry Path",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "routed_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Gap Count",
+      "type": "integer"
+    },
+    "routing_count": {
+      "minimum": 1,
+      "title": "Routing Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "unrouted_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Unrouted Gap Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_routing_id",
+    "routing_count",
+    "latest_routing_status",
+    "latest_report_path",
+    "latest_template_registry_path"
+  ],
+  "title": "ExperimentGapRoutingIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.38.0",
+  "x-factori-source-model": "factori.schemas.ExperimentGapRoutingIndex",
+  "x-factori-verification-evidence": false
+}

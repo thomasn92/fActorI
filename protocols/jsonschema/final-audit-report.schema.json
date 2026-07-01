@@ -199,7 +199,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.37.0/final-audit-report.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/final-audit-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Internal-consistency audit report.",
@@ -264,7 +264,7 @@
   ],
   "title": "FinalAuditReport",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.FinalAuditReport",
   "x-factori-verification-evidence": false
 }

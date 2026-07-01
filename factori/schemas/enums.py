@@ -355,6 +355,7 @@ class ControllerActionType(StrEnum):
     AUTONOMOUS_PLAN_EXECUTION_WRITTEN = "AutonomousPlanExecutionWritten"
     PLANNED_SPEC_EXECUTION_WRITTEN = "PlannedSpecExecutionWritten"
     PYTHON_EXPERIMENT_SANDBOX_WRITTEN = "PythonExperimentSandboxWritten"
+    EXPERIMENT_GAP_ROUTING_WRITTEN = "ExperimentGapRoutingWritten"
     AUTONOMOUS_LOOP_WRITTEN = "AutonomousLoopWritten"
     GAP_ATTEMPT_HISTORY_WRITTEN = "GapAttemptHistoryWritten"
     GAP_STRATEGY_DIVERSIFICATION_WRITTEN = "GapStrategyDiversificationWritten"

@@ -210,6 +210,18 @@
           "title": "Experiment Artifacts Created",
           "type": "integer"
         },
+        "experiment_gap_routing_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment Gap Routing Report Path"
+        },
         "gaps_marked_exhausted": {
           "default": 0,
           "minimum": 0,
@@ -354,6 +366,47 @@
           "default": null,
           "title": "Reviewer Summary Path Optional"
         },
+        "routed_experiment_gap_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Routed Experiment Gap Count",
+          "type": "integer"
+        },
+        "routed_experiment_spec_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Routed Experiment Spec Count",
+          "type": "integer"
+        },
+        "sandbox_budget_exhausted": {
+          "default": false,
+          "title": "Sandbox Budget Exhausted",
+          "type": "boolean"
+        },
+        "sandbox_budget_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sandbox Budget Report Path"
+        },
+        "sandbox_budget_runs_remaining": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Sandbox Budget Runs Remaining",
+          "type": "integer"
+        },
+        "sandbox_budget_runs_used": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Sandbox Budget Runs Used",
+          "type": "integer"
+        },
         "selected_strategy_count": {
           "default": 0,
           "minimum": 0,
@@ -398,9 +451,62 @@
       ],
       "title": "AutonomousLoopIterationReport",
       "type": "object"
+    },
+    "SandboxBudgetPolicy": {
+      "additionalProperties": false,
+      "description": "Bounded uv sandbox budget for one autonomous loop.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_experiment_artifacts_per_loop": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Max Experiment Artifacts Per Loop",
+          "type": "integer"
+        },
+        "max_sandbox_failures_per_loop": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Max Sandbox Failures Per Loop",
+          "type": "integer"
+        },
+        "max_sandbox_runs_per_iteration": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Max Sandbox Runs Per Iteration",
+          "type": "integer"
+        },
+        "max_sandbox_runs_per_loop": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Max Sandbox Runs Per Loop",
+          "type": "integer"
+        },
+        "max_sandbox_seconds_per_loop": {
+          "default": 120,
+          "minimum": 0,
+          "title": "Max Sandbox Seconds Per Loop",
+          "type": "integer"
+        }
+      },
+      "title": "SandboxBudgetPolicy",
+      "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.37.0/autonomous-loop-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.38.0/autonomous-loop-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous iterative loop controller report.",
@@ -445,6 +551,18 @@
       "minimum": 0,
       "title": "Duplicate Strategy Count",
       "type": "integer"
+    },
+    "experiment_gap_routing_report_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Experiment Gap Routing Report Paths",
+      "type": "array"
+    },
+    "experiment_routing_enabled": {
+      "default": false,
+      "title": "Experiment Routing Enabled",
+      "type": "boolean"
     },
     "final_claim_evidence_counts": {
       "additionalProperties": {
@@ -594,10 +712,62 @@
       "title": "Requires Human Intervention",
       "type": "boolean"
     },
+    "routed_experiment_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Experiment Gap Count",
+      "type": "integer"
+    },
+    "routed_experiment_spec_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Experiment Spec Count",
+      "type": "integer"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
+    },
+    "sandbox_budget_exhausted": {
+      "default": false,
+      "title": "Sandbox Budget Exhausted",
+      "type": "boolean"
+    },
+    "sandbox_budget_policy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SandboxBudgetPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sandbox_budget_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sandbox Budget Report Path"
+    },
+    "sandbox_budget_runs_remaining": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sandbox Budget Runs Remaining",
+      "type": "integer"
+    },
+    "sandbox_budget_runs_used": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sandbox Budget Runs Used",
+      "type": "integer"
     },
     "selected_strategy_count": {
       "default": 0,
@@ -664,7 +834,7 @@
   ],
   "title": "AutonomousLoopRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.37.0",
+  "x-factori-protocol-version": "0.38.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopRunReport",
   "x-factori-verification-evidence": false
 }

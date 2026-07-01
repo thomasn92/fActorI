@@ -37,6 +37,11 @@ from factori.evidence_aware_refresh import (
     EvidenceAwareRefreshError,
     refresh_evidence_aware_manuscript,
 )
+from factori.experiment_template_routing import (
+    build_default_experiment_template_registry,
+    inspect_experiment_gap_routing,
+    route_experiment_gaps,
+)
 from factori.full_paper_generation import (
     generate_full_paper,
     inspect_reviewer_bundle_summary,
@@ -98,6 +103,10 @@ from factori.schemas import (
     ControllerActionType,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    ExperimentGapRoutingIndex,
+    ExperimentGapRoutingReport,
+    ExperimentTemplate,
+    ExperimentTemplateRegistry,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -122,6 +131,8 @@ from factori.schemas import (
     RetrievalExpansionRequest,
     RetrievalQualityReport,
     ReviewerBundleSummary,
+    SandboxBudgetPolicy,
+    SandboxBudgetReport,
 )
 
 
@@ -147,6 +158,12 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert GapAttemptHistory
     assert PlannedSpecDuplicateRecord
     assert PlannedSpecDedupIndex
+    assert ExperimentTemplate
+    assert ExperimentTemplateRegistry
+    assert ExperimentGapRoutingReport
+    assert ExperimentGapRoutingIndex
+    assert SandboxBudgetPolicy
+    assert SandboxBudgetReport
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -2465,6 +2482,303 @@ def test_planned_spec_execution_uses_explicit_uv_sandbox_backend(tmp_path) -> No
     )["latest_python_sandbox_status"] == "completed"
 
 
+def test_experiment_template_registry_loads_approved_local_template(tmp_path) -> None:
+    run_id = "run-experiment-template-registry"
+    _copy_default_experiment_template_bundle(tmp_path)
+
+    registry = build_default_experiment_template_registry(run_id=run_id, root=tmp_path)
+
+    assert registry.templates
+    template = registry.templates[0]
+    assert template.template_family == "synthetic_calibration"
+    assert template.network_required is False
+    assert template.arbitrary_code_required is False
+    assert template.creates_scientific_validation is False
+    assert registry.network_required_template_count == 0
+
+
+def test_route_experiment_gaps_creates_sandbox_compatible_spec(tmp_path) -> None:
+    run_id = "run-experiment-gap-routing"
+    _prepare_experiment_routing_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_class="experiment_claim",
+        support_scope="bounded experiment result needs a local synthetic check",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = route_experiment_gaps(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        routing_backend="deterministic",
+    )
+    inspected = inspect_experiment_gap_routing(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.routing_status == "routed"
+    assert result.report.routed_gap_count == 1
+    assert result.report.created_experiment_spec_count == 1
+    assert result.report.publication_ready is False
+    assert result.report.creates_scientific_validation is False
+    assert result.report.items[0].routing_status == "routed"
+    spec_path = tmp_path / result.report.items[0].created_experiment_spec_path_optional
+    spec = PlannedExperimentSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    assert spec.sandbox_backend == "uv_local"
+    assert spec.template_id_optional == "synthetic_calibration_v1"
+    assert spec.experiment_bundle_path_optional
+    assert spec.allow_network is False
+    assert inspected["experiment_gap_routing_present"] is True
+    assert lint["experiment_gap_routing_present"] is True
+    assert lint["routed_experiment_gap_count"] == 1
+    assert lint["created_experiment_spec_count"] == 1
+    assert reviewer["experiment_gap_routing_present"] is True
+    assert reviewer["publication_ready"] is False
+
+
+def test_routed_experiment_spec_executes_through_uv_sandbox(tmp_path) -> None:
+    run_id = "run-routed-experiment-spec-sandbox"
+    _prepare_experiment_routing_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_class="experiment_claim",
+        support_scope="bounded experiment result needs a local synthetic check",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    route_experiment_gaps(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        routing_backend="deterministic",
+    )
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+        python_sandbox_backend="uv_local",
+        max_sandbox_runs=1,
+    )
+    sandbox = inspect_python_experiment_sandbox(run_id=run_id, root=tmp_path)
+
+    assert result.report.experiment_specs_executed == 1
+    assert result.report.experiment_artifacts_created == 1
+    assert result.report.items[0].ingested_artifact_path_optional
+    assert sandbox["python_experiment_sandbox_present"] is True
+    assert sandbox["python_experiment_sandbox_completed_count"] == 1
+    assert sandbox["python_experiment_artifacts_created_count"] == 1
+    assert result.report.publication_ready is False
+
+
+def test_route_experiment_gaps_does_not_route_proof_background_or_forbidden_claims(
+    tmp_path,
+) -> None:
+    cases = [
+        (
+            "proof",
+            "proof_claim",
+            "A theorem proof claim needs formal proof support.",
+            "needs_formal_proof",
+        ),
+        (
+            "background",
+            "literature_background_claim",
+            "A background literature source claim needs accepted retrieval context.",
+            "needs_retrieval_expansion",
+        ),
+        (
+            "forbidden",
+            "publication_readiness_claim",
+            "The claim asks for publication readiness validation.",
+            "needs_claim_removal",
+        ),
+    ]
+    for suffix, claim_class, support_scope, expected_gap_type in cases:
+        run_id = f"run-experiment-gap-routing-{suffix}"
+        _prepare_experiment_routing_fixture(
+            tmp_path,
+            run_id=run_id,
+            claim_class=claim_class,
+            support_scope=support_scope,
+        )
+        result = route_experiment_gaps(
+            run_id=run_id,
+            root=tmp_path,
+            store=ArtifactStore(tmp_path),
+            ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+            routing_backend="deterministic",
+        )
+        plan = AutonomousEvidenceGapPlan.model_validate_json(
+            (
+                tmp_path
+                / "runs"
+                / run_id
+                / "reports"
+                / "autonomous-evidence-gap-plan.json"
+            ).read_text(encoding="utf-8")
+        )
+
+        assert plan.plan_items[0].gap_type == expected_gap_type
+        assert result.report.routed_gap_count == 0
+        assert result.report.created_experiment_spec_count == 0
+        assert result.report.gap_count == 0
+        assert result.report.publication_ready is False
+
+
+def test_experiment_gap_routing_defers_when_sandbox_budget_exhausted(
+    tmp_path,
+) -> None:
+    run_id = "run-experiment-gap-routing-budget"
+    _prepare_experiment_routing_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_class="experiment_claim",
+        support_scope="bounded experiment result needs local synthetic execution",
+    )
+
+    result = route_experiment_gaps(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        routing_backend="deterministic",
+        sandbox_budget_remaining=0,
+    )
+
+    assert result.report.routed_gap_count == 0
+    assert result.report.created_experiment_spec_count == 0
+    assert result.report.items[0].routing_status == "deferred_budget_exhausted"
+    assert result.report.publication_ready is False
+
+
+def test_experiment_gap_routing_cli_roundtrip(tmp_path) -> None:
+    run_id = "run-experiment-gap-routing-cli"
+    _prepare_experiment_routing_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_class="experiment_claim",
+        support_scope="bounded experiment result needs a routed local template",
+    )
+    runner = CliRunner()
+
+    route = runner.invoke(
+        app,
+        [
+            "route-experiment-gaps",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--routing-backend",
+            "deterministic",
+            "--json",
+        ],
+    )
+    inspect_json = runner.invoke(
+        app,
+        [
+            "inspect-experiment-gap-routing",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+
+    assert route.exit_code == 0, route.output
+    assert inspect_json.exit_code == 0, inspect_json.output
+    payload = json.loads(route.output)
+    inspected = json.loads(inspect_json.output)
+    assert payload["experiment_gap_routing_present"] is True
+    assert payload["routed_experiment_gap_count"] == 1
+    assert inspected["experiment_gap_routing_present"] is True
+    assert inspected["created_experiment_spec_count"] == 1
+
+
+def test_planned_spec_execution_defers_uv_sandbox_when_budget_exhausted(
+    tmp_path,
+) -> None:
+    run_id = "run-planned-python-sandbox-budget"
+    spec = _prepare_python_sandbox_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "experiment-spec-synthetic-calibration.json").write_text(
+        spec.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    result = execute_planned_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        execution_mode="apply",
+        spec_executor_backend="deterministic_local",
+        python_sandbox_backend="uv_local",
+        max_sandbox_runs=0,
+    )
+
+    assert result.report.execution_status == "completed_with_deferred_specs"
+    assert result.report.experiment_specs_executed == 0
+    assert result.report.experiment_artifacts_created == 0
+    assert result.report.specs_deferred == 1
+    assert result.report.items[0].execution_status == "deferred"
+    assert "budget exhausted" in (result.report.items[0].deferred_reason_optional or "")
+    with pytest.raises(PythonExperimentSandboxError):
+        inspect_python_experiment_sandbox(run_id=run_id, root=tmp_path)
+    assert result.report.publication_ready is False
+
+
+def test_autonomous_loop_routes_experiment_gaps_and_reports_budget(tmp_path) -> None:
+    run_id = "run-autonomous-loop-experiment-routing"
+    _prepare_experiment_routing_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_class="experiment_claim",
+        support_scope="bounded demonstration result needs a routed synthetic template",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=2,
+        max_attempts_per_gap=1,
+        enable_experiment_routing=True,
+        python_sandbox_backend="uv_local",
+        max_sandbox_runs_per_loop=1,
+        max_sandbox_runs_per_iteration=1,
+    )
+    routing = inspect_experiment_gap_routing(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.experiment_routing_enabled is True
+    assert result.report.routed_experiment_gap_count >= 1
+    assert result.report.routed_experiment_spec_count >= 1
+    assert result.report.sandbox_budget_runs_used <= 1
+    assert result.report.publication_ready is False
+    assert routing["experiment_gap_routing_present"] is True
+    assert lint["experiment_gap_routing_present"] is True
+    assert lint["routed_experiment_gap_count"] >= 1
+    assert lint["sandbox_budget_runs_used"] <= 1
+    assert lint["publication_ready"] is False
+    assert reviewer["experiment_gap_routing_present"] is True
+    assert reviewer["publication_ready"] is False
+
+
 def test_autonomous_loop_runs_plan_specs_and_updates_bundle_views(tmp_path) -> None:
     run_id = "run-autonomous-loop"
     _prepare_reviewable_bundle(tmp_path, run_id=run_id)
@@ -3727,6 +4041,65 @@ def _prepare_python_sandbox_fixture(tmp_path, run_id: str) -> PlannedExperimentS
         seed=1729,
         timeout_seconds=30,
     )
+
+
+def _prepare_experiment_routing_fixture(
+    tmp_path,
+    *,
+    run_id: str,
+    claim_class: str,
+    support_scope: str,
+) -> None:
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    _copy_default_experiment_template_bundle(tmp_path)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    support_status = (
+        "missing_required_citation"
+        if claim_class == "literature_background_claim"
+        else "forbidden_claim_without_evidence"
+    )
+    _write_claim_map_reports(
+        tmp_path,
+        run_id=run_id,
+        items=[
+            _claim_support_item(
+                sentence_id=f"{claim_class}-fixture-claim",
+                claim_class=claim_class,
+                sentence_snippet=support_scope,
+                support_status=support_status,
+            )
+        ],
+    )
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    persist_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+
+def _copy_default_experiment_template_bundle(tmp_path) -> None:
+    source = (
+        Path(__file__).parent
+        / "fixtures"
+        / "experiments"
+        / "bundles"
+        / "synthetic_calibration"
+    )
+    destination = (
+        tmp_path / "tests" / "fixtures" / "experiments" / "bundles" / "synthetic_calibration"
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if not destination.exists():
+        shutil.copytree(source, destination)
 
 
 def _prepare_run(tmp_path, *, run_id: str) -> None:

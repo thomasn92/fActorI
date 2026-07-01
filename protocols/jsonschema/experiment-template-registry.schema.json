@@ -1,0 +1,192 @@
+{
+  "$defs": {
+    "ExperimentTemplate": {
+      "additionalProperties": false,
+      "description": "Approved local experiment template; template selection is not evidence.",
+      "properties": {
+        "arbitrary_code_required": {
+          "default": false,
+          "title": "Arbitrary Code Required",
+          "type": "boolean"
+        },
+        "bundle_path": {
+          "minLength": 1,
+          "title": "Bundle Path",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "default_baselines": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Default Baselines",
+          "type": "array"
+        },
+        "default_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Default Metrics",
+          "type": "array"
+        },
+        "dependency_profile": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependency Profile",
+          "type": "array"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "network_required": {
+          "default": false,
+          "title": "Network Required",
+          "type": "boolean"
+        },
+        "required_inputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Inputs",
+          "type": "array"
+        },
+        "supported_claim_classes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Supported Claim Classes",
+          "type": "array"
+        },
+        "supported_gap_types": {
+          "items": {
+            "enum": [
+              "needs_python_experiment",
+              "needs_formal_proof",
+              "needs_retrieval_expansion",
+              "needs_claim_downgrade",
+              "needs_claim_removal",
+              "needs_manuscript_refresh",
+              "sufficiently_supported_for_bounded_draft"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Supported Gap Types",
+          "type": "array"
+        },
+        "template_family": {
+          "enum": [
+            "synthetic_calibration",
+            "synthetic_ablation",
+            "baseline_vs_method",
+            "robustness_sanity_check",
+            "simulation_comparison"
+          ],
+          "title": "Template Family",
+          "type": "string"
+        },
+        "template_id": {
+          "minLength": 1,
+          "title": "Template Id",
+          "type": "string"
+        },
+        "template_name": {
+          "minLength": 1,
+          "title": "Template Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template_id",
+        "template_name",
+        "template_family",
+        "bundle_path",
+        "supported_gap_types",
+        "supported_claim_classes",
+        "default_metrics",
+        "default_baselines"
+      ],
+      "title": "ExperimentTemplate",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.38.0/experiment-template-registry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic registry of approved local experiment templates.",
+  "properties": {
+    "arbitrary_code_required_template_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Arbitrary Code Required Template Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "network_required_template_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Network Required Template Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "registry_id": {
+      "minLength": 1,
+      "title": "Registry Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "templates": {
+      "items": {
+        "$ref": "#/$defs/ExperimentTemplate"
+      },
+      "title": "Templates",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "registry_id"
+  ],
+  "title": "ExperimentTemplateRegistry",
+  "type": "object",
+  "x-factori-protocol-version": "0.38.0",
+  "x-factori-source-model": "factori.schemas.ExperimentTemplateRegistry",
+  "x-factori-verification-evidence": false
+}
