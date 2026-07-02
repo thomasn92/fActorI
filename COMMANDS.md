@@ -202,6 +202,9 @@ uv run factori regenerate-final-manuscript \
   --run-id demo --regeneration-backend deterministic
 uv run factori inspect-final-manuscript --run-id demo
 uv run factori inspect-final-manuscript --run-id demo --json
+uv run factori build-final-release-bundle --run-id demo
+uv run factori inspect-final-release-bundle --run-id demo
+uv run factori inspect-final-release-bundle --run-id demo --json
 uv run factori diversify-gap-strategies \
   --run-id demo --strategy-backend deterministic
 uv run factori inspect-gap-strategy-diversification --run-id demo

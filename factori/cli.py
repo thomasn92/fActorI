@@ -97,6 +97,11 @@ from factori.final_manuscript_regeneration import (
     regenerate_final_manuscript,
 )
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
+from factori.final_release_bundle import (
+    FinalReleaseBundleError,
+    build_final_release_bundle,
+    inspect_final_release_bundle,
+)
 from factori.full_paper_generation import (
     FullPaperGenerationError,
     PaperBundleInspectionError,
@@ -3536,6 +3541,84 @@ def inspect_final_manuscript_command(
     typer.echo(f"Artifact: {summary['final_manuscript_path']}")
 
 
+@app.command("build-final-release-bundle")
+def build_final_release_bundle_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    compile_pdf: Annotated[bool, typer.Option("--compile-pdf")] = False,
+    strict_export: Annotated[bool, typer.Option("--strict-export")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Assemble the deterministic final release bundle and reproducibility manifests."""
+    try:
+        result = build_final_release_bundle(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            compile_pdf=compile_pdf,
+            strict_export=strict_export,
+        )
+    except FinalReleaseBundleError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "final_release_bundle": result.report.model_dump(mode="json"),
+        "final_release_bundle_index": result.index.model_dump(mode="json"),
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"bundle_id={result.report.bundle_id}")
+    typer.echo(f"bundle_status={result.report.bundle_status}")
+    typer.echo(f"bundle_path={result.report.bundle_path}")
+    typer.echo(f"artifact_count={result.report.artifact_count}")
+    typer.echo(f"hash_count={result.report.hash_count}")
+    typer.echo(f"missing_required_artifacts={len(result.report.missing_required_artifacts)}")
+    typer.echo(
+        f"paper_tex_present={str(result.report.paper_tex_path_optional is not None).lower()}"
+    )
+    typer.echo(
+        "references_bib_present="
+        f"{str(result.report.references_bib_path_optional is not None).lower()}"
+    )
+    typer.echo(f"paper_pdf_present={str(result.report.pdf_path_optional is not None).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"report={result.report_artifact.path}")
+
+
+@app.command("inspect-final-release-bundle")
+def inspect_final_release_bundle_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest final release bundle without mutation."""
+    try:
+        summary = inspect_final_release_bundle(run_id=run_id, root=root)
+    except FinalReleaseBundleError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Final release bundle: {summary['run_id']}")
+    typer.echo(f"Status: {summary['final_release_bundle_status']}")
+    typer.echo(f"Bundle path: {summary['final_release_bundle_path']}")
+    typer.echo(f"Artifacts included: {summary['final_release_bundle_artifact_count']}")
+    typer.echo(f"Hashes written: {summary['final_release_bundle_hash_count']}")
+    typer.echo(f"paper.tex present: {str(summary['paper_tex_present']).lower()}")
+    typer.echo(f"references.bib present: {str(summary['references_bib_present']).lower()}")
+    typer.echo(f"paper.pdf present: {str(summary['paper_pdf_present']).lower()}")
+    typer.echo(
+        "Missing required artifacts: "
+        f"{summary['final_release_bundle_missing_required_artifact_count']}"
+    )
+    typer.echo("Publication ready: false")
+
+
 @app.command("inspect-gap-attempt-history")
 def inspect_gap_attempt_history_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -4281,6 +4364,27 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('final_manuscript_unsupported_claim_count') or 0)}"
     )
     typer.echo(
+        "Final release bundle: "
+        f"{'present' if summary.get('final_release_bundle_present') else 'absent'}"
+    )
+    typer.echo(f"Bundle status: {summary.get('final_release_bundle_status') or 'not_available'}")
+    typer.echo(f"Bundle path: {summary.get('final_release_bundle_path') or 'not_available'}")
+    typer.echo(
+        "Artifacts included / hashes written: "
+        f"{int(summary.get('final_release_bundle_artifact_count') or 0)} / "
+        f"{int(summary.get('final_release_bundle_hash_count') or 0)}"
+    )
+    typer.echo(
+        "paper.tex / references.bib / paper.pdf: "
+        f"{str(bool(summary.get('paper_tex_present'))).lower()}/"
+        f"{str(bool(summary.get('references_bib_present'))).lower()}/"
+        f"{str(bool(summary.get('paper_pdf_present'))).lower()}"
+    )
+    typer.echo(
+        "Missing required bundle artifacts: "
+        f"{int(summary.get('final_release_bundle_missing_required_artifact_count') or 0)}"
+    )
+    typer.echo(
         "Evidence-aware refresh: "
         f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"
     )
@@ -4650,6 +4754,16 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
             artifacts,
             "quality repair report",
             "quality_repair_report",
+        )
+        _echo_named_artifact(
+            artifacts,
+            "final release bundle report",
+            "final_release_bundle_report",
+        )
+        _echo_named_artifact(
+            artifacts,
+            "final release bundle index",
+            "final_release_bundle_index",
         )
         _echo_named_artifact(
             artifacts,

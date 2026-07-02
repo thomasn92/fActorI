@@ -801,6 +801,14 @@ class ReviewerBundleSummary(StrictModel):
     final_manuscript_sections_generated: int = Field(default=0, ge=0)
     final_manuscript_supported_claim_count: int = Field(default=0, ge=0)
     final_manuscript_deferred_gap_count: int = Field(default=0, ge=0)
+    final_release_bundle_present: bool = False
+    final_release_bundle_status: str | None = None
+    bundle_artifact_count: int = Field(default=0, ge=0)
+    bundle_hash_count: int = Field(default=0, ge=0)
+    references_bib_present: bool = False
+    paper_tex_present: bool = False
+    paper_pdf_present: bool = False
+    missing_required_bundle_artifacts: list[str] = Field(default_factory=list)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1977,6 +1985,137 @@ class FinalManuscriptRegenerationIndex(StrictModel):
     is_verification_evidence: bool = False
 
 
+FinalReleaseBundleStatus = Literal["complete", "incomplete", "failed"]
+
+
+class FinalReleaseBundleArtifact(StrictModel):
+    """One file included in an immutable final release bundle."""
+
+    relative_path: str = Field(min_length=1)
+    sha256: str = Field(pattern=HASH_RE.pattern)
+    artifact_type: str = Field(min_length=1)
+    source_path: str | None = None
+    created_by_stage: str = Field(min_length=1)
+    required_for_bundle: bool = False
+    non_evidence_flag: bool = True
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalReleaseBundleManifest(StrictModel):
+    """Machine-checkable manifest of files included in the final release bundle."""
+
+    run_id: str = Field(min_length=1)
+    bundle_id: str = Field(min_length=1)
+    bundle_path: str = Field(min_length=1)
+    artifact_count: int = Field(ge=0)
+    hash_count: int = Field(ge=0)
+    artifacts: list[FinalReleaseBundleArtifact] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalReleaseReproducibilityManifest(StrictModel):
+    """Reproducibility metadata locked into a final release bundle."""
+
+    run_id: str = Field(min_length=1)
+    bundle_id: str = Field(min_length=1)
+    created_at: str = Field(min_length=1)
+    factori_protocol_version: str = Field(min_length=1)
+    git_commit_hash_optional: str | None = None
+    python_version: str = Field(min_length=1)
+    platform: str = Field(min_length=1)
+    commands_used: list[str] = Field(default_factory=list)
+    main_run_configuration: dict[str, Any] = Field(default_factory=dict)
+    autonomous_loop_configuration: dict[str, Any] = Field(default_factory=dict)
+    sandbox_configurations: list[dict[str, Any]] = Field(default_factory=list)
+    uv_environment_paths: list[str] = Field(default_factory=list)
+    uv_lock_paths: list[str] = Field(default_factory=list)
+    network_used: bool = False
+    external_api_used: bool = False
+    external_tools_used: bool = False
+    artifact_hashes: dict[str, str] = Field(default_factory=dict)
+    ledger_tip_hash_optional: str | None = None
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalReleaseBundle(StrictModel):
+    """Structured summary of one assembled final release bundle."""
+
+    run_id: str = Field(min_length=1)
+    bundle_id: str = Field(min_length=1)
+    bundle_status: FinalReleaseBundleStatus
+    bundle_path: str = Field(min_length=1)
+    manifest_path: str = Field(min_length=1)
+    reproducibility_manifest_path: str = Field(min_length=1)
+    artifact_manifest_path: str = Field(min_length=1)
+    hashes_path: str = Field(min_length=1)
+    artifact_count: int = Field(ge=0)
+    hash_count: int = Field(ge=0)
+    missing_required_artifacts: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalReleaseBundleReport(StrictModel):
+    """Append-only report for deterministic final release bundle assembly."""
+
+    run_id: str = Field(min_length=1)
+    bundle_id: str = Field(min_length=1)
+    bundle_status: FinalReleaseBundleStatus
+    bundle_path: str = Field(min_length=1)
+    manifest_path: str = Field(min_length=1)
+    reproducibility_manifest_path: str = Field(min_length=1)
+    final_manuscript_path: str = Field(min_length=1)
+    paper_markdown_path: str = Field(min_length=1)
+    paper_tex_path_optional: str | None = None
+    references_bib_path_optional: str | None = None
+    pdf_path_optional: str | None = None
+    claim_evidence_map_path: str = Field(min_length=1)
+    citation_registry_path: str = Field(min_length=1)
+    retrieval_report_paths: list[str] = Field(default_factory=list)
+    proof_artifact_paths: list[str] = Field(default_factory=list)
+    experiment_artifact_paths: list[str] = Field(default_factory=list)
+    autonomous_loop_report_path: str = Field(min_length=1)
+    capability_escalation_report_path_optional: str | None = None
+    release_report_path: str = Field(min_length=1)
+    reviewer_summary_path: str = Field(min_length=1)
+    ledger_validation_path_optional: str | None = None
+    artifact_count: int = Field(ge=0)
+    hash_count: int = Field(ge=0)
+    missing_required_artifacts: list[str] = Field(default_factory=list)
+    deferred_gap_count: int = Field(ge=0)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalReleaseBundleIndex(StrictModel):
+    """Derived latest pointer over immutable final release bundles."""
+
+    run_id: str = Field(min_length=1)
+    latest_bundle_id: str = Field(min_length=1)
+    bundle_count: int = Field(ge=1)
+    latest_bundle_status: FinalReleaseBundleStatus
+    latest_bundle_path: str = Field(min_length=1)
+    latest_report_path: str = Field(min_length=1)
+    latest_manifest_path: str = Field(min_length=1)
+    latest_reproducibility_manifest_path: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
 AutonomousLoopStatus = Literal[
     "completed",
@@ -2948,6 +3087,12 @@ __all__ = [
     "FinalManuscriptStructuredDocument",
     "FinalManuscriptRegenerationReport",
     "FinalManuscriptRegenerationIndex",
+    "FinalReleaseBundleArtifact",
+    "FinalReleaseBundleManifest",
+    "FinalReleaseReproducibilityManifest",
+    "FinalReleaseBundle",
+    "FinalReleaseBundleReport",
+    "FinalReleaseBundleIndex",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

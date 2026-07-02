@@ -58,6 +58,11 @@ from factori.final_manuscript_regeneration import (
     inspect_final_manuscript,
     regenerate_final_manuscript,
 )
+from factori.final_release_bundle import (
+    build_final_release_bundle,
+    build_references_bib,
+    inspect_final_release_bundle,
+)
 from factori.full_paper_generation import (
     generate_full_paper,
     inspect_paper_bundle_summary,
@@ -134,6 +139,12 @@ from factori.schemas import (
     FinalManuscriptRegenerationReport,
     FinalManuscriptSection,
     FinalManuscriptStructuredDocument,
+    FinalReleaseBundle,
+    FinalReleaseBundleArtifact,
+    FinalReleaseBundleIndex,
+    FinalReleaseBundleManifest,
+    FinalReleaseBundleReport,
+    FinalReleaseReproducibilityManifest,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -200,6 +211,12 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert FinalManuscriptStructuredDocument
     assert FinalManuscriptRegenerationReport
     assert FinalManuscriptRegenerationIndex
+    assert FinalReleaseBundleArtifact
+    assert FinalReleaseBundleManifest
+    assert FinalReleaseReproducibilityManifest
+    assert FinalReleaseBundle
+    assert FinalReleaseBundleReport
+    assert FinalReleaseBundleIndex
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -1933,8 +1950,7 @@ def test_exhausted_gaps_get_safe_diversified_strategies(
     assert report.selected_strategy_count == 1
     assert any(option.strategy_family == expected_family for option in report.strategy_options)
     assert all(
-        "network" not in option.alternative_action.casefold()
-        for option in report.strategy_options
+        "network" not in option.alternative_action.casefold() for option in report.strategy_options
     )
     assert report.publication_ready is False
 
@@ -2320,8 +2336,7 @@ def test_planned_spec_execution_fixture_formal_proof_is_scoped(
         run_id=run_id,
         spec_id="proof-obligation-spec-formal-001",
         target_claim_id=(
-            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-"
-            "conjecture-form"
+            "claim-cand-human-geography-optimal-transport-theory-b-theorem-or-conjecture-form"
         ),
         suggested_checker="deterministic fixture formal proof checker",
         required_artifact_type="deterministic fixture formal verified passed artifact",
@@ -2512,10 +2527,13 @@ def test_planned_spec_execution_uses_explicit_uv_sandbox_backend(tmp_path) -> No
     assert result.report.items[0].execution_status == "executed"
     assert result.report.items[0].ingested_artifact_path_optional
     assert result.report.publication_ready is False
-    assert inspect_python_experiment_sandbox(
-        run_id=run_id,
-        root=tmp_path,
-    )["latest_python_sandbox_status"] == "completed"
+    assert (
+        inspect_python_experiment_sandbox(
+            run_id=run_id,
+            root=tmp_path,
+        )["latest_python_sandbox_status"]
+        == "completed"
+    )
 
 
 def test_experiment_template_registry_loads_approved_local_template(tmp_path) -> None:
@@ -2739,11 +2757,7 @@ def test_route_experiment_gaps_does_not_route_proof_background_or_forbidden_clai
         )
         plan = AutonomousEvidenceGapPlan.model_validate_json(
             (
-                tmp_path
-                / "runs"
-                / run_id
-                / "reports"
-                / "autonomous-evidence-gap-plan.json"
+                tmp_path / "runs" / run_id / "reports" / "autonomous-evidence-gap-plan.json"
             ).read_text(encoding="utf-8")
         )
 
@@ -3250,8 +3264,7 @@ def test_capability_escalation_defaults_fail_closed_and_reports_counts(tmp_path)
 
     assert loop.report.terminal_state == "completed_with_deferred_gaps"
     assert (
-        result.persistence.commit.action_type
-        == ControllerActionType.CAPABILITY_ESCALATION_WRITTEN
+        result.persistence.commit.action_type == ControllerActionType.CAPABILITY_ESCALATION_WRITTEN
     )
     assert result.report.candidate_deferred_gap_count >= 1
     assert (
@@ -3334,9 +3347,7 @@ def test_capability_escalation_retrieval_expansion_filters_local_sources(
         for path in result.report.created_artifact_paths
         if "retrieval-citation-registry" in path
     ]
-    registry = CitationRegistry.model_validate_json(
-        registry_paths[0].read_text(encoding="utf-8")
-    )
+    registry = CitationRegistry.model_validate_json(registry_paths[0].read_text(encoding="utf-8"))
     assert quality.accepted_source_count >= 1
     assert quality.hard_reject_count >= 1
     assert all(record.accepted_for_registry for record in registry.citations)
@@ -3447,8 +3458,7 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     markdown = result.manuscript_markdown
 
     assert (
-        result.persistence.commit.action_type
-        == ControllerActionType.FINAL_MANUSCRIPT_REGENERATED
+        result.persistence.commit.action_type == ControllerActionType.FINAL_MANUSCRIPT_REGENERATED
     )
     assert result.report.regeneration_status == "completed"
     assert result.report.sections_generated == 10
@@ -3498,6 +3508,245 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     assert second.index.regeneration_count == 2
     assert second.report.final_manuscript_path.endswith("final-manuscript-0002.md")
     assert (tmp_path / result.report.final_manuscript_path).is_file()
+
+
+def test_final_release_bundle_assembles_layout_hashes_and_scoped_exports(tmp_path) -> None:
+    run_id = "run-final-release-bundle"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    retrieval_quality = RetrievalQualityReport(
+        run_id=run_id,
+        retrieval_backend="local",
+        total_retrieved_sources=2,
+        accepted_source_count=1,
+        rejected_source_count=1,
+        accepted_source_ids=["fixture-smith"],
+        rejected_source_ids=["fixture-rejected"],
+        adequacy_status="bounded_context_only",
+        coverage_limitations=["Local fixture coverage is bounded context only."],
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "retrieval-quality-report.json").write_text(
+        retrieval_quality.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_section_ids=[BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID],
+    )
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+    run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=3,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+    )
+    final_result = regenerate_final_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    result = build_final_release_bundle(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    inspected = inspect_final_release_bundle(run_id=run_id, root=tmp_path)
+    bundle_summary = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    bundle_dir = tmp_path / result.report.bundle_path
+
+    assert (
+        result.persistence.commit.action_type == ControllerActionType.FINAL_RELEASE_BUNDLE_ASSEMBLED
+    )
+    assert result.report.bundle_status == "complete"
+    assert result.report.publication_ready is False
+    assert result.bundle.publication_ready is False
+    assert result.report.missing_required_artifacts == []
+    assert (bundle_dir / "paper" / "paper.md").is_file()
+    assert (bundle_dir / "paper" / "paper.tex").is_file()
+    assert (bundle_dir / "paper" / "references.bib").is_file()
+    assert not (bundle_dir / "paper" / "paper.pdf").exists()
+    assert (bundle_dir / "reports" / "claim-evidence-map.json").is_file()
+    assert (bundle_dir / "reports" / "release-report.json").is_file()
+    assert (bundle_dir / "reports" / "final-audit.json").is_file()
+    assert (bundle_dir / "reports" / "reviewer-bundle-summary.json").is_file()
+    assert (bundle_dir / "evidence" / "experiments").is_dir()
+    assert (bundle_dir / "reproducibility" / "reproducibility-manifest.json").is_file()
+    assert (bundle_dir / "reproducibility" / "artifact-manifest.json").is_file()
+    assert (bundle_dir / "reproducibility" / "hashes.sha256").is_file()
+    assert (bundle_dir / "reproducibility" / "environment.json").is_file()
+    assert (bundle_dir / "reproducibility" / "commands.txt").is_file()
+    assert (bundle_dir / "paper" / "paper.md").read_text(encoding="utf-8") == (
+        tmp_path / final_result.report.final_manuscript_path
+    ).read_text(encoding="utf-8")
+
+    paper_tex = (bundle_dir / "paper" / "paper.tex").read_text(encoding="utf-8")
+    assert "% publication_ready = false" in paper_tex
+    assert r"\section{Abstract}" in paper_tex
+    assert r"\bibliography{references}" in paper_tex
+    assert "publication ready" not in paper_tex.casefold()
+    assert "publication-ready" not in paper_tex.casefold()
+    references = (bundle_dir / "paper" / "references.bib").read_text(encoding="utf-8")
+    registry = CitationRegistry.model_validate_json(
+        (tmp_path / "runs" / run_id / "reports" / "citation-registry.json").read_text()
+    )
+    accepted_keys = {record.citation_key for record in registry.citations}
+    assert set(re.findall(r"@[A-Za-z]+\s*\{\s*([^,\s]+)", references)) <= accepted_keys
+    assert "fixture-rejected" not in references
+
+    for line in (bundle_dir / "reproducibility" / "hashes.sha256").read_text().splitlines():
+        digest, relative = line.split("  ", maxsplit=1)
+        assert sha256_file(bundle_dir / relative) == digest
+    manifest = FinalReleaseBundleManifest.model_validate_json(
+        (bundle_dir / "reproducibility" / "artifact-manifest.json").read_text()
+    )
+    for artifact in manifest.artifacts:
+        assert sha256_file(bundle_dir / artifact.relative_path) == artifact.sha256
+        assert artifact.non_evidence_flag is True
+    reproducibility = FinalReleaseReproducibilityManifest.model_validate_json(
+        (bundle_dir / "reproducibility" / "reproducibility-manifest.json").read_text()
+    )
+    assert reproducibility.network_used is False
+    assert reproducibility.external_api_used is False
+    assert reproducibility.publication_ready is False
+
+    assert inspected["final_release_bundle_status"] == "complete"
+    assert bundle_summary["final_release_bundle_present"] is True
+    assert bundle_summary["final_release_bundle_status"] == "complete"
+    assert bundle_summary["paper_tex_present"] is True
+    assert bundle_summary["references_bib_present"] is True
+    assert bundle_summary["paper_pdf_present"] is False
+    assert lint["final_release_bundle_present"] is True
+    assert lint["final_release_bundle_status"] == "complete"
+    assert lint["final_release_bundle_missing_required_artifact_count"] == 0
+    assert lint["publication_ready"] is False
+    assert reviewer["final_release_bundle_present"] is True
+    assert reviewer["final_release_bundle_status"] == "complete"
+    assert (tmp_path / "runs" / run_id / "reports" / "final-release-bundle-0001.json").is_file()
+    assert (tmp_path / "runs" / run_id / "reports" / "final-release-bundle-0001.md").is_file()
+    assert (
+        tmp_path / "runs" / run_id / "reports" / "final-release-bundle-index-0001.json"
+    ).is_file()
+
+    second = build_final_release_bundle(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    assert second.index.bundle_count == 2
+    assert second.report.bundle_path.endswith("final-bundle-0002")
+    assert bundle_dir.is_dir()
+
+
+def test_final_release_bundle_reports_incomplete_when_required_artifact_missing(tmp_path) -> None:
+    run_id = "run-final-release-bundle-incomplete"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    retrieval_quality = RetrievalQualityReport(
+        run_id=run_id,
+        retrieval_backend="local",
+        total_retrieved_sources=1,
+        accepted_source_count=1,
+        rejected_source_count=0,
+        accepted_source_ids=["fixture-smith"],
+        rejected_source_ids=[],
+        adequacy_status="bounded_context_only",
+        coverage_limitations=["Local fixture coverage is bounded context only."],
+    )
+    (reports / "retrieval-quality-report.json").write_text(
+        retrieval_quality.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=1,
+    )
+    regenerate_final_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+    release_reports = sorted(
+        path
+        for path in reports.glob("full-paper-release-report*.json")
+        if not path.name.endswith(".meta.json")
+    )
+    for release_report in release_reports:
+        release_report.rename(release_report.with_suffix(".json.bak"))
+
+    result = build_final_release_bundle(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    assert result.report.bundle_status == "incomplete"
+    assert "reports/release-report.json" in result.report.missing_required_artifacts
+    assert result.report.publication_ready is False
+
+
+def test_final_release_references_bib_uses_accepted_registry_sources_only() -> None:
+    accepted = _citation_registry_fixture(run_id="run-bib").citations[0]
+    rejected = accepted.model_copy(
+        update={
+            "citation_id": "citation-source-rejected",
+            "citation_key": "rejected2020",
+            "source_id": "source-rejected",
+            "title": "Rejected Fixture Source",
+            "accepted_for_registry": False,
+            "source_status": "rejected",
+        }
+    )
+    registry = CitationRegistry(
+        run_id="run-bib",
+        citations=[accepted, rejected],
+        bibliography=[],
+        citation_key_policy="deterministic_fixture",
+        citation_policy="registry-only",
+        retrieval_backend="local",
+        source_registry_hash="c" * 64,
+        source_count=2,
+        accepted_source_count=1,
+        rejected_source_count=1,
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+
+    bib = build_references_bib(registry)
+
+    assert "@misc{smith2021" in bib
+    assert "rejected2020" not in bib
+    assert "Rejected Fixture Source" not in bib
+    assert "Bounded background context only" in bib
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:
@@ -4594,18 +4843,10 @@ def _prepare_python_sandbox_fixture(tmp_path, run_id: str) -> PlannedExperimentS
         ledger=ledger,
     )
     source = (
-        Path(__file__).parent
-        / "fixtures"
-        / "experiments"
-        / "bundles"
-        / "synthetic_calibration"
+        Path(__file__).parent / "fixtures" / "experiments" / "bundles" / "synthetic_calibration"
     )
     destination = (
-        tmp_path
-        / "runs"
-        / run_id
-        / "approved-experiment-bundles"
-        / "synthetic_calibration"
+        tmp_path / "runs" / run_id / "approved-experiment-bundles" / "synthetic_calibration"
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source, destination)
@@ -4675,11 +4916,7 @@ def _prepare_experiment_routing_fixture(
 
 def _copy_default_experiment_template_bundle(tmp_path) -> None:
     source = (
-        Path(__file__).parent
-        / "fixtures"
-        / "experiments"
-        / "bundles"
-        / "synthetic_calibration"
+        Path(__file__).parent / "fixtures" / "experiments" / "bundles" / "synthetic_calibration"
     )
     destination = (
         tmp_path / "tests" / "fixtures" / "experiments" / "bundles" / "synthetic_calibration"

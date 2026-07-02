@@ -1,0 +1,223 @@
+{
+  "$id": "https://schemas.factori.local/0.43.0/final-release-bundle-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only non-evidence final release bundle assembly report.",
+  "properties": {
+    "artifact_count": {
+      "minimum": 0,
+      "title": "Artifact Count",
+      "type": "integer"
+    },
+    "autonomous_loop_report_path": {
+      "minLength": 1,
+      "title": "Autonomous Loop Report Path",
+      "type": "string"
+    },
+    "bundle_id": {
+      "minLength": 1,
+      "title": "Bundle Id",
+      "type": "string"
+    },
+    "bundle_path": {
+      "minLength": 1,
+      "title": "Bundle Path",
+      "type": "string"
+    },
+    "bundle_status": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "failed"
+      ],
+      "title": "Bundle Status",
+      "type": "string"
+    },
+    "capability_escalation_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Capability Escalation Report Path Optional"
+    },
+    "citation_registry_path": {
+      "minLength": 1,
+      "title": "Citation Registry Path",
+      "type": "string"
+    },
+    "claim_evidence_map_path": {
+      "minLength": 1,
+      "title": "Claim Evidence Map Path",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Gap Count",
+      "type": "integer"
+    },
+    "experiment_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Experiment Artifact Paths",
+      "type": "array"
+    },
+    "final_manuscript_path": {
+      "minLength": 1,
+      "title": "Final Manuscript Path",
+      "type": "string"
+    },
+    "hash_count": {
+      "minimum": 0,
+      "title": "Hash Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "ledger_validation_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ledger Validation Path Optional"
+    },
+    "manifest_path": {
+      "minLength": 1,
+      "title": "Manifest Path",
+      "type": "string"
+    },
+    "missing_required_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Required Artifacts",
+      "type": "array"
+    },
+    "paper_markdown_path": {
+      "minLength": 1,
+      "title": "Paper Markdown Path",
+      "type": "string"
+    },
+    "paper_tex_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Paper Tex Path Optional"
+    },
+    "pdf_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pdf Path Optional"
+    },
+    "proof_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Proof Artifact Paths",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "references_bib_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "References Bib Path Optional"
+    },
+    "release_report_path": {
+      "minLength": 1,
+      "title": "Release Report Path",
+      "type": "string"
+    },
+    "reproducibility_manifest_path": {
+      "minLength": 1,
+      "title": "Reproducibility Manifest Path",
+      "type": "string"
+    },
+    "retrieval_report_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Retrieval Report Paths",
+      "type": "array"
+    },
+    "reviewer_summary_path": {
+      "minLength": 1,
+      "title": "Reviewer Summary Path",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "bundle_id",
+    "bundle_status",
+    "bundle_path",
+    "manifest_path",
+    "reproducibility_manifest_path",
+    "final_manuscript_path",
+    "paper_markdown_path",
+    "claim_evidence_map_path",
+    "citation_registry_path",
+    "autonomous_loop_report_path",
+    "release_report_path",
+    "reviewer_summary_path",
+    "artifact_count",
+    "hash_count",
+    "deferred_gap_count"
+  ],
+  "title": "FinalReleaseBundleReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.43.0",
+  "x-factori-source-model": "factori.schemas.FinalReleaseBundleReport",
+  "x-factori-verification-evidence": false
+}

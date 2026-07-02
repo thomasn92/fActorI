@@ -1,0 +1,87 @@
+{
+  "$id": "https://schemas.factori.local/0.43.0/final-release-bundle-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable final release bundles.",
+  "properties": {
+    "bundle_count": {
+      "minimum": 1,
+      "title": "Bundle Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_bundle_id": {
+      "minLength": 1,
+      "title": "Latest Bundle Id",
+      "type": "string"
+    },
+    "latest_bundle_path": {
+      "minLength": 1,
+      "title": "Latest Bundle Path",
+      "type": "string"
+    },
+    "latest_bundle_status": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "failed"
+      ],
+      "title": "Latest Bundle Status",
+      "type": "string"
+    },
+    "latest_manifest_path": {
+      "minLength": 1,
+      "title": "Latest Manifest Path",
+      "type": "string"
+    },
+    "latest_report_path": {
+      "minLength": 1,
+      "title": "Latest Report Path",
+      "type": "string"
+    },
+    "latest_reproducibility_manifest_path": {
+      "minLength": 1,
+      "title": "Latest Reproducibility Manifest Path",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_bundle_id",
+    "bundle_count",
+    "latest_bundle_status",
+    "latest_bundle_path",
+    "latest_report_path",
+    "latest_manifest_path",
+    "latest_reproducibility_manifest_path"
+  ],
+  "title": "FinalReleaseBundleIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.43.0",
+  "x-factori-source-model": "factori.schemas.FinalReleaseBundleIndex",
+  "x-factori-verification-evidence": false
+}

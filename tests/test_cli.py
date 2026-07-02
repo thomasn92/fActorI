@@ -80,6 +80,18 @@ def test_final_manuscript_cli_commands_are_registered() -> None:
     assert "--json" in inspect.output
 
 
+def test_final_release_bundle_cli_commands_are_registered() -> None:
+    build = CliRunner().invoke(app, ["build-final-release-bundle", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-final-release-bundle", "--help"])
+
+    assert build.exit_code == 0, build.output
+    assert "--compile-pdf" in build.output
+    assert "--strict-export" in build.output
+    assert "--json" in build.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--json" in inspect.output
+
+
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])

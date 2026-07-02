@@ -1,0 +1,106 @@
+{
+  "$id": "https://schemas.factori.local/0.43.0/final-release-bundle.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Structured summary of one assembled final release bundle.",
+  "properties": {
+    "artifact_count": {
+      "minimum": 0,
+      "title": "Artifact Count",
+      "type": "integer"
+    },
+    "artifact_manifest_path": {
+      "minLength": 1,
+      "title": "Artifact Manifest Path",
+      "type": "string"
+    },
+    "bundle_id": {
+      "minLength": 1,
+      "title": "Bundle Id",
+      "type": "string"
+    },
+    "bundle_path": {
+      "minLength": 1,
+      "title": "Bundle Path",
+      "type": "string"
+    },
+    "bundle_status": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "failed"
+      ],
+      "title": "Bundle Status",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "hash_count": {
+      "minimum": 0,
+      "title": "Hash Count",
+      "type": "integer"
+    },
+    "hashes_path": {
+      "minLength": 1,
+      "title": "Hashes Path",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manifest_path": {
+      "minLength": 1,
+      "title": "Manifest Path",
+      "type": "string"
+    },
+    "missing_required_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Required Artifacts",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "reproducibility_manifest_path": {
+      "minLength": 1,
+      "title": "Reproducibility Manifest Path",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "bundle_id",
+    "bundle_status",
+    "bundle_path",
+    "manifest_path",
+    "reproducibility_manifest_path",
+    "artifact_manifest_path",
+    "hashes_path",
+    "artifact_count",
+    "hash_count"
+  ],
+  "title": "FinalReleaseBundle",
+  "type": "object",
+  "x-factori-protocol-version": "0.43.0",
+  "x-factori-source-model": "factori.schemas.FinalReleaseBundle",
+  "x-factori-verification-evidence": false
+}

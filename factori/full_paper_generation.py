@@ -726,6 +726,19 @@ def inspect_paper_bundle_summary(
         final_manuscript_report,
         final_manuscript_index,
     )
+    from factori.final_release_bundle import (  # noqa: PLC0415
+        final_release_bundle_summary_fields,
+        latest_final_release_bundle,
+    )
+
+    final_release_bundle_report, final_release_bundle_index = latest_final_release_bundle(
+        root_path,
+        run_id,
+    )
+    final_release_bundle_summary = final_release_bundle_summary_fields(
+        final_release_bundle_report,
+        final_release_bundle_index,
+    )
     existing = {
         name: path.relative_to(root_path).as_posix()
         for name, path in sorted(paths.items())
@@ -1037,6 +1050,7 @@ def inspect_paper_bundle_summary(
         **sandbox_budget_summary,
         **capability_escalation_summary,
         **final_manuscript_summary,
+        **final_release_bundle_summary,
         "bounded_empirical_gap_count": max(
             int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
             int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
@@ -1640,6 +1654,18 @@ def lint_paper_bundle_summary(
     final_manuscript_deferred_gap_count = int(
         bundle.get("final_manuscript_deferred_gap_count") or 0
     )
+    final_release_bundle_present = bool(bundle.get("final_release_bundle_present"))
+    final_release_bundle_status = bundle.get("final_release_bundle_status")
+    final_release_bundle_artifact_count = int(
+        bundle.get("final_release_bundle_artifact_count") or 0
+    )
+    final_release_bundle_hash_count = int(bundle.get("final_release_bundle_hash_count") or 0)
+    paper_tex_present = bool(bundle.get("paper_tex_present"))
+    references_bib_present = bool(bundle.get("references_bib_present"))
+    paper_pdf_present = bool(bundle.get("paper_pdf_present"))
+    final_release_bundle_missing_required_artifact_count = int(
+        bundle.get("final_release_bundle_missing_required_artifact_count") or 0
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -2172,6 +2198,16 @@ def lint_paper_bundle_summary(
         "final_manuscript_supported_claim_count": final_manuscript_supported_claim_count,
         "final_manuscript_unsupported_claim_count": final_manuscript_unsupported_claim_count,
         "final_manuscript_deferred_gap_count": final_manuscript_deferred_gap_count,
+        "final_release_bundle_present": final_release_bundle_present,
+        "final_release_bundle_status": final_release_bundle_status,
+        "final_release_bundle_artifact_count": final_release_bundle_artifact_count,
+        "final_release_bundle_hash_count": final_release_bundle_hash_count,
+        "paper_tex_present": paper_tex_present,
+        "references_bib_present": references_bib_present,
+        "paper_pdf_present": paper_pdf_present,
+        "final_release_bundle_missing_required_artifact_count": (
+            final_release_bundle_missing_required_artifact_count
+        ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
@@ -2533,6 +2569,21 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
             "final-manuscript-structured-*.json",
             "final-manuscript-structured-0000.json",
         ),
+        "final_release_bundle_report": _latest_report_path(
+            run_path,
+            "final-release-bundle-[0-9][0-9][0-9][0-9].json",
+            "final-release-bundle-0000.json",
+        ),
+        "final_release_bundle_report_markdown": _latest_report_path(
+            run_path,
+            "final-release-bundle-[0-9][0-9][0-9][0-9].md",
+            "final-release-bundle-0000.md",
+        ),
+        "final_release_bundle_index": _latest_report_path(
+            run_path,
+            "final-release-bundle-index-*.json",
+            "final-release-bundle-index-0000.json",
+        ),
         "reviewer_bundle_summary_json": run_path / "reports" / "reviewer-bundle-summary.json",
         "reviewer_bundle_summary_markdown": run_path / "reports" / "reviewer-bundle-summary.md",
         "reviewer_bundle_summary_after_human_review_json": run_path
@@ -2692,6 +2743,16 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
             run_path,
             "reviewer-bundle-summary-after-final-manuscript-*.md",
             "reviewer-bundle-summary-after-final-manuscript-0000.md",
+        ),
+        "reviewer_bundle_summary_after_final_release_bundle_json": _latest_report_path(
+            run_path,
+            "reviewer-bundle-summary-after-final-release-bundle-*.json",
+            "reviewer-bundle-summary-after-final-release-bundle-0000.json",
+        ),
+        "reviewer_bundle_summary_after_final_release_bundle_markdown": _latest_report_path(
+            run_path,
+            "reviewer-bundle-summary-after-final-release-bundle-*.md",
+            "reviewer-bundle-summary-after-final-release-bundle-0000.md",
         ),
         "claim_evidence_map": (
             latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
@@ -2923,7 +2984,12 @@ def _read_preferred_reviewer_bundle_summary(
     paths: dict[str, Path],
 ) -> ReviewerBundleSummary | None:
     return (
-        _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_after_final_manuscript_json"])
+        _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_final_release_bundle_json"]
+        )
+        or _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_final_manuscript_json"]
+        )
         or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_capability_escalation_json"]
         )
@@ -3035,6 +3101,8 @@ def build_reviewer_bundle_summary(
     experiment_gap_routing_report: ExperimentGapRoutingReport | None = None,
     capability_escalation_report: CapabilityEscalationReport | None = None,
     final_manuscript_report: Any | None = None,
+    final_release_bundle_report: Any | None = None,
+    final_release_bundle_index: Any | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -3119,6 +3187,19 @@ def build_reviewer_bundle_summary(
     final_summary = final_manuscript_summary_fields(
         final_manuscript_report or latest_final_report,
         final_index,
+    )
+    from factori.final_release_bundle import (  # noqa: PLC0415
+        final_release_bundle_summary_fields,
+        latest_final_release_bundle,
+    )
+
+    latest_release_bundle_report, latest_release_bundle_index = latest_final_release_bundle(
+        root_path,
+        run_id,
+    )
+    final_release_summary = final_release_bundle_summary_fields(
+        final_release_bundle_report or latest_release_bundle_report,
+        final_release_bundle_index or latest_release_bundle_index,
     )
     sandbox_budget_summary = sandbox_budget_summary_fields(
         latest_sandbox_budget_report(root_path, run_id)
@@ -3399,6 +3480,16 @@ def build_reviewer_bundle_summary(
         final_manuscript_deferred_gap_count=int(
             final_summary["final_manuscript_deferred_gap_count"]
         ),
+        final_release_bundle_present=bool(final_release_summary["final_release_bundle_present"]),
+        final_release_bundle_status=final_release_summary["final_release_bundle_status"],
+        bundle_artifact_count=int(final_release_summary["final_release_bundle_artifact_count"]),
+        bundle_hash_count=int(final_release_summary["final_release_bundle_hash_count"]),
+        references_bib_present=bool(final_release_summary["references_bib_present"]),
+        paper_tex_present=bool(final_release_summary["paper_tex_present"]),
+        paper_pdf_present=bool(final_release_summary["paper_pdf_present"]),
+        missing_required_bundle_artifacts=list(
+            final_release_summary["missing_required_bundle_artifacts"]
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -3444,6 +3535,23 @@ def render_reviewer_bundle_summary_markdown(
             f"`{summary.final_manuscript_supported_claim_count}` / "
             f"`{summary.final_manuscript_deferred_gap_count}`"
         ),
+        (
+            "Final release bundle: "
+            f"`{'present' if summary.final_release_bundle_present else 'absent'}`"
+        ),
+        (
+            "Final release bundle status/artifacts/hashes: "
+            f"`{summary.final_release_bundle_status or 'none'}` / "
+            f"`{summary.bundle_artifact_count}` / "
+            f"`{summary.bundle_hash_count}`"
+        ),
+        (
+            "paper.tex / references.bib / paper.pdf: "
+            f"`{str(summary.paper_tex_present).lower()}/"
+            f"{str(summary.references_bib_present).lower()}/"
+            f"{str(summary.paper_pdf_present).lower()}`"
+        ),
+        (f"Missing required bundle artifacts: `{len(summary.missing_required_bundle_artifacts)}`"),
         f"Proof artifacts: `{summary.proof_artifact_count}`",
         (f"Formal verification artifacts passed: `{summary.formal_verification_artifact_count}`"),
         f"Informal proof artifacts: `{summary.informal_proof_artifact_count}`",
@@ -3701,7 +3809,9 @@ def inspect_reviewer_bundle_summary(
         raise PaperBundleInspectionError(f"No reviewer bundle summary found for run_id={run_id}.")
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_capability_escalation_json"]
+        paths["reviewer_bundle_summary_after_final_release_bundle_json"]
+        if paths["reviewer_bundle_summary_after_final_release_bundle_json"].is_file()
+        else paths["reviewer_bundle_summary_after_capability_escalation_json"]
         if paths["reviewer_bundle_summary_after_capability_escalation_json"].is_file()
         else paths["reviewer_bundle_summary_after_python_sandbox_json"]
         if paths["reviewer_bundle_summary_after_python_sandbox_json"].is_file()
@@ -3728,7 +3838,9 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_capability_escalation_markdown"]
+        paths["reviewer_bundle_summary_after_final_release_bundle_markdown"]
+        if paths["reviewer_bundle_summary_after_final_release_bundle_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_capability_escalation_markdown"]
         if paths["reviewer_bundle_summary_after_capability_escalation_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_python_sandbox_markdown"]
         if paths["reviewer_bundle_summary_after_python_sandbox_markdown"].is_file()

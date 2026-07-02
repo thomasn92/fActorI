@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "FinalReleaseBundleArtifact": {
+      "additionalProperties": false,
+      "description": "One file included in an immutable final release bundle.",
+      "properties": {
+        "artifact_type": {
+          "minLength": 1,
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "created_by_stage": {
+          "minLength": 1,
+          "title": "Created By Stage",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "non_evidence_flag": {
+          "default": true,
+          "title": "Non Evidence Flag",
+          "type": "boolean"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "required_for_bundle": {
+          "default": false,
+          "title": "Required For Bundle",
+          "type": "boolean"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "source_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Path"
+        }
+      },
+      "required": [
+        "relative_path",
+        "sha256",
+        "artifact_type",
+        "created_by_stage"
+      ],
+      "title": "FinalReleaseBundleArtifact",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.43.0/final-release-bundle-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Machine-checkable manifest for a final release bundle.",
+  "properties": {
+    "artifact_count": {
+      "minimum": 0,
+      "title": "Artifact Count",
+      "type": "integer"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/FinalReleaseBundleArtifact"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "bundle_id": {
+      "minLength": 1,
+      "title": "Bundle Id",
+      "type": "string"
+    },
+    "bundle_path": {
+      "minLength": 1,
+      "title": "Bundle Path",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "hash_count": {
+      "minimum": 0,
+      "title": "Hash Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "bundle_id",
+    "bundle_path",
+    "artifact_count",
+    "hash_count"
+  ],
+  "title": "FinalReleaseBundleManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.43.0",
+  "x-factori-source-model": "factori.schemas.FinalReleaseBundleManifest",
+  "x-factori-verification-evidence": false
+}

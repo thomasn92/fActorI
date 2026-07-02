@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.42.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.43.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -151,6 +151,18 @@
       "default": 0,
       "minimum": 0,
       "title": "Bounded Empirical Gap Count",
+      "type": "integer"
+    },
+    "bundle_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Bundle Artifact Count",
+      "type": "integer"
+    },
+    "bundle_hash_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Bundle Hash Count",
       "type": "integer"
     },
     "capability_escalation_external_tools_allowed": {
@@ -375,6 +387,23 @@
       "minimum": 0,
       "title": "Final Manuscript Supported Claim Count",
       "type": "integer"
+    },
+    "final_release_bundle_present": {
+      "default": false,
+      "title": "Final Release Bundle Present",
+      "type": "boolean"
+    },
+    "final_release_bundle_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Release Bundle Status"
     },
     "formal_verification_artifact_count": {
       "default": 0,
@@ -642,6 +671,13 @@
       "title": "Latest Reconciliation Cycle",
       "type": "integer"
     },
+    "missing_required_bundle_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Required Bundle Artifacts",
+      "type": "array"
+    },
     "needs_python_experiment_count": {
       "default": 0,
       "minimum": 0,
@@ -654,6 +690,16 @@
       },
       "title": "Paper Artifact Paths",
       "type": "object"
+    },
+    "paper_pdf_present": {
+      "default": false,
+      "title": "Paper Pdf Present",
+      "type": "boolean"
+    },
+    "paper_tex_present": {
+      "default": false,
+      "title": "Paper Tex Present",
+      "type": "boolean"
     },
     "planned_spec_execution_present": {
       "default": false,
@@ -751,6 +797,11 @@
       },
       "title": "Recommended Next Actions",
       "type": "array"
+    },
+    "references_bib_present": {
+      "default": false,
+      "title": "References Bib Present",
+      "type": "boolean"
     },
     "release_status": {
       "minLength": 1,
@@ -920,7 +971,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.42.0",
+  "x-factori-protocol-version": "0.43.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

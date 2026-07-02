@@ -15,6 +15,12 @@ from factori.schemas import (
     DataRequirement,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    FinalReleaseBundle,
+    FinalReleaseBundleArtifact,
+    FinalReleaseBundleIndex,
+    FinalReleaseBundleManifest,
+    FinalReleaseBundleReport,
+    FinalReleaseReproducibilityManifest,
     FullPaperGenerationReport,
     HumanReviewArtifact,
     LatexExportResult,
@@ -55,6 +61,12 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert ClaimEvidenceMap in vars(schemas).values()
     assert ClaimEvidenceMapLink in vars(schemas).values()
     assert EvidenceAwareRefreshReport in vars(schemas).values()
+    assert FinalReleaseBundleArtifact in vars(schemas).values()
+    assert FinalReleaseBundleManifest in vars(schemas).values()
+    assert FinalReleaseReproducibilityManifest in vars(schemas).values()
+    assert FinalReleaseBundle in vars(schemas).values()
+    assert FinalReleaseBundleReport in vars(schemas).values()
+    assert FinalReleaseBundleIndex in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -85,6 +97,12 @@ def test_schema_all_contains_expected_public_names() -> None:
         "ClaimEvidenceMap",
         "ClaimEvidenceMapLink",
         "EvidenceAwareRefreshReport",
+        "FinalReleaseBundleArtifact",
+        "FinalReleaseBundleManifest",
+        "FinalReleaseReproducibilityManifest",
+        "FinalReleaseBundle",
+        "FinalReleaseBundleReport",
+        "FinalReleaseBundleIndex",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -125,4 +143,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 206
+    assert len(get_protocol_definitions()) == 212

@@ -1,0 +1,157 @@
+{
+  "$id": "https://schemas.factori.local/0.43.0/final-release-reproducibility-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Reproducibility metadata locked into a final release bundle.",
+  "properties": {
+    "artifact_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Artifact Hashes",
+      "type": "object"
+    },
+    "autonomous_loop_configuration": {
+      "additionalProperties": true,
+      "title": "Autonomous Loop Configuration",
+      "type": "object"
+    },
+    "bundle_id": {
+      "minLength": 1,
+      "title": "Bundle Id",
+      "type": "string"
+    },
+    "commands_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Commands Used",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Created At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "external_api_used": {
+      "default": false,
+      "title": "External Api Used",
+      "type": "boolean"
+    },
+    "external_tools_used": {
+      "default": false,
+      "title": "External Tools Used",
+      "type": "boolean"
+    },
+    "factori_protocol_version": {
+      "minLength": 1,
+      "title": "Factori Protocol Version",
+      "type": "string"
+    },
+    "git_commit_hash_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Git Commit Hash Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "ledger_tip_hash_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ledger Tip Hash Optional"
+    },
+    "main_run_configuration": {
+      "additionalProperties": true,
+      "title": "Main Run Configuration",
+      "type": "object"
+    },
+    "network_used": {
+      "default": false,
+      "title": "Network Used",
+      "type": "boolean"
+    },
+    "platform": {
+      "minLength": 1,
+      "title": "Platform",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "python_version": {
+      "minLength": 1,
+      "title": "Python Version",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_configurations": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Sandbox Configurations",
+      "type": "array"
+    },
+    "uv_environment_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Uv Environment Paths",
+      "type": "array"
+    },
+    "uv_lock_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Uv Lock Paths",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "bundle_id",
+    "created_at",
+    "factori_protocol_version",
+    "python_version",
+    "platform"
+  ],
+  "title": "FinalReleaseReproducibilityManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.43.0",
+  "x-factori-source-model": "factori.schemas.FinalReleaseReproducibilityManifest",
+  "x-factori-verification-evidence": false
+}

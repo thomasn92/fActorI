@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.42.0/final-manuscript-regeneration-index.schema.json",
+  "$id": "https://schemas.factori.local/0.43.0/final-manuscript-regeneration-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable final manuscript regenerations.",
@@ -75,7 +75,7 @@
   ],
   "title": "FinalManuscriptRegenerationIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.42.0",
+  "x-factori-protocol-version": "0.43.0",
   "x-factori-source-model": "factori.schemas.FinalManuscriptRegenerationIndex",
   "x-factori-verification-evidence": false
 }

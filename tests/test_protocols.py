@@ -14,6 +14,12 @@ from factori.schemas import (
     ExperimentArtifact,
     ExperimentRunContract,
     ExperimentRunResult,
+    FinalReleaseBundle,
+    FinalReleaseBundleArtifact,
+    FinalReleaseBundleIndex,
+    FinalReleaseBundleManifest,
+    FinalReleaseBundleReport,
+    FinalReleaseReproducibilityManifest,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -76,9 +82,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 206
+    assert len(first) == 212
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.42.0"
+    assert PROTOCOL_VERSION == "0.43.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -91,6 +97,18 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ProofVerificationResult").model is ProofVerificationResult
     assert get_protocol_definition("ExperimentRunResult").model is ExperimentRunResult
     assert get_protocol_definition("ExperimentRunContract").model is ExperimentRunContract
+    assert get_protocol_definition("FinalReleaseBundleArtifact").model is (
+        FinalReleaseBundleArtifact
+    )
+    assert get_protocol_definition("FinalReleaseBundleManifest").model is (
+        FinalReleaseBundleManifest
+    )
+    assert get_protocol_definition("FinalReleaseReproducibilityManifest").model is (
+        FinalReleaseReproducibilityManifest
+    )
+    assert get_protocol_definition("FinalReleaseBundle").model is FinalReleaseBundle
+    assert get_protocol_definition("FinalReleaseBundleReport").model is FinalReleaseBundleReport
+    assert get_protocol_definition("FinalReleaseBundleIndex").model is FinalReleaseBundleIndex
     assert get_protocol_definition("AdapterConfig").model is AdapterConfig
     assert get_protocol_definition("RunStatusReport").model is RunStatusReport
     assert get_protocol_definition("StageRerunDecision").model is StageRerunDecision
@@ -124,9 +142,7 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("RevisionSafetyReport").model is RevisionSafetyReport
     assert get_protocol_definition("PaperRevisionResult").model is PaperRevisionResult
     assert get_protocol_definition("QualityRepairReport").model is QualityRepairReport
-    assert get_protocol_definition("ReviewerBundleSummary").model is (
-        ReviewerBundleSummary
-    )
+    assert get_protocol_definition("ReviewerBundleSummary").model is (ReviewerBundleSummary)
     assert get_protocol_definition("ClaimEvidenceMapLink").model is ClaimEvidenceMapLink
     assert get_protocol_definition("ClaimEvidenceMap").model is ClaimEvidenceMap
     assert get_protocol_definition("EvidenceAwareRefreshReport").model is (
@@ -147,37 +163,19 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("PythonExperimentSandboxIndex").model is (
         PythonExperimentSandboxIndex
     )
-    assert get_protocol_definition("FullPaperGenerationConfig").model is (
-        FullPaperGenerationConfig
-    )
-    assert get_protocol_definition("FullPaperGenerationStep").model is (
-        FullPaperGenerationStep
-    )
+    assert get_protocol_definition("FullPaperGenerationConfig").model is (FullPaperGenerationConfig)
+    assert get_protocol_definition("FullPaperGenerationStep").model is (FullPaperGenerationStep)
     assert get_protocol_definition("FullPaperArtifactBundle").model is FullPaperArtifactBundle
-    assert get_protocol_definition("FullPaperGenerationReport").model is (
-        FullPaperGenerationReport
-    )
-    assert get_protocol_definition("FullPaperGenerationResult").model is (
-        FullPaperGenerationResult
-    )
+    assert get_protocol_definition("FullPaperGenerationReport").model is (FullPaperGenerationReport)
+    assert get_protocol_definition("FullPaperGenerationResult").model is (FullPaperGenerationResult)
     assert get_protocol_definition("LLMBudgetConfig").model is LLMBudgetConfig
     assert get_protocol_definition("LLMBudgetUsage").model is LLMBudgetUsage
     assert get_protocol_definition("LLMBudgetDecision").model is LLMBudgetDecision
-    assert get_protocol_definition("LLMCallAccountingRecord").model is (
-        LLMCallAccountingRecord
-    )
-    assert get_protocol_definition("LLMOrchestrationConfig").model is (
-        LLMOrchestrationConfig
-    )
-    assert get_protocol_definition("LLMOrchestrationStep").model is (
-        LLMOrchestrationStep
-    )
-    assert get_protocol_definition("LLMOrchestrationReport").model is (
-        LLMOrchestrationReport
-    )
-    assert get_protocol_definition("LLMOrchestrationResult").model is (
-        LLMOrchestrationResult
-    )
+    assert get_protocol_definition("LLMCallAccountingRecord").model is (LLMCallAccountingRecord)
+    assert get_protocol_definition("LLMOrchestrationConfig").model is (LLMOrchestrationConfig)
+    assert get_protocol_definition("LLMOrchestrationStep").model is (LLMOrchestrationStep)
+    assert get_protocol_definition("LLMOrchestrationReport").model is (LLMOrchestrationReport)
+    assert get_protocol_definition("LLMOrchestrationResult").model is (LLMOrchestrationResult)
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:

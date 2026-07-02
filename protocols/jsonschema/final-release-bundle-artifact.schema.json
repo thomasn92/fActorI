@@ -1,0 +1,76 @@
+{
+  "$id": "https://schemas.factori.local/0.43.0/final-release-bundle-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One file included in an immutable final release bundle.",
+  "properties": {
+    "artifact_type": {
+      "minLength": 1,
+      "title": "Artifact Type",
+      "type": "string"
+    },
+    "created_by_stage": {
+      "minLength": 1,
+      "title": "Created By Stage",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "non_evidence_flag": {
+      "default": true,
+      "title": "Non Evidence Flag",
+      "type": "boolean"
+    },
+    "relative_path": {
+      "minLength": 1,
+      "title": "Relative Path",
+      "type": "string"
+    },
+    "required_for_bundle": {
+      "default": false,
+      "title": "Required For Bundle",
+      "type": "boolean"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "source_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Path"
+    }
+  },
+  "required": [
+    "relative_path",
+    "sha256",
+    "artifact_type",
+    "created_by_stage"
+  ],
+  "title": "FinalReleaseBundleArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.43.0",
+  "x-factori-source-model": "factori.schemas.FinalReleaseBundleArtifact",
+  "x-factori-verification-evidence": false
+}

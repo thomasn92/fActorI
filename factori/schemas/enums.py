@@ -348,9 +348,7 @@ class ControllerActionType(StrEnum):
     EVIDENCE_AWARE_REFRESH_WRITTEN = "EvidenceAwareRefreshWritten"
     HUMAN_REVIEW_RECONCILIATION_WRITTEN = "HumanReviewReconciliationWritten"
     REVIEWER_CHANGE_REQUESTS_INGESTED = "ReviewerChangeRequestsIngested"
-    HUMAN_REVIEW_RECONCILIATION_INDEX_WRITTEN = (
-        "HumanReviewReconciliationIndexWritten"
-    )
+    HUMAN_REVIEW_RECONCILIATION_INDEX_WRITTEN = "HumanReviewReconciliationIndexWritten"
     AUTONOMOUS_EVIDENCE_PLAN_WRITTEN = "AutonomousEvidencePlanWritten"
     AUTONOMOUS_PLAN_EXECUTION_WRITTEN = "AutonomousPlanExecutionWritten"
     PLANNED_SPEC_EXECUTION_WRITTEN = "PlannedSpecExecutionWritten"
@@ -361,6 +359,7 @@ class ControllerActionType(StrEnum):
     GAP_STRATEGY_DIVERSIFICATION_WRITTEN = "GapStrategyDiversificationWritten"
     CAPABILITY_ESCALATION_WRITTEN = "CapabilityEscalationWritten"
     FINAL_MANUSCRIPT_REGENERATED = "FinalManuscriptRegenerated"
+    FINAL_RELEASE_BUNDLE_ASSEMBLED = "FinalReleaseBundleAssembled"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -776,6 +775,7 @@ class ControllerDecisionAction(StrEnum):
     STOP_FAILURE = "StopFailure"
     STOP_SUCCESS = "StopSuccess"
     ASK_HUMAN = "AskHuman"
+
 
 __all__ = [
     "DataRequirement",

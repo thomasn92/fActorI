@@ -162,18 +162,12 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
         "references": "runs/golden-paper/latex/references.bib",
         "latex-source-map": "runs/golden-paper/latex/latex-source-map.json",
         "revised-paper": "runs/golden-paper/latex/revised-paper.tex",
-        "revised-latex-source-map": (
-            "runs/golden-paper/latex/revised-latex-source-map.json"
-        ),
+        "revised-latex-source-map": ("runs/golden-paper/latex/revised-latex-source-map.json"),
         "full-paper-generation-report": (
             "runs/golden-paper/reports/full-paper-generation-report.json"
         ),
-        "full-paper-release-report": (
-            "runs/golden-paper/reports/full-paper-release-report.json"
-        ),
-        "reviewer-bundle-summary": (
-            "runs/golden-paper/reports/reviewer-bundle-summary.json"
-        ),
+        "full-paper-release-report": ("runs/golden-paper/reports/full-paper-release-report.json"),
+        "reviewer-bundle-summary": ("runs/golden-paper/reports/reviewer-bundle-summary.json"),
         "reviewer-bundle-summary-markdown": (
             "runs/golden-paper/reports/reviewer-bundle-summary.md"
         ),
@@ -203,9 +197,7 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
         assert artifact.type != ArtifactType.LITERATURE
         hash_snapshot[artifact_id] = artifact.content_hash
 
-    markdown = (tmp_path / refs["revised-manuscript-draft"].path).read_text(
-        encoding="utf-8"
-    )
+    markdown = (tmp_path / refs["revised-manuscript-draft"].path).read_text(encoding="utf-8")
     assert "## Claim/Evidence Appendix" in markdown
     assert "## Provenance Appendix" in markdown
     assert "publication ready" not in markdown.lower()
@@ -254,23 +246,20 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
 
     after_checks = _artifact_index(ledger.list_commits(run_id))
     assert {
-        artifact_id: after_checks[artifact_id].content_hash
-        for artifact_id in hash_snapshot
+        artifact_id: after_checks[artifact_id].content_hash for artifact_id in hash_snapshot
     } == hash_snapshot
 
     protocol_check = require_protocols_current()
     assert protocol_check.up_to_date is True
-    assert PROTOCOL_VERSION == "0.42.0"
-    assert len(protocol_check.schema_files) == 206
+    assert PROTOCOL_VERSION == "0.43.0"
+    assert len(protocol_check.schema_files) == 212
     examples = validate_protocol_examples()
     assert examples.examples_checked == 43
     assert examples.examples_valid == 43
     assert examples.examples_invalid == 0
 
     golden_example = FullPaperArtifactBundle.model_validate_json(
-        Path("protocols/examples/full-paper-golden-bundle.example.json").read_text(
-            encoding="utf-8"
-        )
+        Path("protocols/examples/full-paper-golden-bundle.example.json").read_text(encoding="utf-8")
     )
     assert golden_example.run_id == run_id
     assert golden_example.artifact_ids == GOLDEN_BUNDLE_ARTIFACT_IDS
@@ -287,8 +276,4 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
 
 
 def _artifact_index(commits) -> dict[str, ArtifactRef]:
-    return {
-        artifact.id: artifact
-        for commit in commits
-        for artifact in commit.artifact_refs
-    }
+    return {artifact.id: artifact for commit in commits for artifact in commit.artifact_refs}

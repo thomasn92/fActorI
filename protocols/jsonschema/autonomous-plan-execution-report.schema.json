@@ -264,7 +264,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.42.0/autonomous-plan-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.43.0/autonomous-plan-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous plan execution report.",
@@ -465,7 +465,7 @@
   ],
   "title": "AutonomousPlanExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.42.0",
+  "x-factori-protocol-version": "0.43.0",
   "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionReport",
   "x-factori-verification-evidence": false
 }

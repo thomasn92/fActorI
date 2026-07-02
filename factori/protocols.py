@@ -67,6 +67,12 @@ from factori.schemas import (
     FinalManuscriptSection,
     FinalManuscriptStructuredDocument,
     FinalNucleus,
+    FinalReleaseBundle,
+    FinalReleaseBundleArtifact,
+    FinalReleaseBundleIndex,
+    FinalReleaseBundleManifest,
+    FinalReleaseBundleReport,
+    FinalReleaseReproducibilityManifest,
     FullPaperArtifactBundle,
     FullPaperBundleCompletenessReport,
     FullPaperEvidenceBoundaryReport,
@@ -210,7 +216,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.42.0"
+PROTOCOL_VERSION = "0.43.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -591,6 +597,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "FinalManuscriptRegenerationIndex",
         FinalManuscriptRegenerationIndex,
         "Derived latest pointer over immutable final manuscript regenerations.",
+    ),
+    ProtocolDefinition(
+        "FinalReleaseBundleArtifact",
+        FinalReleaseBundleArtifact,
+        "One file included in an immutable final release bundle.",
+    ),
+    ProtocolDefinition(
+        "FinalReleaseBundleManifest",
+        FinalReleaseBundleManifest,
+        "Machine-checkable manifest for a final release bundle.",
+    ),
+    ProtocolDefinition(
+        "FinalReleaseReproducibilityManifest",
+        FinalReleaseReproducibilityManifest,
+        "Reproducibility metadata locked into a final release bundle.",
+    ),
+    ProtocolDefinition(
+        "FinalReleaseBundle",
+        FinalReleaseBundle,
+        "Structured summary of one assembled final release bundle.",
+    ),
+    ProtocolDefinition(
+        "FinalReleaseBundleReport",
+        FinalReleaseBundleReport,
+        "Append-only non-evidence final release bundle assembly report.",
+    ),
+    ProtocolDefinition(
+        "FinalReleaseBundleIndex",
+        FinalReleaseBundleIndex,
+        "Derived latest pointer over immutable final release bundles.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",
