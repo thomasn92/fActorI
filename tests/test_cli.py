@@ -468,10 +468,15 @@ def test_autonomous_loop_cli_run_and_inspection(tmp_path) -> None:
     assert payload["autonomous_loop"]["publication_ready"] is False
     assert inspected["autonomous_loop_count"] == 1
     assert inspected["latest_autonomous_loop_iterations_completed"] >= 1
+    assert inspected["autonomous_loop_terminal_state"]
+    assert "Terminal state:" in inspect_human.output
     assert "Autonomous loop" in inspect_human.output
     assert "Autonomous loop: present" in paper_bundle.output
+    assert "Terminal state:" in paper_bundle.output
     assert lint["autonomous_loop_present"] is True
     assert lint["autonomous_loop_count"] == 1
+    assert "autonomous_loop_terminal_state" in lint
+    assert "autonomous_loop_stopped_before_max_iterations" in lint
     assert lint["publication_ready"] is False
 
 

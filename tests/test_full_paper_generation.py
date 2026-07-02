@@ -14,7 +14,13 @@ from factori.autonomous_evidence_plan import (
     inspect_autonomous_evidence_gap_plan,
     persist_autonomous_evidence_gap_plan,
 )
-from factori.autonomous_loop import inspect_autonomous_loop, run_autonomous_loop
+from factori.autonomous_loop import (
+    _decide_iteration,
+    _ProgressSnapshot,
+    _TerminalSummary,
+    inspect_autonomous_loop,
+    run_autonomous_loop,
+)
 from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
@@ -92,6 +98,7 @@ from factori.schemas import (
     ArtifactRef,
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
+    AutonomousLoopGapTerminalClassification,
     AutonomousLoopIndex,
     AutonomousLoopRunReport,
     AutonomousPlanExecutionReport,
@@ -2801,13 +2808,13 @@ def test_autonomous_loop_empirical_gap_runs_uv_sandbox(tmp_path) -> None:
         store=ArtifactStore(tmp_path),
         ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
         loop_backend="deterministic",
-        max_iterations=2,
+        max_iterations=6,
         max_attempts_per_gap=1,
         enable_strategy_diversification=True,
         enable_experiment_routing=True,
         enable_empirical_demonstration_gaps=True,
         python_sandbox_backend="uv_local",
-        max_sandbox_runs_per_loop=2,
+        max_sandbox_runs_per_loop=1,
         max_sandbox_runs_per_iteration=1,
     )
     sandbox = inspect_python_experiment_sandbox(run_id=run_id, root=tmp_path)
@@ -2820,6 +2827,14 @@ def test_autonomous_loop_empirical_gap_runs_uv_sandbox(tmp_path) -> None:
     assert result.report.empirical_gaps_routed >= 1
     assert result.report.sandbox_experiments_completed >= 1
     assert result.report.experiment_artifacts_ingested >= 1
+    assert result.report.terminal_state in {
+        "completed_with_deferred_gaps",
+        "completed_all_supported",
+    }
+    assert result.report.stopped_before_max_iterations is True
+    assert result.report.automation_ready_after_history_count == 0
+    assert result.report.empirical_paths_resolved >= 1
+    assert result.report.sandbox_budget_exhausted is True
     assert sandbox["python_experiment_sandbox_completed_count"] >= 1
     assert sandbox["python_experiment_artifacts_created_count"] >= 1
     assert empirical_link.support_status == "supported_within_scope"
@@ -2832,6 +2847,108 @@ def test_autonomous_loop_empirical_gap_runs_uv_sandbox(tmp_path) -> None:
     assert lint["publication_ready"] is False
     assert lint["claim_support_missing_required_citation_count"] == 0
     assert lint["citation_as_validation_misuse_count"] == 0
+
+
+def test_autonomous_loop_blocks_unsupported_empirical_gap_when_budget_exhausted() -> None:
+    classification = AutonomousLoopGapTerminalClassification(
+        gap_fingerprint="a" * 64,
+        target_claim_id_optional="bounded-empirical-claim",
+        gap_type="needs_python_experiment",
+        terminal_class="deferred_budget_exhausted",
+        blocking=True,
+        automation_ready_after_history=False,
+        reason="The loop sandbox budget is exhausted.",
+    )
+    terminal = _TerminalSummary(
+        classifications=(classification,),
+        resolved_gap_count=0,
+        deferred_gap_count=1,
+        exhausted_gap_count=0,
+        duplicate_only_gap_count=0,
+        blocking_gap_count=1,
+        automation_ready_after_history_count=0,
+        empirical_paths_resolved=0,
+        proof_paths_deferred=0,
+        retrieval_paths_deferred=0,
+    )
+    snapshot = _ProgressSnapshot(
+        supported=0,
+        unsupported=1,
+        partial=0,
+        automation_ready=1,
+        actions_applied=0,
+        created_spec_count=0,
+        experiment_artifacts_created=0,
+        proof_artifacts_created=0,
+        retrieval_artifacts_created=0,
+        duplicate_specs_skipped=0,
+        exhausted_gap_count=0,
+        deferred_gap_count=1,
+        selected_strategy_count=0,
+        routed_experiment_spec_count=0,
+        manuscript_before="a" * 64,
+        manuscript_after="a" * 64,
+    )
+
+    decision = _decide_iteration(
+        snapshot=snapshot,
+        previous_snapshot=None,
+        terminal=terminal,
+        iteration_number=1,
+        max_iterations=4,
+        no_progress_streak=1,
+    )
+
+    assert decision.terminal_state == "stopped_no_progress"
+    assert decision.blocking_gap_count == 1
+    assert decision.automation_ready_after_history_count == 0
+    assert decision.publication_ready is False
+
+
+def test_autonomous_loop_terminal_state_is_completed_all_supported() -> None:
+    terminal = _TerminalSummary(
+        classifications=(),
+        resolved_gap_count=3,
+        deferred_gap_count=0,
+        exhausted_gap_count=0,
+        duplicate_only_gap_count=0,
+        blocking_gap_count=0,
+        automation_ready_after_history_count=0,
+        empirical_paths_resolved=1,
+        proof_paths_deferred=0,
+        retrieval_paths_deferred=0,
+    )
+    snapshot = _ProgressSnapshot(
+        supported=3,
+        unsupported=0,
+        partial=0,
+        automation_ready=0,
+        actions_applied=0,
+        created_spec_count=0,
+        experiment_artifacts_created=0,
+        proof_artifacts_created=0,
+        retrieval_artifacts_created=0,
+        duplicate_specs_skipped=0,
+        exhausted_gap_count=0,
+        deferred_gap_count=0,
+        selected_strategy_count=0,
+        routed_experiment_spec_count=0,
+        manuscript_before="a" * 64,
+        manuscript_after="a" * 64,
+    )
+
+    decision = _decide_iteration(
+        snapshot=snapshot,
+        previous_snapshot=None,
+        terminal=terminal,
+        iteration_number=1,
+        max_iterations=4,
+        no_progress_streak=0,
+    )
+
+    assert decision.terminal_state == "completed_all_supported"
+    assert decision.loop_status == "completed"
+    assert decision.publication_ready is False
 
 
 def test_planned_spec_execution_defers_uv_sandbox_when_budget_exhausted(
@@ -2988,11 +3105,22 @@ def test_autonomous_loop_stops_before_max_iterations_for_exhausted_gaps(tmp_path
         "completed",
     }
     assert result.report.stop_reason != "max_iterations_reached"
+    assert result.report.terminal_state in {
+        "completed_with_deferred_gaps",
+        "completed_with_exhausted_noncritical_gaps",
+        "completed_all_supported",
+        "stopped_no_progress",
+    }
+    assert result.report.stopped_before_max_iterations is True
+    assert result.report.automation_ready_after_history_count == 0
     assert result.report.publication_ready is False
     assert inspected["gap_exhausted_no_progress_count"] >= 0
     assert lint["gap_attempt_history_present"] is True
     assert lint["planned_spec_dedup_index_present"] is True
     assert lint["latest_autonomous_loop_stop_reason"] != "max_iterations_reached"
+    assert lint["autonomous_loop_terminal_state"] == result.report.terminal_state
+    assert lint["autonomous_loop_stopped_before_max_iterations"] is True
+    assert lint["autonomous_loop_automation_ready_after_history_count"] == 0
     assert history["gap_attempt_history_present"] is True
     assert dedup["planned_spec_dedup_index_present"] is True
 
@@ -3023,6 +3151,10 @@ def test_autonomous_loop_diversifies_before_final_deferral(tmp_path) -> None:
     assert result.report.selected_strategy_count >= 1
     assert result.report.iterations_completed <= 6
     assert result.report.stop_reason != "max_iterations_reached"
+    assert result.report.terminal_state == "completed_with_deferred_gaps"
+    assert result.report.stopped_before_max_iterations is True
+    assert result.report.automation_ready_after_history_count == 0
+    assert result.report.proof_paths_deferred + result.report.retrieval_paths_deferred >= 1
     assert strategy["strategy_diversification_present"] is True
     assert strategy["strategy_option_count"] >= 1
     assert history["strategy_attempt_count"] >= 1
@@ -3038,8 +3170,12 @@ def test_autonomous_loop_diversifies_before_final_deferral(tmp_path) -> None:
     )
     assert lint["strategy_diversification_present"] is True
     assert lint["selected_strategy_count"] >= 0
+    assert lint["autonomous_loop_terminal_state"] == "completed_with_deferred_gaps"
+    assert lint["autonomous_loop_stopped_before_max_iterations"] is True
+    assert lint["autonomous_loop_automation_ready_after_history_count"] == 0
     assert lint["publication_ready"] is False
     assert reviewer["strategy_diversification_present"] is True
+    assert reviewer["autonomous_loop_terminal_state"] == "completed_with_deferred_gaps"
     assert reviewer["publication_ready"] is False
 
 

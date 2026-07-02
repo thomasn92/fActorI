@@ -3232,6 +3232,56 @@ def inspect_autonomous_loop_command(
     )
     typer.echo(f"Stop reason: {summary['latest_autonomous_loop_stop_reason']}")
     typer.echo(
+        "Terminal state: "
+        f"{summary.get('autonomous_loop_terminal_state') or 'not_available'}"
+    )
+    typer.echo(
+        "Terminal reason: "
+        f"{summary.get('autonomous_loop_terminal_state_reason') or 'not_available'}"
+    )
+    typer.echo(
+        "Resolved gaps: "
+        f"{int(summary.get('autonomous_loop_resolved_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred gaps: "
+        f"{int(summary.get('autonomous_loop_deferred_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Exhausted gaps: "
+        f"{int(summary.get('autonomous_loop_exhausted_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Duplicate-only gaps: "
+        f"{int(summary.get('autonomous_loop_duplicate_only_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Automation-ready after history: "
+        f"{int(summary.get('autonomous_loop_automation_ready_after_history_count') or 0)}"
+    )
+    typer.echo(
+        "Stopped before max iterations: "
+        f"{str(bool(summary.get('autonomous_loop_stopped_before_max_iterations'))).lower()}"
+    )
+    typer.echo(
+        "Empirical paths resolved / proof paths deferred / retrieval paths deferred: "
+        f"{int(summary.get('autonomous_loop_empirical_paths_resolved') or 0)}/"
+        f"{int(summary.get('autonomous_loop_proof_paths_deferred') or 0)}/"
+        f"{int(summary.get('autonomous_loop_retrieval_paths_deferred') or 0)}"
+    )
+    typer.echo(
+        "Empirical paths resolved: "
+        f"{int(summary.get('autonomous_loop_empirical_paths_resolved') or 0)}"
+    )
+    typer.echo(
+        "Proof paths deferred: "
+        f"{int(summary.get('autonomous_loop_proof_paths_deferred') or 0)}"
+    )
+    typer.echo(
+        "Retrieval paths deferred: "
+        f"{int(summary.get('autonomous_loop_retrieval_paths_deferred') or 0)}"
+    )
+    typer.echo(
         "Final unsupported claims: "
         f"{summary['autonomous_loop_final_unsupported_claim_count']}"
     )
@@ -4220,6 +4270,29 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Stop reason: "
         f"{summary.get('latest_autonomous_loop_stop_reason') or 'not_available'}"
+    )
+    typer.echo(
+        "Terminal state: "
+        f"{summary.get('autonomous_loop_terminal_state') or 'not_available'}"
+    )
+    typer.echo(
+        "Terminal reason: "
+        f"{summary.get('autonomous_loop_terminal_state_reason') or 'not_available'}"
+    )
+    typer.echo(
+        "Resolved/deferred/exhausted/duplicate-only gaps: "
+        f"{int(summary.get('autonomous_loop_resolved_gap_count') or 0)}/"
+        f"{int(summary.get('autonomous_loop_deferred_gap_count') or 0)}/"
+        f"{int(summary.get('autonomous_loop_exhausted_gap_count') or 0)}/"
+        f"{int(summary.get('autonomous_loop_duplicate_only_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Automation-ready after history: "
+        f"{int(summary.get('autonomous_loop_automation_ready_after_history_count') or 0)}"
+    )
+    typer.echo(
+        "Stopped before max iterations: "
+        f"{str(bool(summary.get('autonomous_loop_stopped_before_max_iterations'))).lower()}"
     )
     typer.echo(
         "Final unsupported claims: "

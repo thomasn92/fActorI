@@ -172,3 +172,10 @@ classified as needing a Python experiment, routed to the approved `synthetic_cal
 template, and eligible for uv-local sandbox execution within existing budgets. Completed artifacts
 remain scoped experiment evidence only for the mapped bounded claim and never imply broad
 validation, correctness, novelty, or publication readiness.
+
+Milestone 75 adds a deterministic mixed-state terminal policy for the autonomous loop. It
+classifies resolved, deferred, exhausted, duplicate-only, noncritical, and blocking gaps; computes
+effective readiness from attempt history, strategy exhaustion, de-duplication, and sandbox budgets;
+and applies newly selected deterministic strategies without an extra iteration of scheduling lag.
+Clean supported/deferred runs stop without a max-iteration fallback while deferred work remains
+visible and `publication_ready` remains false.

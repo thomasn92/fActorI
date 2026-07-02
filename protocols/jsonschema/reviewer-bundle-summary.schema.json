@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.39.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.40.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -51,6 +51,36 @@
       "title": "Autonomous Execution Present",
       "type": "boolean"
     },
+    "autonomous_loop_automation_ready_after_history_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Loop Automation Ready After History Count",
+      "type": "integer"
+    },
+    "autonomous_loop_blocking_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Loop Blocking Gap Count",
+      "type": "integer"
+    },
+    "autonomous_loop_deferred_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Loop Deferred Gap Count",
+      "type": "integer"
+    },
+    "autonomous_loop_duplicate_only_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Loop Duplicate Only Gap Count",
+      "type": "integer"
+    },
+    "autonomous_loop_exhausted_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Loop Exhausted Gap Count",
+      "type": "integer"
+    },
     "autonomous_loop_present": {
       "default": false,
       "title": "Autonomous Loop Present",
@@ -60,6 +90,41 @@
       "default": false,
       "title": "Autonomous Loop Requires Human Intervention",
       "type": "boolean"
+    },
+    "autonomous_loop_resolved_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Autonomous Loop Resolved Gap Count",
+      "type": "integer"
+    },
+    "autonomous_loop_stopped_before_max_iterations": {
+      "default": false,
+      "title": "Autonomous Loop Stopped Before Max Iterations",
+      "type": "boolean"
+    },
+    "autonomous_loop_terminal_state": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Autonomous Loop Terminal State"
+    },
+    "autonomous_loop_terminal_state_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Autonomous Loop Terminal State Reason"
     },
     "autonomous_next_actions": {
       "items": {
@@ -769,7 +834,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.39.0",
+  "x-factori-protocol-version": "0.40.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

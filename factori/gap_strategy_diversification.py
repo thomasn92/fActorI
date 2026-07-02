@@ -539,6 +539,13 @@ def _strategy_templates(
     if record.gap_type == "needs_formal_proof":
         return [
             (
+                "claim_downgrade_variant",
+                f"Downgrade {target} from theorem language to an explicit proof obligation.",
+                "manuscript_revision",
+                ["boundary_language_only", f"target={target}"],
+                "Downgrading avoids an unsupported theorem claim when formal proof is unavailable.",
+            ),
+            (
                 "proof_decomposition_variant",
                 f"Split {target} into deterministic subclaims and create a proof-plan obligation.",
                 "proof_artifact",
@@ -551,13 +558,6 @@ def _strategy_templates(
                 "proof_artifact",
                 ["local_contract_only", "checker_neutral_certificate", f"target={target}"],
                 "A checker-neutral contract is materially different but remains unverified.",
-            ),
-            (
-                "claim_downgrade_variant",
-                f"Downgrade {target} from theorem language to an explicit proof obligation.",
-                "manuscript_revision",
-                ["boundary_language_only", f"target={target}"],
-                "Downgrading avoids an unsupported theorem claim when formal proof is unavailable.",
             ),
         ]
     if record.gap_type == "needs_python_experiment":

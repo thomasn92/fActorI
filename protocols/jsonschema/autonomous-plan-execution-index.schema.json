@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.39.0/autonomous-plan-execution-index.schema.json",
+  "$id": "https://schemas.factori.local/0.40.0/autonomous-plan-execution-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable autonomous executions.",
@@ -75,7 +75,7 @@
   ],
   "title": "AutonomousPlanExecutionIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.39.0",
+  "x-factori-protocol-version": "0.40.0",
   "x-factori-source-model": "factori.schemas.AutonomousPlanExecutionIndex",
   "x-factori-verification-evidence": false
 }

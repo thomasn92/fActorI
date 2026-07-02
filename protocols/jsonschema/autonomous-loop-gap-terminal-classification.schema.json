@@ -1,0 +1,108 @@
+{
+  "$id": "https://schemas.factori.local/0.40.0/autonomous-loop-gap-terminal-classification.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Terminal workflow classification for one autonomous evidence gap.",
+  "properties": {
+    "automation_ready_after_history": {
+      "default": false,
+      "title": "Automation Ready After History",
+      "type": "boolean"
+    },
+    "blocking": {
+      "default": false,
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "gap_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Fingerprint"
+    },
+    "gap_type": {
+      "minLength": 1,
+      "title": "Gap Type",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    },
+    "target_section_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section Optional"
+    },
+    "terminal_class": {
+      "enum": [
+        "resolved_by_evidence",
+        "resolved_by_claim_downgrade",
+        "resolved_by_claim_removal",
+        "deferred_exhausted_proof",
+        "deferred_exhausted_retrieval",
+        "deferred_budget_exhausted",
+        "deferred_requires_external_tool",
+        "deferred_requires_network",
+        "duplicate_only",
+        "noncritical_boundary_gap",
+        "blocking_unsupported_claim",
+        "unclassified_requires_human_intervention"
+      ],
+      "title": "Terminal Class",
+      "type": "string"
+    }
+  },
+  "required": [
+    "gap_type",
+    "terminal_class",
+    "reason"
+  ],
+  "title": "AutonomousLoopGapTerminalClassification",
+  "type": "object",
+  "x-factori-protocol-version": "0.40.0",
+  "x-factori-source-model": "factori.schemas.AutonomousLoopGapTerminalClassification",
+  "x-factori-verification-evidence": false
+}

@@ -48,13 +48,17 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     AutonomousEvidenceGapPlan,
+    AutonomousEvidenceGapPlanItem,
     AutonomousLoopDecision,
+    AutonomousLoopGapTerminalClassification,
     AutonomousLoopIndex,
     AutonomousLoopIterationReport,
     AutonomousLoopRunReport,
     ClaimEvidenceMap,
     ControllerActionType,
     FullPaperReleaseGateConfig,
+    GapAttemptHistory,
+    PlannedSpecDedupIndex,
     SandboxBudgetPolicy,
 )
 
@@ -142,6 +146,8 @@ def run_autonomous_loop(
             stop_reason="safety_gate_blocked",
             loop_status="blocked_requires_human_intervention",
             rationale=corrupt_map_reason,
+            terminal_state="stopped_safety_blocked",
+            terminal_state_reason=corrupt_map_reason,
         )
         report = AutonomousLoopRunReport(
             run_id=run_id,
@@ -161,6 +167,8 @@ def run_autonomous_loop(
             final_claim_evidence_counts=initial_claim_counts,
             initial_gap_counts=initial_gap_counts,
             final_gap_counts=initial_gap_counts,
+            terminal_state="stopped_safety_blocked",
+            terminal_state_reason=corrupt_map_reason,
             iterations=[],
             requires_human_intervention=True,
             human_intervention_reason_optional=decision.rationale,
@@ -232,6 +240,11 @@ def run_autonomous_loop(
                 stop_reason="requires_human_intervention",
                 loop_status="blocked_requires_human_intervention",
                 rationale=(
+                    plan_result.plan.human_intervention_reason_optional
+                    or "Autonomous plan requires human intervention."
+                ),
+                terminal_state="stopped_requires_human_intervention",
+                terminal_state_reason=(
                     plan_result.plan.human_intervention_reason_optional
                     or "Autonomous plan requires human intervention."
                 ),
@@ -401,6 +414,89 @@ def run_autonomous_loop(
             empirical_gaps_created,
             final_plan_result.plan.empirical_demonstration_gap_count,
         )
+        immediate_strategy_paths: list[str] = []
+        if (
+            diversification_result is not None
+            and diversification_result.report.selected_strategy_count > 0
+        ):
+            immediate_execution = execute_autonomous_evidence_plan(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                execution_mode="apply",
+                executor_backend="deterministic",
+                max_attempts_per_gap=max_attempts_per_gap,
+            )
+            autonomous_summary = inspect_autonomous_plan_execution(
+                run_id=run_id,
+                root=root_path,
+            )
+            immediate_planned_execution = execute_planned_specs(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                execution_mode="apply",
+                spec_executor_backend="deterministic_local",
+                python_sandbox_backend=python_sandbox_backend,
+                max_sandbox_runs=min(
+                    max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),
+                    max_sandbox_runs_per_iteration,
+                ),
+                max_attempts_per_gap=max_attempts_per_gap,
+            )
+            sandbox_runs_used += _sandbox_attempt_count(immediate_planned_execution.report)
+            sandbox_failures_used += _sandbox_failure_count(
+                immediate_planned_execution.report
+            )
+            sandbox_experiment_artifacts += (
+                immediate_planned_execution.report.experiment_artifacts_created
+            )
+            sandbox_budget_exhausted = (
+                sandbox_runs_used >= max_sandbox_runs_per_loop
+                or sandbox_failures_used >= max_sandbox_failures_per_loop
+                or sandbox_experiment_artifacts >= max_sandbox_runs_per_loop
+            )
+            planned_summary = inspect_planned_spec_execution(
+                run_id=run_id,
+                root=root_path,
+            )
+            history_result = persist_gap_attempt_artifacts(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                max_attempts_per_gap=max_attempts_per_gap,
+            )
+            rebuilt_map = persist_claim_evidence_map(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                enable_empirical_demonstration_gaps=(
+                    enable_empirical_demonstration_gaps
+                ),
+            )
+            final_plan_result = persist_autonomous_evidence_gap_plan(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                backend="deterministic",
+                max_attempts_per_gap=max_attempts_per_gap,
+            )
+            immediate_strategy_paths = [
+                immediate_execution.report_artifact.path,
+                *immediate_execution.report.created_artifact_paths,
+                immediate_planned_execution.report_artifact.path,
+                *immediate_planned_execution.report.created_artifact_paths,
+                history_result.history_artifact.path,
+                history_result.dedup_index_artifact.path,
+                rebuilt_map.map_artifact.path,
+                final_plan_result.plan_artifact.path,
+            ]
+            artifacts_created.extend(immediate_strategy_paths)
 
         release_report = _evaluate_release(run_id, root_path, ledger)
         release_path = _planned_spec_release_path(root_path, run_id, planned_summary)
@@ -416,6 +512,7 @@ def run_autonomous_loop(
             planned_execution.report_artifact.path,
             rebuilt_map.map_artifact.path,
             final_plan_result.plan_artifact.path,
+            *immediate_strategy_paths,
         ]
         if diversification_result is not None:
             iteration_paths.extend(
@@ -458,6 +555,21 @@ def run_autonomous_loop(
                 else 0
             ),
         )
+        terminal_history = build_gap_attempt_history(
+            run_id=run_id,
+            root=root_path,
+            max_attempts_per_gap=max_attempts_per_gap,
+            now=_now(ledger),
+        )
+        terminal = _terminal_summary(
+            plan=final_plan_result.plan,
+            history=terminal_history,
+            dedup_index=_read_planned_spec_dedup_index(
+                dedup_path=latest_planned_spec_dedup_index_path(root_path, run_id)
+            ),
+            sandbox_budget_exhausted=sandbox_budget_exhausted,
+            claim_map=rebuilt_map.claim_evidence_map,
+        )
         meaningful_progress = _meaningful_progress(previous_snapshot, snapshot)
         no_progress_streak = 0 if meaningful_progress else no_progress_streak + 1
         if release_report.decision.status.value == "ReleaseGateFailed":
@@ -466,10 +578,27 @@ def run_autonomous_loop(
                 stop_reason="safety_gate_blocked",
                 loop_status="blocked_requires_human_intervention",
                 rationale="Post-iteration release gate failed; autonomous loop stopped safely.",
+                resolved_gap_count=terminal.resolved_gap_count,
+                deferred_gap_count=terminal.deferred_gap_count,
+                exhausted_gap_count=terminal.exhausted_gap_count,
+                duplicate_only_gap_count=terminal.duplicate_only_gap_count,
+                blocking_gap_count=terminal.blocking_gap_count,
+                automation_ready_after_history_count=(
+                    terminal.automation_ready_after_history_count
+                ),
+                terminal_state="stopped_safety_blocked",
+                terminal_state_reason=(
+                    "Post-iteration release gate failed; autonomous loop stopped safely."
+                ),
+                remaining_deferred_reasons=terminal.remaining_deferred_reasons,
+                non_automation_ready_reasons=terminal.non_automation_ready_reasons,
+                gap_terminal_classifications=list(terminal.classifications),
             )
         else:
             decision = _decide_iteration(
                 snapshot=snapshot,
+                previous_snapshot=previous_snapshot,
+                terminal=terminal,
                 iteration_number=iteration_number,
                 max_iterations=max_iterations,
                 no_progress_streak=no_progress_streak,
@@ -532,6 +661,8 @@ def run_autonomous_loop(
             stop_reason="max_iterations_reached",
             loop_status="stopped_max_iterations",
             rationale="Loop reached max_iterations before completing an iteration.",
+            terminal_state="stopped_max_iterations",
+            terminal_state_reason="Loop reached max_iterations before completing an iteration.",
         )
     final_claim_counts = _current_claim_counts(root_path, run_id)
     final_gap_counts = _current_gap_counts(root_path, run_id)
@@ -547,6 +678,34 @@ def run_autonomous_loop(
         root=root_path,
         max_attempts_per_gap=max_attempts_per_gap,
         now=_now(ledger),
+    )
+    final_plan_path = latest_autonomous_evidence_gap_plan_path(root_path, run_id)
+    final_plan = (
+        AutonomousEvidenceGapPlan.model_validate_json(final_plan_path.read_text(encoding="utf-8"))
+        if final_plan_path is not None
+        else None
+    )
+    final_claim_map = _read_claim_map(
+        latest_claim_evidence_map_path(root_path, run_id)
+    )
+    final_terminal = (
+        _terminal_summary(
+            plan=final_plan,
+            history=latest_history,
+            dedup_index=_read_planned_spec_dedup_index(dedup_path=dedup_path),
+            sandbox_budget_exhausted=sandbox_budget_exhausted,
+            claim_map=final_claim_map,
+        )
+        if final_plan is not None
+        else _empty_terminal_summary()
+    )
+    empirical_paths_resolved = max(
+        final_terminal.empirical_paths_resolved,
+        sum(
+            bool(link.supporting_experiment_artifact_ids)
+            and link.support_status == "supported_within_scope"
+            for link in final_claim_map.links
+        ),
     )
     report = AutonomousLoopRunReport(
         run_id=run_id,
@@ -595,6 +754,28 @@ def run_autonomous_loop(
         empirical_gaps_routed=empirical_gaps_routed,
         sandbox_experiments_completed=sandbox_experiment_artifacts,
         experiment_artifacts_ingested=sandbox_experiment_artifacts,
+        terminal_state=(
+            final_decision.terminal_state or "stopped_requires_human_intervention"
+        ),
+        terminal_state_reason=(
+            final_decision.terminal_state_reason or final_decision.rationale
+        ),
+        resolved_gap_count=final_terminal.resolved_gap_count,
+        deferred_gap_count=final_terminal.deferred_gap_count,
+        exhausted_gap_count=final_terminal.exhausted_gap_count,
+        duplicate_only_gap_count=final_terminal.duplicate_only_gap_count,
+        blocking_gap_count=final_terminal.blocking_gap_count,
+        automation_ready_after_history_count=(
+            final_terminal.automation_ready_after_history_count
+        ),
+        empirical_paths_resolved=empirical_paths_resolved,
+        proof_paths_deferred=final_terminal.proof_paths_deferred,
+        retrieval_paths_deferred=final_terminal.retrieval_paths_deferred,
+        stopped_before_max_iterations=(
+            len(iterations) < max_iterations
+            and final_decision.terminal_state != "stopped_max_iterations"
+        ),
+        gap_terminal_classifications=list(final_terminal.classifications),
         iterations=iterations,
         artifacts_created=sorted(set(artifacts_created)),
         requires_human_intervention=(
@@ -669,6 +850,18 @@ def autonomous_loop_summary_fields(
             "empirical_gaps_routed": 0,
             "sandbox_experiments_completed": 0,
             "experiment_artifacts_ingested": 0,
+            "autonomous_loop_terminal_state": None,
+            "autonomous_loop_terminal_state_reason": None,
+            "autonomous_loop_resolved_gap_count": 0,
+            "autonomous_loop_deferred_gap_count": 0,
+            "autonomous_loop_exhausted_gap_count": 0,
+            "autonomous_loop_duplicate_only_gap_count": 0,
+            "autonomous_loop_blocking_gap_count": 0,
+            "autonomous_loop_automation_ready_after_history_count": 0,
+            "autonomous_loop_stopped_before_max_iterations": False,
+            "autonomous_loop_empirical_paths_resolved": 0,
+            "autonomous_loop_proof_paths_deferred": 0,
+            "autonomous_loop_retrieval_paths_deferred": 0,
         }
     return {
         "autonomous_loop_present": True,
@@ -702,6 +895,22 @@ def autonomous_loop_summary_fields(
         "empirical_gaps_routed": report.empirical_gaps_routed,
         "sandbox_experiments_completed": report.sandbox_experiments_completed,
         "experiment_artifacts_ingested": report.experiment_artifacts_ingested,
+        "autonomous_loop_terminal_state": report.terminal_state,
+        "autonomous_loop_terminal_state_reason": report.terminal_state_reason,
+        "autonomous_loop_resolved_gap_count": report.resolved_gap_count,
+        "autonomous_loop_deferred_gap_count": report.deferred_gap_count,
+        "autonomous_loop_exhausted_gap_count": report.exhausted_gap_count,
+        "autonomous_loop_duplicate_only_gap_count": report.duplicate_only_gap_count,
+        "autonomous_loop_blocking_gap_count": report.blocking_gap_count,
+        "autonomous_loop_automation_ready_after_history_count": (
+            report.automation_ready_after_history_count
+        ),
+        "autonomous_loop_stopped_before_max_iterations": (
+            report.stopped_before_max_iterations
+        ),
+        "autonomous_loop_empirical_paths_resolved": report.empirical_paths_resolved,
+        "autonomous_loop_proof_paths_deferred": report.proof_paths_deferred,
+        "autonomous_loop_retrieval_paths_deferred": report.retrieval_paths_deferred,
     }
 
 
@@ -747,6 +956,24 @@ def render_autonomous_loop_markdown(report: AutonomousLoopRunReport) -> str:
         f"Status: `{report.loop_status}`",
         f"Iterations completed: `{report.iterations_completed}`",
         f"Stop reason: `{report.stop_reason}`",
+        f"Terminal state: `{report.terminal_state}`",
+        f"Terminal reason: {report.terminal_state_reason}",
+        f"Resolved gaps: `{report.resolved_gap_count}`",
+        f"Deferred gaps: `{report.deferred_gap_count}`",
+        f"Exhausted gaps: `{report.exhausted_gap_count}`",
+        f"Duplicate-only gaps: `{report.duplicate_only_gap_count}`",
+        f"Blocking gaps: `{report.blocking_gap_count}`",
+        (
+            "Automation-ready after history: "
+            f"`{report.automation_ready_after_history_count}`"
+        ),
+        (
+            "Stopped before max iterations: "
+            f"`{str(report.stopped_before_max_iterations).lower()}`"
+        ),
+        f"Empirical paths resolved: `{report.empirical_paths_resolved}`",
+        f"Proof paths deferred: `{report.proof_paths_deferred}`",
+        f"Retrieval paths deferred: `{report.retrieval_paths_deferred}`",
         f"Final release: `{report.final_release_status}`",
         f"Publication ready: `{str(report.final_publication_ready).lower()}`",
         f"Duplicate specs skipped: `{report.duplicate_specs_skipped}`",
@@ -817,6 +1044,50 @@ class _ProgressSnapshot:
     manuscript_after: str | None
 
 
+@dataclass(frozen=True)
+class _TerminalSummary:
+    classifications: tuple[AutonomousLoopGapTerminalClassification, ...]
+    resolved_gap_count: int
+    deferred_gap_count: int
+    exhausted_gap_count: int
+    duplicate_only_gap_count: int
+    blocking_gap_count: int
+    automation_ready_after_history_count: int
+    empirical_paths_resolved: int
+    proof_paths_deferred: int
+    retrieval_paths_deferred: int
+
+    @property
+    def remaining_deferred_reasons(self) -> list[str]:
+        return sorted(
+            {
+                item.reason
+                for item in self.classifications
+                if item.terminal_class.startswith("deferred_")
+                or item.terminal_class in {"duplicate_only", "noncritical_boundary_gap"}
+            }
+        )
+
+    @property
+    def non_automation_ready_reasons(self) -> list[str]:
+        return sorted(
+            {
+                item.reason
+                for item in self.classifications
+                if not item.automation_ready_after_history
+                and not item.terminal_class.startswith("resolved_")
+            }
+        )
+
+    @property
+    def has_deferred_terminal_work(self) -> bool:
+        return any(
+            item.terminal_class.startswith("deferred_")
+            or item.terminal_class in {"duplicate_only", "noncritical_boundary_gap"}
+            for item in self.classifications
+        )
+
+
 def _snapshot(
     *,
     claim_map: ClaimEvidenceMap,
@@ -861,8 +1132,6 @@ def _meaningful_progress(
         return True
     if current.actions_applied > current.created_spec_count:
         return True
-    if current.selected_strategy_count > 0:
-        return True
     if current.routed_experiment_spec_count > 0:
         return True
     if current.experiment_artifacts_created > 0:
@@ -900,82 +1169,430 @@ def _sandbox_failure_count(report) -> int:
     )
 
 
+_EXHAUSTED_GAP_STATUSES = {
+    "exhausted_no_progress",
+    "exhausted_initial_strategy",
+    "exhausted_all_strategies",
+    "deferred_after_diversification",
+}
+_SEMANTIC_GAP_TYPES = {
+    "needs_python_experiment",
+    "needs_formal_proof",
+    "needs_retrieval_expansion",
+    "needs_claim_downgrade",
+    "needs_claim_removal",
+    "needs_manuscript_refresh",
+}
+
+
+def _terminal_summary(
+    *,
+    plan: AutonomousEvidenceGapPlan,
+    history: GapAttemptHistory,
+    dedup_index: PlannedSpecDedupIndex | None,
+    sandbox_budget_exhausted: bool,
+    claim_map: ClaimEvidenceMap | None = None,
+) -> _TerminalSummary:
+    records = {record.gap_fingerprint: record for record in history.records}
+    duplicate_gaps = {
+        record.gap_fingerprint
+        for record in (dedup_index.duplicate_records if dedup_index else [])
+        if record.gap_fingerprint
+    }
+    classifications: list[AutonomousLoopGapTerminalClassification] = []
+    classified_fingerprints: set[str] = set()
+    evidence_supported_claim_ids = {
+        link.claim_id
+        for link in (claim_map.links if claim_map is not None else [])
+        if link.support_status == "supported_within_scope"
+        and (
+            link.supporting_proof_artifact_ids
+            or link.supporting_experiment_artifact_ids
+            or link.supporting_citation_keys
+        )
+    }
+
+    for record in history.records:
+        if (
+            record.current_gap_status != "resolved"
+            or record.gap_type not in _SEMANTIC_GAP_TYPES
+        ):
+            continue
+        if record.linked_evidence_artifact_ids or (
+            record.target_claim_id_optional in evidence_supported_claim_ids
+        ):
+            terminal_class = "resolved_by_evidence"
+            reason = record.resolution_reason_optional or "Scoped evidence resolved this gap."
+        elif record.gap_type == "needs_claim_removal":
+            terminal_class = "resolved_by_claim_removal"
+            reason = record.resolution_reason_optional or "The unsupported claim was removed."
+        else:
+            terminal_class = "resolved_by_claim_downgrade"
+            reason = record.resolution_reason_optional or (
+                "The claim no longer requires the original evidence action after bounded revision."
+            )
+        classifications.append(
+            AutonomousLoopGapTerminalClassification(
+                gap_fingerprint=record.gap_fingerprint,
+                target_claim_id_optional=record.target_claim_id_optional,
+                target_section_optional=record.target_section_optional,
+                gap_type=record.gap_type,
+                terminal_class=terminal_class,
+                blocking=False,
+                automation_ready_after_history=False,
+                reason=reason,
+            )
+        )
+        classified_fingerprints.add(record.gap_fingerprint)
+
+    ordered_items = sorted(
+        plan.plan_items,
+        key=lambda item: (
+            not bool(item.strategy_fingerprint and item.automation_ready),
+            item.item_id,
+        ),
+    )
+    for item in ordered_items:
+        if item.gap_type == "sufficiently_supported_for_bounded_draft":
+            continue
+        gap_fingerprint = item.gap_fingerprint or item.source_gap_fingerprint
+        if gap_fingerprint in classified_fingerprints:
+            continue
+        record = records.get(gap_fingerprint or "")
+        status = record.current_gap_status if record is not None else "open"
+        exhausted = bool(item.gap_exhausted or status in _EXHAUSTED_GAP_STATUSES)
+        duplicated = bool(gap_fingerprint and gap_fingerprint in duplicate_gaps)
+        ready = bool(item.automation_ready_after_history or item.automation_ready)
+        terminal_class, reason = _terminal_class_for_item(
+            item=item,
+            status=status,
+            exhausted=exhausted,
+            duplicated=duplicated,
+            sandbox_budget_exhausted=sandbox_budget_exhausted,
+            ready=ready,
+        )
+        if terminal_class in {
+            "deferred_exhausted_proof",
+            "deferred_exhausted_retrieval",
+            "deferred_budget_exhausted",
+            "deferred_requires_external_tool",
+            "deferred_requires_network",
+            "duplicate_only",
+        }:
+            ready = False
+        blocking = bool(
+            item.blocking
+            and item.current_support_status in {
+                "unsupported",
+                "partially_supported",
+                "blocked_forbidden_claim",
+            }
+        )
+        classifications.append(
+            AutonomousLoopGapTerminalClassification(
+                gap_fingerprint=gap_fingerprint,
+                target_claim_id_optional=item.target_claim_id_optional,
+                target_section_optional=item.target_section_optional,
+                gap_type=item.gap_type,
+                terminal_class=terminal_class,
+                blocking=blocking,
+                automation_ready_after_history=ready,
+                reason=reason,
+            )
+        )
+        if gap_fingerprint:
+            classified_fingerprints.add(gap_fingerprint)
+
+    for record in history.records:
+        if record.gap_fingerprint in classified_fingerprints:
+            continue
+        if (
+            record.gap_type not in _SEMANTIC_GAP_TYPES
+            or record.current_gap_status not in _EXHAUSTED_GAP_STATUSES | {"deferred"}
+        ):
+            continue
+        terminal_class, reason = _terminal_class_for_history_record(record.gap_type)
+        classifications.append(
+            AutonomousLoopGapTerminalClassification(
+                gap_fingerprint=record.gap_fingerprint,
+                target_claim_id_optional=record.target_claim_id_optional,
+                target_section_optional=record.target_section_optional,
+                gap_type=record.gap_type,
+                terminal_class=terminal_class,
+                blocking=False,
+                automation_ready_after_history=False,
+                reason=record.exhaustion_reason_optional or reason,
+            )
+        )
+
+    exhausted_fingerprints = {
+        record.gap_fingerprint
+        for record in history.records
+        if record.current_gap_status in _EXHAUSTED_GAP_STATUSES
+    }
+    return _TerminalSummary(
+        classifications=tuple(classifications),
+        resolved_gap_count=sum(
+            item.terminal_class.startswith("resolved_") for item in classifications
+        ),
+        deferred_gap_count=sum(
+            item.terminal_class.startswith("deferred_") for item in classifications
+        ),
+        exhausted_gap_count=len(exhausted_fingerprints),
+        duplicate_only_gap_count=sum(
+            item.terminal_class == "duplicate_only" for item in classifications
+        ),
+        blocking_gap_count=sum(item.blocking for item in classifications),
+        automation_ready_after_history_count=sum(
+            item.automation_ready_after_history for item in classifications
+        ),
+        empirical_paths_resolved=sum(
+            item.terminal_class == "resolved_by_evidence"
+            and item.gap_type == "needs_python_experiment"
+            for item in classifications
+        ),
+        proof_paths_deferred=sum(
+            item.terminal_class == "deferred_exhausted_proof"
+            for item in classifications
+        ),
+        retrieval_paths_deferred=sum(
+            item.terminal_class == "deferred_exhausted_retrieval"
+            for item in classifications
+        ),
+    )
+
+
+def _empty_terminal_summary() -> _TerminalSummary:
+    return _TerminalSummary(
+        classifications=(),
+        resolved_gap_count=0,
+        deferred_gap_count=0,
+        exhausted_gap_count=0,
+        duplicate_only_gap_count=0,
+        blocking_gap_count=0,
+        automation_ready_after_history_count=0,
+        empirical_paths_resolved=0,
+        proof_paths_deferred=0,
+        retrieval_paths_deferred=0,
+    )
+
+
+def _read_planned_spec_dedup_index(
+    *,
+    dedup_path: Path | None,
+) -> PlannedSpecDedupIndex | None:
+    if dedup_path is None:
+        return None
+    try:
+        return PlannedSpecDedupIndex.model_validate_json(
+            dedup_path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return None
+
+
+def _terminal_class_for_item(
+    *,
+    item: AutonomousEvidenceGapPlanItem,
+    status: str,
+    exhausted: bool,
+    duplicated: bool,
+    sandbox_budget_exhausted: bool,
+    ready: bool,
+) -> tuple[str, str]:
+    text = " ".join([item.recommended_action, *item.required_inputs]).casefold()
+    if item.gap_type == "needs_python_experiment" and sandbox_budget_exhausted:
+        return (
+            "deferred_budget_exhausted",
+            "The loop sandbox budget is exhausted; this experiment action is deferred.",
+        )
+    if exhausted and not ready and item.gap_type == "needs_formal_proof":
+        return (
+            "deferred_exhausted_proof",
+            "All safe local proof strategies for this gap are exhausted without formal evidence.",
+        )
+    if exhausted and not ready and item.gap_type == "needs_retrieval_expansion":
+        return (
+            "deferred_exhausted_retrieval",
+            "All safe local retrieval strategies for this gap are exhausted without new support.",
+        )
+    if duplicated and not ready:
+        return (
+            "duplicate_only",
+            "Only an equivalent previously attempted planned specification remains.",
+        )
+    if not ready and any(marker in text for marker in ("requires network", "external api")):
+        return (
+            "deferred_requires_network",
+            "The remaining action requires network access, which this loop does not permit.",
+        )
+    if not ready and any(
+        marker in text
+        for marker in ("external proof tool", "invoke lean", "requires external tool")
+    ):
+        return (
+            "deferred_requires_external_tool",
+            "The remaining action requires an external tool outside this loop policy.",
+        )
+    if item.blocking and item.current_support_status in {
+        "unsupported",
+        "partially_supported",
+        "blocked_forbidden_claim",
+    }:
+        return (
+            "blocking_unsupported_claim",
+            "A support-required claim remains unsupported within the current evidence scope.",
+        )
+    if not item.blocking:
+        return (
+            "noncritical_boundary_gap",
+            "This bounded workflow gap is noncritical and does not represent "
+            "missing claim support.",
+        )
+    return (
+        "unclassified_requires_human_intervention",
+        f"The remaining `{status}` gap could not be classified by terminal policy.",
+    )
+
+
+def _terminal_class_for_history_record(gap_type: str) -> tuple[str, str]:
+    if gap_type == "needs_formal_proof":
+        return "deferred_exhausted_proof", "The proof gap exhausted safe local attempts."
+    if gap_type == "needs_retrieval_expansion":
+        return (
+            "deferred_exhausted_retrieval",
+            "The retrieval gap exhausted safe local attempts.",
+        )
+    return "duplicate_only", "The gap has no remaining non-duplicate local action."
+
+
 def _decide_iteration(
     *,
     snapshot: _ProgressSnapshot,
+    previous_snapshot: _ProgressSnapshot | None,
+    terminal: _TerminalSummary,
     iteration_number: int,
     max_iterations: int,
     no_progress_streak: int,
 ) -> AutonomousLoopDecision:
+    changed, unchanged = _progress_explanation(previous_snapshot, snapshot)
+    common = {
+        "resolved_gap_count": terminal.resolved_gap_count,
+        "deferred_gap_count": terminal.deferred_gap_count,
+        "exhausted_gap_count": terminal.exhausted_gap_count,
+        "duplicate_only_gap_count": terminal.duplicate_only_gap_count,
+        "blocking_gap_count": terminal.blocking_gap_count,
+        "automation_ready_after_history_count": (
+            terminal.automation_ready_after_history_count
+        ),
+        "changes_this_iteration": changed,
+        "unchanged_this_iteration": unchanged,
+        "remaining_deferred_reasons": terminal.remaining_deferred_reasons,
+        "non_automation_ready_reasons": terminal.non_automation_ready_reasons,
+        "gap_terminal_classifications": list(terminal.classifications),
+    }
     if (
         snapshot.unsupported == 0
-        and snapshot.automation_ready == 0
-        and snapshot.exhausted_gap_count > 0
+        and terminal.blocking_gap_count == 0
+        and terminal.automation_ready_after_history_count == 0
     ):
-        return AutonomousLoopDecision(
-            continue_loop=False,
-            stop_reason="exhausted_gaps",
-            loop_status="completed_with_deferred_gaps",
-            rationale=(
-                "All non-scaffold claims are supported within scope, and remaining "
-                "automatic gaps are exhausted or duplicate-only."
-            ),
-        )
-    if (
-        snapshot.unsupported == 0
-        and snapshot.automation_ready == 0
-        and snapshot.deferred_gap_count > 0
-    ):
-        return AutonomousLoopDecision(
-            continue_loop=False,
-            stop_reason="deferred_gaps",
-            loop_status="completed_with_deferred_gaps",
-            rationale=(
-                "All non-scaffold claims are supported within scope, and only "
-                "deferred non-executable gaps remain."
-            ),
-        )
-    if snapshot.unsupported == 0 and snapshot.automation_ready == 0:
+        if terminal.has_deferred_terminal_work or terminal.exhausted_gap_count > 0:
+            reason = (
+                "All support-required claims are resolved within scope; remaining proof, "
+                "retrieval, budget, duplicate-only, or boundary work is deferred and has no "
+                "safe automation-ready action."
+            )
+            return AutonomousLoopDecision(
+                continue_loop=False,
+                stop_reason="deferred_gaps",
+                loop_status="completed_with_deferred_gaps",
+                rationale=reason,
+                terminal_state="completed_with_deferred_gaps",
+                terminal_state_reason=reason,
+                **common,
+            )
+        reason = "All support-required claims are supported and no deferred gaps remain."
         return AutonomousLoopDecision(
             continue_loop=False,
             stop_reason="no_unsupported_claims",
             loop_status="completed",
-            rationale=(
-                "All non-scaffold claims are supported within scope and no automation-ready "
-                "plan items remain."
-            ),
+            rationale=reason,
+            terminal_state="completed_all_supported",
+            terminal_state_reason=reason,
+            **common,
         )
-    if snapshot.unsupported == 0 and snapshot.automation_ready > 0 and no_progress_streak >= 2:
+    if terminal.automation_ready_after_history_count == 0 and snapshot.unsupported > 0:
+        reason = (
+            "Unsupported claims remain, but history, policy, or budget leaves no safe "
+            "automation-ready action. Deferred gaps remain visible."
+        )
         return AutonomousLoopDecision(
             continue_loop=False,
             stop_reason="no_progress",
             loop_status="stopped_no_progress",
-            rationale=(
-                "Only repeated executable gaps remain, and two consecutive iterations "
-                "made no meaningful evidence, manuscript, or gap-count progress."
-            ),
+            rationale=reason,
+            terminal_state="stopped_no_progress",
+            terminal_state_reason=reason,
+            **common,
         )
     if no_progress_streak >= 2:
+        reason = (
+            "Two consecutive iterations made no meaningful evidence, manuscript, "
+            "or gap-count progress."
+        )
         return AutonomousLoopDecision(
             continue_loop=False,
             stop_reason="no_progress",
             loop_status="stopped_no_progress",
-            rationale=(
-                "Two consecutive iterations made no meaningful evidence, manuscript, "
-                "or gap-count progress."
-            ),
+            rationale=reason,
+            terminal_state="stopped_no_progress",
+            terminal_state_reason=reason,
+            **common,
         )
     if iteration_number >= max_iterations:
+        reason = "The configured maximum iteration count was reached."
         return AutonomousLoopDecision(
             continue_loop=False,
             stop_reason="max_iterations_reached",
             loop_status="stopped_max_iterations",
-            rationale="The configured maximum iteration count was reached.",
+            rationale=reason,
+            terminal_state="stopped_max_iterations",
+            terminal_state_reason=reason,
+            **common,
         )
     return AutonomousLoopDecision(
         continue_loop=True,
-        rationale="Automation-ready gaps remain and progress policy allows another iteration.",
+        rationale=(
+            "Automation-ready gaps remain after attempt-history and budget checks; "
+            "progress policy allows another iteration."
+        ),
+        **common,
     )
+
+
+def _progress_explanation(
+    previous: _ProgressSnapshot | None,
+    current: _ProgressSnapshot,
+) -> tuple[list[str], list[str]]:
+    changed: list[str] = []
+    unchanged: list[str] = []
+    if current.manuscript_before != current.manuscript_after:
+        changed.append("The preferred manuscript hash changed after a safety-clean revision.")
+    else:
+        unchanged.append("The preferred manuscript hash did not change.")
+    if current.experiment_artifacts_created > 0:
+        changed.append("A new scoped experiment artifact was created in this iteration.")
+    else:
+        unchanged.append("No new scoped experiment artifact was created.")
+    if previous is not None and current.unsupported < previous.unsupported:
+        changed.append("The unsupported claim count decreased.")
+    elif previous is not None:
+        unchanged.append("The unsupported claim count did not decrease.")
+    if current.created_spec_count > 0 or current.routed_experiment_spec_count > 0:
+        changed.append("At least one new non-duplicate planned specification was created.")
+    else:
+        unchanged.append("No new non-duplicate planned specification was created.")
+    return changed, unchanged
 
 
 def _iteration_report(

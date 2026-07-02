@@ -179,7 +179,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.39.0/hygiene-remediation-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.40.0/hygiene-remediation-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-executing hygiene remediation plan.",
@@ -260,7 +260,7 @@
   ],
   "title": "HygieneRemediationPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.39.0",
+  "x-factori-protocol-version": "0.40.0",
   "x-factori-source-model": "factori.schemas.HygieneRemediationPlan",
   "x-factori-verification-evidence": false
 }

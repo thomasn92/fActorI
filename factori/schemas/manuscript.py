@@ -752,6 +752,15 @@ class ReviewerBundleSummary(StrictModel):
     latest_autonomous_loop_status: str | None = None
     latest_autonomous_loop_iterations_completed: int = Field(default=0, ge=0)
     latest_autonomous_loop_stop_reason: str | None = None
+    autonomous_loop_terminal_state: str | None = None
+    autonomous_loop_terminal_state_reason: str | None = None
+    autonomous_loop_resolved_gap_count: int = Field(default=0, ge=0)
+    autonomous_loop_deferred_gap_count: int = Field(default=0, ge=0)
+    autonomous_loop_exhausted_gap_count: int = Field(default=0, ge=0)
+    autonomous_loop_duplicate_only_gap_count: int = Field(default=0, ge=0)
+    autonomous_loop_blocking_gap_count: int = Field(default=0, ge=0)
+    autonomous_loop_automation_ready_after_history_count: int = Field(default=0, ge=0)
+    autonomous_loop_stopped_before_max_iterations: bool = False
     final_gap_counts: dict[str, int] = Field(default_factory=dict)
     autonomous_loop_requires_human_intervention: bool = False
     gap_attempt_history_present: bool = False
@@ -1729,6 +1738,45 @@ AutonomousLoopStopReason = Literal[
     "exhausted_gaps",
     "deferred_gaps",
 ]
+AutonomousLoopTerminalState = Literal[
+    "completed_all_supported",
+    "completed_with_deferred_gaps",
+    "completed_with_exhausted_noncritical_gaps",
+    "stopped_no_progress",
+    "stopped_safety_blocked",
+    "stopped_requires_human_intervention",
+    "stopped_max_iterations",
+]
+AutonomousLoopGapTerminalClass = Literal[
+    "resolved_by_evidence",
+    "resolved_by_claim_downgrade",
+    "resolved_by_claim_removal",
+    "deferred_exhausted_proof",
+    "deferred_exhausted_retrieval",
+    "deferred_budget_exhausted",
+    "deferred_requires_external_tool",
+    "deferred_requires_network",
+    "duplicate_only",
+    "noncritical_boundary_gap",
+    "blocking_unsupported_claim",
+    "unclassified_requires_human_intervention",
+]
+
+
+class AutonomousLoopGapTerminalClassification(StrictModel):
+    """Terminal disposition of one autonomous workflow gap; not evidence."""
+
+    gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    gap_type: str = Field(min_length=1)
+    terminal_class: AutonomousLoopGapTerminalClass
+    blocking: bool = False
+    automation_ready_after_history: bool = False
+    reason: str = Field(min_length=1)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
 
 
 class AutonomousLoopDecision(StrictModel):
@@ -1738,6 +1786,21 @@ class AutonomousLoopDecision(StrictModel):
     stop_reason: AutonomousLoopStopReason | None = None
     loop_status: AutonomousLoopStatus | None = None
     rationale: str = Field(min_length=1)
+    resolved_gap_count: int = Field(default=0, ge=0)
+    deferred_gap_count: int = Field(default=0, ge=0)
+    exhausted_gap_count: int = Field(default=0, ge=0)
+    duplicate_only_gap_count: int = Field(default=0, ge=0)
+    blocking_gap_count: int = Field(default=0, ge=0)
+    automation_ready_after_history_count: int = Field(default=0, ge=0)
+    terminal_state: AutonomousLoopTerminalState | None = None
+    terminal_state_reason: str | None = None
+    changes_this_iteration: list[str] = Field(default_factory=list)
+    unchanged_this_iteration: list[str] = Field(default_factory=list)
+    remaining_deferred_reasons: list[str] = Field(default_factory=list)
+    non_automation_ready_reasons: list[str] = Field(default_factory=list)
+    gap_terminal_classifications: list[AutonomousLoopGapTerminalClassification] = Field(
+        default_factory=list
+    )
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
@@ -1840,6 +1903,24 @@ class AutonomousLoopRunReport(StrictModel):
     empirical_gaps_routed: int = Field(default=0, ge=0)
     sandbox_experiments_completed: int = Field(default=0, ge=0)
     experiment_artifacts_ingested: int = Field(default=0, ge=0)
+    terminal_state: AutonomousLoopTerminalState = "completed_all_supported"
+    terminal_state_reason: str = Field(
+        default="No terminal-state detail was recorded by this loop version.",
+        min_length=1,
+    )
+    resolved_gap_count: int = Field(default=0, ge=0)
+    deferred_gap_count: int = Field(default=0, ge=0)
+    exhausted_gap_count: int = Field(default=0, ge=0)
+    duplicate_only_gap_count: int = Field(default=0, ge=0)
+    blocking_gap_count: int = Field(default=0, ge=0)
+    automation_ready_after_history_count: int = Field(default=0, ge=0)
+    empirical_paths_resolved: int = Field(default=0, ge=0)
+    proof_paths_deferred: int = Field(default=0, ge=0)
+    retrieval_paths_deferred: int = Field(default=0, ge=0)
+    stopped_before_max_iterations: bool = False
+    gap_terminal_classifications: list[AutonomousLoopGapTerminalClassification] = Field(
+        default_factory=list
+    )
     iterations: list[AutonomousLoopIterationReport] = Field(default_factory=list)
     artifacts_created: list[str] = Field(default_factory=list)
     requires_human_intervention: bool = False

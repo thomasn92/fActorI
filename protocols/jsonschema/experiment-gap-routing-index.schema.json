@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.39.0/experiment-gap-routing-index.schema.json",
+  "$id": "https://schemas.factori.local/0.40.0/experiment-gap-routing-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable experiment-gap routing reports.",
@@ -100,7 +100,7 @@
   ],
   "title": "ExperimentGapRoutingIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.39.0",
+  "x-factori-protocol-version": "0.40.0",
   "x-factori-source-model": "factori.schemas.ExperimentGapRoutingIndex",
   "x-factori-verification-evidence": false
 }

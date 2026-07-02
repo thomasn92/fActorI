@@ -1534,6 +1534,31 @@ def lint_paper_bundle_summary(
     autonomous_loop_requires_human_intervention = bool(
         bundle.get("autonomous_loop_requires_human_intervention")
     )
+    autonomous_loop_terminal_state = bundle.get("autonomous_loop_terminal_state")
+    autonomous_loop_terminal_state_reason = bundle.get(
+        "autonomous_loop_terminal_state_reason"
+    )
+    autonomous_loop_resolved_gap_count = int(
+        bundle.get("autonomous_loop_resolved_gap_count") or 0
+    )
+    autonomous_loop_deferred_gap_count = int(
+        bundle.get("autonomous_loop_deferred_gap_count") or 0
+    )
+    autonomous_loop_exhausted_gap_count = int(
+        bundle.get("autonomous_loop_exhausted_gap_count") or 0
+    )
+    autonomous_loop_duplicate_only_gap_count = int(
+        bundle.get("autonomous_loop_duplicate_only_gap_count") or 0
+    )
+    autonomous_loop_blocking_gap_count = int(
+        bundle.get("autonomous_loop_blocking_gap_count") or 0
+    )
+    autonomous_loop_automation_ready_after_history_count = int(
+        bundle.get("autonomous_loop_automation_ready_after_history_count") or 0
+    )
+    autonomous_loop_stopped_before_max_iterations = bool(
+        bundle.get("autonomous_loop_stopped_before_max_iterations")
+    )
     gap_attempt_history_present = bool(bundle.get("gap_attempt_history_present"))
     gap_attempt_count = int(bundle.get("gap_attempt_count") or 0)
     gap_exhausted_no_progress_count = int(
@@ -2027,6 +2052,21 @@ def lint_paper_bundle_summary(
         ),
         "autonomous_loop_requires_human_intervention": (
             autonomous_loop_requires_human_intervention
+        ),
+        "autonomous_loop_terminal_state": autonomous_loop_terminal_state,
+        "autonomous_loop_terminal_state_reason": autonomous_loop_terminal_state_reason,
+        "autonomous_loop_resolved_gap_count": autonomous_loop_resolved_gap_count,
+        "autonomous_loop_deferred_gap_count": autonomous_loop_deferred_gap_count,
+        "autonomous_loop_exhausted_gap_count": autonomous_loop_exhausted_gap_count,
+        "autonomous_loop_duplicate_only_gap_count": (
+            autonomous_loop_duplicate_only_gap_count
+        ),
+        "autonomous_loop_blocking_gap_count": autonomous_loop_blocking_gap_count,
+        "autonomous_loop_automation_ready_after_history_count": (
+            autonomous_loop_automation_ready_after_history_count
+        ),
+        "autonomous_loop_stopped_before_max_iterations": (
+            autonomous_loop_stopped_before_max_iterations
         ),
         "gap_attempt_history_present": gap_attempt_history_present,
         "gap_attempt_count": gap_attempt_count,
@@ -3114,6 +3154,33 @@ def build_reviewer_bundle_summary(
         latest_autonomous_loop_stop_reason=loop_summary[
             "latest_autonomous_loop_stop_reason"
         ],
+        autonomous_loop_terminal_state=loop_summary[
+            "autonomous_loop_terminal_state"
+        ],
+        autonomous_loop_terminal_state_reason=loop_summary[
+            "autonomous_loop_terminal_state_reason"
+        ],
+        autonomous_loop_resolved_gap_count=int(
+            loop_summary["autonomous_loop_resolved_gap_count"]
+        ),
+        autonomous_loop_deferred_gap_count=int(
+            loop_summary["autonomous_loop_deferred_gap_count"]
+        ),
+        autonomous_loop_exhausted_gap_count=int(
+            loop_summary["autonomous_loop_exhausted_gap_count"]
+        ),
+        autonomous_loop_duplicate_only_gap_count=int(
+            loop_summary["autonomous_loop_duplicate_only_gap_count"]
+        ),
+        autonomous_loop_blocking_gap_count=int(
+            loop_summary["autonomous_loop_blocking_gap_count"]
+        ),
+        autonomous_loop_automation_ready_after_history_count=int(
+            loop_summary["autonomous_loop_automation_ready_after_history_count"]
+        ),
+        autonomous_loop_stopped_before_max_iterations=bool(
+            loop_summary["autonomous_loop_stopped_before_max_iterations"]
+        ),
         final_gap_counts=(
             loop_report.final_gap_counts if loop_report is not None else {}
         ),
@@ -3327,6 +3394,29 @@ def render_reviewer_bundle_summary_markdown(
         (
             "Latest autonomous loop stop reason: "
             f"`{summary.latest_autonomous_loop_stop_reason or 'none'}`"
+        ),
+        (
+            "Autonomous loop terminal state: "
+            f"`{summary.autonomous_loop_terminal_state or 'none'}`"
+        ),
+        (
+            "Autonomous loop terminal reason: "
+            f"{summary.autonomous_loop_terminal_state_reason or 'none'}"
+        ),
+        (
+            "Autonomous loop resolved/deferred/exhausted/duplicate-only gaps: "
+            f"`{summary.autonomous_loop_resolved_gap_count}/"
+            f"{summary.autonomous_loop_deferred_gap_count}/"
+            f"{summary.autonomous_loop_exhausted_gap_count}/"
+            f"{summary.autonomous_loop_duplicate_only_gap_count}`"
+        ),
+        (
+            "Autonomous loop automation-ready after history: "
+            f"`{summary.autonomous_loop_automation_ready_after_history_count}`"
+        ),
+        (
+            "Autonomous loop stopped before max iterations: "
+            f"`{str(summary.autonomous_loop_stopped_before_max_iterations).lower()}`"
         ),
         (
             "Autonomous loop human intervention required: "

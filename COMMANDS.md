@@ -250,6 +250,11 @@ uv run factori show-adapters
 uv run factori adapters
 ```
 
+Autonomous-loop inspection reports the terminal state and reason, resolved/deferred/exhausted/
+duplicate-only gap counts, effective automation readiness after attempt history, and whether the
+loop stopped before its configured iteration cap. Deferred proof, retrieval, and sandbox-budget
+work remains visible and is not evidence or publication readiness.
+
 The default adapter path is fake and makes no external calls. Gated OpenAI adapters are available
 for Stage A candidate proposal and Stage B structural review. Each requires explicit backend/use,
 external-call permission, and an API key. Models are configurable because availability can vary by

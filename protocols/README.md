@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.40.0` adds attempt-, budget-, and strategy-aware autonomous-loop terminal
+classification for mixed resolved/deferred states. It records per-gap terminal dispositions,
+effective automation readiness after history, explicit terminal reasons, and early completion
+without treating deferred work as evidence or publication readiness.
+
 Protocol `0.39.0` adds bounded empirical demonstration gap creation, autonomous
 experiment-demand counts, and loop/routing/sandbox summaries for uv-local empirical coverage.
 These fields remain workflow context only and do not imply validation or publication readiness.

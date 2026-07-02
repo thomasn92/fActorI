@@ -4,6 +4,25 @@
       "additionalProperties": false,
       "description": "Deterministic stop/continue decision for one autonomous loop iteration.",
       "properties": {
+        "automation_ready_after_history_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Automation Ready After History Count",
+          "type": "integer"
+        },
+        "blocking_gap_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Blocking Gap Count",
+          "type": "integer"
+        },
+        "changes_this_iteration": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Changes This Iteration",
+          "type": "array"
+        },
         "continue_loop": {
           "title": "Continue Loop",
           "type": "boolean"
@@ -12,6 +31,31 @@
           "default": false,
           "title": "Creates Scientific Validation",
           "type": "boolean"
+        },
+        "deferred_gap_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Deferred Gap Count",
+          "type": "integer"
+        },
+        "duplicate_only_gap_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Duplicate Only Gap Count",
+          "type": "integer"
+        },
+        "exhausted_gap_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Exhausted Gap Count",
+          "type": "integer"
+        },
+        "gap_terminal_classifications": {
+          "items": {
+            "$ref": "#/$defs/AutonomousLoopGapTerminalClassification"
+          },
+          "title": "Gap Terminal Classifications",
+          "type": "array"
         },
         "implies_publication_readiness": {
           "default": false,
@@ -43,6 +87,13 @@
           "default": null,
           "title": "Loop Status"
         },
+        "non_automation_ready_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Non Automation Ready Reasons",
+          "type": "array"
+        },
         "publication_ready": {
           "default": false,
           "title": "Publication Ready",
@@ -52,6 +103,19 @@
           "minLength": 1,
           "title": "Rationale",
           "type": "string"
+        },
+        "remaining_deferred_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remaining Deferred Reasons",
+          "type": "array"
+        },
+        "resolved_gap_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Resolved Gap Count",
+          "type": "integer"
         },
         "stop_reason": {
           "anyOf": [
@@ -75,6 +139,46 @@
           ],
           "default": null,
           "title": "Stop Reason"
+        },
+        "terminal_state": {
+          "anyOf": [
+            {
+              "enum": [
+                "completed_all_supported",
+                "completed_with_deferred_gaps",
+                "completed_with_exhausted_noncritical_gaps",
+                "stopped_no_progress",
+                "stopped_safety_blocked",
+                "stopped_requires_human_intervention",
+                "stopped_max_iterations"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terminal State"
+        },
+        "terminal_state_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terminal State Reason"
+        },
+        "unchanged_this_iteration": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unchanged This Iteration",
+          "type": "array"
         }
       },
       "required": [
@@ -83,9 +187,112 @@
       ],
       "title": "AutonomousLoopDecision",
       "type": "object"
+    },
+    "AutonomousLoopGapTerminalClassification": {
+      "additionalProperties": false,
+      "description": "Terminal disposition of one autonomous workflow gap; not evidence.",
+      "properties": {
+        "automation_ready_after_history": {
+          "default": false,
+          "title": "Automation Ready After History",
+          "type": "boolean"
+        },
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "gap_fingerprint": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gap Fingerprint"
+        },
+        "gap_type": {
+          "minLength": 1,
+          "title": "Gap Type",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "target_claim_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Claim Id Optional"
+        },
+        "target_section_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Section Optional"
+        },
+        "terminal_class": {
+          "enum": [
+            "resolved_by_evidence",
+            "resolved_by_claim_downgrade",
+            "resolved_by_claim_removal",
+            "deferred_exhausted_proof",
+            "deferred_exhausted_retrieval",
+            "deferred_budget_exhausted",
+            "deferred_requires_external_tool",
+            "deferred_requires_network",
+            "duplicate_only",
+            "noncritical_boundary_gap",
+            "blocking_unsupported_claim",
+            "unclassified_requires_human_intervention"
+          ],
+          "title": "Terminal Class",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gap_type",
+        "terminal_class",
+        "reason"
+      ],
+      "title": "AutonomousLoopGapTerminalClassification",
+      "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.39.0/autonomous-loop-iteration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.40.0/autonomous-loop-iteration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One autonomous loop iteration report.",
@@ -453,7 +660,7 @@
   ],
   "title": "AutonomousLoopIterationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.39.0",
+  "x-factori-protocol-version": "0.40.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopIterationReport",
   "x-factori-verification-evidence": false
 }

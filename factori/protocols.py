@@ -17,6 +17,7 @@ from factori.schemas import (
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
     AutonomousLoopDecision,
+    AutonomousLoopGapTerminalClassification,
     AutonomousLoopIndex,
     AutonomousLoopIterationReport,
     AutonomousLoopRunReport,
@@ -200,7 +201,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.39.0"
+PROTOCOL_VERSION = "0.40.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -541,6 +542,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "AutonomousLoopDecision",
         AutonomousLoopDecision,
         "Deterministic stop or continue decision for one autonomous loop iteration.",
+    ),
+    ProtocolDefinition(
+        "AutonomousLoopGapTerminalClassification",
+        AutonomousLoopGapTerminalClassification,
+        "Terminal workflow classification for one autonomous evidence gap.",
     ),
     ProtocolDefinition(
         "AutonomousLoopIterationReport",
