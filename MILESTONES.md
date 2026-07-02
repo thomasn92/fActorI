@@ -186,3 +186,9 @@ accepted-only references and LaTeX citations, scoped claim evidence, release aut
 reproducibility/environment metadata, and bundled ledger-tip consistency using only bundle
 contents after optional run-id lookup. It never repairs, regenerates, or executes the bundle and
 cannot create evidence or publication readiness.
+
+Milestone 80 adds the fail-closed `run-autonomous-paper` controller. It chains deterministic base
+generation, the autonomous loop, final manuscript regeneration, final release-bundle assembly,
+independent read-only verification, and a bounded handoff decision in one command. Every stage is
+recorded, prior run artifacts are never overwritten, safety failures block downstream handoff, and
+`publication_ready` remains false.

@@ -22,6 +22,11 @@ from factori.autonomous_loop import (
     inspect_autonomous_loop,
     run_autonomous_loop,
 )
+from factori.autonomous_paper_run import (
+    AutonomousPaperRunError,
+    inspect_autonomous_paper_run,
+    run_autonomous_paper,
+)
 from factori.autonomous_plan_execution import (
     AutonomousPlanExecutionError,
     execute_autonomous_evidence_plan,
@@ -3358,6 +3363,264 @@ def inspect_autonomous_loop_command(
         f"{str(summary['autonomous_loop_requires_human_intervention']).lower()}"
     )
     typer.echo("Publication ready: false")
+
+
+@app.command("run-autonomous-paper")
+def run_autonomous_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    domain: Annotated[str, typer.Option("--domain")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    topic_or_question: Annotated[
+        str | None,
+        typer.Option("--topic-or-question", "--method"),
+    ] = None,
+    controller_backend: Annotated[
+        str,
+        typer.Option("--controller-backend"),
+    ] = "deterministic",
+    llm_scope: Annotated[str, typer.Option("--llm-scope")] = "full-paper",
+    candidate_backend: Annotated[
+        str,
+        typer.Option("--candidate-backend"),
+    ] = DEFAULT_ADAPTER_BACKEND,
+    reviewer_backend: Annotated[
+        str,
+        typer.Option("--reviewer-backend"),
+    ] = DEFAULT_REVIEWER_BACKEND,
+    prose_backend: Annotated[str, typer.Option("--prose-backend")] = DEFAULT_PROSE_BACKEND,
+    claim_adjudicator_backend: Annotated[
+        str,
+        typer.Option("--claim-adjudicator-backend"),
+    ] = "fake",
+    source_relevance_adjudicator_backend: Annotated[
+        str,
+        typer.Option("--source-relevance-adjudicator-backend"),
+    ] = "fake",
+    quality_repair_backend: Annotated[
+        str,
+        typer.Option("--quality-repair-backend"),
+    ] = "deterministic",
+    candidate_model: Annotated[
+        str,
+        typer.Option("--candidate-model", "--llm-model"),
+    ] = DEFAULT_LLM_MODEL,
+    reviewer_model: Annotated[
+        str,
+        typer.Option("--reviewer-model"),
+    ] = DEFAULT_LLM_MODEL,
+    prose_model: Annotated[str, typer.Option("--prose-model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    enable_retrieval: Annotated[
+        bool,
+        typer.Option("--enable-retrieval/--disable-retrieval"),
+    ] = False,
+    retrieval_backend: Annotated[str, typer.Option("--retrieval-backend")] = "fake",
+    retrieval_local_path: Annotated[
+        str | None,
+        typer.Option("--retrieval-local-path"),
+    ] = None,
+    max_retrieval_sources: Annotated[
+        int,
+        typer.Option("--max-retrieval-sources"),
+    ] = 8,
+    citation_policy: Annotated[str, typer.Option("--citation-policy")] = "none",
+    enable_safe_repair: Annotated[
+        bool,
+        typer.Option("--enable-safe-repair/--disable-safe-repair"),
+    ] = True,
+    loop_backend: Annotated[str, typer.Option("--loop-backend")] = "deterministic",
+    max_loop_iterations: Annotated[
+        int,
+        typer.Option("--max-loop-iterations"),
+    ] = 6,
+    max_attempts_per_gap: Annotated[
+        int,
+        typer.Option("--max-attempts-per-gap"),
+    ] = 1,
+    enable_strategy_diversification: Annotated[
+        bool,
+        typer.Option("--enable-strategy-diversification"),
+    ] = False,
+    enable_experiment_routing: Annotated[
+        bool,
+        typer.Option("--enable-experiment-routing"),
+    ] = False,
+    enable_empirical_demonstration_gaps: Annotated[
+        bool,
+        typer.Option("--enable-empirical-demonstration-gaps"),
+    ] = False,
+    enable_capability_escalation: Annotated[
+        bool,
+        typer.Option("--enable-capability-escalation"),
+    ] = False,
+    python_sandbox_backend: Annotated[
+        str,
+        typer.Option("--python-sandbox-backend"),
+    ] = "off",
+    max_sandbox_runs_per_loop: Annotated[
+        int,
+        typer.Option("--max-sandbox-runs-per-loop"),
+    ] = 2,
+    max_sandbox_runs_per_iteration: Annotated[
+        int,
+        typer.Option("--max-sandbox-runs-per-iteration"),
+    ] = 1,
+    regeneration_backend: Annotated[
+        str,
+        typer.Option("--regeneration-backend"),
+    ] = "deterministic",
+    build_final_bundle: Annotated[
+        bool,
+        typer.Option("--build-final-bundle/--skip-final-bundle"),
+    ] = True,
+    verify_final_bundle: Annotated[
+        bool,
+        typer.Option("--verify-final-bundle/--skip-final-bundle-verification"),
+    ] = True,
+    compile_pdf: Annotated[bool, typer.Option("--compile-pdf")] = False,
+    strict_export: Annotated[bool, typer.Option("--strict-export")] = False,
+    max_total_calls: Annotated[int | None, typer.Option("--max-total-calls")] = None,
+    max_candidate_generation_calls: Annotated[
+        int | None,
+        typer.Option("--max-candidate-generation-calls"),
+    ] = None,
+    max_review_calls: Annotated[int | None, typer.Option("--max-review-calls")] = None,
+    max_prose_calls: Annotated[int | None, typer.Option("--max-prose-calls")] = None,
+    max_claim_adjudication_calls: Annotated[
+        int | None,
+        typer.Option("--max-claim-adjudication-calls"),
+    ] = None,
+    max_source_relevance_adjudication_calls: Annotated[
+        int | None,
+        typer.Option("--max-source-relevance-adjudication-calls"),
+    ] = None,
+    max_estimated_cost_usd: Annotated[
+        float | None,
+        typer.Option("--max-estimated-cost-usd"),
+    ] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the complete fail-closed autonomous paper MVP in one command."""
+    config = LLMOrchestrationConfig(
+        run_id=run_id,
+        domain=domain,
+        method=topic_or_question,
+        candidate_backend=candidate_backend,
+        reviewer_backend=reviewer_backend,
+        prose_backend=prose_backend,
+        allow_external_calls=allow_external_calls,
+        llm_model=candidate_model,
+        reviewer_model=reviewer_model,
+        prose_model=prose_model,
+        claim_adjudicator_backend=claim_adjudicator_backend,
+        claim_adjudicator_model=candidate_model,
+        source_relevance_adjudicator_backend=source_relevance_adjudicator_backend,
+        source_relevance_adjudicator_model=candidate_model,
+        quality_repair_backend=quality_repair_backend,
+        quality_repair_model=candidate_model,
+        enable_retrieval=enable_retrieval,
+        retrieval_backend=retrieval_backend,
+        retrieval_local_path=retrieval_local_path,
+        max_retrieval_sources=max_retrieval_sources,
+        citation_policy=citation_policy,
+        generate_paper=True,
+        evaluate_release=True,
+        include_citations=enable_retrieval,
+        export_latex=True,
+        critique=True,
+        write_report=True,
+        budget=LLMBudgetConfig(
+            max_total_calls=max_total_calls,
+            max_candidate_generation_calls=max_candidate_generation_calls,
+            max_review_calls=max_review_calls,
+            max_prose_calls=max_prose_calls,
+            max_claim_adjudication_calls=max_claim_adjudication_calls,
+            max_source_relevance_adjudication_calls=(
+                max_source_relevance_adjudication_calls
+            ),
+            max_estimated_cost_usd=max_estimated_cost_usd,
+        ),
+    )
+    try:
+        result = run_autonomous_paper(
+            config=config,
+            root=root,
+            controller_backend=controller_backend,
+            llm_scope=llm_scope,
+            enable_safe_repair=enable_safe_repair,
+            loop_backend=loop_backend,
+            max_loop_iterations=max_loop_iterations,
+            max_attempts_per_gap=max_attempts_per_gap,
+            enable_strategy_diversification=enable_strategy_diversification,
+            enable_experiment_routing=enable_experiment_routing,
+            enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
+            enable_capability_escalation=enable_capability_escalation,
+            python_sandbox_backend=python_sandbox_backend,
+            max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
+            max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
+            regeneration_backend=regeneration_backend,
+            build_final_bundle=build_final_bundle,
+            verify_final_bundle=verify_final_bundle,
+            compile_pdf=compile_pdf,
+            strict_export=strict_export,
+        )
+    except AutonomousPaperRunError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(result.report.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"controller_status={result.report.controller_status}")
+    typer.echo(f"handoff_status={result.report.handoff_status}")
+    typer.echo(f"final_bundle_status={result.report.final_bundle_status or 'not_available'}")
+    typer.echo(
+        "final_bundle_verification_status="
+        f"{result.report.final_bundle_verification_status or 'not_available'}"
+    )
+    typer.echo(f"deferred_gap_count={result.report.deferred_gap_count}")
+    typer.echo(f"unsupported_claim_count={result.report.unsupported_claim_count}")
+    typer.echo(
+        f"human_intervention_required={str(result.report.human_intervention_required).lower()}"
+    )
+    typer.echo("publication_ready=false")
+    typer.echo(f"report={result.report_artifact.path}")
+
+
+@app.command("inspect-autonomous-paper-run")
+def inspect_autonomous_paper_run_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest one-command autonomous paper report."""
+    try:
+        summary = inspect_autonomous_paper_run(run_id=run_id, root=root)
+    except AutonomousPaperRunError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Autonomous paper run: {run_id}")
+    typer.echo(f"Controller status: {summary['controller_status']}")
+    typer.echo(f"Handoff status: {summary['handoff_status']}")
+    for stage in summary["stages"]:
+        typer.echo(f"- {stage['stage_name']}: {stage['stage_status']}")
+    typer.echo(f"Final bundle: {summary.get('final_bundle_path_optional') or 'not_available'}")
+    typer.echo(
+        "Final verification: "
+        f"{summary.get('final_bundle_verification_status') or 'not_available'}"
+    )
+    typer.echo(f"Deferred gaps: {summary['deferred_gap_count']}")
+    typer.echo(f"Unsupported claims: {summary['unsupported_claim_count']}")
+    typer.echo(
+        f"Human intervention required: {str(summary['human_intervention_required']).lower()}"
+    )
+    typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['autonomous_loop_report_path']}")
 
 
@@ -4456,6 +4719,25 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Final bundle verification hash mismatches / missing required: "
         f"{int(summary.get('final_bundle_hash_mismatch_count') or 0)} / "
         f"{int(summary.get('final_bundle_missing_required_artifact_count') or 0)}"
+    )
+    typer.echo(
+        "Autonomous paper run: "
+        f"{'present' if summary.get('autonomous_paper_run_present') else 'absent'}"
+    )
+    typer.echo(
+        "Controller / handoff status: "
+        f"{summary.get('autonomous_paper_controller_status') or 'not_available'} / "
+        f"{summary.get('autonomous_paper_handoff_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Autonomous final bundle / verification: "
+        f"{summary.get('autonomous_paper_final_bundle_path') or 'not_available'} / "
+        f"{summary.get('autonomous_paper_final_verification_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Autonomous deferred gaps / human intervention: "
+        f"{int(summary.get('autonomous_paper_deferred_gap_count') or 0)} / "
+        f"{str(bool(summary.get('autonomous_paper_human_intervention_required'))).lower()}"
     )
     typer.echo(
         "Evidence-aware refresh: "

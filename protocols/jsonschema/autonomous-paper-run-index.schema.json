@@ -1,0 +1,90 @@
+{
+  "$id": "https://schemas.factori.local/0.45.0/autonomous-paper-run-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer for autonomous paper controller reports.",
+  "properties": {
+    "autonomous_run_count": {
+      "minimum": 1,
+      "title": "Autonomous Run Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_autonomous_run_id": {
+      "minLength": 1,
+      "title": "Latest Autonomous Run Id",
+      "type": "string"
+    },
+    "latest_controller_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "completed_with_deferred_gaps",
+        "blocked_safety_gate",
+        "blocked_bundle_verification",
+        "failed"
+      ],
+      "title": "Latest Controller Status",
+      "type": "string"
+    },
+    "latest_handoff_status": {
+      "enum": [
+        "handoff_ready_for_human_review_with_warnings",
+        "handoff_ready_for_evidence_extension",
+        "handoff_blocked_by_safety_gate",
+        "handoff_blocked_by_bundle_verification",
+        "handoff_failed"
+      ],
+      "title": "Latest Handoff Status",
+      "type": "string"
+    },
+    "latest_markdown_path": {
+      "minLength": 1,
+      "title": "Latest Markdown Path",
+      "type": "string"
+    },
+    "latest_report_path": {
+      "minLength": 1,
+      "title": "Latest Report Path",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_autonomous_run_id",
+    "autonomous_run_count",
+    "latest_controller_status",
+    "latest_handoff_status",
+    "latest_report_path",
+    "latest_markdown_path"
+  ],
+  "title": "AutonomousPaperRunIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.45.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperRunIndex",
+  "x-factori-verification-evidence": false
+}

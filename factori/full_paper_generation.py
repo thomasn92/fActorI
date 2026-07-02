@@ -747,6 +747,19 @@ def inspect_paper_bundle_summary(
     final_bundle_verification_summary = final_bundle_verification_summary_fields(
         latest_final_bundle_verification(root_path, run_id)
     )
+    from factori.autonomous_paper_run import (  # noqa: PLC0415
+        autonomous_paper_run_summary_fields,
+        latest_autonomous_paper_run,
+    )
+
+    autonomous_paper_report, autonomous_paper_index = latest_autonomous_paper_run(
+        root_path,
+        run_id,
+    )
+    autonomous_paper_summary = autonomous_paper_run_summary_fields(
+        autonomous_paper_report,
+        autonomous_paper_index,
+    )
     existing = {
         name: path.relative_to(root_path).as_posix()
         for name, path in sorted(paths.items())
@@ -1060,6 +1073,7 @@ def inspect_paper_bundle_summary(
         **final_manuscript_summary,
         **final_release_bundle_summary,
         **final_bundle_verification_summary,
+        **autonomous_paper_summary,
         "bounded_empirical_gap_count": max(
             int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
             int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
@@ -1689,6 +1703,21 @@ def lint_paper_bundle_summary(
     final_bundle_publication_ready_flag = bool(
         bundle.get("final_bundle_publication_ready_flag")
     )
+    autonomous_paper_run_present = bool(bundle.get("autonomous_paper_run_present"))
+    autonomous_paper_controller_status = bundle.get("autonomous_paper_controller_status")
+    autonomous_paper_handoff_status = bundle.get("autonomous_paper_handoff_status")
+    autonomous_paper_final_bundle_verified = bool(
+        bundle.get("autonomous_paper_final_bundle_verified")
+    )
+    autonomous_paper_deferred_gap_count = int(
+        bundle.get("autonomous_paper_deferred_gap_count") or 0
+    )
+    autonomous_paper_unsupported_claim_count = int(
+        bundle.get("autonomous_paper_unsupported_claim_count") or 0
+    )
+    autonomous_paper_human_intervention_required = bool(
+        bundle.get("autonomous_paper_human_intervention_required")
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -2241,6 +2270,17 @@ def lint_paper_bundle_summary(
             final_bundle_rejected_reference_leak_count
         ),
         "final_bundle_publication_ready_flag": final_bundle_publication_ready_flag,
+        "autonomous_paper_run_present": autonomous_paper_run_present,
+        "autonomous_paper_controller_status": autonomous_paper_controller_status,
+        "autonomous_paper_handoff_status": autonomous_paper_handoff_status,
+        "autonomous_paper_final_bundle_verified": autonomous_paper_final_bundle_verified,
+        "autonomous_paper_deferred_gap_count": autonomous_paper_deferred_gap_count,
+        "autonomous_paper_unsupported_claim_count": (
+            autonomous_paper_unsupported_claim_count
+        ),
+        "autonomous_paper_human_intervention_required": (
+            autonomous_paper_human_intervention_required
+        ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),

@@ -802,6 +802,16 @@ backends.
 
 ## Foundation and Inspection
 
+One-command deterministic autonomous finalization:
+
+```bash
+uv run factori run-autonomous-paper --run-id demo-paper --domain "human geography"
+uv run factori inspect-autonomous-paper-run --run-id demo-paper
+```
+
+The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
+bundle assembly plus independent verification for handoff, and never sets publication readiness.
+
 ```bash
 uv run factori init-run --run-id demo
 uv run factori show-ledger --run-id demo

@@ -2204,6 +2204,128 @@ class FinalBundleVerificationReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+AutonomousPaperControllerStatus = Literal[
+    "completed",
+    "completed_with_warnings",
+    "completed_with_deferred_gaps",
+    "blocked_safety_gate",
+    "blocked_bundle_verification",
+    "failed",
+]
+AutonomousPaperHandoffStatus = Literal[
+    "handoff_ready_for_human_review_with_warnings",
+    "handoff_ready_for_evidence_extension",
+    "handoff_blocked_by_safety_gate",
+    "handoff_blocked_by_bundle_verification",
+    "handoff_failed",
+]
+AutonomousPaperStageStatus = Literal[
+    "completed",
+    "completed_with_warnings",
+    "blocked",
+    "failed",
+    "skipped",
+]
+
+
+class AutonomousPaperRunStage(StrictModel):
+    """One stage in the fail-closed autonomous paper finalization controller."""
+
+    stage_name: Literal[
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+        "final_bundle_verification",
+        "handoff",
+    ]
+    stage_status: AutonomousPaperStageStatus
+    started_at: str = Field(min_length=1)
+    completed_at: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    artifact_paths: list[str] = Field(default_factory=list)
+    blocking_issues: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousPaperRunHandoff(StrictModel):
+    """Final bounded handoff decision from one autonomous paper run."""
+
+    handoff_status: AutonomousPaperHandoffStatus
+    handoff_reason: str = Field(min_length=1)
+    final_bundle_path_optional: str | None = None
+    final_bundle_verification_status: str | None = None
+    deferred_gap_count: int = Field(ge=0)
+    unsupported_claim_count: int = Field(ge=0)
+    human_intervention_required: bool = False
+    human_intervention_reason_optional: str | None = None
+    next_inspection_command: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousPaperRunReport(StrictModel):
+    """Append-only report for one end-to-end autonomous finalization controller run."""
+
+    run_id: str = Field(min_length=1)
+    autonomous_run_id: str = Field(min_length=1)
+    controller_backend: Literal["deterministic", "fake", "openai"] = "deterministic"
+    controller_status: AutonomousPaperControllerStatus
+    started_at: str = Field(min_length=1)
+    completed_at: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    topic_or_question_optional: str | None = None
+    stages: list[AutonomousPaperRunStage] = Field(default_factory=list)
+    base_generation_status: str | None = None
+    autonomous_loop_status: str | None = None
+    final_manuscript_status: str | None = None
+    final_bundle_status: str | None = None
+    final_bundle_verification_status: str | None = None
+    handoff_status: AutonomousPaperHandoffStatus
+    handoff_reason: str = Field(min_length=1)
+    handoff: AutonomousPaperRunHandoff
+    publication_ready: bool = False
+    human_intervention_required: bool = False
+    human_intervention_reason_optional: str | None = None
+    final_bundle_path_optional: str | None = None
+    final_verification_report_path_optional: str | None = None
+    final_manuscript_path_optional: str | None = None
+    release_report_path_optional: str | None = None
+    claim_evidence_map_path_optional: str | None = None
+    deferred_gap_count: int = Field(ge=0)
+    unsupported_claim_count: int = Field(ge=0)
+    claim_support_missing_required_citation_count: int = Field(ge=0)
+    citation_as_validation_misuse_count: int = Field(ge=0)
+    network_used: bool = False
+    external_api_used: bool = False
+    external_tools_used: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousPaperRunIndex(StrictModel):
+    """Derived latest pointer for immutable autonomous paper controller reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_autonomous_run_id: str = Field(min_length=1)
+    autonomous_run_count: int = Field(ge=1)
+    latest_controller_status: AutonomousPaperControllerStatus
+    latest_handoff_status: AutonomousPaperHandoffStatus
+    latest_report_path: str = Field(min_length=1)
+    latest_markdown_path: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
 AutonomousLoopStatus = Literal[
     "completed",
@@ -3184,6 +3306,10 @@ __all__ = [
     "FinalBundleVerificationCheck",
     "FinalBundleReplaySummary",
     "FinalBundleVerificationReport",
+    "AutonomousPaperRunStage",
+    "AutonomousPaperRunHandoff",
+    "AutonomousPaperRunReport",
+    "AutonomousPaperRunIndex",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

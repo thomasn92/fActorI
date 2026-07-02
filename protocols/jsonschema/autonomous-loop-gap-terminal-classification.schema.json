@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.44.0/autonomous-loop-gap-terminal-classification.schema.json",
+  "$id": "https://schemas.factori.local/0.45.0/autonomous-loop-gap-terminal-classification.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Terminal workflow classification for one autonomous evidence gap.",
@@ -102,7 +102,7 @@
   ],
   "title": "AutonomousLoopGapTerminalClassification",
   "type": "object",
-  "x-factori-protocol-version": "0.44.0",
+  "x-factori-protocol-version": "0.45.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopGapTerminalClassification",
   "x-factori-verification-evidence": false
 }

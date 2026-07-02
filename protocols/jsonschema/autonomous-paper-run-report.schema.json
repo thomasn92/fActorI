@@ -1,0 +1,510 @@
+{
+  "$defs": {
+    "AutonomousPaperRunHandoff": {
+      "additionalProperties": false,
+      "description": "Final bounded handoff decision from one autonomous paper run.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "deferred_gap_count": {
+          "minimum": 0,
+          "title": "Deferred Gap Count",
+          "type": "integer"
+        },
+        "final_bundle_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Bundle Path Optional"
+        },
+        "final_bundle_verification_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Bundle Verification Status"
+        },
+        "handoff_reason": {
+          "minLength": 1,
+          "title": "Handoff Reason",
+          "type": "string"
+        },
+        "handoff_status": {
+          "enum": [
+            "handoff_ready_for_human_review_with_warnings",
+            "handoff_ready_for_evidence_extension",
+            "handoff_blocked_by_safety_gate",
+            "handoff_blocked_by_bundle_verification",
+            "handoff_failed"
+          ],
+          "title": "Handoff Status",
+          "type": "string"
+        },
+        "human_intervention_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Human Intervention Reason Optional"
+        },
+        "human_intervention_required": {
+          "default": false,
+          "title": "Human Intervention Required",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "next_inspection_command": {
+          "minLength": 1,
+          "title": "Next Inspection Command",
+          "type": "string"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "unsupported_claim_count": {
+          "minimum": 0,
+          "title": "Unsupported Claim Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "handoff_status",
+        "handoff_reason",
+        "deferred_gap_count",
+        "unsupported_claim_count",
+        "next_inspection_command"
+      ],
+      "title": "AutonomousPaperRunHandoff",
+      "type": "object"
+    },
+    "AutonomousPaperRunStage": {
+      "additionalProperties": false,
+      "description": "One stage in the fail-closed autonomous paper finalization controller.",
+      "properties": {
+        "artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Paths",
+          "type": "array"
+        },
+        "blocking_issues": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking Issues",
+          "type": "array"
+        },
+        "completed_at": {
+          "minLength": 1,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "stage_name": {
+          "enum": [
+            "base_generation",
+            "autonomous_loop",
+            "final_manuscript_regeneration",
+            "final_release_bundle_assembly",
+            "final_bundle_verification",
+            "handoff"
+          ],
+          "title": "Stage Name",
+          "type": "string"
+        },
+        "stage_status": {
+          "enum": [
+            "completed",
+            "completed_with_warnings",
+            "blocked",
+            "failed",
+            "skipped"
+          ],
+          "title": "Stage Status",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Started At",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stage_name",
+        "stage_status",
+        "started_at",
+        "completed_at",
+        "summary"
+      ],
+      "title": "AutonomousPaperRunStage",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.45.0/autonomous-paper-run-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only orchestration report for one autonomous paper run.",
+  "properties": {
+    "autonomous_loop_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Autonomous Loop Status"
+    },
+    "autonomous_run_id": {
+      "minLength": 1,
+      "title": "Autonomous Run Id",
+      "type": "string"
+    },
+    "base_generation_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Base Generation Status"
+    },
+    "citation_as_validation_misuse_count": {
+      "minimum": 0,
+      "title": "Citation As Validation Misuse Count",
+      "type": "integer"
+    },
+    "claim_evidence_map_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Claim Evidence Map Path Optional"
+    },
+    "claim_support_missing_required_citation_count": {
+      "minimum": 0,
+      "title": "Claim Support Missing Required Citation Count",
+      "type": "integer"
+    },
+    "completed_at": {
+      "minLength": 1,
+      "title": "Completed At",
+      "type": "string"
+    },
+    "controller_backend": {
+      "default": "deterministic",
+      "enum": [
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Controller Backend",
+      "type": "string"
+    },
+    "controller_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "completed_with_deferred_gaps",
+        "blocked_safety_gate",
+        "blocked_bundle_verification",
+        "failed"
+      ],
+      "title": "Controller Status",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Gap Count",
+      "type": "integer"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "external_api_used": {
+      "default": false,
+      "title": "External Api Used",
+      "type": "boolean"
+    },
+    "external_tools_used": {
+      "default": false,
+      "title": "External Tools Used",
+      "type": "boolean"
+    },
+    "final_bundle_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Bundle Path Optional"
+    },
+    "final_bundle_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Bundle Status"
+    },
+    "final_bundle_verification_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Bundle Verification Status"
+    },
+    "final_manuscript_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Manuscript Path Optional"
+    },
+    "final_manuscript_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Manuscript Status"
+    },
+    "final_verification_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Verification Report Path Optional"
+    },
+    "handoff": {
+      "$ref": "#/$defs/AutonomousPaperRunHandoff"
+    },
+    "handoff_reason": {
+      "minLength": 1,
+      "title": "Handoff Reason",
+      "type": "string"
+    },
+    "handoff_status": {
+      "enum": [
+        "handoff_ready_for_human_review_with_warnings",
+        "handoff_ready_for_evidence_extension",
+        "handoff_blocked_by_safety_gate",
+        "handoff_blocked_by_bundle_verification",
+        "handoff_failed"
+      ],
+      "title": "Handoff Status",
+      "type": "string"
+    },
+    "human_intervention_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Intervention Reason Optional"
+    },
+    "human_intervention_required": {
+      "default": false,
+      "title": "Human Intervention Required",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "network_used": {
+      "default": false,
+      "title": "Network Used",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "release_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Release Report Path Optional"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stages": {
+      "items": {
+        "$ref": "#/$defs/AutonomousPaperRunStage"
+      },
+      "title": "Stages",
+      "type": "array"
+    },
+    "started_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "topic_or_question_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Topic Or Question Optional"
+    },
+    "unsupported_claim_count": {
+      "minimum": 0,
+      "title": "Unsupported Claim Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "autonomous_run_id",
+    "controller_status",
+    "started_at",
+    "completed_at",
+    "domain",
+    "handoff_status",
+    "handoff_reason",
+    "handoff",
+    "deferred_gap_count",
+    "unsupported_claim_count",
+    "claim_support_missing_required_citation_count",
+    "citation_as_validation_misuse_count"
+  ],
+  "title": "AutonomousPaperRunReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.45.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperRunReport",
+  "x-factori-verification-evidence": false
+}

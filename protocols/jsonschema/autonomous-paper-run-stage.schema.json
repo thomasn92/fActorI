@@ -1,0 +1,100 @@
+{
+  "$id": "https://schemas.factori.local/0.45.0/autonomous-paper-run-stage.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One fail-closed stage in autonomous paper finalization.",
+  "properties": {
+    "artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Paths",
+      "type": "array"
+    },
+    "blocking_issues": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Issues",
+      "type": "array"
+    },
+    "completed_at": {
+      "minLength": 1,
+      "title": "Completed At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "stage_name": {
+      "enum": [
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+        "final_bundle_verification",
+        "handoff"
+      ],
+      "title": "Stage Name",
+      "type": "string"
+    },
+    "stage_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "blocked",
+        "failed",
+        "skipped"
+      ],
+      "title": "Stage Status",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "stage_name",
+    "stage_status",
+    "started_at",
+    "completed_at",
+    "summary"
+  ],
+  "title": "AutonomousPaperRunStage",
+  "type": "object",
+  "x-factori-protocol-version": "0.45.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperRunStage",
+  "x-factori-verification-evidence": false
+}

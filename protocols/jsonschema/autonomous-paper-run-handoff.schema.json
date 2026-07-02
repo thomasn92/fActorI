@@ -1,0 +1,112 @@
+{
+  "$id": "https://schemas.factori.local/0.45.0/autonomous-paper-run-handoff.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded final handoff decision from autonomous paper finalization.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Gap Count",
+      "type": "integer"
+    },
+    "final_bundle_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Bundle Path Optional"
+    },
+    "final_bundle_verification_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Bundle Verification Status"
+    },
+    "handoff_reason": {
+      "minLength": 1,
+      "title": "Handoff Reason",
+      "type": "string"
+    },
+    "handoff_status": {
+      "enum": [
+        "handoff_ready_for_human_review_with_warnings",
+        "handoff_ready_for_evidence_extension",
+        "handoff_blocked_by_safety_gate",
+        "handoff_blocked_by_bundle_verification",
+        "handoff_failed"
+      ],
+      "title": "Handoff Status",
+      "type": "string"
+    },
+    "human_intervention_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Human Intervention Reason Optional"
+    },
+    "human_intervention_required": {
+      "default": false,
+      "title": "Human Intervention Required",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "next_inspection_command": {
+      "minLength": 1,
+      "title": "Next Inspection Command",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "unsupported_claim_count": {
+      "minimum": 0,
+      "title": "Unsupported Claim Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "handoff_status",
+    "handoff_reason",
+    "deferred_gap_count",
+    "unsupported_claim_count",
+    "next_inspection_command"
+  ],
+  "title": "AutonomousPaperRunHandoff",
+  "type": "object",
+  "x-factori-protocol-version": "0.45.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperRunHandoff",
+  "x-factori-verification-evidence": false
+}

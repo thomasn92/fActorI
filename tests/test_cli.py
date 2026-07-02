@@ -98,6 +98,20 @@ def test_final_release_bundle_cli_commands_are_registered() -> None:
     assert "--json" in verify.output
 
 
+def test_autonomous_paper_cli_commands_are_registered() -> None:
+    run = CliRunner().invoke(app, ["run-autonomous-paper", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-autonomous-paper-run", "--help"])
+
+    assert run.exit_code == 0, run.output
+    assert "--max-loop-iterat" in run.output
+    assert "--enable-empirica" in run.output
+    assert "--build-final-bun" in run.output
+    assert "--verify-final-bu" in run.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--run-id" in inspect.output
+    assert "--json" in inspect.output
+
+
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])

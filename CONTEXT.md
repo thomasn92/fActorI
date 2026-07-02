@@ -68,6 +68,8 @@ completed run from disk and checks consistency without changing provenance.
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
 - independent read-only verification of hash-locked final release bundles from bundle contents.
+- fail-closed one-command autonomous finalization across generation, autonomous evidence work,
+  final manuscript regeneration, release-bundle assembly, independent verification, and handoff.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

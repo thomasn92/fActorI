@@ -360,6 +360,7 @@ class ControllerActionType(StrEnum):
     CAPABILITY_ESCALATION_WRITTEN = "CapabilityEscalationWritten"
     FINAL_MANUSCRIPT_REGENERATED = "FinalManuscriptRegenerated"
     FINAL_RELEASE_BUNDLE_ASSEMBLED = "FinalReleaseBundleAssembled"
+    AUTONOMOUS_PAPER_RUN_WRITTEN = "AutonomousPaperRunWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

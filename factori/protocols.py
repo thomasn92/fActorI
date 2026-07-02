@@ -21,6 +21,10 @@ from factori.schemas import (
     AutonomousLoopIndex,
     AutonomousLoopIterationReport,
     AutonomousLoopRunReport,
+    AutonomousPaperRunHandoff,
+    AutonomousPaperRunIndex,
+    AutonomousPaperRunReport,
+    AutonomousPaperRunStage,
     AutonomousPlanExecutionAction,
     AutonomousPlanExecutionIndex,
     AutonomousPlanExecutionReport,
@@ -219,7 +223,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.44.0"
+PROTOCOL_VERSION = "0.45.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -645,6 +649,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "FinalBundleVerificationReport",
         FinalBundleVerificationReport,
         "Independent read-only verification report for a final release bundle.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperRunStage",
+        AutonomousPaperRunStage,
+        "One fail-closed stage in autonomous paper finalization.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperRunHandoff",
+        AutonomousPaperRunHandoff,
+        "Bounded final handoff decision from autonomous paper finalization.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperRunReport",
+        AutonomousPaperRunReport,
+        "Append-only orchestration report for one autonomous paper run.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperRunIndex",
+        AutonomousPaperRunIndex,
+        "Derived latest pointer for autonomous paper controller reports.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

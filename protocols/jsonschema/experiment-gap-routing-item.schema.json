@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.44.0/experiment-gap-routing-item.schema.json",
+  "$id": "https://schemas.factori.local/0.45.0/experiment-gap-routing-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic experiment-gap routing item.",
@@ -159,7 +159,7 @@
   ],
   "title": "ExperimentGapRoutingItem",
   "type": "object",
-  "x-factori-protocol-version": "0.44.0",
+  "x-factori-protocol-version": "0.45.0",
   "x-factori-source-model": "factori.schemas.ExperimentGapRoutingItem",
   "x-factori-verification-evidence": false
 }

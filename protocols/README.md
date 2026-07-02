@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.45.0` adds one-command autonomous paper run stages, handoff decisions, aggregate
+controller reports, and latest-run indexes. The controller composes existing safety-gated stages,
+keeps publication readiness false, and fails closed when generation, regeneration, bundle
+assembly, or independent bundle verification is unsafe or incomplete.
+
 Protocol `0.44.0` adds independent read-only final bundle verification checks, replay-by-inspection
 summaries, and aggregate verification reports. Verification consumes only the selected bundle
 after optional run-id lookup, never rewrites the bundle, reruns commands, creates evidence, or

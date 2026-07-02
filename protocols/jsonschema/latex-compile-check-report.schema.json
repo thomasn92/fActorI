@@ -171,7 +171,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.44.0/latex-compile-check-report.schema.json",
+  "$id": "https://schemas.factori.local/0.45.0/latex-compile-check-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Optional LaTeX compile/check aggregate report.",
@@ -236,7 +236,7 @@
   ],
   "title": "LatexCompileCheckReport",
   "type": "object",
-  "x-factori-protocol-version": "0.44.0",
+  "x-factori-protocol-version": "0.45.0",
   "x-factori-source-model": "factori.schemas.LatexCompileCheckReport",
   "x-factori-verification-evidence": false
 }

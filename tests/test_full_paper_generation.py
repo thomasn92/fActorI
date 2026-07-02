@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+import factori.autonomous_paper_run as autonomous_paper_module
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
@@ -21,6 +22,15 @@ from factori.autonomous_loop import (
     _TerminalSummary,
     inspect_autonomous_loop,
     run_autonomous_loop,
+)
+from factori.autonomous_paper_run import (
+    AutonomousPaperRunError,
+    _final_bundle_is_complete,
+    _final_manuscript_is_safe,
+    _final_verification_is_safe,
+    _lint_has_safety_block,
+    inspect_autonomous_paper_run,
+    run_autonomous_paper,
 )
 from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
@@ -54,15 +64,20 @@ from factori.experiment_template_routing import (
     inspect_experiment_gap_routing,
     route_experiment_gaps,
 )
-from factori.final_bundle_verification import verify_final_release_bundle
+from factori.final_bundle_verification import (
+    latest_final_bundle_verification,
+    verify_final_release_bundle,
+)
 from factori.final_manuscript_regeneration import (
     inspect_final_manuscript,
+    latest_final_manuscript_regeneration,
     regenerate_final_manuscript,
 )
 from factori.final_release_bundle import (
     build_final_release_bundle,
     build_references_bib,
     inspect_final_release_bundle,
+    latest_final_release_bundle,
 )
 from factori.full_paper_generation import (
     generate_full_paper,
@@ -95,6 +110,7 @@ from factori.human_review_reconciliation import (
     reconcile_human_review,
 )
 from factori.ledger import ResearchLedger
+from factori.llm_orchestration import LLMOrchestrationError
 from factori.planned_spec_execution import (
     execute_planned_specs,
     inspect_planned_spec_execution,
@@ -117,6 +133,10 @@ from factori.schemas import (
     AutonomousLoopGapTerminalClassification,
     AutonomousLoopIndex,
     AutonomousLoopRunReport,
+    AutonomousPaperRunHandoff,
+    AutonomousPaperRunIndex,
+    AutonomousPaperRunReport,
+    AutonomousPaperRunStage,
     AutonomousPlanExecutionReport,
     CapabilityEscalationIndex,
     CapabilityEscalationItem,
@@ -158,6 +178,7 @@ from factori.schemas import (
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
+    LLMOrchestrationConfig,
     PipelineRunConfig,
     PipelineStage,
     PlannedExperimentSpec,
@@ -218,6 +239,10 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert FinalReleaseBundle
     assert FinalReleaseBundleReport
     assert FinalReleaseBundleIndex
+    assert AutonomousPaperRunStage
+    assert AutonomousPaperRunHandoff
+    assert AutonomousPaperRunReport
+    assert AutonomousPaperRunIndex
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -3967,6 +3992,179 @@ def test_final_release_references_bib_uses_accepted_registry_sources_only() -> N
     assert "rejected2020" not in bib
     assert "Rejected Fixture Source" not in bib
     assert "Bounded background context only" in bib
+
+
+def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) -> None:
+    run_id = "run-autonomous-paper-controller"
+    config = LLMOrchestrationConfig(
+        run_id=run_id,
+        domain="human geography",
+        candidate_backend="fake",
+        reviewer_backend="fake",
+        prose_backend="fake",
+        claim_adjudicator_backend="fake",
+        source_relevance_adjudicator_backend="fake",
+        quality_repair_backend="deterministic",
+        enable_retrieval=True,
+        retrieval_backend="local",
+        retrieval_local_path=(
+            "tests/fixtures/retrieval/openalex_style_human_geography_sources.json"
+        ),
+        max_retrieval_sources=8,
+        citation_policy="registry-only",
+    )
+
+    result = run_autonomous_paper(
+        config=config,
+        root=tmp_path,
+        enable_safe_repair=True,
+        loop_backend="deterministic",
+        max_loop_iterations=4,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+        enable_experiment_routing=True,
+        enable_empirical_demonstration_gaps=True,
+        enable_capability_escalation=True,
+        python_sandbox_backend="uv_local",
+        max_sandbox_runs_per_loop=2,
+        max_sandbox_runs_per_iteration=1,
+        regeneration_backend="deterministic",
+        build_final_bundle=True,
+        verify_final_bundle=True,
+    )
+
+    report = result.report
+    assert (
+        result.persistence.commit.action_type
+        == ControllerActionType.AUTONOMOUS_PAPER_RUN_WRITTEN
+    )
+    assert report.controller_status in {
+        "completed_with_warnings",
+        "completed_with_deferred_gaps",
+    }
+    assert report.handoff_status in {
+        "handoff_ready_for_human_review_with_warnings",
+        "handoff_ready_for_evidence_extension",
+    }
+    assert [stage.stage_name for stage in report.stages] == [
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+        "final_bundle_verification",
+        "handoff",
+    ]
+    assert report.final_manuscript_status == "completed"
+    assert report.final_bundle_status == "complete"
+    assert report.final_bundle_verification_status == "verified_with_warnings"
+    assert report.final_bundle_path_optional is not None
+    assert report.final_verification_report_path_optional is not None
+    assert report.final_manuscript_path_optional is not None
+    assert report.unsupported_claim_count == 0
+    assert report.claim_support_missing_required_citation_count == 0
+    assert report.citation_as_validation_misuse_count == 0
+    assert report.human_intervention_required is False
+    assert report.publication_ready is False
+    assert report.network_used is False
+    assert report.external_api_used is False
+    assert report.external_tools_used is False
+
+    reports = tmp_path / "runs" / run_id / "reports"
+    assert (reports / "autonomous-paper-run-0001.json").is_file()
+    assert (reports / "autonomous-paper-run-0001.md").is_file()
+    assert (reports / "autonomous-paper-run-index.json").is_file()
+    markdown = (reports / "autonomous-paper-run-0001.md").read_text(encoding="utf-8")
+    assert "publication_ready: false" in markdown
+    assert "inspect-final-release-bundle" in markdown
+
+    inspected = inspect_autonomous_paper_run(run_id=run_id, root=tmp_path)
+    paper = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert inspected["autonomous_paper_run_present"] is True
+    assert inspected["autonomous_paper_final_bundle_verified"] is True
+    assert paper["autonomous_paper_controller_status"] == report.controller_status
+    assert paper["autonomous_paper_handoff_status"] == report.handoff_status
+    assert lint["autonomous_paper_run_present"] is True
+    assert lint["autonomous_paper_final_bundle_verified"] is True
+    assert lint["autonomous_paper_unsupported_claim_count"] == 0
+    assert lint["autonomous_paper_human_intervention_required"] is False
+
+    cli_inspect = CliRunner().invoke(
+        app,
+        [
+            "inspect-autonomous-paper-run",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    assert cli_inspect.exit_code == 0, cli_inspect.output
+    assert json.loads(cli_inspect.output)["controller_status"] == report.controller_status
+
+    final_manuscript, _ = latest_final_manuscript_regeneration(tmp_path, run_id)
+    final_bundle, _ = latest_final_release_bundle(tmp_path, run_id)
+    final_verification = latest_final_bundle_verification(tmp_path, run_id)
+    assert final_manuscript is not None
+    assert final_bundle is not None
+    assert final_verification is not None
+    assert _final_manuscript_is_safe(final_manuscript)
+    assert not _final_manuscript_is_safe(
+        final_manuscript.model_copy(update={"regeneration_status": "failed"})
+    )
+    assert _final_bundle_is_complete(final_bundle)
+    assert not _final_bundle_is_complete(
+        final_bundle.model_copy(
+            update={
+                "bundle_status": "incomplete",
+                "missing_required_artifacts": ["reports/release-report.json"],
+            }
+        )
+    )
+    assert _final_verification_is_safe(final_verification)
+    assert not _final_verification_is_safe(
+        final_verification.model_copy(
+            update={"verification_status": "failed", "hash_mismatch_count": 1}
+        )
+    )
+    assert _lint_has_safety_block(
+        {
+            "claim_support_missing_required_citation_count": 1,
+            "citation_registry_sources_all_accepted": True,
+        },
+        0,
+    )
+    assert not _lint_has_safety_block(lint, 0)
+
+    with pytest.raises(AutonomousPaperRunError, match="Run already exists"):
+        run_autonomous_paper(config=config, root=tmp_path)
+
+
+def test_autonomous_paper_controller_persists_base_failure(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = "run-autonomous-paper-base-failure"
+    config = LLMOrchestrationConfig(run_id=run_id, domain="human geography")
+
+    def fail_base_generation(**_: object) -> None:
+        raise LLMOrchestrationError("deterministic base failure")
+
+    monkeypatch.setattr(
+        autonomous_paper_module,
+        "run_llm_paper_orchestration",
+        fail_base_generation,
+    )
+    result = run_autonomous_paper(config=config, root=tmp_path)
+
+    assert result.report.controller_status == "failed"
+    assert result.report.handoff_status == "handoff_failed"
+    assert result.report.human_intervention_required is True
+    assert result.report.publication_ready is False
+    assert result.report.stages[0].stage_status == "failed"
+    assert all(stage.stage_status == "skipped" for stage in result.report.stages[1:-1])
+    assert (tmp_path / result.report_artifact.path).is_file()
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:
