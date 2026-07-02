@@ -1,8 +1,8 @@
 {
-  "$id": "https://schemas.factori.local/0.44.0/final-release-reproducibility-manifest.schema.json",
+  "$id": "https://schemas.factori.local/0.44.0/final-bundle-replay-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Reproducibility metadata locked into a final release bundle.",
+  "description": "Reproducibility replay summary reconstructed without command execution.",
   "properties": {
     "artifact_hashes": {
       "additionalProperties": {
@@ -11,15 +11,22 @@
       "title": "Artifact Hashes",
       "type": "object"
     },
-    "autonomous_loop_configuration": {
-      "additionalProperties": true,
-      "title": "Autonomous Loop Configuration",
-      "type": "object"
-    },
     "bundle_id": {
-      "minLength": 1,
-      "title": "Bundle Id",
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bundle Id"
+    },
+    "commands_reexecuted": {
+      "default": false,
+      "title": "Commands Reexecuted",
+      "type": "boolean"
     },
     "commands_used": {
       "items": {
@@ -27,12 +34,6 @@
       },
       "title": "Commands Used",
       "type": "array"
-    },
-    "created_at": {
-      "format": "date-time",
-      "minLength": 1,
-      "title": "Created At",
-      "type": "string"
     },
     "creates_scientific_validation": {
       "default": false,
@@ -50,11 +51,6 @@
       "type": "boolean"
     },
     "factori_protocol_version": {
-      "minLength": 1,
-      "title": "Factori Protocol Version",
-      "type": "string"
-    },
-    "git_commit_hash_optional": {
       "anyOf": [
         {
           "type": "string"
@@ -64,7 +60,7 @@
         }
       ],
       "default": null,
-      "title": "Git Commit Hash Optional"
+      "title": "Factori Protocol Version"
     },
     "implies_publication_readiness": {
       "default": false,
@@ -88,20 +84,22 @@
       "default": null,
       "title": "Ledger Tip Hash Optional"
     },
-    "main_run_configuration": {
-      "additionalProperties": true,
-      "title": "Main Run Configuration",
-      "type": "object"
-    },
     "network_used": {
       "default": false,
       "title": "Network Used",
       "type": "boolean"
     },
     "platform": {
-      "minLength": 1,
-      "title": "Platform",
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Platform"
     },
     "publication_ready": {
       "default": false,
@@ -109,14 +107,28 @@
       "type": "boolean"
     },
     "python_version": {
-      "minLength": 1,
-      "title": "Python Version",
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Python Version"
     },
     "run_id": {
-      "minLength": 1,
-      "title": "Run Id",
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
     },
     "sandbox_configurations": {
       "items": {
@@ -124,13 +136,6 @@
         "type": "object"
       },
       "title": "Sandbox Configurations",
-      "type": "array"
-    },
-    "uv_environment_paths": {
-      "items": {
-        "type": "string"
-      },
-      "title": "Uv Environment Paths",
       "type": "array"
     },
     "uv_lock_paths": {
@@ -141,17 +146,9 @@
       "type": "array"
     }
   },
-  "required": [
-    "run_id",
-    "bundle_id",
-    "created_at",
-    "factori_protocol_version",
-    "python_version",
-    "platform"
-  ],
-  "title": "FinalReleaseReproducibilityManifest",
+  "title": "FinalBundleReplaySummary",
   "type": "object",
   "x-factori-protocol-version": "0.44.0",
-  "x-factori-source-model": "factori.schemas.FinalReleaseReproducibilityManifest",
+  "x-factori-source-model": "factori.schemas.FinalBundleReplaySummary",
   "x-factori-verification-evidence": false
 }

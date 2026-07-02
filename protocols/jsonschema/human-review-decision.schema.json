@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.43.0/human-review-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.44.0/human-review-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Future human-review adapter decision placeholder.",
@@ -42,7 +42,7 @@
   ],
   "title": "HumanReviewDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.43.0",
+  "x-factori-protocol-version": "0.44.0",
   "x-factori-source-model": "factori.schemas.HumanReviewDecision",
   "x-factori-verification-evidence": false
 }

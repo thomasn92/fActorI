@@ -179,7 +179,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.43.0/final-manuscript-structured-document.schema.json",
+  "$id": "https://schemas.factori.local/0.44.0/final-manuscript-structured-document.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Machine-checkable regenerated final manuscript.",
@@ -257,7 +257,7 @@
   ],
   "title": "FinalManuscriptStructuredDocument",
   "type": "object",
-  "x-factori-protocol-version": "0.43.0",
+  "x-factori-protocol-version": "0.44.0",
   "x-factori-source-model": "factori.schemas.FinalManuscriptStructuredDocument",
   "x-factori-verification-evidence": false
 }

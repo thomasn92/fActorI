@@ -2116,6 +2116,94 @@ class FinalReleaseBundleIndex(StrictModel):
     is_verification_evidence: bool = False
 
 
+FinalBundleVerificationStatus = Literal[
+    "verified",
+    "verified_with_warnings",
+    "failed",
+    "incomplete",
+]
+FinalBundleVerificationCheckStatus = Literal["passed", "failed", "warned"]
+FinalBundleVerificationMode = Literal["bundle_path", "run_id_lookup"]
+
+
+class FinalBundleVerificationCheck(StrictModel):
+    """One read-only final bundle integrity or policy check."""
+
+    check_id: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    status: FinalBundleVerificationCheckStatus
+    message: str = Field(min_length=1)
+    blocking: bool = False
+    details: dict[str, Any] = Field(default_factory=dict)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalBundleReplaySummary(StrictModel):
+    """Read-only reproducibility summary reconstructed from bundle contents."""
+
+    run_id: str | None = None
+    bundle_id: str | None = None
+    factori_protocol_version: str | None = None
+    commands_used: list[str] = Field(default_factory=list)
+    python_version: str | None = None
+    platform: str | None = None
+    uv_lock_paths: list[str] = Field(default_factory=list)
+    sandbox_configurations: list[dict[str, Any]] = Field(default_factory=list)
+    artifact_hashes: dict[str, str] = Field(default_factory=dict)
+    ledger_tip_hash_optional: str | None = None
+    network_used: bool = False
+    external_api_used: bool = False
+    external_tools_used: bool = False
+    commands_reexecuted: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalBundleVerificationReport(StrictModel):
+    """Independent read-only verification of an immutable final bundle."""
+
+    bundle_path: str = Field(min_length=1)
+    verification_id: str = Field(min_length=1)
+    verification_status: FinalBundleVerificationStatus
+    verified_at: str = Field(min_length=1)
+    verification_mode: FinalBundleVerificationMode
+    bundle_manifest_path: str = Field(min_length=1)
+    reproducibility_manifest_path: str = Field(min_length=1)
+    hash_file_path: str = Field(min_length=1)
+    artifact_manifest_path: str = Field(min_length=1)
+    checks_run: int = Field(ge=0)
+    checks_passed: int = Field(ge=0)
+    checks_failed: int = Field(ge=0)
+    checks_warned: int = Field(ge=0)
+    checks: list[FinalBundleVerificationCheck] = Field(default_factory=list)
+    hashes_verified: int = Field(ge=0)
+    hash_mismatch_count: int = Field(ge=0)
+    missing_required_artifact_count: int = Field(ge=0)
+    unexpected_artifact_count: int = Field(ge=0)
+    accepted_reference_check_passed: bool
+    rejected_reference_leak_count: int = Field(ge=0)
+    paper_tex_citation_check_passed: bool
+    claim_evidence_check_passed: bool
+    unsupported_claim_count: int = Field(ge=0)
+    release_report_check_passed: bool
+    publication_ready: bool = False
+    ledger_check_passed: bool
+    reproducibility_check_passed: bool
+    environment_metadata_present: bool
+    network_used: bool = False
+    external_api_used: bool = False
+    external_tools_used: bool = False
+    replay_summary: FinalBundleReplaySummary
+    bundle_modified: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
 AutonomousLoopStatus = Literal[
     "completed",
@@ -3093,6 +3181,9 @@ __all__ = [
     "FinalReleaseBundle",
     "FinalReleaseBundleReport",
     "FinalReleaseBundleIndex",
+    "FinalBundleVerificationCheck",
+    "FinalBundleReplaySummary",
+    "FinalBundleVerificationReport",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

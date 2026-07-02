@@ -54,6 +54,7 @@ from factori.experiment_template_routing import (
     inspect_experiment_gap_routing,
     route_experiment_gaps,
 )
+from factori.final_bundle_verification import verify_final_release_bundle
 from factori.final_manuscript_regeneration import (
     inspect_final_manuscript,
     regenerate_final_manuscript,
@@ -3645,6 +3646,225 @@ def test_final_release_bundle_assembles_layout_hashes_and_scoped_exports(tmp_pat
     assert (
         tmp_path / "runs" / run_id / "reports" / "final-release-bundle-index-0001.json"
     ).is_file()
+
+    before_verification = {
+        path.relative_to(bundle_dir).as_posix(): sha256_file(path)
+        for path in bundle_dir.rglob("*")
+        if path.is_file()
+    }
+    verification = verify_final_release_bundle(bundle_path=bundle_dir)
+    after_verification = {
+        path.relative_to(bundle_dir).as_posix(): sha256_file(path)
+        for path in bundle_dir.rglob("*")
+        if path.is_file()
+    }
+    assert verification.verification_status == "verified_with_warnings"
+    assert verification.hash_mismatch_count == 0
+    assert verification.missing_required_artifact_count == 0
+    assert verification.rejected_reference_leak_count == 0
+    assert verification.accepted_reference_check_passed is True
+    assert verification.paper_tex_citation_check_passed is True
+    assert verification.claim_evidence_check_passed is True
+    assert verification.release_report_check_passed is True
+    assert verification.publication_ready is False
+    assert verification.network_used is False
+    assert verification.external_api_used is False
+    assert verification.bundle_modified is False
+    assert verification.replay_summary.commands_reexecuted is False
+    assert before_verification == after_verification
+
+    run_lookup_verification = verify_final_release_bundle(
+        run_id=run_id,
+        root=tmp_path,
+        write_report=True,
+    )
+    assert run_lookup_verification.verification_mode == "run_id_lookup"
+    inspected_after_verification = inspect_final_release_bundle(run_id=run_id, root=tmp_path)
+    paper_after_verification = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    lint_after_verification = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert inspected_after_verification["final_bundle_verification_present"] is True
+    assert inspected_after_verification["final_bundle_hash_mismatch_count"] == 0
+    assert paper_after_verification["final_bundle_verified"] is True
+    assert lint_after_verification["final_bundle_verification_present"] is True
+    assert lint_after_verification["final_bundle_verification_status"] == (
+        "verified_with_warnings"
+    )
+    assert lint_after_verification["final_bundle_publication_ready_flag"] is False
+
+    cli_by_path = CliRunner().invoke(
+        app,
+        ["verify-final-release-bundle", "--bundle-path", str(bundle_dir), "--json"],
+    )
+    assert cli_by_path.exit_code == 0, cli_by_path.output
+    assert json.loads(cli_by_path.output)["verification_status"] == "verified_with_warnings"
+    cli_by_run = CliRunner().invoke(
+        app,
+        [
+            "verify-final-release-bundle",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    assert cli_by_run.exit_code == 0, cli_by_run.output
+    assert json.loads(cli_by_run.output)["verification_mode"] == "run_id_lookup"
+
+    def tampered_bundle(name: str) -> Path:
+        target = tmp_path / "tampered-bundles" / name
+        shutil.copytree(bundle_dir, target)
+        return target
+
+    def relock_bundle(target: Path) -> None:
+        manifest_path = target / "reproducibility" / "artifact-manifest.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for artifact in manifest_payload["artifacts"]:
+            artifact["sha256"] = sha256_file(target / artifact["relative_path"])
+        manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        hashes = {
+            path.relative_to(target).as_posix(): sha256_file(path)
+            for path in target.rglob("*")
+            if path.is_file() and path.name != "hashes.sha256"
+        }
+        (target / "reproducibility" / "hashes.sha256").write_text(
+            "".join(f"{digest}  {relative}\n" for relative, digest in sorted(hashes.items())),
+            encoding="utf-8",
+        )
+
+    changed = tampered_bundle("changed-content")
+    (changed / "paper" / "paper.md").write_text("tampered\n", encoding="utf-8")
+    assert verify_final_release_bundle(bundle_path=changed).verification_status == "failed"
+
+    missing = tampered_bundle("missing-required")
+    (missing / "reports" / "claim-evidence-map.json").unlink()
+    missing_report = verify_final_release_bundle(bundle_path=missing)
+    assert missing_report.verification_status == "failed"
+    assert missing_report.missing_required_artifact_count == 1
+    assert missing_report.claim_evidence_check_passed is False
+
+    rejected_reference = tampered_bundle("rejected-reference")
+    with (rejected_reference / "paper" / "references.bib").open("a", encoding="utf-8") as file:
+        file.write("\n@misc{RejectedSourceFixture, title={Rejected source}}\n")
+    rejected_report = verify_final_release_bundle(bundle_path=rejected_reference)
+    assert rejected_report.verification_status == "failed"
+    assert rejected_report.rejected_reference_leak_count == 1
+
+    hard_rejected_reference = tampered_bundle("hard-rejected-reference")
+    with (hard_rejected_reference / "paper" / "references.bib").open(
+        "a", encoding="utf-8"
+    ) as file:
+        file.write("\n@misc{HardRejectedSourceFixture, title={Hard-rejected source}}\n")
+    hard_rejected_report = verify_final_release_bundle(bundle_path=hard_rejected_reference)
+    assert hard_rejected_report.verification_status == "failed"
+    assert hard_rejected_report.rejected_reference_leak_count == 1
+
+    bad_tex = tampered_bundle("bad-tex-citation")
+    with (bad_tex / "paper" / "paper.tex").open("a", encoding="utf-8") as file:
+        file.write("\n\\cite{UnknownSourceFixture}\n")
+    bad_tex_report = verify_final_release_bundle(bundle_path=bad_tex)
+    assert bad_tex_report.verification_status == "failed"
+    assert bad_tex_report.paper_tex_citation_check_passed is False
+
+    unsupported_claim = tampered_bundle("unsupported-claim")
+    claim_map_path = unsupported_claim / "reports" / "claim-evidence-map.json"
+    claim_map_payload = json.loads(claim_map_path.read_text(encoding="utf-8"))
+    claim_map_payload["unsupported_non_scaffold_claim_ids"] = ["tampered-unsupported-claim"]
+    claim_map_path.write_text(json.dumps(claim_map_payload), encoding="utf-8")
+    unsupported_report = verify_final_release_bundle(bundle_path=unsupported_claim)
+    assert unsupported_report.verification_status == "failed"
+    assert unsupported_report.unsupported_claim_count == 1
+
+    deferred_claim = tampered_bundle("deferred-nonblocking-claim")
+    deferred_map_path = deferred_claim / "reports" / "claim-evidence-map.json"
+    deferred_map_payload = json.loads(deferred_map_path.read_text(encoding="utf-8"))
+    deferred_id = next(
+        item["target_claim_id_optional"]
+        for item in json.loads(
+            (deferred_claim / "reports" / "autonomous-loop-report.json").read_text(
+                encoding="utf-8"
+            )
+        )["gap_terminal_classifications"]
+        if item["terminal_class"] == "deferred_exhausted_proof"
+    )
+    deferred_map_payload["unsupported_non_scaffold_claim_ids"] = [deferred_id]
+    for link in deferred_map_payload["links"]:
+        if link["claim_id"] == deferred_id:
+            link["support_status"] = "unsupported"
+            link["classification"] = "unsupported_claim"
+            link["support_type"] = "unsupported"
+            link["unsupported_reason"] = "Formal proof remains explicitly deferred."
+    deferred_map_path.write_text(
+        json.dumps(deferred_map_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    deferred_reproducibility_path = (
+        deferred_claim / "reproducibility" / "reproducibility-manifest.json"
+    )
+    deferred_reproducibility = json.loads(
+        deferred_reproducibility_path.read_text(encoding="utf-8")
+    )
+    deferred_reproducibility["artifact_hashes"]["claim_evidence_map"] = sha256_file(
+        deferred_map_path
+    )
+    deferred_reproducibility_path.write_text(
+        json.dumps(deferred_reproducibility, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    relock_bundle(deferred_claim)
+    deferred_claim_report = verify_final_release_bundle(bundle_path=deferred_claim)
+    assert deferred_claim_report.verification_status == "verified_with_warnings"
+    assert deferred_claim_report.unsupported_claim_count == 1
+    assert deferred_claim_report.claim_evidence_check_passed is True
+
+    publication_ready = tampered_bundle("publication-ready")
+    release_path = publication_ready / "reports" / "release-report.json"
+    release_payload = json.loads(release_path.read_text(encoding="utf-8"))
+    release_payload["publication_ready"] = True
+    release_path.write_text(json.dumps(release_payload), encoding="utf-8")
+    publication_report = verify_final_release_bundle(bundle_path=publication_ready)
+    assert publication_report.verification_status == "failed"
+    assert publication_report.publication_ready is True
+
+    missing_manifest = tampered_bundle("missing-artifact-manifest")
+    (missing_manifest / "reproducibility" / "artifact-manifest.json").unlink()
+    missing_manifest_report = verify_final_release_bundle(bundle_path=missing_manifest)
+    assert missing_manifest_report.verification_status == "failed"
+
+    missing_reproducibility = tampered_bundle("missing-reproducibility")
+    (missing_reproducibility / "reproducibility" / "reproducibility-manifest.json").unlink()
+    missing_reproducibility_report = verify_final_release_bundle(
+        bundle_path=missing_reproducibility
+    )
+    assert missing_reproducibility_report.verification_status == "failed"
+    assert missing_reproducibility_report.reproducibility_check_passed is False
+
+    missing_environment = tampered_bundle("missing-environment")
+    (missing_environment / "reproducibility" / "environment.json").unlink()
+    missing_environment_report = verify_final_release_bundle(bundle_path=missing_environment)
+    assert missing_environment_report.verification_status == "failed"
+    assert missing_environment_report.environment_metadata_present is False
+
+    ledger_mismatch = tampered_bundle("ledger-tip-mismatch")
+    reproducibility_path = ledger_mismatch / "reproducibility" / "reproducibility-manifest.json"
+    reproducibility_payload = json.loads(reproducibility_path.read_text(encoding="utf-8"))
+    reproducibility_payload["ledger_tip_hash_optional"] = "f" * 64
+    reproducibility_path.write_text(json.dumps(reproducibility_payload), encoding="utf-8")
+    ledger_mismatch_report = verify_final_release_bundle(bundle_path=ledger_mismatch)
+    assert ledger_mismatch_report.verification_status == "failed"
+    assert ledger_mismatch_report.ledger_check_passed is False
+
+    stale_hash = tampered_bundle("stale-hash")
+    hash_path = stale_hash / "reproducibility" / "hashes.sha256"
+    hash_lines = hash_path.read_text(encoding="utf-8").splitlines()
+    hash_lines[0] = f"{'0' * 64}  {hash_lines[0].split('  ', maxsplit=1)[1]}"
+    hash_path.write_text("\n".join(hash_lines) + "\n", encoding="utf-8")
+    stale_hash_report = verify_final_release_bundle(bundle_path=stale_hash)
+    assert stale_hash_report.verification_status == "failed"
+    assert stale_hash_report.hash_mismatch_count == 1
 
     second = build_final_release_bundle(
         run_id=run_id,

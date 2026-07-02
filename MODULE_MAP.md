@@ -248,6 +248,10 @@ All implementation modules are under `factori/`.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.
+- `final_bundle_verification.py`: independent read-only verification of final bundle hashes,
+  required artifacts, accepted references, LaTeX citations, scoped claim evidence, release
+  authority, reproducibility metadata, and bundled ledger-tip consistency; optional reports are
+  written outside the verified bundle and are not provenance or evidence.
 - `gap_attempts.py`: stable gap, plan-item, planned-spec, and execution-attempt fingerprints;
   append-only derived gap-attempt histories; planned-spec de-dup indexes; and exhaustion-aware
   planner annotations without evidence or publication-readiness authority.

@@ -83,6 +83,7 @@ def test_final_manuscript_cli_commands_are_registered() -> None:
 def test_final_release_bundle_cli_commands_are_registered() -> None:
     build = CliRunner().invoke(app, ["build-final-release-bundle", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-final-release-bundle", "--help"])
+    verify = CliRunner().invoke(app, ["verify-final-release-bundle", "--help"])
 
     assert build.exit_code == 0, build.output
     assert "--compile-pdf" in build.output
@@ -90,6 +91,11 @@ def test_final_release_bundle_cli_commands_are_registered() -> None:
     assert "--json" in build.output
     assert inspect.exit_code == 0, inspect.output
     assert "--json" in inspect.output
+    assert verify.exit_code == 0, verify.output
+    assert "--bundle-path" in verify.output
+    assert "--run-id" in verify.output
+    assert "--write-report" in verify.output
+    assert "--json" in verify.output
 
 
 def test_human_review_cli_commands_are_registered() -> None:

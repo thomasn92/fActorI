@@ -1,0 +1,437 @@
+{
+  "$defs": {
+    "FinalBundleReplaySummary": {
+      "additionalProperties": false,
+      "description": "Read-only reproducibility summary reconstructed from bundle contents.",
+      "properties": {
+        "artifact_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Artifact Hashes",
+          "type": "object"
+        },
+        "bundle_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bundle Id"
+        },
+        "commands_reexecuted": {
+          "default": false,
+          "title": "Commands Reexecuted",
+          "type": "boolean"
+        },
+        "commands_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Commands Used",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "external_api_used": {
+          "default": false,
+          "title": "External Api Used",
+          "type": "boolean"
+        },
+        "external_tools_used": {
+          "default": false,
+          "title": "External Tools Used",
+          "type": "boolean"
+        },
+        "factori_protocol_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Factori Protocol Version"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "ledger_tip_hash_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ledger Tip Hash Optional"
+        },
+        "network_used": {
+          "default": false,
+          "title": "Network Used",
+          "type": "boolean"
+        },
+        "platform": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Platform"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "python_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Python Version"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "sandbox_configurations": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Sandbox Configurations",
+          "type": "array"
+        },
+        "uv_lock_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uv Lock Paths",
+          "type": "array"
+        }
+      },
+      "title": "FinalBundleReplaySummary",
+      "type": "object"
+    },
+    "FinalBundleVerificationCheck": {
+      "additionalProperties": false,
+      "description": "One read-only final bundle integrity or policy check.",
+      "properties": {
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "category": {
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "check_id": {
+          "minLength": 1,
+          "title": "Check Id",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "warned"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check_id",
+        "category",
+        "status",
+        "message"
+      ],
+      "title": "FinalBundleVerificationCheck",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.44.0/final-bundle-verification-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Independent read-only verification report for a final release bundle.",
+  "properties": {
+    "accepted_reference_check_passed": {
+      "title": "Accepted Reference Check Passed",
+      "type": "boolean"
+    },
+    "artifact_manifest_path": {
+      "minLength": 1,
+      "title": "Artifact Manifest Path",
+      "type": "string"
+    },
+    "bundle_manifest_path": {
+      "minLength": 1,
+      "title": "Bundle Manifest Path",
+      "type": "string"
+    },
+    "bundle_modified": {
+      "default": false,
+      "title": "Bundle Modified",
+      "type": "boolean"
+    },
+    "bundle_path": {
+      "minLength": 1,
+      "title": "Bundle Path",
+      "type": "string"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/FinalBundleVerificationCheck"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "checks_failed": {
+      "minimum": 0,
+      "title": "Checks Failed",
+      "type": "integer"
+    },
+    "checks_passed": {
+      "minimum": 0,
+      "title": "Checks Passed",
+      "type": "integer"
+    },
+    "checks_run": {
+      "minimum": 0,
+      "title": "Checks Run",
+      "type": "integer"
+    },
+    "checks_warned": {
+      "minimum": 0,
+      "title": "Checks Warned",
+      "type": "integer"
+    },
+    "claim_evidence_check_passed": {
+      "title": "Claim Evidence Check Passed",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "environment_metadata_present": {
+      "title": "Environment Metadata Present",
+      "type": "boolean"
+    },
+    "external_api_used": {
+      "default": false,
+      "title": "External Api Used",
+      "type": "boolean"
+    },
+    "external_tools_used": {
+      "default": false,
+      "title": "External Tools Used",
+      "type": "boolean"
+    },
+    "hash_file_path": {
+      "minLength": 1,
+      "title": "Hash File Path",
+      "type": "string"
+    },
+    "hash_mismatch_count": {
+      "minimum": 0,
+      "title": "Hash Mismatch Count",
+      "type": "integer"
+    },
+    "hashes_verified": {
+      "minimum": 0,
+      "title": "Hashes Verified",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "ledger_check_passed": {
+      "title": "Ledger Check Passed",
+      "type": "boolean"
+    },
+    "missing_required_artifact_count": {
+      "minimum": 0,
+      "title": "Missing Required Artifact Count",
+      "type": "integer"
+    },
+    "network_used": {
+      "default": false,
+      "title": "Network Used",
+      "type": "boolean"
+    },
+    "paper_tex_citation_check_passed": {
+      "title": "Paper Tex Citation Check Passed",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rejected_reference_leak_count": {
+      "minimum": 0,
+      "title": "Rejected Reference Leak Count",
+      "type": "integer"
+    },
+    "release_report_check_passed": {
+      "title": "Release Report Check Passed",
+      "type": "boolean"
+    },
+    "replay_summary": {
+      "$ref": "#/$defs/FinalBundleReplaySummary"
+    },
+    "reproducibility_check_passed": {
+      "title": "Reproducibility Check Passed",
+      "type": "boolean"
+    },
+    "reproducibility_manifest_path": {
+      "minLength": 1,
+      "title": "Reproducibility Manifest Path",
+      "type": "string"
+    },
+    "unexpected_artifact_count": {
+      "minimum": 0,
+      "title": "Unexpected Artifact Count",
+      "type": "integer"
+    },
+    "unsupported_claim_count": {
+      "minimum": 0,
+      "title": "Unsupported Claim Count",
+      "type": "integer"
+    },
+    "verification_id": {
+      "minLength": 1,
+      "title": "Verification Id",
+      "type": "string"
+    },
+    "verification_mode": {
+      "enum": [
+        "bundle_path",
+        "run_id_lookup"
+      ],
+      "title": "Verification Mode",
+      "type": "string"
+    },
+    "verification_status": {
+      "enum": [
+        "verified",
+        "verified_with_warnings",
+        "failed",
+        "incomplete"
+      ],
+      "title": "Verification Status",
+      "type": "string"
+    },
+    "verified_at": {
+      "minLength": 1,
+      "title": "Verified At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "bundle_path",
+    "verification_id",
+    "verification_status",
+    "verified_at",
+    "verification_mode",
+    "bundle_manifest_path",
+    "reproducibility_manifest_path",
+    "hash_file_path",
+    "artifact_manifest_path",
+    "checks_run",
+    "checks_passed",
+    "checks_failed",
+    "checks_warned",
+    "hashes_verified",
+    "hash_mismatch_count",
+    "missing_required_artifact_count",
+    "unexpected_artifact_count",
+    "accepted_reference_check_passed",
+    "rejected_reference_leak_count",
+    "paper_tex_citation_check_passed",
+    "claim_evidence_check_passed",
+    "unsupported_claim_count",
+    "release_report_check_passed",
+    "ledger_check_passed",
+    "reproducibility_check_passed",
+    "environment_metadata_present",
+    "replay_summary"
+  ],
+  "title": "FinalBundleVerificationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.44.0",
+  "x-factori-source-model": "factori.schemas.FinalBundleVerificationReport",
+  "x-factori-verification-evidence": false
+}

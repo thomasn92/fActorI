@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.44.0` adds independent read-only final bundle verification checks, replay-by-inspection
+summaries, and aggregate verification reports. Verification consumes only the selected bundle
+after optional run-id lookup, never rewrites the bundle, reruns commands, creates evidence, or
+implies publication readiness.
+
 Protocol `0.43.0` adds deterministic final release bundle, artifact manifest, reproducibility
 manifest, hash-lock, bundle report, and bundle index contracts. Release bundles package the final
 manuscript, accepted citations, scoped evidence artifacts, reports, and reproducibility metadata

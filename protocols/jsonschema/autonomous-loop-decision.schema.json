@@ -104,7 +104,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.43.0/autonomous-loop-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.44.0/autonomous-loop-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic stop or continue decision for one autonomous loop iteration.",
@@ -292,7 +292,7 @@
   ],
   "title": "AutonomousLoopDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.43.0",
+  "x-factori-protocol-version": "0.44.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopDecision",
   "x-factori-verification-evidence": false
 }

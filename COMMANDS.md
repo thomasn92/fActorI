@@ -205,6 +205,10 @@ uv run factori inspect-final-manuscript --run-id demo --json
 uv run factori build-final-release-bundle --run-id demo
 uv run factori inspect-final-release-bundle --run-id demo
 uv run factori inspect-final-release-bundle --run-id demo --json
+uv run factori verify-final-release-bundle \
+  --bundle-path runs/demo/release-bundles/final-bundle-0001
+uv run factori verify-final-release-bundle --run-id demo --json
+uv run factori verify-final-release-bundle --run-id demo --write-report
 uv run factori diversify-gap-strategies \
   --run-id demo --strategy-backend deterministic
 uv run factori inspect-gap-strategy-diversification --run-id demo
@@ -747,6 +751,11 @@ uv run factori run-all \
 
 `replay-verify` is read-only. With `--write-report`, it writes only non-provenance files under
 `runs/demo/replay/` and does not append ledger commits or update the artifact manifest.
+
+`verify-final-release-bundle` is independent replay-by-inspection. `--bundle-path` reads only the
+selected bundle; `--run-id` only locates the latest bundle before the same bundle-only checks run.
+It never executes recorded commands or modifies the bundle. `--write-report` writes an append-only,
+non-ledgered report outside the bundle under the run reports directory.
 
 `diagnose-run` explains available final-audit, release, export, and replay findings. It never
 executes its recommended commands. With `--write-report`, it writes only non-provenance files under

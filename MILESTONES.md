@@ -179,3 +179,10 @@ effective readiness from attempt history, strategy exhaustion, de-duplication, a
 and applies newly selected deterministic strategies without an extra iteration of scheduling lag.
 Clean supported/deferred runs stop without a max-iteration fallback while deferred work remains
 visible and `publication_ready` remains false.
+
+Milestone 79 adds independent read-only final bundle verification and replay-by-inspection. The
+verifier checks locked hashes, physical and manifest inventories, required artifacts,
+accepted-only references and LaTeX citations, scoped claim evidence, release authority,
+reproducibility/environment metadata, and bundled ledger-tip consistency using only bundle
+contents after optional run-id lookup. It never repairs, regenerates, or executes the bundle and
+cannot create evidence or publication readiness.

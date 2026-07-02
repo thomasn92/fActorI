@@ -61,6 +61,9 @@ from factori.schemas import (
     ExperimentTemplateSelection,
     ExportReadinessReport,
     FinalAuditReport,
+    FinalBundleReplaySummary,
+    FinalBundleVerificationCheck,
+    FinalBundleVerificationReport,
     FinalManuscriptClaimSummary,
     FinalManuscriptRegenerationIndex,
     FinalManuscriptRegenerationReport,
@@ -216,7 +219,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.43.0"
+PROTOCOL_VERSION = "0.44.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -627,6 +630,21 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "FinalReleaseBundleIndex",
         FinalReleaseBundleIndex,
         "Derived latest pointer over immutable final release bundles.",
+    ),
+    ProtocolDefinition(
+        "FinalBundleVerificationCheck",
+        FinalBundleVerificationCheck,
+        "One read-only integrity or policy check over a final release bundle.",
+    ),
+    ProtocolDefinition(
+        "FinalBundleReplaySummary",
+        FinalBundleReplaySummary,
+        "Reproducibility replay summary reconstructed without command execution.",
+    ),
+    ProtocolDefinition(
+        "FinalBundleVerificationReport",
+        FinalBundleVerificationReport,
+        "Independent read-only verification report for a final release bundle.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

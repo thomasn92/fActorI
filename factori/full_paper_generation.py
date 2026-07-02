@@ -739,6 +739,14 @@ def inspect_paper_bundle_summary(
         final_release_bundle_report,
         final_release_bundle_index,
     )
+    from factori.final_bundle_verification import (  # noqa: PLC0415
+        final_bundle_verification_summary_fields,
+        latest_final_bundle_verification,
+    )
+
+    final_bundle_verification_summary = final_bundle_verification_summary_fields(
+        latest_final_bundle_verification(root_path, run_id)
+    )
     existing = {
         name: path.relative_to(root_path).as_posix()
         for name, path in sorted(paths.items())
@@ -1051,6 +1059,7 @@ def inspect_paper_bundle_summary(
         **capability_escalation_summary,
         **final_manuscript_summary,
         **final_release_bundle_summary,
+        **final_bundle_verification_summary,
         "bounded_empirical_gap_count": max(
             int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
             int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
@@ -1666,6 +1675,20 @@ def lint_paper_bundle_summary(
     final_release_bundle_missing_required_artifact_count = int(
         bundle.get("final_release_bundle_missing_required_artifact_count") or 0
     )
+    final_bundle_verification_present = bool(bundle.get("final_bundle_verification_present"))
+    final_bundle_verification_status = bundle.get("final_bundle_verification_status")
+    final_bundle_hash_mismatch_count = int(
+        bundle.get("final_bundle_hash_mismatch_count") or 0
+    )
+    final_bundle_missing_required_artifact_count = int(
+        bundle.get("final_bundle_missing_required_artifact_count") or 0
+    )
+    final_bundle_rejected_reference_leak_count = int(
+        bundle.get("final_bundle_rejected_reference_leak_count") or 0
+    )
+    final_bundle_publication_ready_flag = bool(
+        bundle.get("final_bundle_publication_ready_flag")
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -2208,6 +2231,16 @@ def lint_paper_bundle_summary(
         "final_release_bundle_missing_required_artifact_count": (
             final_release_bundle_missing_required_artifact_count
         ),
+        "final_bundle_verification_present": final_bundle_verification_present,
+        "final_bundle_verification_status": final_bundle_verification_status,
+        "final_bundle_hash_mismatch_count": final_bundle_hash_mismatch_count,
+        "final_bundle_missing_required_artifact_count": (
+            final_bundle_missing_required_artifact_count
+        ),
+        "final_bundle_rejected_reference_leak_count": (
+            final_bundle_rejected_reference_leak_count
+        ),
+        "final_bundle_publication_ready_flag": final_bundle_publication_ready_flag,
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),

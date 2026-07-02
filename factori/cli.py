@@ -91,6 +91,10 @@ from factori.experiment_template_routing import (
 )
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
+from factori.final_bundle_verification import (
+    FinalBundleVerificationError,
+    verify_final_release_bundle,
+)
 from factori.final_manuscript_regeneration import (
     FinalManuscriptRegenerationError,
     inspect_final_manuscript,
@@ -3616,7 +3620,63 @@ def inspect_final_release_bundle_command(
         "Missing required artifacts: "
         f"{summary['final_release_bundle_missing_required_artifact_count']}"
     )
+    typer.echo(
+        "Bundle verification: "
+        f"{'present' if summary.get('final_bundle_verification_present') else 'absent'}"
+    )
+    typer.echo(
+        "Verification status: "
+        f"{summary.get('final_bundle_verification_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Verification checks passed/failed/warned: "
+        f"{int(summary.get('final_bundle_checks_passed') or 0)}/"
+        f"{int(summary.get('final_bundle_checks_failed') or 0)}/"
+        f"{int(summary.get('final_bundle_checks_warned') or 0)}"
+    )
+    typer.echo(
+        f"Verification hash mismatches: {int(summary.get('final_bundle_hash_mismatch_count') or 0)}"
+    )
     typer.echo("Publication ready: false")
+
+
+@app.command("verify-final-release-bundle")
+def verify_final_release_bundle_command(
+    bundle_path: Annotated[Path | None, typer.Option("--bundle-path")] = None,
+    run_id: Annotated[str | None, typer.Option("--run-id")] = None,
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    write_report: Annotated[bool, typer.Option("--write-report")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Verify a final release bundle by inspection without modifying it."""
+    try:
+        report = verify_final_release_bundle(
+            bundle_path=bundle_path,
+            run_id=run_id,
+            root=root,
+            write_report=write_report,
+        )
+    except FinalBundleVerificationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    typer.echo(f"Final bundle verification: {report.bundle_path}")
+    typer.echo(f"Status: {report.verification_status}")
+    typer.echo(
+        "Checks passed/failed/warned: "
+        f"{report.checks_passed}/{report.checks_failed}/{report.checks_warned}"
+    )
+    typer.echo(f"Hashes verified: {report.hashes_verified}")
+    typer.echo(f"Hash mismatches: {report.hash_mismatch_count}")
+    typer.echo(f"Missing required artifacts: {report.missing_required_artifact_count}")
+    typer.echo(f"Rejected reference leaks: {report.rejected_reference_leak_count}")
+    typer.echo(
+        f"Accepted references check: {str(report.accepted_reference_check_passed).lower()}"
+    )
+    typer.echo(f"Claim-evidence check: {str(report.claim_evidence_check_passed).lower()}")
+    typer.echo(f"Publication ready: {str(report.publication_ready).lower()}")
 
 
 @app.command("inspect-gap-attempt-history")
@@ -4383,6 +4443,19 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Missing required bundle artifacts: "
         f"{int(summary.get('final_release_bundle_missing_required_artifact_count') or 0)}"
+    )
+    typer.echo(
+        "Final bundle verified: "
+        f"{summary.get('final_bundle_verified', 'unknown')}"
+    )
+    typer.echo(
+        "Final bundle verification status: "
+        f"{summary.get('final_bundle_verification_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Final bundle verification hash mismatches / missing required: "
+        f"{int(summary.get('final_bundle_hash_mismatch_count') or 0)} / "
+        f"{int(summary.get('final_bundle_missing_required_artifact_count') or 0)}"
     )
     typer.echo(
         "Evidence-aware refresh: "

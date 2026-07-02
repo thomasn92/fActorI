@@ -422,9 +422,16 @@ def inspect_final_release_bundle(*, run_id: str, root: str | Path = ".") -> dict
     report, index = latest_final_release_bundle(Path(root), run_id)
     if report is None or index is None:
         raise FinalReleaseBundleError(f"No final release bundle found for run_id={run_id}.")
+    from factori.final_bundle_verification import (  # noqa: PLC0415
+        final_bundle_verification_summary_fields,
+        latest_final_bundle_verification,
+    )
+
+    verification = latest_final_bundle_verification(root, run_id)
     return {
         **report.model_dump(mode="json"),
         **final_release_bundle_summary_fields(report, index),
+        **final_bundle_verification_summary_fields(verification),
         "final_release_bundle_index": index.model_dump(mode="json"),
     }
 

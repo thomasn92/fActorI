@@ -14,6 +14,9 @@ from factori.schemas import (
     ExperimentArtifact,
     ExperimentRunContract,
     ExperimentRunResult,
+    FinalBundleReplaySummary,
+    FinalBundleVerificationCheck,
+    FinalBundleVerificationReport,
     FinalReleaseBundle,
     FinalReleaseBundleArtifact,
     FinalReleaseBundleIndex,
@@ -82,9 +85,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 212
+    assert len(first) == 215
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.43.0"
+    assert PROTOCOL_VERSION == "0.44.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -109,6 +112,13 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("FinalReleaseBundle").model is FinalReleaseBundle
     assert get_protocol_definition("FinalReleaseBundleReport").model is FinalReleaseBundleReport
     assert get_protocol_definition("FinalReleaseBundleIndex").model is FinalReleaseBundleIndex
+    assert get_protocol_definition("FinalBundleVerificationCheck").model is (
+        FinalBundleVerificationCheck
+    )
+    assert get_protocol_definition("FinalBundleReplaySummary").model is FinalBundleReplaySummary
+    assert get_protocol_definition("FinalBundleVerificationReport").model is (
+        FinalBundleVerificationReport
+    )
     assert get_protocol_definition("AdapterConfig").model is AdapterConfig
     assert get_protocol_definition("RunStatusReport").model is RunStatusReport
     assert get_protocol_definition("StageRerunDecision").model is StageRerunDecision

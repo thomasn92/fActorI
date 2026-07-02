@@ -15,6 +15,9 @@ from factori.schemas import (
     DataRequirement,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    FinalBundleReplaySummary,
+    FinalBundleVerificationCheck,
+    FinalBundleVerificationReport,
     FinalReleaseBundle,
     FinalReleaseBundleArtifact,
     FinalReleaseBundleIndex,
@@ -67,6 +70,9 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert FinalReleaseBundle in vars(schemas).values()
     assert FinalReleaseBundleReport in vars(schemas).values()
     assert FinalReleaseBundleIndex in vars(schemas).values()
+    assert FinalBundleVerificationCheck in vars(schemas).values()
+    assert FinalBundleReplaySummary in vars(schemas).values()
+    assert FinalBundleVerificationReport in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -103,6 +109,9 @@ def test_schema_all_contains_expected_public_names() -> None:
         "FinalReleaseBundle",
         "FinalReleaseBundleReport",
         "FinalReleaseBundleIndex",
+        "FinalBundleVerificationCheck",
+        "FinalBundleReplaySummary",
+        "FinalBundleVerificationReport",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -143,4 +152,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 212
+    assert len(get_protocol_definitions()) == 215

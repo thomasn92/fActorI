@@ -67,6 +67,7 @@ completed run from disk and checks consistency without changing provenance.
   strict transport-schema conversion, and no evidence authority;
 - research-object manifests, final consistency audit, release decisions, and export contracts;
 - independent read-only replay of ledger and artifact integrity from disk.
+- independent read-only verification of hash-locked final release bundles from bundle contents.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

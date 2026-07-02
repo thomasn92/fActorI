@@ -277,7 +277,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.43.0/section-drafting-result.schema.json",
+  "$id": "https://schemas.factori.local/0.44.0/section-drafting-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One safety-checked section draft result.",
@@ -475,7 +475,7 @@
   ],
   "title": "SectionDraftingResult",
   "type": "object",
-  "x-factori-protocol-version": "0.43.0",
+  "x-factori-protocol-version": "0.44.0",
   "x-factori-source-model": "factori.schemas.SectionDraftingResult",
   "x-factori-verification-evidence": false
 }
