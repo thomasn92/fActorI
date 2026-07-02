@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.41.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.42.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -340,6 +340,41 @@
       },
       "title": "Final Gap Counts",
       "type": "object"
+    },
+    "final_manuscript_deferred_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Final Manuscript Deferred Gap Count",
+      "type": "integer"
+    },
+    "final_manuscript_present": {
+      "default": false,
+      "title": "Final Manuscript Present",
+      "type": "boolean"
+    },
+    "final_manuscript_regeneration_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Manuscript Regeneration Status"
+    },
+    "final_manuscript_sections_generated": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Final Manuscript Sections Generated",
+      "type": "integer"
+    },
+    "final_manuscript_supported_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Final Manuscript Supported Claim Count",
+      "type": "integer"
     },
     "formal_verification_artifact_count": {
       "default": 0,
@@ -885,7 +920,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.41.0",
+  "x-factori-protocol-version": "0.42.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

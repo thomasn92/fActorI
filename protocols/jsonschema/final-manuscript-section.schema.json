@@ -1,0 +1,89 @@
+{
+  "$id": "https://schemas.factori.local/0.42.0/final-manuscript-section.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic section in a regenerated final manuscript.",
+  "properties": {
+    "body_markdown": {
+      "minLength": 1,
+      "title": "Body Markdown",
+      "type": "string"
+    },
+    "citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Keys",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_gap_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Deferred Gap Types",
+      "type": "array"
+    },
+    "experiment_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Experiment Artifact Ids",
+      "type": "array"
+    },
+    "heading": {
+      "minLength": 1,
+      "title": "Heading",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "included_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Included Claim Ids",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proof_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Proof Artifact Ids",
+      "type": "array"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "word_count": {
+      "minimum": 0,
+      "title": "Word Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "section_id",
+    "heading",
+    "body_markdown",
+    "word_count"
+  ],
+  "title": "FinalManuscriptSection",
+  "type": "object",
+  "x-factori-protocol-version": "0.42.0",
+  "x-factori-source-model": "factori.schemas.FinalManuscriptSection",
+  "x-factori-verification-evidence": false
+}

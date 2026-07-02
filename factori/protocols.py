@@ -61,6 +61,11 @@ from factori.schemas import (
     ExperimentTemplateSelection,
     ExportReadinessReport,
     FinalAuditReport,
+    FinalManuscriptClaimSummary,
+    FinalManuscriptRegenerationIndex,
+    FinalManuscriptRegenerationReport,
+    FinalManuscriptSection,
+    FinalManuscriptStructuredDocument,
     FinalNucleus,
     FullPaperArtifactBundle,
     FullPaperBundleCompletenessReport,
@@ -205,7 +210,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.41.0"
+PROTOCOL_VERSION = "0.42.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -561,6 +566,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "CapabilityEscalationIndex",
         CapabilityEscalationIndex,
         "Derived latest pointer over immutable capability escalation reports.",
+    ),
+    ProtocolDefinition(
+        "FinalManuscriptSection",
+        FinalManuscriptSection,
+        "One deterministic section in a regenerated final manuscript.",
+    ),
+    ProtocolDefinition(
+        "FinalManuscriptClaimSummary",
+        FinalManuscriptClaimSummary,
+        "Scoped source-claim disposition during final regeneration.",
+    ),
+    ProtocolDefinition(
+        "FinalManuscriptStructuredDocument",
+        FinalManuscriptStructuredDocument,
+        "Machine-checkable regenerated final manuscript.",
+    ),
+    ProtocolDefinition(
+        "FinalManuscriptRegenerationReport",
+        FinalManuscriptRegenerationReport,
+        "Append-only non-evidence final manuscript regeneration report.",
+    ),
+    ProtocolDefinition(
+        "FinalManuscriptRegenerationIndex",
+        FinalManuscriptRegenerationIndex,
+        "Derived latest pointer over immutable final manuscript regenerations.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

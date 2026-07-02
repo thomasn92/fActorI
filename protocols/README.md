@@ -7,10 +7,20 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.41.0` adds fail-closed local/offline capability escalation reports and policies for
+deferred proof and retrieval paths. Local proof-plan refinement remains non-verification context,
+fixture-backed formal support requires exact passed-checker scope, and local source expansion
+continues through retrieval-quality and registry acceptance checks.
+
 Protocol `0.40.0` adds attempt-, budget-, and strategy-aware autonomous-loop terminal
 classification for mixed resolved/deferred states. It records per-gap terminal dispositions,
 effective automation readiness after history, explicit terminal reasons, and early completion
 without treating deferred work as evidence or publication readiness.
+
+Protocol `0.42.0` adds deterministic final evidence-aware manuscript sections, scoped claim
+dispositions, structured manuscript documents, append-only regeneration reports, and latest
+regeneration indexes. Regeneration consumes existing evidence and audit state only; it does not
+create evidence, validation, or publication readiness.
 
 Protocol `0.39.0` adds bounded empirical demonstration gap creation, autonomous
 experiment-demand counts, and loop/routing/sandbox summaries for uv-local empirical coverage.

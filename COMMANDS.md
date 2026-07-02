@@ -198,6 +198,10 @@ uv run factori run-autonomous-loop \
   --max-sandbox-runs-per-iteration 1
 uv run factori inspect-autonomous-loop --run-id demo
 uv run factori inspect-autonomous-loop --run-id demo --json
+uv run factori regenerate-final-manuscript \
+  --run-id demo --regeneration-backend deterministic
+uv run factori inspect-final-manuscript --run-id demo
+uv run factori inspect-final-manuscript --run-id demo --json
 uv run factori diversify-gap-strategies \
   --run-id demo --strategy-backend deterministic
 uv run factori inspect-gap-strategy-diversification --run-id demo

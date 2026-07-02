@@ -235,18 +235,25 @@ _MAIN_BODY_HEADING_ALIASES = {
     "abstract": "Abstract",
     "introduction": "Introduction and Problem Framing",
     "introduction and problem framing": "Introduction and Problem Framing",
+    "related work and source boundaries": "Introduction and Problem Framing",
     "problem framing": "Introduction and Problem Framing",
     "method": "Method and Model",
     "methods": "Method and Model",
     "method and model": "Method and Model",
+    "method / system architecture": "Method and Model",
+    "autonomous execution trace": "Method and Model",
     "method summary": "Method and Model",
     "model": "Method and Model",
     "central contribution": "Claim and Evidence Boundaries",
     "claim and evidence boundaries": "Claim and Evidence Boundaries",
+    "claim-evidence map": "Claim and Evidence Boundaries",
+    "formal / proof status": "Claim and Evidence Boundaries",
     "main result and derivatives": "Claim and Evidence Boundaries",
     "results": "Claim and Evidence Boundaries",
     "demonstration status": "Demonstration Status",
+    "empirical demonstration": "Demonstration Status",
     "limitations": "Limitations",
+    "limitations and deferred gaps": "Limitations",
     "conclusion": "Conclusion",
 }
 QUALITY_SECTION_DEPTH_TARGETS: dict[str, dict[str, int]] = {
@@ -706,6 +713,19 @@ def inspect_paper_bundle_summary(
     if not run_path.is_dir():
         raise PaperBundleInspectionError(f"No run directory found for run_id={run_id}.")
     paths = _paper_bundle_paths(run_path)
+    from factori.final_manuscript_regeneration import (  # noqa: PLC0415
+        final_manuscript_summary_fields,
+        latest_final_manuscript_regeneration,
+    )
+
+    final_manuscript_report, final_manuscript_index = latest_final_manuscript_regeneration(
+        root_path,
+        run_id,
+    )
+    final_manuscript_summary = final_manuscript_summary_fields(
+        final_manuscript_report,
+        final_manuscript_index,
+    )
     existing = {
         name: path.relative_to(root_path).as_posix()
         for name, path in sorted(paths.items())
@@ -828,8 +848,8 @@ def inspect_paper_bundle_summary(
         sandbox_budget_summary,
         autonomous_loop_summary,
     )
-    capability_escalation_report, capability_escalation_index = (
-        latest_capability_escalation_report(root_path, run_id)
+    capability_escalation_report, capability_escalation_index = latest_capability_escalation_report(
+        root_path, run_id
     )
     capability_escalation_summary = capability_escalation_summary_fields(
         capability_escalation_report,
@@ -1016,6 +1036,7 @@ def inspect_paper_bundle_summary(
         **routing_summary,
         **sandbox_budget_summary,
         **capability_escalation_summary,
+        **final_manuscript_summary,
         "bounded_empirical_gap_count": max(
             int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
             int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
@@ -1048,9 +1069,7 @@ def inspect_paper_bundle_summary(
         ),
         "human_intervention_required": bool(
             autonomous_plan_summary["autonomous_human_intervention_required"]
-            or planned_spec_execution_summary[
-                "planned_spec_execution_requires_human_intervention"
-            ]
+            or planned_spec_execution_summary["planned_spec_execution_requires_human_intervention"]
             or autonomous_loop_summary["autonomous_loop_requires_human_intervention"]
         ),
         "autonomous_next_actions": autonomous_plan_summary["autonomous_next_actions"],
@@ -1528,9 +1547,7 @@ def lint_paper_bundle_summary(
     planned_spec_execution_count = int(bundle.get("planned_spec_execution_count") or 0)
     latest_planned_spec_execution_mode = bundle.get("latest_planned_spec_execution_mode")
     latest_planned_spec_execution_status = bundle.get("latest_planned_spec_execution_status")
-    python_experiment_sandbox_present = bool(
-        bundle.get("python_experiment_sandbox_present")
-    )
+    python_experiment_sandbox_present = bool(bundle.get("python_experiment_sandbox_present"))
     autonomous_loop_present = bool(bundle.get("autonomous_loop_present"))
     autonomous_loop_count = int(bundle.get("autonomous_loop_count") or 0)
     latest_autonomous_loop_status = bundle.get("latest_autonomous_loop_status")
@@ -1548,24 +1565,16 @@ def lint_paper_bundle_summary(
         bundle.get("autonomous_loop_requires_human_intervention")
     )
     autonomous_loop_terminal_state = bundle.get("autonomous_loop_terminal_state")
-    autonomous_loop_terminal_state_reason = bundle.get(
-        "autonomous_loop_terminal_state_reason"
-    )
-    autonomous_loop_resolved_gap_count = int(
-        bundle.get("autonomous_loop_resolved_gap_count") or 0
-    )
-    autonomous_loop_deferred_gap_count = int(
-        bundle.get("autonomous_loop_deferred_gap_count") or 0
-    )
+    autonomous_loop_terminal_state_reason = bundle.get("autonomous_loop_terminal_state_reason")
+    autonomous_loop_resolved_gap_count = int(bundle.get("autonomous_loop_resolved_gap_count") or 0)
+    autonomous_loop_deferred_gap_count = int(bundle.get("autonomous_loop_deferred_gap_count") or 0)
     autonomous_loop_exhausted_gap_count = int(
         bundle.get("autonomous_loop_exhausted_gap_count") or 0
     )
     autonomous_loop_duplicate_only_gap_count = int(
         bundle.get("autonomous_loop_duplicate_only_gap_count") or 0
     )
-    autonomous_loop_blocking_gap_count = int(
-        bundle.get("autonomous_loop_blocking_gap_count") or 0
-    )
+    autonomous_loop_blocking_gap_count = int(bundle.get("autonomous_loop_blocking_gap_count") or 0)
     autonomous_loop_automation_ready_after_history_count = int(
         bundle.get("autonomous_loop_automation_ready_after_history_count") or 0
     )
@@ -1574,9 +1583,7 @@ def lint_paper_bundle_summary(
     )
     gap_attempt_history_present = bool(bundle.get("gap_attempt_history_present"))
     gap_attempt_count = int(bundle.get("gap_attempt_count") or 0)
-    gap_exhausted_no_progress_count = int(
-        bundle.get("gap_exhausted_no_progress_count") or 0
-    )
+    gap_exhausted_no_progress_count = int(bundle.get("gap_exhausted_no_progress_count") or 0)
     planned_spec_dedup_index_present = bool(bundle.get("planned_spec_dedup_index_present"))
     duplicate_planned_spec_count = int(bundle.get("duplicate_planned_spec_count") or 0)
     duplicate_specs_skipped = int(bundle.get("duplicate_specs_skipped") or 0)
@@ -1586,9 +1593,7 @@ def lint_paper_bundle_summary(
     autonomous_loop_stopped_due_to_exhausted_gaps = bool(
         bundle.get("autonomous_loop_stopped_due_to_exhausted_gaps")
     )
-    strategy_diversification_present = bool(
-        bundle.get("strategy_diversification_present")
-    )
+    strategy_diversification_present = bool(bundle.get("strategy_diversification_present"))
     strategy_option_count = int(bundle.get("strategy_option_count") or 0)
     selected_strategy_count = int(bundle.get("selected_strategy_count") or 0)
     duplicate_strategy_count = int(bundle.get("duplicate_strategy_count") or 0)
@@ -1605,29 +1610,35 @@ def lint_paper_bundle_summary(
     bounded_empirical_gap_count = int(bundle.get("bounded_empirical_gap_count") or 0)
     needs_python_experiment_count = int(bundle.get("needs_python_experiment_count") or 0)
     routed_empirical_gap_count = int(bundle.get("routed_empirical_gap_count") or 0)
-    sandbox_experiment_completed_count = int(
-        bundle.get("sandbox_experiment_completed_count") or 0
-    )
+    sandbox_experiment_completed_count = int(bundle.get("sandbox_experiment_completed_count") or 0)
     experiment_artifacts_ingested_count = int(
         bundle.get("experiment_artifacts_ingested_count") or 0
     )
     capability_escalation_present = bool(bundle.get("capability_escalation_present"))
     capability_escalation_status = bundle.get("capability_escalation_status")
-    proof_escalation_attempt_count = int(
-        bundle.get("proof_escalation_attempt_count") or 0
-    )
-    retrieval_escalation_attempt_count = int(
-        bundle.get("retrieval_escalation_attempt_count") or 0
-    )
+    proof_escalation_attempt_count = int(bundle.get("proof_escalation_attempt_count") or 0)
+    retrieval_escalation_attempt_count = int(bundle.get("retrieval_escalation_attempt_count") or 0)
     successful_escalation_count = int(bundle.get("successful_escalation_count") or 0)
-    deferred_after_escalation_count = int(
-        bundle.get("deferred_after_escalation_count") or 0
-    )
+    deferred_after_escalation_count = int(bundle.get("deferred_after_escalation_count") or 0)
     capability_escalation_network_allowed = bool(
         bundle.get("capability_escalation_network_allowed")
     )
     capability_escalation_external_tools_allowed = bool(
         bundle.get("capability_escalation_external_tools_allowed")
+    )
+    final_manuscript_present = bool(bundle.get("final_manuscript_present"))
+    final_manuscript_regeneration_status = bundle.get("final_manuscript_regeneration_status")
+    final_manuscript_sections_generated = int(
+        bundle.get("final_manuscript_sections_generated") or 0
+    )
+    final_manuscript_supported_claim_count = int(
+        bundle.get("final_manuscript_supported_claim_count") or 0
+    )
+    final_manuscript_unsupported_claim_count = int(
+        bundle.get("final_manuscript_unsupported_claim_count") or 0
+    )
+    final_manuscript_deferred_gap_count = int(
+        bundle.get("final_manuscript_deferred_gap_count") or 0
     )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
@@ -1755,7 +1766,10 @@ def lint_paper_bundle_summary(
         "claim/evidence" in heading or ("claim" in heading and "evidence" in heading)
         for heading in lower_headings
     )
-    missing_provenance_appendix = not any("provenance" in heading for heading in lower_headings)
+    missing_provenance_appendix = not (
+        any("provenance" in heading for heading in lower_headings)
+        or "provenance appendix" in lower_body_text
+    )
     max_section_count_for_short_draft = 10
     paper_body_heading_count = main_body_section_count + len(unplanned_main_body_sections)
     too_many_sections_for_length = (
@@ -1782,16 +1796,31 @@ def lint_paper_bundle_summary(
     conclusion_placeholder_like = bool(
         conclusion_section is not None and _section_is_placeholder_like(conclusion_section)
     )
+    final_regeneration_plan_present = {
+        "abstract",
+        "introduction",
+        "related work and source boundaries",
+        "method / system architecture",
+        "claim-evidence map",
+        "formal / proof status",
+        "empirical demonstration",
+        "autonomous execution trace",
+        "limitations and deferred gaps",
+        "conclusion",
+    }.issubset(set(lower_headings))
+    allowed_main_body_section_count = (
+        10 if final_regeneration_plan_present else len(CANONICAL_MAIN_SECTIONS) + 1
+    )
     main_body_heading_fragmentation_detected = bool(
         unplanned_main_body_headings
         or nested_main_body_heading_count
-        or main_body_section_count > len(CANONICAL_MAIN_SECTIONS) + 1
+        or main_body_section_count > allowed_main_body_section_count
         or standalone_central_message_detected
     )
     severe_section_fragmentation = bool(
         unplanned_main_body_headings
         or nested_main_body_heading_count
-        or main_body_section_count > len(CANONICAL_MAIN_SECTIONS) + 1
+        or main_body_section_count > allowed_main_body_section_count
     )
     heading_fragmentation_detected = main_body_heading_fragmentation_detected
     placeholder_sections_detected = bool(empty_or_placeholder_sections)
@@ -2090,9 +2119,7 @@ def lint_paper_bundle_summary(
         "autonomous_loop_resolved_gap_count": autonomous_loop_resolved_gap_count,
         "autonomous_loop_deferred_gap_count": autonomous_loop_deferred_gap_count,
         "autonomous_loop_exhausted_gap_count": autonomous_loop_exhausted_gap_count,
-        "autonomous_loop_duplicate_only_gap_count": (
-            autonomous_loop_duplicate_only_gap_count
-        ),
+        "autonomous_loop_duplicate_only_gap_count": (autonomous_loop_duplicate_only_gap_count),
         "autonomous_loop_blocking_gap_count": autonomous_loop_blocking_gap_count,
         "autonomous_loop_automation_ready_after_history_count": (
             autonomous_loop_automation_ready_after_history_count
@@ -2116,9 +2143,7 @@ def lint_paper_bundle_summary(
         "strategy_option_count": strategy_option_count,
         "selected_strategy_count": selected_strategy_count,
         "duplicate_strategy_count": duplicate_strategy_count,
-        "gaps_deferred_after_strategy_exhaustion": (
-            gaps_deferred_after_strategy_exhaustion
-        ),
+        "gaps_deferred_after_strategy_exhaustion": (gaps_deferred_after_strategy_exhaustion),
         "experiment_gap_routing_present": experiment_gap_routing_present,
         "routed_experiment_gap_count": routed_experiment_gap_count,
         "unrouted_experiment_gap_count": unrouted_experiment_gap_count,
@@ -2141,6 +2166,12 @@ def lint_paper_bundle_summary(
         "capability_escalation_external_tools_allowed": (
             capability_escalation_external_tools_allowed
         ),
+        "final_manuscript_present": final_manuscript_present,
+        "final_manuscript_regeneration_status": final_manuscript_regeneration_status,
+        "final_manuscript_sections_generated": final_manuscript_sections_generated,
+        "final_manuscript_supported_claim_count": final_manuscript_supported_claim_count,
+        "final_manuscript_unsupported_claim_count": final_manuscript_unsupported_claim_count,
+        "final_manuscript_deferred_gap_count": final_manuscript_deferred_gap_count,
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
@@ -2356,20 +2387,27 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "revised_manuscript_draft": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "autonomous-revised-manuscript-execution-*.md",
-                "autonomous-revised-manuscript-execution-0000.md",
+                "final-manuscript-[0-9][0-9][0-9][0-9].md",
+                "final-manuscript-0000.md",
             ),
             _preferred_existing_path(
                 _latest_report_path(
                     run_path,
-                    "reconciled-manuscript-cycle-*.md",
-                    "reconciled-manuscript-cycle-000.md",
+                    "autonomous-revised-manuscript-execution-*.md",
+                    "autonomous-revised-manuscript-execution-0000.md",
                 ),
                 _preferred_existing_path(
-                    run_path / "reports" / "reconciled-manuscript-draft.md",
+                    _latest_report_path(
+                        run_path,
+                        "reconciled-manuscript-cycle-*.md",
+                        "reconciled-manuscript-cycle-000.md",
+                    ),
                     _preferred_existing_path(
-                        run_path / "reports" / "evidence-aware-refreshed-manuscript-draft.md",
-                        run_path / "reports" / "revised-manuscript-draft.md",
+                        run_path / "reports" / "reconciled-manuscript-draft.md",
+                        _preferred_existing_path(
+                            run_path / "reports" / "evidence-aware-refreshed-manuscript-draft.md",
+                            run_path / "reports" / "revised-manuscript-draft.md",
+                        ),
                     ),
                 ),
             ),
@@ -2395,46 +2433,43 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
             ),
         ),
         "generation_report": run_path / "reports" / "full-paper-generation-report.json",
-        "release_report": _preferred_existing_path(
-            _latest_report_path(
-                run_path,
-                "full-paper-release-report-after-capability-escalation-*.json",
-                "full-paper-release-report-after-capability-escalation-0000.json",
-            ),
-            _preferred_existing_path(
+        "release_report": _first_existing_path(
+            [
+                _latest_report_path(
+                    run_path,
+                    "full-paper-release-report-after-final-manuscript-*.json",
+                    "full-paper-release-report-after-final-manuscript-0000.json",
+                ),
+                _latest_report_path(
+                    run_path,
+                    "full-paper-release-report-after-capability-escalation-*.json",
+                    "full-paper-release-report-after-capability-escalation-0000.json",
+                ),
                 _latest_report_path(
                     run_path,
                     "full-paper-release-report-after-autonomous-loop-*.json",
                     "full-paper-release-report-after-autonomous-loop-0000.json",
                 ),
-                _preferred_existing_path(
-                    _latest_report_path(
-                        run_path,
-                        "full-paper-release-report-after-planned-spec-execution-*.json",
-                        "full-paper-release-report-after-planned-spec-execution-0000.json",
-                    ),
-                    _preferred_existing_path(
-                        _latest_report_path(
-                            run_path,
-                            "full-paper-release-report-after-autonomous-execution-*.json",
-                            "full-paper-release-report-after-autonomous-execution-0000.json",
-                        ),
-                        _preferred_existing_path(
-                            _latest_report_path(
-                                run_path,
-                                "full-paper-release-report-after-reconciliation-cycle-*.json",
-                                "full-paper-release-report-after-human-review-reconciliation.json",
-                            ),
-                            _preferred_existing_path(
-                                run_path
-                                / "reports"
-                                / "full-paper-release-report-after-evidence-aware-refresh.json",
-                                run_path / "reports" / "full-paper-release-report.json",
-                            ),
-                        ),
-                    ),
+                _latest_report_path(
+                    run_path,
+                    "full-paper-release-report-after-planned-spec-execution-*.json",
+                    "full-paper-release-report-after-planned-spec-execution-0000.json",
                 ),
-            ),
+                _latest_report_path(
+                    run_path,
+                    "full-paper-release-report-after-autonomous-execution-*.json",
+                    "full-paper-release-report-after-autonomous-execution-0000.json",
+                ),
+                _latest_report_path(
+                    run_path,
+                    "full-paper-release-report-after-reconciliation-cycle-*.json",
+                    "full-paper-release-report-after-human-review-reconciliation.json",
+                ),
+                run_path
+                / "reports"
+                / "full-paper-release-report-after-evidence-aware-refresh.json",
+            ],
+            run_path / "reports" / "full-paper-release-report.json",
         ),
         "safe_repair_report": run_path / "reports" / "safe-repair-report.json",
         "quality_repair_report": run_path / "reports" / "quality-repair-report.json",
@@ -2482,6 +2517,21 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
             run_path,
             "capability-escalation-policy-*.json",
             "capability-escalation-policy-0000.json",
+        ),
+        "final_manuscript_regeneration_report": _latest_report_path(
+            run_path,
+            "final-manuscript-regeneration-[0-9][0-9][0-9][0-9].json",
+            "final-manuscript-regeneration-0000.json",
+        ),
+        "final_manuscript_regeneration_report_markdown": _latest_report_path(
+            run_path,
+            "final-manuscript-regeneration-[0-9][0-9][0-9][0-9].md",
+            "final-manuscript-regeneration-0000.md",
+        ),
+        "final_manuscript_structured": _latest_report_path(
+            run_path,
+            "final-manuscript-structured-*.json",
+            "final-manuscript-structured-0000.json",
         ),
         "reviewer_bundle_summary_json": run_path / "reports" / "reviewer-bundle-summary.json",
         "reviewer_bundle_summary_markdown": run_path / "reports" / "reviewer-bundle-summary.md",
@@ -2633,6 +2683,16 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 "reviewer-bundle-summary-after-capability-escalation-0000.md",
             )
         ),
+        "reviewer_bundle_summary_after_final_manuscript_json": _latest_report_path(
+            run_path,
+            "reviewer-bundle-summary-after-final-manuscript-*.json",
+            "reviewer-bundle-summary-after-final-manuscript-0000.json",
+        ),
+        "reviewer_bundle_summary_after_final_manuscript_markdown": _latest_report_path(
+            run_path,
+            "reviewer-bundle-summary-after-final-manuscript-*.md",
+            "reviewer-bundle-summary-after-final-manuscript-0000.md",
+        ),
         "claim_evidence_map": (
             latest_claim_evidence_map_path(run_path.parent.parent, run_path.name)
             or run_path / "reports" / "claim-evidence-map.json"
@@ -2655,32 +2715,31 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "retrieval_report": run_path / "reports" / "retrieval-report.json",
         "retrieval_quality_report": run_path / "reports" / "retrieval-quality-report.json",
         "citation_registry": run_path / "reports" / "citation-registry.json",
-        "claim_support_audit": _preferred_existing_path(
-            _latest_report_path(
-                run_path,
-                "claim-support-audit-after-planned-spec-execution-*.json",
-                "claim-support-audit-after-planned-spec-execution-0000.json",
-            ),
-            _preferred_existing_path(
+        "claim_support_audit": _first_existing_path(
+            [
+                _latest_report_path(
+                    run_path,
+                    "claim-support-audit-after-final-manuscript-*.json",
+                    "claim-support-audit-after-final-manuscript-0000.json",
+                ),
+                _latest_report_path(
+                    run_path,
+                    "claim-support-audit-after-planned-spec-execution-*.json",
+                    "claim-support-audit-after-planned-spec-execution-0000.json",
+                ),
                 _latest_report_path(
                     run_path,
                     "claim-support-audit-after-autonomous-execution-*.json",
                     "claim-support-audit-after-autonomous-execution-0000.json",
                 ),
-                _preferred_existing_path(
-                    _latest_report_path(
-                        run_path,
-                        "claim-support-audit-after-reconciliation-cycle-*.json",
-                        "claim-support-audit-after-human-review-reconciliation.json",
-                    ),
-                    _preferred_existing_path(
-                        run_path
-                        / "reports"
-                        / "claim-support-audit-after-evidence-aware-refresh.json",
-                        run_path / "reports" / "claim-support-audit.json",
-                    ),
+                _latest_report_path(
+                    run_path,
+                    "claim-support-audit-after-reconciliation-cycle-*.json",
+                    "claim-support-audit-after-human-review-reconciliation.json",
                 ),
-            ),
+                run_path / "reports" / "claim-support-audit-after-evidence-aware-refresh.json",
+            ],
+            run_path / "reports" / "claim-support-audit.json",
         ),
         "references": run_path / "latex" / "references.bib",
         "revised_references": _preferred_existing_path(
@@ -2699,6 +2758,10 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
 
 def _preferred_existing_path(preferred: Path, fallback: Path) -> Path:
     return preferred if preferred.is_file() else fallback
+
+
+def _first_existing_path(candidates: list[Path], fallback: Path) -> Path:
+    return next((path for path in candidates if path.is_file()), fallback)
 
 
 def _read_citation_registry(path: Path) -> CitationRegistry | None:
@@ -2860,12 +2923,11 @@ def _read_preferred_reviewer_bundle_summary(
     paths: dict[str, Path],
 ) -> ReviewerBundleSummary | None:
     return (
-        _read_reviewer_bundle_summary(
+        _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_after_final_manuscript_json"])
+        or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_capability_escalation_json"]
         )
-        or _read_reviewer_bundle_summary(
-            paths["reviewer_bundle_summary_after_python_sandbox_json"]
-        )
+        or _read_reviewer_bundle_summary(paths["reviewer_bundle_summary_after_python_sandbox_json"])
         or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_autonomous_loop_json"]
         )
@@ -2972,6 +3034,7 @@ def build_reviewer_bundle_summary(
     autonomous_loop_report: AutonomousLoopRunReport | None = None,
     experiment_gap_routing_report: ExperimentGapRoutingReport | None = None,
     capability_escalation_report: CapabilityEscalationReport | None = None,
+    final_manuscript_report: Any | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -3046,6 +3109,16 @@ def build_reviewer_bundle_summary(
     escalation_summary = capability_escalation_summary_fields(
         escalation_report,
         escalation_index,
+    )
+    from factori.final_manuscript_regeneration import (  # noqa: PLC0415
+        final_manuscript_summary_fields,
+        latest_final_manuscript_regeneration,
+    )
+
+    latest_final_report, final_index = latest_final_manuscript_regeneration(root_path, run_id)
+    final_summary = final_manuscript_summary_fields(
+        final_manuscript_report or latest_final_report,
+        final_index,
     )
     sandbox_budget_summary = sandbox_budget_summary_fields(
         latest_sandbox_budget_report(root_path, run_id)
@@ -3236,51 +3309,33 @@ def build_reviewer_bundle_summary(
         experiment_specs_executed=int(planned_execution_summary["experiment_specs_executed"]),
         proof_specs_executed=int(planned_execution_summary["proof_specs_executed"]),
         retrieval_specs_executed=int(planned_execution_summary["retrieval_specs_executed"]),
-        experiment_artifacts_created=int(
-            planned_execution_summary["experiment_artifacts_created"]
-        ),
+        experiment_artifacts_created=int(planned_execution_summary["experiment_artifacts_created"]),
         proof_artifacts_created=int(planned_execution_summary["proof_artifacts_created"]),
-        retrieval_artifacts_created=int(
-            planned_execution_summary["retrieval_artifacts_created"]
-        ),
+        retrieval_artifacts_created=int(planned_execution_summary["retrieval_artifacts_created"]),
         autonomous_loop_present=bool(loop_summary["autonomous_loop_present"]),
         latest_autonomous_loop_status=loop_summary["latest_autonomous_loop_status"],
         latest_autonomous_loop_iterations_completed=int(
             loop_summary["latest_autonomous_loop_iterations_completed"]
         ),
-        latest_autonomous_loop_stop_reason=loop_summary[
-            "latest_autonomous_loop_stop_reason"
-        ],
-        autonomous_loop_terminal_state=loop_summary[
-            "autonomous_loop_terminal_state"
-        ],
-        autonomous_loop_terminal_state_reason=loop_summary[
-            "autonomous_loop_terminal_state_reason"
-        ],
-        autonomous_loop_resolved_gap_count=int(
-            loop_summary["autonomous_loop_resolved_gap_count"]
-        ),
-        autonomous_loop_deferred_gap_count=int(
-            loop_summary["autonomous_loop_deferred_gap_count"]
-        ),
+        latest_autonomous_loop_stop_reason=loop_summary["latest_autonomous_loop_stop_reason"],
+        autonomous_loop_terminal_state=loop_summary["autonomous_loop_terminal_state"],
+        autonomous_loop_terminal_state_reason=loop_summary["autonomous_loop_terminal_state_reason"],
+        autonomous_loop_resolved_gap_count=int(loop_summary["autonomous_loop_resolved_gap_count"]),
+        autonomous_loop_deferred_gap_count=int(loop_summary["autonomous_loop_deferred_gap_count"]),
         autonomous_loop_exhausted_gap_count=int(
             loop_summary["autonomous_loop_exhausted_gap_count"]
         ),
         autonomous_loop_duplicate_only_gap_count=int(
             loop_summary["autonomous_loop_duplicate_only_gap_count"]
         ),
-        autonomous_loop_blocking_gap_count=int(
-            loop_summary["autonomous_loop_blocking_gap_count"]
-        ),
+        autonomous_loop_blocking_gap_count=int(loop_summary["autonomous_loop_blocking_gap_count"]),
         autonomous_loop_automation_ready_after_history_count=int(
             loop_summary["autonomous_loop_automation_ready_after_history_count"]
         ),
         autonomous_loop_stopped_before_max_iterations=bool(
             loop_summary["autonomous_loop_stopped_before_max_iterations"]
         ),
-        final_gap_counts=(
-            loop_report.final_gap_counts if loop_report is not None else {}
-        ),
+        final_gap_counts=(loop_report.final_gap_counts if loop_report is not None else {}),
         autonomous_loop_requires_human_intervention=bool(
             loop_summary["autonomous_loop_requires_human_intervention"]
         ),
@@ -3288,36 +3343,26 @@ def build_reviewer_bundle_summary(
         duplicate_specs_skipped=int(bundle.get("duplicate_specs_skipped") or 0),
         gaps_exhausted_no_progress=int(bundle.get("gap_exhausted_no_progress_count") or 0),
         remaining_deferred_gaps=int(bundle.get("remaining_deferred_gap_count") or 0),
-        strategy_diversification_present=bool(
-            bundle.get("strategy_diversification_present")
-        ),
+        strategy_diversification_present=bool(bundle.get("strategy_diversification_present")),
         strategy_option_count=int(bundle.get("strategy_option_count") or 0),
         selected_strategy_count=int(bundle.get("selected_strategy_count") or 0),
         duplicate_strategy_count=int(bundle.get("duplicate_strategy_count") or 0),
         gaps_deferred_after_strategy_exhaustion=int(
             bundle.get("gaps_deferred_after_strategy_exhaustion") or 0
         ),
-        python_experiment_sandbox_present=bool(
-            bundle.get("python_experiment_sandbox_present")
-        ),
+        python_experiment_sandbox_present=bool(bundle.get("python_experiment_sandbox_present")),
         latest_python_sandbox_status=bundle.get("latest_python_sandbox_status"),
         python_sandbox_completed_count=int(
             bundle.get("python_experiment_sandbox_completed_count") or 0
         ),
-        python_sandbox_failed_count=int(
-            bundle.get("python_experiment_sandbox_failed_count") or 0
-        ),
+        python_sandbox_failed_count=int(bundle.get("python_experiment_sandbox_failed_count") or 0),
         python_sandbox_artifacts_created=int(
             bundle.get("python_experiment_artifacts_created_count") or 0
         ),
-        experiment_gap_routing_present=bool(
-            routing_summary["experiment_gap_routing_present"]
-        ),
+        experiment_gap_routing_present=bool(routing_summary["experiment_gap_routing_present"]),
         routed_experiment_gap_count=int(routing_summary["routed_experiment_gap_count"]),
         unrouted_experiment_gap_count=int(routing_summary["unrouted_experiment_gap_count"]),
-        created_experiment_spec_count=int(
-            routing_summary["created_experiment_spec_count"]
-        ),
+        created_experiment_spec_count=int(routing_summary["created_experiment_spec_count"]),
         bounded_empirical_gap_count=int(bundle.get("bounded_empirical_gap_count") or 0),
         needs_python_experiment_count=int(bundle.get("needs_python_experiment_count") or 0),
         routed_empirical_gap_count=int(bundle.get("routed_empirical_gap_count") or 0),
@@ -3329,29 +3374,30 @@ def build_reviewer_bundle_summary(
         ),
         sandbox_budget_exhausted=bool(sandbox_budget_summary["sandbox_budget_exhausted"]),
         sandbox_budget_remaining=dict(sandbox_budget_summary["sandbox_budget_remaining"]),
-        capability_escalation_present=bool(
-            escalation_summary["capability_escalation_present"]
-        ),
-        capability_escalation_status=escalation_summary[
-            "capability_escalation_status"
-        ],
-        proof_escalation_attempt_count=int(
-            escalation_summary["proof_escalation_attempt_count"]
-        ),
+        capability_escalation_present=bool(escalation_summary["capability_escalation_present"]),
+        capability_escalation_status=escalation_summary["capability_escalation_status"],
+        proof_escalation_attempt_count=int(escalation_summary["proof_escalation_attempt_count"]),
         retrieval_escalation_attempt_count=int(
             escalation_summary["retrieval_escalation_attempt_count"]
         ),
-        successful_escalation_count=int(
-            escalation_summary["successful_escalation_count"]
-        ),
-        deferred_after_escalation_count=int(
-            escalation_summary["deferred_after_escalation_count"]
-        ),
+        successful_escalation_count=int(escalation_summary["successful_escalation_count"]),
+        deferred_after_escalation_count=int(escalation_summary["deferred_after_escalation_count"]),
         capability_escalation_network_allowed=bool(
             escalation_summary["capability_escalation_network_allowed"]
         ),
         capability_escalation_external_tools_allowed=bool(
             escalation_summary["capability_escalation_external_tools_allowed"]
+        ),
+        final_manuscript_present=bool(final_summary["final_manuscript_present"]),
+        final_manuscript_regeneration_status=final_summary["final_manuscript_regeneration_status"],
+        final_manuscript_sections_generated=int(
+            final_summary["final_manuscript_sections_generated"]
+        ),
+        final_manuscript_supported_claim_count=int(
+            final_summary["final_manuscript_supported_claim_count"]
+        ),
+        final_manuscript_deferred_gap_count=int(
+            final_summary["final_manuscript_deferred_gap_count"]
         ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
@@ -3389,6 +3435,14 @@ def render_reviewer_bundle_summary_markdown(
         (
             "Human-review recommended next action: "
             f"`{summary.human_review_recommended_next_action or 'none'}`"
+        ),
+        (f"Final manuscript: `{'present' if summary.final_manuscript_present else 'absent'}`"),
+        (
+            "Final regeneration status/sections/supported/deferred: "
+            f"`{summary.final_manuscript_regeneration_status or 'none'}` / "
+            f"`{summary.final_manuscript_sections_generated}` / "
+            f"`{summary.final_manuscript_supported_claim_count}` / "
+            f"`{summary.final_manuscript_deferred_gap_count}`"
         ),
         f"Proof artifacts: `{summary.proof_artifact_count}`",
         (f"Formal verification artifacts passed: `{summary.formal_verification_artifact_count}`"),
@@ -3499,10 +3553,7 @@ def render_reviewer_bundle_summary_markdown(
             f"`{summary.sandbox_experiment_completed_count}/"
             f"{summary.experiment_artifacts_ingested_count}`"
         ),
-        (
-            "Sandbox budget exhausted: "
-            f"`{str(summary.sandbox_budget_exhausted).lower()}`"
-        ),
+        (f"Sandbox budget exhausted: `{str(summary.sandbox_budget_exhausted).lower()}`"),
         (
             "Capability escalation: "
             f"`{'present' if summary.capability_escalation_present else 'absent'}`"
@@ -3526,10 +3577,7 @@ def render_reviewer_bundle_summary_markdown(
             f"`{str(summary.capability_escalation_network_allowed).lower()}/"
             f"{str(summary.capability_escalation_external_tools_allowed).lower()}`"
         ),
-        (
-            "Autonomous loop: "
-            f"`{'present' if summary.autonomous_loop_present else 'absent'}`"
-        ),
+        (f"Autonomous loop: `{'present' if summary.autonomous_loop_present else 'absent'}`"),
         f"Latest autonomous loop status: `{summary.latest_autonomous_loop_status or 'none'}`",
         (
             "Latest autonomous loop iterations completed: "
@@ -3539,10 +3587,7 @@ def render_reviewer_bundle_summary_markdown(
             "Latest autonomous loop stop reason: "
             f"`{summary.latest_autonomous_loop_stop_reason or 'none'}`"
         ),
-        (
-            "Autonomous loop terminal state: "
-            f"`{summary.autonomous_loop_terminal_state or 'none'}`"
-        ),
+        (f"Autonomous loop terminal state: `{summary.autonomous_loop_terminal_state or 'none'}`"),
         (
             "Autonomous loop terminal reason: "
             f"{summary.autonomous_loop_terminal_state_reason or 'none'}"

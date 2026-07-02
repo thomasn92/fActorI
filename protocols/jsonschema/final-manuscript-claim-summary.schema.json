@@ -1,0 +1,99 @@
+{
+  "$id": "https://schemas.factori.local/0.42.0/final-manuscript-claim-summary.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Scoped source-claim disposition during final regeneration.",
+  "properties": {
+    "claim_class": {
+      "minLength": 1,
+      "title": "Claim Class",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "disposition": {
+      "enum": [
+        "included_supported_within_scope",
+        "included_scaffold_or_boundary",
+        "downgraded_to_boundary",
+        "removed_forbidden_or_unsupported"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "section_name": {
+      "minLength": 1,
+      "title": "Section Name",
+      "type": "string"
+    },
+    "support_status": {
+      "minLength": 1,
+      "title": "Support Status",
+      "type": "string"
+    },
+    "support_type": {
+      "minLength": 1,
+      "title": "Support Type",
+      "type": "string"
+    },
+    "supporting_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Citation Keys",
+      "type": "array"
+    },
+    "supporting_experiment_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Experiment Artifact Ids",
+      "type": "array"
+    },
+    "supporting_proof_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Proof Artifact Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "claim_id",
+    "section_name",
+    "claim_class",
+    "support_status",
+    "support_type",
+    "disposition"
+  ],
+  "title": "FinalManuscriptClaimSummary",
+  "type": "object",
+  "x-factori-protocol-version": "0.42.0",
+  "x-factori-source-model": "factori.schemas.FinalManuscriptClaimSummary",
+  "x-factori-verification-evidence": false
+}

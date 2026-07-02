@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -53,8 +54,13 @@ from factori.experiment_template_routing import (
     inspect_experiment_gap_routing,
     route_experiment_gaps,
 )
+from factori.final_manuscript_regeneration import (
+    inspect_final_manuscript,
+    regenerate_final_manuscript,
+)
 from factori.full_paper_generation import (
     generate_full_paper,
+    inspect_paper_bundle_summary,
     inspect_reviewer_bundle_summary,
     lint_paper_bundle_summary,
 )
@@ -123,6 +129,11 @@ from factori.schemas import (
     ExperimentGapRoutingReport,
     ExperimentTemplate,
     ExperimentTemplateRegistry,
+    FinalManuscriptClaimSummary,
+    FinalManuscriptRegenerationIndex,
+    FinalManuscriptRegenerationReport,
+    FinalManuscriptSection,
+    FinalManuscriptStructuredDocument,
     FullPaperArtifactBundle,
     FullPaperGenerationConfig,
     FullPaperGenerationReport,
@@ -184,6 +195,11 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert CapabilityEscalationItem
     assert CapabilityEscalationReport
     assert CapabilityEscalationIndex
+    assert FinalManuscriptSection
+    assert FinalManuscriptClaimSummary
+    assert FinalManuscriptStructuredDocument
+    assert FinalManuscriptRegenerationReport
+    assert FinalManuscriptRegenerationIndex
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -3369,6 +3385,119 @@ def test_autonomous_loop_integrates_capability_escalation(tmp_path) -> None:
     assert lint["publication_ready"] is False
     assert lint["claim_support_missing_required_citation_count"] == 0
     assert lint["citation_as_validation_misuse_count"] == 0
+
+
+def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) -> None:
+    run_id = "run-final-manuscript-regeneration"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    retrieval_quality = RetrievalQualityReport(
+        run_id=run_id,
+        retrieval_backend="local",
+        total_retrieved_sources=2,
+        accepted_source_count=1,
+        rejected_source_count=1,
+        accepted_source_ids=["fixture-smith"],
+        rejected_source_ids=["fixture-rejected"],
+        adequacy_status="bounded_context_only",
+        coverage_limitations=["Local fixture coverage is bounded context only."],
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "retrieval-quality-report.json").write_text(
+        retrieval_quality.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    experiment_file = _write_experiment_artifact_fixture(
+        tmp_path,
+        run_id=run_id,
+        claim_ids_or_section_ids=[
+            BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
+            "demonstration-status",
+        ],
+    )
+    ingest_experiment_artifact(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_file=experiment_file,
+    )
+    run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=3,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+    )
+
+    result = regenerate_final_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+    inspected = inspect_final_manuscript(run_id=run_id, root=tmp_path)
+    bundle = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    markdown = result.manuscript_markdown
+
+    assert (
+        result.persistence.commit.action_type
+        == ControllerActionType.FINAL_MANUSCRIPT_REGENERATED
+    )
+    assert result.report.regeneration_status == "completed"
+    assert result.report.sections_generated == 10
+    assert result.report.unsupported_claim_count == 0
+    assert result.report.publication_ready is False
+    assert result.structured_manuscript.publication_ready is False
+    assert (tmp_path / result.report.final_manuscript_path).is_file()
+    assert (tmp_path / result.report.final_manuscript_structured_path).is_file()
+    report_markdown = (
+        tmp_path / "runs" / run_id / "reports" / "final-manuscript-regeneration-0001.md"
+    )
+    assert report_markdown.is_file()
+    assert "## Abstract" in markdown
+    assert "## Introduction" in markdown
+    assert "## Method / System Architecture" in markdown
+    assert "## Limitations and Deferred Gaps" in markdown
+    assert "## Conclusion" in markdown
+    assert "completed local synthetic experiment artifact" in markdown
+    assert "does not establish broad empirical validation" in markdown
+    assert "No passed formal proof artifact" in markdown
+    assert "retrieval path(s) remain deferred" in markdown
+    assert "workflow trace" in markdown.casefold()
+    assert "the method is empirically validated" not in markdown.casefold()
+    assert "publication_ready remains false" in markdown
+    registry = CitationRegistry.model_validate_json(
+        (tmp_path / "runs" / run_id / "reports" / "citation-registry.json").read_text()
+    )
+    rendered_keys = set(re.findall(r"\[@([^\]]+)\]", markdown))
+    assert rendered_keys <= {record.citation_key for record in registry.citations}
+    assert all(record.accepted_for_registry for record in registry.citations)
+    assert inspected["final_manuscript_present"] is True
+    assert bundle["primary_artifact_to_read"] == result.report.final_manuscript_path
+    assert bundle["final_manuscript_unsupported_claim_count"] == 0
+    assert lint["quality_failure_reasons"] == []
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
+    assert lint["unregistered_citation_keys"] == []
+    assert lint["publication_ready"] is False
+
+    second = regenerate_final_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+    assert second.index.regeneration_count == 2
+    assert second.report.final_manuscript_path.endswith("final-manuscript-0002.md")
+    assert (tmp_path / result.report.final_manuscript_path).is_file()
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:

@@ -149,7 +149,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.41.0/retrieval-quality-report.schema.json",
+  "$id": "https://schemas.factori.local/0.42.0/retrieval-quality-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded source-quality and relevance filtering report.",
@@ -363,7 +363,7 @@
   ],
   "title": "RetrievalQualityReport",
   "type": "object",
-  "x-factori-protocol-version": "0.41.0",
+  "x-factori-protocol-version": "0.42.0",
   "x-factori-source-model": "factori.schemas.RetrievalQualityReport",
   "x-factori-verification-evidence": false
 }

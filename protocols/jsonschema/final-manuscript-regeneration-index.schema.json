@@ -1,0 +1,81 @@
+{
+  "$id": "https://schemas.factori.local/0.42.0/final-manuscript-regeneration-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable final manuscript regenerations.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "current_preferred_manuscript": {
+      "minLength": 1,
+      "title": "Current Preferred Manuscript",
+      "type": "string"
+    },
+    "current_preferred_structured_manuscript": {
+      "minLength": 1,
+      "title": "Current Preferred Structured Manuscript",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_regeneration_id": {
+      "minLength": 1,
+      "title": "Latest Regeneration Id",
+      "type": "string"
+    },
+    "latest_regeneration_status": {
+      "enum": [
+        "completed",
+        "blocked",
+        "failed"
+      ],
+      "title": "Latest Regeneration Status",
+      "type": "string"
+    },
+    "latest_report_path": {
+      "minLength": 1,
+      "title": "Latest Report Path",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "regeneration_count": {
+      "minimum": 1,
+      "title": "Regeneration Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_regeneration_id",
+    "regeneration_count",
+    "latest_regeneration_status",
+    "current_preferred_manuscript",
+    "current_preferred_structured_manuscript",
+    "latest_report_path"
+  ],
+  "title": "FinalManuscriptRegenerationIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.42.0",
+  "x-factori-source-model": "factori.schemas.FinalManuscriptRegenerationIndex",
+  "x-factori-verification-evidence": false
+}

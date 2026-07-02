@@ -796,6 +796,11 @@ class ReviewerBundleSummary(StrictModel):
     deferred_after_escalation_count: int = Field(default=0, ge=0)
     capability_escalation_network_allowed: bool = False
     capability_escalation_external_tools_allowed: bool = False
+    final_manuscript_present: bool = False
+    final_manuscript_regeneration_status: str | None = None
+    final_manuscript_sections_generated: int = Field(default=0, ge=0)
+    final_manuscript_supported_claim_count: int = Field(default=0, ge=0)
+    final_manuscript_deferred_gap_count: int = Field(default=0, ge=0)
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1859,6 +1864,119 @@ class CapabilityEscalationIndex(StrictModel):
     publication_ready: bool = False
 
 
+FinalManuscriptRegenerationBackend = Literal["deterministic", "fake", "openai"]
+FinalManuscriptRegenerationStatus = Literal["completed", "blocked", "failed"]
+
+
+class FinalManuscriptSection(StrictModel):
+    """One deterministic section in a regenerated final manuscript."""
+
+    section_id: str = Field(min_length=1)
+    heading: str = Field(min_length=1)
+    body_markdown: str = Field(min_length=1)
+    word_count: int = Field(ge=0)
+    included_claim_ids: list[str] = Field(default_factory=list)
+    citation_keys: list[str] = Field(default_factory=list)
+    proof_artifact_ids: list[str] = Field(default_factory=list)
+    experiment_artifact_ids: list[str] = Field(default_factory=list)
+    deferred_gap_types: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalManuscriptClaimSummary(StrictModel):
+    """Scoped disposition of one source claim during final regeneration."""
+
+    claim_id: str = Field(min_length=1)
+    section_name: str = Field(min_length=1)
+    claim_class: str = Field(min_length=1)
+    support_status: str = Field(min_length=1)
+    support_type: str = Field(min_length=1)
+    disposition: Literal[
+        "included_supported_within_scope",
+        "included_scaffold_or_boundary",
+        "downgraded_to_boundary",
+        "removed_forbidden_or_unsupported",
+    ]
+    supporting_citation_keys: list[str] = Field(default_factory=list)
+    supporting_proof_artifact_ids: list[str] = Field(default_factory=list)
+    supporting_experiment_artifact_ids: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalManuscriptStructuredDocument(StrictModel):
+    """Machine-checkable representation of the regenerated manuscript."""
+
+    run_id: str = Field(min_length=1)
+    regeneration_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    sections: list[FinalManuscriptSection] = Field(min_length=1)
+    claim_summaries: list[FinalManuscriptClaimSummary] = Field(default_factory=list)
+    accepted_citation_keys: list[str] = Field(default_factory=list)
+    deferred_gap_statements: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class FinalManuscriptRegenerationReport(StrictModel):
+    """Append-only report for deterministic final manuscript regeneration."""
+
+    run_id: str = Field(min_length=1)
+    regeneration_id: str = Field(min_length=1)
+    regeneration_backend: FinalManuscriptRegenerationBackend = "deterministic"
+    regeneration_status: FinalManuscriptRegenerationStatus
+    source_claim_evidence_map_path: str = Field(min_length=1)
+    source_citation_registry_path: str = Field(min_length=1)
+    source_retrieval_report_path: str = Field(min_length=1)
+    source_autonomous_loop_report_path: str = Field(min_length=1)
+    source_capability_escalation_report_path_optional: str | None = None
+    final_manuscript_path: str = Field(min_length=1)
+    final_manuscript_structured_path: str = Field(min_length=1)
+    sections_generated: int = Field(ge=0)
+    claim_count_total: int = Field(ge=0)
+    supported_claim_count: int = Field(ge=0)
+    citation_supported_claim_count: int = Field(ge=0)
+    proof_supported_claim_count: int = Field(ge=0)
+    experiment_supported_claim_count: int = Field(ge=0)
+    human_review_linked_claim_count: int = Field(ge=0)
+    unsupported_claim_count: int = Field(ge=0)
+    deferred_gap_count: int = Field(ge=0)
+    deferred_proof_gap_count: int = Field(ge=0)
+    deferred_retrieval_gap_count: int = Field(ge=0)
+    deferred_experiment_gap_count: int = Field(ge=0)
+    claim_support_rechecked_after_regeneration: bool = False
+    claim_evidence_map_rechecked_after_regeneration: bool = False
+    citation_safety_rechecked_after_regeneration: bool = False
+    quality_lint_rechecked_after_regeneration: bool = False
+    release_rechecked_after_regeneration: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class FinalManuscriptRegenerationIndex(StrictModel):
+    """Derived latest pointer over immutable final manuscript regenerations."""
+
+    run_id: str = Field(min_length=1)
+    latest_regeneration_id: str = Field(min_length=1)
+    regeneration_count: int = Field(ge=1)
+    latest_regeneration_status: FinalManuscriptRegenerationStatus
+    current_preferred_manuscript: str = Field(min_length=1)
+    current_preferred_structured_manuscript: str = Field(min_length=1)
+    latest_report_path: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
 AutonomousLoopStatus = Literal[
     "completed",
@@ -2825,6 +2943,11 @@ __all__ = [
     "CapabilityEscalationItem",
     "CapabilityEscalationReport",
     "CapabilityEscalationIndex",
+    "FinalManuscriptSection",
+    "FinalManuscriptClaimSummary",
+    "FinalManuscriptStructuredDocument",
+    "FinalManuscriptRegenerationReport",
+    "FinalManuscriptRegenerationIndex",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

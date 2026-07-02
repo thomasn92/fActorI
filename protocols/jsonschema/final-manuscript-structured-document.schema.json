@@ -1,0 +1,263 @@
+{
+  "$defs": {
+    "FinalManuscriptClaimSummary": {
+      "additionalProperties": false,
+      "description": "Scoped disposition of one source claim during final regeneration.",
+      "properties": {
+        "claim_class": {
+          "minLength": 1,
+          "title": "Claim Class",
+          "type": "string"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "disposition": {
+          "enum": [
+            "included_supported_within_scope",
+            "included_scaffold_or_boundary",
+            "downgraded_to_boundary",
+            "removed_forbidden_or_unsupported"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "section_name": {
+          "minLength": 1,
+          "title": "Section Name",
+          "type": "string"
+        },
+        "support_status": {
+          "minLength": 1,
+          "title": "Support Status",
+          "type": "string"
+        },
+        "support_type": {
+          "minLength": 1,
+          "title": "Support Type",
+          "type": "string"
+        },
+        "supporting_citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Citation Keys",
+          "type": "array"
+        },
+        "supporting_experiment_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Experiment Artifact Ids",
+          "type": "array"
+        },
+        "supporting_proof_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Proof Artifact Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id",
+        "section_name",
+        "claim_class",
+        "support_status",
+        "support_type",
+        "disposition"
+      ],
+      "title": "FinalManuscriptClaimSummary",
+      "type": "object"
+    },
+    "FinalManuscriptSection": {
+      "additionalProperties": false,
+      "description": "One deterministic section in a regenerated final manuscript.",
+      "properties": {
+        "body_markdown": {
+          "minLength": 1,
+          "title": "Body Markdown",
+          "type": "string"
+        },
+        "citation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Citation Keys",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "deferred_gap_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deferred Gap Types",
+          "type": "array"
+        },
+        "experiment_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Experiment Artifact Ids",
+          "type": "array"
+        },
+        "heading": {
+          "minLength": 1,
+          "title": "Heading",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "included_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Included Claim Ids",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "proof_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Proof Artifact Ids",
+          "type": "array"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "word_count": {
+          "minimum": 0,
+          "title": "Word Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "section_id",
+        "heading",
+        "body_markdown",
+        "word_count"
+      ],
+      "title": "FinalManuscriptSection",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.42.0/final-manuscript-structured-document.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Machine-checkable regenerated final manuscript.",
+  "properties": {
+    "accepted_citation_keys": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Citation Keys",
+      "type": "array"
+    },
+    "claim_summaries": {
+      "items": {
+        "$ref": "#/$defs/FinalManuscriptClaimSummary"
+      },
+      "title": "Claim Summaries",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_gap_statements": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Deferred Gap Statements",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "regeneration_id": {
+      "minLength": 1,
+      "title": "Regeneration Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/FinalManuscriptSection"
+      },
+      "minItems": 1,
+      "title": "Sections",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "regeneration_id",
+    "title",
+    "sections"
+  ],
+  "title": "FinalManuscriptStructuredDocument",
+  "type": "object",
+  "x-factori-protocol-version": "0.42.0",
+  "x-factori-source-model": "factori.schemas.FinalManuscriptStructuredDocument",
+  "x-factori-verification-evidence": false
+}

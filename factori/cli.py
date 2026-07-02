@@ -91,6 +91,11 @@ from factori.experiment_template_routing import (
 )
 from factori.export_plan import ExportPreparationError, prepare_export
 from factori.final_audit import FinalAuditError, run_final_audit
+from factori.final_manuscript_regeneration import (
+    FinalManuscriptRegenerationError,
+    inspect_final_manuscript,
+    regenerate_final_manuscript,
+)
 from factori.final_paper import PaperAssemblyError, run_paper_assembly
 from factori.full_paper_generation import (
     FullPaperGenerationError,
@@ -2904,8 +2909,7 @@ def inspect_planned_spec_execution_command(
     typer.echo(f"Proof artifacts created: {summary['proof_artifacts_created']}")
     typer.echo(f"Retrieval artifacts created: {summary['retrieval_artifacts_created']}")
     typer.echo(
-        "Duplicate specs skipped: "
-        f"{int(summary.get('planned_spec_duplicate_specs_skipped') or 0)}"
+        f"Duplicate specs skipped: {int(summary.get('planned_spec_duplicate_specs_skipped') or 0)}"
     )
     typer.echo(
         "Human intervention required: "
@@ -2980,12 +2984,10 @@ def inspect_python_experiment_sandbox_command(
     typer.echo(f"Completed runs: {summary['python_experiment_sandbox_completed_count']}")
     typer.echo(f"Failed runs: {summary['python_experiment_sandbox_failed_count']}")
     typer.echo(
-        "Experiment artifacts created: "
-        f"{summary['python_experiment_artifacts_created_count']}"
+        f"Experiment artifacts created: {summary['python_experiment_artifacts_created_count']}"
     )
     typer.echo(
-        "Network disabled: "
-        f"{str(summary['python_experiment_sandbox_network_disabled']).lower()}"
+        f"Network disabled: {str(summary['python_experiment_sandbox_network_disabled']).lower()}"
     )
     typer.echo("Publication ready: false")
 
@@ -3052,10 +3054,7 @@ def inspect_experiment_gap_routing_command(
     typer.echo(f"Unrouted experiment gaps: {summary['unrouted_experiment_gap_count']}")
     typer.echo(f"Created experiment specs: {summary['created_experiment_spec_count']}")
     typer.echo(f"Routed empirical gaps: {summary['routed_empirical_gap_count']}")
-    typer.echo(
-        "Synthetic template specs created: "
-        f"{summary['synthetic_template_specs_created']}"
-    )
+    typer.echo(f"Synthetic template specs created: {summary['synthetic_template_specs_created']}")
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['experiment_gap_routing_report_path']}")
 
@@ -3135,9 +3134,7 @@ def run_autonomous_loop_command(
         "is_verification_evidence": False,
         "artifacts": {
             "autonomous_loop_report": result.report_artifact.model_dump(mode="json"),
-            "autonomous_loop_markdown": result.report_markdown_artifact.model_dump(
-                mode="json"
-            ),
+            "autonomous_loop_markdown": result.report_markdown_artifact.model_dump(mode="json"),
             "autonomous_loop_index": result.index_artifact.model_dump(mode="json"),
         },
     }
@@ -3150,8 +3147,7 @@ def run_autonomous_loop_command(
     typer.echo(f"iterations_completed={result.report.iterations_completed}")
     typer.echo(f"stop_reason={result.report.stop_reason}")
     typer.echo(
-        "human_intervention_required="
-        f"{str(result.report.requires_human_intervention).lower()}"
+        f"human_intervention_required={str(result.report.requires_human_intervention).lower()}"
     )
     typer.echo("publication_ready=false")
     typer.echo(f"autonomous_loop={result.report_artifact.path}")
@@ -3240,34 +3236,20 @@ def inspect_autonomous_loop_command(
     typer.echo(f"Autonomous loop: {summary['run_id']}")
     typer.echo(f"Loop count: {summary['autonomous_loop_count']}")
     typer.echo(f"Latest status: {summary['latest_autonomous_loop_status']}")
-    typer.echo(
-        "Iterations completed: "
-        f"{summary['latest_autonomous_loop_iterations_completed']}"
-    )
+    typer.echo(f"Iterations completed: {summary['latest_autonomous_loop_iterations_completed']}")
     typer.echo(f"Stop reason: {summary['latest_autonomous_loop_stop_reason']}")
     typer.echo(
-        "Terminal state: "
-        f"{summary.get('autonomous_loop_terminal_state') or 'not_available'}"
+        f"Terminal state: {summary.get('autonomous_loop_terminal_state') or 'not_available'}"
     )
     typer.echo(
         "Terminal reason: "
         f"{summary.get('autonomous_loop_terminal_state_reason') or 'not_available'}"
     )
+    typer.echo(f"Resolved gaps: {int(summary.get('autonomous_loop_resolved_gap_count') or 0)}")
+    typer.echo(f"Deferred gaps: {int(summary.get('autonomous_loop_deferred_gap_count') or 0)}")
+    typer.echo(f"Exhausted gaps: {int(summary.get('autonomous_loop_exhausted_gap_count') or 0)}")
     typer.echo(
-        "Resolved gaps: "
-        f"{int(summary.get('autonomous_loop_resolved_gap_count') or 0)}"
-    )
-    typer.echo(
-        "Deferred gaps: "
-        f"{int(summary.get('autonomous_loop_deferred_gap_count') or 0)}"
-    )
-    typer.echo(
-        "Exhausted gaps: "
-        f"{int(summary.get('autonomous_loop_exhausted_gap_count') or 0)}"
-    )
-    typer.echo(
-        "Duplicate-only gaps: "
-        f"{int(summary.get('autonomous_loop_duplicate_only_gap_count') or 0)}"
+        f"Duplicate-only gaps: {int(summary.get('autonomous_loop_duplicate_only_gap_count') or 0)}"
     )
     typer.echo(
         "Automation-ready after history: "
@@ -3288,16 +3270,14 @@ def inspect_autonomous_loop_command(
         f"{int(summary.get('autonomous_loop_empirical_paths_resolved') or 0)}"
     )
     typer.echo(
-        "Proof paths deferred: "
-        f"{int(summary.get('autonomous_loop_proof_paths_deferred') or 0)}"
+        f"Proof paths deferred: {int(summary.get('autonomous_loop_proof_paths_deferred') or 0)}"
     )
     typer.echo(
         "Retrieval paths deferred: "
         f"{int(summary.get('autonomous_loop_retrieval_paths_deferred') or 0)}"
     )
     typer.echo(
-        "Final unsupported claims: "
-        f"{summary['autonomous_loop_final_unsupported_claim_count']}"
+        f"Final unsupported claims: {summary['autonomous_loop_final_unsupported_claim_count']}"
     )
     typer.echo(
         "Final automation-ready items: "
@@ -3313,20 +3293,15 @@ def inspect_autonomous_loop_command(
     )
     typer.echo(f"Duplicate specs skipped: {int(summary.get('duplicate_specs_skipped') or 0)}")
     typer.echo(
-        "Gaps exhausted/no-progress: "
-        f"{int(summary.get('gap_exhausted_no_progress_count') or 0)}"
+        f"Gaps exhausted/no-progress: {int(summary.get('gap_exhausted_no_progress_count') or 0)}"
     )
     typer.echo(
         "Strategy diversification: "
         f"{'present' if summary.get('strategy_diversification_present') else 'absent'}"
     )
     typer.echo(f"Strategy options: {int(summary.get('strategy_option_count') or 0)}")
-    typer.echo(
-        f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}"
-    )
-    typer.echo(
-        f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}"
-    )
+    typer.echo(f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}")
+    typer.echo(f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}")
     typer.echo(
         "Deferred after all strategies exhausted: "
         f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"
@@ -3335,33 +3310,18 @@ def inspect_autonomous_loop_command(
         "Experiment routing enabled: "
         f"{str(bool(summary.get('experiment_routing_enabled'))).lower()}"
     )
+    typer.echo(f"Routed experiment gaps: {int(summary.get('routed_experiment_gap_count') or 0)}")
+    typer.echo(f"Routed experiment specs: {int(summary.get('routed_experiment_spec_count') or 0)}")
+    typer.echo(f"Bounded empirical gaps created: {int(summary.get('empirical_gaps_created') or 0)}")
+    typer.echo(f"Bounded empirical gaps routed: {int(summary.get('empirical_gaps_routed') or 0)}")
     typer.echo(
-        "Routed experiment gaps: "
-        f"{int(summary.get('routed_experiment_gap_count') or 0)}"
+        f"Sandbox experiments completed: {int(summary.get('sandbox_experiments_completed') or 0)}"
     )
     typer.echo(
-        "Routed experiment specs: "
-        f"{int(summary.get('routed_experiment_spec_count') or 0)}"
+        f"Experiment artifacts ingested: {int(summary.get('experiment_artifacts_ingested') or 0)}"
     )
     typer.echo(
-        "Bounded empirical gaps created: "
-        f"{int(summary.get('empirical_gaps_created') or 0)}"
-    )
-    typer.echo(
-        "Bounded empirical gaps routed: "
-        f"{int(summary.get('empirical_gaps_routed') or 0)}"
-    )
-    typer.echo(
-        "Sandbox experiments completed: "
-        f"{int(summary.get('sandbox_experiments_completed') or 0)}"
-    )
-    typer.echo(
-        "Experiment artifacts ingested: "
-        f"{int(summary.get('experiment_artifacts_ingested') or 0)}"
-    )
-    typer.echo(
-        "Sandbox budget exhausted: "
-        f"{str(bool(summary.get('sandbox_budget_exhausted'))).lower()}"
+        f"Sandbox budget exhausted: {str(bool(summary.get('sandbox_budget_exhausted'))).lower()}"
     )
     typer.echo(
         "Sandbox runs used/remaining: "
@@ -3374,20 +3334,15 @@ def inspect_autonomous_loop_command(
         f"{summary.get('capability_escalation_status') or 'none'}"
     )
     typer.echo(
-        "Proof escalations attempted: "
-        f"{int(summary.get('proof_escalation_attempt_count') or 0)}"
+        f"Proof escalations attempted: {int(summary.get('proof_escalation_attempt_count') or 0)}"
     )
     typer.echo(
         "Retrieval escalations attempted: "
         f"{int(summary.get('retrieval_escalation_attempt_count') or 0)}"
     )
+    typer.echo(f"Successful escalations: {int(summary.get('successful_escalation_count') or 0)}")
     typer.echo(
-        "Successful escalations: "
-        f"{int(summary.get('successful_escalation_count') or 0)}"
-    )
-    typer.echo(
-        "Deferred after escalation: "
-        f"{int(summary.get('deferred_after_escalation_count') or 0)}"
+        f"Deferred after escalation: {int(summary.get('deferred_after_escalation_count') or 0)}"
     )
     typer.echo(
         "Human intervention required: "
@@ -3446,9 +3401,7 @@ def escalate_capabilities_command(
             ledger=_ledger(root, run_id),
             allow_network=_parse_explicit_bool(allow_network),
             allow_external_proof_tools=_parse_explicit_bool(allow_external_proof_tools),
-            allow_external_retrieval_tools=_parse_explicit_bool(
-                allow_external_retrieval_tools
-            ),
+            allow_external_retrieval_tools=_parse_explicit_bool(allow_external_retrieval_tools),
             max_escalation_attempts_per_gap=max_escalation_attempts_per_gap,
             max_escalation_attempts_per_loop=max_escalation_attempts_per_loop,
             max_retrieval_sources_per_escalation=max_retrieval_sources_per_escalation,
@@ -3474,9 +3427,7 @@ def escalate_capabilities_command(
         f"retrieval_escalation_attempt_count={result.report.retrieval_escalation_attempt_count}"
     )
     typer.echo(f"successful_escalation_count={result.report.successful_escalation_count}")
-    typer.echo(
-        f"deferred_after_escalation_count={result.report.deferred_after_escalation_count}"
-    )
+    typer.echo(f"deferred_after_escalation_count={result.report.deferred_after_escalation_count}")
     typer.echo(f"network_allowed={str(result.report.network_allowed).lower()}")
     typer.echo(f"external_tools_allowed={str(result.report.external_tools_allowed).lower()}")
     typer.echo("publication_ready=false")
@@ -3500,26 +3451,89 @@ def inspect_capability_escalation_command(
         return
     typer.echo(f"Capability escalation: {summary['run_id']}")
     typer.echo(f"Status: {summary['capability_escalation_status']}")
-    typer.echo(
-        "Proof escalations attempted: "
-        f"{summary['proof_escalation_attempt_count']}"
-    )
-    typer.echo(
-        "Retrieval escalations attempted: "
-        f"{summary['retrieval_escalation_attempt_count']}"
-    )
+    typer.echo(f"Proof escalations attempted: {summary['proof_escalation_attempt_count']}")
+    typer.echo(f"Retrieval escalations attempted: {summary['retrieval_escalation_attempt_count']}")
     typer.echo(f"Successful escalations: {summary['successful_escalation_count']}")
     typer.echo(f"Deferred after escalation: {summary['deferred_after_escalation_count']}")
-    typer.echo(
-        "Network allowed: "
-        f"{str(summary['capability_escalation_network_allowed']).lower()}"
-    )
+    typer.echo(f"Network allowed: {str(summary['capability_escalation_network_allowed']).lower()}")
     typer.echo(
         "External tools allowed: "
         f"{str(summary['capability_escalation_external_tools_allowed']).lower()}"
     )
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['capability_escalation_report_path']}")
+
+
+@app.command("regenerate-final-manuscript")
+def regenerate_final_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    regeneration_backend: Annotated[
+        str,
+        typer.Option("--regeneration-backend"),
+    ] = "deterministic",
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Regenerate a coherent final manuscript from the final scoped evidence state."""
+    try:
+        result = regenerate_final_manuscript(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            backend=regeneration_backend,
+            allow_external_calls=allow_external_calls,
+        )
+    except FinalManuscriptRegenerationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "final_manuscript": result.report.model_dump(mode="json"),
+        "final_manuscript_index": result.index.model_dump(mode="json"),
+        "final_manuscript_present": True,
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"regeneration_id={result.report.regeneration_id}")
+    typer.echo(f"regeneration_status={result.report.regeneration_status}")
+    typer.echo(f"sections_generated={result.report.sections_generated}")
+    typer.echo(f"supported_claim_count={result.report.supported_claim_count}")
+    typer.echo(f"unsupported_claim_count={result.report.unsupported_claim_count}")
+    typer.echo(f"deferred_gap_count={result.report.deferred_gap_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"final_manuscript={result.manuscript_artifact.path}")
+
+
+@app.command("inspect-final-manuscript")
+def inspect_final_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest final manuscript regeneration without mutation."""
+    try:
+        summary = inspect_final_manuscript(run_id=run_id, root=root)
+    except FinalManuscriptRegenerationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Final manuscript: {summary['run_id']}")
+    typer.echo(f"Status: {summary['final_manuscript_regeneration_status']}")
+    typer.echo(f"Sections generated: {summary['final_manuscript_sections_generated']}")
+    typer.echo(f"Supported claims: {summary['final_manuscript_supported_claim_count']}")
+    typer.echo(f"Unsupported claims: {summary['final_manuscript_unsupported_claim_count']}")
+    typer.echo(f"Deferred gaps: {summary['final_manuscript_deferred_gap_count']}")
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['final_manuscript_path']}")
 
 
 @app.command("inspect-gap-attempt-history")
@@ -3544,9 +3558,7 @@ def inspect_gap_attempt_history_command(
     typer.echo(f"Exhausted/no-progress gaps: {summary['gap_exhausted_no_progress_count']}")
     typer.echo(f"Deferred gaps: {summary['remaining_deferred_gap_count']}")
     typer.echo(f"Strategy attempts: {summary.get('strategy_attempt_count', 0)}")
-    typer.echo(
-        f"Diversified strategies: {summary.get('diversified_strategy_count', 0)}"
-    )
+    typer.echo(f"Diversified strategies: {summary.get('diversified_strategy_count', 0)}")
     typer.echo(
         "Deferred after strategy exhaustion: "
         f"{summary.get('gaps_deferred_after_strategy_exhaustion', 0)}"
@@ -4255,6 +4267,20 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(f"Safe repair: {safe_repair}")
     typer.echo(f"Quality repair: {quality_repair}")
     typer.echo(
+        f"Final manuscript: {'present' if summary.get('final_manuscript_present') else 'absent'}"
+    )
+    typer.echo(
+        "Final regeneration status: "
+        f"{summary.get('final_manuscript_regeneration_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Final sections / supported claims / deferred gaps / unsupported claims: "
+        f"{int(summary.get('final_manuscript_sections_generated') or 0)} / "
+        f"{int(summary.get('final_manuscript_supported_claim_count') or 0)} / "
+        f"{int(summary.get('final_manuscript_deferred_gap_count') or 0)} / "
+        f"{int(summary.get('final_manuscript_unsupported_claim_count') or 0)}"
+    )
+    typer.echo(
         "Evidence-aware refresh: "
         f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"
     )
@@ -4336,31 +4362,22 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{summary.get('latest_planned_spec_execution_mode') or 'not_available'} / "
         f"{summary.get('latest_planned_spec_execution_status') or 'not_available'}"
     )
-    typer.echo(
-        "Experiment specs executed: "
-        f"{int(summary.get('experiment_specs_executed') or 0)}"
-    )
+    typer.echo(f"Experiment specs executed: {int(summary.get('experiment_specs_executed') or 0)}")
     typer.echo(f"Proof specs executed: {int(summary.get('proof_specs_executed') or 0)}")
+    typer.echo(f"Retrieval specs executed: {int(summary.get('retrieval_specs_executed') or 0)}")
     typer.echo(
-        "Retrieval specs executed: "
-        f"{int(summary.get('retrieval_specs_executed') or 0)}"
-    )
-    typer.echo(
-        "Experiment artifacts created: "
-        f"{int(summary.get('experiment_artifacts_created') or 0)}"
+        f"Experiment artifacts created: {int(summary.get('experiment_artifacts_created') or 0)}"
     )
     typer.echo(f"Proof artifacts created: {int(summary.get('proof_artifacts_created') or 0)}")
     typer.echo(
-        "Retrieval artifacts created: "
-        f"{int(summary.get('retrieval_artifacts_created') or 0)}"
+        f"Retrieval artifacts created: {int(summary.get('retrieval_artifacts_created') or 0)}"
     )
     typer.echo(
         "Python sandbox: "
         f"{'present' if summary.get('python_experiment_sandbox_present') else 'absent'}"
     )
     typer.echo(
-        "Latest sandbox status: "
-        f"{summary.get('latest_python_sandbox_status') or 'not_available'}"
+        f"Latest sandbox status: {summary.get('latest_python_sandbox_status') or 'not_available'}"
     )
     typer.echo(
         "Completed sandbox runs: "
@@ -4378,25 +4395,14 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Experiment gap routing: "
         f"{'present' if summary.get('experiment_gap_routing_present') else 'absent'}"
     )
+    typer.echo(f"Routed experiment gaps: {int(summary.get('routed_experiment_gap_count') or 0)}")
+    typer.echo(f"Bounded empirical gaps: {int(summary.get('bounded_empirical_gap_count') or 0)}")
     typer.echo(
-        "Routed experiment gaps: "
-        f"{int(summary.get('routed_experiment_gap_count') or 0)}"
+        f"Needs-python-experiment items: {int(summary.get('needs_python_experiment_count') or 0)}"
     )
+    typer.echo(f"Routed empirical gaps: {int(summary.get('routed_empirical_gap_count') or 0)}")
     typer.echo(
-        "Bounded empirical gaps: "
-        f"{int(summary.get('bounded_empirical_gap_count') or 0)}"
-    )
-    typer.echo(
-        "Needs-python-experiment items: "
-        f"{int(summary.get('needs_python_experiment_count') or 0)}"
-    )
-    typer.echo(
-        "Routed empirical gaps: "
-        f"{int(summary.get('routed_empirical_gap_count') or 0)}"
-    )
-    typer.echo(
-        "Created experiment specs: "
-        f"{int(summary.get('created_experiment_spec_count') or 0)}"
+        f"Created experiment specs: {int(summary.get('created_experiment_spec_count') or 0)}"
     )
     typer.echo(
         "Sandbox experiments completed: "
@@ -4411,33 +4417,24 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('sandbox_budget_runs_used') or 0)}/"
         f"{int(summary.get('sandbox_budget_runs_remaining') or 0)}"
     )
-    typer.echo(
-        "Budget exhausted: "
-        f"{str(bool(summary.get('sandbox_budget_exhausted'))).lower()}"
-    )
+    typer.echo(f"Budget exhausted: {str(bool(summary.get('sandbox_budget_exhausted'))).lower()}")
     typer.echo(
         "Capability escalation: "
         f"{'present' if summary.get('capability_escalation_present') else 'absent'}"
     )
     typer.echo(
-        "Escalation status: "
-        f"{summary.get('capability_escalation_status') or 'not_available'}"
+        f"Escalation status: {summary.get('capability_escalation_status') or 'not_available'}"
     )
     typer.echo(
-        "Proof escalations attempted: "
-        f"{int(summary.get('proof_escalation_attempt_count') or 0)}"
+        f"Proof escalations attempted: {int(summary.get('proof_escalation_attempt_count') or 0)}"
     )
     typer.echo(
         "Retrieval escalations attempted: "
         f"{int(summary.get('retrieval_escalation_attempt_count') or 0)}"
     )
+    typer.echo(f"Successful escalations: {int(summary.get('successful_escalation_count') or 0)}")
     typer.echo(
-        "Successful escalations: "
-        f"{int(summary.get('successful_escalation_count') or 0)}"
-    )
-    typer.echo(
-        "Deferred after escalation: "
-        f"{int(summary.get('deferred_after_escalation_count') or 0)}"
+        f"Deferred after escalation: {int(summary.get('deferred_after_escalation_count') or 0)}"
     )
     typer.echo(
         "Network allowed: "
@@ -4448,24 +4445,20 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{str(bool(summary.get('capability_escalation_external_tools_allowed'))).lower()}"
     )
     typer.echo(
-        "Autonomous loop: "
-        f"{'present' if summary.get('autonomous_loop_present') else 'absent'}"
+        f"Autonomous loop: {'present' if summary.get('autonomous_loop_present') else 'absent'}"
     )
     typer.echo(
-        "Latest loop status: "
-        f"{summary.get('latest_autonomous_loop_status') or 'not_available'}"
+        f"Latest loop status: {summary.get('latest_autonomous_loop_status') or 'not_available'}"
     )
     typer.echo(
         "Iterations completed: "
         f"{int(summary.get('latest_autonomous_loop_iterations_completed') or 0)}"
     )
     typer.echo(
-        "Stop reason: "
-        f"{summary.get('latest_autonomous_loop_stop_reason') or 'not_available'}"
+        f"Stop reason: {summary.get('latest_autonomous_loop_stop_reason') or 'not_available'}"
     )
     typer.echo(
-        "Terminal state: "
-        f"{summary.get('autonomous_loop_terminal_state') or 'not_available'}"
+        f"Terminal state: {summary.get('autonomous_loop_terminal_state') or 'not_available'}"
     )
     typer.echo(
         "Terminal reason: "
@@ -4504,20 +4497,15 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     )
     typer.echo(f"Duplicate specs skipped: {int(summary.get('duplicate_specs_skipped') or 0)}")
     typer.echo(
-        "Gaps exhausted/no-progress: "
-        f"{int(summary.get('gap_exhausted_no_progress_count') or 0)}"
+        f"Gaps exhausted/no-progress: {int(summary.get('gap_exhausted_no_progress_count') or 0)}"
     )
     typer.echo(
         "Strategy diversification: "
         f"{'present' if summary.get('strategy_diversification_present') else 'absent'}"
     )
     typer.echo(f"Strategy options: {int(summary.get('strategy_option_count') or 0)}")
-    typer.echo(
-        f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}"
-    )
-    typer.echo(
-        f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}"
-    )
+    typer.echo(f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}")
+    typer.echo(f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}")
     typer.echo(
         "Deferred after all strategies exhausted: "
         f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"
@@ -4934,8 +4922,7 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('python_experiment_artifacts_created_count') or 0)}"
     )
     typer.echo(
-        "Autonomous loop: "
-        f"{'present' if summary.get('autonomous_loop_present') else 'absent'}"
+        f"Autonomous loop: {'present' if summary.get('autonomous_loop_present') else 'absent'}"
     )
     typer.echo(
         "Latest autonomous loop: "
@@ -4955,12 +4942,8 @@ def _print_paper_bundle_lint_summary(summary: dict[str, object]) -> None:
         f"{'present' if summary.get('strategy_diversification_present') else 'absent'}"
     )
     typer.echo(f"Strategy options: {int(summary.get('strategy_option_count') or 0)}")
-    typer.echo(
-        f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}"
-    )
-    typer.echo(
-        f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}"
-    )
+    typer.echo(f"Selected strategies: {int(summary.get('selected_strategy_count') or 0)}")
+    typer.echo(f"Duplicate strategies: {int(summary.get('duplicate_strategy_count') or 0)}")
     typer.echo(
         "Deferred after all strategies exhausted: "
         f"{int(summary.get('gaps_deferred_after_strategy_exhaustion') or 0)}"

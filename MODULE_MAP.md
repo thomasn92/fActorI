@@ -239,6 +239,12 @@ All implementation modules are under `factori/`.
   claim-evidence maps, plans, executes safe actions/specs, refreshes manuscript context, reruns
   safety gates, and stops by explicit no-progress, max-iteration, completion, or safety policy
   without treating orchestration as evidence.
+- `capability_escalation.py`: fail-closed local/offline escalation for deferred proof and
+  retrieval paths under explicit capability and attempt budgets.
+- `final_manuscript_regeneration.py`: deterministic final manuscript reconstruction from the
+  latest scoped claim-evidence, citation, retrieval, execution, escalation, and release state;
+  writes immutable manuscript/report/index artifacts and reruns safety gates without creating
+  evidence or publication readiness.
 - `gap_attempts.py`: stable gap, plan-item, planned-spec, and execution-attempt fingerprints;
   append-only derived gap-attempt histories; planned-spec de-dup indexes; and exhaustion-aware
   planner annotations without evidence or publication-readiness authority.

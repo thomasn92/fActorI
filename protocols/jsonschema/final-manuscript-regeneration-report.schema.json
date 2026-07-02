@@ -1,0 +1,212 @@
+{
+  "$id": "https://schemas.factori.local/0.42.0/final-manuscript-regeneration-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only non-evidence final manuscript regeneration report.",
+  "properties": {
+    "citation_safety_rechecked_after_regeneration": {
+      "default": false,
+      "title": "Citation Safety Rechecked After Regeneration",
+      "type": "boolean"
+    },
+    "citation_supported_claim_count": {
+      "minimum": 0,
+      "title": "Citation Supported Claim Count",
+      "type": "integer"
+    },
+    "claim_count_total": {
+      "minimum": 0,
+      "title": "Claim Count Total",
+      "type": "integer"
+    },
+    "claim_evidence_map_rechecked_after_regeneration": {
+      "default": false,
+      "title": "Claim Evidence Map Rechecked After Regeneration",
+      "type": "boolean"
+    },
+    "claim_support_rechecked_after_regeneration": {
+      "default": false,
+      "title": "Claim Support Rechecked After Regeneration",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_experiment_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Experiment Gap Count",
+      "type": "integer"
+    },
+    "deferred_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Gap Count",
+      "type": "integer"
+    },
+    "deferred_proof_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Proof Gap Count",
+      "type": "integer"
+    },
+    "deferred_retrieval_gap_count": {
+      "minimum": 0,
+      "title": "Deferred Retrieval Gap Count",
+      "type": "integer"
+    },
+    "experiment_supported_claim_count": {
+      "minimum": 0,
+      "title": "Experiment Supported Claim Count",
+      "type": "integer"
+    },
+    "final_manuscript_path": {
+      "minLength": 1,
+      "title": "Final Manuscript Path",
+      "type": "string"
+    },
+    "final_manuscript_structured_path": {
+      "minLength": 1,
+      "title": "Final Manuscript Structured Path",
+      "type": "string"
+    },
+    "human_review_linked_claim_count": {
+      "minimum": 0,
+      "title": "Human Review Linked Claim Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proof_supported_claim_count": {
+      "minimum": 0,
+      "title": "Proof Supported Claim Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "quality_lint_rechecked_after_regeneration": {
+      "default": false,
+      "title": "Quality Lint Rechecked After Regeneration",
+      "type": "boolean"
+    },
+    "regeneration_backend": {
+      "default": "deterministic",
+      "enum": [
+        "deterministic",
+        "fake",
+        "openai"
+      ],
+      "title": "Regeneration Backend",
+      "type": "string"
+    },
+    "regeneration_id": {
+      "minLength": 1,
+      "title": "Regeneration Id",
+      "type": "string"
+    },
+    "regeneration_status": {
+      "enum": [
+        "completed",
+        "blocked",
+        "failed"
+      ],
+      "title": "Regeneration Status",
+      "type": "string"
+    },
+    "release_rechecked_after_regeneration": {
+      "default": false,
+      "title": "Release Rechecked After Regeneration",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sections_generated": {
+      "minimum": 0,
+      "title": "Sections Generated",
+      "type": "integer"
+    },
+    "source_autonomous_loop_report_path": {
+      "minLength": 1,
+      "title": "Source Autonomous Loop Report Path",
+      "type": "string"
+    },
+    "source_capability_escalation_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Capability Escalation Report Path Optional"
+    },
+    "source_citation_registry_path": {
+      "minLength": 1,
+      "title": "Source Citation Registry Path",
+      "type": "string"
+    },
+    "source_claim_evidence_map_path": {
+      "minLength": 1,
+      "title": "Source Claim Evidence Map Path",
+      "type": "string"
+    },
+    "source_retrieval_report_path": {
+      "minLength": 1,
+      "title": "Source Retrieval Report Path",
+      "type": "string"
+    },
+    "supported_claim_count": {
+      "minimum": 0,
+      "title": "Supported Claim Count",
+      "type": "integer"
+    },
+    "unsupported_claim_count": {
+      "minimum": 0,
+      "title": "Unsupported Claim Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "regeneration_id",
+    "regeneration_status",
+    "source_claim_evidence_map_path",
+    "source_citation_registry_path",
+    "source_retrieval_report_path",
+    "source_autonomous_loop_report_path",
+    "final_manuscript_path",
+    "final_manuscript_structured_path",
+    "sections_generated",
+    "claim_count_total",
+    "supported_claim_count",
+    "citation_supported_claim_count",
+    "proof_supported_claim_count",
+    "experiment_supported_claim_count",
+    "human_review_linked_claim_count",
+    "unsupported_claim_count",
+    "deferred_gap_count",
+    "deferred_proof_gap_count",
+    "deferred_retrieval_gap_count",
+    "deferred_experiment_gap_count"
+  ],
+  "title": "FinalManuscriptRegenerationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.42.0",
+  "x-factori-source-model": "factori.schemas.FinalManuscriptRegenerationReport",
+  "x-factori-verification-evidence": false
+}

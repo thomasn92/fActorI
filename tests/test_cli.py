@@ -70,6 +70,16 @@ def test_capability_escalation_cli_commands_are_registered() -> None:
     assert "--json" in inspect.output
 
 
+def test_final_manuscript_cli_commands_are_registered() -> None:
+    regenerate = CliRunner().invoke(app, ["regenerate-final-manuscript", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-final-manuscript", "--help"])
+
+    assert regenerate.exit_code == 0, regenerate.output
+    assert "--regeneration-backend" in regenerate.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--json" in inspect.output
+
+
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])
