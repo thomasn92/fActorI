@@ -27,6 +27,11 @@ from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
 )
+from factori.capability_escalation import (
+    CapabilityEscalationError,
+    escalate_capabilities,
+    inspect_capability_escalation,
+)
 from factori.citations import (
     build_citation_registry_from_ledger,
     validate_citation_usage,
@@ -2616,6 +2621,10 @@ def build_autonomous_evidence_plan_command(
         bool,
         typer.Option("--enable-empirical-demonstration-gaps"),
     ] = False,
+    enable_capability_escalation: Annotated[
+        bool,
+        typer.Option("--enable-capability-escalation"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Build and persist a deterministic autonomous evidence-gap plan."""
@@ -3070,6 +3079,10 @@ def run_autonomous_loop_command(
         bool,
         typer.Option("--enable-empirical-demonstration-gaps"),
     ] = False,
+    enable_capability_escalation: Annotated[
+        bool,
+        typer.Option("--enable-capability-escalation"),
+    ] = False,
     python_sandbox_backend: Annotated[
         str,
         typer.Option("--python-sandbox-backend"),
@@ -3102,6 +3115,7 @@ def run_autonomous_loop_command(
             enable_strategy_diversification=enable_strategy_diversification,
             enable_experiment_routing=enable_experiment_routing,
             enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
+            enable_capability_escalation=enable_capability_escalation,
             python_sandbox_backend=python_sandbox_backend,
             max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
             max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
@@ -3355,11 +3369,157 @@ def inspect_autonomous_loop_command(
         f"{int(summary.get('sandbox_budget_runs_remaining') or 0)}"
     )
     typer.echo(
+        "Capability escalation enabled/status: "
+        f"{str(bool(summary.get('capability_escalation_enabled'))).lower()}/"
+        f"{summary.get('capability_escalation_status') or 'none'}"
+    )
+    typer.echo(
+        "Proof escalations attempted: "
+        f"{int(summary.get('proof_escalation_attempt_count') or 0)}"
+    )
+    typer.echo(
+        "Retrieval escalations attempted: "
+        f"{int(summary.get('retrieval_escalation_attempt_count') or 0)}"
+    )
+    typer.echo(
+        "Successful escalations: "
+        f"{int(summary.get('successful_escalation_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred after escalation: "
+        f"{int(summary.get('deferred_after_escalation_count') or 0)}"
+    )
+    typer.echo(
         "Human intervention required: "
         f"{str(summary['autonomous_loop_requires_human_intervention']).lower()}"
     )
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['autonomous_loop_report_path']}")
+
+
+def _parse_explicit_bool(value: str) -> bool:
+    normalized = value.strip().casefold()
+    if normalized in {"true", "1", "yes", "y"}:
+        return True
+    if normalized in {"false", "0", "no", "n"}:
+        return False
+    raise typer.BadParameter("expected true or false")
+
+
+@app.command("escalate-capabilities")
+def escalate_capabilities_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    allow_network: Annotated[str, typer.Option("--allow-network")] = "false",
+    allow_external_proof_tools: Annotated[
+        str,
+        typer.Option("--allow-external-proof-tools"),
+    ] = "false",
+    allow_external_retrieval_tools: Annotated[
+        str,
+        typer.Option("--allow-external-retrieval-tools"),
+    ] = "false",
+    max_escalation_attempts_per_gap: Annotated[
+        int,
+        typer.Option("--max-escalation-attempts-per-gap"),
+    ] = 1,
+    max_escalation_attempts_per_loop: Annotated[
+        int,
+        typer.Option("--max-escalation-attempts-per-loop"),
+    ] = 4,
+    max_retrieval_sources_per_escalation: Annotated[
+        int,
+        typer.Option("--max-retrieval-sources-per-escalation"),
+    ] = 8,
+    max_tool_runtime_seconds: Annotated[
+        int,
+        typer.Option("--max-tool-runtime-seconds"),
+    ] = 30,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Attempt fail-closed local/offline escalation for deferred proof/retrieval gaps."""
+    try:
+        result = escalate_capabilities(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            allow_network=_parse_explicit_bool(allow_network),
+            allow_external_proof_tools=_parse_explicit_bool(allow_external_proof_tools),
+            allow_external_retrieval_tools=_parse_explicit_bool(
+                allow_external_retrieval_tools
+            ),
+            max_escalation_attempts_per_gap=max_escalation_attempts_per_gap,
+            max_escalation_attempts_per_loop=max_escalation_attempts_per_loop,
+            max_retrieval_sources_per_escalation=max_retrieval_sources_per_escalation,
+            max_tool_runtime_seconds=max_tool_runtime_seconds,
+        )
+    except CapabilityEscalationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "capability_escalation": result.report.model_dump(mode="json"),
+        "capability_escalation_index": result.index.model_dump(mode="json"),
+        "capability_escalation_present": True,
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"escalation_id={result.report.escalation_id}")
+    typer.echo(f"escalation_status={result.report.escalation_status}")
+    typer.echo(f"proof_escalation_attempt_count={result.report.proof_escalation_attempt_count}")
+    typer.echo(
+        f"retrieval_escalation_attempt_count={result.report.retrieval_escalation_attempt_count}"
+    )
+    typer.echo(f"successful_escalation_count={result.report.successful_escalation_count}")
+    typer.echo(
+        f"deferred_after_escalation_count={result.report.deferred_after_escalation_count}"
+    )
+    typer.echo(f"network_allowed={str(result.report.network_allowed).lower()}")
+    typer.echo(f"external_tools_allowed={str(result.report.external_tools_allowed).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"capability_escalation={result.report_artifact.path}")
+
+
+@app.command("inspect-capability-escalation")
+def inspect_capability_escalation_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest capability escalation without mutation."""
+    try:
+        summary = inspect_capability_escalation(run_id=run_id, root=root)
+    except CapabilityEscalationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Capability escalation: {summary['run_id']}")
+    typer.echo(f"Status: {summary['capability_escalation_status']}")
+    typer.echo(
+        "Proof escalations attempted: "
+        f"{summary['proof_escalation_attempt_count']}"
+    )
+    typer.echo(
+        "Retrieval escalations attempted: "
+        f"{summary['retrieval_escalation_attempt_count']}"
+    )
+    typer.echo(f"Successful escalations: {summary['successful_escalation_count']}")
+    typer.echo(f"Deferred after escalation: {summary['deferred_after_escalation_count']}")
+    typer.echo(
+        "Network allowed: "
+        f"{str(summary['capability_escalation_network_allowed']).lower()}"
+    )
+    typer.echo(
+        "External tools allowed: "
+        f"{str(summary['capability_escalation_external_tools_allowed']).lower()}"
+    )
+    typer.echo("Publication ready: false")
+    typer.echo(f"Artifact: {summary['capability_escalation_report_path']}")
 
 
 @app.command("inspect-gap-attempt-history")
@@ -4254,6 +4414,38 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
     typer.echo(
         "Budget exhausted: "
         f"{str(bool(summary.get('sandbox_budget_exhausted'))).lower()}"
+    )
+    typer.echo(
+        "Capability escalation: "
+        f"{'present' if summary.get('capability_escalation_present') else 'absent'}"
+    )
+    typer.echo(
+        "Escalation status: "
+        f"{summary.get('capability_escalation_status') or 'not_available'}"
+    )
+    typer.echo(
+        "Proof escalations attempted: "
+        f"{int(summary.get('proof_escalation_attempt_count') or 0)}"
+    )
+    typer.echo(
+        "Retrieval escalations attempted: "
+        f"{int(summary.get('retrieval_escalation_attempt_count') or 0)}"
+    )
+    typer.echo(
+        "Successful escalations: "
+        f"{int(summary.get('successful_escalation_count') or 0)}"
+    )
+    typer.echo(
+        "Deferred after escalation: "
+        f"{int(summary.get('deferred_after_escalation_count') or 0)}"
+    )
+    typer.echo(
+        "Network allowed: "
+        f"{str(bool(summary.get('capability_escalation_network_allowed'))).lower()}"
+    )
+    typer.echo(
+        "External tools allowed: "
+        f"{str(bool(summary.get('capability_escalation_external_tools_allowed'))).lower()}"
     )
     typer.echo(
         "Autonomous loop: "

@@ -21,6 +21,10 @@ from factori.autonomous_plan_execution import (
     autonomous_execution_summary_fields,
     latest_autonomous_plan_execution_report,
 )
+from factori.capability_escalation import (
+    capability_escalation_summary_fields,
+    latest_capability_escalation_report,
+)
 from factori.citations import (
     CITATION_MARKER_RE,
     build_citation_registry_from_ledger,
@@ -89,6 +93,7 @@ from factori.schemas import (
     AutonomousEvidenceGapPlan,
     AutonomousLoopRunReport,
     AutonomousPlanExecutionReport,
+    CapabilityEscalationReport,
     CitationRegistry,
     ClaimEvidenceMap,
     ClaimSupportAuditReport,
@@ -823,6 +828,13 @@ def inspect_paper_bundle_summary(
         sandbox_budget_summary,
         autonomous_loop_summary,
     )
+    capability_escalation_report, capability_escalation_index = (
+        latest_capability_escalation_report(root_path, run_id)
+    )
+    capability_escalation_summary = capability_escalation_summary_fields(
+        capability_escalation_report,
+        capability_escalation_index,
+    )
     gap_attempt_history_path = latest_gap_attempt_history_path(root_path, run_id)
     planned_spec_dedup_index_path = latest_planned_spec_dedup_index_path(root_path, run_id)
     reviewer_bundle_summary = _read_preferred_reviewer_bundle_summary(paths)
@@ -1003,6 +1015,7 @@ def inspect_paper_bundle_summary(
         **strategy_summary,
         **routing_summary,
         **sandbox_budget_summary,
+        **capability_escalation_summary,
         "bounded_empirical_gap_count": max(
             int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
             int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
@@ -1598,6 +1611,24 @@ def lint_paper_bundle_summary(
     experiment_artifacts_ingested_count = int(
         bundle.get("experiment_artifacts_ingested_count") or 0
     )
+    capability_escalation_present = bool(bundle.get("capability_escalation_present"))
+    capability_escalation_status = bundle.get("capability_escalation_status")
+    proof_escalation_attempt_count = int(
+        bundle.get("proof_escalation_attempt_count") or 0
+    )
+    retrieval_escalation_attempt_count = int(
+        bundle.get("retrieval_escalation_attempt_count") or 0
+    )
+    successful_escalation_count = int(bundle.get("successful_escalation_count") or 0)
+    deferred_after_escalation_count = int(
+        bundle.get("deferred_after_escalation_count") or 0
+    )
+    capability_escalation_network_allowed = bool(
+        bundle.get("capability_escalation_network_allowed")
+    )
+    capability_escalation_external_tools_allowed = bool(
+        bundle.get("capability_escalation_external_tools_allowed")
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -1994,6 +2025,7 @@ def lint_paper_bundle_summary(
             autonomous_human_intervention_required
             or bool(bundle.get("planned_spec_execution_requires_human_intervention"))
             or autonomous_loop_requires_human_intervention
+            or bool(bundle.get("capability_escalation_requires_human_intervention"))
         ),
         "autonomous_execution_present": autonomous_execution_present,
         "autonomous_execution_count": autonomous_execution_count,
@@ -2099,6 +2131,16 @@ def lint_paper_bundle_summary(
         "routed_empirical_gap_count": routed_empirical_gap_count,
         "sandbox_experiment_completed_count": sandbox_experiment_completed_count,
         "experiment_artifacts_ingested_count": experiment_artifacts_ingested_count,
+        "capability_escalation_present": capability_escalation_present,
+        "capability_escalation_status": capability_escalation_status,
+        "proof_escalation_attempt_count": proof_escalation_attempt_count,
+        "retrieval_escalation_attempt_count": retrieval_escalation_attempt_count,
+        "successful_escalation_count": successful_escalation_count,
+        "deferred_after_escalation_count": deferred_after_escalation_count,
+        "capability_escalation_network_allowed": capability_escalation_network_allowed,
+        "capability_escalation_external_tools_allowed": (
+            capability_escalation_external_tools_allowed
+        ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
@@ -2356,32 +2398,39 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         "release_report": _preferred_existing_path(
             _latest_report_path(
                 run_path,
-                "full-paper-release-report-after-autonomous-loop-*.json",
-                "full-paper-release-report-after-autonomous-loop-0000.json",
+                "full-paper-release-report-after-capability-escalation-*.json",
+                "full-paper-release-report-after-capability-escalation-0000.json",
             ),
             _preferred_existing_path(
                 _latest_report_path(
                     run_path,
-                    "full-paper-release-report-after-planned-spec-execution-*.json",
-                    "full-paper-release-report-after-planned-spec-execution-0000.json",
+                    "full-paper-release-report-after-autonomous-loop-*.json",
+                    "full-paper-release-report-after-autonomous-loop-0000.json",
                 ),
                 _preferred_existing_path(
                     _latest_report_path(
                         run_path,
-                        "full-paper-release-report-after-autonomous-execution-*.json",
-                        "full-paper-release-report-after-autonomous-execution-0000.json",
+                        "full-paper-release-report-after-planned-spec-execution-*.json",
+                        "full-paper-release-report-after-planned-spec-execution-0000.json",
                     ),
                     _preferred_existing_path(
                         _latest_report_path(
                             run_path,
-                            "full-paper-release-report-after-reconciliation-cycle-*.json",
-                            "full-paper-release-report-after-human-review-reconciliation.json",
+                            "full-paper-release-report-after-autonomous-execution-*.json",
+                            "full-paper-release-report-after-autonomous-execution-0000.json",
                         ),
                         _preferred_existing_path(
-                            run_path
-                            / "reports"
-                            / "full-paper-release-report-after-evidence-aware-refresh.json",
-                            run_path / "reports" / "full-paper-release-report.json",
+                            _latest_report_path(
+                                run_path,
+                                "full-paper-release-report-after-reconciliation-cycle-*.json",
+                                "full-paper-release-report-after-human-review-reconciliation.json",
+                            ),
+                            _preferred_existing_path(
+                                run_path
+                                / "reports"
+                                / "full-paper-release-report-after-evidence-aware-refresh.json",
+                                run_path / "reports" / "full-paper-release-report.json",
+                            ),
                         ),
                     ),
                 ),
@@ -2414,6 +2463,26 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
         ),
         "human_review_artifact": run_path / "reports" / "human-review-artifact.json",
         "human_review_summary": run_path / "reports" / "human-review-summary.md",
+        "capability_escalation_report": _latest_report_path(
+            run_path,
+            "capability-escalation-[0-9][0-9][0-9][0-9].json",
+            "capability-escalation-0000.json",
+        ),
+        "capability_escalation_report_markdown": _latest_report_path(
+            run_path,
+            "capability-escalation-[0-9][0-9][0-9][0-9].md",
+            "capability-escalation-0000.md",
+        ),
+        "capability_escalation_index": _latest_report_path(
+            run_path,
+            "capability-escalation-index-*.json",
+            "capability-escalation-index-0000.json",
+        ),
+        "capability_escalation_policy": _latest_report_path(
+            run_path,
+            "capability-escalation-policy-*.json",
+            "capability-escalation-policy-0000.json",
+        ),
         "reviewer_bundle_summary_json": run_path / "reports" / "reviewer-bundle-summary.json",
         "reviewer_bundle_summary_markdown": run_path / "reports" / "reviewer-bundle-summary.md",
         "reviewer_bundle_summary_after_human_review_json": run_path
@@ -2548,6 +2617,20 @@ def _paper_bundle_paths(run_path: Path) -> dict[str, Path]:
                 run_path,
                 "reviewer-bundle-summary-after-autonomous-loop-*.md",
                 "reviewer-bundle-summary-after-autonomous-loop-0000.md",
+            )
+        ),
+        "reviewer_bundle_summary_after_capability_escalation_json": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-capability-escalation-*.json",
+                "reviewer-bundle-summary-after-capability-escalation-0000.json",
+            )
+        ),
+        "reviewer_bundle_summary_after_capability_escalation_markdown": (
+            _latest_report_path(
+                run_path,
+                "reviewer-bundle-summary-after-capability-escalation-*.md",
+                "reviewer-bundle-summary-after-capability-escalation-0000.md",
             )
         ),
         "claim_evidence_map": (
@@ -2778,6 +2861,9 @@ def _read_preferred_reviewer_bundle_summary(
 ) -> ReviewerBundleSummary | None:
     return (
         _read_reviewer_bundle_summary(
+            paths["reviewer_bundle_summary_after_capability_escalation_json"]
+        )
+        or _read_reviewer_bundle_summary(
             paths["reviewer_bundle_summary_after_python_sandbox_json"]
         )
         or _read_reviewer_bundle_summary(
@@ -2885,6 +2971,7 @@ def build_reviewer_bundle_summary(
     planned_spec_execution_report: PlannedSpecExecutionReport | None = None,
     autonomous_loop_report: AutonomousLoopRunReport | None = None,
     experiment_gap_routing_report: ExperimentGapRoutingReport | None = None,
+    capability_escalation_report: CapabilityEscalationReport | None = None,
 ) -> ReviewerBundleSummary:
     """Build a deterministic reviewer-facing summary from final paper reports."""
     root_path = Path(root)
@@ -2951,6 +3038,15 @@ def build_reviewer_bundle_summary(
     routing_report, routing_index = latest_experiment_gap_routing_report(root_path, run_id)
     routing_report = experiment_gap_routing_report or routing_report
     routing_summary = experiment_gap_routing_summary_fields(routing_report, routing_index)
+    latest_escalation_report, escalation_index = latest_capability_escalation_report(
+        root_path,
+        run_id,
+    )
+    escalation_report = capability_escalation_report or latest_escalation_report
+    escalation_summary = capability_escalation_summary_fields(
+        escalation_report,
+        escalation_index,
+    )
     sandbox_budget_summary = sandbox_budget_summary_fields(
         latest_sandbox_budget_report(root_path, run_id)
     )
@@ -3116,6 +3212,7 @@ def build_reviewer_bundle_summary(
             autonomous_plan_summary["autonomous_human_intervention_required"]
             or planned_execution_summary["planned_spec_execution_requires_human_intervention"]
             or loop_summary["autonomous_loop_requires_human_intervention"]
+            or bool(escalation_report and escalation_report.requires_human_intervention)
         ),
         autonomous_execution_present=bool(execution_summary["autonomous_execution_present"]),
         latest_autonomous_execution_mode=execution_summary["latest_autonomous_execution_mode"],
@@ -3232,6 +3329,30 @@ def build_reviewer_bundle_summary(
         ),
         sandbox_budget_exhausted=bool(sandbox_budget_summary["sandbox_budget_exhausted"]),
         sandbox_budget_remaining=dict(sandbox_budget_summary["sandbox_budget_remaining"]),
+        capability_escalation_present=bool(
+            escalation_summary["capability_escalation_present"]
+        ),
+        capability_escalation_status=escalation_summary[
+            "capability_escalation_status"
+        ],
+        proof_escalation_attempt_count=int(
+            escalation_summary["proof_escalation_attempt_count"]
+        ),
+        retrieval_escalation_attempt_count=int(
+            escalation_summary["retrieval_escalation_attempt_count"]
+        ),
+        successful_escalation_count=int(
+            escalation_summary["successful_escalation_count"]
+        ),
+        deferred_after_escalation_count=int(
+            escalation_summary["deferred_after_escalation_count"]
+        ),
+        capability_escalation_network_allowed=bool(
+            escalation_summary["capability_escalation_network_allowed"]
+        ),
+        capability_escalation_external_tools_allowed=bool(
+            escalation_summary["capability_escalation_external_tools_allowed"]
+        ),
         human_review_checklist=_reviewer_human_review_checklist(),
         recommended_next_actions=_reviewer_recommended_next_actions(
             human_review,
@@ -3383,6 +3504,29 @@ def render_reviewer_bundle_summary_markdown(
             f"`{str(summary.sandbox_budget_exhausted).lower()}`"
         ),
         (
+            "Capability escalation: "
+            f"`{'present' if summary.capability_escalation_present else 'absent'}`"
+        ),
+        (
+            "Capability escalation status: "
+            f"`{summary.capability_escalation_status or 'not_available'}`"
+        ),
+        (
+            "Proof/retrieval escalation attempts: "
+            f"`{summary.proof_escalation_attempt_count}/"
+            f"{summary.retrieval_escalation_attempt_count}`"
+        ),
+        (
+            "Successful/deferred after escalation: "
+            f"`{summary.successful_escalation_count}/"
+            f"{summary.deferred_after_escalation_count}`"
+        ),
+        (
+            "Escalation network/external tools allowed: "
+            f"`{str(summary.capability_escalation_network_allowed).lower()}/"
+            f"{str(summary.capability_escalation_external_tools_allowed).lower()}`"
+        ),
+        (
             "Autonomous loop: "
             f"`{'present' if summary.autonomous_loop_present else 'absent'}`"
         ),
@@ -3512,7 +3656,9 @@ def inspect_reviewer_bundle_summary(
         raise PaperBundleInspectionError(f"No reviewer bundle summary found for run_id={run_id}.")
     payload = summary.model_dump(mode="json")
     summary_path = (
-        paths["reviewer_bundle_summary_after_python_sandbox_json"]
+        paths["reviewer_bundle_summary_after_capability_escalation_json"]
+        if paths["reviewer_bundle_summary_after_capability_escalation_json"].is_file()
+        else paths["reviewer_bundle_summary_after_python_sandbox_json"]
         if paths["reviewer_bundle_summary_after_python_sandbox_json"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_loop_json"]
         if paths["reviewer_bundle_summary_after_autonomous_loop_json"].is_file()
@@ -3537,7 +3683,9 @@ def inspect_reviewer_bundle_summary(
         else paths["reviewer_bundle_summary_json"]
     )
     markdown_path = (
-        paths["reviewer_bundle_summary_after_python_sandbox_markdown"]
+        paths["reviewer_bundle_summary_after_capability_escalation_markdown"]
+        if paths["reviewer_bundle_summary_after_capability_escalation_markdown"].is_file()
+        else paths["reviewer_bundle_summary_after_python_sandbox_markdown"]
         if paths["reviewer_bundle_summary_after_python_sandbox_markdown"].is_file()
         else paths["reviewer_bundle_summary_after_autonomous_loop_markdown"]
         if paths["reviewer_bundle_summary_after_autonomous_loop_markdown"].is_file()
@@ -3704,6 +3852,10 @@ def _reviewer_audit_artifact_paths(
         "claim_evidence_map_markdown",
         "human_review_artifact",
         "human_review_summary",
+        "capability_escalation_report",
+        "capability_escalation_report_markdown",
+        "capability_escalation_index",
+        "capability_escalation_policy",
     )
     result: dict[str, str] = {}
     for key in keys:

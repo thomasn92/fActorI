@@ -359,6 +359,7 @@ class ControllerActionType(StrEnum):
     AUTONOMOUS_LOOP_WRITTEN = "AutonomousLoopWritten"
     GAP_ATTEMPT_HISTORY_WRITTEN = "GapAttemptHistoryWritten"
     GAP_STRATEGY_DIVERSIFICATION_WRITTEN = "GapStrategyDiversificationWritten"
+    CAPABILITY_ESCALATION_WRITTEN = "CapabilityEscalationWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

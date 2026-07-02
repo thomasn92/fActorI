@@ -25,6 +25,10 @@ from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
 )
+from factori.capability_escalation import (
+    escalate_capabilities,
+    inspect_capability_escalation,
+)
 from factori.claim_adjudication import FakeClaimAdjudicator
 from factori.claim_evidence import (
     BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
@@ -102,6 +106,10 @@ from factori.schemas import (
     AutonomousLoopIndex,
     AutonomousLoopRunReport,
     AutonomousPlanExecutionReport,
+    CapabilityEscalationIndex,
+    CapabilityEscalationItem,
+    CapabilityEscalationPolicy,
+    CapabilityEscalationReport,
     CitationRecord,
     CitationRegistry,
     ClaimEvidenceMap,
@@ -172,6 +180,10 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ExperimentGapRoutingIndex
     assert SandboxBudgetPolicy
     assert SandboxBudgetReport
+    assert CapabilityEscalationPolicy
+    assert CapabilityEscalationItem
+    assert CapabilityEscalationReport
+    assert CapabilityEscalationIndex
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -3177,6 +3189,186 @@ def test_autonomous_loop_diversifies_before_final_deferral(tmp_path) -> None:
     assert reviewer["strategy_diversification_present"] is True
     assert reviewer["autonomous_loop_terminal_state"] == "completed_with_deferred_gaps"
     assert reviewer["publication_ready"] is False
+
+
+def test_capability_escalation_defaults_fail_closed_and_reports_counts(tmp_path) -> None:
+    run_id = "run-capability-escalation"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    loop = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=5,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+    )
+
+    result = escalate_capabilities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        allow_network=False,
+        allow_external_proof_tools=False,
+        allow_external_retrieval_tools=False,
+    )
+    summary = inspect_capability_escalation(run_id=run_id, root=tmp_path)
+    cli_summary = CliRunner().invoke(
+        app,
+        [
+            "inspect-capability-escalation",
+            "--root",
+            str(tmp_path),
+            "--run-id",
+            run_id,
+            "--json",
+        ],
+    )
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    reviewer = inspect_reviewer_bundle_summary(run_id=run_id, root=tmp_path)
+    proof_artifacts = inspect_proof_artifacts(run_id=run_id, root=tmp_path)
+
+    assert loop.report.terminal_state == "completed_with_deferred_gaps"
+    assert (
+        result.persistence.commit.action_type
+        == ControllerActionType.CAPABILITY_ESCALATION_WRITTEN
+    )
+    assert result.report.candidate_deferred_gap_count >= 1
+    assert (
+        result.report.proof_escalation_attempt_count
+        + result.report.retrieval_escalation_attempt_count
+        >= 1
+    )
+    assert result.report.network_allowed is False
+    assert result.report.external_tools_allowed is False
+    assert result.report.publication_ready is False
+    assert result.policy.allow_network is False
+    assert result.policy.allow_external_proof_tools is False
+    assert result.policy.allow_external_retrieval_tools is False
+    assert result.report.deferred_after_escalation_count >= 1
+    assert summary["capability_escalation_present"] is True
+    assert summary["capability_escalation_network_allowed"] is False
+    assert summary["capability_escalation_external_tools_allowed"] is False
+    assert cli_summary.exit_code == 0, cli_summary.output
+    assert json.loads(cli_summary.output)["capability_escalation_present"] is True
+    assert proof_artifacts["formal_verification_passed_count"] == 0
+    assert proof_artifacts["informal_proof_artifact_count"] >= 1
+    assert lint["capability_escalation_present"] is True
+    assert lint["capability_escalation_network_allowed"] is False
+    assert lint["capability_escalation_external_tools_allowed"] is False
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
+    assert lint["publication_ready"] is False
+    assert reviewer["capability_escalation_present"] is True
+    assert reviewer["publication_ready"] is False
+
+
+def test_capability_escalation_retrieval_expansion_filters_local_sources(
+    tmp_path,
+) -> None:
+    run_id = "run-capability-escalation-retrieval"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=5,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+    )
+    _write_exhausted_gap_inputs(
+        tmp_path,
+        run_id=run_id,
+        gap_type="needs_retrieval_expansion",
+    )
+
+    result = escalate_capabilities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        allow_network=False,
+        allow_external_proof_tools=False,
+        allow_external_retrieval_tools=False,
+    )
+    retrieval_items = [
+        item for item in result.report.items if item.gap_type == "needs_retrieval_expansion"
+    ]
+    assert retrieval_items
+    assert all(item.selected_backend == "local_source_pack_expansion" for item in retrieval_items)
+    quality_paths = [
+        tmp_path / path
+        for path in result.report.created_artifact_paths
+        if "retrieval-quality" in path
+    ]
+    assert quality_paths
+    quality = RetrievalQualityReport.model_validate_json(
+        quality_paths[0].read_text(encoding="utf-8")
+    )
+    registry_paths = [
+        tmp_path / path
+        for path in result.report.created_artifact_paths
+        if "retrieval-citation-registry" in path
+    ]
+    registry = CitationRegistry.model_validate_json(
+        registry_paths[0].read_text(encoding="utf-8")
+    )
+    assert quality.accepted_source_count >= 1
+    assert quality.hard_reject_count >= 1
+    assert all(record.accepted_for_registry for record in registry.citations)
+    assert len(registry.citations) == quality.accepted_source_count
+    assert result.report.publication_ready is False
+
+
+def test_autonomous_loop_integrates_capability_escalation(tmp_path) -> None:
+    run_id = "run-autonomous-loop-capability-escalation"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        loop_backend="deterministic",
+        max_iterations=6,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+        enable_capability_escalation=True,
+    )
+    inspected = inspect_autonomous_loop(run_id=run_id, root=tmp_path)
+    escalation = inspect_capability_escalation(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.capability_escalation_enabled is True
+    assert result.report.capability_escalation_status in {
+        "completed",
+        "completed_with_deferred_gaps",
+        "no_candidate_deferred_gaps",
+    }
+    assert (
+        result.report.proof_escalation_attempt_count
+        + result.report.retrieval_escalation_attempt_count
+        >= 1
+    )
+    assert result.report.capability_escalation_network_allowed is False
+    assert result.report.capability_escalation_external_tools_allowed is False
+    assert result.report.publication_ready is False
+    assert inspected["capability_escalation_enabled"] is True
+    assert escalation["capability_escalation_present"] is True
+    assert lint["capability_escalation_present"] is True
+    assert lint["capability_escalation_network_allowed"] is False
+    assert lint["capability_escalation_external_tools_allowed"] is False
+    assert lint["publication_ready"] is False
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:

@@ -292,7 +292,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.40.0/autonomous-loop-iteration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.41.0/autonomous-loop-iteration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One autonomous loop iteration report.",
@@ -345,6 +345,18 @@
       "default": null,
       "title": "Autonomous Plan Path"
     },
+    "capability_escalation_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Capability Escalation Report Path"
+    },
     "claim_evidence_map_hash_after": {
       "anyOf": [
         {
@@ -394,6 +406,12 @@
     },
     "decision": {
       "$ref": "#/$defs/AutonomousLoopDecision"
+    },
+    "deferred_after_escalation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred After Escalation Count",
+      "type": "integer"
     },
     "duplicate_specs_skipped": {
       "default": 0,
@@ -535,6 +553,12 @@
       "title": "Proof Artifacts Created",
       "type": "integer"
     },
+    "proof_escalation_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Escalation Attempt Count",
+      "type": "integer"
+    },
     "publication_ready": {
       "default": false,
       "title": "Publication Ready",
@@ -561,6 +585,12 @@
       "default": 0,
       "minimum": 0,
       "title": "Retrieval Artifacts Created",
+      "type": "integer"
+    },
+    "retrieval_escalation_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Escalation Attempt Count",
       "type": "integer"
     },
     "reviewer_summary_path_optional": {
@@ -640,6 +670,12 @@
       "title": "Strategy Option Count",
       "type": "integer"
     },
+    "successful_escalation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Successful Escalation Count",
+      "type": "integer"
+    },
     "supported_claim_count": {
       "default": 0,
       "minimum": 0,
@@ -660,7 +696,7 @@
   ],
   "title": "AutonomousLoopIterationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.40.0",
+  "x-factori-protocol-version": "0.41.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopIterationReport",
   "x-factori-verification-evidence": false
 }

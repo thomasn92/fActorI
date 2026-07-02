@@ -28,6 +28,10 @@ from factori.schemas import (
     BibliographyEntry,
     BridgeReport,
     Candidate,
+    CapabilityEscalationIndex,
+    CapabilityEscalationItem,
+    CapabilityEscalationPolicy,
+    CapabilityEscalationReport,
     CitationRecord,
     CitationRegistry,
     CitationSafetyReport,
@@ -201,7 +205,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.40.0"
+PROTOCOL_VERSION = "0.41.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -537,6 +541,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "GapStrategyDiversificationIndex",
         GapStrategyDiversificationIndex,
         "Derived latest pointer over immutable strategy diversification reports.",
+    ),
+    ProtocolDefinition(
+        "CapabilityEscalationPolicy",
+        CapabilityEscalationPolicy,
+        "Fail-closed local/offline capability escalation policy.",
+    ),
+    ProtocolDefinition(
+        "CapabilityEscalationItem",
+        CapabilityEscalationItem,
+        "Disposition of one deferred proof or retrieval escalation candidate.",
+    ),
+    ProtocolDefinition(
+        "CapabilityEscalationReport",
+        CapabilityEscalationReport,
+        "Append-only non-evidence capability escalation report.",
+    ),
+    ProtocolDefinition(
+        "CapabilityEscalationIndex",
+        CapabilityEscalationIndex,
+        "Derived latest pointer over immutable capability escalation reports.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

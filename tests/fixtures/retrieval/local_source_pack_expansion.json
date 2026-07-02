@@ -1,0 +1,32 @@
+[
+  {
+    "source_id": "local-expansion-human-geography-001",
+    "title": "Bounded Spatial Structure and Regional Mobility Context",
+    "authors": ["A. Cartographer", "B. Region"],
+    "year": 2022,
+    "venue": "Journal of Human Geography Fixtures",
+    "doi": "10.5555/factori.local.001",
+    "abstract": "This local fixture source discusses bounded spatial structure, regional mobility, overlapping boundaries, and human geography context. It is suitable only as background context for local retrieval expansion tests.",
+    "snippet": "Bounded spatial structure and regional mobility provide background context for human geography.",
+    "supported_topics": ["human geography", "spatial structure", "regional mobility"],
+    "source_type": "local_source_metadata",
+    "trust_level": "metadata_only",
+    "fixture_only": true,
+    "may_support_background_context": true
+  },
+  {
+    "source_id": "local-expansion-invalid-001",
+    "title": "",
+    "authors": [],
+    "year": 2024,
+    "venue": "Invalid Fixture",
+    "abstract": "",
+    "snippet": "",
+    "supported_topics": ["invalid"],
+    "source_type": "local_source_metadata",
+    "trust_level": "metadata_only",
+    "fixture_only": true,
+    "explicit_invalid_marker": true,
+    "may_support_background_context": false
+  }
+]

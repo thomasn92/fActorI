@@ -788,6 +788,14 @@ class ReviewerBundleSummary(StrictModel):
     experiment_artifacts_ingested_count: int = Field(default=0, ge=0)
     sandbox_budget_exhausted: bool = False
     sandbox_budget_remaining: dict[str, int] = Field(default_factory=dict)
+    capability_escalation_present: bool = False
+    capability_escalation_status: str | None = None
+    proof_escalation_attempt_count: int = Field(default=0, ge=0)
+    retrieval_escalation_attempt_count: int = Field(default=0, ge=0)
+    successful_escalation_count: int = Field(default=0, ge=0)
+    deferred_after_escalation_count: int = Field(default=0, ge=0)
+    capability_escalation_network_allowed: bool = False
+    capability_escalation_external_tools_allowed: bool = False
     human_review_checklist: list[str] = Field(default_factory=list)
     recommended_next_actions: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
@@ -1718,6 +1726,139 @@ class GapStrategyDiversificationIndex(StrictModel):
     is_verification_evidence: bool = False
 
 
+CapabilityProofBackend = Literal[
+    "proof_plan_refinement_local",
+    "formal_proof_fixture_local",
+    "lean_external_disabled",
+]
+CapabilityRetrievalBackend = Literal[
+    "local_source_pack_expansion",
+    "bibliography_fixture_expansion",
+    "network_retrieval_disabled",
+]
+CapabilityEscalationStatus = Literal[
+    "completed",
+    "completed_with_deferred_gaps",
+    "no_candidate_deferred_gaps",
+    "blocked_policy",
+    "failed",
+]
+CapabilityEscalationItemStatus = Literal[
+    "created_context_artifact",
+    "created_formal_artifact",
+    "expanded_local_sources",
+    "no_match_found",
+    "rejected_policy",
+    "failed",
+    "deferred",
+]
+
+
+class CapabilityEscalationPolicy(StrictModel):
+    """Fail-closed local/offline capability escalation policy; not evidence."""
+
+    run_id: str = Field(min_length=1)
+    allow_network: bool = False
+    allow_external_proof_tools: bool = False
+    allow_external_retrieval_tools: bool = False
+    allowed_proof_backends: list[CapabilityProofBackend] = Field(
+        default_factory=lambda: [
+            "proof_plan_refinement_local",
+            "formal_proof_fixture_local",
+            "lean_external_disabled",
+        ]
+    )
+    allowed_retrieval_backends: list[CapabilityRetrievalBackend] = Field(
+        default_factory=lambda: [
+            "local_source_pack_expansion",
+            "bibliography_fixture_expansion",
+            "network_retrieval_disabled",
+        ]
+    )
+    max_escalation_attempts_per_gap: int = Field(default=1, ge=0)
+    max_escalation_attempts_per_loop: int = Field(default=4, ge=0)
+    max_retrieval_sources_per_escalation: int = Field(default=8, ge=0)
+    max_tool_runtime_seconds: int = Field(default=30, ge=0)
+    fail_closed: bool = True
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CapabilityEscalationItem(StrictModel):
+    """Disposition of one deferred proof/retrieval escalation candidate."""
+
+    item_id: str = Field(min_length=1)
+    gap_fingerprint: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    target_claim_id_optional: str | None = None
+    target_section_optional: str | None = None
+    gap_type: str = Field(min_length=1)
+    deferred_reason: str = Field(min_length=1)
+    selected_backend: str = Field(min_length=1)
+    backend_allowed_by_policy: bool
+    execution_status: CapabilityEscalationItemStatus
+    created_artifact_path_optional: str | None = None
+    ingested_artifact_path_optional: str | None = None
+    failure_reason_optional: str | None = None
+    safety_notes: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class CapabilityEscalationReport(StrictModel):
+    """Append-only capability escalation report; workflow context only."""
+
+    run_id: str = Field(min_length=1)
+    escalation_id: str = Field(min_length=1)
+    policy_path: str = Field(min_length=1)
+    source_loop_report_path: str | None = None
+    source_gap_attempt_history_path: str | None = None
+    escalation_status: CapabilityEscalationStatus
+    network_allowed: bool = False
+    external_tools_allowed: bool = False
+    candidate_deferred_gap_count: int = Field(default=0, ge=0)
+    attempted_gap_count: int = Field(default=0, ge=0)
+    proof_escalation_attempt_count: int = Field(default=0, ge=0)
+    retrieval_escalation_attempt_count: int = Field(default=0, ge=0)
+    successful_escalation_count: int = Field(default=0, ge=0)
+    failed_escalation_count: int = Field(default=0, ge=0)
+    deferred_after_escalation_count: int = Field(default=0, ge=0)
+    created_artifact_paths: list[str] = Field(default_factory=list)
+    ingested_artifact_paths: list[str] = Field(default_factory=list)
+    claim_evidence_map_rebuilt: bool = False
+    autonomous_plan_rebuilt: bool = False
+    release_rechecked: bool = False
+    items: list[CapabilityEscalationItem] = Field(default_factory=list)
+    requires_human_intervention: bool = False
+    human_intervention_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class CapabilityEscalationIndex(StrictModel):
+    """Derived latest pointer over immutable capability escalation reports."""
+
+    run_id: str = Field(min_length=1)
+    latest_escalation_id: str = Field(min_length=1)
+    escalation_count: int = Field(ge=1)
+    latest_escalation_status: CapabilityEscalationStatus
+    proof_escalation_attempt_count: int = Field(default=0, ge=0)
+    retrieval_escalation_attempt_count: int = Field(default=0, ge=0)
+    successful_escalation_count: int = Field(default=0, ge=0)
+    deferred_after_escalation_count: int = Field(default=0, ge=0)
+    latest_artifact_paths: list[str] = Field(default_factory=list)
+    latest_requires_human_intervention: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
 AutonomousLoopBackend = Literal["deterministic", "fake", "openai"]
 AutonomousLoopStatus = Literal[
     "completed",
@@ -1820,6 +1961,7 @@ class AutonomousLoopIterationReport(StrictModel):
     reviewer_summary_path_optional: str | None = None
     strategy_diversification_report_path: str | None = None
     experiment_gap_routing_report_path: str | None = None
+    capability_escalation_report_path: str | None = None
     sandbox_budget_report_path: str | None = None
     strategy_option_count: int = Field(default=0, ge=0)
     selected_strategy_count: int = Field(default=0, ge=0)
@@ -1840,6 +1982,10 @@ class AutonomousLoopIterationReport(StrictModel):
     experiment_artifacts_created: int = Field(default=0, ge=0)
     proof_artifacts_created: int = Field(default=0, ge=0)
     retrieval_artifacts_created: int = Field(default=0, ge=0)
+    proof_escalation_attempt_count: int = Field(default=0, ge=0)
+    retrieval_escalation_attempt_count: int = Field(default=0, ge=0)
+    successful_escalation_count: int = Field(default=0, ge=0)
+    deferred_after_escalation_count: int = Field(default=0, ge=0)
     manuscript_modified: bool = False
     release_status: str = Field(min_length=1)
     publication_ready: bool = False
@@ -1918,6 +2064,15 @@ class AutonomousLoopRunReport(StrictModel):
     proof_paths_deferred: int = Field(default=0, ge=0)
     retrieval_paths_deferred: int = Field(default=0, ge=0)
     stopped_before_max_iterations: bool = False
+    capability_escalation_enabled: bool = False
+    capability_escalation_report_paths: list[str] = Field(default_factory=list)
+    capability_escalation_status: str | None = None
+    proof_escalation_attempt_count: int = Field(default=0, ge=0)
+    retrieval_escalation_attempt_count: int = Field(default=0, ge=0)
+    successful_escalation_count: int = Field(default=0, ge=0)
+    deferred_after_escalation_count: int = Field(default=0, ge=0)
+    capability_escalation_network_allowed: bool = False
+    capability_escalation_external_tools_allowed: bool = False
     gap_terminal_classifications: list[AutonomousLoopGapTerminalClassification] = Field(
         default_factory=list
     )
@@ -2666,6 +2821,10 @@ __all__ = [
     "ExperimentGapRoutingIndex",
     "SandboxBudgetPolicy",
     "SandboxBudgetReport",
+    "CapabilityEscalationPolicy",
+    "CapabilityEscalationItem",
+    "CapabilityEscalationReport",
+    "CapabilityEscalationIndex",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

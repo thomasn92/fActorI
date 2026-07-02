@@ -16,6 +16,10 @@ from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
 )
+from factori.capability_escalation import (
+    CapabilityEscalationError,
+    escalate_capabilities,
+)
 from factori.claim_evidence import (
     claim_evidence_summary_fields,
     latest_claim_evidence_map_path,
@@ -94,6 +98,7 @@ def run_autonomous_loop(
     enable_strategy_diversification: bool = False,
     enable_experiment_routing: bool = False,
     enable_empirical_demonstration_gaps: bool = False,
+    enable_capability_escalation: bool = False,
     python_sandbox_backend: str = "off",
     max_sandbox_runs_per_loop: int = 3,
     max_sandbox_runs_per_iteration: int = 1,
@@ -201,6 +206,12 @@ def run_autonomous_loop(
     sandbox_failures_used = 0
     sandbox_experiment_artifacts = 0
     sandbox_budget_exhausted = False
+    capability_escalation_report_paths: list[str] = []
+    capability_escalation_status: str | None = None
+    proof_escalation_attempt_count = 0
+    retrieval_escalation_attempt_count = 0
+    successful_escalation_count = 0
+    deferred_after_escalation_count = 0
     budget_policy = SandboxBudgetPolicy(
         max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
         max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
@@ -603,12 +614,149 @@ def run_autonomous_loop(
                 max_iterations=max_iterations,
                 no_progress_streak=no_progress_streak,
             )
+        iteration_plan = final_plan_result.plan
+        iteration_plan_path = final_plan_result.plan_artifact.path
+        capability_result = None
+        capability_report_path = None
+        if (
+            enable_capability_escalation
+            and not decision.continue_loop
+            and decision.terminal_state == "completed_with_deferred_gaps"
+            and (terminal.proof_paths_deferred or terminal.retrieval_paths_deferred)
+        ):
+            try:
+                capability_result = escalate_capabilities(
+                    run_id=run_id,
+                    root=root_path,
+                    store=store,
+                    ledger=ledger,
+                    allow_network=False,
+                    allow_external_proof_tools=False,
+                    allow_external_retrieval_tools=False,
+                    max_escalation_attempts_per_gap=max_attempts_per_gap,
+                    max_escalation_attempts_per_loop=4,
+                    max_retrieval_sources_per_escalation=8,
+                    max_tool_runtime_seconds=30,
+                )
+            except CapabilityEscalationError as exc:
+                decision = AutonomousLoopDecision(
+                    continue_loop=False,
+                    stop_reason="safety_gate_blocked",
+                    loop_status="blocked_requires_human_intervention",
+                    rationale=(
+                        "Capability escalation failed closed: "
+                        f"{exc}"
+                    ),
+                    terminal_state="stopped_safety_blocked",
+                    terminal_state_reason=(
+                        "Capability escalation failed closed before finalizing loop state."
+                    ),
+                    resolved_gap_count=terminal.resolved_gap_count,
+                    deferred_gap_count=terminal.deferred_gap_count,
+                    exhausted_gap_count=terminal.exhausted_gap_count,
+                    duplicate_only_gap_count=terminal.duplicate_only_gap_count,
+                    blocking_gap_count=terminal.blocking_gap_count,
+                    automation_ready_after_history_count=(
+                        terminal.automation_ready_after_history_count
+                    ),
+                    remaining_deferred_reasons=terminal.remaining_deferred_reasons,
+                    non_automation_ready_reasons=terminal.non_automation_ready_reasons,
+                    gap_terminal_classifications=list(terminal.classifications),
+                )
+            else:
+                capability_report_path = capability_result.report_artifact.path
+                capability_escalation_report_paths.append(capability_report_path)
+                capability_escalation_status = (
+                    capability_result.report.escalation_status
+                )
+                proof_escalation_attempt_count += (
+                    capability_result.report.proof_escalation_attempt_count
+                )
+                retrieval_escalation_attempt_count += (
+                    capability_result.report.retrieval_escalation_attempt_count
+                )
+                successful_escalation_count += (
+                    capability_result.report.successful_escalation_count
+                )
+                deferred_after_escalation_count += (
+                    capability_result.report.deferred_after_escalation_count
+                )
+                capability_paths = [
+                    capability_result.policy_artifact.path,
+                    capability_result.report_artifact.path,
+                    capability_result.report_markdown_artifact.path,
+                    capability_result.index_artifact.path,
+                    *capability_result.report.created_artifact_paths,
+                    *capability_result.report.ingested_artifact_paths,
+                ]
+                artifacts_created.extend(capability_paths)
+                latest_plan_path = latest_autonomous_evidence_gap_plan_path(
+                    root_path,
+                    run_id,
+                )
+                latest_claim_map = _read_claim_map(
+                    latest_claim_evidence_map_path(root_path, run_id)
+                )
+                if latest_plan_path is not None and latest_claim_map is not None:
+                    latest_plan = AutonomousEvidenceGapPlan.model_validate_json(
+                        latest_plan_path.read_text(encoding="utf-8")
+                    )
+                    terminal_history = build_gap_attempt_history(
+                        run_id=run_id,
+                        root=root_path,
+                        max_attempts_per_gap=max_attempts_per_gap,
+                        now=_now(ledger),
+                    )
+                    terminal = _terminal_summary(
+                        plan=latest_plan,
+                        history=terminal_history,
+                        dedup_index=_read_planned_spec_dedup_index(
+                            dedup_path=latest_planned_spec_dedup_index_path(
+                                root_path,
+                                run_id,
+                            )
+                        ),
+                        sandbox_budget_exhausted=sandbox_budget_exhausted,
+                        claim_map=latest_claim_map,
+                    )
+                    snapshot = _snapshot(
+                        claim_map=latest_claim_map,
+                        plan=latest_plan,
+                        autonomous_summary=autonomous_summary,
+                        planned_summary=planned_summary,
+                        manuscript_before=manuscript_before,
+                        manuscript_after=_hash_if_exists(
+                            _preferred_manuscript_path(reports)
+                        ),
+                        selected_strategy_count=(
+                            diversification_result.report.selected_strategy_count
+                            if diversification_result is not None
+                            else 0
+                        ),
+                        routed_experiment_spec_count=(
+                            routing_result.report.created_experiment_spec_count
+                            if routing_result is not None
+                            else 0
+                        ),
+                    )
+                    decision = _decide_iteration(
+                        snapshot=snapshot,
+                        previous_snapshot=previous_snapshot,
+                        terminal=terminal,
+                        iteration_number=iteration_number,
+                        max_iterations=max_iterations,
+                        no_progress_streak=no_progress_streak,
+                    )
+                    iteration_plan = latest_plan
+                    iteration_plan_path = latest_plan_path.relative_to(
+                        root_path
+                    ).as_posix()
         iteration = _iteration_report(
             iteration_number=iteration_number,
             root=root_path,
             run_id=run_id,
-            plan=final_plan_result.plan,
-            plan_path=final_plan_result.plan_artifact.path,
+            plan=iteration_plan,
+            plan_path=iteration_plan_path,
             autonomous_execution_summary=autonomous_summary,
             planned_spec_execution_summary=planned_summary,
             planned_spec_report_path=planned_summary["planned_spec_execution_report_path"],
@@ -648,6 +796,27 @@ def run_autonomous_loop(
             sandbox_budget_runs_used=sandbox_runs_used,
             sandbox_budget_runs_remaining=max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),
             sandbox_budget_exhausted=sandbox_budget_exhausted,
+            capability_escalation_report_path=capability_report_path,
+            proof_escalation_attempt_count=(
+                capability_result.report.proof_escalation_attempt_count
+                if capability_result is not None
+                else 0
+            ),
+            retrieval_escalation_attempt_count=(
+                capability_result.report.retrieval_escalation_attempt_count
+                if capability_result is not None
+                else 0
+            ),
+            successful_escalation_count=(
+                capability_result.report.successful_escalation_count
+                if capability_result is not None
+                else 0
+            ),
+            deferred_after_escalation_count=(
+                capability_result.report.deferred_after_escalation_count
+                if capability_result is not None
+                else 0
+            ),
         )
         iterations.append(iteration)
         previous_snapshot = snapshot
@@ -775,6 +944,15 @@ def run_autonomous_loop(
             len(iterations) < max_iterations
             and final_decision.terminal_state != "stopped_max_iterations"
         ),
+        capability_escalation_enabled=enable_capability_escalation,
+        capability_escalation_report_paths=capability_escalation_report_paths,
+        capability_escalation_status=capability_escalation_status,
+        proof_escalation_attempt_count=proof_escalation_attempt_count,
+        retrieval_escalation_attempt_count=retrieval_escalation_attempt_count,
+        successful_escalation_count=successful_escalation_count,
+        deferred_after_escalation_count=deferred_after_escalation_count,
+        capability_escalation_network_allowed=False,
+        capability_escalation_external_tools_allowed=False,
         gap_terminal_classifications=list(final_terminal.classifications),
         iterations=iterations,
         artifacts_created=sorted(set(artifacts_created)),
@@ -862,6 +1040,14 @@ def autonomous_loop_summary_fields(
             "autonomous_loop_empirical_paths_resolved": 0,
             "autonomous_loop_proof_paths_deferred": 0,
             "autonomous_loop_retrieval_paths_deferred": 0,
+            "capability_escalation_enabled": False,
+            "capability_escalation_status": None,
+            "proof_escalation_attempt_count": 0,
+            "retrieval_escalation_attempt_count": 0,
+            "successful_escalation_count": 0,
+            "deferred_after_escalation_count": 0,
+            "capability_escalation_network_allowed": False,
+            "capability_escalation_external_tools_allowed": False,
         }
     return {
         "autonomous_loop_present": True,
@@ -911,6 +1097,18 @@ def autonomous_loop_summary_fields(
         "autonomous_loop_empirical_paths_resolved": report.empirical_paths_resolved,
         "autonomous_loop_proof_paths_deferred": report.proof_paths_deferred,
         "autonomous_loop_retrieval_paths_deferred": report.retrieval_paths_deferred,
+        "capability_escalation_enabled": report.capability_escalation_enabled,
+        "capability_escalation_status": report.capability_escalation_status,
+        "proof_escalation_attempt_count": report.proof_escalation_attempt_count,
+        "retrieval_escalation_attempt_count": report.retrieval_escalation_attempt_count,
+        "successful_escalation_count": report.successful_escalation_count,
+        "deferred_after_escalation_count": report.deferred_after_escalation_count,
+        "capability_escalation_network_allowed": (
+            report.capability_escalation_network_allowed
+        ),
+        "capability_escalation_external_tools_allowed": (
+            report.capability_escalation_external_tools_allowed
+        ),
     }
 
 
@@ -974,6 +1172,26 @@ def render_autonomous_loop_markdown(report: AutonomousLoopRunReport) -> str:
         f"Empirical paths resolved: `{report.empirical_paths_resolved}`",
         f"Proof paths deferred: `{report.proof_paths_deferred}`",
         f"Retrieval paths deferred: `{report.retrieval_paths_deferred}`",
+        (
+            "Capability escalation enabled/status: "
+            f"`{str(report.capability_escalation_enabled).lower()}/"
+            f"{report.capability_escalation_status or 'none'}`"
+        ),
+        (
+            "Proof/retrieval escalations attempted: "
+            f"`{report.proof_escalation_attempt_count}/"
+            f"{report.retrieval_escalation_attempt_count}`"
+        ),
+        (
+            "Successful/deferred after escalation: "
+            f"`{report.successful_escalation_count}/"
+            f"{report.deferred_after_escalation_count}`"
+        ),
+        (
+            "Escalation network/external tools allowed: "
+            f"`{str(report.capability_escalation_network_allowed).lower()}/"
+            f"{str(report.capability_escalation_external_tools_allowed).lower()}`"
+        ),
         f"Final release: `{report.final_release_status}`",
         f"Publication ready: `{str(report.final_publication_ready).lower()}`",
         f"Duplicate specs skipped: `{report.duplicate_specs_skipped}`",
@@ -1621,6 +1839,11 @@ def _iteration_report(
     sandbox_budget_runs_used: int = 0,
     sandbox_budget_runs_remaining: int = 0,
     sandbox_budget_exhausted: bool = False,
+    capability_escalation_report_path: str | None = None,
+    proof_escalation_attempt_count: int = 0,
+    retrieval_escalation_attempt_count: int = 0,
+    successful_escalation_count: int = 0,
+    deferred_after_escalation_count: int = 0,
 ) -> AutonomousLoopIterationReport:
     claim_map_path = latest_claim_evidence_map_path(root, run_id)
     claim_map = _read_claim_map(claim_map_path)
@@ -1646,6 +1869,7 @@ def _iteration_report(
         reviewer_summary_path_optional=reviewer_summary_path,
         strategy_diversification_report_path=strategy_diversification_report_path,
         experiment_gap_routing_report_path=experiment_gap_routing_report_path,
+        capability_escalation_report_path=capability_escalation_report_path,
         strategy_option_count=strategy_option_count,
         selected_strategy_count=selected_strategy_count,
         routed_experiment_gap_count=routed_experiment_gap_count,
@@ -1677,6 +1901,10 @@ def _iteration_report(
         retrieval_artifacts_created=int(
             planned_spec_execution_summary.get("retrieval_artifacts_created") or 0
         ),
+        proof_escalation_attempt_count=proof_escalation_attempt_count,
+        retrieval_escalation_attempt_count=retrieval_escalation_attempt_count,
+        successful_escalation_count=successful_escalation_count,
+        deferred_after_escalation_count=deferred_after_escalation_count,
         manuscript_modified=manuscript_before != manuscript_after,
         release_status=_current_release_status(root, run_id),
         publication_ready=False,

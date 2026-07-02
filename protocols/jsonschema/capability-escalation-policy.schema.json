@@ -1,0 +1,109 @@
+{
+  "$id": "https://schemas.factori.local/0.41.0/capability-escalation-policy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Fail-closed local/offline capability escalation policy.",
+  "properties": {
+    "allow_external_proof_tools": {
+      "default": false,
+      "title": "Allow External Proof Tools",
+      "type": "boolean"
+    },
+    "allow_external_retrieval_tools": {
+      "default": false,
+      "title": "Allow External Retrieval Tools",
+      "type": "boolean"
+    },
+    "allow_network": {
+      "default": false,
+      "title": "Allow Network",
+      "type": "boolean"
+    },
+    "allowed_proof_backends": {
+      "items": {
+        "enum": [
+          "proof_plan_refinement_local",
+          "formal_proof_fixture_local",
+          "lean_external_disabled"
+        ],
+        "type": "string"
+      },
+      "title": "Allowed Proof Backends",
+      "type": "array"
+    },
+    "allowed_retrieval_backends": {
+      "items": {
+        "enum": [
+          "local_source_pack_expansion",
+          "bibliography_fixture_expansion",
+          "network_retrieval_disabled"
+        ],
+        "type": "string"
+      },
+      "title": "Allowed Retrieval Backends",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fail_closed": {
+      "default": true,
+      "title": "Fail Closed",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "max_escalation_attempts_per_gap": {
+      "default": 1,
+      "minimum": 0,
+      "title": "Max Escalation Attempts Per Gap",
+      "type": "integer"
+    },
+    "max_escalation_attempts_per_loop": {
+      "default": 4,
+      "minimum": 0,
+      "title": "Max Escalation Attempts Per Loop",
+      "type": "integer"
+    },
+    "max_retrieval_sources_per_escalation": {
+      "default": 8,
+      "minimum": 0,
+      "title": "Max Retrieval Sources Per Escalation",
+      "type": "integer"
+    },
+    "max_tool_runtime_seconds": {
+      "default": 30,
+      "minimum": 0,
+      "title": "Max Tool Runtime Seconds",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "CapabilityEscalationPolicy",
+  "type": "object",
+  "x-factori-protocol-version": "0.41.0",
+  "x-factori-source-model": "factori.schemas.CapabilityEscalationPolicy",
+  "x-factori-verification-evidence": false
+}

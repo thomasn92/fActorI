@@ -1,0 +1,101 @@
+{
+  "$id": "https://schemas.factori.local/0.41.0/capability-escalation-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Derived latest pointer over immutable capability escalation reports.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_after_escalation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred After Escalation Count",
+      "type": "integer"
+    },
+    "escalation_count": {
+      "minimum": 1,
+      "title": "Escalation Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Latest Artifact Paths",
+      "type": "array"
+    },
+    "latest_escalation_id": {
+      "minLength": 1,
+      "title": "Latest Escalation Id",
+      "type": "string"
+    },
+    "latest_escalation_status": {
+      "enum": [
+        "completed",
+        "completed_with_deferred_gaps",
+        "no_candidate_deferred_gaps",
+        "blocked_policy",
+        "failed"
+      ],
+      "title": "Latest Escalation Status",
+      "type": "string"
+    },
+    "latest_requires_human_intervention": {
+      "default": false,
+      "title": "Latest Requires Human Intervention",
+      "type": "boolean"
+    },
+    "proof_escalation_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Escalation Attempt Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "retrieval_escalation_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Escalation Attempt Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "successful_escalation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Successful Escalation Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_escalation_id",
+    "escalation_count",
+    "latest_escalation_status"
+  ],
+  "title": "CapabilityEscalationIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.41.0",
+  "x-factori-source-model": "factori.schemas.CapabilityEscalationIndex",
+  "x-factori-verification-evidence": false
+}

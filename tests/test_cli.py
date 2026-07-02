@@ -58,6 +58,18 @@ def test_inspect_reviewer_summary_cli_is_registered() -> None:
     assert "--json" in result.output
 
 
+def test_capability_escalation_cli_commands_are_registered() -> None:
+    escalate = CliRunner().invoke(app, ["escalate-capabilities", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-capability-escalation", "--help"])
+
+    assert escalate.exit_code == 0, escalate.output
+    assert "--allow-network" in escalate.output
+    assert "--allow-external-proof-tools" in escalate.output
+    assert "--allow-external-retrieval-" in escalate.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--json" in inspect.output
+
+
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])

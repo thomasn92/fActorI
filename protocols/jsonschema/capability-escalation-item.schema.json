@@ -1,0 +1,158 @@
+{
+  "$id": "https://schemas.factori.local/0.41.0/capability-escalation-item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Disposition of one deferred proof or retrieval escalation candidate.",
+  "properties": {
+    "backend_allowed_by_policy": {
+      "title": "Backend Allowed By Policy",
+      "type": "boolean"
+    },
+    "created_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created Artifact Path Optional"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_reason": {
+      "minLength": 1,
+      "title": "Deferred Reason",
+      "type": "string"
+    },
+    "execution_status": {
+      "enum": [
+        "created_context_artifact",
+        "created_formal_artifact",
+        "expanded_local_sources",
+        "no_match_found",
+        "rejected_policy",
+        "failed",
+        "deferred"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "failure_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Reason Optional"
+    },
+    "gap_fingerprint": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gap Fingerprint"
+    },
+    "gap_type": {
+      "minLength": 1,
+      "title": "Gap Type",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "ingested_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ingested Artifact Path Optional"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "item_id": {
+      "minLength": 1,
+      "title": "Item Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "safety_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Notes",
+      "type": "array"
+    },
+    "selected_backend": {
+      "minLength": 1,
+      "title": "Selected Backend",
+      "type": "string"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    },
+    "target_section_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Section Optional"
+    }
+  },
+  "required": [
+    "item_id",
+    "gap_type",
+    "deferred_reason",
+    "selected_backend",
+    "backend_allowed_by_policy",
+    "execution_status"
+  ],
+  "title": "CapabilityEscalationItem",
+  "type": "object",
+  "x-factori-protocol-version": "0.41.0",
+  "x-factori-source-model": "factori.schemas.CapabilityEscalationItem",
+  "x-factori-verification-evidence": false
+}

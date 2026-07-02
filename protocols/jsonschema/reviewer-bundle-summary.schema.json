@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.40.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.41.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -153,6 +153,33 @@
       "title": "Bounded Empirical Gap Count",
       "type": "integer"
     },
+    "capability_escalation_external_tools_allowed": {
+      "default": false,
+      "title": "Capability Escalation External Tools Allowed",
+      "type": "boolean"
+    },
+    "capability_escalation_network_allowed": {
+      "default": false,
+      "title": "Capability Escalation Network Allowed",
+      "type": "boolean"
+    },
+    "capability_escalation_present": {
+      "default": false,
+      "title": "Capability Escalation Present",
+      "type": "boolean"
+    },
+    "capability_escalation_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Capability Escalation Status"
+    },
     "citation_status": {
       "minLength": 1,
       "title": "Citation Status",
@@ -218,6 +245,12 @@
       "default": false,
       "title": "Creates Scientific Validation",
       "type": "boolean"
+    },
+    "deferred_after_escalation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred After Escalation Count",
+      "type": "integer"
     },
     "duplicate_specs_skipped": {
       "default": 0,
@@ -616,6 +649,12 @@
       "title": "Proof Artifacts Present",
       "type": "boolean"
     },
+    "proof_escalation_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Proof Escalation Attempt Count",
+      "type": "integer"
+    },
     "proof_specs_executed": {
       "default": 0,
       "minimum": 0,
@@ -710,6 +749,12 @@
       "default": 0,
       "minimum": 0,
       "title": "Retrieval Artifacts Created",
+      "type": "integer"
+    },
+    "retrieval_escalation_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retrieval Escalation Attempt Count",
       "type": "integer"
     },
     "retrieval_quality_status": {
@@ -808,6 +853,12 @@
       "title": "Strategy Option Count",
       "type": "integer"
     },
+    "successful_escalation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Successful Escalation Count",
+      "type": "integer"
+    },
     "unresolved_reviewer_request_count": {
       "default": 0,
       "minimum": 0,
@@ -834,7 +885,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.40.0",
+  "x-factori-protocol-version": "0.41.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

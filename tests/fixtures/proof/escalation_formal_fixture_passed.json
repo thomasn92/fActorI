@@ -1,0 +1,25 @@
+{
+  "run_id": "fixture-run",
+  "proof_id": "escalation-formal-fixture-passed",
+  "proof_type": "formal_verified",
+  "claim_ids_or_statement_ids": [
+    "formal-proof-fixture-claim"
+  ],
+  "statement": "Fixture statement for a mapped theorem claim under a deterministic local checker fixture.",
+  "artifact_path_optional": null,
+  "checker_name_optional": "formal_proof_fixture_local",
+  "checker_version_optional": "fixture-v1",
+  "checker_status": "passed",
+  "checker_log_hash_optional": null,
+  "proof_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "review_status": "fixture_checker_passed",
+  "limitations": [
+    "This fixture applies only when the target statement identifier matches exactly.",
+    "It does not establish novelty, broad correctness, empirical validation, or publication readiness."
+  ],
+  "created_at": "1970-01-01T00:00:00Z",
+  "ingested_at": "1970-01-01T00:00:00Z",
+  "creates_scientific_validation": false,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": true
+}
