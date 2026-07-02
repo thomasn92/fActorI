@@ -218,11 +218,17 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.38.0/autonomous-evidence-gap-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.39.0/autonomous-evidence-gap-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous next-action plan over evidence gaps.",
   "properties": {
+    "bounded_empirical_claim_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Bounded Empirical Claim Count",
+      "type": "integer"
+    },
     "claim_evidence_map_path": {
       "anyOf": [
         {
@@ -251,6 +257,12 @@
       "default": false,
       "title": "Creates Scientific Validation",
       "type": "boolean"
+    },
+    "empirical_demonstration_gap_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Empirical Demonstration Gap Count",
+      "type": "integer"
     },
     "exhausted_gap_count": {
       "default": 0,
@@ -290,6 +302,12 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "needs_python_experiment_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Needs Python Experiment Count",
+      "type": "integer"
     },
     "next_action_summary": {
       "items": {
@@ -375,7 +393,7 @@
   ],
   "title": "AutonomousEvidenceGapPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.38.0",
+  "x-factori-protocol-version": "0.39.0",
   "x-factori-source-model": "factori.schemas.AutonomousEvidenceGapPlan",
   "x-factori-verification-evidence": false
 }

@@ -161,7 +161,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.38.0/experiment-gap-routing-report.schema.json",
+  "$id": "https://schemas.factori.local/0.39.0/experiment-gap-routing-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-evidence experiment-gap routing report.",
@@ -170,6 +170,12 @@
       "minLength": 1,
       "title": "Autonomous Plan Path",
       "type": "string"
+    },
+    "bounded_empirical_gaps_routed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Bounded Empirical Gaps Routed",
+      "type": "integer"
     },
     "claim_evidence_map_path": {
       "minLength": 1,
@@ -275,6 +281,12 @@
       "title": "Selected Template Count",
       "type": "integer"
     },
+    "synthetic_template_specs_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Synthetic Template Specs Created",
+      "type": "integer"
+    },
     "template_registry_path": {
       "minLength": 1,
       "title": "Template Registry Path",
@@ -297,7 +309,7 @@
   ],
   "title": "ExperimentGapRoutingReport",
   "type": "object",
-  "x-factori-protocol-version": "0.38.0",
+  "x-factori-protocol-version": "0.39.0",
   "x-factori-source-model": "factori.schemas.ExperimentGapRoutingReport",
   "x-factori-verification-evidence": false
 }

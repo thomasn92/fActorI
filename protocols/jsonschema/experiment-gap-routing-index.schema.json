@@ -1,9 +1,15 @@
 {
-  "$id": "https://schemas.factori.local/0.38.0/experiment-gap-routing-index.schema.json",
+  "$id": "https://schemas.factori.local/0.39.0/experiment-gap-routing-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable experiment-gap routing reports.",
   "properties": {
+    "bounded_empirical_gaps_routed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Bounded Empirical Gaps Routed",
+      "type": "integer"
+    },
     "created_experiment_spec_count": {
       "default": 0,
       "minimum": 0,
@@ -71,6 +77,12 @@
       "title": "Run Id",
       "type": "string"
     },
+    "synthetic_template_specs_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Synthetic Template Specs Created",
+      "type": "integer"
+    },
     "unrouted_gap_count": {
       "default": 0,
       "minimum": 0,
@@ -88,7 +100,7 @@
   ],
   "title": "ExperimentGapRoutingIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.38.0",
+  "x-factori-protocol-version": "0.39.0",
   "x-factori-source-model": "factori.schemas.ExperimentGapRoutingIndex",
   "x-factori-verification-evidence": false
 }

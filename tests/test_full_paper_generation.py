@@ -21,6 +21,7 @@ from factori.autonomous_plan_execution import (
 )
 from factori.claim_adjudication import FakeClaimAdjudicator
 from factori.claim_evidence import (
+    BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
     build_claim_evidence_map,
     inspect_claim_evidence_map,
     persist_claim_evidence_map,
@@ -2539,6 +2540,91 @@ def test_route_experiment_gaps_creates_sandbox_compatible_spec(tmp_path) -> None
     assert reviewer["publication_ready"] is False
 
 
+def test_bounded_empirical_demonstration_gap_requires_experiment_support(
+    tmp_path,
+) -> None:
+    run_id = "run-bounded-empirical-gap"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    map_result = persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        enable_empirical_demonstration_gaps=True,
+    )
+    plan_result = persist_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    by_id = {link.claim_id: link for link in map_result.claim_evidence_map.links}
+    link = by_id[BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID]
+    assert link.claim_class == "bounded_demonstration_claim"
+    assert link.requires_support is True
+    assert link.support_status == "unsupported"
+    assert link.support_type == "unsupported"
+    assert map_result.claim_evidence_map.publication_ready is False
+    assert plan_result.plan.empirical_demonstration_gap_count == 1
+    assert plan_result.plan.needs_python_experiment_count >= 1
+    plan_item = next(
+        item
+        for item in plan_result.plan.plan_items
+        if item.target_claim_id_optional == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID
+    )
+    assert plan_item.gap_type == "needs_python_experiment"
+    assert plan_item.automation_ready is True
+
+
+def test_bounded_empirical_gap_routes_to_synthetic_template(tmp_path) -> None:
+    run_id = "run-bounded-empirical-routing"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    _copy_default_experiment_template_bundle(tmp_path)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        enable_empirical_demonstration_gaps=True,
+    )
+    persist_autonomous_evidence_gap_plan(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+
+    result = route_experiment_gaps(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        routing_backend="deterministic",
+    )
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+
+    assert result.report.bounded_empirical_gaps_routed == 1
+    assert result.report.synthetic_template_specs_created == 1
+    assert result.report.created_experiment_spec_count == 1
+    spec_path = tmp_path / result.report.items[0].created_experiment_spec_path_optional
+    spec = PlannedExperimentSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    assert spec.target_claim_id == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID
+    assert spec.template_id_optional == "synthetic_calibration_v1"
+    assert spec.sandbox_backend == "uv_local"
+    assert spec.allow_network is False
+    assert lint["bounded_empirical_gap_count"] == 1
+    assert lint["needs_python_experiment_count"] >= 1
+    assert lint["routed_empirical_gap_count"] == 1
+
+
 def test_routed_experiment_spec_executes_through_uv_sandbox(tmp_path) -> None:
     run_id = "run-routed-experiment-spec-sandbox"
     _prepare_experiment_routing_fixture(
@@ -2702,6 +2788,50 @@ def test_experiment_gap_routing_cli_roundtrip(tmp_path) -> None:
     assert payload["routed_experiment_gap_count"] == 1
     assert inspected["experiment_gap_routing_present"] is True
     assert inspected["created_experiment_spec_count"] == 1
+
+
+def test_autonomous_loop_empirical_gap_runs_uv_sandbox(tmp_path) -> None:
+    run_id = "run-autonomous-loop-empirical-gap"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    _copy_default_experiment_template_bundle(tmp_path)
+
+    result = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        loop_backend="deterministic",
+        max_iterations=2,
+        max_attempts_per_gap=1,
+        enable_strategy_diversification=True,
+        enable_experiment_routing=True,
+        enable_empirical_demonstration_gaps=True,
+        python_sandbox_backend="uv_local",
+        max_sandbox_runs_per_loop=2,
+        max_sandbox_runs_per_iteration=1,
+    )
+    sandbox = inspect_python_experiment_sandbox(run_id=run_id, root=tmp_path)
+    claim_map = build_claim_evidence_map(run_id=run_id, root=tmp_path)
+    lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    by_id = {link.claim_id: link for link in claim_map.links}
+    empirical_link = by_id[BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID]
+
+    assert result.report.empirical_gaps_created >= 1
+    assert result.report.empirical_gaps_routed >= 1
+    assert result.report.sandbox_experiments_completed >= 1
+    assert result.report.experiment_artifacts_ingested >= 1
+    assert sandbox["python_experiment_sandbox_completed_count"] >= 1
+    assert sandbox["python_experiment_artifacts_created_count"] >= 1
+    assert empirical_link.support_status == "supported_within_scope"
+    assert empirical_link.support_type == "experiment_result"
+    assert empirical_link.classification == "experiment_supported_claim"
+    assert lint["bounded_empirical_gap_count"] >= 1
+    assert lint["routed_empirical_gap_count"] >= 1
+    assert lint["sandbox_experiment_completed_count"] >= 1
+    assert lint["experiment_artifacts_ingested_count"] >= 1
+    assert lint["publication_ready"] is False
+    assert lint["claim_support_missing_required_citation_count"] == 0
+    assert lint["citation_as_validation_misuse_count"] == 0
 
 
 def test_planned_spec_execution_defers_uv_sandbox_when_budget_exhausted(
@@ -3001,7 +3131,7 @@ def test_evidence_aware_refresh_writes_bounded_artifact_wording_and_rechecks_gat
     assert report.claim_evidence_map_rechecked_after_refresh is True
     assert report.citation_safety_rechecked_after_refresh is True
     assert "formal proof artifact linked to a specific mapped claim" in lowered
-    assert "completed experiment artifact linked to a bounded result claim" in lowered
+    assert "completed uv-local synthetic experiment artifact" in lowered
     assert "does not establish novelty" in lowered
     assert "does not imply broad empirical validation" in lowered
     assert "publication readiness" in lowered

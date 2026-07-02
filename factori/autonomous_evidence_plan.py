@@ -9,6 +9,8 @@ from typing import Any
 
 from factori.artifacts import ArtifactStore
 from factori.claim_evidence import (
+    BOUNDED_EMPIRICAL_CLAIM_CLASSES,
+    BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
     claim_evidence_summary_fields,
     latest_claim_evidence_map_path,
     latest_claim_support_audit_path,
@@ -428,6 +430,9 @@ def autonomous_evidence_plan_summary_fields(
             "autonomous_claim_downgrade_item_count": 0,
             "autonomous_claim_removal_item_count": 0,
             "autonomous_manuscript_refresh_item_count": 0,
+            "empirical_demonstration_gap_count": 0,
+            "needs_python_experiment_count": 0,
+            "bounded_empirical_claim_count": 0,
             "automation_ready_item_count": 0,
             "gap_attempt_history_present": False,
             "gap_attempt_count": 0,
@@ -449,6 +454,9 @@ def autonomous_evidence_plan_summary_fields(
         "autonomous_manuscript_refresh_item_count": counts[
             "needs_manuscript_refresh"
         ],
+        "empirical_demonstration_gap_count": plan.empirical_demonstration_gap_count,
+        "needs_python_experiment_count": plan.needs_python_experiment_count,
+        "bounded_empirical_claim_count": plan.bounded_empirical_claim_count,
         "automation_ready_item_count": sum(
             1 for item in plan.plan_items if item.automation_ready
         ),
@@ -744,6 +752,7 @@ def _bundle_level_plan_items(
     supported = claim_evidence_summary_fields(claim_map)
     if (
         not evidence_aware_refresh_present
+        and not claim_map.unsupported_non_scaffold_claim_ids
         and (
             int(supported["proof_supported_claim_count"])
             or int(supported["experiment_supported_claim_count"])
@@ -851,6 +860,8 @@ def _is_proof_or_theorem_claim(link: ClaimEvidenceMapLink) -> bool:
 
 
 def _is_empirical_or_result_claim(link: ClaimEvidenceMapLink) -> bool:
+    if link.claim_class in BOUNDED_EMPIRICAL_CLAIM_CLASSES:
+        return True
     text = _link_text(link)
     return any(
         phrase in text
@@ -973,6 +984,17 @@ def _finalize_plan(
     history_present = any(item.gap_attempt_history_present for item in items)
     gap_attempt_count = sum(item.gap_attempt_count for item in items)
     exhausted_gap_count = sum(item.gap_exhausted for item in items)
+    empirical_demonstration_gap_count = sum(
+        1
+        for item in items
+        if item.gap_type == "needs_python_experiment"
+        and item.target_claim_id_optional == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID
+    )
+    bounded_empirical_claim_count = sum(
+        1
+        for item in items
+        if item.target_claim_id_optional == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID
+    )
     return AutonomousEvidenceGapPlan(
         run_id=run_id,
         planner_backend=backend,
@@ -998,6 +1020,11 @@ def _finalize_plan(
         gap_attempt_history_present=history_present,
         gap_attempt_count=gap_attempt_count,
         exhausted_gap_count=exhausted_gap_count,
+        empirical_demonstration_gap_count=empirical_demonstration_gap_count,
+        needs_python_experiment_count=sum(
+            1 for item in items if item.gap_type == "needs_python_experiment"
+        ),
+        bounded_empirical_claim_count=bounded_empirical_claim_count,
         requires_human_intervention=requires_human_intervention,
         human_intervention_reason_optional=human_reason,
         creates_scientific_validation=False,

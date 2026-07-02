@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.38.0/paper-shape-score.schema.json",
+  "$id": "https://schemas.factori.local/0.39.0/paper-shape-score.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Weighted diagnostic paper-shape score.",
@@ -72,7 +72,7 @@
   ],
   "title": "PaperShapeScore",
   "type": "object",
-  "x-factori-protocol-version": "0.38.0",
+  "x-factori-protocol-version": "0.39.0",
   "x-factori-source-model": "factori.schemas.PaperShapeScore",
   "x-factori-verification-evidence": false
 }

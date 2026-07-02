@@ -506,7 +506,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.38.0/autonomous-loop-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.39.0/autonomous-loop-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence autonomous iterative loop controller report.",
@@ -550,6 +550,24 @@
       "default": 0,
       "minimum": 0,
       "title": "Duplicate Strategy Count",
+      "type": "integer"
+    },
+    "empirical_gaps_created": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Empirical Gaps Created",
+      "type": "integer"
+    },
+    "empirical_gaps_routed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Empirical Gaps Routed",
+      "type": "integer"
+    },
+    "experiment_artifacts_ingested": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Experiment Artifacts Ingested",
       "type": "integer"
     },
     "experiment_gap_routing_report_paths": {
@@ -769,6 +787,12 @@
       "title": "Sandbox Budget Runs Used",
       "type": "integer"
     },
+    "sandbox_experiments_completed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sandbox Experiments Completed",
+      "type": "integer"
+    },
     "selected_strategy_count": {
       "default": 0,
       "minimum": 0,
@@ -834,7 +858,7 @@
   ],
   "title": "AutonomousLoopRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.38.0",
+  "x-factori-protocol-version": "0.39.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopRunReport",
   "x-factori-verification-evidence": false
 }

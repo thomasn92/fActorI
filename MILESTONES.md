@@ -165,3 +165,10 @@ Bounded local-source retrieval now accepts explicit JSON source metadata, writes
 and builds citation registries only from accepted records. Source relevance and quality scores are
 literature-context diagnostics only; they do not prove correctness, novelty, validation,
 exhaustive coverage, or publication readiness.
+
+Milestone 74 adds opt-in bounded empirical demonstration gap creation for autonomous runs. When
+enabled, a safe synthetic/local demonstration claim is added to the claim-evidence planning surface,
+classified as needing a Python experiment, routed to the approved `synthetic_calibration_v1`
+template, and eligible for uv-local sandbox execution within existing budgets. Completed artifacts
+remain scoped experiment evidence only for the mapped bounded claim and never imply broad
+validation, correctness, novelty, or publication readiness.

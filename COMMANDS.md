@@ -193,6 +193,7 @@ uv run factori run-autonomous-loop \
 uv run factori run-autonomous-loop \
   --run-id demo --loop-backend deterministic --max-iterations 4 \
   --max-attempts-per-gap 1 --enable-experiment-routing \
+  --enable-empirical-demonstration-gaps \
   --python-sandbox-backend uv_local --max-sandbox-runs-per-loop 3 \
   --max-sandbox-runs-per-iteration 1
 uv run factori inspect-autonomous-loop --run-id demo

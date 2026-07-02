@@ -772,6 +772,11 @@ class ReviewerBundleSummary(StrictModel):
     routed_experiment_gap_count: int = Field(default=0, ge=0)
     unrouted_experiment_gap_count: int = Field(default=0, ge=0)
     created_experiment_spec_count: int = Field(default=0, ge=0)
+    bounded_empirical_gap_count: int = Field(default=0, ge=0)
+    needs_python_experiment_count: int = Field(default=0, ge=0)
+    routed_empirical_gap_count: int = Field(default=0, ge=0)
+    sandbox_experiment_completed_count: int = Field(default=0, ge=0)
+    experiment_artifacts_ingested_count: int = Field(default=0, ge=0)
     sandbox_budget_exhausted: bool = False
     sandbox_budget_remaining: dict[str, int] = Field(default_factory=dict)
     human_review_checklist: list[str] = Field(default_factory=list)
@@ -994,6 +999,9 @@ class AutonomousEvidenceGapPlan(StrictModel):
     gap_attempt_history_present: bool = False
     gap_attempt_count: int = Field(default=0, ge=0)
     exhausted_gap_count: int = Field(default=0, ge=0)
+    empirical_demonstration_gap_count: int = Field(default=0, ge=0)
+    needs_python_experiment_count: int = Field(default=0, ge=0)
+    bounded_empirical_claim_count: int = Field(default=0, ge=0)
     requires_human_intervention: bool = False
     human_intervention_reason_optional: str | None = None
     publication_ready: bool = False
@@ -1459,6 +1467,8 @@ class ExperimentGapRoutingReport(StrictModel):
     routed_gap_count: int = Field(default=0, ge=0)
     unrouted_gap_count: int = Field(default=0, ge=0)
     created_experiment_spec_count: int = Field(default=0, ge=0)
+    bounded_empirical_gaps_routed: int = Field(default=0, ge=0)
+    synthetic_template_specs_created: int = Field(default=0, ge=0)
     selected_template_count: int = Field(default=0, ge=0)
     rejected_template_count: int = Field(default=0, ge=0)
     items: list[ExperimentGapRoutingItem] = Field(default_factory=list)
@@ -1480,6 +1490,8 @@ class ExperimentGapRoutingIndex(StrictModel):
     routed_gap_count: int = Field(default=0, ge=0)
     unrouted_gap_count: int = Field(default=0, ge=0)
     created_experiment_spec_count: int = Field(default=0, ge=0)
+    bounded_empirical_gaps_routed: int = Field(default=0, ge=0)
+    synthetic_template_specs_created: int = Field(default=0, ge=0)
     latest_report_path: str = Field(min_length=1)
     latest_template_registry_path: str = Field(min_length=1)
     latest_requires_human_intervention: bool = False
@@ -1824,6 +1836,10 @@ class AutonomousLoopRunReport(StrictModel):
     sandbox_budget_exhausted: bool = False
     sandbox_budget_runs_used: int = Field(default=0, ge=0)
     sandbox_budget_runs_remaining: int = Field(default=0, ge=0)
+    empirical_gaps_created: int = Field(default=0, ge=0)
+    empirical_gaps_routed: int = Field(default=0, ge=0)
+    sandbox_experiments_completed: int = Field(default=0, ge=0)
+    experiment_artifacts_ingested: int = Field(default=0, ge=0)
     iterations: list[AutonomousLoopIterationReport] = Field(default_factory=list)
     artifacts_created: list[str] = Field(default_factory=list)
     requires_human_intervention: bool = False

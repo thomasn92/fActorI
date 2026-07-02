@@ -91,6 +91,9 @@ _EXPERIMENT_CLAIM_CLASSES = {
     "external_factual_claim",
     "pipeline_status_claim",
     "result_claim",
+    "bounded_demonstration_claim",
+    "bounded_empirical_result_claim",
+    "synthetic_experiment_claim",
 }
 _RESOURCE_LIMITS = {
     "cpu_seconds": 30,

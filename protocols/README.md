@@ -7,6 +7,10 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.39.0` adds bounded empirical demonstration gap creation, autonomous
+experiment-demand counts, and loop/routing/sandbox summaries for uv-local empirical coverage.
+These fields remain workflow context only and do not imply validation or publication readiness.
+
 Protocol `0.38.0` adds approved local experiment template registries, deterministic
 experiment-gap routing reports, sandbox-compatible routed experiment specs, and loop-level sandbox
 budget reports. Template routing is workflow only; completed sandbox artifacts still require

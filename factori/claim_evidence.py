@@ -47,7 +47,21 @@ _SCAFFOLD_OR_BOUNDARY_CLASSES = {
     "limitation_statement",
     "provenance_statement",
 }
-_EXPERIMENT_CLAIM_CLASSES = {"experiment_claim", "pipeline_status_claim"}
+BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID = "bounded-empirical-demonstration-claim"
+BOUNDED_EMPIRICAL_DEMONSTRATION_SECTION = "Demonstration Status"
+BOUNDED_EMPIRICAL_DEMONSTRATION_TEXT = (
+    "The local synthetic calibration experiment reports metrics for the configured run only."
+)
+BOUNDED_EMPIRICAL_CLAIM_CLASSES = {
+    "bounded_demonstration_claim",
+    "bounded_empirical_result_claim",
+    "synthetic_experiment_claim",
+}
+_EXPERIMENT_CLAIM_CLASSES = {
+    "experiment_claim",
+    "pipeline_status_claim",
+    *BOUNDED_EMPIRICAL_CLAIM_CLASSES,
+}
 _FORBIDDEN_CLAIM_CLASSES = {"novelty_claim", "publication_readiness_claim"}
 
 
@@ -73,6 +87,7 @@ def build_claim_evidence_map(
     run_id: str,
     root: str | Path = ".",
     claim_support_audit: ClaimSupportAuditReport | None = None,
+    enable_empirical_demonstration_gaps: bool = False,
 ) -> ClaimEvidenceMap:
     """Build a deterministic final claim-evidence map without mutation."""
     root_path = Path(root)
@@ -120,6 +135,17 @@ def build_claim_evidence_map(
             for claim in claim_table.claims
             if claim.claim_id not in sentence_ids
         )
+    if _should_add_bounded_empirical_demonstration_link(
+        links=links,
+        experiment_artifacts=experiment_artifacts,
+        enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
+    ):
+        links.append(
+            _bounded_empirical_demonstration_link(
+                run_id=run_id,
+                experiment_artifacts=experiment_artifacts,
+            )
+        )
     links = sorted(links, key=lambda item: (item.section_name, item.claim_id))
     summary_counts = _summary_counts(links)
     unsupported_non_scaffold = [
@@ -159,10 +185,15 @@ def persist_claim_evidence_map(
     root: str | Path,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    enable_empirical_demonstration_gaps: bool = False,
 ) -> ClaimEvidenceMapPersistResult:
     """Persist a claim-evidence map and refreshed reviewer summary."""
     root_path = Path(root)
-    claim_map = build_claim_evidence_map(run_id=run_id, root=root_path)
+    claim_map = build_claim_evidence_map(
+        run_id=run_id,
+        root=root_path,
+        enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
+    )
     markdown = render_claim_evidence_map_markdown(claim_map)
     map_id = _next_claim_evidence_map_id(root_path, run_id)
     reviewer_summary_id = _next_claim_evidence_reviewer_summary_id(root_path, run_id)
@@ -569,6 +600,88 @@ def _link_from_claim_table_claim(
     )
 
 
+def _should_add_bounded_empirical_demonstration_link(
+    *,
+    links: list[ClaimEvidenceMapLink],
+    experiment_artifacts: list[ExperimentArtifact],
+    enable_empirical_demonstration_gaps: bool,
+) -> bool:
+    if any(link.claim_id == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID for link in links):
+        return False
+    if _bounded_empirical_artifact_present(experiment_artifacts):
+        return True
+    if not enable_empirical_demonstration_gaps:
+        return False
+    return not any(
+        link.claim_class in _EXPERIMENT_CLAIM_CLASSES and link.requires_support
+        for link in links
+    )
+
+
+def _bounded_empirical_artifact_present(
+    experiment_artifacts: list[ExperimentArtifact],
+) -> bool:
+    claim_hash = sha256_text(BOUNDED_EMPIRICAL_DEMONSTRATION_TEXT)
+    tokens = {
+        BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
+        claim_hash,
+    }
+    return any(
+        tokens.intersection(artifact.claim_ids_or_section_ids)
+        for artifact in experiment_artifacts
+    )
+
+
+def _bounded_empirical_demonstration_link(
+    *,
+    run_id: str,
+    experiment_artifacts: list[ExperimentArtifact],
+) -> ClaimEvidenceMapLink:
+    claim_hash = sha256_text(BOUNDED_EMPIRICAL_DEMONSTRATION_TEXT)
+    base = {
+        "run_id": run_id,
+        "claim_id": BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
+        "claim_text_hash": claim_hash,
+        "section_name": BOUNDED_EMPIRICAL_DEMONSTRATION_SECTION,
+        "claim_class": "bounded_demonstration_claim",
+        "supporting_citation_keys": [],
+        "supporting_source_ids": [],
+        "evidence_limitations": [
+            *_standard_limitations(),
+            (
+                "The bounded empirical demonstration claim is synthetic/local and "
+                "supports only metrics for the configured run."
+            ),
+        ],
+    }
+    experiment_link = _experiment_link(
+        base=base,
+        experiment_artifacts=experiment_artifacts,
+        match_tokens={
+            BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
+            claim_hash,
+        },
+        requires_support=True,
+    )
+    if experiment_link is not None:
+        return experiment_link
+    return _make_link(
+        **base,
+        requires_support=True,
+        support_status="unsupported",
+        classification="unsupported_claim",
+        support_type="unsupported",
+        support_scope=(
+            "bounded synthetic/local demonstration claim requiring a completed "
+            "uv-local experiment artifact"
+        ),
+        unsupported_reason=(
+            "no completed uv-local synthetic experiment artifact is linked to this "
+            "bounded demonstration claim"
+        ),
+    )
+
+
 def _proof_link(
     *,
     base: dict[str, Any],
@@ -935,6 +1048,10 @@ def _slug(value: str) -> str:
 
 
 __all__ = [
+    "BOUNDED_EMPIRICAL_CLAIM_CLASSES",
+    "BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID",
+    "BOUNDED_EMPIRICAL_DEMONSTRATION_SECTION",
+    "BOUNDED_EMPIRICAL_DEMONSTRATION_TEXT",
     "ClaimEvidenceMapError",
     "ClaimEvidenceMapPersistResult",
     "build_claim_evidence_map",

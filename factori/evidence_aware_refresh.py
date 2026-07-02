@@ -49,10 +49,11 @@ _PROOF_WORDING = (
     "broad correctness, or publication readiness."
 )
 _EXPERIMENT_WORDING = (
-    "The current run includes a completed experiment artifact linked to a bounded "
-    "result claim; the artifact records the reported configuration, hashes, and "
-    "metrics for that run only and does not imply broad empirical validation, "
-    "novelty, broad correctness, or publication readiness."
+    "The current run includes a completed uv-local synthetic experiment artifact "
+    "linked to a bounded demonstration or result claim; the artifact records the "
+    "reported configuration, hashes, logs, and metrics for that run only and does "
+    "not imply broad empirical validation, novelty, broad correctness, or "
+    "publication readiness."
 )
 _CITATION_WORDING = (
     "Accepted registry citations in this draft provide bounded background context "

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.38.0/reproducibility-manifest.schema.json",
+  "$id": "https://schemas.factori.local/0.39.0/reproducibility-manifest.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived reproducibility manifest.",
@@ -89,7 +89,7 @@
   ],
   "title": "ReproducibilityManifest",
   "type": "object",
-  "x-factori-protocol-version": "0.38.0",
+  "x-factori-protocol-version": "0.39.0",
   "x-factori-source-model": "factori.schemas.ReproducibilityManifest",
   "x-factori-verification-evidence": false
 }

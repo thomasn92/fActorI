@@ -11,7 +11,11 @@ from pydantic import ValidationError
 
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import latest_autonomous_evidence_gap_plan_path
-from factori.claim_evidence import latest_claim_evidence_map_path
+from factori.claim_evidence import (
+    BOUNDED_EMPIRICAL_CLAIM_CLASSES,
+    BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
+    latest_claim_evidence_map_path,
+)
 from factori.gap_attempts import find_existing_planned_spec, gap_fingerprint_for_plan_item
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -93,6 +97,7 @@ def build_default_experiment_template_registry(
                     "demonstration_claim",
                     "result_claim",
                     "external_factual_claim",
+                    *sorted(BOUNDED_EMPIRICAL_CLAIM_CLASSES),
                 ],
                 required_inputs=[
                     "target claim ID",
@@ -209,6 +214,16 @@ def route_experiment_gaps(
         routed_gap_count=sum(item.routing_status == "routed" for item in report_items),
         unrouted_gap_count=sum(item.routing_status != "routed" for item in report_items),
         created_experiment_spec_count=len(specs),
+        bounded_empirical_gaps_routed=sum(
+            item.routing_status == "routed"
+            and item.target_claim_id == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID
+            for item in report_items
+        ),
+        synthetic_template_specs_created=sum(
+            item.routing_status == "routed"
+            and item.selected_template_id_optional == _SYNTHETIC_CALIBRATION_TEMPLATE_ID
+            for item in report_items
+        ),
         selected_template_count=len(
             {
                 item.selected_template_id_optional
@@ -286,13 +301,39 @@ def experiment_gap_routing_summary_fields(
             "routed_experiment_gap_count": 0,
             "unrouted_experiment_gap_count": 0,
             "created_experiment_spec_count": 0,
+            "routed_empirical_gap_count": 0,
+            "bounded_empirical_gaps_routed": 0,
+            "synthetic_template_specs_created": 0,
         }
     return {
         "experiment_gap_routing_present": True,
         "experiment_gap_routing_count": index.routing_count if index else 1,
-        "routed_experiment_gap_count": report.routed_gap_count,
-        "unrouted_experiment_gap_count": report.unrouted_gap_count,
-        "created_experiment_spec_count": report.created_experiment_spec_count,
+        "routed_experiment_gap_count": (
+            index.routed_gap_count if index else report.routed_gap_count
+        ),
+        "unrouted_experiment_gap_count": (
+            index.unrouted_gap_count if index else report.unrouted_gap_count
+        ),
+        "created_experiment_spec_count": (
+            index.created_experiment_spec_count
+            if index
+            else report.created_experiment_spec_count
+        ),
+        "routed_empirical_gap_count": (
+            index.bounded_empirical_gaps_routed
+            if index
+            else report.bounded_empirical_gaps_routed
+        ),
+        "bounded_empirical_gaps_routed": (
+            index.bounded_empirical_gaps_routed
+            if index
+            else report.bounded_empirical_gaps_routed
+        ),
+        "synthetic_template_specs_created": (
+            index.synthetic_template_specs_created
+            if index
+            else report.synthetic_template_specs_created
+        ),
     }
 
 
@@ -307,6 +348,8 @@ def render_experiment_gap_routing_markdown(report: ExperimentGapRoutingReport) -
         f"Status: `{report.routing_status}`",
         f"Gaps routed/unrouted: `{report.routed_gap_count}/{report.unrouted_gap_count}`",
         f"Experiment specs created: `{report.created_experiment_spec_count}`",
+        f"Bounded empirical gaps routed: `{report.bounded_empirical_gaps_routed}`",
+        f"Synthetic template specs created: `{report.synthetic_template_specs_created}`",
         "",
         "## Items",
     ]
@@ -618,14 +661,32 @@ def _persist_routing(
     index_id = f"experiment-gap-routing-index-{routing_number:04d}"
     registry_id = registry.registry_id
     reviewer_id = f"reviewer-bundle-summary-after-experiment-routing-{routing_number:04d}"
+    _, previous_index = latest_experiment_gap_routing_report(root, report.run_id)
     index = ExperimentGapRoutingIndex(
         run_id=report.run_id,
         latest_routing_id=report.routing_id,
         routing_count=routing_number,
         latest_routing_status=report.routing_status,
-        routed_gap_count=report.routed_gap_count,
-        unrouted_gap_count=report.unrouted_gap_count,
-        created_experiment_spec_count=report.created_experiment_spec_count,
+        routed_gap_count=(
+            (previous_index.routed_gap_count if previous_index else 0)
+            + report.routed_gap_count
+        ),
+        unrouted_gap_count=(
+            (previous_index.unrouted_gap_count if previous_index else 0)
+            + report.unrouted_gap_count
+        ),
+        created_experiment_spec_count=(
+            (previous_index.created_experiment_spec_count if previous_index else 0)
+            + report.created_experiment_spec_count
+        ),
+        bounded_empirical_gaps_routed=(
+            (previous_index.bounded_empirical_gaps_routed if previous_index else 0)
+            + report.bounded_empirical_gaps_routed
+        ),
+        synthetic_template_specs_created=(
+            (previous_index.synthetic_template_specs_created if previous_index else 0)
+            + report.synthetic_template_specs_created
+        ),
         latest_report_path=f"runs/{report.run_id}/reports/{report_id}.json",
         latest_template_registry_path=f"runs/{report.run_id}/reports/{registry_id}.json",
         latest_requires_human_intervention=report.requires_human_intervention,

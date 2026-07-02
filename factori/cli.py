@@ -2612,10 +2612,22 @@ def build_autonomous_evidence_plan_command(
         bool,
         typer.Option("--allow-external-calls"),
     ] = False,
+    enable_empirical_demonstration_gaps: Annotated[
+        bool,
+        typer.Option("--enable-empirical-demonstration-gaps"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Build and persist a deterministic autonomous evidence-gap plan."""
     try:
+        if enable_empirical_demonstration_gaps:
+            persist_claim_evidence_map(
+                run_id=run_id,
+                root=root,
+                store=ArtifactStore(root),
+                ledger=_ledger(root, run_id),
+                enable_empirical_demonstration_gaps=True,
+            )
         result = persist_autonomous_evidence_gap_plan(
             run_id=run_id,
             root=root,
@@ -3030,6 +3042,11 @@ def inspect_experiment_gap_routing_command(
     typer.echo(f"Routed experiment gaps: {summary['routed_experiment_gap_count']}")
     typer.echo(f"Unrouted experiment gaps: {summary['unrouted_experiment_gap_count']}")
     typer.echo(f"Created experiment specs: {summary['created_experiment_spec_count']}")
+    typer.echo(f"Routed empirical gaps: {summary['routed_empirical_gap_count']}")
+    typer.echo(
+        "Synthetic template specs created: "
+        f"{summary['synthetic_template_specs_created']}"
+    )
     typer.echo("Publication ready: false")
     typer.echo(f"Artifact: {summary['experiment_gap_routing_report_path']}")
 
@@ -3048,6 +3065,10 @@ def run_autonomous_loop_command(
     enable_experiment_routing: Annotated[
         bool,
         typer.Option("--enable-experiment-routing"),
+    ] = False,
+    enable_empirical_demonstration_gaps: Annotated[
+        bool,
+        typer.Option("--enable-empirical-demonstration-gaps"),
     ] = False,
     python_sandbox_backend: Annotated[
         str,
@@ -3080,6 +3101,7 @@ def run_autonomous_loop_command(
             max_attempts_per_gap=max_attempts_per_gap,
             enable_strategy_diversification=enable_strategy_diversification,
             enable_experiment_routing=enable_experiment_routing,
+            enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
             python_sandbox_backend=python_sandbox_backend,
             max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
             max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
@@ -3256,6 +3278,22 @@ def inspect_autonomous_loop_command(
     typer.echo(
         "Routed experiment specs: "
         f"{int(summary.get('routed_experiment_spec_count') or 0)}"
+    )
+    typer.echo(
+        "Bounded empirical gaps created: "
+        f"{int(summary.get('empirical_gaps_created') or 0)}"
+    )
+    typer.echo(
+        "Bounded empirical gaps routed: "
+        f"{int(summary.get('empirical_gaps_routed') or 0)}"
+    )
+    typer.echo(
+        "Sandbox experiments completed: "
+        f"{int(summary.get('sandbox_experiments_completed') or 0)}"
+    )
+    typer.echo(
+        "Experiment artifacts ingested: "
+        f"{int(summary.get('experiment_artifacts_ingested') or 0)}"
     )
     typer.echo(
         "Sandbox budget exhausted: "
@@ -4135,8 +4173,28 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('routed_experiment_gap_count') or 0)}"
     )
     typer.echo(
+        "Bounded empirical gaps: "
+        f"{int(summary.get('bounded_empirical_gap_count') or 0)}"
+    )
+    typer.echo(
+        "Needs-python-experiment items: "
+        f"{int(summary.get('needs_python_experiment_count') or 0)}"
+    )
+    typer.echo(
+        "Routed empirical gaps: "
+        f"{int(summary.get('routed_empirical_gap_count') or 0)}"
+    )
+    typer.echo(
         "Created experiment specs: "
         f"{int(summary.get('created_experiment_spec_count') or 0)}"
+    )
+    typer.echo(
+        "Sandbox experiments completed: "
+        f"{int(summary.get('sandbox_experiment_completed_count') or 0)}"
+    )
+    typer.echo(
+        "Experiment artifacts ingested: "
+        f"{int(summary.get('experiment_artifacts_ingested_count') or 0)}"
     )
     typer.echo(
         "Sandbox budget used/remaining: "

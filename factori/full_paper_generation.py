@@ -1003,6 +1003,26 @@ def inspect_paper_bundle_summary(
         **strategy_summary,
         **routing_summary,
         **sandbox_budget_summary,
+        "bounded_empirical_gap_count": max(
+            int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
+            int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
+        ),
+        "needs_python_experiment_count": max(
+            int(autonomous_plan_summary.get("needs_python_experiment_count") or 0),
+            int(autonomous_loop_summary.get("empirical_gaps_created") or 0),
+        ),
+        "routed_empirical_gap_count": max(
+            int(routing_summary.get("routed_empirical_gap_count") or 0),
+            int(autonomous_loop_summary.get("empirical_gaps_routed") or 0),
+        ),
+        "sandbox_experiment_completed_count": max(
+            int(python_sandbox_summary.get("python_experiment_sandbox_completed_count") or 0),
+            int(autonomous_loop_summary.get("sandbox_experiments_completed") or 0),
+        ),
+        "experiment_artifacts_ingested_count": max(
+            int(python_sandbox_summary.get("python_experiment_artifacts_created_count") or 0),
+            int(autonomous_loop_summary.get("experiment_artifacts_ingested") or 0),
+        ),
         "gap_attempt_history_path": (
             gap_attempt_history_path.relative_to(root_path).as_posix()
             if gap_attempt_history_path is not None
@@ -1544,6 +1564,15 @@ def lint_paper_bundle_summary(
     sandbox_budget_exhausted = bool(bundle.get("sandbox_budget_exhausted"))
     sandbox_budget_runs_used = int(bundle.get("sandbox_budget_runs_used") or 0)
     sandbox_budget_runs_remaining = int(bundle.get("sandbox_budget_runs_remaining") or 0)
+    bounded_empirical_gap_count = int(bundle.get("bounded_empirical_gap_count") or 0)
+    needs_python_experiment_count = int(bundle.get("needs_python_experiment_count") or 0)
+    routed_empirical_gap_count = int(bundle.get("routed_empirical_gap_count") or 0)
+    sandbox_experiment_completed_count = int(
+        bundle.get("sandbox_experiment_completed_count") or 0
+    )
+    experiment_artifacts_ingested_count = int(
+        bundle.get("experiment_artifacts_ingested_count") or 0
+    )
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -2025,6 +2054,11 @@ def lint_paper_bundle_summary(
         "sandbox_budget_exhausted": sandbox_budget_exhausted,
         "sandbox_budget_runs_used": sandbox_budget_runs_used,
         "sandbox_budget_runs_remaining": sandbox_budget_runs_remaining,
+        "bounded_empirical_gap_count": bounded_empirical_gap_count,
+        "needs_python_experiment_count": needs_python_experiment_count,
+        "routed_empirical_gap_count": routed_empirical_gap_count,
+        "sandbox_experiment_completed_count": sandbox_experiment_completed_count,
+        "experiment_artifacts_ingested_count": experiment_artifacts_ingested_count,
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")
         ),
@@ -3120,6 +3154,15 @@ def build_reviewer_bundle_summary(
         created_experiment_spec_count=int(
             routing_summary["created_experiment_spec_count"]
         ),
+        bounded_empirical_gap_count=int(bundle.get("bounded_empirical_gap_count") or 0),
+        needs_python_experiment_count=int(bundle.get("needs_python_experiment_count") or 0),
+        routed_empirical_gap_count=int(bundle.get("routed_empirical_gap_count") or 0),
+        sandbox_experiment_completed_count=int(
+            bundle.get("sandbox_experiment_completed_count") or 0
+        ),
+        experiment_artifacts_ingested_count=int(
+            bundle.get("experiment_artifacts_ingested_count") or 0
+        ),
         sandbox_budget_exhausted=bool(sandbox_budget_summary["sandbox_budget_exhausted"]),
         sandbox_budget_remaining=dict(sandbox_budget_summary["sandbox_budget_remaining"]),
         human_review_checklist=_reviewer_human_review_checklist(),
@@ -3260,6 +3303,14 @@ def render_reviewer_bundle_summary_markdown(
         ),
         f"Routed experiment gaps: `{summary.routed_experiment_gap_count}`",
         f"Created experiment specs: `{summary.created_experiment_spec_count}`",
+        f"Bounded empirical gaps: `{summary.bounded_empirical_gap_count}`",
+        f"Needs-python-experiment items: `{summary.needs_python_experiment_count}`",
+        f"Routed empirical gaps: `{summary.routed_empirical_gap_count}`",
+        (
+            "Sandbox experiments completed / experiment artifacts ingested: "
+            f"`{summary.sandbox_experiment_completed_count}/"
+            f"{summary.experiment_artifacts_ingested_count}`"
+        ),
         (
             "Sandbox budget exhausted: "
             f"`{str(summary.sandbox_budget_exhausted).lower()}`"

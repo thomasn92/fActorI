@@ -89,6 +89,7 @@ def run_autonomous_loop(
     max_attempts_per_gap: int = 2,
     enable_strategy_diversification: bool = False,
     enable_experiment_routing: bool = False,
+    enable_empirical_demonstration_gaps: bool = False,
     python_sandbox_backend: str = "off",
     max_sandbox_runs_per_loop: int = 3,
     max_sandbox_runs_per_iteration: int = 1,
@@ -186,6 +187,8 @@ def run_autonomous_loop(
     experiment_routing_paths: list[str] = []
     routed_experiment_gap_count = 0
     routed_experiment_spec_count = 0
+    empirical_gaps_created = 0
+    empirical_gaps_routed = 0
     sandbox_runs_used = 0
     sandbox_failures_used = 0
     sandbox_experiment_artifacts = 0
@@ -207,6 +210,7 @@ def run_autonomous_loop(
             root=root_path,
             store=store,
             ledger=ledger,
+            enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
         )
         artifacts_created.append(map_result.map_artifact.path)
         plan_result = persist_autonomous_evidence_gap_plan(
@@ -218,6 +222,10 @@ def run_autonomous_loop(
             max_attempts_per_gap=max_attempts_per_gap,
         )
         artifacts_created.append(plan_result.plan_artifact.path)
+        empirical_gaps_created = max(
+            empirical_gaps_created,
+            plan_result.plan.empirical_demonstration_gap_count,
+        )
         if plan_result.plan.requires_human_intervention:
             decision = AutonomousLoopDecision(
                 continue_loop=False,
@@ -273,6 +281,7 @@ def run_autonomous_loop(
             routed_experiment_spec_count += (
                 routing_result.report.created_experiment_spec_count
             )
+            empirical_gaps_routed += routing_result.report.bounded_empirical_gaps_routed
 
         autonomous_execution = execute_autonomous_evidence_plan(
             run_id=run_id,
@@ -286,6 +295,15 @@ def run_autonomous_loop(
         artifacts_created.append(autonomous_execution.report_artifact.path)
         artifacts_created.extend(autonomous_execution.report.created_artifact_paths)
         autonomous_summary = inspect_autonomous_plan_execution(run_id=run_id, root=root_path)
+        if enable_empirical_demonstration_gaps:
+            post_execution_map = persist_claim_evidence_map(
+                run_id=run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                enable_empirical_demonstration_gaps=True,
+            )
+            artifacts_created.append(post_execution_map.map_artifact.path)
 
         planned_execution = execute_planned_specs(
             run_id=run_id,
@@ -333,6 +351,7 @@ def run_autonomous_loop(
             root=root_path,
             store=store,
             ledger=ledger,
+            enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
         )
         artifacts_created.append(rebuilt_map.map_artifact.path)
         diversification_result = None
@@ -378,6 +397,10 @@ def run_autonomous_loop(
             max_attempts_per_gap=max_attempts_per_gap,
         )
         artifacts_created.append(final_plan_result.plan_artifact.path)
+        empirical_gaps_created = max(
+            empirical_gaps_created,
+            final_plan_result.plan.empirical_demonstration_gap_count,
+        )
 
         release_report = _evaluate_release(run_id, root_path, ledger)
         release_path = _planned_spec_release_path(root_path, run_id, planned_summary)
@@ -568,6 +591,10 @@ def run_autonomous_loop(
         sandbox_budget_exhausted=sandbox_budget_exhausted,
         sandbox_budget_runs_used=sandbox_runs_used,
         sandbox_budget_runs_remaining=max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),
+        empirical_gaps_created=empirical_gaps_created,
+        empirical_gaps_routed=empirical_gaps_routed,
+        sandbox_experiments_completed=sandbox_experiment_artifacts,
+        experiment_artifacts_ingested=sandbox_experiment_artifacts,
         iterations=iterations,
         artifacts_created=sorted(set(artifacts_created)),
         requires_human_intervention=(
@@ -637,6 +664,11 @@ def autonomous_loop_summary_fields(
             "sandbox_budget_exhausted": False,
             "sandbox_budget_runs_used": 0,
             "sandbox_budget_runs_remaining": 0,
+            "bounded_empirical_gap_count": 0,
+            "empirical_gaps_created": 0,
+            "empirical_gaps_routed": 0,
+            "sandbox_experiments_completed": 0,
+            "experiment_artifacts_ingested": 0,
         }
     return {
         "autonomous_loop_present": True,
@@ -665,6 +697,11 @@ def autonomous_loop_summary_fields(
         "sandbox_budget_exhausted": report.sandbox_budget_exhausted,
         "sandbox_budget_runs_used": report.sandbox_budget_runs_used,
         "sandbox_budget_runs_remaining": report.sandbox_budget_runs_remaining,
+        "bounded_empirical_gap_count": report.empirical_gaps_created,
+        "empirical_gaps_created": report.empirical_gaps_created,
+        "empirical_gaps_routed": report.empirical_gaps_routed,
+        "sandbox_experiments_completed": report.sandbox_experiments_completed,
+        "experiment_artifacts_ingested": report.experiment_artifacts_ingested,
     }
 
 
@@ -718,6 +755,10 @@ def render_autonomous_loop_markdown(report: AutonomousLoopRunReport) -> str:
         f"Experiment routing enabled: `{str(report.experiment_routing_enabled).lower()}`",
         f"Routed experiment gaps: `{report.routed_experiment_gap_count}`",
         f"Routed experiment specs: `{report.routed_experiment_spec_count}`",
+        f"Bounded empirical gaps created: `{report.empirical_gaps_created}`",
+        f"Bounded empirical gaps routed: `{report.empirical_gaps_routed}`",
+        f"Sandbox experiments completed: `{report.sandbox_experiments_completed}`",
+        f"Experiment artifacts ingested: `{report.experiment_artifacts_ingested}`",
         f"Sandbox budget exhausted: `{str(report.sandbox_budget_exhausted).lower()}`",
         f"Sandbox runs used/remaining: `{report.sandbox_budget_runs_used}/"
         f"{report.sandbox_budget_runs_remaining}`",
