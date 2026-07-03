@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,13 +59,14 @@ _SAFE_SECTION_PLAN = (
     "Abstract",
     "Introduction",
     "Related Work and Source Boundaries",
-    "Method / System Architecture",
-    "Claim-Evidence Map",
-    "Formal / Proof Status",
-    "Empirical Demonstration",
-    "Autonomous Execution Trace",
-    "Limitations and Deferred Gaps",
+    "Research Question / Hypothesis",
+    "Method or Model",
+    "Bounded Empirical Demonstration",
+    "Results Within Scope",
+    "Limitations and Deferred Evidence",
     "Conclusion",
+    "Appendix A: Claim-Evidence Map",
+    "Appendix B: Autonomous Execution and Provenance",
 )
 
 
@@ -156,11 +158,13 @@ def regenerate_final_manuscript(
         reports / "human-review-artifact.json",
         HumanReviewArtifact,
     )
-    title = _source_title(reports, run_id)
+    domain_context = _domain_context(reports, run_id)
+    title = _source_title(reports, run_id, domain_context)
     deferred = _deferred_gap_summary(loop, escalation)
     claim_summaries = _claim_summaries(source_map)
     sections = _build_sections(
         run_id=run_id,
+        domain_context=domain_context,
         source_map=source_map,
         registry=registry,
         retrieval=retrieval,
@@ -482,6 +486,7 @@ def render_final_manuscript_regeneration_markdown(
 def _build_sections(
     *,
     run_id: str,
+    domain_context: dict[str, str],
     source_map: ClaimEvidenceMap,
     registry: CitationRegistry,
     retrieval: RetrievalQualityReport,
@@ -499,19 +504,26 @@ def _build_sections(
     ]
     completed = [experiment for experiment in experiments if experiment.status == "completed"]
     accepted = [record for record in registry.citations if record.accepted_for_registry]
+    citation_keys = sorted(record.citation_key for record in accepted)
+    primary_citation = f" [@{citation_keys[0]}]" if citation_keys else ""
+    domain = domain_context["domain"]
+    domain_title = domain_context["domain_title"]
+    method_phrase = domain_context["method_phrase"]
+    research_question = domain_context["research_question"]
+    hypothesis = domain_context["hypothesis"]
     citation_lines = [
         (
-            f"The bounded background for this manuscript includes {record.title} "
+            f"Accepted source context for {domain} includes {record.title} "
             f"[@{record.citation_key}]."
         )
         for record in accepted
-    ] or ["No accepted registry source is asserted as complete literature coverage."]
+    ] or [f"No accepted registry source is asserted as complete coverage for {domain}."]
     bibliography = [entry.markdown for entry in registry.bibliography]
-    proof_text = (
+    appendix_proof_text = (
         "A passed formal artifact is linked to the mapped claim identifiers "
         + ", ".join(proof.proof_id for proof in formal)
         + ". Its authority is restricted to the declared checker scope; it does not establish "
-        "novelty, broad correctness, empirical validity, or publication readiness."
+        "novelty, broad correctness, or empirical validity."
         if formal
         else (
             "Proof-plan or informal proof context exists, but no passed formal artifact supports "
@@ -524,16 +536,41 @@ def _build_sections(
     for experiment in completed:
         metrics = ", ".join(f"`{key}={value}`" for key, value in sorted(experiment.metrics.items()))
         experiment_lines.append(
-            "The current run includes completed local synthetic experiment artifact "
+            "A completed uv-local synthetic experiment artifact "
             f"`{experiment.experiment_id}` with recorded metrics {metrics or '`none recorded`'}. "
             "The record is limited to its fixed configuration, hashes, logs, and mapped claim; "
-            "it does not establish broad empirical validation or publication readiness."
+            "it does not establish broad empirical validation."
         )
     if not experiment_lines:
         experiment_lines.append(
             "No completed experiment artifact is linked, so empirical demonstration remains a "
             "future bounded task rather than an asserted result."
         )
+    result_lines = [
+        (
+            "Within this run, the bounded result is that the configured synthetic demonstration "
+            f"reported scoped metrics for {domain}; those metrics are evidence only for the mapped "
+            "result claim and fixed sandbox configuration."
+        )
+        if completed
+        else (
+            "Within this run, no completed experiment artifact supports an empirical result claim; "
+            "the empirical path remains future work."
+        ),
+        (
+            "A passed formal proof artifact supports only its mapped formal claim and declared "
+            "checker scope."
+            if formal
+            else (
+                "No formal proof is claimed for the domain model; proof-related work remains "
+                "deferred and is summarized in the limitations and appendix."
+            )
+        ),
+        (
+            "Accepted citations provide background and source context only. They do not verify "
+            "the model, prove novelty, or establish complete literature coverage."
+        ),
+    ]
     escalation_text = (
         "This workflow trace is not evidence; capability escalation ended with "
         f"`{escalation.escalation_status}` after "
@@ -553,9 +590,8 @@ def _build_sections(
         *deferred["statements"],
         "Synthetic/local experiment records apply only to their mapped run and do not provide "
         "broad empirical validation.",
-        "The autonomous loop and capability reports are workflow traces, not scientific evidence.",
         "This manuscript does not claim novelty, complete literature coverage, broad correctness, "
-        "or publication readiness; publication_ready remains false.",
+        "or broad validation.",
     ]
     human_text = (
         f"A human-review artifact records status `{human_review.review_status}` as "
@@ -571,76 +607,80 @@ def _build_sections(
     ]
     bodies = {
         "Abstract": (
-            "This manuscript records a bounded research scaffold and the deterministic workflow "
-            "used to assemble it from accepted source context and scoped evidence artifacts. The "
-            "final claim-evidence map contains "
-            f"{counts['claim_evidence_supported_count']} supported "
-            f"claims, including {counts['proof_supported_claim_count']} proof-linked and "
-            f"{counts['experiment_supported_claim_count']} experiment-linked claims. Retrieval, "
-            "citation checks, autonomous execution, and capability escalation do not establish "
-            "scientific validation. Deferred proof and retrieval work is retained as "
-            "an explicit limitation, and publication_ready remains false."
+            f"This bounded manuscript studies {domain} as a representation problem: how a "
+            f"{method_phrase} can state a testable question, use accepted source context, and "
+            "report only scoped evidence. The main question asks whether a fixed local synthetic "
+            f"demonstration can report run-specific metrics for {domain} without implying broad "
+            f"empirical validation{primary_citation}. The manuscript includes accepted background "
+            "sources, a bounded method/model description, a scoped empirical demonstration when "
+            "available, and visible deferred proof or retrieval gaps. The central contribution is "
+            "a domain-facing bounded demonstration claim, not a novelty or validation claim. It "
+            "does not claim broad correctness or broad validation."
         ),
         "Introduction": (
-            "The manuscript addresses a representation and workflow problem: a research direction "
-            "must remain readable while every positive statement is kept within the authority of "
-            "its available source, proof, or experiment artifact. The objective of this final pass "
-            "is therefore bounded coherence, not a claim of novelty or broad correctness. The "
-            "regeneration process filters unsupported wording, retains scaffold and boundary "
-            "statements, and exposes deferred work instead of converting workflow success into "
-            "scientific authority."
+            f"{domain_title} creates a bounded modeling problem: claims about place, mobility, "
+            "and regional structure can exceed the evidence carried by a small local run. This "
+            f"paper treats {domain} as a domain-facing research setting, not as a completed "
+            f"empirical validation. Accepted sources provide local background context"
+            f"{primary_citation}, while the method section defines only a conservative synthetic "
+            "demonstration path. The aim is to separate a research question from broader claims "
+            "that would require additional proof, retrieval, or real-world empirical evidence."
         ),
         "Related Work and Source Boundaries": "\n\n".join(
             [
                 *citation_lines,
-                "The registry is bounded and does not claim exhaustive literature coverage, "
-                "novelty, proof, empirical validation, or publication readiness.",
-                "## Bibliography\n\n" + "\n".join(bibliography) if bibliography else "",
+                "The source registry is bounded. It supports background and source context only, "
+                "not exhaustive literature coverage, proof, empirical validation, or novelty.",
+                "Accepted bibliography records retained for export: " + " ".join(bibliography)
+                if bibliography
+                else "",
             ]
         ).strip(),
-        "Method / System Architecture": (
-            "The deterministic workflow constructs a citation registry from quality-accepted local "
-            "records, audits manuscript sentences, links claims to scoped artifacts, plans missing "
-            "evidence work, executes policy-approved local actions, and rebuilds the evidence map. "
-            "A gated uv-local sandbox may execute only approved experiment bundles "
-            "with fixed seeds, "
-            "captured logs, metrics, and hashes. Local proof-plan refinement remains non-verifying "
-            "unless an exact passed formal artifact is ingested. Release checks assess package "
-            "readiness for review only and cannot create evidence."
+        "Research Question / Hypothesis": (
+            f"Research question: {research_question}\n\n"
+            f"Bounded hypothesis for this run: {hypothesis} The hypothesis is scoped to the "
+            "configured local artifact path. It is not a novelty claim, not a general performance "
+            "claim, and not evidence about unobserved datasets."
         ),
-        "Claim-Evidence Map": (
-            f"The source map contains {len(source_map.links)} claim records. "
-            "These counts do not establish scientific validation: "
-            f"{counts['citation_supported_claim_count']} are linked to accepted "
-            "background citations, "
+        "Method or Model": (
+            f"The proposed model is a bounded {method_phrase} for {domain}. It treats the domain "
+            "question as a controlled synthetic calibration or stress-testing task rather than a "
+            "claim about all places, populations, or empirical settings. The model uses accepted "
+            "source context to motivate the problem frame, then confines any empirical statement "
+            "to an approved local experiment bundle with fixed seed, captured configuration, "
+            "metrics, logs, and output hashes. Formal plans, retrieval expansion, and execution "
+            "records are separated from scientific evidence unless a corresponding artifact passes "
+            "the relevant intake rule."
+        ),
+        "Bounded Empirical Demonstration": "\n\n".join(experiment_lines),
+        "Results Within Scope": "\n\n".join(result_lines),
+        "Limitations and Deferred Evidence": "\n\n".join(limitation_lines),
+        "Conclusion": (
+            f"The bounded result is a domain-facing manuscript about {domain} with a conservative "
+            "research question, accepted source context, and scoped evidence language. Any "
+            "completed uv-local synthetic experiment remains limited to its mapped configuration "
+            "and metrics. No passed formal proof is implied for deferred proof paths, and deferred "
+            "retrieval work remains visible. Stronger domain claims require new accepted evidence "
+            "artifacts and the same safety checks."
+        ),
+        "Appendix A: Claim-Evidence Map": (
+            f"The claim-evidence map contains {len(source_map.links)} claim records. These counts "
+            "are audit context, not scientific validation: "
+            f"{counts['citation_supported_claim_count']} are linked to accepted background "
+            "citations, "
             f"{counts['proof_supported_claim_count']} to scoped proof artifacts, "
             f"{counts['experiment_supported_claim_count']} to completed experiment artifacts, and "
             f"{counts['human_review_linked_claim_count']} to review-occurrence context. "
-            "Unsupported "
-            "noncritical wording is omitted or represented as a boundary statement. Evidence links "
-            "do not transfer authority across claims."
+            "Unsupported noncritical wording is omitted or represented as a boundary statement. "
+            f"Evidence links do not transfer authority across claims. {appendix_proof_text}"
         ),
-        "Formal / Proof Status": proof_text,
-        "Empirical Demonstration": "\n\n".join(experiment_lines),
-        "Autonomous Execution Trace": (
+        "Appendix B: Autonomous Execution and Provenance": (
             f"The autonomous loop completed {loop.iterations_completed} iteration(s) with terminal "
             f"state `{loop.terminal_state}` and stop reason `{loop.stop_reason}`. It recorded "
             f"{loop.resolved_gap_count} resolved, {loop.deferred_gap_count} deferred, and "
             f"{loop.exhausted_gap_count} exhausted workflow gaps. {escalation_text} {human_text} "
-            "These records describe orchestration and provenance only; they are not "
-            "verification or "
-            "scientific validation."
-        ),
-        "Limitations and Deferred Gaps": "\n\n".join(limitation_lines),
-        "Conclusion": (
-            "This draft does not establish scientific validation. The regenerated artifact is a "
-            "coherent bounded draft assembled from scoped claim-evidence links and autonomous "
-            "workflow reports. Any "
-            "completed local experiment remains limited to its mapped configuration. No passed "
-            "formal proof artifact is implied where proof obligations remain unresolved. Retrieval "
-            "obligations also remain visible. Stronger scientific "
-            "claims require corresponding future artifacts and policy checks. The current release "
-            "remains a human-review workflow status with warnings, and publication_ready is false."
+            "These records describe orchestration, packaging, and provenance only; they are not "
+            "verification or scientific validation. publication_ready=false."
         ),
     }
     sections = []
@@ -652,20 +692,22 @@ def _build_sections(
                 heading=heading,
                 body_markdown=body,
                 word_count=_word_count(body),
-                included_claim_ids=claim_ids if heading == "Claim-Evidence Map" else [],
+                included_claim_ids=(
+                    claim_ids if heading == "Appendix A: Claim-Evidence Map" else []
+                ),
                 citation_keys=(
                     sorted(record.citation_key for record in accepted)
                     if heading == "Related Work and Source Boundaries"
                     else []
                 ),
                 proof_artifact_ids=[proof.proof_id for proof in formal]
-                if heading == "Formal / Proof Status"
+                if heading == "Appendix A: Claim-Evidence Map"
                 else [],
                 experiment_artifact_ids=[experiment.experiment_id for experiment in completed]
-                if heading == "Empirical Demonstration"
+                if heading == "Bounded Empirical Demonstration"
                 else [],
                 deferred_gap_types=deferred["types"]
-                if heading == "Limitations and Deferred Gaps"
+                if heading == "Limitations and Deferred Evidence"
                 else [],
             )
         )
@@ -673,177 +715,171 @@ def _build_sections(
 
 
 _FINAL_SECTION_DEPTH_TARGETS = {
-    "Abstract": 140,
-    "Introduction": 240,
-    "Related Work and Source Boundaries": 130,
-    "Method / System Architecture": 240,
-    "Claim-Evidence Map": 180,
-    "Formal / Proof Status": 130,
-    "Empirical Demonstration": 170,
-    "Autonomous Execution Trace": 130,
-    "Limitations and Deferred Gaps": 200,
-    "Conclusion": 170,
+    "Abstract": 120,
+    "Introduction": 220,
+    "Related Work and Source Boundaries": 140,
+    "Research Question / Hypothesis": 150,
+    "Method or Model": 220,
+    "Bounded Empirical Demonstration": 150,
+    "Results Within Scope": 150,
+    "Limitations and Deferred Evidence": 190,
+    "Conclusion": 140,
+    "Appendix A: Claim-Evidence Map": 160,
+    "Appendix B: Autonomous Execution and Provenance": 160,
 }
 
 _FINAL_SECTION_DEVELOPMENT = {
     "Abstract": [
         """
-        The bounded contribution is a final presentation layer that consumes existing registry,
-        linkage, execution, and release records without changing their authority. It distinguishes
-        accepted background context from claim-specific artifacts. This distinction does not
-        establish scientific validation; it preserves failed or deferred work and records the
-        post-regeneration safety checks.
+        The manuscript is framed as a research draft rather than an audit report. It keeps the
+        domain question, accepted source context, method boundary, and scoped demonstration in the
+        foreground while reserving provenance details for the appendices.
         """,
         """
-        The resulting document is intended for inspection and subsequent export. It is not proof,
-        experiment evidence, human approval, or a substitute for the append-only ledger.
+        Any empirical statement is confined to the recorded local configuration. Stronger claims
+        about general performance, causal explanation, or comparative superiority would require
+        new accepted evidence.
         """,
     ],
     "Introduction": [
         """
-        The problem statement is operational as well as representational. Incremental drafting can
-        leave related facts distributed across revisions even when each local patch is safe. A final
-        deterministic pass must reconstruct section order, evidence boundaries, and deferred-work
-        language from canonical artifacts instead of relying on stale prose.
+        Spatial and regional claims often depend on scale, boundary choice, observation density,
+        and the distinction between local pattern and general explanation. A bounded manuscript can
+        still be useful when it states exactly which part of that problem is being modeled and which
+        parts remain outside the evidence base.
         """,
         """
-        The contribution of this draft is limited to that reconstruction contract. Each included
-        statement is either supported within its declared scope or phrased as method, provenance,
-        limitation, scaffold, or future-work context. Unsupported authority language is excluded.
+        This draft therefore treats the selected domain as a setting for a conservative research
+        question. The paper asks for a run-specific synthetic demonstration, not a complete account
+        of the field. Source records, formal-evidence status, and experiment records constrain the
+        wording rather than expanding it.
         """,
         """
-        This objective keeps the autonomous path usable without requiring a reviewer to reconcile
-        ordinary state transitions. Human review remains a separate audit and override layer, while
-        evidence admission continues to depend on deterministic artifact policy.
+        The resulting structure is meant to support later evidence extension. If future local
+        retrieval packs, formal artifacts, or additional experiments are accepted, they can support
+        stronger mapped statements without changing the conservative interpretation of this run.
         """,
     ],
     "Related Work and Source Boundaries": [
         """
-        This source section does not establish scientific validation. Registry inclusion records
-        only that a source passed the configured metadata, duplicate, relevance, and safety rules.
-        It does not show that the source set is exhaustive, that every relevant publication was
-        retrieved, or that the manuscript contribution is new.
+        The related-work discussion is deliberately local to the accepted registry. It records
+        context for the research question and helps bound terminology, but it does not assert that
+        the literature search was exhaustive or that the paper establishes novelty.
         """,
         """
-        The bibliography preserves identifiers and accepted citation keys so each local statement
-        can be traced to bounded context. Rejected and hard-rejected records remain visible in
-        retrieval reports but cannot enter this bibliography or support a manuscript claim.
-        """,
-    ],
-    "Method / System Architecture": [
-        """
-        The method separates discovery context, manuscript context, and verification evidence.
-        This source workflow does not establish scientific validation; normalization and relevance
-        filtering produce a bounded registry. This audit does not establish scientific validation;
-        sentence checks classify support requirements before links are constructed from accepted
-        context keys and claim-specific artifact identifiers.
-        """,
-        """
-        Autonomous planning operates only after those classifications exist. Its actions can revise
-        wording, create planned specifications, route approved local templates, or record deferred
-        work. Planned specifications remain non-evidence until an execution adapter produces an
-        artifact that passes the existing intake contract.
-        """,
-        """
-        This audit does not establish scientific validation; regeneration reads the latest immutable
-        indexes, writes numbered outputs, and recomputes usage, support, linkage, quality
-        diagnostics,
-        and release status. The provenance appendix is represented by content-hashed reports and the
-        producing ledger commit; regeneration never edits prior artifacts.
+        Accepted source keys are used only where a statement needs background context. Rejected and
+        hard-rejected records remain outside the manuscript bibliography, so the main body does not
+        cite sources that failed the configured relevance or safety filters.
         """,
     ],
-    "Claim-Evidence Map": [
+    "Research Question / Hypothesis": [
         """
-        This accounting does not establish scientific validation; it records support scope. Citation
-        links authorize bounded literature context only. Passed formal links authorize only their
-        declared statement identifiers, and completed experiment links authorize only their declared
-        run, configuration, metrics, and target identifiers.
+        The research question is intentionally narrow. It asks whether the configured synthetic
+        setup can report reproducible metrics for the mapped demonstration claim, not whether the
+        method is generally correct or superior in unobserved places.
         """,
         """
-        A scaffold or boundary statement requires no external support because it describes the
-        current package or limits its interpretation. A partially supported source claim is reduced
-        to boundary wording, while a forbidden or unsupported authority claim is omitted.
-        Human-review links record review occurrence or status only.
+        The hypothesis is likewise bounded. It can be supported only by the completed local
+        experiment artifact for the target claim, and it remains silent about external datasets,
+        future cases, and broader geographic explanation.
         """,
     ],
-    "Formal / Proof Status": [
+    "Method or Model": [
         """
-        No passed formal proof artifact should be inferred from orchestration success, a generated
-        proof obligation, or a refined proof plan. Formal authority requires an accepted artifact
-        whose declared claim identifier or statement hash matches the mapped statement and whose
-        checker status is passed.
+        The model should be read as a demonstration scaffold. It fixes the local experiment bundle,
+        seed policy, metrics, and target claim before any result statement is admitted. This keeps
+        the method from drifting into unsupported interpretation after the demonstration runs.
         """,
         """
-        This proof-status section does not establish broad correctness. Even a passed formal link
-        would remain limited to its declared statement and checker scope; it would not support
-        novelty, empirical behavior, literature coverage, or publication readiness.
-        """,
-    ],
-    "Empirical Demonstration": [
-        """
-        This record does not establish empirical validation; the synthetic design is a
-        reproducibility check for one configured local path. Inputs, code, dependency policy,
-        fixed seed, logs, metrics, and outputs are hashed so the bounded result can be inspected
-        without extending it to unobserved datasets or alternative methods.
-        """,
-        """
-        A failed, timed-out, inconclusive, or policy-rejected sandbox run would not count as
-        completed experiment support. Template selection and sandbox orchestration are workflow
-        context only. The experiment artifact cannot support theorem, novelty, broad correctness,
-        or release claims.
+        Source context informs the framing but does not validate the model. Formal proof status,
+        retrieval limitations, and sandbox outputs are handled as distinct support channels, so a
+        statement supported by one channel cannot borrow authority from another.
         """,
     ],
-    "Autonomous Execution Trace": [
+    "Bounded Empirical Demonstration": [
         """
-        The trace records which deterministic stages ran, which artifacts were created, and why the
-        controller stopped. New artifacts count as progress only once, while duplicate
-        specifications,
-        repeated no-op refreshes, and exhausted attempts remain non-progress outcomes.
+        The demonstration is a local synthetic exercise. It is useful for checking whether the
+        configured machinery can produce reproducible run-specific metrics, but it does not
+        establish real-world empirical validity or broad robustness.
         """,
         """
-        This execution trace is not verification evidence. Terminal and escalation statuses describe
-        workflow disposition only, preserve deferred work, and leave all claim authority under the
-        citation, proof, experiment, and human-review intake policies.
+        A successful sandbox run supports only the mapped bounded result claim. Failed, timed-out,
+        policy-rejected, or inconclusive runs remain non-evidence and cannot appear as completed
+        empirical support.
         """,
     ],
-    "Limitations and Deferred Gaps": [
+    "Results Within Scope": [
         """
-        Bounded retrieval context does not establish scientific validation or exhaustive coverage.
-        The accepted-source count constrains the related-work discussion, while the rejected-source
-        count records items that failed relevance, metadata, duplicate, or safety checks. This
-        context does not establish scientific validation; additional local packs remain optional.
+        Results are stated as observations about the recorded run. Metrics belong to the accepted
+        experiment artifact, if present, and cannot be generalized to other datasets, baselines, or
+        spatial contexts without additional scoped artifacts.
         """,
         """
-        No passed formal proof artifact should be inferred from a proof plan, refined outline,
-        fixture request, or deferred obligation. Likewise, one completed synthetic experiment
-        cannot establish real-world performance, robustness across settings, or comparative
-        superiority beyond its recorded configuration.
+        Formal and retrieval outcomes are reported as boundaries on interpretation. A proof plan is
+        not a verified theorem, and accepted background sources do not validate empirical behavior.
+        """,
+    ],
+    "Limitations and Deferred Evidence": [
+        """
+        The manuscript remains limited by the accepted source set, the local synthetic design, and
+        any unresolved formal or retrieval paths. These limitations are part of the research claim,
+        not bookkeeping to be discarded after the run completes.
         """,
         """
-        Automation budgets and disabled capabilities can leave safe work deferred even when no
-        unsupported manuscript claim remains. Those dispositions remain in loop and escalation
-        reports. They are not silently reclassified as resolved evidence and do not require human
-        intervention unless the system encounters corruption, contradiction, or an unclassified
-        safety condition.
+        Evidence boundary: accepted sources provide background context, completed synthetic
+        experiments support only mapped run-specific claims, and formal obligations remain open
+        unless a matching passed artifact is present.
+        """,
+        """
+        Additional accepted sources could refine the related-work boundary, and future formal
+        artifacts could support formal statements if their checker scope matches. Until then, those
+        paths remain deferred and visible.
+        """,
+        """
+        One completed synthetic experiment cannot support claims about broad empirical validation,
+        policy transfer, or real-world performance. It reports only the fixed local configuration
+        and mapped result claim.
         """,
     ],
     "Conclusion": [
         """
-        The bounded result is a final manuscript whose wording is derived from the latest scoped
-        state rather than accumulated revision fragments. Accepted context records, claim-specific
-        artifacts, and workflow reports remain distinguishable in the Markdown document and
-        structured companion.
+        The paper closes with a bounded domain-facing result: a research question, accepted source
+        context, method boundary, and scoped demonstration can be stated without upgrading them into
+        broad validation claims.
         """,
         """
-        This draft does not establish novelty, broad correctness, broad empirical validation, or
-        publication readiness. Deferred proof and retrieval paths remain visible, and any future
-        No passed formal proof artifact is implied by a deferred path. Any future automatic action
-        must produce a new accepted scoped artifact before stronger mapped wording can appear.
+        Remaining work is explicit. Deferred proof and retrieval paths are not resolved by the
+        manuscript itself, and any stronger future statement would need an accepted citation, proof,
+        or experiment link within its declared scope.
+        """,
+    ],
+    "Appendix A: Claim-Evidence Map": [
+        """
+        This appendix records support scope rather than scientific validation. Citation links
+        authorize bounded literature context only, proof links authorize only their declared formal
+        statements, and completed experiment links authorize only their recorded runs.
         """,
         """
-        The package can proceed to deterministic export or optional human audit, but presentation
-        polish and review occurrence do not change the evidence classes recorded here. Publication
-        readiness remains false under the current policy.
+        Scaffold or boundary statements are included only to limit interpretation. Unsupported
+        authority language is omitted or downgraded, and human-review records describe review
+        occurrence rather than approval.
+        """,
+    ],
+    "Appendix B: Autonomous Execution and Provenance": [
+        """
+        The execution record explains how the final manuscript was produced, why the loop stopped,
+        which artifacts were included, and which gaps remained deferred. This provenance is useful
+        for audit and replay, but it is not scientific evidence.
+        """,
+        """
+        Bundle assembly, hash locking, and verification preserve reproducibility metadata. They do
+        not change claim labels, create evidence, approve publication, or make deferred paths
+        disappear.
+        """,
+        """
+        The append-only ledger and numbered reports remain the source of provenance for this
+        package. The manuscript body should be read as the bounded research draft; this appendix is
+        the workflow record that keeps the draft auditable.
         """,
     ],
 }
@@ -853,21 +889,21 @@ def _develop_section_body(heading: str, body: str) -> str:
     target = _FINAL_SECTION_DEPTH_TARGETS.get(heading)
     if target is None or _word_count(body) >= target:
         return body
-    bibliography = ""
-    if "\n\n## Bibliography" in body:
-        body, bibliography_body = body.split("\n\n## Bibliography", maxsplit=1)
-        bibliography = "\n\n## Bibliography" + bibliography_body
     paragraphs = [body, *map(_normalize_paragraph, _FINAL_SECTION_DEVELOPMENT.get(heading, []))]
     developed = "\n\n".join(paragraphs)
     if _word_count(developed) < target:
-        developed += (
-            "\n\nThis section remains bounded by the recorded artifacts and does not create "
-            "scientific validation or publication readiness. Its organization records the current "
-            "artifact state, separates workflow context from scoped support, and preserves the "
-            "limitations needed for conservative interpretation. It changes no evidence label, "
-            "source decision, verification status, or release authority."
-        )
-    return developed + bibliography
+        if heading.startswith("Appendix"):
+            developed += (
+                "\n\nThis appendix records provenance and support boundaries only. It changes no "
+                "evidence label, source decision, verification status, or release authority."
+            )
+        else:
+            developed += (
+                "\n\nThis section remains limited to the selected domain, accepted source context, "
+                "and scoped artifacts. It does not assert novelty, broad validation, or general "
+                "correctness beyond the recorded run."
+            )
+    return developed
 
 
 def _normalize_paragraph(text: str) -> str:
@@ -1006,7 +1042,35 @@ def _sections_from_markdown(
     return sections or originals
 
 
-def _source_title(reports: Path, run_id: str) -> str:
+def _domain_context(reports: Path, run_id: str) -> dict[str, str]:
+    config = _read_json_dict(reports / "llm-orchestration-config.json")
+    plan = _read_json_dict(reports / "manuscript-plan.json")
+    domain = str(config.get("domain") or plan.get("domain") or "").strip()
+    if not domain:
+        domain = _domain_from_run_id(run_id)
+    domain = _clean_inline_text(domain) or "the selected research domain"
+    domain_title = _title_case_domain(domain)
+    plan_title = str(plan.get("title") or "").strip()
+    method = str(config.get("method") or config.get("topic_or_question") or "").strip()
+    method_phrase = _method_phrase(method=method, plan_title=plan_title)
+    research_question = (
+        f"How can a bounded {method_phrase} represent or stress-test {domain} while keeping "
+        "source context, synthetic results, and deferred evidence separate?"
+    )
+    hypothesis = (
+        "the configured uv-local synthetic demonstration can report reproducible, run-specific "
+        f"metrics for a mapped {domain} claim under fixed seeds and captured artifacts."
+    )
+    return {
+        "domain": domain,
+        "domain_title": domain_title,
+        "method_phrase": method_phrase,
+        "research_question": research_question,
+        "hypothesis": hypothesis,
+    }
+
+
+def _source_title(reports: Path, run_id: str, domain_context: dict[str, str]) -> str:
     candidates = [
         *reversed(_numbered_paths(reports, "final-manuscript-*.md")),
         reports / "evidence-aware-refreshed-manuscript-draft.md",
@@ -1017,9 +1081,118 @@ def _source_title(reports: Path, run_id: str) -> str:
         if not path.is_file() or "regeneration" in path.name:
             continue
         match = re.search(r"^#\s+(.+?)\s*$", path.read_text(encoding="utf-8"), re.MULTILINE)
-        if match and match.group(1).strip().casefold() not in {"draft", "untitled"}:
-            return match.group(1).strip()
-    return f"Bounded Evidence-Aware Manuscript for {run_id}"
+        if not match:
+            continue
+        title = match.group(1).strip()
+        if title.casefold() in {"draft", "untitled"}:
+            continue
+        if not _pipeline_facing_title(title) and _title_mentions_domain(
+            title,
+            domain_context["domain"],
+        ):
+            return title
+    return f"Bounded Synthetic Demonstration for {domain_context['domain_title']}"
+
+
+def _read_json_dict(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _clean_inline_text(value: str) -> str:
+    return " ".join(value.replace("\n", " ").split())
+
+
+def _domain_from_run_id(run_id: str) -> str:
+    normalized = run_id.replace("_", "-").casefold()
+    if "spatial-heterogeneity" in normalized and "human-geography" in normalized:
+        return "spatial heterogeneity in human geography"
+    if "human-geography" in normalized:
+        return "human geography"
+    tokens = [
+        token
+        for token in re.split(r"[-\s]+", normalized)
+        if token
+        and token
+        not in {
+            "run",
+            "local",
+            "final",
+            "manuscript",
+            "bundle",
+            "smoke",
+            "paper",
+            "autonomous",
+            "openai",
+            "hybrid",
+        }
+    ]
+    return " ".join(tokens[:6]) if tokens else "the selected research domain"
+
+
+def _title_case_domain(domain: str) -> str:
+    small_words = {"and", "in", "of", "the", "for", "to", "with"}
+    words = domain.split()
+    titled = []
+    for index, word in enumerate(words):
+        if index and word.casefold() in small_words:
+            titled.append(word.casefold())
+        else:
+            titled.append(word[:1].upper() + word[1:])
+    return " ".join(titled)
+
+
+def _method_phrase(*, method: str, plan_title: str) -> str:
+    text = f"{method} {plan_title}".casefold()
+    if "calibration" in text:
+        return "synthetic calibration model"
+    if "ablation" in text:
+        return "synthetic ablation model"
+    if "simulation" in text:
+        return "synthetic simulation model"
+    if "proof" in text or "theorem" in text:
+        return "bounded formal-model sketch"
+    if "heterogeneity" in text or "geograph" in text or "spatial" in text:
+        return "synthetic spatial-heterogeneity demonstration model"
+    return "bounded synthetic demonstration model"
+
+
+def _pipeline_facing_title(title: str) -> bool:
+    lowered = title.casefold()
+    markers = {
+        "factori",
+        "claim-evidence",
+        "citation registr",
+        "evidence-aware",
+        "evidence-bounded manuscript generation",
+        "manuscript generation",
+        "autonomous",
+        "workflow",
+        "bundle",
+        "artifact",
+        "pipeline",
+        "release",
+        "verification",
+    }
+    return any(marker in lowered for marker in markers)
+
+
+def _title_mentions_domain(title: str, domain: str) -> bool:
+    title_tokens = set(re.findall(r"[a-z0-9]+", title.casefold()))
+    domain_tokens = {
+        token
+        for token in re.findall(r"[a-z0-9]+", domain.casefold())
+        if token not in {"the", "and", "of", "in", "for", "to"}
+    }
+    if not domain_tokens:
+        return False
+    required_overlap = min(3, len(domain_tokens))
+    return len(title_tokens & domain_tokens) >= required_overlap
 
 
 def _preferred_retrieval_report_path(reports: Path) -> Path:

@@ -236,10 +236,12 @@ _MAIN_BODY_HEADING_ALIASES = {
     "introduction": "Introduction and Problem Framing",
     "introduction and problem framing": "Introduction and Problem Framing",
     "related work and source boundaries": "Introduction and Problem Framing",
+    "research question / hypothesis": "Introduction and Problem Framing",
     "problem framing": "Introduction and Problem Framing",
     "method": "Method and Model",
     "methods": "Method and Model",
     "method and model": "Method and Model",
+    "method or model": "Method and Model",
     "method / system architecture": "Method and Model",
     "autonomous execution trace": "Method and Model",
     "method summary": "Method and Model",
@@ -250,10 +252,13 @@ _MAIN_BODY_HEADING_ALIASES = {
     "formal / proof status": "Claim and Evidence Boundaries",
     "main result and derivatives": "Claim and Evidence Boundaries",
     "results": "Claim and Evidence Boundaries",
+    "results within scope": "Claim and Evidence Boundaries",
     "demonstration status": "Demonstration Status",
     "empirical demonstration": "Demonstration Status",
+    "bounded empirical demonstration": "Demonstration Status",
     "limitations": "Limitations",
     "limitations and deferred gaps": "Limitations",
+    "limitations and deferred evidence": "Limitations",
     "conclusion": "Conclusion",
 }
 QUALITY_SECTION_DEPTH_TARGETS: dict[str, dict[str, int]] = {
@@ -1891,7 +1896,7 @@ def lint_paper_bundle_summary(
     conclusion_placeholder_like = bool(
         conclusion_section is not None and _section_is_placeholder_like(conclusion_section)
     )
-    final_regeneration_plan_present = {
+    old_final_regeneration_plan_present = {
         "abstract",
         "introduction",
         "related work and source boundaries",
@@ -1903,6 +1908,20 @@ def lint_paper_bundle_summary(
         "limitations and deferred gaps",
         "conclusion",
     }.issubset(set(lower_headings))
+    domain_final_regeneration_plan_present = {
+        "abstract",
+        "introduction",
+        "related work and source boundaries",
+        "research question / hypothesis",
+        "method or model",
+        "bounded empirical demonstration",
+        "results within scope",
+        "limitations and deferred evidence",
+        "conclusion",
+    }.issubset(set(lower_headings))
+    final_regeneration_plan_present = (
+        old_final_regeneration_plan_present or domain_final_regeneration_plan_present
+    )
     allowed_main_body_section_count = (
         10 if final_regeneration_plan_present else len(CANONICAL_MAIN_SECTIONS) + 1
     )

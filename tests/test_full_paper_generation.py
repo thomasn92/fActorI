@@ -3519,6 +3519,18 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
         coverage_limitations=["Local fixture coverage is bounded context only."],
     )
     reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "llm-orchestration-config.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "domain": "spatial heterogeneity in human geography",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     (reports / "retrieval-quality-report.json").write_text(
         retrieval_quality.model_dump_json(indent=2) + "\n",
         encoding="utf-8",
@@ -3567,7 +3579,7 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
         result.persistence.commit.action_type == ControllerActionType.FINAL_MANUSCRIPT_REGENERATED
     )
     assert result.report.regeneration_status == "completed"
-    assert result.report.sections_generated == 10
+    assert result.report.sections_generated == 11
     assert result.report.unsupported_claim_count == 0
     assert result.report.publication_ready is False
     assert result.structured_manuscript.publication_ready is False
@@ -3577,18 +3589,40 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
         tmp_path / "runs" / run_id / "reports" / "final-manuscript-regeneration-0001.md"
     )
     assert report_markdown.is_file()
+    title = markdown.splitlines()[0]
+    assert "Spatial Heterogeneity in Human Geography" in title
+    assert "manuscript generation" not in title.casefold()
+    assert "claim-evidence" not in title.casefold()
+    abstract = markdown.split("## Abstract", maxsplit=1)[1].split("## Introduction", maxsplit=1)[0]
+    assert "spatial heterogeneity in human geography" in abstract.casefold()
+    assert "representation problem" in abstract.casefold()
+    assert "claim-evidence map" not in abstract.casefold()
     assert "## Abstract" in markdown
     assert "## Introduction" in markdown
-    assert "## Method / System Architecture" in markdown
-    assert "## Limitations and Deferred Gaps" in markdown
+    assert "## Related Work and Source Boundaries" in markdown
+    assert "## Research Question / Hypothesis" in markdown
+    assert "## Method or Model" in markdown
+    assert "## Bounded Empirical Demonstration" in markdown
+    assert "## Results Within Scope" in markdown
+    assert "## Limitations and Deferred Evidence" in markdown
     assert "## Conclusion" in markdown
-    assert "completed local synthetic experiment artifact" in markdown
+    assert "## Appendix A: Claim-Evidence Map" in markdown
+    assert "## Appendix B: Autonomous Execution and Provenance" in markdown
+    main_body = markdown.split("## Appendix A: Claim-Evidence Map", maxsplit=1)[0]
+    appendices = markdown.split("## Appendix A: Claim-Evidence Map", maxsplit=1)[1]
+    assert "claim-evidence map" not in main_body.casefold()
+    assert "autonomous loop" not in main_body.casefold()
+    assert "publication_ready=false" not in main_body
+    assert "claim-evidence map" in appendices.casefold()
+    assert "autonomous loop" in appendices.casefold()
+    assert "publication_ready=false" in appendices
+    assert "completed uv-local synthetic experiment artifact" in markdown
     assert "does not establish broad empirical validation" in markdown
     assert "No passed formal proof artifact" in markdown
     assert "retrieval path(s) remain deferred" in markdown
-    assert "workflow trace" in markdown.casefold()
     assert "the method is empirically validated" not in markdown.casefold()
-    assert "publication_ready remains false" in markdown
+    assert "publication-ready" not in markdown.casefold()
+    assert "publication ready" not in markdown.casefold()
     registry = CitationRegistry.model_validate_json(
         (tmp_path / "runs" / run_id / "reports" / "citation-registry.json").read_text()
     )
