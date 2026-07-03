@@ -7,6 +7,9 @@ from factori.protocols import (
 )
 from factori.schemas import (
     ArtifactRef,
+    AutonomousPaperCheckpoint,
+    AutonomousPaperCheckpointIndex,
+    AutonomousPaperResumeReport,
     AutonomousPaperRunHandoff,
     AutonomousPaperRunIndex,
     AutonomousPaperRunReport,
@@ -89,9 +92,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 219
+    assert len(first) == 222
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.45.0"
+    assert PROTOCOL_VERSION == "0.46.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -129,6 +132,15 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     )
     assert get_protocol_definition("AutonomousPaperRunReport").model is AutonomousPaperRunReport
     assert get_protocol_definition("AutonomousPaperRunIndex").model is AutonomousPaperRunIndex
+    assert get_protocol_definition("AutonomousPaperCheckpoint").model is (
+        AutonomousPaperCheckpoint
+    )
+    assert get_protocol_definition("AutonomousPaperCheckpointIndex").model is (
+        AutonomousPaperCheckpointIndex
+    )
+    assert get_protocol_definition("AutonomousPaperResumeReport").model is (
+        AutonomousPaperResumeReport
+    )
     assert get_protocol_definition("AdapterConfig").model is AdapterConfig
     assert get_protocol_definition("RunStatusReport").model is RunStatusReport
     assert get_protocol_definition("StageRerunDecision").model is StageRerunDecision

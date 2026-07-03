@@ -361,6 +361,8 @@ class ControllerActionType(StrEnum):
     FINAL_MANUSCRIPT_REGENERATED = "FinalManuscriptRegenerated"
     FINAL_RELEASE_BUNDLE_ASSEMBLED = "FinalReleaseBundleAssembled"
     AUTONOMOUS_PAPER_RUN_WRITTEN = "AutonomousPaperRunWritten"
+    AUTONOMOUS_PAPER_CHECKPOINT_WRITTEN = "AutonomousPaperCheckpointWritten"
+    AUTONOMOUS_PAPER_RESUME_WRITTEN = "AutonomousPaperResumeWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

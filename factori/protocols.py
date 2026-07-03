@@ -21,6 +21,9 @@ from factori.schemas import (
     AutonomousLoopIndex,
     AutonomousLoopIterationReport,
     AutonomousLoopRunReport,
+    AutonomousPaperCheckpoint,
+    AutonomousPaperCheckpointIndex,
+    AutonomousPaperResumeReport,
     AutonomousPaperRunHandoff,
     AutonomousPaperRunIndex,
     AutonomousPaperRunReport,
@@ -223,7 +226,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.45.0"
+PROTOCOL_VERSION = "0.46.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -669,6 +672,21 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "AutonomousPaperRunIndex",
         AutonomousPaperRunIndex,
         "Derived latest pointer for autonomous paper controller reports.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperCheckpoint",
+        AutonomousPaperCheckpoint,
+        "Immutable verified stage checkpoint for crash-safe controller resume.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperCheckpointIndex",
+        AutonomousPaperCheckpointIndex,
+        "Immutable index snapshot over autonomous paper checkpoints.",
+    ),
+    ProtocolDefinition(
+        "AutonomousPaperResumeReport",
+        AutonomousPaperResumeReport,
+        "Append-only report for one verified autonomous paper resume attempt.",
     ),
     ProtocolDefinition(
         "AutonomousLoopDecision",

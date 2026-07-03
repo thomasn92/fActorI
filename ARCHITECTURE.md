@@ -74,6 +74,12 @@ validation checks commit hashes, parent continuity, insertion-order tip extensio
 repeated mutating-stage start markers without rewriting or repairing history. Broken lineage makes
 a run inconsistent and blocks further mutation.
 
+The autonomous paper controller writes a numbered immutable checkpoint after each stage. Resume
+verifies checkpoint hashes, locked stage outputs, protocol version, safety state, bundle integrity,
+and ledger ancestry before reuse. Missing checkpoints with existing immutable outputs, corrupt
+artifacts, or invalid ledger lineage block resume. Final bundle verification and handoff always
+rerun, and resume never rewrites prior controller, bundle, verification, or checkpoint artifacts.
+
 ## Language-Neutral Protocol Boundary
 
 Stable public protocol names are registered in `factori/protocols.py` and exported from existing

@@ -23,7 +23,13 @@ from factori.autonomous_loop import (
     inspect_autonomous_loop,
     run_autonomous_loop,
 )
+from factori.autonomous_paper_checkpoint import (
+    inspect_autonomous_paper_checkpoints,
+    inspect_autonomous_paper_resume,
+    verify_autonomous_paper_checkpoints,
+)
 from factori.autonomous_paper_run import (
+    AutonomousPaperInjectedCrash,
     AutonomousPaperRunError,
     _final_bundle_is_complete,
     _final_manuscript_is_safe,
@@ -45,6 +51,7 @@ from factori.claim_evidence import (
     BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
     build_claim_evidence_map,
     inspect_claim_evidence_map,
+    latest_claim_evidence_map_path,
     persist_claim_evidence_map,
 )
 from factori.cli import app
@@ -4072,7 +4079,14 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     reports = tmp_path / "runs" / run_id / "reports"
     assert (reports / "autonomous-paper-run-0001.json").is_file()
     assert (reports / "autonomous-paper-run-0001.md").is_file()
-    assert (reports / "autonomous-paper-run-index.json").is_file()
+    assert (reports / "autonomous-paper-run-index-0001.json").is_file()
+    assert len(
+        [
+            path
+            for path in reports.glob("autonomous-paper-checkpoint-*.json")
+            if "-index-" not in path.name and not path.name.endswith(".meta.json")
+        ]
+    ) == 6
     markdown = (reports / "autonomous-paper-run-0001.md").read_text(encoding="utf-8")
     assert "publication_ready: false" in markdown
     assert "inspect-final-release-bundle" in markdown
@@ -4140,6 +4154,170 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     with pytest.raises(AutonomousPaperRunError, match="Run already exists"):
         run_autonomous_paper(config=config, root=tmp_path)
 
+    verification_count = len(list(reports.glob("final-bundle-verification-*.json")))
+    resumed = run_autonomous_paper(
+        config=config,
+        root=tmp_path,
+        resume_existing=True,
+    )
+    assert resumed.report.autonomous_run_id == "autonomous-paper-run-0002"
+    assert [stage.stage_status for stage in resumed.report.stages[:4]] == ["reused"] * 4
+    assert resumed.report.publication_ready is False
+    assert (reports / "autonomous-paper-run-0002.json").is_file()
+    assert (reports / "autonomous-paper-run-index-0002.json").is_file()
+    assert (reports / "autonomous-paper-resume-0001.json").is_file()
+    assert (reports / "autonomous-paper-resume-0001.md").is_file()
+    assert len(list(reports.glob("final-bundle-verification-*.json"))) == (
+        verification_count + 1
+    )
+
+    checkpoints = inspect_autonomous_paper_checkpoints(run_id=run_id, root=tmp_path)
+    resume = inspect_autonomous_paper_resume(run_id=run_id, root=tmp_path)
+    assert checkpoints["checkpoint_count"] == 8
+    assert checkpoints["resume_allowed"] is True
+    assert checkpoints["checkpoints_failed"] == 0
+    assert resume["resume_status"] == "completed_with_warnings"
+    assert resume["actual_resume_stage"] == "final_bundle_verification"
+    assert resume["stages_reused"] == [
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+    ]
+    assert resume["stages_rerun"] == ["final_bundle_verification", "handoff"]
+    assert resume["final_bundle_verification_rerun"] is True
+
+    lint_after_resume = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
+    assert lint_after_resume["autonomous_paper_checkpoint_present"] is True
+    assert lint_after_resume["autonomous_paper_checkpoint_count"] == 8
+    assert lint_after_resume["autonomous_paper_resume_allowed"] is True
+    assert lint_after_resume["autonomous_paper_latest_resume_status"] == (
+        "completed_with_warnings"
+    )
+    assert lint_after_resume["autonomous_paper_stages_reused_count"] == 4
+    assert lint_after_resume["autonomous_paper_stages_rerun_count"] == 2
+
+    for command in (
+        "inspect-autonomous-paper-checkpoints",
+        "inspect-autonomous-paper-resume",
+    ):
+        cli_result = CliRunner().invoke(
+            app,
+            [command, "--run-id", run_id, "--root", str(tmp_path), "--json"],
+        )
+        assert cli_result.exit_code == 0, cli_result.output
+
+    source_run = tmp_path / "runs" / run_id
+
+    def copied_root(name: str) -> Path:
+        root = tmp_path / name
+        shutil.copytree(source_run, root / "runs" / run_id)
+        return root
+
+    corrupt_hash_root = copied_root("corrupt-checkpoint-hash")
+    corrupt_hash_path = sorted(
+        path
+        for path in (corrupt_hash_root / "runs" / run_id / "reports").glob(
+            "autonomous-paper-checkpoint-*.json"
+        )
+        if "-index-" not in path.name and not path.name.endswith(".meta.json")
+    )[0]
+    corrupt_hash = json.loads(corrupt_hash_path.read_text(encoding="utf-8"))
+    corrupt_hash["checkpoint_hash"] = "0" * 64
+    corrupt_hash_path.write_text(json.dumps(corrupt_hash), encoding="utf-8")
+    assert not verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=corrupt_hash_root
+    ).resume_allowed
+
+    missing_checkpoint_root = copied_root("missing-checkpoint")
+    missing_checkpoint_path = sorted(
+        path
+        for path in (missing_checkpoint_root / "runs" / run_id / "reports").glob(
+            "autonomous-paper-checkpoint-*.json"
+        )
+        if "-index-" not in path.name and not path.name.endswith(".meta.json")
+    )[0]
+    missing_checkpoint_path.unlink()
+    assert not verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=missing_checkpoint_root
+    ).resume_allowed
+
+    publication_root = copied_root("publication-ready-checkpoint")
+    publication_path = sorted(
+        path
+        for path in (publication_root / "runs" / run_id / "reports").glob(
+            "autonomous-paper-checkpoint-*.json"
+        )
+        if "-index-" not in path.name and not path.name.endswith(".meta.json")
+    )[0]
+    publication_payload = json.loads(publication_path.read_text(encoding="utf-8"))
+    publication_payload["publication_ready"] = True
+    publication_path.write_text(json.dumps(publication_payload), encoding="utf-8")
+    publication_verification = verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=publication_root
+    )
+    assert not publication_verification.resume_allowed
+    assert any("publication_ready=true" in item for item in publication_verification.blockers)
+
+    stale_protocol_root = copied_root("stale-protocol-checkpoint")
+    stale_protocol_path = sorted(
+        path
+        for path in (stale_protocol_root / "runs" / run_id / "reports").glob(
+            "autonomous-paper-checkpoint-*.json"
+        )
+        if "-index-" not in path.name and not path.name.endswith(".meta.json")
+    )[0]
+    stale_protocol_payload = json.loads(stale_protocol_path.read_text(encoding="utf-8"))
+    stale_protocol_payload["protocol_version"] = "0.45.0"
+    stale_protocol_path.write_text(json.dumps(stale_protocol_payload), encoding="utf-8")
+    stale_protocol_verification = verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=stale_protocol_root
+    )
+    assert not stale_protocol_verification.resume_allowed
+    assert any("stale" in item for item in stale_protocol_verification.blockers)
+
+    missing_manuscript_root = copied_root("missing-final-manuscript")
+    manuscript_report, _ = latest_final_manuscript_regeneration(
+        missing_manuscript_root, run_id
+    )
+    assert manuscript_report is not None
+    (missing_manuscript_root / manuscript_report.final_manuscript_path).unlink()
+    assert not verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=missing_manuscript_root
+    ).resume_allowed
+
+    corrupt_map_root = copied_root("corrupt-claim-map")
+    corrupt_map_path = latest_claim_evidence_map_path(corrupt_map_root, run_id)
+    assert corrupt_map_path is not None
+    corrupt_map_path.write_text("{not-json}\n", encoding="utf-8")
+    with pytest.raises(AutonomousPaperRunError, match="claim-evidence map is corrupt"):
+        run_autonomous_paper(config=config, root=corrupt_map_root, resume_existing=True)
+
+    corrupt_bundle_root = copied_root("corrupt-bundle-hash")
+    bundle_report, _ = latest_final_release_bundle(corrupt_bundle_root, run_id)
+    assert bundle_report is not None
+    bundle_hash_path = (
+        corrupt_bundle_root
+        / bundle_report.bundle_path
+        / "reproducibility"
+        / "hashes.sha256"
+    )
+    bundle_hash_path.write_text(
+        bundle_hash_path.read_text(encoding="utf-8") + "stale\n",
+        encoding="utf-8",
+    )
+    assert not verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=corrupt_bundle_root
+    ).resume_allowed
+
+    corrupt_ledger_root = copied_root("corrupt-ledger")
+    (corrupt_ledger_root / "runs" / run_id / "ledger.sqlite").write_bytes(b"corrupt")
+    ledger_verification = verify_autonomous_paper_checkpoints(
+        run_id=run_id, root=corrupt_ledger_root
+    )
+    assert not ledger_verification.resume_allowed
+    assert any("Ledger" in item for item in ledger_verification.blockers)
+
 
 def test_autonomous_paper_controller_persists_base_failure(
     tmp_path,
@@ -4165,6 +4343,63 @@ def test_autonomous_paper_controller_persists_base_failure(
     assert result.report.stages[0].stage_status == "failed"
     assert all(stage.stage_status == "skipped" for stage in result.report.stages[1:-1])
     assert (tmp_path / result.report_artifact.path).is_file()
+
+
+def test_autonomous_paper_resume_after_injected_base_checkpoint_crash(tmp_path) -> None:
+    run_id = "run-autonomous-paper-crash-resume"
+    config = LLMOrchestrationConfig(
+        run_id=run_id,
+        domain="human geography",
+        candidate_backend="fake",
+        reviewer_backend="fake",
+        prose_backend="fake",
+        claim_adjudicator_backend="fake",
+        source_relevance_adjudicator_backend="fake",
+        quality_repair_backend="deterministic",
+        enable_retrieval=True,
+        retrieval_backend="local",
+        retrieval_local_path=(
+            "tests/fixtures/retrieval/openalex_style_human_geography_sources.json"
+        ),
+        max_retrieval_sources=8,
+        citation_policy="registry-only",
+    )
+
+    with pytest.raises(AutonomousPaperInjectedCrash, match="base_generation"):
+        run_autonomous_paper(
+            config=config,
+            root=tmp_path,
+            fault_after_stage="base_generation",
+        )
+
+    partial = inspect_autonomous_paper_checkpoints(run_id=run_id, root=tmp_path)
+    assert partial["checkpoint_count"] == 1
+    assert partial["latest_completed_stage"] == "base_generation"
+    assert partial["resume_allowed"] is True
+    assert not list(
+        (tmp_path / "runs" / run_id / "reports").glob("autonomous-paper-run-*.json")
+    )
+
+    resumed = run_autonomous_paper(
+        config=config,
+        root=tmp_path,
+        resume_existing=True,
+    )
+    resume = inspect_autonomous_paper_resume(run_id=run_id, root=tmp_path)
+    assert resumed.report.stages[0].stage_status == "reused"
+    assert resume["actual_resume_stage"] == "autonomous_loop"
+    assert resume["stages_reused"] == ["base_generation"]
+    assert resume["stages_rerun"] == [
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+        "final_bundle_verification",
+        "handoff",
+    ]
+    assert resume["final_bundle_verification_rerun"] is True
+    assert resumed.report.unsupported_claim_count == 0
+    assert resumed.report.human_intervention_required is False
+    assert resumed.report.publication_ready is False
 
 
 def test_autonomous_loop_blocks_corrupt_claim_evidence_map(tmp_path) -> None:

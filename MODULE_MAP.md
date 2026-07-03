@@ -255,6 +255,9 @@ All implementation modules are under `factori/`.
 - `autonomous_paper_run.py`: fail-closed one-command orchestration over base paper generation,
   autonomous iteration, final manuscript regeneration, release-bundle assembly, independent
   verification, and bounded handoff reporting without creating evidence or publication readiness.
+- `autonomous_paper_checkpoint.py`: immutable controller-stage checkpoints, artifact/protocol/ledger
+  verification, append-only resume reports, and read-only checkpoint/resume inspection for
+  crash-safe autonomous finalization.
 - `gap_attempts.py`: stable gap, plan-item, planned-spec, and execution-attempt fingerprints;
   append-only derived gap-attempt histories; planned-spec de-dup indexes; and exhaustion-aware
   planner annotations without evidence or publication-readiness authority.

@@ -1,13 +1,20 @@
 {
-  "$id": "https://schemas.factori.local/0.46.0/paper-release-readiness-preview.schema.json",
+  "$id": "https://schemas.factori.local/0.46.0/autonomous-paper-checkpoint-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Non-authoritative manuscript-quality readiness preview.",
+  "description": "Immutable index snapshot over autonomous paper checkpoints.",
   "properties": {
-    "blocking_findings": {
+    "checkpoint_count": {
       "minimum": 0,
-      "title": "Blocking Findings",
+      "title": "Checkpoint Count",
       "type": "integer"
+    },
+    "checkpoints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Checkpoints",
+      "type": "array"
     },
     "creates_scientific_validation": {
       "default": false,
@@ -24,48 +31,54 @@
       "title": "Is Verification Evidence",
       "type": "boolean"
     },
-    "major_findings": {
-      "minimum": 0,
-      "title": "Major Findings",
-      "type": "integer"
+    "latest_completed_stage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Completed Stage"
+    },
+    "latest_controller_run_id": {
+      "minLength": 1,
+      "title": "Latest Controller Run Id",
+      "type": "string"
     },
     "publication_ready": {
       "default": false,
       "title": "Publication Ready",
       "type": "boolean"
     },
-    "ready_for_revision_review": {
-      "title": "Ready For Revision Review",
+    "resume_allowed": {
+      "default": false,
+      "title": "Resume Allowed",
       "type": "boolean"
     },
-    "reasons": {
+    "resume_blockers": {
       "items": {
         "type": "string"
       },
-      "title": "Reasons",
+      "title": "Resume Blockers",
       "type": "array"
     },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
-    },
-    "warning_findings": {
-      "minimum": 0,
-      "title": "Warning Findings",
-      "type": "integer"
     }
   },
   "required": [
     "run_id",
-    "ready_for_revision_review",
-    "blocking_findings",
-    "major_findings",
-    "warning_findings"
+    "latest_controller_run_id",
+    "checkpoint_count"
   ],
-  "title": "PaperReleaseReadinessPreview",
+  "title": "AutonomousPaperCheckpointIndex",
   "type": "object",
   "x-factori-protocol-version": "0.46.0",
-  "x-factori-source-model": "factori.schemas.PaperReleaseReadinessPreview",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperCheckpointIndex",
   "x-factori-verification-evidence": false
 }

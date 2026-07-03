@@ -2222,6 +2222,7 @@ AutonomousPaperHandoffStatus = Literal[
 AutonomousPaperStageStatus = Literal[
     "completed",
     "completed_with_warnings",
+    "reused",
     "blocked",
     "failed",
     "skipped",
@@ -2320,6 +2321,96 @@ class AutonomousPaperRunIndex(StrictModel):
     latest_handoff_status: AutonomousPaperHandoffStatus
     latest_report_path: str = Field(min_length=1)
     latest_markdown_path: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+AutonomousPaperCheckpointStage = Literal[
+    "base_generation",
+    "autonomous_loop",
+    "final_manuscript_regeneration",
+    "final_release_bundle_assembly",
+    "final_bundle_verification",
+    "handoff",
+]
+AutonomousPaperCheckpointVerificationStatus = Literal[
+    "verified",
+    "verified_with_warnings",
+    "failed",
+    "unverified",
+]
+AutonomousPaperResumeStatus = Literal[
+    "completed",
+    "completed_with_warnings",
+    "blocked",
+    "failed",
+]
+
+
+class AutonomousPaperCheckpoint(StrictModel):
+    """Immutable stage checkpoint for crash-safe autonomous paper resume."""
+
+    run_id: str = Field(min_length=1)
+    controller_run_id: str = Field(min_length=1)
+    stage_name: AutonomousPaperCheckpointStage
+    stage_status: str = Field(min_length=1)
+    stage_artifact_paths: list[str] = Field(default_factory=list)
+    stage_started_at: str = Field(min_length=1)
+    stage_completed_at: str = Field(min_length=1)
+    protocol_version: str = Field(min_length=1)
+    ledger_tip_hash_optional: str | None = None
+    checkpoint_hash: str = Field(min_length=64, max_length=64)
+    input_hashes: dict[str, str] = Field(default_factory=dict)
+    output_hashes: dict[str, str] = Field(default_factory=dict)
+    safety_gate_status: Literal["passed", "passed_with_warnings", "failed"]
+    release_status_optional: str | None = None
+    publication_ready: bool = False
+    verified_for_resume: bool = False
+    verification_status: AutonomousPaperCheckpointVerificationStatus = "unverified"
+    verification_errors: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousPaperCheckpointIndex(StrictModel):
+    """Immutable snapshot of all autonomous paper stage checkpoints."""
+
+    run_id: str = Field(min_length=1)
+    latest_controller_run_id: str = Field(min_length=1)
+    checkpoint_count: int = Field(ge=0)
+    latest_completed_stage: str | None = None
+    checkpoints: list[str] = Field(default_factory=list)
+    resume_allowed: bool = False
+    resume_blockers: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AutonomousPaperResumeReport(StrictModel):
+    """Append-only report for one verified controller resume attempt."""
+
+    run_id: str = Field(min_length=1)
+    resume_id: str = Field(min_length=1)
+    controller_run_id: str = Field(min_length=1)
+    requested_resume_stage: str = Field(min_length=1)
+    actual_resume_stage: str = Field(min_length=1)
+    started_at: str = Field(min_length=1)
+    completed_at: str = Field(min_length=1)
+    checkpoints_checked: int = Field(ge=0)
+    checkpoints_verified: int = Field(ge=0)
+    checkpoints_failed: int = Field(ge=0)
+    resume_status: AutonomousPaperResumeStatus
+    resume_blockers: list[str] = Field(default_factory=list)
+    stages_reused: list[str] = Field(default_factory=list)
+    stages_rerun: list[str] = Field(default_factory=list)
+    final_controller_status: str = Field(min_length=1)
+    final_handoff_status: str = Field(min_length=1)
+    final_bundle_verification_rerun: bool = False
     publication_ready: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -3310,6 +3401,9 @@ __all__ = [
     "AutonomousPaperRunHandoff",
     "AutonomousPaperRunReport",
     "AutonomousPaperRunIndex",
+    "AutonomousPaperCheckpoint",
+    "AutonomousPaperCheckpointIndex",
+    "AutonomousPaperResumeReport",
     "GapAttemptRecord",
     "GapAttemptHistory",
     "PlannedSpecDuplicateRecord",

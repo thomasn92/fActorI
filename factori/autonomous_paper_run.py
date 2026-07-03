@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from factori.artifacts import ArtifactStore
-from factori.autonomous_loop import AutonomousLoopError, run_autonomous_loop
+from factori.autonomous_loop import (
+    AutonomousLoopError,
+    latest_autonomous_loop_report,
+    run_autonomous_loop,
+)
+from factori.autonomous_paper_checkpoint import (
+    AutonomousPaperCheckpointVerification,
+    verify_autonomous_paper_checkpoints,
+    write_autonomous_paper_checkpoint,
+    write_autonomous_paper_resume_report,
+)
+from factori.claim_evidence import latest_claim_evidence_map_path
 from factori.final_bundle_verification import (
     FinalBundleVerificationError,
     verify_final_release_bundle,
@@ -15,21 +27,33 @@ from factori.final_bundle_verification import (
 )
 from factori.final_manuscript_regeneration import (
     FinalManuscriptRegenerationError,
+    latest_final_manuscript_regeneration,
     regenerate_final_manuscript,
 )
-from factori.final_release_bundle import FinalReleaseBundleError, build_final_release_bundle
-from factori.full_paper_generation import lint_paper_bundle_summary
+from factori.final_release_bundle import (
+    FinalReleaseBundleError,
+    build_final_release_bundle,
+    latest_final_release_bundle,
+)
+from factori.full_paper_generation import (
+    inspect_paper_bundle_summary,
+    lint_paper_bundle_summary,
+)
+from factori.full_paper_release import evaluate_full_paper_release
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError, run_llm_paper_orchestration
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    AutonomousPaperResumeReport,
     AutonomousPaperRunHandoff,
     AutonomousPaperRunIndex,
     AutonomousPaperRunReport,
     AutonomousPaperRunStage,
+    ClaimEvidenceMap,
     ControllerActionType,
+    FullPaperReleaseGateConfig,
     LLMOrchestrationConfig,
 )
 from factori.storage_protocols import Clock, SystemClock
@@ -37,6 +61,10 @@ from factori.storage_protocols import Clock, SystemClock
 
 class AutonomousPaperRunError(RuntimeError):
     """Raised when an autonomous paper controller cannot start or persist safely."""
+
+
+class AutonomousPaperInjectedCrash(AutonomousPaperRunError):
+    """Deterministic test-only crash after a durable controller checkpoint."""
 
 
 @dataclass(frozen=True)
@@ -78,6 +106,56 @@ class _ControllerState:
     network_used: bool = False
     external_api_used: bool = False
     external_tools_used: bool = False
+    checkpoint_session: _CheckpointSession | None = None
+    resume_verification: AutonomousPaperCheckpointVerification | None = None
+    resume_started_at: str | None = None
+    actual_resume_stage: str = "not_requested"
+    stages_reused: list[str] = field(default_factory=list)
+    stages_rerun: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _CheckpointSession:
+    run_id: str
+    controller_run_id: str
+    root: Path
+    store: ArtifactStore
+    ledger: ResearchLedger
+    clock: Clock
+    fault_after_stage: str | None = None
+    previous_checkpoint_hash: str | None = None
+
+    def record(
+        self,
+        stage: AutonomousPaperRunStage,
+        artifact_paths: list[str],
+        *,
+        safety_gate_status: str,
+        release_status: str | None = None,
+    ) -> None:
+        input_hashes = (
+            {"previous_checkpoint": self.previous_checkpoint_hash}
+            if self.previous_checkpoint_hash
+            else {}
+        )
+        result = write_autonomous_paper_checkpoint(
+            run_id=self.run_id,
+            controller_run_id=self.controller_run_id,
+            stage=stage,
+            artifact_paths=artifact_paths,
+            safety_gate_status=safety_gate_status,
+            release_status=release_status,
+            input_hashes=input_hashes,
+            root=self.root,
+            store=self.store,
+            ledger=self.ledger,
+            clock=self.clock,
+        )
+        self.previous_checkpoint_hash = result.checkpoint.checkpoint_hash
+        if self.fault_after_stage == stage.stage_name:
+            raise AutonomousPaperInjectedCrash(
+                f"Injected crash after durable {stage.stage_name} checkpoint."
+            )
 
 
 _DOWNSTREAM_STAGES = (
@@ -110,6 +188,8 @@ def run_autonomous_paper(
     verify_final_bundle: bool = True,
     compile_pdf: bool = False,
     strict_export: bool = False,
+    resume_existing: bool = False,
+    fault_after_stage: str | None = None,
     clock: Clock | None = None,
 ) -> AutonomousPaperRunResult:
     """Run the complete autonomous MVP and persist one bounded handoff report."""
@@ -123,23 +203,65 @@ def run_autonomous_paper(
         )
     root_path = Path(root)
     run_path = root_path / "runs" / config.run_id
-    if run_path.exists():
+    if run_path.exists() and not resume_existing:
         raise AutonomousPaperRunError(
             f"Run already exists for run_id={config.run_id}; autonomous finalization is "
             "append-only and will not overwrite it."
         )
+    if resume_existing and not run_path.is_dir():
+        raise AutonomousPaperRunError(
+            f"Cannot resume missing run_id={config.run_id}; create it without --resume-existing."
+        )
 
     clock = clock or SystemClock()
     store = ArtifactStore(root_path)
-    store.init_run(config.run_id)
+    if resume_existing:
+        store.validate_run_structure(config.run_id)
+    else:
+        store.init_run(config.run_id)
     ledger = ResearchLedger(run_path / "ledger.sqlite", clock=clock)
+    reports = run_path / "reports"
+    controller_number = len(
+        [
+            path
+            for path in reports.glob("autonomous-paper-run-[0-9][0-9][0-9][0-9].json")
+            if not path.name.endswith(".meta.json")
+        ]
+    ) + 1
+    controller_run_id = f"autonomous-paper-run-{controller_number:04d}"
+    resume_verification: AutonomousPaperCheckpointVerification | None = None
+    reusable_stages: list[str] = []
+    actual_resume_stage = "not_requested"
+    if resume_existing:
+        resume_verification, reusable_stages, actual_resume_stage = _prepare_resume(
+            run_id=config.run_id,
+            root=root_path,
+        )
     state = _ControllerState(
         run_id=config.run_id,
-        autonomous_run_id="autonomous-paper-run-0001",
+        autonomous_run_id=controller_run_id,
         domain=config.domain,
         topic=config.method,
         controller_backend=controller_backend,
         started_at=clock.now(),
+        resume_verification=resume_verification,
+        resume_started_at=clock.now() if resume_existing else None,
+        actual_resume_stage=actual_resume_stage,
+        stages_reused=list(reusable_stages),
+    )
+    state.checkpoint_session = _CheckpointSession(
+        run_id=config.run_id,
+        controller_run_id=controller_run_id,
+        root=root_path,
+        store=store,
+        ledger=ledger,
+        clock=clock,
+        fault_after_stage=fault_after_stage,
+        previous_checkpoint_hash=(
+            resume_verification.checkpoints[-1].checkpoint_hash
+            if resume_verification and resume_verification.checkpoints
+            else None
+        ),
     )
     effective_config = config.model_copy(
         update={
@@ -152,340 +274,427 @@ def run_autonomous_paper(
         }
     )
 
-    base_started = clock.now()
-    try:
-        base = run_llm_paper_orchestration(
-            config=effective_config,
-            root=root_path,
-            store=store,
-            ledger=ledger,
-            clock=clock,
-            llm_scope=llm_scope,
-            enable_safe_repair=enable_safe_repair,
+    base_warnings: list[str] = []
+    if "base_generation" in reusable_stages:
+        checkpoint = _resume_checkpoint(state, "base_generation")
+        state.base_generation_status = checkpoint.release_status_optional or "reused"
+        state.network_used, state.external_api_used = _base_external_usage(root_path, config.run_id)
+        state.stages.append(_reused_stage(checkpoint, clock))
+    else:
+        state.stages_rerun.append("base_generation")
+        base_started = clock.now()
+        try:
+            base = run_llm_paper_orchestration(
+                config=effective_config,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                clock=clock,
+                llm_scope=llm_scope,
+                enable_safe_repair=enable_safe_repair,
+            )
+        except LLMOrchestrationError as exc:
+            state.base_generation_status = "failed"
+            state.stages.append(
+                _stage(
+                    "base_generation",
+                    "failed",
+                    base_started,
+                    clock.now(),
+                    "Base paper generation failed closed.",
+                    blocking=[str(exc)],
+                )
+            )
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="failed",
+                handoff_status="handoff_failed",
+                reason=f"Base generation failed: {exc}",
+                remaining_stages=_DOWNSTREAM_STAGES,
+                human_intervention=True,
+            )
+
+        base_status = _value(base.report.orchestration_status)
+        state.base_generation_status = base_status
+        state.network_used = any(
+            item.external_call_performed for item in base.report.call_accounting
         )
-    except LLMOrchestrationError as exc:
-        state.base_generation_status = "failed"
+        state.external_api_used = state.network_used
+        base_warnings = list(base.report.warnings)
+        base_artifacts = _artifact_paths(
+            base.config_artifact,
+            base.budget_artifact,
+            base.accounting_artifact,
+            base.report_artifact,
+            base.safety_artifact,
+            base.generation_result.report_artifact if base.generation_result else None,
+            base.generation_result.bundle_artifact if base.generation_result else None,
+            base.release_result.report_artifact if base.release_result else None,
+            base.release_result.summary_artifact if base.release_result else None,
+            base.release_result.reviewer_summary_artifact if base.release_result else None,
+        )
+        base_blocking = list(base.report.blocking_issues)
+        base_safe = (
+            base.report.publication_ready is False
+            and base.report.safety_report.safe
+            and not base_blocking
+            and base.generation_result is not None
+            and base.release_result is not None
+            and base.report.release_status
+            in {"ReadyForHumanReview", "ReadyForHumanReviewWithWarnings"}
+        )
         state.stages.append(
             _stage(
                 "base_generation",
-                "failed",
+                (
+                    "completed_with_warnings"
+                    if base_safe and base.report.warnings
+                    else "completed"
+                    if base_safe
+                    else "blocked"
+                ),
                 base_started,
                 clock.now(),
-                "Base paper generation failed closed.",
-                blocking=[str(exc)],
+                "Generated and release-checked the base paper package.",
+                artifacts=base_artifacts,
+                blocking=(
+                    base_blocking if base_blocking else ([] if base_safe else [base_status])
+                ),
+                warnings=base_warnings,
             )
         )
-        return _finish(
+        if not base_safe:
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_safety_gate",
+                handoff_status="handoff_blocked_by_safety_gate",
+                reason=(
+                    "Base generation did not produce a safety-clean human-review release state."
+                ),
+                remaining_stages=_DOWNSTREAM_STAGES,
+                human_intervention=True,
+            )
+        _checkpoint_stage(
             state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="failed",
-            handoff_status="handoff_failed",
-            reason=f"Base generation failed: {exc}",
-            remaining_stages=_DOWNSTREAM_STAGES,
-            human_intervention=True,
+            state.stages[-1],
+            base_artifacts,
+            release_status=base.report.release_status,
         )
 
-    base_status = _value(base.report.orchestration_status)
-    state.base_generation_status = base_status
-    state.network_used = any(item.external_call_performed for item in base.report.call_accounting)
-    state.external_api_used = state.network_used
-    base_artifacts = _artifact_paths(
-        base.config_artifact,
-        base.budget_artifact,
-        base.accounting_artifact,
-        base.report_artifact,
-        base.safety_artifact,
-    )
-    base_blocking = list(base.report.blocking_issues)
-    base_safe = (
-        base.report.publication_ready is False
-        and base.report.safety_report.safe
-        and not base_blocking
-        and base.generation_result is not None
-        and base.release_result is not None
-        and base.report.release_status in {
-            "ReadyForHumanReview",
-            "ReadyForHumanReviewWithWarnings",
-        }
-    )
-    state.stages.append(
-        _stage(
-            "base_generation",
-            (
-                "completed_with_warnings"
-                if base_safe and base.report.warnings
-                else "completed"
-                if base_safe
-                else "blocked"
-            ),
-            base_started,
-            clock.now(),
-            "Generated and release-checked the base paper package.",
-            artifacts=base_artifacts,
-            blocking=base_blocking if base_blocking else ([] if base_safe else [base_status]),
-            warnings=list(base.report.warnings),
+    if "autonomous_loop" in reusable_stages:
+        checkpoint = _resume_checkpoint(state, "autonomous_loop")
+        loop_report, _ = latest_autonomous_loop_report(root_path, config.run_id)
+        if loop_report is None:  # Defensive: semantic resume verification already checked this.
+            raise AutonomousPaperRunError("Verified autonomous loop checkpoint became unreadable.")
+        state.autonomous_loop_status = loop_report.loop_status
+        state.deferred_gap_count = loop_report.deferred_gap_count
+        state.unsupported_claim_count = int(
+            loop_report.final_claim_evidence_counts.get("unsupported", 0)
         )
-    )
-    if not base_safe:
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_safety_gate",
-            handoff_status="handoff_blocked_by_safety_gate",
-            reason="Base generation did not produce a safety-clean human-review release state.",
-            remaining_stages=_DOWNSTREAM_STAGES,
-            human_intervention=True,
-        )
+        state.stages.append(_reused_stage(checkpoint, clock))
+    else:
+        state.stages_rerun.append("autonomous_loop")
+        loop_started = clock.now()
+        try:
+            loop = run_autonomous_loop(
+                run_id=config.run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                loop_backend=loop_backend,
+                max_iterations=max_loop_iterations,
+                max_attempts_per_gap=max_attempts_per_gap,
+                enable_strategy_diversification=enable_strategy_diversification,
+                enable_experiment_routing=enable_experiment_routing,
+                enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
+                enable_capability_escalation=enable_capability_escalation,
+                python_sandbox_backend=python_sandbox_backend,
+                max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
+                max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
+            )
+        except AutonomousLoopError as exc:
+            state.autonomous_loop_status = "failed"
+            state.stages.append(
+                _stage(
+                    "autonomous_loop",
+                    "failed",
+                    loop_started,
+                    clock.now(),
+                    "Autonomous evidence loop failed closed.",
+                    blocking=[str(exc)],
+                )
+            )
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_safety_gate",
+                handoff_status="handoff_blocked_by_safety_gate",
+                reason=f"Autonomous loop failed: {exc}",
+                remaining_stages=_DOWNSTREAM_STAGES[1:],
+                human_intervention=True,
+            )
 
-    loop_started = clock.now()
-    try:
-        loop = run_autonomous_loop(
-            run_id=config.run_id,
-            root=root_path,
-            store=store,
-            ledger=ledger,
-            loop_backend=loop_backend,
-            max_iterations=max_loop_iterations,
-            max_attempts_per_gap=max_attempts_per_gap,
-            enable_strategy_diversification=enable_strategy_diversification,
-            enable_experiment_routing=enable_experiment_routing,
-            enable_empirical_demonstration_gaps=enable_empirical_demonstration_gaps,
-            enable_capability_escalation=enable_capability_escalation,
-            python_sandbox_backend=python_sandbox_backend,
-            max_sandbox_runs_per_loop=max_sandbox_runs_per_loop,
-            max_sandbox_runs_per_iteration=max_sandbox_runs_per_iteration,
+        state.autonomous_loop_status = loop.report.loop_status
+        state.deferred_gap_count = loop.report.deferred_gap_count
+        state.unsupported_claim_count = int(
+            loop.report.final_claim_evidence_counts.get("unsupported", 0)
         )
-    except AutonomousLoopError as exc:
-        state.autonomous_loop_status = "failed"
+        loop_safe = (
+            not loop.report.requires_human_intervention
+            and loop.report.final_publication_ready is False
+            and loop.report.blocking_gap_count == 0
+            and state.unsupported_claim_count == 0
+        )
+        loop_artifacts = [loop.report_artifact.path, loop.index_artifact.path]
         state.stages.append(
             _stage(
                 "autonomous_loop",
-                "failed",
+                (
+                    "completed_with_warnings"
+                    if loop_safe and state.deferred_gap_count
+                    else "completed"
+                ),
                 loop_started,
                 clock.now(),
-                "Autonomous evidence loop failed closed.",
-                blocking=[str(exc)],
+                "Completed autonomous evidence planning, execution, and terminal classification.",
+                artifacts=loop_artifacts,
+                blocking=[] if loop_safe else [loop.report.terminal_state_reason],
+                warnings=(
+                    [f"{state.deferred_gap_count} deferred gap(s) remain visible."]
+                    if loop.report.gap_terminal_classifications
+                    else []
+                ),
             )
         )
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_safety_gate",
-            handoff_status="handoff_blocked_by_safety_gate",
-            reason=f"Autonomous loop failed: {exc}",
-            remaining_stages=_DOWNSTREAM_STAGES[1:],
-            human_intervention=True,
-        )
+        if not loop_safe:
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_safety_gate",
+                handoff_status="handoff_blocked_by_safety_gate",
+                reason="Autonomous loop ended with a blocking, corrupt, or unsupported state.",
+                remaining_stages=_DOWNSTREAM_STAGES[1:],
+                human_intervention=loop.report.requires_human_intervention,
+                human_reason=loop.report.human_intervention_reason_optional,
+            )
+        _checkpoint_stage(state, state.stages[-1], loop_artifacts)
 
-    state.autonomous_loop_status = loop.report.loop_status
-    state.deferred_gap_count = loop.report.deferred_gap_count
-    state.unsupported_claim_count = int(
-        loop.report.final_claim_evidence_counts.get("unsupported", 0)
-    )
-    loop_safe = (
-        not loop.report.requires_human_intervention
-        and loop.report.final_publication_ready is False
-        and loop.report.blocking_gap_count == 0
-        and state.unsupported_claim_count == 0
-    )
-    state.stages.append(
-        _stage(
-            "autonomous_loop",
-            "completed_with_warnings" if loop_safe and state.deferred_gap_count else "completed",
-            loop_started,
-            clock.now(),
-            "Completed autonomous evidence planning, execution, and terminal classification.",
-            artifacts=[loop.report_artifact.path],
-            blocking=[] if loop_safe else [loop.report.terminal_state_reason],
-            warnings=list(loop.report.gap_terminal_classifications and [
-                f"{state.deferred_gap_count} deferred gap(s) remain visible."
-            ] or []),
-        )
-    )
-    if not loop_safe:
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_safety_gate",
-            handoff_status="handoff_blocked_by_safety_gate",
-            reason="Autonomous loop ended with a blocking, corrupt, or unsupported state.",
-            remaining_stages=_DOWNSTREAM_STAGES[1:],
-            human_intervention=loop.report.requires_human_intervention,
-            human_reason=loop.report.human_intervention_reason_optional,
-        )
+    if "final_manuscript_regeneration" in reusable_stages:
+        checkpoint = _resume_checkpoint(state, "final_manuscript_regeneration")
+        manuscript_report, _ = latest_final_manuscript_regeneration(root_path, config.run_id)
+        if manuscript_report is None:
+            raise AutonomousPaperRunError(
+                "Verified final manuscript checkpoint became unreadable."
+            )
+        state.final_manuscript_status = manuscript_report.regeneration_status
+        state.final_manuscript_path = manuscript_report.final_manuscript_path
+        state.deferred_gap_count = manuscript_report.deferred_gap_count
+        state.unsupported_claim_count = manuscript_report.unsupported_claim_count
+        state.stages.append(_reused_stage(checkpoint, clock))
+    else:
+        state.stages_rerun.append("final_manuscript_regeneration")
+        manuscript_started = clock.now()
+        try:
+            manuscript = regenerate_final_manuscript(
+                run_id=config.run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                backend=regeneration_backend,
+                allow_external_calls=effective_config.allow_external_calls,
+            )
+        except FinalManuscriptRegenerationError as exc:
+            state.final_manuscript_status = "failed"
+            state.stages.append(
+                _stage(
+                    "final_manuscript_regeneration",
+                    "failed",
+                    manuscript_started,
+                    clock.now(),
+                    "Final manuscript regeneration failed closed.",
+                    blocking=[str(exc)],
+                )
+            )
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="failed",
+                handoff_status="handoff_failed",
+                reason=f"Final manuscript regeneration failed: {exc}",
+                remaining_stages=_DOWNSTREAM_STAGES[2:],
+                human_intervention=True,
+            )
 
-    manuscript_started = clock.now()
-    try:
-        manuscript = regenerate_final_manuscript(
-            run_id=config.run_id,
-            root=root_path,
-            store=store,
-            ledger=ledger,
-            backend=regeneration_backend,
-            allow_external_calls=effective_config.allow_external_calls,
-        )
-    except FinalManuscriptRegenerationError as exc:
-        state.final_manuscript_status = "failed"
+        state.final_manuscript_status = manuscript.report.regeneration_status
+        state.final_manuscript_path = manuscript.report.final_manuscript_path
+        state.deferred_gap_count = manuscript.report.deferred_gap_count
+        state.unsupported_claim_count = manuscript.report.unsupported_claim_count
+        manuscript_safe = _final_manuscript_is_safe(manuscript.report)
+        manuscript_artifacts = [
+            manuscript.report.final_manuscript_path,
+            manuscript.report.final_manuscript_structured_path,
+            manuscript.report_artifact.path,
+            manuscript.index_artifact.path,
+        ]
         state.stages.append(
             _stage(
                 "final_manuscript_regeneration",
-                "failed",
+                (
+                    "completed_with_warnings"
+                    if manuscript_safe and state.deferred_gap_count
+                    else "completed"
+                ),
                 manuscript_started,
                 clock.now(),
-                "Final manuscript regeneration failed closed.",
-                blocking=[str(exc)],
+                "Regenerated a coherent manuscript from the final scoped evidence state.",
+                artifacts=manuscript_artifacts,
+                blocking=(
+                    [] if manuscript_safe else ["Final manuscript safety rechecks did not pass."]
+                ),
             )
         )
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="failed",
-            handoff_status="handoff_failed",
-            reason=f"Final manuscript regeneration failed: {exc}",
-            remaining_stages=_DOWNSTREAM_STAGES[2:],
-            human_intervention=True,
-        )
+        if not manuscript_safe:
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_safety_gate",
+                handoff_status="handoff_blocked_by_safety_gate",
+                reason="Final manuscript regeneration did not preserve all safety gates.",
+                remaining_stages=_DOWNSTREAM_STAGES[2:],
+                human_intervention=True,
+            )
+        _checkpoint_stage(state, state.stages[-1], manuscript_artifacts)
 
-    state.final_manuscript_status = manuscript.report.regeneration_status
-    state.final_manuscript_path = manuscript.report.final_manuscript_path
-    state.deferred_gap_count = manuscript.report.deferred_gap_count
-    state.unsupported_claim_count = manuscript.report.unsupported_claim_count
-    manuscript_safe = _final_manuscript_is_safe(manuscript.report)
-    state.stages.append(
-        _stage(
-            "final_manuscript_regeneration",
-            (
-                "completed_with_warnings"
-                if manuscript_safe and state.deferred_gap_count
-                else "completed"
-            ),
-            manuscript_started,
-            clock.now(),
-            "Regenerated a coherent manuscript from the final scoped evidence state.",
-            artifacts=[
-                manuscript.report.final_manuscript_path,
-                manuscript.report.final_manuscript_structured_path,
-                manuscript.report_artifact.path,
-            ],
-            blocking=[] if manuscript_safe else ["Final manuscript safety rechecks did not pass."],
-        )
-    )
-    if not manuscript_safe:
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_safety_gate",
-            handoff_status="handoff_blocked_by_safety_gate",
-            reason="Final manuscript regeneration did not preserve all safety gates.",
-            remaining_stages=_DOWNSTREAM_STAGES[2:],
-            human_intervention=True,
-        )
+    if "final_release_bundle_assembly" in reusable_stages:
+        checkpoint = _resume_checkpoint(state, "final_release_bundle_assembly")
+        bundle_report, _ = latest_final_release_bundle(root_path, config.run_id)
+        if bundle_report is None:
+            raise AutonomousPaperRunError("Verified final bundle checkpoint became unreadable.")
+        state.final_bundle_status = bundle_report.bundle_status
+        state.final_bundle_path = bundle_report.bundle_path
+        state.release_report_path = bundle_report.release_report_path
+        state.claim_evidence_map_path = bundle_report.claim_evidence_map_path
+        state.stages.append(_reused_stage(checkpoint, clock))
+    else:
+        state.stages_rerun.append("final_release_bundle_assembly")
+        bundle_started = clock.now()
+        if not build_final_bundle:
+            state.final_bundle_status = "skipped"
+            state.stages.append(
+                _stage(
+                    "final_release_bundle_assembly",
+                    "blocked",
+                    bundle_started,
+                    clock.now(),
+                    "Final bundle assembly was disabled; handoff cannot proceed.",
+                    blocking=["Final release bundle is required."],
+                )
+            )
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_bundle_verification",
+                handoff_status="handoff_blocked_by_bundle_verification",
+                reason="Final release bundle assembly is required for handoff.",
+                remaining_stages=("final_bundle_verification",),
+            )
+        try:
+            bundle = build_final_release_bundle(
+                run_id=config.run_id,
+                root=root_path,
+                store=store,
+                ledger=ledger,
+                compile_pdf=compile_pdf,
+                strict_export=strict_export,
+            )
+        except FinalReleaseBundleError as exc:
+            state.final_bundle_status = "failed"
+            state.stages.append(
+                _stage(
+                    "final_release_bundle_assembly",
+                    "failed",
+                    bundle_started,
+                    clock.now(),
+                    "Final release bundle assembly failed closed.",
+                    blocking=[str(exc)],
+                )
+            )
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_bundle_verification",
+                handoff_status="handoff_blocked_by_bundle_verification",
+                reason=f"Final release bundle assembly failed: {exc}",
+                remaining_stages=("final_bundle_verification",),
+            )
 
-    bundle_started = clock.now()
-    if not build_final_bundle:
-        state.final_bundle_status = "skipped"
+        bundle_report = bundle.report
+        state.final_bundle_status = bundle_report.bundle_status
+        state.final_bundle_path = bundle_report.bundle_path
+        state.release_report_path = bundle_report.release_report_path
+        state.claim_evidence_map_path = bundle_report.claim_evidence_map_path
+        bundle_complete = _final_bundle_is_complete(bundle_report)
+        bundle_artifacts = [
+            bundle.report_artifact.path,
+            bundle.index_artifact.path,
+            bundle_report.manifest_path,
+            bundle_report.reproducibility_manifest_path,
+            f"{bundle_report.bundle_path}/reproducibility/hashes.sha256",
+        ]
         state.stages.append(
             _stage(
                 "final_release_bundle_assembly",
-                "blocked",
+                "completed" if bundle_complete else "blocked",
                 bundle_started,
                 clock.now(),
-                "Final bundle assembly was disabled; handoff cannot proceed.",
-                blocking=["Final release bundle is required."],
+                "Assembled and hash-locked the final release bundle.",
+                artifacts=bundle_artifacts,
+                blocking=list(bundle_report.missing_required_artifacts),
             )
         )
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_bundle_verification",
-            handoff_status="handoff_blocked_by_bundle_verification",
-            reason="Final release bundle assembly is required for handoff.",
-            remaining_stages=("final_bundle_verification",),
-        )
-    try:
-        bundle = build_final_release_bundle(
-            run_id=config.run_id,
-            root=root_path,
-            store=store,
-            ledger=ledger,
-            compile_pdf=compile_pdf,
-            strict_export=strict_export,
-        )
-    except FinalReleaseBundleError as exc:
-        state.final_bundle_status = "failed"
-        state.stages.append(
-            _stage(
-                "final_release_bundle_assembly",
-                "failed",
-                bundle_started,
-                clock.now(),
-                "Final release bundle assembly failed closed.",
-                blocking=[str(exc)],
+        if not bundle_complete:
+            return _finish(
+                state,
+                root_path,
+                store,
+                ledger,
+                clock,
+                controller_status="blocked_bundle_verification",
+                handoff_status="handoff_blocked_by_bundle_verification",
+                reason="Final release bundle is incomplete.",
+                remaining_stages=("final_bundle_verification",),
             )
-        )
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_bundle_verification",
-            handoff_status="handoff_blocked_by_bundle_verification",
-            reason=f"Final release bundle assembly failed: {exc}",
-            remaining_stages=("final_bundle_verification",),
-        )
-
-    state.final_bundle_status = bundle.report.bundle_status
-    state.final_bundle_path = bundle.report.bundle_path
-    state.release_report_path = bundle.report.release_report_path
-    state.claim_evidence_map_path = bundle.report.claim_evidence_map_path
-    bundle_complete = _final_bundle_is_complete(bundle.report)
-    state.stages.append(
-        _stage(
-            "final_release_bundle_assembly",
-            "completed" if bundle_complete else "blocked",
-            bundle_started,
-            clock.now(),
-            "Assembled and hash-locked the final release bundle.",
-            artifacts=[bundle.report.bundle_path, bundle.report_artifact.path],
-            blocking=list(bundle.report.missing_required_artifacts),
-        )
-    )
-    if not bundle_complete:
-        return _finish(
-            state,
-            root_path,
-            store,
-            ledger,
-            clock,
-            controller_status="blocked_bundle_verification",
-            handoff_status="handoff_blocked_by_bundle_verification",
-            reason="Final release bundle is incomplete.",
-            remaining_stages=("final_bundle_verification",),
-        )
+        _checkpoint_stage(state, state.stages[-1], bundle_artifacts)
 
     verification_started = clock.now()
+    if resume_existing:
+        state.stages_rerun.append("final_bundle_verification")
     if not verify_final_bundle:
         state.final_bundle_verification_status = "skipped"
         state.stages.append(
@@ -510,7 +719,7 @@ def run_autonomous_paper(
         )
     try:
         verification = verify_final_release_bundle(
-            bundle_path=root_path / bundle.report.bundle_path,
+            bundle_path=root_path / bundle_report.bundle_path,
             root=root_path,
             clock=clock,
         )
@@ -570,6 +779,33 @@ def run_autonomous_paper(
             handoff_status="handoff_blocked_by_bundle_verification",
             reason="Independent final bundle verification did not pass.",
         )
+    _checkpoint_stage(
+        state,
+        state.stages[-1],
+        [state.final_verification_report_path],
+    )
+
+    release_recheck = evaluate_full_paper_release(
+        run_id=config.run_id,
+        root=root_path,
+        ledger=ledger,
+        config=FullPaperReleaseGateConfig(run_id=config.run_id),
+    )
+    if release_recheck.decision.status.value not in {
+        "ReadyForHumanReview",
+        "ReadyForHumanReviewWithWarnings",
+    }:
+        return _finish(
+            state,
+            root_path,
+            store,
+            ledger,
+            clock,
+            controller_status="blocked_safety_gate",
+            handoff_status="handoff_blocked_by_safety_gate",
+            reason="Post-resume release-gate recheck blocked handoff.",
+            human_intervention=True,
+        )
 
     lint = lint_paper_bundle_summary(run_id=config.run_id, root=root_path)
     state.missing_citation_count = int(
@@ -603,7 +839,7 @@ def run_autonomous_paper(
             "The verified bundle is ready for bounded evidence extension; deferred proof or "
             "retrieval gaps remain visible."
         )
-    elif verification.checks_warned or base.report.warnings:
+    elif verification.checks_warned or base_warnings:
         controller_status = "completed_with_warnings"
         handoff_status = "handoff_ready_for_human_review_with_warnings"
         reason = "The verified bundle is ready for human review with nonblocking warnings."
@@ -645,7 +881,10 @@ def latest_autonomous_paper_run(
 ) -> tuple[AutonomousPaperRunReport | None, AutonomousPaperRunIndex | None]:
     """Load the latest immutable controller report and derived index."""
     reports = Path(root) / "runs" / run_id / "reports"
-    index_path = reports / "autonomous-paper-run-index.json"
+    numbered = sorted(
+        reports.glob("autonomous-paper-run-index-[0-9][0-9][0-9][0-9].json")
+    )
+    index_path = numbered[-1] if numbered else reports / "autonomous-paper-run-index.json"
     if not index_path.is_file():
         return None, None
     try:
@@ -771,6 +1010,8 @@ def _finish(
             )
         )
     handoff_started = clock.now()
+    if state.resume_verification is not None:
+        state.stages_rerun.append("handoff")
     handoff = AutonomousPaperRunHandoff(
         handoff_status=handoff_status,
         handoff_reason=reason,
@@ -831,7 +1072,70 @@ def _finish(
         external_api_used=state.external_api_used,
         external_tools_used=state.external_tools_used,
     )
-    return _persist_controller_report(report, root, store, ledger, clock)
+    result = _persist_controller_report(report, root, store, ledger, clock)
+    _checkpoint_stage(
+        state,
+        state.stages[-1],
+        [
+            result.report_artifact.path,
+            result.markdown_artifact.path,
+            result.index_artifact.path,
+        ],
+        safety_gate_status=(
+            "failed"
+            if report.handoff_status.startswith("handoff_blocked")
+            or report.handoff_status == "handoff_failed"
+            else "passed_with_warnings"
+        ),
+        release_status=report.handoff_status,
+    )
+    if state.resume_verification is not None:
+        reports = root / "runs" / state.run_id / "reports"
+        resume_number = len(
+            [
+                path
+                for path in reports.glob(
+                    "autonomous-paper-resume-[0-9][0-9][0-9][0-9].json"
+                )
+                if not path.name.endswith(".meta.json")
+            ]
+        ) + 1
+        resume_status = (
+            "completed"
+            if report.controller_status == "completed"
+            else "completed_with_warnings"
+            if report.controller_status
+            in {"completed_with_warnings", "completed_with_deferred_gaps"}
+            else "blocked"
+        )
+        resume_report = AutonomousPaperResumeReport(
+            run_id=state.run_id,
+            resume_id=f"autonomous-paper-resume-{resume_number:04d}",
+            controller_run_id=state.autonomous_run_id,
+            requested_resume_stage="automatic",
+            actual_resume_stage=state.actual_resume_stage,
+            started_at=state.resume_started_at or state.started_at,
+            completed_at=clock.now(),
+            checkpoints_checked=state.resume_verification.checked_count,
+            checkpoints_verified=state.resume_verification.verified_count,
+            checkpoints_failed=state.resume_verification.failed_count,
+            resume_status=resume_status,
+            resume_blockers=[],
+            stages_reused=state.stages_reused,
+            stages_rerun=state.stages_rerun,
+            final_controller_status=report.controller_status,
+            final_handoff_status=report.handoff_status,
+            final_bundle_verification_rerun=True,
+            publication_ready=False,
+        )
+        write_autonomous_paper_resume_report(
+            resume_report,
+            root=root,
+            store=store,
+            ledger=ledger,
+            clock=clock,
+        )
+    return result
 
 
 def _persist_controller_report(
@@ -845,6 +1149,7 @@ def _persist_controller_report(
     existing = sorted(reports.glob("autonomous-paper-run-[0-9][0-9][0-9][0-9].json"))
     number = len(existing) + 1
     report_id = f"autonomous-paper-run-{number:04d}"
+    index_id = f"autonomous-paper-run-index-{number:04d}"
     index = AutonomousPaperRunIndex(
         run_id=report.run_id,
         latest_autonomous_run_id=report.autonomous_run_id,
@@ -878,7 +1183,7 @@ def _persist_controller_report(
                 filename_stem=report_id,
             ),
             ArtifactWriteSpec(
-                "autonomous-paper-run-index",
+                index_id,
                 ArtifactType.REPORT,
                 index,
                 "json",
@@ -906,7 +1211,7 @@ def _persist_controller_report(
         persistence=persistence,
         report_artifact=by_id[report_id],
         markdown_artifact=by_id[f"{report_id}-markdown"],
-        index_artifact=by_id["autonomous-paper-run-index"],
+        index_artifact=by_id[index_id],
     )
 
 
@@ -936,6 +1241,204 @@ def _stage(
 
 def _artifact_paths(*artifacts: ArtifactRef | None) -> list[str]:
     return [artifact.path for artifact in artifacts if artifact is not None]
+
+
+def _prepare_resume(
+    *,
+    run_id: str,
+    root: Path,
+) -> tuple[AutonomousPaperCheckpointVerification, list[str], str]:
+    verification = verify_autonomous_paper_checkpoints(run_id=run_id, root=root)
+    if verification.blockers:
+        raise AutonomousPaperRunError(
+            "Resume blocked by checkpoint verification: " + "; ".join(verification.blockers)
+        )
+    latest_by_stage = {
+        checkpoint.stage_name: checkpoint for checkpoint in verification.checkpoints
+    }
+    reusable: list[str] = []
+    stages = [
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+    ]
+    actual = "final_bundle_verification"
+    for index, stage_name in enumerate(stages):
+        checkpoint = latest_by_stage.get(stage_name)
+        if checkpoint is None:
+            later = [name for name in stages[index + 1 :] if name in latest_by_stage]
+            if later:
+                raise AutonomousPaperRunError(
+                    f"Resume checkpoint sequence is inconsistent: {stage_name} is missing "
+                    f"before {', '.join(later)}."
+                )
+            if _stage_output_exists(root, run_id, stage_name):
+                raise AutonomousPaperRunError(
+                    f"Resume blocked: immutable {stage_name} outputs exist without a checkpoint."
+                )
+            actual = stage_name
+            break
+        semantic_errors = _resume_semantic_errors(
+            stage_name=stage_name,
+            run_id=run_id,
+            root=root,
+        )
+        if semantic_errors:
+            raise AutonomousPaperRunError(
+                f"Resume blocked by {stage_name} safety verification: "
+                + "; ".join(semantic_errors)
+            )
+        reusable.append(stage_name)
+    return verification, reusable, actual
+
+
+def _resume_semantic_errors(
+    *,
+    stage_name: str,
+    run_id: str,
+    root: Path,
+) -> list[str]:
+    errors: list[str] = []
+    if stage_name == "base_generation":
+        summary = inspect_paper_bundle_summary(run_id=run_id, root=root)
+        if summary.get("release_status") not in {
+            "ReadyForHumanReview",
+            "ReadyForHumanReviewWithWarnings",
+        }:
+            errors.append("base release status is not reusable")
+    elif stage_name == "autonomous_loop":
+        report, _ = latest_autonomous_loop_report(root, run_id)
+        if report is None:
+            errors.append("autonomous loop report is missing or unreadable")
+        elif (
+            report.requires_human_intervention
+            or report.final_publication_ready
+            or report.blocking_gap_count
+            or int(report.final_claim_evidence_counts.get("unsupported", 0))
+        ):
+            errors.append("autonomous loop terminal state is not safe for reuse")
+    elif stage_name == "final_manuscript_regeneration":
+        report, _ = latest_final_manuscript_regeneration(root, run_id)
+        if report is None or not _final_manuscript_is_safe(report):
+            errors.append("final manuscript regeneration report is missing or unsafe")
+    elif stage_name == "final_release_bundle_assembly":
+        report, _ = latest_final_release_bundle(root, run_id)
+        if report is None or not _final_bundle_is_complete(report):
+            errors.append("final release bundle report is missing or incomplete")
+        else:
+            verification = verify_final_release_bundle(
+                bundle_path=root / report.bundle_path,
+                root=root,
+            )
+            if not _final_verification_is_safe(verification):
+                errors.append("final release bundle hash or safety verification failed")
+    if stage_name in {"autonomous_loop", "final_manuscript_regeneration"}:
+        claim_map_path = latest_claim_evidence_map_path(root, run_id)
+        if claim_map_path is None:
+            errors.append("claim-evidence map is missing")
+        else:
+            try:
+                claim_map = ClaimEvidenceMap.model_validate_json(
+                    claim_map_path.read_text(encoding="utf-8")
+                )
+            except (OSError, ValueError):
+                errors.append("claim-evidence map is corrupt")
+            else:
+                unsupported_count = int(
+                    claim_map.summary_counts.get("unsupported", 0)
+                ) or len(claim_map.unsupported_non_scaffold_claim_ids)
+                if claim_map.publication_ready or unsupported_count:
+                    errors.append("claim-evidence map contains unsafe authority or claims")
+    if stage_name in {"base_generation", "autonomous_loop", "final_manuscript_regeneration"}:
+        lint = lint_paper_bundle_summary(run_id=run_id, root=root)
+        unsupported = int(lint.get("claim_evidence_unsupported_count") or 0)
+        if _lint_has_safety_block(lint, unsupported):
+            errors.append("claim or citation safety lint blocks checkpoint reuse")
+    return sorted(set(errors))
+
+
+def _stage_output_exists(root: Path, run_id: str, stage_name: str) -> bool:
+    if stage_name == "base_generation":
+        return (root / "runs" / run_id / "reports" / "llm-orchestration-report.json").is_file()
+    if stage_name == "autonomous_loop":
+        report, _ = latest_autonomous_loop_report(root, run_id)
+        return report is not None
+    if stage_name == "final_manuscript_regeneration":
+        report, _ = latest_final_manuscript_regeneration(root, run_id)
+        return report is not None
+    if stage_name == "final_release_bundle_assembly":
+        report, _ = latest_final_release_bundle(root, run_id)
+        return report is not None
+    return False
+
+
+def _resume_checkpoint(
+    state: _ControllerState,
+    stage_name: str,
+) -> Any:
+    if state.resume_verification is None:
+        raise AutonomousPaperRunError("Resume checkpoint state is unavailable.")
+    for checkpoint in reversed(state.resume_verification.checkpoints):
+        if checkpoint.stage_name == stage_name:
+            return checkpoint
+    raise AutonomousPaperRunError(f"Verified checkpoint not found for {stage_name}.")
+
+
+def _reused_stage(checkpoint: Any, clock: Clock) -> AutonomousPaperRunStage:
+    timestamp = clock.now()
+    return _stage(
+        checkpoint.stage_name,
+        "reused",
+        timestamp,
+        timestamp,
+        "Reused after checkpoint, artifact, safety, protocol, and ledger verification.",
+        artifacts=list(checkpoint.stage_artifact_paths),
+        warnings=(
+            ["Reused checkpoint retained nonblocking stage warnings."]
+            if checkpoint.verification_status == "verified_with_warnings"
+            else []
+        ),
+    )
+
+
+def _checkpoint_stage(
+    state: _ControllerState,
+    stage: AutonomousPaperRunStage,
+    artifact_paths: list[str | None],
+    *,
+    safety_gate_status: str | None = None,
+    release_status: str | None = None,
+) -> None:
+    if state.checkpoint_session is None:
+        return
+    state.checkpoint_session.record(
+        stage,
+        [path for path in artifact_paths if path],
+        safety_gate_status=(
+            safety_gate_status
+            or (
+                "passed_with_warnings"
+                if stage.stage_status == "completed_with_warnings"
+                else "passed"
+            )
+        ),
+        release_status=release_status,
+    )
+
+
+def _base_external_usage(root: Path, run_id: str) -> tuple[bool, bool]:
+    path = root / "runs" / run_id / "reports" / "llm-orchestration-report.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False, False
+    network_used = any(
+        bool(item.get("external_call_performed"))
+        for item in payload.get("call_accounting", [])
+        if isinstance(item, dict)
+    )
+    return network_used, network_used
 
 
 def _value(value: Any) -> str:
@@ -984,6 +1487,7 @@ def _lint_has_safety_block(lint: dict[str, Any], unsupported_claim_count: int) -
 
 
 __all__ = [
+    "AutonomousPaperInjectedCrash",
     "AutonomousPaperRunError",
     "AutonomousPaperRunResult",
     "autonomous_paper_run_summary_fields",

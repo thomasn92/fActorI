@@ -806,11 +806,16 @@ One-command deterministic autonomous finalization:
 
 ```bash
 uv run factori run-autonomous-paper --run-id demo-paper --domain "human geography"
+uv run factori run-autonomous-paper --run-id demo-paper --domain "human geography" --resume-existing
 uv run factori inspect-autonomous-paper-run --run-id demo-paper
+uv run factori inspect-autonomous-paper-checkpoints --run-id demo-paper
+uv run factori inspect-autonomous-paper-resume --run-id demo-paper
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
 bundle assembly plus independent verification for handoff, and never sets publication readiness.
+Resume additionally verifies immutable checkpoint outputs, protocol compatibility, claim/citation
+safety, bundle hashes, and ledger lineage before any stage is reused.
 
 ```bash
 uv run factori init-run --run-id demo

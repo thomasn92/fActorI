@@ -1,0 +1,169 @@
+{
+  "$id": "https://schemas.factori.local/0.46.0/autonomous-paper-checkpoint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Immutable verified stage checkpoint for crash-safe controller resume.",
+  "properties": {
+    "checkpoint_hash": {
+      "maxLength": 64,
+      "minLength": 64,
+      "title": "Checkpoint Hash",
+      "type": "string"
+    },
+    "controller_run_id": {
+      "minLength": 1,
+      "title": "Controller Run Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "input_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Input Hashes",
+      "type": "object"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "ledger_tip_hash_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ledger Tip Hash Optional"
+    },
+    "output_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Output Hashes",
+      "type": "object"
+    },
+    "protocol_version": {
+      "minLength": 1,
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "release_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Release Status Optional"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_gate_status": {
+      "enum": [
+        "passed",
+        "passed_with_warnings",
+        "failed"
+      ],
+      "title": "Safety Gate Status",
+      "type": "string"
+    },
+    "stage_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stage Artifact Paths",
+      "type": "array"
+    },
+    "stage_completed_at": {
+      "minLength": 1,
+      "title": "Stage Completed At",
+      "type": "string"
+    },
+    "stage_name": {
+      "enum": [
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+        "final_bundle_verification",
+        "handoff"
+      ],
+      "title": "Stage Name",
+      "type": "string"
+    },
+    "stage_started_at": {
+      "minLength": 1,
+      "title": "Stage Started At",
+      "type": "string"
+    },
+    "stage_status": {
+      "minLength": 1,
+      "title": "Stage Status",
+      "type": "string"
+    },
+    "verification_errors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verification Errors",
+      "type": "array"
+    },
+    "verification_status": {
+      "default": "unverified",
+      "enum": [
+        "verified",
+        "verified_with_warnings",
+        "failed",
+        "unverified"
+      ],
+      "title": "Verification Status",
+      "type": "string"
+    },
+    "verified_for_resume": {
+      "default": false,
+      "title": "Verified For Resume",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id",
+    "controller_run_id",
+    "stage_name",
+    "stage_status",
+    "stage_started_at",
+    "stage_completed_at",
+    "protocol_version",
+    "checkpoint_hash",
+    "safety_gate_status"
+  ],
+  "title": "AutonomousPaperCheckpoint",
+  "type": "object",
+  "x-factori-protocol-version": "0.46.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperCheckpoint",
+  "x-factori-verification-evidence": false
+}

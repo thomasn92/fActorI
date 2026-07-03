@@ -107,9 +107,24 @@ def test_autonomous_paper_cli_commands_are_registered() -> None:
     assert "--enable-empirica" in run.output
     assert "--build-final-bun" in run.output
     assert "--verify-final-bu" in run.output
+    assert "--resume-existing" in run.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
+
+
+def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
+    checkpoints = CliRunner().invoke(
+        app, ["inspect-autonomous-paper-checkpoints", "--help"]
+    )
+    resume = CliRunner().invoke(app, ["inspect-autonomous-paper-resume", "--help"])
+
+    assert checkpoints.exit_code == 0, checkpoints.output
+    assert "--run-id" in checkpoints.output
+    assert "--json" in checkpoints.output
+    assert resume.exit_code == 0, resume.output
+    assert "--run-id" in resume.output
+    assert "--json" in resume.output
 
 
 def test_human_review_cli_commands_are_registered() -> None:

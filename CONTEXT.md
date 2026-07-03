@@ -70,6 +70,8 @@ completed run from disk and checks consistency without changing provenance.
 - independent read-only verification of hash-locked final release bundles from bundle contents.
 - fail-closed one-command autonomous finalization across generation, autonomous evidence work,
   final manuscript regeneration, release-bundle assembly, independent verification, and handoff.
+- crash-safe autonomous controller resume from verified immutable stage checkpoints, with
+  append-only resume reports and deterministic fault-injection coverage.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

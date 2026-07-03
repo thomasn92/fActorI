@@ -760,6 +760,14 @@ def inspect_paper_bundle_summary(
         autonomous_paper_report,
         autonomous_paper_index,
     )
+    from factori.autonomous_paper_checkpoint import (  # noqa: PLC0415
+        autonomous_paper_checkpoint_summary_fields,
+    )
+
+    autonomous_paper_checkpoint_summary = autonomous_paper_checkpoint_summary_fields(
+        run_id=run_id,
+        root=root_path,
+    )
     existing = {
         name: path.relative_to(root_path).as_posix()
         for name, path in sorted(paths.items())
@@ -1074,6 +1082,7 @@ def inspect_paper_bundle_summary(
         **final_release_bundle_summary,
         **final_bundle_verification_summary,
         **autonomous_paper_summary,
+        **autonomous_paper_checkpoint_summary,
         "bounded_empirical_gap_count": max(
             int(autonomous_plan_summary.get("empirical_demonstration_gap_count") or 0),
             int(autonomous_loop_summary.get("bounded_empirical_gap_count") or 0),
@@ -2280,6 +2289,30 @@ def lint_paper_bundle_summary(
         ),
         "autonomous_paper_human_intervention_required": (
             autonomous_paper_human_intervention_required
+        ),
+        "autonomous_paper_checkpoint_present": bool(
+            bundle.get("autonomous_paper_checkpoint_present")
+        ),
+        "autonomous_paper_checkpoint_count": int(
+            bundle.get("autonomous_paper_checkpoint_count") or 0
+        ),
+        "autonomous_paper_latest_completed_checkpoint": bundle.get(
+            "autonomous_paper_latest_completed_checkpoint"
+        ),
+        "autonomous_paper_resume_allowed": bool(
+            bundle.get("autonomous_paper_resume_allowed")
+        ),
+        "autonomous_paper_latest_resume_status": bundle.get(
+            "autonomous_paper_latest_resume_status"
+        ),
+        "autonomous_paper_resume_blocker_count": int(
+            bundle.get("autonomous_paper_resume_blocker_count") or 0
+        ),
+        "autonomous_paper_stages_reused_count": int(
+            bundle.get("autonomous_paper_stages_reused_count") or 0
+        ),
+        "autonomous_paper_stages_rerun_count": int(
+            bundle.get("autonomous_paper_stages_rerun_count") or 0
         ),
         "human_review_reconciliation_present": bool(
             bundle.get("human_review_reconciliation_present")

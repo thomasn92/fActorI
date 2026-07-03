@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.45.0/llm-budget-decision-status.schema.json",
+  "$id": "https://schemas.factori.local/0.46.0/llm-budget-decision-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "LLM budget decision status enum.",
   "enum": [
@@ -9,7 +9,7 @@
   ],
   "title": "LLMBudgetDecisionStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.45.0",
+  "x-factori-protocol-version": "0.46.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetDecisionStatus",
   "x-factori-verification-evidence": false
 }

@@ -192,3 +192,9 @@ generation, the autonomous loop, final manuscript regeneration, final release-bu
 independent read-only verification, and a bounded handoff decision in one command. Every stage is
 recorded, prior run artifacts are never overwritten, safety failures block downstream handoff, and
 `publication_ready` remains false.
+
+Milestone 81 adds crash-safe controller resume. Numbered immutable checkpoints lock each stage's
+artifacts, hashes, protocol version, safety status, and ledger ancestor. `--resume-existing`
+verifies every completed stage before reuse, resumes from the first absent safe stage, always reruns
+final bundle verification and handoff, and writes append-only controller and resume reports.
+Corrupt, stale, missing, or authority-claiming checkpoints fail closed.

@@ -1,0 +1,145 @@
+{
+  "$id": "https://schemas.factori.local/0.46.0/autonomous-paper-resume-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only report for one verified autonomous paper resume attempt.",
+  "properties": {
+    "actual_resume_stage": {
+      "minLength": 1,
+      "title": "Actual Resume Stage",
+      "type": "string"
+    },
+    "checkpoints_checked": {
+      "minimum": 0,
+      "title": "Checkpoints Checked",
+      "type": "integer"
+    },
+    "checkpoints_failed": {
+      "minimum": 0,
+      "title": "Checkpoints Failed",
+      "type": "integer"
+    },
+    "checkpoints_verified": {
+      "minimum": 0,
+      "title": "Checkpoints Verified",
+      "type": "integer"
+    },
+    "completed_at": {
+      "minLength": 1,
+      "title": "Completed At",
+      "type": "string"
+    },
+    "controller_run_id": {
+      "minLength": 1,
+      "title": "Controller Run Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "final_bundle_verification_rerun": {
+      "default": false,
+      "title": "Final Bundle Verification Rerun",
+      "type": "boolean"
+    },
+    "final_controller_status": {
+      "minLength": 1,
+      "title": "Final Controller Status",
+      "type": "string"
+    },
+    "final_handoff_status": {
+      "minLength": 1,
+      "title": "Final Handoff Status",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "requested_resume_stage": {
+      "minLength": 1,
+      "title": "Requested Resume Stage",
+      "type": "string"
+    },
+    "resume_blockers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Resume Blockers",
+      "type": "array"
+    },
+    "resume_id": {
+      "minLength": 1,
+      "title": "Resume Id",
+      "type": "string"
+    },
+    "resume_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "blocked",
+        "failed"
+      ],
+      "title": "Resume Status",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stages_rerun": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stages Rerun",
+      "type": "array"
+    },
+    "stages_reused": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stages Reused",
+      "type": "array"
+    },
+    "started_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "resume_id",
+    "controller_run_id",
+    "requested_resume_stage",
+    "actual_resume_stage",
+    "started_at",
+    "completed_at",
+    "checkpoints_checked",
+    "checkpoints_verified",
+    "checkpoints_failed",
+    "resume_status",
+    "final_controller_status",
+    "final_handoff_status"
+  ],
+  "title": "AutonomousPaperResumeReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.46.0",
+  "x-factori-source-model": "factori.schemas.AutonomousPaperResumeReport",
+  "x-factori-verification-evidence": false
+}

@@ -22,6 +22,11 @@ from factori.autonomous_loop import (
     inspect_autonomous_loop,
     run_autonomous_loop,
 )
+from factori.autonomous_paper_checkpoint import (
+    AutonomousPaperCheckpointError,
+    inspect_autonomous_paper_checkpoints,
+    inspect_autonomous_paper_resume,
+)
 from factori.autonomous_paper_run import (
     AutonomousPaperRunError,
     inspect_autonomous_paper_run,
@@ -3482,6 +3487,7 @@ def run_autonomous_paper_command(
     ] = True,
     compile_pdf: Annotated[bool, typer.Option("--compile-pdf")] = False,
     strict_export: Annotated[bool, typer.Option("--strict-export")] = False,
+    resume_existing: Annotated[bool, typer.Option("--resume-existing")] = False,
     max_total_calls: Annotated[int | None, typer.Option("--max-total-calls")] = None,
     max_candidate_generation_calls: Annotated[
         int | None,
@@ -3566,6 +3572,7 @@ def run_autonomous_paper_command(
             verify_final_bundle=verify_final_bundle,
             compile_pdf=compile_pdf,
             strict_export=strict_export,
+            resume_existing=resume_existing,
         )
     except AutonomousPaperRunError as exc:
         typer.echo(str(exc), err=True)
@@ -3621,7 +3628,57 @@ def inspect_autonomous_paper_run_command(
         f"Human intervention required: {str(summary['human_intervention_required']).lower()}"
     )
     typer.echo("Publication ready: false")
-    typer.echo(f"Artifact: {summary['autonomous_loop_report_path']}")
+    typer.echo(
+        "Artifact: "
+        f"{summary['autonomous_paper_run_index']['latest_report_path']}"
+    )
+
+
+@app.command("inspect-autonomous-paper-checkpoints")
+def inspect_autonomous_paper_checkpoints_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Verify and inspect autonomous paper controller checkpoints read-only."""
+    try:
+        summary = inspect_autonomous_paper_checkpoints(run_id=run_id, root=root)
+    except AutonomousPaperCheckpointError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Autonomous paper checkpoints: {run_id}")
+    typer.echo(f"Checkpoint count: {summary['checkpoint_count']}")
+    typer.echo(f"Latest completed stage: {summary['latest_completed_stage']}")
+    typer.echo(f"Resume allowed: {str(summary['resume_allowed']).lower()}")
+    typer.echo(f"Resume blockers: {len(summary['resume_blockers'])}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("inspect-autonomous-paper-resume")
+def inspect_autonomous_paper_resume_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest append-only autonomous paper resume report."""
+    try:
+        summary = inspect_autonomous_paper_resume(run_id=run_id, root=root)
+    except AutonomousPaperCheckpointError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Autonomous paper resume: {run_id}")
+    typer.echo(f"Resume status: {summary['resume_status']}")
+    typer.echo(f"Actual resume stage: {summary['actual_resume_stage']}")
+    typer.echo(f"Stages reused: {len(summary['stages_reused'])}")
+    typer.echo(f"Stages rerun: {len(summary['stages_rerun'])}")
+    typer.echo(f"Resume blockers: {len(summary['resume_blockers'])}")
+    typer.echo("Publication ready: false")
 
 
 def _parse_explicit_bool(value: str) -> bool:
@@ -4738,6 +4795,25 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Autonomous deferred gaps / human intervention: "
         f"{int(summary.get('autonomous_paper_deferred_gap_count') or 0)} / "
         f"{str(bool(summary.get('autonomous_paper_human_intervention_required'))).lower()}"
+    )
+    typer.echo(
+        "Controller checkpoints: "
+        f"{'present' if summary.get('autonomous_paper_checkpoint_present') else 'absent'}"
+    )
+    typer.echo(
+        "Latest completed checkpoint / resume allowed: "
+        f"{summary.get('autonomous_paper_latest_completed_checkpoint') or 'not_available'} / "
+        f"{str(bool(summary.get('autonomous_paper_resume_allowed'))).lower()}"
+    )
+    typer.echo(
+        "Latest resume status / stages reused / rerun: "
+        f"{summary.get('autonomous_paper_latest_resume_status') or 'not_available'} / "
+        f"{int(summary.get('autonomous_paper_stages_reused_count') or 0)} / "
+        f"{int(summary.get('autonomous_paper_stages_rerun_count') or 0)}"
+    )
+    typer.echo(
+        "Resume blockers: "
+        f"{int(summary.get('autonomous_paper_resume_blocker_count') or 0)}"
     )
     typer.echo(
         "Evidence-aware refresh: "

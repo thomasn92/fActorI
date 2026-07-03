@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.45.0/final-manuscript-section.schema.json",
+  "$id": "https://schemas.factori.local/0.46.0/final-manuscript-section.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic section in a regenerated final manuscript.",
@@ -83,7 +83,7 @@
   ],
   "title": "FinalManuscriptSection",
   "type": "object",
-  "x-factori-protocol-version": "0.45.0",
+  "x-factori-protocol-version": "0.46.0",
   "x-factori-source-model": "factori.schemas.FinalManuscriptSection",
   "x-factori-verification-evidence": false
 }

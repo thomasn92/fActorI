@@ -178,6 +178,8 @@
         "FinalManuscriptRegenerated",
         "FinalReleaseBundleAssembled",
         "AutonomousPaperRunWritten",
+        "AutonomousPaperCheckpointWritten",
+        "AutonomousPaperResumeWritten",
         "LLMOrchestrationWritten",
         "PipelineRunReportWritten"
       ],
@@ -185,7 +187,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.45.0/ledger-commit.schema.json",
+  "$id": "https://schemas.factori.local/0.46.0/ledger-commit.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only provenance commit.",
@@ -253,7 +255,7 @@
   ],
   "title": "LedgerCommit",
   "type": "object",
-  "x-factori-protocol-version": "0.45.0",
+  "x-factori-protocol-version": "0.46.0",
   "x-factori-source-model": "factori.schemas.LedgerCommit",
   "x-factori-verification-evidence": false
 }

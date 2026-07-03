@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.45.0/autonomous-paper-run-handoff.schema.json",
+  "$id": "https://schemas.factori.local/0.46.0/autonomous-paper-run-handoff.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded final handoff decision from autonomous paper finalization.",
@@ -106,7 +106,7 @@
   ],
   "title": "AutonomousPaperRunHandoff",
   "type": "object",
-  "x-factori-protocol-version": "0.45.0",
+  "x-factori-protocol-version": "0.46.0",
   "x-factori-source-model": "factori.schemas.AutonomousPaperRunHandoff",
   "x-factori-verification-evidence": false
 }
