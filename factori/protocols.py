@@ -112,8 +112,14 @@ from factori.schemas import (
     HumanReviewReconciliationItem,
     HumanReviewReconciliationReport,
     HygieneRemediationPlan,
+    IdeaClusterDiagnostic,
     IdeaEdge,
     IdeaNode,
+    IdeaNodeFeatureVector,
+    IdeaSpaceAxis,
+    IdeaSpaceDiversityReport,
+    IdeaSpaceInspectionReport,
+    IdeaSpacePCADiagnostic,
     IdeaTree,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
@@ -231,7 +237,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.48.0"
+PROTOCOL_VERSION = "0.49.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -432,6 +438,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "IdeaTreeExportReport",
         IdeaTreeExportReport,
         "Context-only append-only idea-tree export result.",
+    ),
+    ProtocolDefinition(
+        "IdeaNodeFeatureVector",
+        IdeaNodeFeatureVector,
+        "Deterministic lexical and domain feature vector for an idea-tree node.",
+    ),
+    ProtocolDefinition(
+        "IdeaSpaceAxis",
+        IdeaSpaceAxis,
+        "One deterministic PCA-like axis over idea-node features.",
+    ),
+    ProtocolDefinition(
+        "IdeaSpacePCADiagnostic",
+        IdeaSpacePCADiagnostic,
+        "PCA/SVD or deterministic fallback summary for idea-space diversity.",
+    ),
+    ProtocolDefinition(
+        "IdeaClusterDiagnostic",
+        IdeaClusterDiagnostic,
+        "Near-duplicate and collapsed-axis diagnostic for idea nodes.",
+    ),
+    ProtocolDefinition(
+        "IdeaSpaceDiversityReport",
+        IdeaSpaceDiversityReport,
+        "Context-only idea-space diversity report with recommended mutation axes.",
+    ),
+    ProtocolDefinition(
+        "IdeaSpaceInspectionReport",
+        IdeaSpaceInspectionReport,
+        "Read-only idea-space inspection payload.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

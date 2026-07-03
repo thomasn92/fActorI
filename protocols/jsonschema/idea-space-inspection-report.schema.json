@@ -1,0 +1,615 @@
+{
+  "$defs": {
+    "IdeaClusterDiagnostic": {
+      "additionalProperties": false,
+      "description": "Duplicate, collapsed-axis, and missing-axis diagnostics over idea nodes.",
+      "properties": {
+        "collapsed_axis_warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Collapsed Axis Warnings",
+          "type": "array"
+        },
+        "main_collapsed_phrase_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Main Collapsed Phrase Optional"
+        },
+        "missing_axis_warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Axis Warnings",
+          "type": "array"
+        },
+        "near_duplicate_node_pairs": {
+          "items": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Near Duplicate Node Pairs",
+          "type": "array"
+        },
+        "underexplored_scientific_axes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Underexplored Scientific Axes",
+          "type": "array"
+        },
+        "validation_mode_only_variant_count": {
+          "minimum": 0,
+          "title": "Validation Mode Only Variant Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "validation_mode_only_variant_count"
+      ],
+      "title": "IdeaClusterDiagnostic",
+      "type": "object"
+    },
+    "IdeaNodeFeatureVector": {
+      "additionalProperties": false,
+      "description": "Deterministic lexical/domain feature vector for one idea-tree node.",
+      "properties": {
+        "active_feature_names": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Active Feature Names",
+          "type": "array"
+        },
+        "baseline_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Baseline Features",
+          "type": "object"
+        },
+        "claim_type_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Claim Type Features",
+          "type": "object"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "data_regime_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Data Regime Features",
+          "type": "object"
+        },
+        "domain_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Domain Features",
+          "type": "object"
+        },
+        "experiment_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Experiment Features",
+          "type": "object"
+        },
+        "feature_values": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Feature Values",
+          "type": "object"
+        },
+        "has_DGP": {
+          "default": false,
+          "title": "Has Dgp",
+          "type": "boolean"
+        },
+        "has_ablation": {
+          "default": false,
+          "title": "Has Ablation",
+          "type": "boolean"
+        },
+        "has_algorithm": {
+          "default": false,
+          "title": "Has Algorithm",
+          "type": "boolean"
+        },
+        "has_baseline": {
+          "default": false,
+          "title": "Has Baseline",
+          "type": "boolean"
+        },
+        "has_concrete_model": {
+          "default": false,
+          "title": "Has Concrete Model",
+          "type": "boolean"
+        },
+        "has_equation": {
+          "default": false,
+          "title": "Has Equation",
+          "type": "boolean"
+        },
+        "has_metric": {
+          "default": false,
+          "title": "Has Metric",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "mathematical_object_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Mathematical Object Features",
+          "type": "object"
+        },
+        "method_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Method Features",
+          "type": "object"
+        },
+        "model_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Model Features",
+          "type": "object"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "risk_features": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Risk Features",
+          "type": "object"
+        },
+        "stage_origin": {
+          "minLength": 1,
+          "title": "Stage Origin",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "root",
+            "generated",
+            "expanded",
+            "survived",
+            "pruned",
+            "selected",
+            "final",
+            "deferred"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "uses_PCA_or_representation_axis": {
+          "default": false,
+          "title": "Uses Pca Or Representation Axis",
+          "type": "boolean"
+        },
+        "uses_agent_based_model": {
+          "default": false,
+          "title": "Uses Agent Based Model",
+          "type": "boolean"
+        },
+        "uses_dimensionality_reduction": {
+          "default": false,
+          "title": "Uses Dimensionality Reduction",
+          "type": "boolean"
+        },
+        "uses_distance_decay": {
+          "default": false,
+          "title": "Uses Distance Decay",
+          "type": "boolean"
+        },
+        "uses_experiment_form": {
+          "default": false,
+          "title": "Uses Experiment Form",
+          "type": "boolean"
+        },
+        "uses_gravity_model": {
+          "default": false,
+          "title": "Uses Gravity Model",
+          "type": "boolean"
+        },
+        "uses_kernel_model": {
+          "default": false,
+          "title": "Uses Kernel Model",
+          "type": "boolean"
+        },
+        "uses_matrix_factorization": {
+          "default": false,
+          "title": "Uses Matrix Factorization",
+          "type": "boolean"
+        },
+        "uses_private_data": {
+          "default": false,
+          "title": "Uses Private Data",
+          "type": "boolean"
+        },
+        "uses_public_data": {
+          "default": false,
+          "title": "Uses Public Data",
+          "type": "boolean"
+        },
+        "uses_robustness_model": {
+          "default": false,
+          "title": "Uses Robustness Model",
+          "type": "boolean"
+        },
+        "uses_spatial_interaction_model": {
+          "default": false,
+          "title": "Uses Spatial Interaction Model",
+          "type": "boolean"
+        },
+        "uses_stress_testing": {
+          "default": false,
+          "title": "Uses Stress Testing",
+          "type": "boolean"
+        },
+        "uses_synthetic_data": {
+          "default": false,
+          "title": "Uses Synthetic Data",
+          "type": "boolean"
+        },
+        "uses_theorem_form": {
+          "default": false,
+          "title": "Uses Theorem Form",
+          "type": "boolean"
+        },
+        "uses_uncertainty_model": {
+          "default": false,
+          "title": "Uses Uncertainty Model",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "node_id",
+        "title",
+        "stage_origin",
+        "status",
+        "feature_values"
+      ],
+      "title": "IdeaNodeFeatureVector",
+      "type": "object"
+    },
+    "IdeaSpaceAxis": {
+      "additionalProperties": false,
+      "description": "One deterministic PCA-like idea-space axis.",
+      "properties": {
+        "axis_id": {
+          "minLength": 1,
+          "title": "Axis Id",
+          "type": "string"
+        },
+        "explained_variance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Explained Variance",
+          "type": "number"
+        },
+        "feature_loadings": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Feature Loadings",
+          "type": "object"
+        },
+        "interpretation": {
+          "minLength": 1,
+          "title": "Interpretation",
+          "type": "string"
+        },
+        "top_negative_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Negative Features",
+          "type": "array"
+        },
+        "top_positive_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Positive Features",
+          "type": "array"
+        }
+      },
+      "required": [
+        "axis_id",
+        "explained_variance",
+        "interpretation"
+      ],
+      "title": "IdeaSpaceAxis",
+      "type": "object"
+    },
+    "IdeaSpacePCADiagnostic": {
+      "additionalProperties": false,
+      "description": "Centered binary-feature PCA/SVD summary for idea-tree nodes.",
+      "properties": {
+        "axes": {
+          "items": {
+            "$ref": "#/$defs/IdeaSpaceAxis"
+          },
+          "title": "Axes",
+          "type": "array"
+        },
+        "effective_rank": {
+          "minimum": 0,
+          "title": "Effective Rank",
+          "type": "integer"
+        },
+        "method": {
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "pc1_explained_variance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Pc1 Explained Variance",
+          "type": "number"
+        },
+        "pc2_explained_variance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Pc2 Explained Variance",
+          "type": "number"
+        },
+        "top_pc1_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Pc1 Features",
+          "type": "array"
+        },
+        "top_pc2_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Pc2 Features",
+          "type": "array"
+        }
+      },
+      "required": [
+        "method",
+        "effective_rank",
+        "pc1_explained_variance",
+        "pc2_explained_variance"
+      ],
+      "title": "IdeaSpacePCADiagnostic",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.49.0/idea-space-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only idea-space inspection payload.",
+  "properties": {
+    "cluster_diagnostic": {
+      "$ref": "#/$defs/IdeaClusterDiagnostic"
+    },
+    "collapsed_axis_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Collapsed Axis Warnings",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creativity_blockers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Creativity Blockers",
+      "type": "array"
+    },
+    "diversity_score": {
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "title": "Diversity Score",
+      "type": "string"
+    },
+    "effective_rank": {
+      "minimum": 0,
+      "title": "Effective Rank",
+      "type": "integer"
+    },
+    "feature_count": {
+      "minimum": 0,
+      "title": "Feature Count",
+      "type": "integer"
+    },
+    "feature_vectors": {
+      "items": {
+        "$ref": "#/$defs/IdeaNodeFeatureVector"
+      },
+      "title": "Feature Vectors",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "missing_axis_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Axis Warnings",
+      "type": "array"
+    },
+    "near_duplicate_node_pairs": {
+      "items": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "type": "object"
+      },
+      "title": "Near Duplicate Node Pairs",
+      "type": "array"
+    },
+    "node_count": {
+      "minimum": 0,
+      "title": "Node Count",
+      "type": "integer"
+    },
+    "pc1_explained_variance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Pc1 Explained Variance",
+      "type": "number"
+    },
+    "pc2_explained_variance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Pc2 Explained Variance",
+      "type": "number"
+    },
+    "pca_diagnostic": {
+      "$ref": "#/$defs/IdeaSpacePCADiagnostic"
+    },
+    "pca_inspired_branch": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Pca Inspired Branch",
+      "type": "object"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_mutation_axes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Mutation Axes",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "top_pc1_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Pc1 Features",
+      "type": "array"
+    },
+    "top_pc2_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Pc2 Features",
+      "type": "array"
+    },
+    "tree_present": {
+      "title": "Tree Present",
+      "type": "boolean"
+    },
+    "underexplored_scientific_axes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Underexplored Scientific Axes",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "tree_present",
+    "node_count",
+    "feature_count",
+    "effective_rank",
+    "pc1_explained_variance",
+    "pc2_explained_variance",
+    "diversity_score",
+    "feature_vectors",
+    "pca_diagnostic",
+    "cluster_diagnostic"
+  ],
+  "title": "IdeaSpaceInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.49.0",
+  "x-factori-source-model": "factori.schemas.IdeaSpaceInspectionReport",
+  "x-factori-verification-evidence": false
+}

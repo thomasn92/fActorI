@@ -118,6 +118,7 @@ from factori.human_review_reconciliation import (
     inspect_human_review_reconciliation,
     reconcile_human_review,
 )
+from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
@@ -188,8 +189,14 @@ from factori.schemas import (
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
+    IdeaClusterDiagnostic,
     IdeaEdge,
     IdeaNode,
+    IdeaNodeFeatureVector,
+    IdeaSpaceAxis,
+    IdeaSpaceDiversityReport,
+    IdeaSpaceInspectionReport,
+    IdeaSpacePCADiagnostic,
     IdeaTree,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
@@ -263,6 +270,12 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert IdeaTree
     assert IdeaTreeInspectionReport
     assert IdeaTreeExportReport
+    assert IdeaNodeFeatureVector
+    assert IdeaSpaceAxis
+    assert IdeaSpacePCADiagnostic
+    assert IdeaClusterDiagnostic
+    assert IdeaSpaceDiversityReport
+    assert IdeaSpaceInspectionReport
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -334,6 +347,76 @@ def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
     degraded = inspect_idea_tree(run_id=run_id, root=tmp_path)
     assert degraded.tree_present is True
     assert any("Stage B report is unavailable" in warning for warning in degraded.warnings)
+
+
+def test_idea_space_diagnostic_flags_collapsed_scientific_axes(tmp_path) -> None:
+    run_id = "run-idea-space"
+    run_deterministic_pipeline(
+        PipelineRunConfig(
+            run_id=run_id,
+            domain="spatial heterogeneity in human geography",
+            root=tmp_path,
+        )
+    )
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    commit_count = len(ledger.list_commits(run_id))
+
+    report = inspect_idea_space(run_id=run_id, root=tmp_path)
+    markdown_path = export_idea_space_report(
+        run_id=run_id,
+        root=tmp_path,
+        export_format="markdown",
+    )
+    json_path = export_idea_space_report(
+        run_id=run_id,
+        root=tmp_path,
+        export_format="json",
+    )
+
+    markdown = (tmp_path / markdown_path).read_text(encoding="utf-8")
+    exported = IdeaSpaceInspectionReport.model_validate_json(
+        (tmp_path / json_path).read_text(encoding="utf-8")
+    )
+
+    assert report.tree_present is True
+    assert report.node_count > 1
+    assert report.feature_count >= 20
+    assert report.feature_vectors
+    assert any(vector.uses_synthetic_data for vector in report.feature_vectors)
+    assert report.diversity_score == "low"
+    assert report.near_duplicate_node_pairs
+    assert any(
+        "synthetic stress testing" in warning
+        for warning in report.collapsed_axis_warnings
+    )
+    assert any(
+        "concrete model" in warning for warning in report.missing_axis_warnings
+    )
+    assert any("equation" in warning for warning in report.missing_axis_warnings)
+    assert any(
+        "validation-mode variants" in warning
+        for warning in report.collapsed_axis_warnings
+    )
+    assert "region-specific distance-decay gravity model" in (
+        report.recommended_mutation_axes
+    )
+    assert "PCA/low-rank OD-flow representation model" in (
+        report.recommended_mutation_axes
+    )
+    assert report.pca_inspired_branch["model_idea"].startswith(
+        "Represent regional OD-flow residuals"
+    )
+    assert report.effective_rank >= 0
+    assert 0.0 <= report.pc1_explained_variance <= 1.0
+    assert "Idea-space diversity: low" in markdown
+    assert "PCA/low-rank OD-flow representation model" in markdown
+    assert "provenance/context only" in markdown
+    assert "publication_ready=false" in markdown
+    assert exported.diversity_score == "low"
+    assert exported.recommended_mutation_axes == report.recommended_mutation_axes
+    assert exported.publication_ready is False
+    assert exported.is_verification_evidence is False
+    assert len(ledger.list_commits(run_id)) == commit_count
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:

@@ -208,6 +208,151 @@ class IdeaTreeExportReport(StrictModel):
     publication_ready: bool = False
 
 
+IdeaSpaceDiversityScore = Literal["low", "moderate", "high"]
+
+
+class IdeaNodeFeatureVector(StrictModel):
+    """Deterministic lexical/domain feature vector for one idea-tree node."""
+
+    node_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    stage_origin: str = Field(min_length=1)
+    status: IdeaNodeStatus
+    domain_features: dict[str, float] = Field(default_factory=dict)
+    model_features: dict[str, float] = Field(default_factory=dict)
+    method_features: dict[str, float] = Field(default_factory=dict)
+    data_regime_features: dict[str, float] = Field(default_factory=dict)
+    baseline_features: dict[str, float] = Field(default_factory=dict)
+    experiment_features: dict[str, float] = Field(default_factory=dict)
+    mathematical_object_features: dict[str, float] = Field(default_factory=dict)
+    claim_type_features: dict[str, float] = Field(default_factory=dict)
+    risk_features: dict[str, float] = Field(default_factory=dict)
+    has_concrete_model: bool = False
+    has_equation: bool = False
+    has_algorithm: bool = False
+    has_DGP: bool = False
+    has_baseline: bool = False
+    has_metric: bool = False
+    has_ablation: bool = False
+    uses_synthetic_data: bool = False
+    uses_public_data: bool = False
+    uses_private_data: bool = False
+    uses_theorem_form: bool = False
+    uses_experiment_form: bool = False
+    uses_stress_testing: bool = False
+    uses_spatial_interaction_model: bool = False
+    uses_gravity_model: bool = False
+    uses_distance_decay: bool = False
+    uses_kernel_model: bool = False
+    uses_matrix_factorization: bool = False
+    uses_agent_based_model: bool = False
+    uses_robustness_model: bool = False
+    uses_uncertainty_model: bool = False
+    uses_PCA_or_representation_axis: bool = False
+    uses_dimensionality_reduction: bool = False
+    feature_values: dict[str, float]
+    active_feature_names: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class IdeaSpaceAxis(StrictModel):
+    """One deterministic PCA-like idea-space axis."""
+
+    axis_id: str = Field(min_length=1)
+    explained_variance: float = Field(ge=0.0, le=1.0)
+    feature_loadings: dict[str, float] = Field(default_factory=dict)
+    top_positive_features: list[str] = Field(default_factory=list)
+    top_negative_features: list[str] = Field(default_factory=list)
+    interpretation: str = Field(min_length=1)
+
+
+class IdeaSpacePCADiagnostic(StrictModel):
+    """Centered binary-feature PCA/SVD summary for idea-tree nodes."""
+
+    method: str = Field(min_length=1)
+    effective_rank: int = Field(ge=0)
+    pc1_explained_variance: float = Field(ge=0.0, le=1.0)
+    pc2_explained_variance: float = Field(ge=0.0, le=1.0)
+    axes: list[IdeaSpaceAxis] = Field(default_factory=list)
+    top_pc1_features: list[str] = Field(default_factory=list)
+    top_pc2_features: list[str] = Field(default_factory=list)
+
+
+class IdeaClusterDiagnostic(StrictModel):
+    """Duplicate, collapsed-axis, and missing-axis diagnostics over idea nodes."""
+
+    near_duplicate_node_pairs: list[dict[str, str | float]] = Field(default_factory=list)
+    collapsed_axis_warnings: list[str] = Field(default_factory=list)
+    missing_axis_warnings: list[str] = Field(default_factory=list)
+    underexplored_scientific_axes: list[str] = Field(default_factory=list)
+    validation_mode_only_variant_count: int = Field(ge=0)
+    main_collapsed_phrase_optional: str | None = None
+
+
+class IdeaSpaceDiversityReport(StrictModel):
+    """Context-only idea-space diversity diagnostic derived from an IdeaTree."""
+
+    run_id: str = Field(min_length=1)
+    tree_present: bool
+    node_count: int = Field(ge=0)
+    feature_count: int = Field(ge=0)
+    effective_rank: int = Field(ge=0)
+    pc1_explained_variance: float = Field(ge=0.0, le=1.0)
+    pc2_explained_variance: float = Field(ge=0.0, le=1.0)
+    top_pc1_features: list[str] = Field(default_factory=list)
+    top_pc2_features: list[str] = Field(default_factory=list)
+    near_duplicate_node_pairs: list[dict[str, str | float]] = Field(default_factory=list)
+    collapsed_axis_warnings: list[str] = Field(default_factory=list)
+    missing_axis_warnings: list[str] = Field(default_factory=list)
+    underexplored_scientific_axes: list[str] = Field(default_factory=list)
+    diversity_score: IdeaSpaceDiversityScore
+    creativity_blockers: list[str] = Field(default_factory=list)
+    recommended_mutation_axes: list[str] = Field(default_factory=list)
+    pca_inspired_branch: dict[str, str] = Field(default_factory=dict)
+    pca_diagnostic: IdeaSpacePCADiagnostic
+    cluster_diagnostic: IdeaClusterDiagnostic
+    feature_vectors: list[IdeaNodeFeatureVector]
+    source_idea_tree_warnings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class IdeaSpaceInspectionReport(StrictModel):
+    """Read-only inspection payload for idea-space diagnostics."""
+
+    run_id: str = Field(min_length=1)
+    tree_present: bool
+    node_count: int = Field(ge=0)
+    feature_count: int = Field(ge=0)
+    effective_rank: int = Field(ge=0)
+    pc1_explained_variance: float = Field(ge=0.0, le=1.0)
+    pc2_explained_variance: float = Field(ge=0.0, le=1.0)
+    top_pc1_features: list[str] = Field(default_factory=list)
+    top_pc2_features: list[str] = Field(default_factory=list)
+    near_duplicate_node_pairs: list[dict[str, str | float]] = Field(default_factory=list)
+    collapsed_axis_warnings: list[str] = Field(default_factory=list)
+    missing_axis_warnings: list[str] = Field(default_factory=list)
+    underexplored_scientific_axes: list[str] = Field(default_factory=list)
+    diversity_score: IdeaSpaceDiversityScore
+    creativity_blockers: list[str] = Field(default_factory=list)
+    recommended_mutation_axes: list[str] = Field(default_factory=list)
+    pca_inspired_branch: dict[str, str] = Field(default_factory=dict)
+    feature_vectors: list[IdeaNodeFeatureVector]
+    pca_diagnostic: IdeaSpacePCADiagnostic
+    cluster_diagnostic: IdeaClusterDiagnostic
+    warnings: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
 class ClaimEvidenceLink(StrictModel):
     """One deterministic claim-to-evidence link."""
 
@@ -3481,6 +3626,12 @@ __all__ = [
     "IdeaTree",
     "IdeaTreeInspectionReport",
     "IdeaTreeExportReport",
+    "IdeaNodeFeatureVector",
+    "IdeaSpaceAxis",
+    "IdeaSpacePCADiagnostic",
+    "IdeaClusterDiagnostic",
+    "IdeaSpaceDiversityReport",
+    "IdeaSpaceInspectionReport",
     "ClaimEvidenceLink",
     "ClaimEvidenceMapLink",
     "ClaimEvidenceMap",

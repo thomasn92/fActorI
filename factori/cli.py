@@ -154,6 +154,12 @@ from factori.hygiene_plan import (
     summarize_hygiene_remediation_plan,
     write_hygiene_remediation_plan,
 )
+from factori.idea_space import (
+    IdeaSpaceError,
+    export_idea_space_report,
+    inspect_idea_space,
+    render_idea_space_text,
+)
 from factori.idea_tree import (
     IdeaTreeError,
     export_idea_tree,
@@ -3910,6 +3916,50 @@ def export_idea_tree_command(
     typer.echo(f"edge_count={report.edge_count}")
     typer.echo("publication_ready=false")
     typer.echo(f"artifact={report.export_path}")
+
+
+@app.command("inspect-idea-space")
+def inspect_idea_space_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect deterministic idea-space diversity diagnostics without mutation."""
+    try:
+        report = inspect_idea_space(run_id=run_id, root=root)
+    except IdeaSpaceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_idea_space_text(report))
+
+
+@app.command("export-idea-space-report")
+def export_idea_space_report_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    export_format: Annotated[str, typer.Option("--format")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Write an append-only context-only idea-space report."""
+    try:
+        artifact_path = export_idea_space_report(
+            run_id=run_id,
+            root=root,
+            export_format=export_format,
+        )
+        report = inspect_idea_space(run_id=run_id, root=root)
+    except IdeaSpaceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"format={export_format}")
+    typer.echo(f"diversity_score={report.diversity_score}")
+    typer.echo(f"effective_rank={report.effective_rank}")
+    typer.echo(f"recommended_mutation_axes={len(report.recommended_mutation_axes)}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={artifact_path}")
 
 
 @app.command("inspect-final-manuscript")

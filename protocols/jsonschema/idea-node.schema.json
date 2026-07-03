@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.48.0/idea-node.schema.json",
+  "$id": "https://schemas.factori.local/0.49.0/idea-node.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One context-only node in the reconstructed creative search tree.",
@@ -232,7 +232,7 @@
   ],
   "title": "IdeaNode",
   "type": "object",
-  "x-factori-protocol-version": "0.48.0",
+  "x-factori-protocol-version": "0.49.0",
   "x-factori-source-model": "factori.schemas.IdeaNode",
   "x-factori-verification-evidence": false
 }

@@ -204,3 +204,10 @@ the domain root, Stage A candidates, Stage B variants, pruning and survivor reas
 selection, and the final manuscript branch through read-only inspection and append-only Markdown
 or JSON exports. Idea-tree artifacts are provenance/context only and cannot create evidence,
 upgrade labels, or imply publication readiness.
+
+Milestone 83 adds deterministic idea-space diversity diagnostics over IdeaTree nodes. Each node is
+mapped to lexical/domain feature vectors, centered feature variance is summarized with SVD when
+available or a deterministic variance fallback, and reports flag near-duplicates, collapsed
+scientific axes, validation-mode-only variants, missing model/equation/DGP axes, and recommended
+future mutation axes. These reports are provenance/context only and cannot create evidence,
+validation, or publication readiness.

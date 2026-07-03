@@ -1,0 +1,55 @@
+{
+  "$id": "https://schemas.factori.local/0.49.0/idea-space-axis.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic PCA-like axis over idea-node features.",
+  "properties": {
+    "axis_id": {
+      "minLength": 1,
+      "title": "Axis Id",
+      "type": "string"
+    },
+    "explained_variance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Explained Variance",
+      "type": "number"
+    },
+    "feature_loadings": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Feature Loadings",
+      "type": "object"
+    },
+    "interpretation": {
+      "minLength": 1,
+      "title": "Interpretation",
+      "type": "string"
+    },
+    "top_negative_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Negative Features",
+      "type": "array"
+    },
+    "top_positive_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Positive Features",
+      "type": "array"
+    }
+  },
+  "required": [
+    "axis_id",
+    "explained_variance",
+    "interpretation"
+  ],
+  "title": "IdeaSpaceAxis",
+  "type": "object",
+  "x-factori-protocol-version": "0.49.0",
+  "x-factori-source-model": "factori.schemas.IdeaSpaceAxis",
+  "x-factori-verification-evidence": false
+}

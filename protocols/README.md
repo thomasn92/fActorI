@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.49.0` adds context-only idea-space feature vectors, PCA-like axis diagnostics,
+near-duplicate/collapsed-axis diagnostics, diversity reports, and inspection payloads over
+`IdeaTree` nodes. These diagnostics expose creative variance and recommended future mutation axes
+without creating scientific evidence, validation authority, or publication readiness.
+
 Protocol `0.48.0` adds the first-class, context-only `IdeaTree`, node, edge, inspection, and export
 contracts. The tree reconstructs Stage A candidates, Stage B variants, Stage C selection, pruning,
 and the final manuscript branch from existing immutable run artifacts without creating evidence,

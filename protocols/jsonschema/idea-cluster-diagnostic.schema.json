@@ -1,0 +1,71 @@
+{
+  "$id": "https://schemas.factori.local/0.49.0/idea-cluster-diagnostic.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Near-duplicate and collapsed-axis diagnostic for idea nodes.",
+  "properties": {
+    "collapsed_axis_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Collapsed Axis Warnings",
+      "type": "array"
+    },
+    "main_collapsed_phrase_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Main Collapsed Phrase Optional"
+    },
+    "missing_axis_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Axis Warnings",
+      "type": "array"
+    },
+    "near_duplicate_node_pairs": {
+      "items": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "type": "object"
+      },
+      "title": "Near Duplicate Node Pairs",
+      "type": "array"
+    },
+    "underexplored_scientific_axes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Underexplored Scientific Axes",
+      "type": "array"
+    },
+    "validation_mode_only_variant_count": {
+      "minimum": 0,
+      "title": "Validation Mode Only Variant Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "validation_mode_only_variant_count"
+  ],
+  "title": "IdeaClusterDiagnostic",
+  "type": "object",
+  "x-factori-protocol-version": "0.49.0",
+  "x-factori-source-model": "factori.schemas.IdeaClusterDiagnostic",
+  "x-factori-verification-evidence": false
+}

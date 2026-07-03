@@ -33,6 +33,12 @@ from factori.schemas import (
     FinalReleaseReproducibilityManifest,
     FullPaperGenerationReport,
     HumanReviewArtifact,
+    IdeaClusterDiagnostic,
+    IdeaNodeFeatureVector,
+    IdeaSpaceAxis,
+    IdeaSpaceDiversityReport,
+    IdeaSpaceInspectionReport,
+    IdeaSpacePCADiagnostic,
     LatexExportResult,
     ManuscriptDraftingPlan,
     NarrativeManuscriptContract,
@@ -87,6 +93,12 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert AutonomousPaperCheckpoint in vars(schemas).values()
     assert AutonomousPaperCheckpointIndex in vars(schemas).values()
     assert AutonomousPaperResumeReport in vars(schemas).values()
+    assert IdeaNodeFeatureVector in vars(schemas).values()
+    assert IdeaSpaceAxis in vars(schemas).values()
+    assert IdeaSpacePCADiagnostic in vars(schemas).values()
+    assert IdeaClusterDiagnostic in vars(schemas).values()
+    assert IdeaSpaceDiversityReport in vars(schemas).values()
+    assert IdeaSpaceInspectionReport in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -133,6 +145,12 @@ def test_schema_all_contains_expected_public_names() -> None:
         "AutonomousPaperCheckpoint",
         "AutonomousPaperCheckpointIndex",
         "AutonomousPaperResumeReport",
+        "IdeaNodeFeatureVector",
+        "IdeaSpaceAxis",
+        "IdeaSpacePCADiagnostic",
+        "IdeaClusterDiagnostic",
+        "IdeaSpaceDiversityReport",
+        "IdeaSpaceInspectionReport",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -173,4 +191,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 227
+    assert len(get_protocol_definitions()) == 233

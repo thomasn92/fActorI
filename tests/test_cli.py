@@ -135,6 +135,8 @@ def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
 def test_idea_tree_cli_commands_are_registered() -> None:
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
+    inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
+    export_space = CliRunner().invoke(app, ["export-idea-space-report", "--help"])
 
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
@@ -142,6 +144,12 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert export.exit_code == 0, export.output
     assert "--run-id" in export.output
     assert "--format" in export.output
+    assert inspect_space.exit_code == 0, inspect_space.output
+    assert "--run-id" in inspect_space.output
+    assert "--json" in inspect_space.output
+    assert export_space.exit_code == 0, export_space.output
+    assert "--run-id" in export_space.output
+    assert "--format" in export_space.output
 
 
 def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:
@@ -176,6 +184,51 @@ def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:
     assert payload["publication_ready"] is False
     assert exported.exit_code == 0, exported.output
     assert "artifact=runs/cli-idea-tree/reports/idea-tree-0001.md" in exported.output
+    assert "publication_ready=false" in exported.output
+
+
+def test_idea_space_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:
+    run_id = "cli-idea-space"
+    run_deterministic_pipeline(
+        PipelineRunConfig(
+            run_id=run_id,
+            domain="spatial heterogeneity in human geography",
+            root=tmp_path,
+        )
+    )
+    runner = CliRunner()
+
+    inspected = runner.invoke(
+        app,
+        ["inspect-idea-space", "--run-id", run_id, "--root", str(tmp_path), "--json"],
+    )
+    exported = runner.invoke(
+        app,
+        [
+            "export-idea-space-report",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert inspected.exit_code == 0, inspected.output
+    payload = json.loads(inspected.output)
+    assert payload["tree_present"] is True
+    assert payload["diversity_score"] == "low"
+    assert payload["effective_rank"] >= 0
+    assert payload["publication_ready"] is False
+    assert "PCA/low-rank OD-flow representation model" in (
+        payload["recommended_mutation_axes"]
+    )
+    assert exported.exit_code == 0, exported.output
+    assert (
+        "artifact=runs/cli-idea-space/reports/idea-space-report-0001.md"
+        in exported.output
+    )
     assert "publication_ready=false" in exported.output
 
 

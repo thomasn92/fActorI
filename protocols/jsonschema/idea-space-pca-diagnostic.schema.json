@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "IdeaSpaceAxis": {
+      "additionalProperties": false,
+      "description": "One deterministic PCA-like idea-space axis.",
+      "properties": {
+        "axis_id": {
+          "minLength": 1,
+          "title": "Axis Id",
+          "type": "string"
+        },
+        "explained_variance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Explained Variance",
+          "type": "number"
+        },
+        "feature_loadings": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Feature Loadings",
+          "type": "object"
+        },
+        "interpretation": {
+          "minLength": 1,
+          "title": "Interpretation",
+          "type": "string"
+        },
+        "top_negative_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Negative Features",
+          "type": "array"
+        },
+        "top_positive_features": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Top Positive Features",
+          "type": "array"
+        }
+      },
+      "required": [
+        "axis_id",
+        "explained_variance",
+        "interpretation"
+      ],
+      "title": "IdeaSpaceAxis",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.49.0/idea-space-pca-diagnostic.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "PCA/SVD or deterministic fallback summary for idea-space diversity.",
+  "properties": {
+    "axes": {
+      "items": {
+        "$ref": "#/$defs/IdeaSpaceAxis"
+      },
+      "title": "Axes",
+      "type": "array"
+    },
+    "effective_rank": {
+      "minimum": 0,
+      "title": "Effective Rank",
+      "type": "integer"
+    },
+    "method": {
+      "minLength": 1,
+      "title": "Method",
+      "type": "string"
+    },
+    "pc1_explained_variance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Pc1 Explained Variance",
+      "type": "number"
+    },
+    "pc2_explained_variance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Pc2 Explained Variance",
+      "type": "number"
+    },
+    "top_pc1_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Pc1 Features",
+      "type": "array"
+    },
+    "top_pc2_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Pc2 Features",
+      "type": "array"
+    }
+  },
+  "required": [
+    "method",
+    "effective_rank",
+    "pc1_explained_variance",
+    "pc2_explained_variance"
+  ],
+  "title": "IdeaSpacePCADiagnostic",
+  "type": "object",
+  "x-factori-protocol-version": "0.49.0",
+  "x-factori-source-model": "factori.schemas.IdeaSpacePCADiagnostic",
+  "x-factori-verification-evidence": false
+}
