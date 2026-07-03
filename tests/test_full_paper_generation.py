@@ -4,6 +4,7 @@ import json
 import re
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -46,7 +47,8 @@ from factori.capability_escalation import (
     escalate_capabilities,
     inspect_capability_escalation,
 )
-from factori.claim_adjudication import FakeClaimAdjudicator
+from factori.citations import build_claim_support_audit, classify_claim_sentence
+from factori.claim_adjudication import FakeClaimAdjudicator, OpenAIClaimAdjudicator
 from factori.claim_evidence import (
     BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
     build_claim_evidence_map,
@@ -308,6 +310,77 @@ def test_full_paper_generation_writes_fake_semantic_adjudication_audit(tmp_path)
     assert audit.claim_adjudication_calls >= 1
     assert audit.creates_scientific_validation is False
     assert audit.implies_publication_readiness is False
+
+
+def test_openai_adjudication_normalizes_negated_evidence_boundary_claims() -> None:
+    markdown = (
+        "# Evidence Boundaries\n\n"
+        "Source relevance adjudication does not create proof, experiment evidence, "
+        "novelty evidence, empirical validation, correctness, or human approval. "
+        "The absence of proof artifacts and experiment artifacts remains a visible "
+        "workflow limitation.\n"
+    )
+
+    class MisclassifyingTransport:
+        endpoint = "mock://openai"
+
+        def create_response(
+            self,
+            *,
+            api_key: str,
+            model: str,
+            prompt: str,
+            response_schema: dict[str, object],
+        ) -> dict[str, object]:
+            del api_key, model, response_schema
+            payload = json.loads(prompt.split("\n\n", 1)[1])
+            rows = []
+            for sentence in payload["sentences"]:
+                rows.append(
+                    {
+                        "sentence_id": sentence["sentence_id"],
+                        "claim_class": "proof_claim",
+                        "requires_citation": False,
+                        "citation_use": "none",
+                        "forbidden_claim_detected": True,
+                        "citation_as_validation_misuse": False,
+                        "publication_readiness_claim": False,
+                        "reasoning_brief": "Deliberately over-classified by mocked OpenAI.",
+                        "confidence": 0.9,
+                    }
+                )
+            return {"adjudications": rows}
+
+    audit = build_claim_support_audit(
+        run_id="negated-boundary-openai",
+        markdown=markdown,
+        citation_registry=None,
+        claim_adjudicator=OpenAIClaimAdjudicator(
+            api_key="test-key",
+            model="test-model",
+            transport=MisclassifyingTransport(),
+            allow_external_calls=True,
+            max_calls=1,
+        ),
+    )
+
+    risky_items = [
+        item
+        for item in audit.claim_support_items
+        if item.adjudication_reasoning_brief
+        and "Authority claim class suppressed" in item.adjudication_reasoning_brief
+    ]
+    assert risky_items
+    assert audit.summary_counts["forbidden_claim"] == 0
+    assert audit.citation_as_validation_misuse_count == 0
+    assert {item.claim_class for item in risky_items} == {"evidence_boundary_statement"}
+    assert (
+        classify_claim_sentence(
+            "Source relevance adjudication does not create proof, experiment evidence, "
+            "novelty evidence, empirical validation, correctness, or human approval."
+        )
+        == "evidence_boundary_statement"
+    )
 
 
 def test_generate_paper_cli_works_and_json_is_valid(tmp_path) -> None:
@@ -4343,6 +4416,95 @@ def test_autonomous_paper_controller_persists_base_failure(
     assert result.report.stages[0].stage_status == "failed"
     assert all(stage.stage_status == "skipped" for stage in result.report.stages[1:-1])
     assert (tmp_path / result.report_artifact.path).is_file()
+
+
+def test_autonomous_paper_reports_stage_c_root_failure_for_openai_candidates(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = "run-openai-stage-c-root-failure"
+    config = LLMOrchestrationConfig(
+        run_id=run_id,
+        domain="human geography",
+        candidate_backend="openai",
+        reviewer_backend="fake",
+        prose_backend="openai",
+        claim_adjudicator_backend="openai",
+        source_relevance_adjudicator_backend="openai",
+        allow_external_calls=True,
+    )
+
+    def blocked_base_generation(**kwargs: object) -> object:
+        root = Path(kwargs["root"])
+        reports = root / "runs" / run_id / "reports"
+        reports.mkdir(parents=True, exist_ok=True)
+        (reports / "stage-a-report.md").write_text(
+            "# Stage A\n\n"
+            "- Generated candidates: 4\n"
+            "- Passing Stage A gate: 4\n",
+            encoding="utf-8",
+        )
+        (reports / "stage-b-report.md").write_text(
+            "# Stage B\n\n"
+            "- Passing Stage B: 0\n",
+            encoding="utf-8",
+        )
+        (reports / "stage-c-selection-report.md").write_text(
+            "# Stage C\n\n"
+            "- Stage C ready: 0\n",
+            encoding="utf-8",
+        )
+        report = SimpleNamespace(
+            orchestration_status="LLMOrchestrationFailed",
+            call_accounting=[],
+            warnings=[
+                "run-stage-c failed: No Stage C-ready candidates found; "
+                "run factori select-stage-c first"
+            ],
+            blocking_issues=["No manuscript plan found. Run plan-manuscript first."],
+            publication_ready=False,
+            safety_report=SimpleNamespace(safe=False),
+            release_status=None,
+        )
+        return SimpleNamespace(
+            report=report,
+            config_artifact=None,
+            budget_artifact=None,
+            accounting_artifact=None,
+            report_artifact=None,
+            safety_artifact=None,
+            generation_result=None,
+            release_result=None,
+        )
+
+    monkeypatch.setattr(
+        autonomous_paper_module,
+        "run_llm_paper_orchestration",
+        blocked_base_generation,
+    )
+
+    result = run_autonomous_paper(config=config, root=tmp_path)
+
+    assert result.report.controller_status == "blocked_safety_gate"
+    assert result.report.handoff_status == "handoff_blocked_by_safety_gate"
+    assert result.report.root_base_generation_failure_stage == "stage_c_selection"
+    assert (
+        result.report.root_base_generation_failure_reason
+        == "openai_candidate_generation_produced_no_stage_c_ready_candidates"
+    )
+    assert result.report.candidate_count == 4
+    assert result.report.stage_a_survivor_count == 4
+    assert result.report.stage_b_survivor_count == 0
+    assert result.report.stage_c_ready_count == 0
+    assert result.report.manuscript_plan_present is False
+    assert (
+        result.report.stages[0].blocking_issues[0]
+        == "openai_candidate_generation_produced_no_stage_c_ready_candidates"
+    )
+
+    inspected = inspect_autonomous_paper_run(run_id=run_id, root=tmp_path)
+    assert inspected["root_base_generation_failure_stage"] == "stage_c_selection"
+    assert inspected["stage_c_ready_count"] == 0
 
 
 def test_autonomous_paper_resume_after_injected_base_checkpoint_crash(tmp_path) -> None:

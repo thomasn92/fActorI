@@ -19,7 +19,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.46.0/paper-revision-patch.schema.json",
+  "$id": "https://schemas.factori.local/0.47.0/paper-revision-patch.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic safe fake revision patch.",
@@ -83,7 +83,7 @@
   ],
   "title": "PaperRevisionPatch",
   "type": "object",
-  "x-factori-protocol-version": "0.46.0",
+  "x-factori-protocol-version": "0.47.0",
   "x-factori-source-model": "factori.schemas.PaperRevisionPatch",
   "x-factori-verification-evidence": false
 }

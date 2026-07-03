@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from factori.adapters.fake import FakeProseGenerator
@@ -16,7 +17,11 @@ from factori.full_paper_generation import (
 from factori.full_paper_release import run_full_paper_release_gate
 from factori.hashing import sha256_file
 from factori.ledger import ResearchLedger
-from factori.llm_orchestration import build_llm_orchestration_preflight_summary
+from factori.llm_orchestration import (
+    LLMOrchestrationError,
+    build_llm_orchestration_preflight_summary,
+    run_llm_paper_orchestration,
+)
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     BibliographyEntry,
@@ -632,6 +637,93 @@ def test_preflight_budget_plans_openai_source_relevance_calls() -> None:
     assert summary["source_relevance_adjudicator_backend"] == "openai"
     assert summary["source_relevance_adjudication_calls"] == 4
     assert summary["estimated_max_calls"] == 4
+
+
+def test_hybrid_preflight_does_not_charge_fake_candidate_or_reviewer_calls() -> None:
+    summary = build_llm_orchestration_preflight_summary(
+        LLMOrchestrationConfig(
+            run_id="hybrid-budget-preflight",
+            domain="human geography",
+            candidate_backend="fake",
+            reviewer_backend="fake",
+            prose_backend="openai",
+            allow_external_calls=True,
+            enable_retrieval=True,
+            retrieval_backend="local",
+            retrieval_local_path="tests/fixtures/retrieval/openalex_style_human_geography_sources.json",
+            citation_policy="registry-only",
+            claim_adjudicator_backend="openai",
+            source_relevance_adjudicator_backend="openai",
+            budget=LLMBudgetConfig(
+                max_total_calls=35,
+                max_candidate_generation_calls=0,
+                max_review_calls=0,
+                max_prose_calls=12,
+                max_claim_adjudication_calls=12,
+                max_source_relevance_adjudication_calls=4,
+                max_total_input_tokens=40000,
+                max_total_output_tokens=20000,
+                max_estimated_cost_usd=1.0,
+            ),
+        )
+    )
+
+    assert summary["candidate_backend"] == "fake"
+    assert summary["reviewer_backend"] == "fake"
+    assert summary["prose_backend"] == "openai"
+    assert summary["candidate_generation_calls"] == 0
+    assert summary["review_calls"] == 0
+    assert summary["prose_calls"] > 0
+    assert summary["claim_adjudication_calls"] == 12
+    assert summary["source_relevance_adjudication_calls"] == 4
+    assert summary["estimated_max_calls"] == (
+        summary["prose_calls"] + 12 + 4
+    )
+
+
+def test_zero_candidate_call_budget_blocks_only_real_candidate_backend(tmp_path) -> None:
+    with pytest.raises(LLMOrchestrationError, match="max_candidate_generation_calls"):
+        run_llm_paper_orchestration(
+            config=LLMOrchestrationConfig(
+                run_id="openai-candidate-budget-block",
+                domain="human geography",
+                candidate_backend="openai",
+                reviewer_backend="fake",
+                prose_backend="fake",
+                allow_external_calls=True,
+                budget=LLMBudgetConfig(
+                    max_total_calls=10,
+                    max_candidate_generation_calls=0,
+                    max_total_input_tokens=10000,
+                    max_total_output_tokens=5000,
+                    max_estimated_cost_usd=1.0,
+                ),
+            ),
+            root=tmp_path,
+            preflight_only=True,
+        )
+
+    fake_summary = build_llm_orchestration_preflight_summary(
+        LLMOrchestrationConfig(
+            run_id="fake-candidate-budget-ok",
+            domain="human geography",
+            candidate_backend="fake",
+            reviewer_backend="fake",
+            prose_backend="fake",
+            allow_external_calls=True,
+            budget=LLMBudgetConfig(
+                max_total_calls=0,
+                max_candidate_generation_calls=0,
+                max_review_calls=0,
+                max_total_input_tokens=10000,
+                max_total_output_tokens=5000,
+                max_estimated_cost_usd=1.0,
+            ),
+        )
+    )
+    assert fake_summary["candidate_generation_calls"] == 0
+    assert fake_summary["review_calls"] == 0
+    assert fake_summary["estimated_max_calls"] == 0
 
 
 def test_preflight_budget_plans_openai_quality_repair_calls() -> None:

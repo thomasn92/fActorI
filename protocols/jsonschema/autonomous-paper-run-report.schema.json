@@ -204,7 +204,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.46.0/autonomous-paper-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.47.0/autonomous-paper-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only orchestration report for one autonomous paper run.",
@@ -237,6 +237,24 @@
       ],
       "default": null,
       "title": "Base Generation Status"
+    },
+    "budget_blocked_component_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Budget Blocked Component Optional"
+    },
+    "candidate_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Candidate Count",
+      "type": "integer"
     },
     "citation_as_validation_misuse_count": {
       "minimum": 0,
@@ -430,6 +448,11 @@
       "title": "Is Verification Evidence",
       "type": "boolean"
     },
+    "manuscript_plan_present": {
+      "default": false,
+      "title": "Manuscript Plan Present",
+      "type": "boolean"
+    },
     "network_used": {
       "default": false,
       "title": "Network Used",
@@ -452,10 +475,52 @@
       "default": null,
       "title": "Release Report Path Optional"
     },
+    "root_base_generation_failure_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Root Base Generation Failure Reason"
+    },
+    "root_base_generation_failure_stage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Root Base Generation Failure Stage"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
+    },
+    "stage_a_survivor_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Stage A Survivor Count",
+      "type": "integer"
+    },
+    "stage_b_survivor_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Stage B Survivor Count",
+      "type": "integer"
+    },
+    "stage_c_ready_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Stage C Ready Count",
+      "type": "integer"
     },
     "stages": {
       "items": {
@@ -505,7 +570,7 @@
   ],
   "title": "AutonomousPaperRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.46.0",
+  "x-factori-protocol-version": "0.47.0",
   "x-factori-source-model": "factori.schemas.AutonomousPaperRunReport",
   "x-factori-verification-evidence": false
 }

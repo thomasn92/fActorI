@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.47.0` adds base-generation root-cause diagnostics to autonomous paper controller
+reports. The diagnostics expose candidate and Stage A/B/C counts, manuscript-plan presence, and
+budget-blocked components without weakening safety gates, creating evidence, or changing
+publication readiness.
+
 Protocol `0.46.0` adds immutable autonomous paper checkpoints, checkpoint-index snapshots, and
 append-only resume reports. Resume verifies checkpoint content, stage artifacts, protocol version,
 claim/citation safety, bundle hashes, and ledger ancestry before reuse; final bundle verification

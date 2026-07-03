@@ -1727,6 +1727,14 @@ def lint_paper_bundle_summary(
     autonomous_paper_human_intervention_required = bool(
         bundle.get("autonomous_paper_human_intervention_required")
     )
+    root_base_generation_failure_stage = bundle.get("root_base_generation_failure_stage")
+    root_base_generation_failure_reason = bundle.get("root_base_generation_failure_reason")
+    candidate_count = int(bundle.get("candidate_count") or 0)
+    stage_a_survivor_count = int(bundle.get("stage_a_survivor_count") or 0)
+    stage_b_survivor_count = int(bundle.get("stage_b_survivor_count") or 0)
+    stage_c_ready_count = int(bundle.get("stage_c_ready_count") or 0)
+    manuscript_plan_present = bool(bundle.get("manuscript_plan_present"))
+    budget_blocked_component_optional = bundle.get("budget_blocked_component_optional")
     citation_registry_present = bool(bundle.get("citation_registry_present"))
     citation_registry_source_count = int(bundle.get("citation_registry_source_count") or 0)
     citation_registry_sources_all_accepted = bool(
@@ -2290,6 +2298,14 @@ def lint_paper_bundle_summary(
         "autonomous_paper_human_intervention_required": (
             autonomous_paper_human_intervention_required
         ),
+        "root_base_generation_failure_stage": root_base_generation_failure_stage,
+        "root_base_generation_failure_reason": root_base_generation_failure_reason,
+        "candidate_count": candidate_count,
+        "stage_a_survivor_count": stage_a_survivor_count,
+        "stage_b_survivor_count": stage_b_survivor_count,
+        "stage_c_ready_count": stage_c_ready_count,
+        "manuscript_plan_present": manuscript_plan_present,
+        "budget_blocked_component_optional": budget_blocked_component_optional,
         "autonomous_paper_checkpoint_present": bool(
             bundle.get("autonomous_paper_checkpoint_present")
         ),

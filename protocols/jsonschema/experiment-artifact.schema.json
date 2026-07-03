@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.46.0/experiment-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.47.0/experiment-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Local experiment artifact intake record.",
@@ -163,7 +163,7 @@
   ],
   "title": "ExperimentArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.46.0",
+  "x-factori-protocol-version": "0.47.0",
   "x-factori-source-model": "factori.schemas.ExperimentArtifact",
   "x-factori-verification-evidence": false
 }

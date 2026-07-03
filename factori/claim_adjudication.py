@@ -375,6 +375,8 @@ def _is_current_run_or_absence_statement(sentence: str) -> bool:
 
 def _no_citation_claim_class(sentence: str, fallback: str) -> str:
     text = " ".join(sentence.casefold().split())
+    if _is_negated_boundary(sentence):
+        return "evidence_boundary_statement"
     if "problem-framing" in text or "problem framing" in text:
         return "problem_framing_statement"
     if "scaffold" in text:
@@ -542,7 +544,26 @@ def _normalized_adjudication(
     )
     normalized_class = claim_class
     normalized_reason = reasoning_brief
-    if not required_by_rule and requires_citation:
+    if (
+        not required_by_rule
+        and normalized_class
+        in {
+            "proof_claim",
+            "experiment_claim",
+            "novelty_claim",
+            "publication_readiness_claim",
+        }
+        and citation_reason
+        in {
+            "evidence_boundary_no_citation_required",
+            "absence_of_evidence_no_citation_required",
+        }
+    ):
+        normalized_class = _no_citation_claim_class(request.sentence, claim_class)
+        normalized_reason = (
+            f"{reasoning_brief} Authority claim class suppressed: {citation_reason}."
+        )[:400]
+    elif not required_by_rule and requires_citation:
         normalized_class = _no_citation_claim_class(request.sentence, claim_class)
         normalized_reason = (
             f"{reasoning_brief} Citation requirement suppressed: {citation_reason}."

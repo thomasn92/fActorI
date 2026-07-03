@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.46.0/proof-obligation-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.47.0/proof-obligation-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned formal proof obligation without verification authority.",
@@ -66,7 +66,7 @@
   ],
   "title": "ProofObligationSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.46.0",
+  "x-factori-protocol-version": "0.47.0",
   "x-factori-source-model": "factori.schemas.ProofObligationSpec",
   "x-factori-verification-evidence": false
 }

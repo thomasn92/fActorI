@@ -2303,6 +2303,14 @@ class AutonomousPaperRunReport(StrictModel):
     unsupported_claim_count: int = Field(ge=0)
     claim_support_missing_required_citation_count: int = Field(ge=0)
     citation_as_validation_misuse_count: int = Field(ge=0)
+    root_base_generation_failure_stage: str | None = None
+    root_base_generation_failure_reason: str | None = None
+    candidate_count: int = Field(default=0, ge=0)
+    stage_a_survivor_count: int = Field(default=0, ge=0)
+    stage_b_survivor_count: int = Field(default=0, ge=0)
+    stage_c_ready_count: int = Field(default=0, ge=0)
+    manuscript_plan_present: bool = False
+    budget_blocked_component_optional: str | None = None
     network_used: bool = False
     external_api_used: bool = False
     external_tools_used: bool = False

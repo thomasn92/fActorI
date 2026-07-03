@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -103,6 +104,14 @@ class _ControllerState:
     unsupported_claim_count: int = 0
     missing_citation_count: int = 0
     citation_validation_misuse_count: int = 0
+    root_base_generation_failure_stage: str | None = None
+    root_base_generation_failure_reason: str | None = None
+    candidate_count: int = 0
+    stage_a_survivor_count: int = 0
+    stage_b_survivor_count: int = 0
+    stage_c_ready_count: int = 0
+    manuscript_plan_present: bool = False
+    budget_blocked_component_optional: str | None = None
     network_used: bool = False
     external_api_used: bool = False
     external_tools_used: bool = False
@@ -295,6 +304,7 @@ def run_autonomous_paper(
             )
         except LLMOrchestrationError as exc:
             state.base_generation_status = "failed"
+            _apply_base_generation_exception_diagnostics(state, str(exc))
             state.stages.append(
                 _stage(
                     "base_generation",
@@ -338,6 +348,12 @@ def run_autonomous_paper(
             base.release_result.reviewer_summary_artifact if base.release_result else None,
         )
         base_blocking = list(base.report.blocking_issues)
+        _apply_base_generation_diagnostics(
+            state,
+            root=root_path,
+            report=base.report,
+            candidate_backend=effective_config.candidate_backend,
+        )
         base_safe = (
             base.report.publication_ready is False
             and base.report.safety_report.safe
@@ -362,7 +378,7 @@ def run_autonomous_paper(
                 "Generated and release-checked the base paper package.",
                 artifacts=base_artifacts,
                 blocking=(
-                    base_blocking if base_blocking else ([] if base_safe else [base_status])
+                    _base_stage_blocking_issues(state, base_blocking, base_safe, base_status)
                 ),
                 warnings=base_warnings,
             )
@@ -914,6 +930,14 @@ def autonomous_paper_run_summary_fields(
             "autonomous_paper_deferred_gap_count": 0,
             "autonomous_paper_unsupported_claim_count": 0,
             "autonomous_paper_human_intervention_required": False,
+            "root_base_generation_failure_stage": None,
+            "root_base_generation_failure_reason": None,
+            "candidate_count": 0,
+            "stage_a_survivor_count": 0,
+            "stage_b_survivor_count": 0,
+            "stage_c_ready_count": 0,
+            "manuscript_plan_present": False,
+            "budget_blocked_component_optional": None,
         }
     return {
         "autonomous_paper_run_present": True,
@@ -931,6 +955,14 @@ def autonomous_paper_run_summary_fields(
         "autonomous_paper_human_intervention_required": (
             report.human_intervention_required
         ),
+        "root_base_generation_failure_stage": report.root_base_generation_failure_stage,
+        "root_base_generation_failure_reason": report.root_base_generation_failure_reason,
+        "candidate_count": report.candidate_count,
+        "stage_a_survivor_count": report.stage_a_survivor_count,
+        "stage_b_survivor_count": report.stage_b_survivor_count,
+        "stage_c_ready_count": report.stage_c_ready_count,
+        "manuscript_plan_present": report.manuscript_plan_present,
+        "budget_blocked_component_optional": report.budget_blocked_component_optional,
     }
 
 
@@ -955,6 +987,20 @@ def render_autonomous_paper_run_markdown(report: AutonomousPaperRunReport) -> st
                 "Missing required citations / citation-as-validation misuse: "
                 f"`{report.claim_support_missing_required_citation_count} / "
                 f"{report.citation_as_validation_misuse_count}`"
+            ),
+            (
+                "Base-generation root failure: "
+                f"`{report.root_base_generation_failure_stage or 'none'}` / "
+                f"`{report.root_base_generation_failure_reason or 'none'}`"
+            ),
+            (
+                "Base-generation counts: "
+                f"candidates `{report.candidate_count}`, "
+                f"Stage A survivors `{report.stage_a_survivor_count}`, "
+                f"Stage B survivors `{report.stage_b_survivor_count}`, "
+                f"Stage C ready `{report.stage_c_ready_count}`, "
+                f"manuscript_plan_present "
+                f"`{str(report.manuscript_plan_present).lower()}`"
             ),
             f"Human intervention required: `{str(report.human_intervention_required).lower()}`",
             "",
@@ -1068,6 +1114,14 @@ def _finish(
         unsupported_claim_count=state.unsupported_claim_count,
         claim_support_missing_required_citation_count=state.missing_citation_count,
         citation_as_validation_misuse_count=state.citation_validation_misuse_count,
+        root_base_generation_failure_stage=state.root_base_generation_failure_stage,
+        root_base_generation_failure_reason=state.root_base_generation_failure_reason,
+        candidate_count=state.candidate_count,
+        stage_a_survivor_count=state.stage_a_survivor_count,
+        stage_b_survivor_count=state.stage_b_survivor_count,
+        stage_c_ready_count=state.stage_c_ready_count,
+        manuscript_plan_present=state.manuscript_plan_present,
+        budget_blocked_component_optional=state.budget_blocked_component_optional,
         network_used=state.network_used,
         external_api_used=state.external_api_used,
         external_tools_used=state.external_tools_used,
@@ -1237,6 +1291,155 @@ def _stage(
         warnings=warnings or [],
         publication_ready=False,
     )
+
+
+def _apply_base_generation_diagnostics(
+    state: _ControllerState,
+    *,
+    root: Path,
+    report: Any,
+    candidate_backend: str,
+) -> None:
+    diagnostics = _base_generation_diagnostics(
+        run_id=state.run_id,
+        root=root,
+        report=report,
+        candidate_backend=candidate_backend,
+    )
+    state.root_base_generation_failure_stage = diagnostics[
+        "root_base_generation_failure_stage"
+    ]
+    state.root_base_generation_failure_reason = diagnostics[
+        "root_base_generation_failure_reason"
+    ]
+    state.candidate_count = diagnostics["candidate_count"]
+    state.stage_a_survivor_count = diagnostics["stage_a_survivor_count"]
+    state.stage_b_survivor_count = diagnostics["stage_b_survivor_count"]
+    state.stage_c_ready_count = diagnostics["stage_c_ready_count"]
+    state.manuscript_plan_present = diagnostics["manuscript_plan_present"]
+    state.budget_blocked_component_optional = diagnostics[
+        "budget_blocked_component_optional"
+    ]
+
+
+def _apply_base_generation_exception_diagnostics(
+    state: _ControllerState,
+    message: str,
+) -> None:
+    normalized = message.casefold()
+    if "budget" in normalized or "max_" in normalized:
+        state.root_base_generation_failure_stage = "llm_budget"
+        state.root_base_generation_failure_reason = "runtime_llm_budget_blocked"
+        return
+    if "api key" in normalized or "adapter" in normalized or "credential" in normalized:
+        state.root_base_generation_failure_stage = "adapter_configuration"
+        state.root_base_generation_failure_reason = _slug_reason(message)
+        return
+    state.root_base_generation_failure_stage = "base_generation"
+    state.root_base_generation_failure_reason = _slug_reason(message)
+
+
+def _base_generation_diagnostics(
+    *,
+    run_id: str,
+    root: Path,
+    report: Any | None,
+    candidate_backend: str,
+) -> dict[str, Any]:
+    reports = root / "runs" / run_id / "reports"
+    candidate_count = _markdown_summary_count(
+        reports / "stage-a-report.md",
+        "Generated candidates",
+    )
+    stage_a_survivor_count = _markdown_summary_count(
+        reports / "stage-a-report.md",
+        "Passing Stage A gate",
+    )
+    stage_b_survivor_count = _markdown_summary_count(
+        reports / "stage-b-report.md",
+        "Passing Stage B",
+    )
+    stage_c_ready_count = _markdown_summary_count(
+        reports / "stage-c-selection-report.md",
+        "Stage C ready",
+    )
+    manuscript_plan_present = (reports / "manuscript-plan.json").is_file()
+    blocking = list(getattr(report, "blocking_issues", []) or []) if report is not None else []
+    budget_component = _budget_blocked_component(report)
+    failure_stage: str | None = None
+    failure_reason: str | None = None
+    if budget_component:
+        failure_stage = "llm_budget"
+        failure_reason = "runtime_llm_budget_blocked"
+    elif blocking:
+        if stage_c_ready_count == 0 and not manuscript_plan_present:
+            failure_stage = "stage_c_selection"
+            failure_reason = (
+                "openai_candidate_generation_produced_no_stage_c_ready_candidates"
+                if candidate_backend.strip().lower() == "openai"
+                else "no_stage_c_ready_candidates"
+            )
+        elif any("Quality repair could not complete safely" in item for item in blocking):
+            failure_stage = "quality_repair"
+            failure_reason = "quality_repair_could_not_complete_safely"
+        elif not manuscript_plan_present:
+            failure_stage = "manuscript_planning"
+            failure_reason = "manuscript_plan_missing"
+        else:
+            failure_stage = "base_generation"
+            failure_reason = _slug_reason(blocking[0])
+    return {
+        "root_base_generation_failure_stage": failure_stage,
+        "root_base_generation_failure_reason": failure_reason,
+        "candidate_count": candidate_count,
+        "stage_a_survivor_count": stage_a_survivor_count,
+        "stage_b_survivor_count": stage_b_survivor_count,
+        "stage_c_ready_count": stage_c_ready_count,
+        "manuscript_plan_present": manuscript_plan_present,
+        "budget_blocked_component_optional": budget_component,
+    }
+
+
+def _markdown_summary_count(path: Path, label: str) -> int:
+    if not path.is_file():
+        return 0
+    match = re.search(
+        rf"^-\s+{re.escape(label)}:\s+(\d+)\s*$",
+        path.read_text(encoding="utf-8"),
+        re.M,
+    )
+    return int(match.group(1)) if match else 0
+
+
+def _budget_blocked_component(report: Any | None) -> str | None:
+    if report is None:
+        return None
+    for record in getattr(report, "call_accounting", []) or []:
+        if _value(getattr(record, "status", None)) == "Blocked":
+            return str(getattr(record, "step_name", "llm-budget"))
+    selected = getattr(report, "selected_backends", {}) or {}
+    if selected.get("runtime_budget_blocked") == "true":
+        return "runtime_llm_budget"
+    return None
+
+
+def _base_stage_blocking_issues(
+    state: _ControllerState,
+    base_blocking: list[str],
+    base_safe: bool,
+    base_status: str,
+) -> list[str]:
+    if base_safe:
+        return []
+    issues = list(base_blocking)
+    if state.root_base_generation_failure_reason:
+        issues.insert(0, state.root_base_generation_failure_reason)
+    return list(dict.fromkeys(issue for issue in issues if issue)) or [base_status]
+
+
+def _slug_reason(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
+    return normalized[:120] or "base_generation_failed"
 
 
 def _artifact_paths(*artifacts: ArtifactRef | None) -> list[str]:

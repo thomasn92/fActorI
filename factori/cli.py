@@ -3625,6 +3625,20 @@ def inspect_autonomous_paper_run_command(
     typer.echo(f"Deferred gaps: {summary['deferred_gap_count']}")
     typer.echo(f"Unsupported claims: {summary['unsupported_claim_count']}")
     typer.echo(
+        "Base generation root failure: "
+        f"{summary.get('root_base_generation_failure_stage') or 'none'} / "
+        f"{summary.get('root_base_generation_failure_reason') or 'none'}"
+    )
+    typer.echo(
+        "Base generation counts: "
+        f"candidates={int(summary.get('candidate_count') or 0)}, "
+        f"stage_a_survivors={int(summary.get('stage_a_survivor_count') or 0)}, "
+        f"stage_b_survivors={int(summary.get('stage_b_survivor_count') or 0)}, "
+        f"stage_c_ready={int(summary.get('stage_c_ready_count') or 0)}, "
+        f"manuscript_plan_present="
+        f"{str(bool(summary.get('manuscript_plan_present'))).lower()}"
+    )
+    typer.echo(
         f"Human intervention required: {str(summary['human_intervention_required']).lower()}"
     )
     typer.echo("Publication ready: false")
@@ -4795,6 +4809,20 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Autonomous deferred gaps / human intervention: "
         f"{int(summary.get('autonomous_paper_deferred_gap_count') or 0)} / "
         f"{str(bool(summary.get('autonomous_paper_human_intervention_required'))).lower()}"
+    )
+    typer.echo(
+        "Base generation root failure: "
+        f"{summary.get('root_base_generation_failure_stage') or 'none'} / "
+        f"{summary.get('root_base_generation_failure_reason') or 'none'}"
+    )
+    typer.echo(
+        "Base generation counts: "
+        f"candidates={int(summary.get('candidate_count') or 0)}, "
+        f"stage_a_survivors={int(summary.get('stage_a_survivor_count') or 0)}, "
+        f"stage_b_survivors={int(summary.get('stage_b_survivor_count') or 0)}, "
+        f"stage_c_ready={int(summary.get('stage_c_ready_count') or 0)}, "
+        f"manuscript_plan_present="
+        f"{str(bool(summary.get('manuscript_plan_present'))).lower()}"
     )
     typer.echo(
         "Controller checkpoints: "

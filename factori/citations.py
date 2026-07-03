@@ -173,6 +173,20 @@ _EVIDENCE_BOUNDARY_PATTERNS = (
     "evidence boundary",
     "evidence boundaries",
 )
+_NEGATED_EVIDENCE_BOUNDARY_RE = re.compile(
+    r"\b(no|not|without|lacks?|absence of|absent|unavailable|missing|"
+    r"does not|do not|cannot|no real[- ]world)\b[^.]{0,160}"
+    r"\b(proof|theorem|lemma|experiment|empirical validation|validation|novelty|"
+    r"publication readiness|publication ready|evidence artifact|experiment artifact|"
+    r"proof artifact)\b"
+    r"|\b(proof|theorem|lemma|experiment|empirical validation|validation|novelty|"
+    r"publication readiness|publication ready|evidence artifact|experiment artifact|"
+    r"proof artifact)\b"
+    r"[^.]{0,160}\b(absent|unavailable|missing|withheld|not evidence|not proof|"
+    r"not experiment|does not validate|do not validate|cannot support|cannot create|"
+    r"not independent verification)\b",
+    re.IGNORECASE,
+)
 _LIMITATION_PATTERNS = (
     "limitation",
     "lacks",
@@ -737,6 +751,8 @@ def build_claim_support_audit(
 def classify_claim_sentence(sentence: str) -> str:
     """Classify one manuscript sentence for deterministic citation-support checks."""
     text = f" {' '.join(sentence.casefold().split())} "
+    if _NEGATED_EVIDENCE_BOUNDARY_RE.search(sentence):
+        return "evidence_boundary_statement"
     if _contains_any(text, _CLAIM_CLASS_PUBLICATION_PATTERNS):
         return "publication_readiness_claim"
     if _contains_any(text, _CLAIM_CLASS_NOVELTY_PATTERNS):
