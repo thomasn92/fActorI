@@ -17,6 +17,11 @@ from factori.schemas import (
     ClaimEvidenceMap,
     ClaimEvidenceMapLink,
     CompleteMarkdownDraft,
+    CreativeMutationCandidate,
+    CreativeMutationInspectionReport,
+    CreativeMutationOperator,
+    CreativeMutationPlan,
+    CreativeMutationReport,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
     ExperimentRunContract,
@@ -90,6 +95,11 @@ from factori.schemas import (
     SectionRevisionPlan,
     StageBReviewerReport,
     StageRerunDecision,
+    SubstrateTournamentComparison,
+    SubstrateTournamentEntry,
+    SubstrateTournamentInspectionReport,
+    SubstrateTournamentResult,
+    SubstrateTournamentSpec,
 )
 from factori.stage_c_selection import StageCSelectionResult
 
@@ -100,9 +110,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 245
+    assert len(first) == 255
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.51.0"
+    assert PROTOCOL_VERSION == "0.53.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -238,6 +248,26 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("ScientificSubstrateInspectionReport").model is (
         ScientificSubstrateInspectionReport
     )
+    assert get_protocol_definition("SubstrateTournamentSpec").model is SubstrateTournamentSpec
+    assert get_protocol_definition("SubstrateTournamentEntry").model is SubstrateTournamentEntry
+    assert get_protocol_definition("SubstrateTournamentResult").model is SubstrateTournamentResult
+    assert get_protocol_definition("SubstrateTournamentComparison").model is (
+        SubstrateTournamentComparison
+    )
+    assert get_protocol_definition("SubstrateTournamentInspectionReport").model is (
+        SubstrateTournamentInspectionReport
+    )
+    assert get_protocol_definition("CreativeMutationOperator").model is (
+        CreativeMutationOperator
+    )
+    assert get_protocol_definition("CreativeMutationCandidate").model is (
+        CreativeMutationCandidate
+    )
+    assert get_protocol_definition("CreativeMutationPlan").model is CreativeMutationPlan
+    assert get_protocol_definition("CreativeMutationReport").model is CreativeMutationReport
+    assert get_protocol_definition("CreativeMutationInspectionReport").model is (
+        CreativeMutationInspectionReport
+    )
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -349,6 +379,11 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "ExperimentBackend",
         "ProseBackend",
         "ExperimentKind",
+        "CreativeMutationOperator",
+        "CreativeMutationCandidate",
+        "CreativeMutationPlan",
+        "CreativeMutationReport",
+        "CreativeMutationInspectionReport",
         "FullPaperGenerationStatus",
         "FullPaperGenerationStepStatus",
         "LLMOrchestrationStatus",

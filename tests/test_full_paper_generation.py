@@ -57,6 +57,11 @@ from factori.claim_evidence import (
     persist_claim_evidence_map,
 )
 from factori.cli import app
+from factori.creative_mutations import (
+    apply_creative_mutations,
+    inspect_creative_mutations,
+    plan_creative_mutations,
+)
 from factori.evidence_artifact_intake import (
     EvidenceArtifactIntakeError,
     ingest_experiment_artifact,
@@ -160,6 +165,10 @@ from factori.schemas import (
     ClaimSupportAuditReport,
     ClaimSupportItem,
     ControllerActionType,
+    CreativeMutationCandidate,
+    CreativeMutationInspectionReport,
+    CreativeMutationPlan,
+    CreativeMutationReport,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
     ExperimentGapRoutingIndex,
@@ -227,6 +236,11 @@ from factori.schemas import (
     SubstrateExperimentResult,
     SubstrateExperimentRoutingReport,
     SubstrateExperimentSpec,
+    SubstrateTournamentComparison,
+    SubstrateTournamentEntry,
+    SubstrateTournamentInspectionReport,
+    SubstrateTournamentResult,
+    SubstrateTournamentSpec,
 )
 from factori.scientific_substrate import (
     build_scientific_substrate,
@@ -235,6 +249,10 @@ from factori.scientific_substrate import (
 from factori.substrate_experiment_routing import (
     inspect_substrate_experiment_routing,
     route_substrate_experiment,
+)
+from factori.substrate_tournament import (
+    inspect_substrate_tournament,
+    run_substrate_tournament,
 )
 
 
@@ -308,6 +326,15 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert SubstrateExperimentRoutingReport
     assert SubstrateExperimentResult
     assert SubstrateExperimentComparisonTable
+    assert SubstrateTournamentSpec
+    assert SubstrateTournamentEntry
+    assert SubstrateTournamentResult
+    assert SubstrateTournamentComparison
+    assert SubstrateTournamentInspectionReport
+    assert CreativeMutationCandidate
+    assert CreativeMutationPlan
+    assert CreativeMutationReport
+    assert CreativeMutationInspectionReport
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -734,6 +761,237 @@ def test_autonomous_loop_prefers_selected_substrate_experiment_route(tmp_path) -
             "experiment-gap-routing-[0-9][0-9][0-9][0-9].json"
         )
     )
+
+
+def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_manuscript(
+    tmp_path,
+) -> None:
+    run_id = "run-substrate-tournament"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    fixture_root = Path(__file__).parent / "fixtures" / "experiments" / "bundles"
+    target_root = tmp_path / "tests" / "fixtures" / "experiments" / "bundles"
+    target_root.mkdir(parents=True, exist_ok=True)
+    for bundle_name in [
+        "distance_decay_spatial_interaction",
+        "pca_low_rank_od_residual",
+    ]:
+        shutil.copytree(fixture_root / bundle_name, target_root / bundle_name)
+    retrieval_quality = RetrievalQualityReport(
+        run_id=run_id,
+        retrieval_backend="local",
+        total_retrieved_sources=2,
+        accepted_source_count=1,
+        rejected_source_count=1,
+        accepted_source_ids=["fixture-smith"],
+        rejected_source_ids=["fixture-rejected"],
+        adequacy_status="bounded_context_only",
+        coverage_limitations=["Local fixture coverage is bounded context only."],
+    )
+    reports = tmp_path / "runs" / run_id / "reports"
+    (reports / "llm-orchestration-config.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "domain": "spatial heterogeneity in human geography",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (reports / "retrieval-quality-report.json").write_text(
+        retrieval_quality.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        enable_empirical_demonstration_gaps=True,
+    )
+    run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=1,
+        max_attempts_per_gap=1,
+    )
+    build_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=2,
+    )
+
+    tournament = run_substrate_tournament(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    inspected = inspect_substrate_tournament(run_id=run_id, root=tmp_path)
+    pca_spec_path = next(
+        path
+        for path in tournament.result.generated_experiment_spec_paths
+        if "pca-low-rank" in path
+    )
+    pca_spec = SubstrateExperimentSpec.model_validate_json(
+        (tmp_path / pca_spec_path).read_text(encoding="utf-8")
+    )
+    pca_entry = next(
+        entry
+        for entry in tournament.result.entries
+        if entry.substrate_model_type == "low_rank_gravity_residual_representation"
+    )
+    distance_entry = next(
+        entry
+        for entry in tournament.result.entries
+        if entry.substrate_model_type == "region_specific_distance_decay_gravity"
+    )
+    pca_experiment = ExperimentArtifact.model_validate_json(
+        (tmp_path / pca_entry.experiment_artifact_path_optional).read_text(encoding="utf-8")
+    )
+    claim_map = ClaimEvidenceMap.model_validate_json(
+        latest_claim_evidence_map_path(tmp_path, run_id).read_text(encoding="utf-8")
+    )
+
+    assert tournament.result.substrate_count >= 2
+    assert tournament.result.winner_selected is True
+    assert tournament.result.comparison.comparison_table_present is True
+    assert inspected.tournament_present is True
+    assert inspected.distance_decay_branch_completed is True
+    assert inspected.pca_low_rank_branch_completed is True
+    assert distance_entry.sandbox_status == "completed"
+    assert pca_entry.sandbox_status == "completed"
+    assert pca_entry.result_status == "supported"
+    assert "R_{ij}" in pca_spec.model_equation
+    assert "R ≈ U_k S_k V_k^T" in pca_spec.model_equation
+    assert pca_spec.experiment_bundle_id == "pca_low_rank_od_residual"
+    assert pca_experiment.experiment_type == "substrate_pca_low_rank_uv_local"
+    assert "latent_factor_recovery_correlation" in pca_experiment.metrics
+    assert "explained_residual_variance" in pca_experiment.metrics
+    assert pca_experiment.metrics["claim_support_satisfied"] is True
+    assert claim_map.unsupported_non_scaffold_claim_ids == []
+
+    mutation_plan = plan_creative_mutations(
+        run_id=run_id,
+        root=tmp_path,
+        max_mutations=5,
+    )
+    mutation_inspection = inspect_creative_mutations(run_id=run_id, root=tmp_path)
+    applied_mutations = apply_creative_mutations(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_mutations=3,
+    )
+    post_mutation_inspection = inspect_creative_mutations(run_id=run_id, root=tmp_path)
+    idea_tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
+    scientific_substrate_inspection = inspect_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+    )
+    idea_space = inspect_idea_space(run_id=run_id, root=tmp_path)
+
+    mutation_titles = {candidate.title for candidate in mutation_plan.candidates}
+    assert mutation_plan.mutation_count >= 4
+    assert mutation_plan.selected_for_substrate_build_count >= 3
+    assert mutation_inspection.creative_mutation_plan_present is True
+    assert mutation_inspection.includes_hierarchical_alpha_mutation is True
+    assert mutation_inspection.includes_gravity_low_rank_hybrid is True
+    assert mutation_inspection.includes_boundary_perturbation_robustness is True
+    assert mutation_inspection.includes_kernelized_spatial_interaction is True
+    assert (
+        "Hierarchical Region-Cluster Distance Decay in Synthetic Spatial Interaction"
+        in mutation_titles
+    )
+    assert (
+        "Gravity Plus Low-Rank Residual Correction for Synthetic OD Heterogeneity"
+        in mutation_titles
+    )
+    assert "Boundary-Perturbation Robustness of Region-Specific Distance Decay" in (
+        mutation_titles
+    )
+    assert "Kernelized Spatial Interaction Under Synthetic Regional Heterogeneity" in (
+        mutation_titles
+    )
+    assert applied_mutations.report.applied_mutation_count == 3
+    assert applied_mutations.report.new_idea_tree_node_count == 3
+    assert applied_mutations.report.new_scientific_substrate_count == 3
+    assert post_mutation_inspection.new_idea_tree_nodes_added is True
+    assert post_mutation_inspection.new_scientific_substrates_created is True
+    mutation_nodes = [
+        node for node in idea_tree.nodes if node.stage_origin == "creative_mutation"
+    ]
+    assert len(mutation_nodes) >= 3
+    assert any("Hierarchical Region-Cluster" in node.title for node in mutation_nodes)
+    assert any("Gravity Plus Low-Rank" in node.title for node in mutation_nodes)
+    assert any("Boundary-Perturbation" in node.title for node in mutation_nodes)
+    assert scientific_substrate_inspection.substrate_count >= 5
+    assert any(
+        substrate.concrete_model_object.model_type
+        == "hierarchical_region_cluster_distance_decay"
+        for substrate in scientific_substrate_inspection.substrates
+    )
+    assert any(
+        substrate.concrete_model_object.model_type == "gravity_low_rank_residual_hybrid"
+        for substrate in scientific_substrate_inspection.substrates
+    )
+    assert any(
+        substrate.concrete_model_object.model_type
+        == "boundary_perturbation_distance_decay_robustness"
+        for substrate in scientific_substrate_inspection.substrates
+    )
+    assert any(
+        vector.stage_origin == "creative_mutation" for vector in idea_space.feature_vectors
+    )
+    assert all(
+        not candidate.publication_ready
+        and not candidate.creates_scientific_validation
+        and not candidate.implies_publication_readiness
+        and not candidate.is_verification_evidence
+        for candidate in mutation_plan.candidates
+    )
+
+    final = regenerate_final_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        backend="deterministic",
+    )
+    markdown = final.manuscript_markdown
+    title = markdown.splitlines()[0]
+    bundle = build_final_release_bundle(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    verification = verify_final_release_bundle(
+        bundle_path=tmp_path / bundle.report.bundle_path
+    )
+
+    assert tournament.result.winner_substrate_title_optional in title
+    assert "A substrate tournament compared serious synthetic branches" in markdown
+    assert "| substrate | result | MAE ratio | RMSE ratio | ablation | score |" in markdown
+    assert tournament.result.winner_substrate_title_optional in markdown
+    assert "Low-Rank Residual Axes" in markdown
+    assert "latent-factor recovery correlation" in markdown
+    assert final.report.unsupported_claim_count == 0
+    assert final.report.publication_ready is False
+    assert bundle.report.bundle_status == "complete"
+    assert verification.verification_status in {"verified", "verified_with_warnings"}
+    assert verification.unsupported_claim_count == 0
+    assert verification.publication_ready is False
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.51.0/llm-budget-config.schema.json",
+  "$id": "https://schemas.factori.local/0.53.0/llm-budget-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Explicit budget limits for gated LLM paper orchestration.",
@@ -185,7 +185,7 @@
   },
   "title": "LLMBudgetConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.51.0",
+  "x-factori-protocol-version": "0.53.0",
   "x-factori-source-model": "factori.schemas.LLMBudgetConfig",
   "x-factori-verification-evidence": false
 }

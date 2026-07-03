@@ -12,6 +12,7 @@ from factori.schemas.base import HASH_RE, StrictModel
 from factori.schemas.enums import (
     ArtifactType,
     ChecklistCategory,
+    CreativeMutationOperator,
     FinalNucleusType,
     FullPaperGenerationStatus,
     FullPaperGenerationStepStatus,
@@ -111,6 +112,10 @@ IdeaEdgeType = Literal[
     "candidate_to_pruned",
     "variant_to_pruned",
     "selected_to_final",
+    "winner_to_refinement",
+    "winner_loser_to_hybrid",
+    "winner_to_robustness",
+    "missing_axis_to_candidate",
 ]
 
 
@@ -1570,6 +1575,224 @@ class SubstrateExperimentRoutingReport(StrictModel):
     experiment_bundle_optional: str | None = None
     generated_experiment_spec_path_optional: str | None = None
     existing_experiment_spec_path_optional: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstrateTournamentEntry(StrictModel):
+    """One substrate branch and its bounded tournament outcome."""
+
+    entry_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    substrate_title: str = Field(min_length=1)
+    substrate_model_type: str = Field(min_length=1)
+    source_substrate_path_optional: str | None = None
+    experiment_bundle_id_optional: str | None = None
+    experiment_spec_path_optional: str | None = None
+    sandbox_report_path_optional: str | None = None
+    experiment_artifact_path_optional: str | None = None
+    sandbox_status: str = Field(min_length=1)
+    result_status: Literal["supported", "negative_result", "inconclusive", "not_run"]
+    result_label_optional: str | None = None
+    mae_improvement_ratio: float = 0.0
+    rmse_improvement_ratio: float = 0.0
+    ablation_sensitivity: float = 0.0
+    latent_factor_recovery_correlation_optional: float | None = None
+    explained_residual_variance_optional: float | None = None
+    claim_scope_penalty: float = 0.0
+    failure_or_inconclusive_penalty: float = 0.0
+    tournament_score: float = 0.0
+    selected_as_winner: bool = False
+    winner_reason_optional: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstrateTournamentComparison(StrictModel):
+    """Normalized synthetic-scope tournament comparison across substrates."""
+
+    comparison_policy: str = Field(min_length=1)
+    metric_names: list[str] = Field(min_length=1)
+    rows: list[dict[str, str | int | float | bool | None]] = Field(default_factory=list)
+    winner_substrate_id_optional: str | None = None
+    winner_substrate_title_optional: str | None = None
+    winner_reason_optional: str | None = None
+    comparison_table_present: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstrateTournamentSpec(StrictModel):
+    """Execution plan for a bounded multi-substrate synthetic tournament."""
+
+    run_id: str = Field(min_length=1)
+    tournament_id: str = Field(min_length=1)
+    source_scientific_substrate_build_path_optional: str | None = None
+    execution_backend: Literal["uv_local"] = "uv_local"
+    selection_policy: str = Field(min_length=1)
+    substrate_count: int = Field(ge=0)
+    routed_substrate_ids: list[str] = Field(default_factory=list)
+    experiment_spec_paths: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstrateTournamentResult(StrictModel):
+    """Append-only bounded result of a multi-substrate experiment tournament."""
+
+    run_id: str = Field(min_length=1)
+    tournament_id: str = Field(min_length=1)
+    tournament_status: Literal[
+        "completed",
+        "completed_with_inconclusive_branches",
+        "no_routable_substrates",
+        "failed",
+    ]
+    source_scientific_substrate_build_path_optional: str | None = None
+    tournament_spec_path: str = Field(min_length=1)
+    substrate_count: int = Field(ge=0)
+    completed_branch_count: int = Field(ge=0)
+    inconclusive_branch_count: int = Field(ge=0)
+    failed_branch_count: int = Field(ge=0)
+    winner_selected: bool
+    winner_substrate_id_optional: str | None = None
+    winner_substrate_title_optional: str | None = None
+    winner_reason_optional: str | None = None
+    entries: list[SubstrateTournamentEntry] = Field(default_factory=list)
+    comparison: SubstrateTournamentComparison
+    generated_experiment_spec_paths: list[str] = Field(default_factory=list)
+    sandbox_report_paths: list[str] = Field(default_factory=list)
+    experiment_artifact_paths: list[str] = Field(default_factory=list)
+    unsupported_claim_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstrateTournamentInspectionReport(StrictModel):
+    """Read-only inspection report for the latest substrate tournament."""
+
+    run_id: str = Field(min_length=1)
+    tournament_present: bool
+    latest_tournament_id_optional: str | None = None
+    tournament_status_optional: str | None = None
+    substrate_count: int = Field(ge=0)
+    distance_decay_branch_completed: bool = False
+    pca_low_rank_branch_completed: bool = False
+    winner_selected: bool = False
+    winner_substrate_id_optional: str | None = None
+    winner_substrate_title_optional: str | None = None
+    comparison_table_present: bool = False
+    entries: list[SubstrateTournamentEntry] = Field(default_factory=list)
+    result_optional: SubstrateTournamentResult | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeMutationCandidate(StrictModel):
+    """One tournament-driven scientific mutation candidate."""
+
+    mutation_id: str = Field(min_length=1)
+    source_substrate_ids: list[str] = Field(default_factory=list)
+    source_idea_node_ids: list[str] = Field(default_factory=list)
+    operator: CreativeMutationOperator
+    title: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    research_question: str = Field(min_length=1)
+    model_object: str = Field(min_length=1)
+    equations: list[str] = Field(min_length=1)
+    baseline: str = Field(min_length=1)
+    experiment_design: str = Field(min_length=1)
+    expected_result_pattern: str = Field(min_length=1)
+    why_scientifically_distinct: str = Field(min_length=1)
+    risk_or_failure_mode: str = Field(min_length=1)
+    parent_tournament_result_id_optional: str | None = None
+    selected_for_substrate_build: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeMutationPlan(StrictModel):
+    """Context-only plan for tournament-driven creative mutations."""
+
+    run_id: str = Field(min_length=1)
+    plan_id: str = Field(min_length=1)
+    planning_status: Literal["completed", "completed_with_warnings", "failed"]
+    source_idea_tree_present: bool
+    source_idea_space_report_path_optional: str | None = None
+    source_scientific_substrate_build_path_optional: str | None = None
+    source_substrate_tournament_result_path_optional: str | None = None
+    max_mutations: int = Field(ge=1)
+    mutation_count: int = Field(ge=0)
+    selected_for_substrate_build_count: int = Field(ge=0)
+    operators_used: list[CreativeMutationOperator] = Field(default_factory=list)
+    candidates: list[CreativeMutationCandidate] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeMutationReport(StrictModel):
+    """Append-only report for applied creative mutations."""
+
+    run_id: str = Field(min_length=1)
+    mutation_report_id: str = Field(min_length=1)
+    apply_status: Literal["completed", "completed_with_warnings", "failed"]
+    source_plan_path: str = Field(min_length=1)
+    source_tournament_result_id_optional: str | None = None
+    applied_mutation_count: int = Field(ge=0)
+    selected_for_substrate_build_count: int = Field(ge=0)
+    new_idea_tree_node_count: int = Field(ge=0)
+    new_scientific_substrate_count: int = Field(ge=0)
+    idea_tree_node_ids: list[str] = Field(default_factory=list)
+    scientific_substrate_paths: list[str] = Field(default_factory=list)
+    scientific_substrate_build_report_path_optional: str | None = None
+    candidates: list[CreativeMutationCandidate] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeMutationInspectionReport(StrictModel):
+    """Read-only inspection of the latest creative mutation plan and application."""
+
+    run_id: str = Field(min_length=1)
+    creative_mutation_plan_present: bool
+    latest_plan_id_optional: str | None = None
+    latest_apply_report_id_optional: str | None = None
+    mutation_count: int = Field(ge=0)
+    selected_for_substrate_build_count: int = Field(ge=0)
+    applied_mutation_count: int = Field(ge=0)
+    new_idea_tree_nodes_added: bool = False
+    new_scientific_substrates_created: bool = False
+    includes_hierarchical_alpha_mutation: bool = False
+    includes_gravity_low_rank_hybrid: bool = False
+    includes_boundary_perturbation_robustness: bool = False
+    includes_kernelized_spatial_interaction: bool = False
+    candidates: list[CreativeMutationCandidate] = Field(default_factory=list)
+    latest_plan_optional: CreativeMutationPlan | None = None
+    latest_report_optional: CreativeMutationReport | None = None
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -3854,6 +4077,15 @@ __all__ = [
     "SubstrateExperimentRoutingReport",
     "SubstrateExperimentResult",
     "SubstrateExperimentComparisonTable",
+    "SubstrateTournamentSpec",
+    "SubstrateTournamentEntry",
+    "SubstrateTournamentResult",
+    "SubstrateTournamentComparison",
+    "SubstrateTournamentInspectionReport",
+    "CreativeMutationCandidate",
+    "CreativeMutationPlan",
+    "CreativeMutationReport",
+    "CreativeMutationInspectionReport",
     "ProofObligationSpec",
     "RetrievalExpansionRequest",
     "PlannedSpecExecutionItem",

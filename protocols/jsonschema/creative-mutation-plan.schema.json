@@ -1,0 +1,290 @@
+{
+  "$defs": {
+    "CreativeMutationCandidate": {
+      "additionalProperties": false,
+      "description": "One tournament-driven scientific mutation candidate.",
+      "properties": {
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "equations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Equations",
+          "type": "array"
+        },
+        "expected_result_pattern": {
+          "minLength": 1,
+          "title": "Expected Result Pattern",
+          "type": "string"
+        },
+        "experiment_design": {
+          "minLength": 1,
+          "title": "Experiment Design",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "model_object": {
+          "minLength": 1,
+          "title": "Model Object",
+          "type": "string"
+        },
+        "mutation_id": {
+          "minLength": 1,
+          "title": "Mutation Id",
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/$defs/CreativeMutationOperator"
+        },
+        "parent_tournament_result_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Tournament Result Id Optional"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "research_question": {
+          "minLength": 1,
+          "title": "Research Question",
+          "type": "string"
+        },
+        "risk_or_failure_mode": {
+          "minLength": 1,
+          "title": "Risk Or Failure Mode",
+          "type": "string"
+        },
+        "selected_for_substrate_build": {
+          "default": false,
+          "title": "Selected For Substrate Build",
+          "type": "boolean"
+        },
+        "source_idea_node_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Idea Node Ids",
+          "type": "array"
+        },
+        "source_substrate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Substrate Ids",
+          "type": "array"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "why_scientifically_distinct": {
+          "minLength": 1,
+          "title": "Why Scientifically Distinct",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mutation_id",
+        "operator",
+        "title",
+        "domain",
+        "research_question",
+        "model_object",
+        "equations",
+        "baseline",
+        "experiment_design",
+        "expected_result_pattern",
+        "why_scientifically_distinct",
+        "risk_or_failure_mode"
+      ],
+      "title": "CreativeMutationCandidate",
+      "type": "object"
+    },
+    "CreativeMutationOperator": {
+      "description": "Tournament-driven scientific mutation operators.",
+      "enum": [
+        "winner_refinement",
+        "loser_repair",
+        "winner_loser_hybrid",
+        "missing_axis_injection",
+        "robustness_stress_test",
+        "scale_change",
+        "baseline_strengthening",
+        "mechanism_change",
+        "representation_change",
+        "limitation_to_parameter"
+      ],
+      "title": "CreativeMutationOperator",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.53.0/creative-mutation-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Context-only plan for tournament-driven creative mutations.",
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/CreativeMutationCandidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "max_mutations": {
+      "minimum": 1,
+      "title": "Max Mutations",
+      "type": "integer"
+    },
+    "mutation_count": {
+      "minimum": 0,
+      "title": "Mutation Count",
+      "type": "integer"
+    },
+    "operators_used": {
+      "items": {
+        "$ref": "#/$defs/CreativeMutationOperator"
+      },
+      "title": "Operators Used",
+      "type": "array"
+    },
+    "plan_id": {
+      "minLength": 1,
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "planning_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "failed"
+      ],
+      "title": "Planning Status",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_for_substrate_build_count": {
+      "minimum": 0,
+      "title": "Selected For Substrate Build Count",
+      "type": "integer"
+    },
+    "source_idea_space_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Idea Space Report Path Optional"
+    },
+    "source_idea_tree_present": {
+      "title": "Source Idea Tree Present",
+      "type": "boolean"
+    },
+    "source_scientific_substrate_build_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Scientific Substrate Build Path Optional"
+    },
+    "source_substrate_tournament_result_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Substrate Tournament Result Path Optional"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "plan_id",
+    "planning_status",
+    "source_idea_tree_present",
+    "max_mutations",
+    "mutation_count",
+    "selected_for_substrate_build_count"
+  ],
+  "title": "CreativeMutationPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.53.0",
+  "x-factori-source-model": "factori.schemas.CreativeMutationPlan",
+  "x-factori-verification-evidence": false
+}

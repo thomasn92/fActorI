@@ -51,6 +51,11 @@ from factori.schemas import (
     ClaimSupportItem,
     ClaimTable,
     CompleteMarkdownDraft,
+    CreativeMutationCandidate,
+    CreativeMutationInspectionReport,
+    CreativeMutationOperator,
+    CreativeMutationPlan,
+    CreativeMutationReport,
     DataRequirement,
     DiagnosticReport,
     DraftSkeleton,
@@ -245,11 +250,16 @@ from factori.schemas import (
     SubstrateExperimentResult,
     SubstrateExperimentRoutingReport,
     SubstrateExperimentSpec,
+    SubstrateTournamentComparison,
+    SubstrateTournamentEntry,
+    SubstrateTournamentInspectionReport,
+    SubstrateTournamentResult,
+    SubstrateTournamentSpec,
     VerificationLabel,
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.51.0"
+PROTOCOL_VERSION = "0.53.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -540,6 +550,56 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "SubstrateExperimentComparisonTable",
         SubstrateExperimentComparisonTable,
         "Baseline-versus-method comparison table for a substrate experiment.",
+    ),
+    ProtocolDefinition(
+        "SubstrateTournamentSpec",
+        SubstrateTournamentSpec,
+        "Execution plan for a bounded multi-substrate synthetic tournament.",
+    ),
+    ProtocolDefinition(
+        "SubstrateTournamentEntry",
+        SubstrateTournamentEntry,
+        "One substrate branch and its bounded tournament outcome.",
+    ),
+    ProtocolDefinition(
+        "SubstrateTournamentResult",
+        SubstrateTournamentResult,
+        "Append-only bounded result of a multi-substrate experiment tournament.",
+    ),
+    ProtocolDefinition(
+        "SubstrateTournamentComparison",
+        SubstrateTournamentComparison,
+        "Normalized synthetic-scope comparison across substrate branches.",
+    ),
+    ProtocolDefinition(
+        "SubstrateTournamentInspectionReport",
+        SubstrateTournamentInspectionReport,
+        "Read-only inspection report for the latest substrate tournament.",
+    ),
+    ProtocolDefinition(
+        "CreativeMutationOperator",
+        CreativeMutationOperator,
+        "Tournament-driven scientific mutation operator enum.",
+    ),
+    ProtocolDefinition(
+        "CreativeMutationCandidate",
+        CreativeMutationCandidate,
+        "One tournament-driven scientific mutation candidate.",
+    ),
+    ProtocolDefinition(
+        "CreativeMutationPlan",
+        CreativeMutationPlan,
+        "Context-only plan for tournament-driven creative mutations.",
+    ),
+    ProtocolDefinition(
+        "CreativeMutationReport",
+        CreativeMutationReport,
+        "Append-only report for applied creative mutations.",
+    ),
+    ProtocolDefinition(
+        "CreativeMutationInspectionReport",
+        CreativeMutationInspectionReport,
+        "Read-only inspection report for creative mutation planning and application.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

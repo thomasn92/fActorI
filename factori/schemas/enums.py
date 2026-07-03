@@ -365,6 +365,9 @@ class ControllerActionType(StrEnum):
     AUTONOMOUS_PAPER_RESUME_WRITTEN = "AutonomousPaperResumeWritten"
     SCIENTIFIC_SUBSTRATE_BUILT = "ScientificSubstrateBuilt"
     SUBSTRATE_EXPERIMENT_ROUTED = "SubstrateExperimentRouted"
+    SUBSTRATE_TOURNAMENT_RUN = "SubstrateTournamentRun"
+    CREATIVE_MUTATION_PLAN_WRITTEN = "CreativeMutationPlanWritten"
+    CREATIVE_MUTATIONS_APPLIED = "CreativeMutationsApplied"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -375,6 +378,21 @@ class ReleaseGateStatus(StrEnum):
     RELEASE_READY = "ReleaseReady"
     RELEASE_BLOCKED = "ReleaseBlocked"
     RELEASE_READY_WITH_WARNINGS = "ReleaseReadyWithWarnings"
+
+
+class CreativeMutationOperator(StrEnum):
+    """Tournament-driven scientific mutation operators."""
+
+    WINNER_REFINEMENT = "winner_refinement"
+    LOSER_REPAIR = "loser_repair"
+    WINNER_LOSER_HYBRID = "winner_loser_hybrid"
+    MISSING_AXIS_INJECTION = "missing_axis_injection"
+    ROBUSTNESS_STRESS_TEST = "robustness_stress_test"
+    SCALE_CHANGE = "scale_change"
+    BASELINE_STRENGTHENING = "baseline_strengthening"
+    MECHANISM_CHANGE = "mechanism_change"
+    REPRESENTATION_CHANGE = "representation_change"
+    LIMITATION_TO_PARAMETER = "limitation_to_parameter"
 
 
 class ReplayStatus(StrEnum):
@@ -797,6 +815,7 @@ __all__ = [
     "BranchStatus",
     "ArtifactType",
     "ControllerActionType",
+    "CreativeMutationOperator",
     "ReleaseGateStatus",
     "ReplayStatus",
     "DiagnosticSeverity",

@@ -75,6 +75,12 @@ from factori.config import (
     DEFAULT_RUN_ID,
     LEDGER_FILENAME,
 )
+from factori.creative_mutations import (
+    CreativeMutationError,
+    apply_creative_mutations,
+    inspect_creative_mutations,
+    plan_creative_mutations,
+)
 from factori.cross_run import CrossRunError, compare_runs, write_cross_run_report
 from factori.diagnostics import (
     DiagnosticError,
@@ -272,6 +278,11 @@ from factori.substrate_experiment_routing import (
     SubstrateExperimentRoutingError,
     inspect_substrate_experiment_routing,
     route_substrate_experiment,
+)
+from factori.substrate_tournament import (
+    SubstrateTournamentError,
+    inspect_substrate_tournament,
+    run_substrate_tournament,
 )
 
 app = typer.Typer(no_args_is_help=True)
@@ -4108,6 +4119,180 @@ def inspect_substrate_experiment_routing_command(
     typer.echo(f"Comparison table present: {str(payload['comparison_table_present']).lower()}")
     typer.echo(f"Claim-evidence linked: {str(payload['claim_evidence_linked']).lower()}")
     typer.echo("Publication ready: false")
+
+
+@app.command("run-substrate-tournament")
+def run_substrate_tournament_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run a bounded uv-local tournament across serious scientific substrates."""
+    try:
+        result = run_substrate_tournament(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except SubstrateTournamentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        **result.result.model_dump(mode="json"),
+        "tournament_present": True,
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"tournament_status={result.result.tournament_status}")
+    typer.echo(f"substrate_count={result.result.substrate_count}")
+    typer.echo(f"winner_selected={str(result.result.winner_selected).lower()}")
+    typer.echo(f"winner={result.result.winner_substrate_title_optional or 'none'}")
+    typer.echo(
+        f"comparison_table_present={str(result.result.comparison.comparison_table_present).lower()}"
+    )
+    typer.echo("publication_ready=false")
+
+
+@app.command("inspect-substrate-tournament")
+def inspect_substrate_tournament_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest substrate tournament and selected bounded branch."""
+    try:
+        report = inspect_substrate_tournament(run_id=run_id, root=root)
+    except SubstrateTournamentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    status = "present" if report.tournament_present else "absent"
+    typer.echo(f"Substrate tournament: {status}")
+    typer.echo(f"Tournament status: {report.tournament_status_optional or 'none'}")
+    typer.echo(f"Substrate count: {report.substrate_count}")
+    typer.echo(
+        "Distance-decay branch completed: "
+        f"{str(report.distance_decay_branch_completed).lower()}"
+    )
+    typer.echo(
+        "PCA/low-rank branch completed: "
+        f"{str(report.pca_low_rank_branch_completed).lower()}"
+    )
+    typer.echo(f"Winner selected: {str(report.winner_selected).lower()}")
+    typer.echo(f"Winner: {report.winner_substrate_title_optional or 'none'}")
+    typer.echo(f"Comparison table: {str(report.comparison_table_present).lower()}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("plan-creative-mutations")
+def plan_creative_mutations_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_mutations: Annotated[int, typer.Option("--max-mutations")] = 5,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan tournament-driven creative scientific mutations."""
+    try:
+        plan = plan_creative_mutations(
+            run_id=run_id,
+            root=root,
+            max_mutations=max_mutations,
+            write_report=True,
+        )
+    except CreativeMutationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(plan.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo("creative_mutation_plan_present=true")
+    typer.echo(f"plan_id={plan.plan_id}")
+    typer.echo(f"mutation_count={plan.mutation_count}")
+    typer.echo(f"selected_for_substrate_build={plan.selected_for_substrate_build_count}")
+    for candidate in plan.candidates:
+        typer.echo(
+            f"- {candidate.title} [{candidate.operator.value}] "
+            f"selected={str(candidate.selected_for_substrate_build).lower()}"
+        )
+    typer.echo("publication_ready=false")
+
+
+@app.command("inspect-creative-mutations")
+def inspect_creative_mutations_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest creative mutation plan and application reports."""
+    try:
+        report = inspect_creative_mutations(run_id=run_id, root=root)
+    except CreativeMutationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    status = "present" if report.creative_mutation_plan_present else "absent"
+    typer.echo(f"Creative mutation plan: {status}")
+    typer.echo(f"Latest plan: {report.latest_plan_id_optional or 'none'}")
+    typer.echo(f"Latest apply report: {report.latest_apply_report_id_optional or 'none'}")
+    typer.echo(f"Mutation count: {report.mutation_count}")
+    typer.echo(f"Selected for substrate build: {report.selected_for_substrate_build_count}")
+    typer.echo(f"Applied mutations: {report.applied_mutation_count}")
+    typer.echo(f"New IdeaTree nodes added: {str(report.new_idea_tree_nodes_added).lower()}")
+    typer.echo(
+        "New ScientificSubstrates created: "
+        f"{str(report.new_scientific_substrates_created).lower()}"
+    )
+    typer.echo("Publication ready: false")
+
+
+@app.command("apply-creative-mutations")
+def apply_creative_mutations_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_mutations: Annotated[int, typer.Option("--max-mutations")] = 3,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Apply selected creative mutations as IdeaTree nodes and ScientificSubstrates."""
+    try:
+        result = apply_creative_mutations(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            max_mutations=max_mutations,
+        )
+    except CreativeMutationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        **result.report.model_dump(mode="json"),
+        "creative_mutation_plan_present": True,
+        "new_idea_tree_nodes_added": result.report.new_idea_tree_node_count > 0,
+        "new_scientific_substrates_created": (
+            result.report.new_scientific_substrate_count > 0
+        ),
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"apply_status={result.report.apply_status}")
+    typer.echo(f"applied_mutation_count={result.report.applied_mutation_count}")
+    typer.echo(f"new_idea_tree_node_count={result.report.new_idea_tree_node_count}")
+    typer.echo(
+        f"new_scientific_substrate_count={result.report.new_scientific_substrate_count}"
+    )
+    typer.echo("publication_ready=false")
 
 
 @app.command("inspect-final-manuscript")

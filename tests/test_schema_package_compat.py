@@ -19,6 +19,11 @@ from factori.schemas import (
     ClaimEvidenceMap,
     ClaimEvidenceMapLink,
     CompleteMarkdownDraft,
+    CreativeMutationCandidate,
+    CreativeMutationInspectionReport,
+    CreativeMutationOperator,
+    CreativeMutationPlan,
+    CreativeMutationReport,
     DataRequirement,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
@@ -52,6 +57,11 @@ from factori.schemas import (
     ScientificSubstrate,
     ScientificSubstrateBuildReport,
     ScientificSubstrateInspectionReport,
+    SubstrateTournamentComparison,
+    SubstrateTournamentEntry,
+    SubstrateTournamentInspectionReport,
+    SubstrateTournamentResult,
+    SubstrateTournamentSpec,
     VerificationLabel,
 )
 
@@ -105,6 +115,16 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert ScientificSubstrate in vars(schemas).values()
     assert ScientificSubstrateBuildReport in vars(schemas).values()
     assert ScientificSubstrateInspectionReport in vars(schemas).values()
+    assert SubstrateTournamentSpec in vars(schemas).values()
+    assert SubstrateTournamentEntry in vars(schemas).values()
+    assert SubstrateTournamentResult in vars(schemas).values()
+    assert SubstrateTournamentComparison in vars(schemas).values()
+    assert SubstrateTournamentInspectionReport in vars(schemas).values()
+    assert CreativeMutationOperator in vars(schemas).values()
+    assert CreativeMutationCandidate in vars(schemas).values()
+    assert CreativeMutationPlan in vars(schemas).values()
+    assert CreativeMutationReport in vars(schemas).values()
+    assert CreativeMutationInspectionReport in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -160,6 +180,16 @@ def test_schema_all_contains_expected_public_names() -> None:
         "ScientificSubstrate",
         "ScientificSubstrateBuildReport",
         "ScientificSubstrateInspectionReport",
+        "SubstrateTournamentSpec",
+        "SubstrateTournamentEntry",
+        "SubstrateTournamentResult",
+        "SubstrateTournamentComparison",
+        "SubstrateTournamentInspectionReport",
+        "CreativeMutationOperator",
+        "CreativeMutationCandidate",
+        "CreativeMutationPlan",
+        "CreativeMutationReport",
+        "CreativeMutationInspectionReport",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -200,4 +230,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 245
+    assert len(get_protocol_definitions()) == 255

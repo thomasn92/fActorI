@@ -213,6 +213,9 @@ uv run factori export-idea-space-report --run-id demo --format json
 uv run factori build-final-release-bundle --run-id demo
 uv run factori inspect-final-release-bundle --run-id demo
 uv run factori inspect-final-release-bundle --run-id demo --json
+uv run factori run-substrate-tournament --run-id demo
+uv run factori inspect-substrate-tournament --run-id demo
+uv run factori inspect-substrate-tournament --run-id demo --json
 uv run factori verify-final-release-bundle \
   --bundle-path runs/demo/release-bundles/final-bundle-0001
 uv run factori verify-final-release-bundle --run-id demo --json
@@ -822,6 +825,11 @@ uv run factori build-scientific-substrate --run-id demo-paper --max-substrates 2
 uv run factori inspect-scientific-substrate --run-id demo-paper --json
 uv run factori route-substrate-experiment --run-id demo-paper
 uv run factori inspect-substrate-experiment-routing --run-id demo-paper --json
+uv run factori run-substrate-tournament --run-id demo-paper
+uv run factori inspect-substrate-tournament --run-id demo-paper --json
+uv run factori plan-creative-mutations --run-id demo-paper --max-mutations 5
+uv run factori inspect-creative-mutations --run-id demo-paper --json
+uv run factori apply-creative-mutations --run-id demo-paper --max-mutations 3
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
@@ -842,6 +850,11 @@ uv run factori stagnation-demo
 mutation axes. The generated substrates include concrete equations, variables, DGPs, baselines,
 measurable hypotheses, result schemas, limitations, and failure modes; they do not create evidence,
 validation, or publication readiness.
+
+`plan-creative-mutations` reads the latest IdeaTree, idea-space diagnostics, ScientificSubstrates,
+and substrate tournament result to propose context-only next-generation branches.
+`apply-creative-mutations` appends selected mutation nodes and ScientificSubstrate candidates for
+future bounded experiments; it does not route experiments or create validation evidence.
 
 ## Tests and Lint
 

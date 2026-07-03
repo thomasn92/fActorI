@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.51.0/model-notation-assessment.schema.json",
+  "$id": "https://schemas.factori.local/0.53.0/model-notation-assessment.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Model and notation diagnostic assessment.",
@@ -35,7 +35,7 @@
   ],
   "title": "ModelNotationAssessment",
   "type": "object",
-  "x-factori-protocol-version": "0.51.0",
+  "x-factori-protocol-version": "0.53.0",
   "x-factori-source-model": "factori.schemas.ModelNotationAssessment",
   "x-factori-verification-evidence": false
 }

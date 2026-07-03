@@ -1,0 +1,117 @@
+{
+  "$id": "https://schemas.factori.local/0.53.0/substrate-tournament-comparison.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Normalized synthetic-scope comparison across substrate branches.",
+  "properties": {
+    "comparison_policy": {
+      "minLength": 1,
+      "title": "Comparison Policy",
+      "type": "string"
+    },
+    "comparison_table_present": {
+      "default": false,
+      "title": "Comparison Table Present",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_names": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Metric Names",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rows": {
+      "items": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": "object"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "winner_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Winner Reason Optional"
+    },
+    "winner_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Winner Substrate Id Optional"
+    },
+    "winner_substrate_title_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Winner Substrate Title Optional"
+    }
+  },
+  "required": [
+    "comparison_policy",
+    "metric_names"
+  ],
+  "title": "SubstrateTournamentComparison",
+  "type": "object",
+  "x-factori-protocol-version": "0.53.0",
+  "x-factori-source-model": "factori.schemas.SubstrateTournamentComparison",
+  "x-factori-verification-evidence": false
+}

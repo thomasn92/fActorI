@@ -22,7 +22,8 @@ All implementation modules are under `factori/`.
   - `schemas/adapters.py`: adapter prompt, parse, trace, generated-section, LLM orchestration
     budget/accounting, and human-review contracts.
   - `schemas/manuscript.py`: synthesis, claim, citation, literature-positioning, manuscript,
-    narrative, draft, complete Markdown drafting, full-paper generation, and paper skeleton models.
+    narrative, draft, complete Markdown drafting, full-paper generation, paper skeleton,
+    scientific-substrate, substrate-experiment, and substrate-tournament models.
   - `schemas/audit.py`: packaging, audit, release, export, LaTeX export/render, replay,
     diagnostics, and cross-run models.
   - `schemas/pipeline.py`: pipeline, dry-run, status, rerun, file index, hygiene, and remediation
@@ -135,6 +136,12 @@ All implementation modules are under `factori/`.
   manuscript prose, full-paper generation, and release evaluation with fake defaults, real-mode
   gates, candidate-only/reviewer-only live-smoke isolation, structural Stage B call planning,
   read-only preflight summaries, runtime budget guards, and secret-safe transport-failure reporting.
+- `substrate_tournament.py`: deterministic multi-substrate experiment tournament over existing
+  ScientificSubstrate artifacts, substrate-specific uv-local experiment specs, scoped comparison
+  metrics, and append-only winner reports.
+- `creative_mutations.py`: deterministic tournament-driven mutation planning and application over
+  IdeaTree, idea-space, substrate, and tournament artifacts; selected mutations append new
+  context-only IdeaTree nodes and ScientificSubstrate candidates.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
 - `rerun_policy.py`: artifact-based mutating-stage rerun decisions plus read-only ledger tip,

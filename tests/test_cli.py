@@ -299,8 +299,26 @@ def test_substrate_experiment_routing_commands_are_registered() -> None:
         app,
         ["inspect-substrate-experiment-routing", "--help"],
     )
+    tournament = CliRunner().invoke(app, ["run-substrate-tournament", "--help"])
+    inspect_tournament = CliRunner().invoke(
+        app,
+        ["inspect-substrate-tournament", "--help"],
+    )
+    plan_mutations = CliRunner().invoke(app, ["plan-creative-mutations", "--help"])
+    inspect_mutations = CliRunner().invoke(app, ["inspect-creative-mutations", "--help"])
+    apply_mutations = CliRunner().invoke(app, ["apply-creative-mutations", "--help"])
     assert route.exit_code == 0, route.output
     assert inspect.exit_code == 0, inspect.output
+    assert tournament.exit_code == 0, tournament.output
+    assert "--run-id" in tournament.output
+    assert inspect_tournament.exit_code == 0, inspect_tournament.output
+    assert "--json" in inspect_tournament.output
+    assert plan_mutations.exit_code == 0, plan_mutations.output
+    assert "--max-mutations" in plan_mutations.output
+    assert inspect_mutations.exit_code == 0, inspect_mutations.output
+    assert "--json" in inspect_mutations.output
+    assert apply_mutations.exit_code == 0, apply_mutations.output
+    assert "--max-mutations" in apply_mutations.output
 
 
 def test_human_review_cli_commands_are_registered() -> None:

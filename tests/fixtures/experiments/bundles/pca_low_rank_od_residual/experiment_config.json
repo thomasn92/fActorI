@@ -1,0 +1,23 @@
+{
+  "approved_local_bundle": true,
+  "bundle_format": "factori-python-experiment-v1",
+  "distance_offset": 0.05,
+  "experiment_template": "pca_low_rank_od_residual",
+  "n_regions": 18,
+  "noise_level": 0.015,
+  "pooled_alpha": 1.25,
+  "rank": 1,
+  "seed": 2718,
+  "settings": [
+    {
+      "factor_strength": 0.12,
+      "name": "low_latent_factor_strength",
+      "seed_offset": 0
+    },
+    {
+      "factor_strength": 0.45,
+      "name": "high_latent_factor_strength",
+      "seed_offset": 1000
+    }
+  ]
+}

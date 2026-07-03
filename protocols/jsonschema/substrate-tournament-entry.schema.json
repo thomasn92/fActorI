@@ -1,0 +1,226 @@
+{
+  "$id": "https://schemas.factori.local/0.53.0/substrate-tournament-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One substrate branch and its bounded tournament outcome.",
+  "properties": {
+    "ablation_sensitivity": {
+      "default": 0.0,
+      "title": "Ablation Sensitivity",
+      "type": "number"
+    },
+    "claim_scope_penalty": {
+      "default": 0.0,
+      "title": "Claim Scope Penalty",
+      "type": "number"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "entry_id": {
+      "minLength": 1,
+      "title": "Entry Id",
+      "type": "string"
+    },
+    "experiment_artifact_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Artifact Path Optional"
+    },
+    "experiment_bundle_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Bundle Id Optional"
+    },
+    "experiment_spec_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Spec Path Optional"
+    },
+    "explained_residual_variance_optional": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Explained Residual Variance Optional"
+    },
+    "failure_or_inconclusive_penalty": {
+      "default": 0.0,
+      "title": "Failure Or Inconclusive Penalty",
+      "type": "number"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latent_factor_recovery_correlation_optional": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latent Factor Recovery Correlation Optional"
+    },
+    "mae_improvement_ratio": {
+      "default": 0.0,
+      "title": "Mae Improvement Ratio",
+      "type": "number"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "result_label_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Result Label Optional"
+    },
+    "result_status": {
+      "enum": [
+        "supported",
+        "negative_result",
+        "inconclusive",
+        "not_run"
+      ],
+      "title": "Result Status",
+      "type": "string"
+    },
+    "rmse_improvement_ratio": {
+      "default": 0.0,
+      "title": "Rmse Improvement Ratio",
+      "type": "number"
+    },
+    "sandbox_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sandbox Report Path Optional"
+    },
+    "sandbox_status": {
+      "minLength": 1,
+      "title": "Sandbox Status",
+      "type": "string"
+    },
+    "selected_as_winner": {
+      "default": false,
+      "title": "Selected As Winner",
+      "type": "boolean"
+    },
+    "source_substrate_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Substrate Path Optional"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    },
+    "substrate_model_type": {
+      "minLength": 1,
+      "title": "Substrate Model Type",
+      "type": "string"
+    },
+    "substrate_title": {
+      "minLength": 1,
+      "title": "Substrate Title",
+      "type": "string"
+    },
+    "tournament_score": {
+      "default": 0.0,
+      "title": "Tournament Score",
+      "type": "number"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
+    "winner_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Winner Reason Optional"
+    }
+  },
+  "required": [
+    "entry_id",
+    "substrate_id",
+    "substrate_title",
+    "substrate_model_type",
+    "sandbox_status",
+    "result_status"
+  ],
+  "title": "SubstrateTournamentEntry",
+  "type": "object",
+  "x-factori-protocol-version": "0.53.0",
+  "x-factori-source-model": "factori.schemas.SubstrateTournamentEntry",
+  "x-factori-verification-evidence": false
+}

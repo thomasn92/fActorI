@@ -7,6 +7,16 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.53.0` adds tournament-driven creative mutation contracts. Mutation candidates, plans,
+application reports, inspection reports, and mutation operators connect bounded tournament
+feedback to new IdeaTree branches and ScientificSubstrate candidates without creating scientific
+validation or publication readiness.
+
+Protocol `0.52.0` adds deterministic multi-substrate tournament contracts. Tournament specs,
+entries, comparisons, results, and inspection reports compare serious substrate branches using
+declared synthetic-scope experiment metrics, select a bounded manuscript branch, and retain
+alternative branches without creating real-world validation or publication readiness.
+
 Protocol `0.51.0` adds substrate-specific experiment specifications, routing reports, bounded
 results, and baseline-versus-method comparison tables. The selected distance-decay substrate can
 now execute through the approved offline uv sandbox; successful results support only their mapped

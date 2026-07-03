@@ -53,6 +53,7 @@ from factori.schemas import (
     ProofArtifact,
     RetrievalQualityReport,
     ScientificSubstrate,
+    SubstrateTournamentResult,
 )
 from factori.scientific_substrate import latest_selected_scientific_substrate
 
@@ -165,6 +166,23 @@ def regenerate_final_manuscript(
         root_path,
         run_id,
     )
+    from factori.substrate_tournament import (  # noqa: PLC0415
+        latest_substrate_tournament_result,
+    )
+
+    substrate_tournament = latest_substrate_tournament_result(root_path, run_id)
+    if substrate_tournament and substrate_tournament.winner_substrate_id_optional:
+        tournament_selected = next(
+            (
+                substrate
+                for substrate in scientific_substrates
+                if substrate.substrate_id
+                == substrate_tournament.winner_substrate_id_optional
+            ),
+            None,
+        )
+        if tournament_selected is not None:
+            selected_substrate = tournament_selected
     title = (
         selected_substrate.title
         if selected_substrate is not None
@@ -186,6 +204,7 @@ def regenerate_final_manuscript(
         human_review=human_review,
         selected_substrate=selected_substrate,
         scientific_substrates=scientific_substrates,
+        substrate_tournament=substrate_tournament,
     )
     markdown = _render_manuscript(title, sections)
 
@@ -510,6 +529,7 @@ def _build_sections(
     human_review: HumanReviewArtifact | None,
     selected_substrate: ScientificSubstrate | None = None,
     scientific_substrates: list[ScientificSubstrate] | None = None,
+    substrate_tournament: SubstrateTournamentResult | None = None,
 ) -> list[FinalManuscriptSection]:
     counts = claim_evidence_summary_fields(source_map)
     formal = [proof for proof in proofs if _formal_proof(proof)]
@@ -520,12 +540,21 @@ def _build_sections(
     substrate_experiments = [
         experiment
         for experiment in experiments
-        if experiment.experiment_type == "substrate_distance_decay_uv_local"
+        if experiment.experiment_type
+        in {"substrate_distance_decay_uv_local", "substrate_pca_low_rank_uv_local"}
     ]
     completed_substrate_experiments = [
         experiment for experiment in substrate_experiments if experiment.status == "completed"
     ]
-    displayed_experiments = completed_substrate_experiments or completed
+    winner_ids = _tournament_winner_experiment_ids(substrate_tournament)
+    winner_types = _tournament_winner_experiment_types(substrate_tournament)
+    winner_experiments = [
+        experiment
+        for experiment in completed_substrate_experiments
+        if experiment.experiment_id in winner_ids
+        or (not winner_ids and experiment.experiment_type in winner_types)
+    ]
+    displayed_experiments = winner_experiments or completed_substrate_experiments or completed
     accepted = [record for record in registry.citations if record.accepted_for_registry]
     citation_keys = sorted(record.citation_key for record in accepted)
     primary_citation = f" [@{citation_keys[0]}]" if citation_keys else ""
@@ -564,7 +593,10 @@ def _build_sections(
     )
     experiment_lines = []
     for experiment in displayed_experiments:
-        if experiment.experiment_type == "substrate_distance_decay_uv_local":
+        if experiment.experiment_type in {
+            "substrate_distance_decay_uv_local",
+            "substrate_pca_low_rank_uv_local",
+        }:
             experiment_lines.extend(_substrate_experiment_metric_lines(experiment))
             continue
         metrics = ", ".join(f"`{key}={value}`" for key, value in sorted(experiment.metrics.items()))
@@ -611,8 +643,13 @@ def _build_sections(
             "the model, prove novelty, or establish complete literature coverage."
         ),
     ]
+    if substrate_tournament is not None:
+        result_lines.extend(_tournament_result_lines(substrate_tournament))
     for experiment in displayed_experiments:
-        if experiment.experiment_type == "substrate_distance_decay_uv_local":
+        if experiment.experiment_type in {
+            "substrate_distance_decay_uv_local",
+            "substrate_pca_low_rank_uv_local",
+        }:
             result_lines.extend(_substrate_experiment_result_lines(experiment))
     escalation_text = (
         "This workflow trace is not evidence; capability escalation ended with "
@@ -740,7 +777,8 @@ def _build_sections(
             f"{counts['human_review_linked_claim_count']} to review-occurrence context. "
             "Unsupported noncritical wording is omitted or represented as a boundary statement. "
             f"Evidence links do not transfer authority across claims. {appendix_proof_text} "
-            f"{substrate_context['alternative_text']}"
+            f"{substrate_context['alternative_text']} "
+            f"{_tournament_appendix_text(substrate_tournament)}"
         ),
         "Appendix B: Autonomous Execution and Provenance": (
             f"The autonomous loop completed {loop.iterations_completed} iteration(s) with terminal "
@@ -987,16 +1025,31 @@ def _substrate_experiment_metric_lines(experiment: ExperimentArtifact) -> list[s
             f"Substrate experiment `{experiment.experiment_id}` completed, but its comparison "
             "metrics are incomplete and no positive comparison is asserted."
         ]
-    lines = [
-        (
-            "The substrate-specific uv-local run compared the pooled-alpha baseline with the "
-            "heterogeneous-alpha method. Recorded high-heterogeneity metrics were "
-            f"baseline MAE `{metrics['test_mae_baseline']}`, method MAE "
-            f"`{metrics['test_mae_method']}`, baseline RMSE "
-            f"`{metrics['test_rmse_baseline']}`, and method RMSE "
-            f"`{metrics['test_rmse_method']}`."
-        )
-    ]
+    if experiment.experiment_type == "substrate_pca_low_rank_uv_local":
+        lines = [
+            (
+                "The substrate-specific uv-local run compared the pooled gravity baseline "
+                "without low-rank residual correction against the rank-k residual correction "
+                "method. Recorded high latent-factor metrics were baseline MAE "
+                f"`{metrics['test_mae_baseline']}`, method MAE "
+                f"`{metrics['test_mae_method']}`, baseline RMSE "
+                f"`{metrics['test_rmse_baseline']}`, method RMSE "
+                f"`{metrics['test_rmse_method']}`, latent-factor recovery correlation "
+                f"`{metrics.get('latent_factor_recovery_correlation')}`, and explained "
+                f"residual variance `{metrics.get('explained_residual_variance')}`."
+            )
+        ]
+    else:
+        lines = [
+            (
+                "The substrate-specific uv-local run compared the pooled-alpha baseline with the "
+                "heterogeneous-alpha method. Recorded high-heterogeneity metrics were "
+                f"baseline MAE `{metrics['test_mae_baseline']}`, method MAE "
+                f"`{metrics['test_mae_method']}`, baseline RMSE "
+                f"`{metrics['test_rmse_baseline']}`, and method RMSE "
+                f"`{metrics['test_rmse_method']}`."
+            )
+        ]
     table = metrics.get("comparison_table")
     if isinstance(table, list) and table:
         lines.extend(
@@ -1026,9 +1079,13 @@ def _substrate_experiment_metric_lines(experiment: ExperimentArtifact) -> list[s
         )
     if metrics.get("heterogeneity_ablation_present"):
         lines.append(
-            "The ablation includes low- and high-heterogeneity settings. The recorded result "
-            "tests whether the heterogeneous-alpha advantage changes with alpha_i variation; "
-            "it remains a synthetic stress test rather than real-world evidence."
+            "The ablation includes low and high latent-factor-strength settings. The recorded "
+            "result tests whether the low-rank residual advantage changes with factor "
+            "strength; it remains a synthetic stress test rather than real-world evidence."
+            if experiment.experiment_type == "substrate_pca_low_rank_uv_local"
+            else "The ablation includes low- and high-heterogeneity settings. The recorded "
+            "result tests whether the heterogeneous-alpha advantage changes with alpha_i "
+            "variation; it remains a synthetic stress test rather than real-world evidence."
         )
     return lines
 
@@ -1036,20 +1093,137 @@ def _substrate_experiment_metric_lines(experiment: ExperimentArtifact) -> list[s
 def _substrate_experiment_result_lines(experiment: ExperimentArtifact) -> list[str]:
     metrics = experiment.metrics
     supported = bool(metrics.get("claim_support_satisfied"))
-    direction = (
-        "The method beat the pooled-alpha baseline under the declared MAE/RMSE rule"
-        if supported
-        else "The method did not satisfy the declared MAE/RMSE support rule"
-    )
-    return [
-        f"{direction} for the recorded synthetic settings. This is a bounded synthetic result "
-        "for the mapped claim only, not evidence of performance on observed mobility data.",
-        (
+    if experiment.experiment_type == "substrate_pca_low_rank_uv_local":
+        direction = (
+            "The low-rank residual method beat the pooled gravity baseline under the declared "
+            "MAE/RMSE and latent-recovery rule"
+            if supported
+            else "The low-rank residual method did not satisfy the declared support rule"
+        )
+        detail = (
+            "The high latent-factor-strength MAE/RMSE improvements were "
+            f"`{metrics.get('mae_improvement')}` and `{metrics.get('rmse_improvement')}`; "
+            "the latent-factor recovery correlation and explained residual variance were "
+            f"`{metrics.get('latent_factor_recovery_correlation')}` and "
+            f"`{metrics.get('explained_residual_variance')}`."
+        )
+    else:
+        direction = (
+            "The method beat the pooled-alpha baseline under the declared MAE/RMSE rule"
+            if supported
+            else "The method did not satisfy the declared MAE/RMSE support rule"
+        )
+        detail = (
             "The high-heterogeneity MAE and RMSE improvements were "
             f"`{metrics.get('mae_improvement')}` and `{metrics.get('rmse_improvement')}`. "
             "The low/high heterogeneity comparison is retained as the declared ablation."
-        ),
+        )
+    return [
+        f"{direction} for the recorded synthetic settings. This is a bounded synthetic result "
+        "for the mapped claim only, not evidence of performance on observed mobility data.",
+        detail,
     ]
+
+
+def _tournament_winner_experiment_types(
+    tournament: SubstrateTournamentResult | None,
+) -> set[str]:
+    if tournament is None or not tournament.winner_substrate_id_optional:
+        return set()
+    winner = next(
+        (
+            entry
+            for entry in tournament.entries
+            if entry.substrate_id == tournament.winner_substrate_id_optional
+        ),
+        None,
+    )
+    if winner is None:
+        return set()
+    if winner.substrate_model_type == "low_rank_gravity_residual_representation":
+        return {"substrate_pca_low_rank_uv_local"}
+    if winner.substrate_model_type == "region_specific_distance_decay_gravity":
+        return {"substrate_distance_decay_uv_local"}
+    return set()
+
+
+def _tournament_winner_experiment_ids(
+    tournament: SubstrateTournamentResult | None,
+) -> set[str]:
+    if tournament is None or not tournament.winner_substrate_id_optional:
+        return set()
+    ids: set[str] = set()
+    for entry in tournament.entries:
+        if entry.substrate_id != tournament.winner_substrate_id_optional:
+            continue
+        artifact_path = entry.experiment_artifact_path_optional or ""
+        stem = Path(artifact_path).stem
+        if stem.startswith("experiment-artifact-"):
+            ids.add(stem.removeprefix("experiment-artifact-"))
+    return ids
+
+
+def _tournament_result_lines(tournament: SubstrateTournamentResult) -> list[str]:
+    lines = [
+        (
+            "A substrate tournament compared serious synthetic branches using declared "
+            "within-scope metrics. The selected manuscript branch is "
+            f"`{tournament.winner_substrate_title_optional or 'none'}`. "
+            f"{tournament.winner_reason_optional or 'No winner was selected.'}"
+        ),
+        "| substrate | result | MAE ratio | RMSE ratio | ablation | score |",
+        "|---|---|---:|---:|---:|---:|",
+    ]
+    for entry in tournament.entries:
+        lines.append(
+            f"| {entry.substrate_title} | {entry.result_status} | "
+            f"{entry.mae_improvement_ratio} | {entry.rmse_improvement_ratio} | "
+            f"{entry.ablation_sensitivity} | {entry.tournament_score} |"
+        )
+    lines.append(
+        "The tournament ranking is manuscript-focus context only; it does not create "
+        "real-world validation, novelty, broad correctness, or publication readiness."
+    )
+    return lines
+
+
+def _tournament_appendix_text(tournament: SubstrateTournamentResult | None) -> str:
+    if tournament is None:
+        return "No substrate tournament report is present."
+    non_winners = [
+        entry
+        for entry in tournament.entries
+        if entry.substrate_id != tournament.winner_substrate_id_optional
+    ]
+    if not non_winners:
+        return "No non-winning substrate branch was present in the tournament."
+    return (
+        "Non-winning tournament branches remain visible: "
+        + "; ".join(
+            _tournament_nonwinner_summary(entry)
+            for entry in non_winners
+        )
+        + ". These alternatives are not pruned as impossible; they are lower-ranked or "
+        "non-selected within this bounded synthetic run."
+    )
+
+
+def _tournament_nonwinner_summary(entry: Any) -> str:
+    extras = ""
+    if entry.latent_factor_recovery_correlation_optional is not None:
+        extras = (
+            ", latent-factor recovery correlation "
+            f"{entry.latent_factor_recovery_correlation_optional}"
+        )
+    if entry.explained_residual_variance_optional is not None:
+        extras += (
+            ", explained residual variance "
+            f"{entry.explained_residual_variance_optional}"
+        )
+    return (
+        f"{entry.substrate_title} ended as {entry.result_status} with score "
+        f"{entry.tournament_score}{extras}"
+    )
 
 
 def _normalize_paragraph(text: str) -> str:

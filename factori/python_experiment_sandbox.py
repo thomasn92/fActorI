@@ -777,7 +777,7 @@ def _build_experiment_artifact(
         run_id=run_id,
         experiment_id=f"uv-local-{sandbox_run_id}",
         experiment_type=(
-            "substrate_distance_decay_uv_local"
+            _substrate_experiment_type(spec)
             if substrate_result is not None
             else "synthetic_uv_local"
         ),
@@ -843,6 +843,13 @@ def _build_substrate_experiment_result(
         "mae_improvement",
         "rmse_improvement",
     ]
+    optional_columns = [
+        "latent_factor_recovery_correlation",
+        "explained_residual_variance",
+    ]
+    for column in optional_columns:
+        if any(isinstance(raw, dict) and column in raw for raw in raw_rows):
+            columns.append(column)
     rows: list[dict[str, str | int | float]] = []
     for raw in raw_rows:
         if not isinstance(raw, dict) or any(column not in raw for column in columns):
@@ -857,6 +864,11 @@ def _build_substrate_experiment_result(
             }
         )
     supported = bool(metrics["claim_support_satisfied"])
+    substrate_family = (
+        "pca_low_rank"
+        if spec.experiment_bundle_id == "pca_low_rank_od_residual"
+        else "distance_decay"
+    )
     return SubstrateExperimentResult(
         run_id=run_id,
         experiment_spec_id=spec.spec_id,
@@ -873,13 +885,7 @@ def _build_substrate_experiment_result(
             ),
         ),
         bounded_result_summary=(
-            "The heterogeneous-alpha method has lower MAE and no higher RMSE than the "
-            "pooled-alpha baseline for the recorded synthetic settings. This bounded result "
-            "does not imply validation beyond this synthetic run."
-            if supported
-            else "The heterogeneous-alpha method did not satisfy the declared bounded support "
-            "rule for every recorded synthetic setting. The run is retained as a negative "
-            "result and does not support the mapped positive claim."
+            _substrate_result_summary(substrate_family, supported)
         ),
         limitations=[
             "Synthetic OD-flow data and fixed seeds only.",
@@ -890,6 +896,42 @@ def _build_substrate_experiment_result(
         creates_scientific_validation=False,
         implies_publication_readiness=False,
         is_verification_evidence=False,
+    )
+
+
+def _substrate_experiment_type(spec: PlannedExperimentSpec | SubstrateExperimentSpec) -> str:
+    if isinstance(spec, SubstrateExperimentSpec):
+        if spec.experiment_bundle_id == "pca_low_rank_od_residual":
+            return "substrate_pca_low_rank_uv_local"
+        if spec.experiment_bundle_id == "distance_decay_spatial_interaction":
+            return "substrate_distance_decay_uv_local"
+    return "substrate_uv_local"
+
+
+def _substrate_result_summary(substrate_family: str, supported: bool) -> str:
+    if substrate_family == "pca_low_rank":
+        if supported:
+            return (
+                "The low-rank residual method has lower MAE and no higher RMSE than the "
+                "pooled gravity baseline and reports positive latent-factor recovery for the "
+                "recorded synthetic settings. This bounded result does not imply validation "
+                "beyond this synthetic run."
+            )
+        return (
+            "The low-rank residual method did not satisfy the declared bounded support rule "
+            "for every recorded synthetic setting. The run is retained as a negative result "
+            "and does not support the mapped positive claim."
+        )
+    if supported:
+        return (
+            "The heterogeneous-alpha method has lower MAE and no higher RMSE than the "
+            "pooled-alpha baseline for the recorded synthetic settings. This bounded result "
+            "does not imply validation beyond this synthetic run."
+        )
+    return (
+        "The heterogeneous-alpha method did not satisfy the declared bounded support rule "
+        "for every recorded synthetic setting. The run is retained as a negative result and "
+        "does not support the mapped positive claim."
     )
 
 

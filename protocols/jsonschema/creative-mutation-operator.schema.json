@@ -1,0 +1,22 @@
+{
+  "$id": "https://schemas.factori.local/0.53.0/creative-mutation-operator.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Tournament-driven scientific mutation operator enum.",
+  "enum": [
+    "winner_refinement",
+    "loser_repair",
+    "winner_loser_hybrid",
+    "missing_axis_injection",
+    "robustness_stress_test",
+    "scale_change",
+    "baseline_strengthening",
+    "mechanism_change",
+    "representation_change",
+    "limitation_to_parameter"
+  ],
+  "title": "CreativeMutationOperator",
+  "type": "string",
+  "x-factori-protocol-version": "0.53.0",
+  "x-factori-source-model": "factori.schemas.CreativeMutationOperator",
+  "x-factori-verification-evidence": false
+}

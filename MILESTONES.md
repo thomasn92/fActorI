@@ -224,3 +224,16 @@ experiment. The distance-decay route compares pooled and origin-specific alpha m
 and high synthetic heterogeneity settings, records MAE/RMSE comparison tables, ingests successful
 bounded artifacts, and retains failed support rules as negative or inconclusive results. Generic
 synthetic calibration remains the fallback when no supported selected substrate exists.
+
+Milestone 86 adds deterministic multi-substrate tournaments. Human-geography runs now route both
+the selected distance-decay substrate and the PCA/low-rank OD-flow alternative to substrate-specific
+offline uv experiments, score each branch with declared synthetic-scope metrics, select the bounded
+winner for final manuscript regeneration, and keep non-winning serious alternatives visible in the
+appendix. Tournament artifacts are context and scoped experiment-routing outputs only; they do not
+create real-world validation or publication readiness.
+
+Milestone 87 adds tournament-driven creative mutation. It consumes the latest IdeaTree, idea-space
+diagnostics, ScientificSubstrates, and substrate tournament result to plan winner refinements,
+winner-loser hybrids, robustness stress tests, and missing-axis candidates. Applying selected
+mutations appends new IdeaTree branches and context-only ScientificSubstrate candidates for future
+bounded experiments without creating scientific validation or publication readiness.

@@ -51,7 +51,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.51.0/idea-space-pca-diagnostic.schema.json",
+  "$id": "https://schemas.factori.local/0.53.0/idea-space-pca-diagnostic.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "PCA/SVD or deterministic fallback summary for idea-space diversity.",
@@ -108,7 +108,7 @@
   ],
   "title": "IdeaSpacePCADiagnostic",
   "type": "object",
-  "x-factori-protocol-version": "0.51.0",
+  "x-factori-protocol-version": "0.53.0",
   "x-factori-source-model": "factori.schemas.IdeaSpacePCADiagnostic",
   "x-factori-verification-evidence": false
 }

@@ -81,6 +81,12 @@ completed run from disk and checks consistency without changing provenance.
   limitations, and failure modes as context for future bounded experiments.
 - deterministic substrate-specific routing from the selected distance-decay substrate to an
   approved offline uv experiment, with bounded comparison tables and negative-result retention.
+- deterministic multi-substrate tournaments that route serious ScientificSubstrate alternatives to
+  offline uv experiments, compare bounded synthetic-scope metrics, and select a manuscript branch
+  without claiming real-world validation or publication readiness.
+- deterministic tournament-driven creative mutation that preserves the bounded winner, repairs or
+  hybridizes serious alternatives, injects missing idea-space axes, and writes new IdeaTree nodes
+  plus ScientificSubstrate candidates as context for future experiments.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

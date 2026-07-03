@@ -45,6 +45,7 @@ from factori.schemas.candidates import (
     Candidate,
     ScoreVector,
 )
+from factori.schemas.enums import CreativeMutationOperator
 from factori.schemas.manuscript import (
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
@@ -72,6 +73,10 @@ from factori.schemas.manuscript import (
     ClaimSupportAuditReport,
     ClaimSupportItem,
     ClaimTable,
+    CreativeMutationCandidate,
+    CreativeMutationInspectionReport,
+    CreativeMutationPlan,
+    CreativeMutationReport,
     DraftSkeleton,
     ExperimentArtifact,
     ExperimentGapRoutingIndex,
@@ -129,6 +134,11 @@ from factori.schemas.manuscript import (
     SandboxBudgetPolicy,
     SandboxBudgetReport,
     SectionRevisionPlan,
+    SubstrateTournamentComparison,
+    SubstrateTournamentEntry,
+    SubstrateTournamentInspectionReport,
+    SubstrateTournamentResult,
+    SubstrateTournamentSpec,
 )
 from factori.schemas.pipeline import (
     HygieneRemediationPlan,
@@ -222,6 +232,16 @@ __all__ = [
     "ExperimentGapRoutingIndex",
     "SandboxBudgetPolicy",
     "SandboxBudgetReport",
+    "SubstrateTournamentSpec",
+    "SubstrateTournamentEntry",
+    "SubstrateTournamentResult",
+    "SubstrateTournamentComparison",
+    "SubstrateTournamentInspectionReport",
+    "CreativeMutationOperator",
+    "CreativeMutationCandidate",
+    "CreativeMutationPlan",
+    "CreativeMutationReport",
+    "CreativeMutationInspectionReport",
     "CapabilityEscalationPolicy",
     "CapabilityEscalationItem",
     "CapabilityEscalationReport",

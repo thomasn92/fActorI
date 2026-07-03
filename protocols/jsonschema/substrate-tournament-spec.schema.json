@@ -1,0 +1,91 @@
+{
+  "$id": "https://schemas.factori.local/0.53.0/substrate-tournament-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Execution plan for a bounded multi-substrate synthetic tournament.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_backend": {
+      "const": "uv_local",
+      "default": "uv_local",
+      "title": "Execution Backend",
+      "type": "string"
+    },
+    "experiment_spec_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Experiment Spec Paths",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "routed_substrate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Routed Substrate Ids",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selection_policy": {
+      "minLength": 1,
+      "title": "Selection Policy",
+      "type": "string"
+    },
+    "source_scientific_substrate_build_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Scientific Substrate Build Path Optional"
+    },
+    "substrate_count": {
+      "minimum": 0,
+      "title": "Substrate Count",
+      "type": "integer"
+    },
+    "tournament_id": {
+      "minLength": 1,
+      "title": "Tournament Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "tournament_id",
+    "selection_policy",
+    "substrate_count"
+  ],
+  "title": "SubstrateTournamentSpec",
+  "type": "object",
+  "x-factori-protocol-version": "0.53.0",
+  "x-factori-source-model": "factori.schemas.SubstrateTournamentSpec",
+  "x-factori-verification-evidence": false
+}

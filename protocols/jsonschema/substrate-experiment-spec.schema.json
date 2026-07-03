@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.51.0/substrate-experiment-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.53.0/substrate-experiment-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned uv-local experiment instantiated from a selected substrate.",
@@ -256,7 +256,7 @@
   ],
   "title": "SubstrateExperimentSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.51.0",
+  "x-factori-protocol-version": "0.53.0",
   "x-factori-source-model": "factori.schemas.SubstrateExperimentSpec",
   "x-factori-verification-evidence": false
 }
