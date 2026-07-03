@@ -223,6 +223,14 @@ from factori.schemas import (
     RunStatusReport,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
+    ScientificSubstrate,
+    ScientificSubstrateAssumption,
+    ScientificSubstrateBuildReport,
+    ScientificSubstrateExperimentDesign,
+    ScientificSubstrateInspectionReport,
+    ScientificSubstrateModelObject,
+    ScientificSubstrateResultSchema,
+    ScientificSubstrateVariable,
     ScoreVector,
     SectionDraftingResult,
     SectionDraftingTask,
@@ -237,7 +245,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.49.0"
+PROTOCOL_VERSION = "0.50.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -468,6 +476,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "IdeaSpaceInspectionReport",
         IdeaSpaceInspectionReport,
         "Read-only idea-space inspection payload.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateVariable",
+        ScientificSubstrateVariable,
+        "One variable or notation entry in a concrete scientific substrate.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateAssumption",
+        ScientificSubstrateAssumption,
+        "One explicit modeling or experiment assumption for a scientific substrate.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateModelObject",
+        ScientificSubstrateModelObject,
+        "Concrete model object, equations, and falsification notes for a substrate.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateExperimentDesign",
+        ScientificSubstrateExperimentDesign,
+        "Bounded experiment design for a scientific substrate.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateResultSchema",
+        ScientificSubstrateResultSchema,
+        "Expected result table and support rule for a substrate experiment.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrate",
+        ScientificSubstrate,
+        "Context-only concrete scientific substrate generated from idea-space axes.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateBuildReport",
+        ScientificSubstrateBuildReport,
+        "Append-only report for deterministic scientific-substrate generation.",
+    ),
+    ProtocolDefinition(
+        "ScientificSubstrateInspectionReport",
+        ScientificSubstrateInspectionReport,
+        "Read-only inspection report for generated scientific substrates.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

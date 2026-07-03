@@ -353,6 +353,141 @@ class IdeaSpaceInspectionReport(StrictModel):
     publication_ready: bool = False
 
 
+class ScientificSubstrateVariable(StrictModel):
+    """One variable or notation item in a concrete scientific substrate."""
+
+    symbol: str = Field(min_length=1)
+    definition: str = Field(min_length=1)
+    role: str = Field(min_length=1)
+
+
+class ScientificSubstrateAssumption(StrictModel):
+    """One explicit modeling or experimental assumption."""
+
+    assumption_id: str = Field(min_length=1)
+    statement: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    violation_consequence: str = Field(min_length=1)
+
+
+class ScientificSubstrateModelObject(StrictModel):
+    """Concrete model object for a generated scientific substrate."""
+
+    model_type: str = Field(min_length=1)
+    equations: list[str] = Field(min_length=1)
+    algorithm_optional: str | None = None
+    parameter_interpretation: list[str] = Field(min_length=1)
+    identifiability_notes: str = Field(min_length=1)
+    what_would_falsify_it: str = Field(min_length=1)
+
+
+class ScientificSubstrateExperimentDesign(StrictModel):
+    """Experiment design tied to one substrate and bounded target claim."""
+
+    target_claim: str = Field(min_length=1)
+    data_regime: str = Field(min_length=1)
+    dgp: str = Field(min_length=1)
+    train_test_split_optional: str | None = None
+    baseline: str = Field(min_length=1)
+    method: str = Field(min_length=1)
+    metrics: list[str] = Field(min_length=1)
+    seed_plan: str = Field(min_length=1)
+    ablation_or_stress_test: str = Field(min_length=1)
+    success_criterion: str = Field(min_length=1)
+    failure_criterion: str = Field(min_length=1)
+
+
+class ScientificSubstrateResultSchema(StrictModel):
+    """Expected result table and support rule for a substrate experiment."""
+
+    baseline_metric_names: list[str] = Field(min_length=1)
+    method_metric_names: list[str] = Field(min_length=1)
+    comparison_direction: str = Field(min_length=1)
+    required_table_columns: list[str] = Field(min_length=1)
+    claim_supported_if: str = Field(min_length=1)
+    claim_not_supported_if: str = Field(min_length=1)
+
+
+class ScientificSubstrate(StrictModel):
+    """Concrete scientific object generated from an idea-space mutation axis."""
+
+    substrate_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_idea_node_id_optional: str | None = None
+    source_mutation_axis_optional: str | None = None
+    title: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    domain_problem: str = Field(min_length=1)
+    central_tension: str = Field(min_length=1)
+    concrete_model_object: ScientificSubstrateModelObject
+    variables_and_notation: list[ScientificSubstrateVariable] = Field(min_length=1)
+    assumptions: list[ScientificSubstrateAssumption] = Field(min_length=1)
+    mechanism: str = Field(min_length=1)
+    dgp_or_dataset: str = Field(min_length=1)
+    baseline: str = Field(min_length=1)
+    measurable_hypothesis: str = Field(min_length=1)
+    experiment_design: ScientificSubstrateExperimentDesign
+    result_schema: ScientificSubstrateResultSchema
+    limitations: list[str] = Field(min_length=1)
+    failure_modes: list[str] = Field(min_length=1)
+    evidence_boundary: str = Field(min_length=1)
+    selected_for_next_experiment: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ScientificSubstrateBuildReport(StrictModel):
+    """Append-only build report for generated scientific substrates."""
+
+    run_id: str = Field(min_length=1)
+    build_id: str = Field(min_length=1)
+    build_status: Literal["completed", "completed_with_warnings", "failed"]
+    source_idea_space_report_path_optional: str | None = None
+    source_idea_tree_report_path_optional: str | None = None
+    requested_mutation_axis_optional: str | None = None
+    max_substrates: int = Field(ge=1)
+    recommended_mutation_axes: list[str] = Field(default_factory=list)
+    built_mutation_axes: list[str] = Field(default_factory=list)
+    substrate_paths: list[str] = Field(default_factory=list)
+    substrate_count: int = Field(ge=0)
+    selected_substrate_id_optional: str | None = None
+    selected_substrate_title_optional: str | None = None
+    pca_low_rank_substrate_id_optional: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class ScientificSubstrateInspectionReport(StrictModel):
+    """Read-only inspection report for latest generated substrates."""
+
+    run_id: str = Field(min_length=1)
+    scientific_substrate_present: bool
+    latest_build_id_optional: str | None = None
+    latest_build_status_optional: str | None = None
+    substrate_count: int = Field(ge=0)
+    selected_substrate_id_optional: str | None = None
+    selected_substrate_title_optional: str | None = None
+    selected_mutation_axis_optional: str | None = None
+    pca_low_rank_substrate_present: bool
+    equation_present: bool
+    baseline_present: bool
+    experiment_design_present: bool
+    result_schema_present: bool
+    substrate_paths: list[str] = Field(default_factory=list)
+    source_mutation_axes: list[str] = Field(default_factory=list)
+    substrates: list[ScientificSubstrate] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class ClaimEvidenceLink(StrictModel):
     """One deterministic claim-to-evidence link."""
 
@@ -3632,6 +3767,14 @@ __all__ = [
     "IdeaClusterDiagnostic",
     "IdeaSpaceDiversityReport",
     "IdeaSpaceInspectionReport",
+    "ScientificSubstrateVariable",
+    "ScientificSubstrateAssumption",
+    "ScientificSubstrateModelObject",
+    "ScientificSubstrateExperimentDesign",
+    "ScientificSubstrateResultSchema",
+    "ScientificSubstrate",
+    "ScientificSubstrateBuildReport",
+    "ScientificSubstrateInspectionReport",
     "ClaimEvidenceLink",
     "ClaimEvidenceMapLink",
     "ClaimEvidenceMap",

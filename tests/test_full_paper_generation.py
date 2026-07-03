@@ -215,6 +215,18 @@ from factori.schemas import (
     ReviewerBundleSummary,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
+    ScientificSubstrate,
+    ScientificSubstrateAssumption,
+    ScientificSubstrateBuildReport,
+    ScientificSubstrateExperimentDesign,
+    ScientificSubstrateInspectionReport,
+    ScientificSubstrateModelObject,
+    ScientificSubstrateResultSchema,
+    ScientificSubstrateVariable,
+)
+from factori.scientific_substrate import (
+    build_scientific_substrate,
+    inspect_scientific_substrate,
 )
 
 
@@ -276,6 +288,14 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert IdeaClusterDiagnostic
     assert IdeaSpaceDiversityReport
     assert IdeaSpaceInspectionReport
+    assert ScientificSubstrateVariable
+    assert ScientificSubstrateAssumption
+    assert ScientificSubstrateModelObject
+    assert ScientificSubstrateExperimentDesign
+    assert ScientificSubstrateResultSchema
+    assert ScientificSubstrate
+    assert ScientificSubstrateBuildReport
+    assert ScientificSubstrateInspectionReport
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -417,6 +437,84 @@ def test_idea_space_diagnostic_flags_collapsed_scientific_axes(tmp_path) -> None
     assert exported.publication_ready is False
     assert exported.is_verification_evidence is False
     assert len(ledger.list_commits(run_id)) == commit_count
+
+
+def test_scientific_substrate_builds_concrete_models_from_idea_space(
+    tmp_path,
+) -> None:
+    run_id = "run-scientific-substrate"
+    run_deterministic_pipeline(
+        PipelineRunConfig(
+            run_id=run_id,
+            domain="spatial heterogeneity in human geography",
+            root=tmp_path,
+        )
+    )
+    idea_space = inspect_idea_space(run_id=run_id, root=tmp_path)
+    assert "region-specific distance-decay gravity model" in (
+        idea_space.recommended_mutation_axes
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+
+    result = build_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=2,
+    )
+    inspection = inspect_scientific_substrate(run_id=run_id, root=tmp_path)
+    markdown = (
+        tmp_path
+        / "runs"
+        / run_id
+        / "reports"
+        / "scientific-substrate-build-0001.md"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        result.persistence.commit.action_type
+        == ControllerActionType.SCIENTIFIC_SUBSTRATE_BUILT
+    )
+    assert result.report.substrate_count >= 2
+    assert inspection.scientific_substrate_present is True
+    assert inspection.substrate_count >= 2
+    assert inspection.equation_present is True
+    assert inspection.baseline_present is True
+    assert inspection.experiment_design_present is True
+    assert inspection.result_schema_present is True
+    assert inspection.publication_ready is False
+    distance = next(
+        substrate
+        for substrate in result.substrates
+        if "Distance Decay" in substrate.title
+    )
+    pca = next(
+        substrate for substrate in result.substrates if "Low-Rank Residual" in substrate.title
+    )
+    assert distance.selected_for_next_experiment is True
+    assert (
+        "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)"
+        in distance.concrete_model_object.equations
+    )
+    assert distance.baseline == "pooled-alpha gravity baseline"
+    assert distance.measurable_hypothesis.startswith(
+        "A heterogeneous-alpha spatial interaction model improves held-out"
+    )
+    assert {"MAE", "RMSE"} <= set(distance.experiment_design.metrics)
+    assert "Vary heterogeneity strength" in distance.experiment_design.ablation_or_stress_test
+    assert distance.variables_and_notation
+    assert distance.assumptions
+    assert distance.publication_ready is False
+    assert distance.creates_scientific_validation is False
+    assert "R_{ij}" in " ".join(pca.concrete_model_object.equations)
+    assert "R ≈ U_k S_k V_k^T" in pca.concrete_model_object.equations
+    assert "latent-factor recovery correlation" in pca.experiment_design.metrics
+    assert pca.selected_for_next_experiment is False
+    assert "Region-Specific Distance Decay" in markdown
+    assert "Low-Rank Residual Axes" in markdown
+    assert "publication_ready: false" in markdown
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -3727,6 +3825,14 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
         max_attempts_per_gap=1,
         enable_strategy_diversification=True,
     )
+    substrate_result = build_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=2,
+    )
+    substrate_inspection = inspect_scientific_substrate(run_id=run_id, root=tmp_path)
 
     result = regenerate_final_manuscript(
         run_id=run_id,
@@ -3766,12 +3872,13 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     )
     assert report_markdown.is_file()
     title = markdown.splitlines()[0]
-    assert "Spatial Heterogeneity in Human Geography" in title
+    assert "Region-Specific Distance Decay" in title
     assert "manuscript generation" not in title.casefold()
     assert "claim-evidence" not in title.casefold()
     abstract = markdown.split("## Abstract", maxsplit=1)[1].split("## Introduction", maxsplit=1)[0]
     assert "spatial heterogeneity in human geography" in abstract.casefold()
-    assert "representation problem" in abstract.casefold()
+    assert "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)" in abstract
+    assert "pooled-alpha gravity baseline" in abstract
     assert "claim-evidence map" not in abstract.casefold()
     assert "## Abstract" in markdown
     assert "## Introduction" in markdown
@@ -3792,6 +3899,15 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     assert "claim-evidence map" in appendices.casefold()
     assert "autonomous loop" in appendices.casefold()
     assert "publication_ready=false" in appendices
+    assert substrate_result.report.selected_substrate_title_optional in title
+    assert substrate_inspection.substrate_count >= 2
+    assert "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)" in markdown
+    assert "pooled-alpha gravity baseline" in markdown
+    assert "Generate synthetic regions, distances, origin masses" in markdown
+    assert "MAE" in markdown
+    assert "RMSE" in markdown
+    assert "Low-Rank Residual Axes" in appendices
+    assert "R ≈ U_k S_k V_k^T" in appendices
     assert "completed uv-local synthetic experiment artifact" in markdown
     assert "does not establish broad empirical validation" in markdown
     assert "No passed formal proof artifact" in markdown

@@ -76,6 +76,9 @@ completed run from disk and checks consistency without changing provenance.
   first-class IdeaTree with explicit pruning, survival, selection, and final-branch links.
 - deterministic idea-space feature vectors and PCA-like diversity diagnostics over IdeaTree nodes,
   including collapsed-axis warnings and recommended scientific mutation axes.
+- deterministic ScientificSubstrate generation from idea-space mutation axes, including concrete
+  model equations, variables, DGP boundaries, baselines, measurable hypotheses, result schemas,
+  limitations, and failure modes as context for future bounded experiments.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

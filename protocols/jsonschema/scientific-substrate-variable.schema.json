@@ -1,0 +1,33 @@
+{
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate-variable.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One variable or notation entry in a concrete scientific substrate.",
+  "properties": {
+    "definition": {
+      "minLength": 1,
+      "title": "Definition",
+      "type": "string"
+    },
+    "role": {
+      "minLength": 1,
+      "title": "Role",
+      "type": "string"
+    },
+    "symbol": {
+      "minLength": 1,
+      "title": "Symbol",
+      "type": "string"
+    }
+  },
+  "required": [
+    "symbol",
+    "definition",
+    "role"
+  ],
+  "title": "ScientificSubstrateVariable",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrateVariable",
+  "x-factori-verification-evidence": false
+}

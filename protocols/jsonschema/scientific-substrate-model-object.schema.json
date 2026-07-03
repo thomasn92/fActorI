@@ -1,0 +1,63 @@
+{
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate-model-object.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Concrete model object, equations, and falsification notes for a substrate.",
+  "properties": {
+    "algorithm_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Algorithm Optional"
+    },
+    "equations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Equations",
+      "type": "array"
+    },
+    "identifiability_notes": {
+      "minLength": 1,
+      "title": "Identifiability Notes",
+      "type": "string"
+    },
+    "model_type": {
+      "minLength": 1,
+      "title": "Model Type",
+      "type": "string"
+    },
+    "parameter_interpretation": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Parameter Interpretation",
+      "type": "array"
+    },
+    "what_would_falsify_it": {
+      "minLength": 1,
+      "title": "What Would Falsify It",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model_type",
+    "equations",
+    "parameter_interpretation",
+    "identifiability_notes",
+    "what_would_falsify_it"
+  ],
+  "title": "ScientificSubstrateModelObject",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrateModelObject",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,169 @@
+{
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate-build-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only report for deterministic scientific-substrate generation.",
+  "properties": {
+    "build_id": {
+      "minLength": 1,
+      "title": "Build Id",
+      "type": "string"
+    },
+    "build_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "failed"
+      ],
+      "title": "Build Status",
+      "type": "string"
+    },
+    "built_mutation_axes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Built Mutation Axes",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "max_substrates": {
+      "minimum": 1,
+      "title": "Max Substrates",
+      "type": "integer"
+    },
+    "pca_low_rank_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pca Low Rank Substrate Id Optional"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_mutation_axes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Mutation Axes",
+      "type": "array"
+    },
+    "requested_mutation_axis_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requested Mutation Axis Optional"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Substrate Id Optional"
+    },
+    "selected_substrate_title_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Substrate Title Optional"
+    },
+    "source_idea_space_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Idea Space Report Path Optional"
+    },
+    "source_idea_tree_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Idea Tree Report Path Optional"
+    },
+    "substrate_count": {
+      "minimum": 0,
+      "title": "Substrate Count",
+      "type": "integer"
+    },
+    "substrate_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Substrate Paths",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "build_id",
+    "build_status",
+    "max_substrates",
+    "substrate_count"
+  ],
+  "title": "ScientificSubstrateBuildReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrateBuildReport",
+  "x-factori-verification-evidence": false
+}

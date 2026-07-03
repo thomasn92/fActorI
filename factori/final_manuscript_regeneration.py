@@ -52,7 +52,9 @@ from factori.schemas import (
     HumanReviewArtifact,
     ProofArtifact,
     RetrievalQualityReport,
+    ScientificSubstrate,
 )
+from factori.scientific_substrate import latest_selected_scientific_substrate
 
 _FORMAL_PROOF_TYPES = {"lean_verified", "formal_verified", "external_certificate"}
 _SAFE_SECTION_PLAN = (
@@ -159,7 +161,15 @@ def regenerate_final_manuscript(
         HumanReviewArtifact,
     )
     domain_context = _domain_context(reports, run_id)
-    title = _source_title(reports, run_id, domain_context)
+    selected_substrate, scientific_substrates = latest_selected_scientific_substrate(
+        root_path,
+        run_id,
+    )
+    title = (
+        selected_substrate.title
+        if selected_substrate is not None
+        else _source_title(reports, run_id, domain_context)
+    )
     deferred = _deferred_gap_summary(loop, escalation)
     claim_summaries = _claim_summaries(source_map)
     sections = _build_sections(
@@ -174,6 +184,8 @@ def regenerate_final_manuscript(
         escalation=escalation,
         deferred=deferred,
         human_review=human_review,
+        selected_substrate=selected_substrate,
+        scientific_substrates=scientific_substrates,
     )
     markdown = _render_manuscript(title, sections)
 
@@ -496,6 +508,8 @@ def _build_sections(
     escalation: CapabilityEscalationReport | None,
     deferred: dict[str, Any],
     human_review: HumanReviewArtifact | None,
+    selected_substrate: ScientificSubstrate | None = None,
+    scientific_substrates: list[ScientificSubstrate] | None = None,
 ) -> list[FinalManuscriptSection]:
     counts = claim_evidence_summary_fields(source_map)
     formal = [proof for proof in proofs if _formal_proof(proof)]
@@ -511,6 +525,13 @@ def _build_sections(
     method_phrase = domain_context["method_phrase"]
     research_question = domain_context["research_question"]
     hypothesis = domain_context["hypothesis"]
+    substrate_context = _substrate_context(selected_substrate, scientific_substrates or [])
+    if selected_substrate is not None:
+        method_phrase = selected_substrate.concrete_model_object.model_type.replace("_", " ")
+        research_question = (
+            f"Can {selected_substrate.title} provide a bounded synthetic test for {domain}?"
+        )
+        hypothesis = selected_substrate.measurable_hypothesis
     citation_lines = [
         (
             f"Accepted source context for {domain} includes {record.title} "
@@ -607,15 +628,17 @@ def _build_sections(
     ]
     bodies = {
         "Abstract": (
-            f"This bounded manuscript studies {domain} as a representation problem: how a "
-            f"{method_phrase} can state a testable question, use accepted source context, and "
-            "report only scoped evidence. The main question asks whether a fixed local synthetic "
-            f"demonstration can report run-specific metrics for {domain} without implying broad "
-            f"empirical validation{primary_citation}. The manuscript includes accepted background "
-            "sources, a bounded method/model description, a scoped empirical demonstration when "
-            "available, and visible deferred proof or retrieval gaps. The central contribution is "
-            "a domain-facing bounded demonstration claim, not a novelty or validation claim. It "
-            "does not claim broad correctness or broad validation."
+            f"This bounded manuscript studies {domain} through a concrete substrate: "
+            f"{substrate_context['title']}. The main model object is "
+            f"`{substrate_context['primary_equation']}`, with variables defined in the method "
+            "section and a synthetic-only experiment design that compares the proposed method to "
+            f"{substrate_context['baseline']}. The result schema is limited to "
+            f"{substrate_context['metrics_text']} and supports only a mapped run-specific claim "
+            f"if a completed artifact passes intake{primary_citation}. The research problem is "
+            "how to express the domain tension as a measurable bounded model object, and the "
+            "central contribution is the substrate and result schema rather than a validation "
+            "claim. The paper does not claim novelty, broad empirical validation, broad "
+            "correctness, or publication readiness."
         ),
         "Introduction": (
             f"{domain_title} creates a bounded modeling problem: claims about place, mobility, "
@@ -643,17 +666,39 @@ def _build_sections(
             "claim, and not evidence about unobserved datasets."
         ),
         "Method or Model": (
-            f"The proposed model is a bounded {method_phrase} for {domain}. It treats the domain "
-            "question as a controlled synthetic calibration or stress-testing task rather than a "
-            "claim about all places, populations, or empirical settings. The model uses accepted "
-            "source context to motivate the problem frame, then confines any empirical statement "
-            "to an approved local experiment bundle with fixed seed, captured configuration, "
-            "metrics, logs, and output hashes. Formal plans, retrieval expansion, and execution "
-            "records are separated from scientific evidence unless a corresponding artifact passes "
-            "the relevant intake rule."
+            f"The proposed model is a bounded {method_phrase} for {domain}. "
+            f"Primary equation: `{substrate_context['primary_equation']}`. "
+            f"Variables and notation: {substrate_context['variables_text']}. "
+            f"Mechanism: {substrate_context['mechanism']} "
+            f"Identifiability boundary: {substrate_context['identifiability']} "
+            "The model is a scientific substrate and planning object unless an experiment "
+            "artifact is completed and accepted for the mapped claim. Formal plans, retrieval "
+            "expansion, and execution records are separated from scientific evidence unless a "
+            "corresponding artifact passes the relevant intake rule."
         ),
-        "Bounded Empirical Demonstration": "\n\n".join(experiment_lines),
-        "Results Within Scope": "\n\n".join(result_lines),
+        "Bounded Empirical Demonstration": "\n\n".join(
+            [
+                f"Substrate DGP or dataset: {substrate_context['dgp']}",
+                (
+                    f"Baseline: {substrate_context['baseline']}. "
+                    f"Method: {substrate_context['method']}."
+                ),
+                (
+                    f"Metrics: {substrate_context['metrics_text']}. "
+                    f"Seed plan: {substrate_context['seed_plan']}"
+                ),
+                f"Ablation or stress test: {substrate_context['ablation']}",
+                *experiment_lines,
+            ]
+        ),
+        "Results Within Scope": "\n\n".join(
+            [
+                f"Result schema columns: {substrate_context['result_columns']}. "
+                f"Claim supported if: {substrate_context['claim_supported_if']} "
+                f"Claim not supported if: {substrate_context['claim_not_supported_if']}",
+                *result_lines,
+            ]
+        ),
         "Limitations and Deferred Evidence": "\n\n".join(limitation_lines),
         "Conclusion": (
             f"The bounded result is a domain-facing manuscript about {domain} with a conservative "
@@ -672,7 +717,8 @@ def _build_sections(
             f"{counts['experiment_supported_claim_count']} to completed experiment artifacts, and "
             f"{counts['human_review_linked_claim_count']} to review-occurrence context. "
             "Unsupported noncritical wording is omitted or represented as a boundary statement. "
-            f"Evidence links do not transfer authority across claims. {appendix_proof_text}"
+            f"Evidence links do not transfer authority across claims. {appendix_proof_text} "
+            f"{substrate_context['alternative_text']}"
         ),
         "Appendix B: Autonomous Execution and Provenance": (
             f"The autonomous loop completed {loop.iterations_completed} iteration(s) with terminal "
@@ -908,6 +954,82 @@ def _develop_section_body(heading: str, body: str) -> str:
 
 def _normalize_paragraph(text: str) -> str:
     return " ".join(text.split())
+
+
+def _substrate_context(
+    selected: ScientificSubstrate | None,
+    substrates: list[ScientificSubstrate],
+) -> dict[str, str]:
+    if selected is None:
+        return {
+            "title": "a bounded synthetic demonstration substrate",
+            "primary_equation": "Y = f(X; theta) + epsilon",
+            "variables_text": (
+                "Y is the target outcome, X are bounded inputs, and theta are model "
+                "parameters"
+            ),
+            "mechanism": (
+                "A deterministic method is compared with a simple baseline under fixed "
+                "seeds."
+            ),
+            "identifiability": (
+                "No broad identifiability claim is made without a matching artifact."
+            ),
+            "dgp": "A synthetic fixture is generated under fixed seeds.",
+            "baseline": "simple deterministic baseline",
+            "method": "bounded deterministic method",
+            "metrics_text": "MAE and RMSE",
+            "seed_plan": "fixed deterministic seeds",
+            "ablation": "vary noise level and compare metric stability",
+            "result_columns": "seed, baseline_MAE, baseline_RMSE, method_MAE, method_RMSE",
+            "claim_supported_if": "the method improves MAE and RMSE for the configured run.",
+            "claim_not_supported_if": (
+                "metrics are missing or the method does not improve over baseline."
+            ),
+            "alternative_text": "No generated alternative scientific substrate is available.",
+        }
+    variables = ", ".join(
+        f"`{variable.symbol}` = {variable.definition}"
+        for variable in selected.variables_and_notation
+    )
+    design = selected.experiment_design
+    schema = selected.result_schema
+    alternatives = [
+        substrate
+        for substrate in substrates
+        if substrate.substrate_id != selected.substrate_id
+    ]
+    if alternatives:
+        alternative_text = (
+            "Alternative generated substrates remain available but unpruned: "
+            + "; ".join(
+            (
+                f"{substrate.title} via "
+                f"{substrate.source_mutation_axis_optional or 'unknown axis'} "
+                f"with equations {', '.join(substrate.concrete_model_object.equations)}"
+            )
+            for substrate in alternatives
+        )
+        )
+    else:
+        alternative_text = "No alternative generated substrate is present."
+    return {
+        "title": selected.title,
+        "primary_equation": selected.concrete_model_object.equations[0],
+        "variables_text": variables,
+        "mechanism": selected.mechanism,
+        "identifiability": selected.concrete_model_object.identifiability_notes,
+        "dgp": selected.dgp_or_dataset,
+        "baseline": selected.baseline,
+        "method": design.method,
+        "metrics_text": ", ".join(design.metrics),
+        "seed_plan": design.seed_plan,
+        "ablation": design.ablation_or_stress_test,
+        "result_columns": ", ".join(schema.required_table_columns),
+        "claim_supported_if": schema.claim_supported_if,
+        "claim_not_supported_if": schema.claim_not_supported_if,
+        "alternative_text": alternative_text,
+    }
 
 
 def _claim_summaries(source_map: ClaimEvidenceMap) -> list[FinalManuscriptClaimSummary]:

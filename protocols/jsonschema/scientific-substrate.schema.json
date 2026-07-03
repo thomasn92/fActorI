@@ -1,0 +1,440 @@
+{
+  "$defs": {
+    "ScientificSubstrateAssumption": {
+      "additionalProperties": false,
+      "description": "One explicit modeling or experimental assumption.",
+      "properties": {
+        "assumption_id": {
+          "minLength": 1,
+          "title": "Assumption Id",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "statement": {
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "violation_consequence": {
+          "minLength": 1,
+          "title": "Violation Consequence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "assumption_id",
+        "statement",
+        "rationale",
+        "violation_consequence"
+      ],
+      "title": "ScientificSubstrateAssumption",
+      "type": "object"
+    },
+    "ScientificSubstrateExperimentDesign": {
+      "additionalProperties": false,
+      "description": "Experiment design tied to one substrate and bounded target claim.",
+      "properties": {
+        "ablation_or_stress_test": {
+          "minLength": 1,
+          "title": "Ablation Or Stress Test",
+          "type": "string"
+        },
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "data_regime": {
+          "minLength": 1,
+          "title": "Data Regime",
+          "type": "string"
+        },
+        "dgp": {
+          "minLength": 1,
+          "title": "Dgp",
+          "type": "string"
+        },
+        "failure_criterion": {
+          "minLength": 1,
+          "title": "Failure Criterion",
+          "type": "string"
+        },
+        "method": {
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Metrics",
+          "type": "array"
+        },
+        "seed_plan": {
+          "minLength": 1,
+          "title": "Seed Plan",
+          "type": "string"
+        },
+        "success_criterion": {
+          "minLength": 1,
+          "title": "Success Criterion",
+          "type": "string"
+        },
+        "target_claim": {
+          "minLength": 1,
+          "title": "Target Claim",
+          "type": "string"
+        },
+        "train_test_split_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Train Test Split Optional"
+        }
+      },
+      "required": [
+        "target_claim",
+        "data_regime",
+        "dgp",
+        "baseline",
+        "method",
+        "metrics",
+        "seed_plan",
+        "ablation_or_stress_test",
+        "success_criterion",
+        "failure_criterion"
+      ],
+      "title": "ScientificSubstrateExperimentDesign",
+      "type": "object"
+    },
+    "ScientificSubstrateModelObject": {
+      "additionalProperties": false,
+      "description": "Concrete model object for a generated scientific substrate.",
+      "properties": {
+        "algorithm_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Algorithm Optional"
+        },
+        "equations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Equations",
+          "type": "array"
+        },
+        "identifiability_notes": {
+          "minLength": 1,
+          "title": "Identifiability Notes",
+          "type": "string"
+        },
+        "model_type": {
+          "minLength": 1,
+          "title": "Model Type",
+          "type": "string"
+        },
+        "parameter_interpretation": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Parameter Interpretation",
+          "type": "array"
+        },
+        "what_would_falsify_it": {
+          "minLength": 1,
+          "title": "What Would Falsify It",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_type",
+        "equations",
+        "parameter_interpretation",
+        "identifiability_notes",
+        "what_would_falsify_it"
+      ],
+      "title": "ScientificSubstrateModelObject",
+      "type": "object"
+    },
+    "ScientificSubstrateResultSchema": {
+      "additionalProperties": false,
+      "description": "Expected result table and support rule for a substrate experiment.",
+      "properties": {
+        "baseline_metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Baseline Metric Names",
+          "type": "array"
+        },
+        "claim_not_supported_if": {
+          "minLength": 1,
+          "title": "Claim Not Supported If",
+          "type": "string"
+        },
+        "claim_supported_if": {
+          "minLength": 1,
+          "title": "Claim Supported If",
+          "type": "string"
+        },
+        "comparison_direction": {
+          "minLength": 1,
+          "title": "Comparison Direction",
+          "type": "string"
+        },
+        "method_metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Method Metric Names",
+          "type": "array"
+        },
+        "required_table_columns": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Required Table Columns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "baseline_metric_names",
+        "method_metric_names",
+        "comparison_direction",
+        "required_table_columns",
+        "claim_supported_if",
+        "claim_not_supported_if"
+      ],
+      "title": "ScientificSubstrateResultSchema",
+      "type": "object"
+    },
+    "ScientificSubstrateVariable": {
+      "additionalProperties": false,
+      "description": "One variable or notation item in a concrete scientific substrate.",
+      "properties": {
+        "definition": {
+          "minLength": 1,
+          "title": "Definition",
+          "type": "string"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "symbol": {
+          "minLength": 1,
+          "title": "Symbol",
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol",
+        "definition",
+        "role"
+      ],
+      "title": "ScientificSubstrateVariable",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Context-only concrete scientific substrate generated from idea-space axes.",
+  "properties": {
+    "assumptions": {
+      "items": {
+        "$ref": "#/$defs/ScientificSubstrateAssumption"
+      },
+      "minItems": 1,
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "baseline": {
+      "minLength": 1,
+      "title": "Baseline",
+      "type": "string"
+    },
+    "central_tension": {
+      "minLength": 1,
+      "title": "Central Tension",
+      "type": "string"
+    },
+    "concrete_model_object": {
+      "$ref": "#/$defs/ScientificSubstrateModelObject"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "dgp_or_dataset": {
+      "minLength": 1,
+      "title": "Dgp Or Dataset",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "domain_problem": {
+      "minLength": 1,
+      "title": "Domain Problem",
+      "type": "string"
+    },
+    "evidence_boundary": {
+      "minLength": 1,
+      "title": "Evidence Boundary",
+      "type": "string"
+    },
+    "experiment_design": {
+      "$ref": "#/$defs/ScientificSubstrateExperimentDesign"
+    },
+    "failure_modes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Failure Modes",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "measurable_hypothesis": {
+      "minLength": 1,
+      "title": "Measurable Hypothesis",
+      "type": "string"
+    },
+    "mechanism": {
+      "minLength": 1,
+      "title": "Mechanism",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "result_schema": {
+      "$ref": "#/$defs/ScientificSubstrateResultSchema"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_for_next_experiment": {
+      "default": false,
+      "title": "Selected For Next Experiment",
+      "type": "boolean"
+    },
+    "source_idea_node_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Idea Node Id Optional"
+    },
+    "source_mutation_axis_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Mutation Axis Optional"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "variables_and_notation": {
+      "items": {
+        "$ref": "#/$defs/ScientificSubstrateVariable"
+      },
+      "minItems": 1,
+      "title": "Variables And Notation",
+      "type": "array"
+    }
+  },
+  "required": [
+    "substrate_id",
+    "run_id",
+    "title",
+    "domain",
+    "domain_problem",
+    "central_tension",
+    "concrete_model_object",
+    "variables_and_notation",
+    "assumptions",
+    "mechanism",
+    "dgp_or_dataset",
+    "baseline",
+    "measurable_hypothesis",
+    "experiment_design",
+    "result_schema",
+    "limitations",
+    "failure_modes",
+    "evidence_boundary"
+  ],
+  "title": "ScientificSubstrate",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrate",
+  "x-factori-verification-evidence": false
+}

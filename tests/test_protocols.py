@@ -77,6 +77,14 @@ from factori.schemas import (
     ReviewerBundleSummary,
     RevisionSafetyReport,
     RunStatusReport,
+    ScientificSubstrate,
+    ScientificSubstrateAssumption,
+    ScientificSubstrateBuildReport,
+    ScientificSubstrateExperimentDesign,
+    ScientificSubstrateInspectionReport,
+    ScientificSubstrateModelObject,
+    ScientificSubstrateResultSchema,
+    ScientificSubstrateVariable,
     SectionDraftingResult,
     SectionDraftingTask,
     SectionRevisionPlan,
@@ -92,9 +100,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 233
+    assert len(first) == 241
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.49.0"
+    assert PROTOCOL_VERSION == "0.50.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -208,6 +216,28 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("LLMOrchestrationStep").model is (LLMOrchestrationStep)
     assert get_protocol_definition("LLMOrchestrationReport").model is (LLMOrchestrationReport)
     assert get_protocol_definition("LLMOrchestrationResult").model is (LLMOrchestrationResult)
+    assert get_protocol_definition("ScientificSubstrateVariable").model is (
+        ScientificSubstrateVariable
+    )
+    assert get_protocol_definition("ScientificSubstrateAssumption").model is (
+        ScientificSubstrateAssumption
+    )
+    assert get_protocol_definition("ScientificSubstrateModelObject").model is (
+        ScientificSubstrateModelObject
+    )
+    assert get_protocol_definition("ScientificSubstrateExperimentDesign").model is (
+        ScientificSubstrateExperimentDesign
+    )
+    assert get_protocol_definition("ScientificSubstrateResultSchema").model is (
+        ScientificSubstrateResultSchema
+    )
+    assert get_protocol_definition("ScientificSubstrate").model is ScientificSubstrate
+    assert get_protocol_definition("ScientificSubstrateBuildReport").model is (
+        ScientificSubstrateBuildReport
+    )
+    assert get_protocol_definition("ScientificSubstrateInspectionReport").model is (
+        ScientificSubstrateInspectionReport
+    )
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:

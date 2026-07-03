@@ -137,6 +137,8 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
     export_space = CliRunner().invoke(app, ["export-idea-space-report", "--help"])
+    build_substrate = CliRunner().invoke(app, ["build-scientific-substrate", "--help"])
+    inspect_substrate = CliRunner().invoke(app, ["inspect-scientific-substrate", "--help"])
 
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
@@ -150,6 +152,11 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert export_space.exit_code == 0, export_space.output
     assert "--run-id" in export_space.output
     assert "--format" in export_space.output
+    assert build_substrate.exit_code == 0, build_substrate.output
+    assert "--max-substrates" in build_substrate.output
+    assert "--mutation-axis" in build_substrate.output
+    assert inspect_substrate.exit_code == 0, inspect_substrate.output
+    assert "--json" in inspect_substrate.output
 
 
 def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:
@@ -230,6 +237,60 @@ def test_idea_space_cli_inspects_and_exports_deterministic_run(tmp_path) -> None
         in exported.output
     )
     assert "publication_ready=false" in exported.output
+
+
+def test_scientific_substrate_cli_builds_and_inspects_deterministic_run(
+    tmp_path,
+) -> None:
+    run_id = "cli-scientific-substrate"
+    run_deterministic_pipeline(
+        PipelineRunConfig(
+            run_id=run_id,
+            domain="spatial heterogeneity in human geography",
+            root=tmp_path,
+        )
+    )
+    runner = CliRunner()
+
+    build = runner.invoke(
+        app,
+        [
+            "build-scientific-substrate",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--max-substrates",
+            "2",
+            "--json",
+        ],
+    )
+    inspect = runner.invoke(
+        app,
+        [
+            "inspect-scientific-substrate",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+
+    assert build.exit_code == 0, build.output
+    build_payload = json.loads(build.output)
+    assert build_payload["scientific_substrate_present"] is True
+    assert build_payload["build_report"]["substrate_count"] >= 2
+    assert build_payload["build_report"]["publication_ready"] is False
+    assert inspect.exit_code == 0, inspect.output
+    inspected = json.loads(inspect.output)
+    assert inspected["scientific_substrate_present"] is True
+    assert inspected["substrate_count"] >= 2
+    assert inspected["selected_substrate_title_optional"].startswith(
+        "Region-Specific Distance Decay"
+    )
+    assert inspected["pca_low_rank_substrate_present"] is True
+    assert inspected["publication_ready"] is False
 
 
 def test_human_review_cli_commands_are_registered() -> None:

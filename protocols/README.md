@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.50.0` adds context-only `ScientificSubstrate` contracts that instantiate concrete
+scientific objects from idea-space mutation axes. Substrates include model equations, notation,
+assumptions, DGP or dataset boundaries, baselines, measurable hypotheses, result schemas,
+limitations, and failure modes without creating evidence, validation authority, or publication
+readiness.
+
 Protocol `0.49.0` adds context-only idea-space feature vectors, PCA-like axis diagnostics,
 near-duplicate/collapsed-axis diagnostics, diversity reports, and inspection payloads over
 `IdeaTree` nodes. These diagnostics expose creative variance and recommended future mutation axes

@@ -1,0 +1,39 @@
+{
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate-assumption.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One explicit modeling or experiment assumption for a scientific substrate.",
+  "properties": {
+    "assumption_id": {
+      "minLength": 1,
+      "title": "Assumption Id",
+      "type": "string"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "statement": {
+      "minLength": 1,
+      "title": "Statement",
+      "type": "string"
+    },
+    "violation_consequence": {
+      "minLength": 1,
+      "title": "Violation Consequence",
+      "type": "string"
+    }
+  },
+  "required": [
+    "assumption_id",
+    "statement",
+    "rationale",
+    "violation_consequence"
+  ],
+  "title": "ScientificSubstrateAssumption",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrateAssumption",
+  "x-factori-verification-evidence": false
+}

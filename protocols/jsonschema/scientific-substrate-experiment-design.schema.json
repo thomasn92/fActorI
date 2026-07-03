@@ -1,0 +1,90 @@
+{
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate-experiment-design.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded experiment design for a scientific substrate.",
+  "properties": {
+    "ablation_or_stress_test": {
+      "minLength": 1,
+      "title": "Ablation Or Stress Test",
+      "type": "string"
+    },
+    "baseline": {
+      "minLength": 1,
+      "title": "Baseline",
+      "type": "string"
+    },
+    "data_regime": {
+      "minLength": 1,
+      "title": "Data Regime",
+      "type": "string"
+    },
+    "dgp": {
+      "minLength": 1,
+      "title": "Dgp",
+      "type": "string"
+    },
+    "failure_criterion": {
+      "minLength": 1,
+      "title": "Failure Criterion",
+      "type": "string"
+    },
+    "method": {
+      "minLength": 1,
+      "title": "Method",
+      "type": "string"
+    },
+    "metrics": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Metrics",
+      "type": "array"
+    },
+    "seed_plan": {
+      "minLength": 1,
+      "title": "Seed Plan",
+      "type": "string"
+    },
+    "success_criterion": {
+      "minLength": 1,
+      "title": "Success Criterion",
+      "type": "string"
+    },
+    "target_claim": {
+      "minLength": 1,
+      "title": "Target Claim",
+      "type": "string"
+    },
+    "train_test_split_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Train Test Split Optional"
+    }
+  },
+  "required": [
+    "target_claim",
+    "data_regime",
+    "dgp",
+    "baseline",
+    "method",
+    "metrics",
+    "seed_plan",
+    "ablation_or_stress_test",
+    "success_criterion",
+    "failure_criterion"
+  ],
+  "title": "ScientificSubstrateExperimentDesign",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrateExperimentDesign",
+  "x-factori-verification-evidence": false
+}

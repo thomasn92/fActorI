@@ -211,3 +211,10 @@ available or a deterministic variance fallback, and reports flag near-duplicates
 scientific axes, validation-mode-only variants, missing model/equation/DGP axes, and recommended
 future mutation axes. These reports are provenance/context only and cannot create evidence,
 validation, or publication readiness.
+
+Milestone 84 adds deterministic ScientificSubstrate generation from the recommended mutation axes.
+For human-geography runs, it instantiates distance-decay gravity and PCA/low-rank OD-flow
+substrates with equations, notation, assumptions, DGPs, baselines, measurable hypotheses, result
+schemas, limitations, and failure modes. Substrates are scientific planning context for future
+bounded experiments only; they do not create proof, experiment evidence, validation, or publication
+readiness.

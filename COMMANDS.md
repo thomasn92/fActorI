@@ -818,6 +818,8 @@ uv run factori run-autonomous-paper --run-id demo-paper --domain "human geograph
 uv run factori inspect-autonomous-paper-run --run-id demo-paper
 uv run factori inspect-autonomous-paper-checkpoints --run-id demo-paper
 uv run factori inspect-autonomous-paper-resume --run-id demo-paper
+uv run factori build-scientific-substrate --run-id demo-paper --max-substrates 2
+uv run factori inspect-scientific-substrate --run-id demo-paper --json
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
@@ -833,6 +835,11 @@ uv run factori questioner-check --run-id demo --candidate-id candidate-001
 uv run factori retrieval-adequacy-demo
 uv run factori stagnation-demo
 ```
+
+`build-scientific-substrate` creates context-only scientific planning objects from idea-space
+mutation axes. The generated substrates include concrete equations, variables, DGPs, baselines,
+measurable hypotheses, result schemas, limitations, and failure modes; they do not create evidence,
+validation, or publication readiness.
 
 ## Tests and Lint
 

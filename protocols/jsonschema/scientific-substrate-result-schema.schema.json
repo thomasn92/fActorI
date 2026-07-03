@@ -1,0 +1,60 @@
+{
+  "$id": "https://schemas.factori.local/0.50.0/scientific-substrate-result-schema.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Expected result table and support rule for a substrate experiment.",
+  "properties": {
+    "baseline_metric_names": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Baseline Metric Names",
+      "type": "array"
+    },
+    "claim_not_supported_if": {
+      "minLength": 1,
+      "title": "Claim Not Supported If",
+      "type": "string"
+    },
+    "claim_supported_if": {
+      "minLength": 1,
+      "title": "Claim Supported If",
+      "type": "string"
+    },
+    "comparison_direction": {
+      "minLength": 1,
+      "title": "Comparison Direction",
+      "type": "string"
+    },
+    "method_metric_names": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Method Metric Names",
+      "type": "array"
+    },
+    "required_table_columns": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Table Columns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "baseline_metric_names",
+    "method_metric_names",
+    "comparison_direction",
+    "required_table_columns",
+    "claim_supported_if",
+    "claim_not_supported_if"
+  ],
+  "title": "ScientificSubstrateResultSchema",
+  "type": "object",
+  "x-factori-protocol-version": "0.50.0",
+  "x-factori-source-model": "factori.schemas.ScientificSubstrateResultSchema",
+  "x-factori-verification-evidence": false
+}

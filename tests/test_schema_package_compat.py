@@ -49,6 +49,9 @@ from factori.schemas import (
     ProofArtifact,
     QualityRepairReport,
     ReviewerBundleSummary,
+    ScientificSubstrate,
+    ScientificSubstrateBuildReport,
+    ScientificSubstrateInspectionReport,
     VerificationLabel,
 )
 
@@ -99,6 +102,9 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert IdeaClusterDiagnostic in vars(schemas).values()
     assert IdeaSpaceDiversityReport in vars(schemas).values()
     assert IdeaSpaceInspectionReport in vars(schemas).values()
+    assert ScientificSubstrate in vars(schemas).values()
+    assert ScientificSubstrateBuildReport in vars(schemas).values()
+    assert ScientificSubstrateInspectionReport in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -151,6 +157,9 @@ def test_schema_all_contains_expected_public_names() -> None:
         "IdeaClusterDiagnostic",
         "IdeaSpaceDiversityReport",
         "IdeaSpaceInspectionReport",
+        "ScientificSubstrate",
+        "ScientificSubstrateBuildReport",
+        "ScientificSubstrateInspectionReport",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -191,4 +200,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 233
+    assert len(get_protocol_definitions()) == 241

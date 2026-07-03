@@ -257,6 +257,11 @@ from factori.schemas import (
     StagnationEvent,
     VerificationLabel,
 )
+from factori.scientific_substrate import (
+    ScientificSubstrateError,
+    build_scientific_substrate,
+    inspect_scientific_substrate,
+)
 from factori.stage_a import constraint_from_inputs, run_stage_a
 from factori.stage_b import StageBError, run_stage_b
 from factori.stage_c import StageCError, run_stage_c
@@ -3960,6 +3965,72 @@ def export_idea_space_report_command(
     typer.echo(f"recommended_mutation_axes={len(report.recommended_mutation_axes)}")
     typer.echo("publication_ready=false")
     typer.echo(f"artifact={artifact_path}")
+
+
+@app.command("build-scientific-substrate")
+def build_scientific_substrate_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_substrates: Annotated[int, typer.Option("--max-substrates")] = 2,
+    mutation_axis: Annotated[str | None, typer.Option("--mutation-axis")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build concrete scientific substrates from idea-space mutation axes."""
+    try:
+        result = build_scientific_substrate(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            max_substrates=max_substrates,
+            mutation_axis=mutation_axis,
+        )
+    except ScientificSubstrateError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "scientific_substrate_present": True,
+        "build_report": result.report.model_dump(mode="json"),
+        "substrates": [substrate.model_dump(mode="json") for substrate in result.substrates],
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"build_id={result.report.build_id}")
+    typer.echo(f"build_status={result.report.build_status}")
+    typer.echo(f"substrate_count={result.report.substrate_count}")
+    typer.echo(f"selected_substrate={result.report.selected_substrate_title_optional}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-scientific-substrate")
+def inspect_scientific_substrate_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest generated scientific substrates without mutation."""
+    try:
+        report = inspect_scientific_substrate(run_id=run_id, root=root)
+    except ScientificSubstrateError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    status = "present" if report.scientific_substrate_present else "absent"
+    typer.echo(f"Scientific substrate: {status}")
+    typer.echo(f"Substrate count: {report.substrate_count}")
+    typer.echo(f"Selected substrate: {report.selected_substrate_title_optional or 'none'}")
+    typer.echo(f"PCA/low-rank alternative: {str(report.pca_low_rank_substrate_present).lower()}")
+    typer.echo(f"Equation present: {str(report.equation_present).lower()}")
+    typer.echo(f"Baseline present: {str(report.baseline_present).lower()}")
+    typer.echo(f"Experiment design present: {str(report.experiment_design_present).lower()}")
+    typer.echo(f"Result schema present: {str(report.result_schema_present).lower()}")
+    typer.echo("Publication ready: false")
 
 
 @app.command("inspect-final-manuscript")
