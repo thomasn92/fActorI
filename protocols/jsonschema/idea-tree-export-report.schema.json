@@ -1,0 +1,86 @@
+{
+  "$id": "https://schemas.factori.local/0.48.0/idea-tree-export-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Context-only append-only idea-tree export result.",
+  "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "edge_count": {
+      "minimum": 0,
+      "title": "Edge Count",
+      "type": "integer"
+    },
+    "export_format": {
+      "enum": [
+        "markdown",
+        "json"
+      ],
+      "title": "Export Format",
+      "type": "string"
+    },
+    "export_id": {
+      "minLength": 1,
+      "title": "Export Id",
+      "type": "string"
+    },
+    "export_path": {
+      "minLength": 1,
+      "title": "Export Path",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "node_count": {
+      "minimum": 0,
+      "title": "Node Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "warning_count": {
+      "minimum": 0,
+      "title": "Warning Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "export_id",
+    "export_format",
+    "export_path",
+    "node_count",
+    "edge_count",
+    "warning_count",
+    "content_hash"
+  ],
+  "title": "IdeaTreeExportReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.48.0",
+  "x-factori-source-model": "factori.schemas.IdeaTreeExportReport",
+  "x-factori-verification-evidence": false
+}

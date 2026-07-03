@@ -154,6 +154,12 @@ from factori.hygiene_plan import (
     summarize_hygiene_remediation_plan,
     write_hygiene_remediation_plan,
 )
+from factori.idea_tree import (
+    IdeaTreeError,
+    export_idea_tree,
+    inspect_idea_tree,
+    render_idea_tree_text,
+)
 from factori.latex_export import LatexExportError, export_latex_from_run
 from factori.latex_render import LatexRenderError
 from factori.ledger import LedgerError, ResearchLedger
@@ -3852,6 +3858,58 @@ def regenerate_final_manuscript_command(
     typer.echo(f"deferred_gap_count={result.report.deferred_gap_count}")
     typer.echo("publication_ready=false")
     typer.echo(f"final_manuscript={result.manuscript_artifact.path}")
+
+
+@app.command("inspect-idea-tree")
+def inspect_idea_tree_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Reconstruct and inspect the creative search tree without mutation."""
+    try:
+        report = inspect_idea_tree(run_id=run_id, root=root)
+    except IdeaTreeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_idea_tree_text(report))
+    typer.echo("")
+    typer.echo(f"Nodes: {report.node_count}")
+    typer.echo(f"Edges: {report.edge_count}")
+    typer.echo(f"Stage A candidates: {report.stage_a_node_count}")
+    typer.echo(f"Stage B variants: {report.stage_b_node_count}")
+    typer.echo(f"Stage C selected: {report.stage_c_selected_count}")
+    typer.echo(f"Pruned nodes: {report.pruned_node_count}")
+    typer.echo(f"Warnings: {len(report.warnings)}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("export-idea-tree")
+def export_idea_tree_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    export_format: Annotated[str, typer.Option("--format")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+) -> None:
+    """Write an append-only context-only Markdown or JSON idea-tree export."""
+    try:
+        report = export_idea_tree(
+            run_id=run_id,
+            root=root,
+            export_format=export_format,
+        )
+    except IdeaTreeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"export_id={report.export_id}")
+    typer.echo(f"format={report.export_format}")
+    typer.echo(f"node_count={report.node_count}")
+    typer.echo(f"edge_count={report.edge_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={report.export_path}")
 
 
 @app.command("inspect-final-manuscript")

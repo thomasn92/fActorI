@@ -202,6 +202,10 @@ uv run factori regenerate-final-manuscript \
   --run-id demo --regeneration-backend deterministic
 uv run factori inspect-final-manuscript --run-id demo
 uv run factori inspect-final-manuscript --run-id demo --json
+uv run factori inspect-idea-tree --run-id demo
+uv run factori inspect-idea-tree --run-id demo --json
+uv run factori export-idea-tree --run-id demo --format markdown
+uv run factori export-idea-tree --run-id demo --format json
 uv run factori build-final-release-bundle --run-id demo
 uv run factori inspect-final-release-bundle --run-id demo
 uv run factori inspect-final-release-bundle --run-id demo --json

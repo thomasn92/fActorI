@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.47.0/claim-adjudication.schema.json",
+  "$id": "https://schemas.factori.local/0.48.0/claim-adjudication.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded semantic sentence classification; not artifact verification or evidence.",
@@ -132,7 +132,7 @@
   ],
   "title": "ClaimAdjudication",
   "type": "object",
-  "x-factori-protocol-version": "0.47.0",
+  "x-factori-protocol-version": "0.48.0",
   "x-factori-source-model": "factori.schemas.ClaimAdjudication",
   "x-factori-verification-evidence": false
 }

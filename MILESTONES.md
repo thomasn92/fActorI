@@ -198,3 +198,9 @@ artifacts, hashes, protocol version, safety status, and ledger ancestor. `--resu
 verifies every completed stage before reuse, resumes from the first absent safe stage, always reruns
 final bundle verification and handoff, and writes append-only controller and resume reports.
 Corrupt, stale, missing, or authority-claiming checkpoints fail closed.
+
+Milestone 82 adds a first-class IdeaTree derived from existing immutable run artifacts. It exposes
+the domain root, Stage A candidates, Stage B variants, pruning and survivor reasons, Stage C
+selection, and the final manuscript branch through read-only inspection and append-only Markdown
+or JSON exports. Idea-tree artifacts are provenance/context only and cannot create evidence,
+upgrade labels, or imply publication readiness.

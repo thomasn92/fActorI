@@ -1,0 +1,64 @@
+{
+  "$id": "https://schemas.factori.local/0.48.0/idea-edge.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One context-only relation in the reconstructed creative search tree.",
+  "properties": {
+    "edge_id": {
+      "minLength": 1,
+      "title": "Edge Id",
+      "type": "string"
+    },
+    "edge_type": {
+      "enum": [
+        "root_to_candidate",
+        "candidate_to_variant",
+        "variant_to_selected",
+        "candidate_to_pruned",
+        "variant_to_pruned",
+        "selected_to_final"
+      ],
+      "title": "Edge Type",
+      "type": "string"
+    },
+    "mutation_operator_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mutation Operator Optional"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "source_node_id": {
+      "minLength": 1,
+      "title": "Source Node Id",
+      "type": "string"
+    },
+    "target_node_id": {
+      "minLength": 1,
+      "title": "Target Node Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "edge_id",
+    "source_node_id",
+    "target_node_id",
+    "edge_type",
+    "rationale"
+  ],
+  "title": "IdeaEdge",
+  "type": "object",
+  "x-factori-protocol-version": "0.48.0",
+  "x-factori-source-model": "factori.schemas.IdeaEdge",
+  "x-factori-verification-evidence": false
+}

@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.48.0` adds the first-class, context-only `IdeaTree`, node, edge, inspection, and export
+contracts. The tree reconstructs Stage A candidates, Stage B variants, Stage C selection, pruning,
+and the final manuscript branch from existing immutable run artifacts without creating evidence,
+upgrading labels, or implying publication readiness.
+
 Protocol `0.47.0` adds base-generation root-cause diagnostics to autonomous paper controller
 reports. The diagnostics expose candidate and Stage A/B/C counts, manuscript-plan presence, and
 budget-blocked components without weakening safety gates, creating evidence, or changing

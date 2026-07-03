@@ -112,6 +112,11 @@ from factori.schemas import (
     HumanReviewReconciliationItem,
     HumanReviewReconciliationReport,
     HygieneRemediationPlan,
+    IdeaEdge,
+    IdeaNode,
+    IdeaTree,
+    IdeaTreeExportReport,
+    IdeaTreeInspectionReport,
     LatexCompileCheckReport,
     LatexExportContract,
     LatexExportResult,
@@ -226,7 +231,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.47.0"
+PROTOCOL_VERSION = "0.48.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -403,6 +408,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "Provider-neutral synthetic experiment request contract.",
     ),
     ProtocolDefinition("Claim", Claim, "One label-preserving research claim."),
+    ProtocolDefinition(
+        "IdeaNode",
+        IdeaNode,
+        "One context-only node in the reconstructed creative search tree.",
+    ),
+    ProtocolDefinition(
+        "IdeaEdge",
+        IdeaEdge,
+        "One context-only relation in the reconstructed creative search tree.",
+    ),
+    ProtocolDefinition(
+        "IdeaTree",
+        IdeaTree,
+        "Derived research idea search tree without evidence authority.",
+    ),
+    ProtocolDefinition(
+        "IdeaTreeInspectionReport",
+        IdeaTreeInspectionReport,
+        "Read-only inspection report for a reconstructed idea tree.",
+    ),
+    ProtocolDefinition(
+        "IdeaTreeExportReport",
+        IdeaTreeExportReport,
+        "Context-only append-only idea-tree export result.",
+    ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",
         ClaimEvidenceMapLink,

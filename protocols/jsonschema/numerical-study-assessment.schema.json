@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.47.0/numerical-study-assessment.schema.json",
+  "$id": "https://schemas.factori.local/0.48.0/numerical-study-assessment.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Numerical-study purpose diagnostic assessment.",
@@ -40,7 +40,7 @@
   ],
   "title": "NumericalStudyAssessment",
   "type": "object",
-  "x-factori-protocol-version": "0.47.0",
+  "x-factori-protocol-version": "0.48.0",
   "x-factori-source-model": "factori.schemas.NumericalStudyAssessment",
   "x-factori-verification-evidence": false
 }

@@ -118,6 +118,7 @@ from factori.human_review_reconciliation import (
     inspect_human_review_reconciliation,
     reconcile_human_review,
 )
+from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
 from factori.planned_spec_execution import (
@@ -187,6 +188,11 @@ from factori.schemas import (
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
+    IdeaEdge,
+    IdeaNode,
+    IdeaTree,
+    IdeaTreeExportReport,
+    IdeaTreeInspectionReport,
     LLMOrchestrationConfig,
     PipelineRunConfig,
     PipelineStage,
@@ -252,6 +258,82 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert AutonomousPaperRunHandoff
     assert AutonomousPaperRunReport
     assert AutonomousPaperRunIndex
+    assert IdeaNode
+    assert IdeaEdge
+    assert IdeaTree
+    assert IdeaTreeInspectionReport
+    assert IdeaTreeExportReport
+
+
+def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
+    run_id = "run-idea-tree"
+    run_deterministic_pipeline(
+        PipelineRunConfig(
+            run_id=run_id,
+            domain="human geography",
+            root=tmp_path,
+        )
+    )
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    commit_count = len(ledger.list_commits(run_id))
+
+    report = inspect_idea_tree(run_id=run_id, root=tmp_path)
+    markdown_export = export_idea_tree(
+        run_id=run_id,
+        root=tmp_path,
+        export_format="markdown",
+    )
+    json_export = export_idea_tree(
+        run_id=run_id,
+        root=tmp_path,
+        export_format="json",
+    )
+
+    root_node = next(node for node in report.nodes if node.node_id == report.root_node_id)
+    stage_a_nodes = [node for node in report.nodes if node.stage_origin == "stage_a"]
+    stage_b_nodes = [node for node in report.nodes if node.stage_origin == "stage_b"]
+    selected_nodes = [node for node in report.nodes if node.selected_for_stage_c]
+    pruned_nodes = [node for node in report.nodes if node.status == "pruned"]
+
+    assert report.tree_present is True
+    assert root_node.status == "root"
+    assert root_node.title == "human geography"
+    assert report.node_count > 1
+    assert report.edge_count > 0
+    assert stage_a_nodes
+    assert stage_b_nodes
+    assert all(node.parent_id_optional == report.root_node_id for node in stage_a_nodes)
+    assert all(node.parent_id_optional for node in stage_b_nodes)
+    assert selected_nodes
+    assert all(node.status == "selected" for node in selected_nodes)
+    assert pruned_nodes
+    assert all(node.prune_reason_optional for node in pruned_nodes)
+    assert report.publication_ready is False
+    assert report.creates_scientific_validation is False
+    assert report.is_verification_evidence is False
+    assert len(ledger.list_commits(run_id)) == commit_count
+
+    markdown_path = tmp_path / markdown_export.export_path
+    json_path = tmp_path / json_export.export_path
+    markdown = markdown_path.read_text(encoding="utf-8")
+    exported = IdeaTreeInspectionReport.model_validate_json(
+        json_path.read_text(encoding="utf-8")
+    )
+    assert "Root: human geography" in markdown
+    assert "Candidate 1:" in markdown
+    assert "Variant" in markdown
+    assert "provenance/context only" in markdown
+    assert "publication_ready=false" in markdown
+    assert exported.node_count == report.node_count
+    assert exported.edge_count == report.edge_count
+    assert exported.publication_ready is False
+    assert len(ledger.list_commits(run_id)) == commit_count
+
+    stage_b_report = tmp_path / "runs" / run_id / "reports" / "stage-b-report.md"
+    stage_b_report.unlink()
+    degraded = inspect_idea_tree(run_id=run_id, root=tmp_path)
+    assert degraded.tree_present is True
+    assert any("Stage B report is unavailable" in warning for warning in degraded.warnings)
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -3571,6 +3653,7 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
         backend="deterministic",
     )
     inspected = inspect_final_manuscript(run_id=run_id, root=tmp_path)
+    idea_tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
     bundle = inspect_paper_bundle_summary(run_id=run_id, root=tmp_path)
     lint = lint_paper_bundle_summary(run_id=run_id, root=tmp_path)
     markdown = result.manuscript_markdown
@@ -3583,6 +3666,16 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     assert result.report.unsupported_claim_count == 0
     assert result.report.publication_ready is False
     assert result.structured_manuscript.publication_ready is False
+    assert idea_tree.final_node_id_optional is not None
+    final_idea = next(
+        node for node in idea_tree.nodes if node.node_id == idea_tree.final_node_id_optional
+    )
+    assert final_idea.status == "final"
+    assert final_idea.selected_for_final_manuscript is True
+    assert any(
+        node.selected_for_final_manuscript and node.status == "selected"
+        for node in idea_tree.nodes
+    )
     assert (tmp_path / result.report.final_manuscript_path).is_file()
     assert (tmp_path / result.report.final_manuscript_structured_path).is_file()
     report_markdown = (

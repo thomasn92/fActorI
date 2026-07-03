@@ -1,0 +1,238 @@
+{
+  "$id": "https://schemas.factori.local/0.48.0/idea-node.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One context-only node in the reconstructed creative search tree.",
+  "properties": {
+    "artifact_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Refs",
+      "type": "array"
+    },
+    "baseline_hint_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baseline Hint Optional"
+    },
+    "created_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created At"
+    },
+    "data_regime_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Data Regime Optional"
+    },
+    "depth": {
+      "minimum": 0,
+      "title": "Depth",
+      "type": "integer"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "experiment_hint_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Hint Optional"
+    },
+    "hypothesis_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Optional"
+    },
+    "method_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Method Optional"
+    },
+    "model_hint_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model Hint Optional"
+    },
+    "node_id": {
+      "minLength": 1,
+      "title": "Node Id",
+      "type": "string"
+    },
+    "novelty_risk_optional": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Novelty Risk Optional"
+    },
+    "parent_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Id Optional"
+    },
+    "prune_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prune Reason Optional"
+    },
+    "research_question_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Research Question Optional"
+    },
+    "scientific_interest_optional": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scientific Interest Optional"
+    },
+    "selected_for_final_manuscript": {
+      "default": false,
+      "title": "Selected For Final Manuscript",
+      "type": "boolean"
+    },
+    "selected_for_stage_c": {
+      "default": false,
+      "title": "Selected For Stage C",
+      "type": "boolean"
+    },
+    "stage_origin": {
+      "minLength": 1,
+      "title": "Stage Origin",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "root",
+        "generated",
+        "expanded",
+        "survived",
+        "pruned",
+        "selected",
+        "final",
+        "deferred"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "survivor_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Survivor Reason Optional"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "node_id",
+    "depth",
+    "stage_origin",
+    "title",
+    "domain",
+    "status"
+  ],
+  "title": "IdeaNode",
+  "type": "object",
+  "x-factori-protocol-version": "0.48.0",
+  "x-factori-source-model": "factori.schemas.IdeaNode",
+  "x-factori-verification-evidence": false
+}

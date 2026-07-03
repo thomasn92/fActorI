@@ -194,6 +194,9 @@ All implementation modules are under `factori/`.
 
 ## Synthesis and Manuscript
 
+- `idea_tree.py`: read-only reconstruction of domain roots, Stage A candidates, Stage B variants,
+  Stage C selection, pruning decisions, and final manuscript branches, plus append-only
+  context-only Markdown/JSON exports without evidence or label authority.
 - `abstract_synthesis.py`: abstract-model proposals, scoring, attacks, and synthesis artifacts.
 - `final_selection.py`: deterministic abstract-or-branch final nucleus selection.
 - `claims.py`: claim/evidence table and claim-admissibility helpers.

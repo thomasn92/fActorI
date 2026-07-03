@@ -1,0 +1,423 @@
+{
+  "$defs": {
+    "IdeaEdge": {
+      "additionalProperties": false,
+      "description": "One parent, mutation, pruning, selection, or finalization relation.",
+      "properties": {
+        "edge_id": {
+          "minLength": 1,
+          "title": "Edge Id",
+          "type": "string"
+        },
+        "edge_type": {
+          "enum": [
+            "root_to_candidate",
+            "candidate_to_variant",
+            "variant_to_selected",
+            "candidate_to_pruned",
+            "variant_to_pruned",
+            "selected_to_final"
+          ],
+          "title": "Edge Type",
+          "type": "string"
+        },
+        "mutation_operator_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mutation Operator Optional"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "source_node_id": {
+          "minLength": 1,
+          "title": "Source Node Id",
+          "type": "string"
+        },
+        "target_node_id": {
+          "minLength": 1,
+          "title": "Target Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edge_id",
+        "source_node_id",
+        "target_node_id",
+        "edge_type",
+        "rationale"
+      ],
+      "title": "IdeaEdge",
+      "type": "object"
+    },
+    "IdeaNode": {
+      "additionalProperties": false,
+      "description": "One inspectable node in the derived research idea search tree.",
+      "properties": {
+        "artifact_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "baseline_hint_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Hint Optional"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "data_regime_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Regime Optional"
+        },
+        "depth": {
+          "minimum": 0,
+          "title": "Depth",
+          "type": "integer"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "experiment_hint_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment Hint Optional"
+        },
+        "hypothesis_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis Optional"
+        },
+        "method_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method Optional"
+        },
+        "model_hint_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Hint Optional"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "novelty_risk_optional": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Novelty Risk Optional"
+        },
+        "parent_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id Optional"
+        },
+        "prune_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prune Reason Optional"
+        },
+        "research_question_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Research Question Optional"
+        },
+        "scientific_interest_optional": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scientific Interest Optional"
+        },
+        "selected_for_final_manuscript": {
+          "default": false,
+          "title": "Selected For Final Manuscript",
+          "type": "boolean"
+        },
+        "selected_for_stage_c": {
+          "default": false,
+          "title": "Selected For Stage C",
+          "type": "boolean"
+        },
+        "stage_origin": {
+          "minLength": 1,
+          "title": "Stage Origin",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "root",
+            "generated",
+            "expanded",
+            "survived",
+            "pruned",
+            "selected",
+            "final",
+            "deferred"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "survivor_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Survivor Reason Optional"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "depth",
+        "stage_origin",
+        "title",
+        "domain",
+        "status"
+      ],
+      "title": "IdeaNode",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.48.0/idea-tree-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection report for a reconstructed idea tree.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "edge_count": {
+      "minimum": 0,
+      "title": "Edge Count",
+      "type": "integer"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/IdeaEdge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "final_node_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Node Id Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "node_count": {
+      "minimum": 0,
+      "title": "Node Count",
+      "type": "integer"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/IdeaNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "pruned_node_count": {
+      "minimum": 0,
+      "title": "Pruned Node Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "root_node_id": {
+      "minLength": 1,
+      "title": "Root Node Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stage_a_node_count": {
+      "minimum": 0,
+      "title": "Stage A Node Count",
+      "type": "integer"
+    },
+    "stage_b_node_count": {
+      "minimum": 0,
+      "title": "Stage B Node Count",
+      "type": "integer"
+    },
+    "stage_c_selected_count": {
+      "minimum": 0,
+      "title": "Stage C Selected Count",
+      "type": "integer"
+    },
+    "surviving_node_count": {
+      "minimum": 0,
+      "title": "Surviving Node Count",
+      "type": "integer"
+    },
+    "tree_present": {
+      "title": "Tree Present",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "tree_present",
+    "node_count",
+    "edge_count",
+    "root_node_id",
+    "stage_a_node_count",
+    "stage_b_node_count",
+    "stage_c_selected_count",
+    "pruned_node_count",
+    "surviving_node_count",
+    "nodes",
+    "edges"
+  ],
+  "title": "IdeaTreeInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.48.0",
+  "x-factori-source-model": "factori.schemas.IdeaTreeInspectionReport",
+  "x-factori-verification-evidence": false
+}

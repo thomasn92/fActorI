@@ -132,6 +132,53 @@ def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
     assert "--json" in resume.output
 
 
+def test_idea_tree_cli_commands_are_registered() -> None:
+    inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
+    export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
+
+    assert inspect.exit_code == 0, inspect.output
+    assert "--run-id" in inspect.output
+    assert "--json" in inspect.output
+    assert export.exit_code == 0, export.output
+    assert "--run-id" in export.output
+    assert "--format" in export.output
+
+
+def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:
+    run_id = "cli-idea-tree"
+    run_deterministic_pipeline(
+        PipelineRunConfig(run_id=run_id, domain="human geography", root=tmp_path)
+    )
+    runner = CliRunner()
+
+    inspected = runner.invoke(
+        app,
+        ["inspect-idea-tree", "--run-id", run_id, "--root", str(tmp_path), "--json"],
+    )
+    exported = runner.invoke(
+        app,
+        [
+            "export-idea-tree",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--format",
+            "markdown",
+        ],
+    )
+
+    assert inspected.exit_code == 0, inspected.output
+    payload = json.loads(inspected.output)
+    assert payload["tree_present"] is True
+    assert payload["node_count"] > 1
+    assert payload["edge_count"] > 0
+    assert payload["publication_ready"] is False
+    assert exported.exit_code == 0, exported.output
+    assert "artifact=runs/cli-idea-tree/reports/idea-tree-0001.md" in exported.output
+    assert "publication_ready=false" in exported.output
+
+
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])

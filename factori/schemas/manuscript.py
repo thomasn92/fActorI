@@ -93,6 +93,121 @@ class FinalNucleus(StrictModel):
     synthesis_label: str = "AbstractSynthesis"
 
 
+IdeaNodeStatus = Literal[
+    "root",
+    "generated",
+    "expanded",
+    "survived",
+    "pruned",
+    "selected",
+    "final",
+    "deferred",
+]
+
+IdeaEdgeType = Literal[
+    "root_to_candidate",
+    "candidate_to_variant",
+    "variant_to_selected",
+    "candidate_to_pruned",
+    "variant_to_pruned",
+    "selected_to_final",
+]
+
+
+class IdeaNode(StrictModel):
+    """One inspectable node in the derived research idea search tree."""
+
+    node_id: str = Field(min_length=1)
+    parent_id_optional: str | None = None
+    depth: int = Field(ge=0)
+    stage_origin: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    method_optional: str | None = None
+    research_question_optional: str | None = None
+    hypothesis_optional: str | None = None
+    model_hint_optional: str | None = None
+    experiment_hint_optional: str | None = None
+    baseline_hint_optional: str | None = None
+    data_regime_optional: str | None = None
+    novelty_risk_optional: float | None = Field(default=None, ge=0.0, le=1.0)
+    scientific_interest_optional: float | None = Field(default=None, ge=0.0, le=1.0)
+    status: IdeaNodeStatus
+    prune_reason_optional: str | None = None
+    survivor_reason_optional: str | None = None
+    selected_for_stage_c: bool = False
+    selected_for_final_manuscript: bool = False
+    artifact_refs: list[str] = Field(default_factory=list)
+    created_at: str | None = None
+
+
+class IdeaEdge(StrictModel):
+    """One parent, mutation, pruning, selection, or finalization relation."""
+
+    edge_id: str = Field(min_length=1)
+    source_node_id: str = Field(min_length=1)
+    target_node_id: str = Field(min_length=1)
+    edge_type: IdeaEdgeType
+    mutation_operator_optional: str | None = None
+    rationale: str = Field(min_length=1)
+
+
+class IdeaTree(StrictModel):
+    """Derived creative-search tree reconstructed from immutable run artifacts."""
+
+    run_id: str = Field(min_length=1)
+    root_node_id: str = Field(min_length=1)
+    final_node_id_optional: str | None = None
+    nodes: list[IdeaNode]
+    edges: list[IdeaEdge]
+    source_artifact_paths: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class IdeaTreeInspectionReport(StrictModel):
+    """Read-only summary and full payload for one reconstructed idea tree."""
+
+    run_id: str = Field(min_length=1)
+    tree_present: bool
+    node_count: int = Field(ge=0)
+    edge_count: int = Field(ge=0)
+    root_node_id: str = Field(min_length=1)
+    final_node_id_optional: str | None = None
+    stage_a_node_count: int = Field(ge=0)
+    stage_b_node_count: int = Field(ge=0)
+    stage_c_selected_count: int = Field(ge=0)
+    pruned_node_count: int = Field(ge=0)
+    surviving_node_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    nodes: list[IdeaNode]
+    edges: list[IdeaEdge]
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
+class IdeaTreeExportReport(StrictModel):
+    """Context-only result for one append-only idea-tree export."""
+
+    run_id: str = Field(min_length=1)
+    export_id: str = Field(min_length=1)
+    export_format: Literal["markdown", "json"]
+    export_path: str = Field(min_length=1)
+    node_count: int = Field(ge=0)
+    edge_count: int = Field(ge=0)
+    warning_count: int = Field(ge=0)
+    content_hash: str = Field(pattern=HASH_RE.pattern)
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+    publication_ready: bool = False
+
+
 class ClaimEvidenceLink(StrictModel):
     """One deterministic claim-to-evidence link."""
 
@@ -3361,6 +3476,11 @@ __all__ = [
     "AbstractionReport",
     "AbstractionAttackReport",
     "FinalNucleus",
+    "IdeaNode",
+    "IdeaEdge",
+    "IdeaTree",
+    "IdeaTreeInspectionReport",
+    "IdeaTreeExportReport",
     "ClaimEvidenceLink",
     "ClaimEvidenceMapLink",
     "ClaimEvidenceMap",

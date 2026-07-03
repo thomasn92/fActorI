@@ -72,6 +72,8 @@ completed run from disk and checks consistency without changing provenance.
   final manuscript regeneration, release-bundle assembly, independent verification, and handoff.
 - crash-safe autonomous controller resume from verified immutable stage checkpoints, with
   append-only resume reports and deterministic fault-injection coverage.
+- read-only reconstruction and append-only context export of the Stage A/B/C creative search as a
+  first-class IdeaTree with explicit pruning, survival, selection, and final-branch links.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,
