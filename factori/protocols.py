@@ -241,11 +241,15 @@ from factori.schemas import (
     StageCheckpoint,
     StageRerunDecision,
     StageRerunStatus,
+    SubstrateExperimentComparisonTable,
+    SubstrateExperimentResult,
+    SubstrateExperimentRoutingReport,
+    SubstrateExperimentSpec,
     VerificationLabel,
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.50.0"
+PROTOCOL_VERSION = "0.51.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -516,6 +520,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ScientificSubstrateInspectionReport",
         ScientificSubstrateInspectionReport,
         "Read-only inspection report for generated scientific substrates.",
+    ),
+    ProtocolDefinition(
+        "SubstrateExperimentSpec",
+        SubstrateExperimentSpec,
+        "Planned uv-local experiment instantiated from a selected substrate.",
+    ),
+    ProtocolDefinition(
+        "SubstrateExperimentRoutingReport",
+        SubstrateExperimentRoutingReport,
+        "Append-only route from a selected substrate to an approved local bundle.",
+    ),
+    ProtocolDefinition(
+        "SubstrateExperimentResult",
+        SubstrateExperimentResult,
+        "Bounded substrate experiment outcome without broad validation authority.",
+    ),
+    ProtocolDefinition(
+        "SubstrateExperimentComparisonTable",
+        SubstrateExperimentComparisonTable,
+        "Baseline-versus-method comparison table for a substrate experiment.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

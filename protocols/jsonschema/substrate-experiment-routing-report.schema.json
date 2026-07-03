@@ -1,0 +1,154 @@
+{
+  "$id": "https://schemas.factori.local/0.51.0/substrate-experiment-routing-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only route from a selected substrate to an approved local bundle.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "existing_experiment_spec_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Existing Experiment Spec Path Optional"
+    },
+    "experiment_bundle_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Bundle Optional"
+    },
+    "generated_experiment_spec_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Generated Experiment Spec Path Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "routing_id": {
+      "minLength": 1,
+      "title": "Routing Id",
+      "type": "string"
+    },
+    "routing_status": {
+      "enum": [
+        "routed",
+        "reused_existing_spec",
+        "no_selected_substrate",
+        "unsupported_substrate"
+      ],
+      "title": "Routing Status",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Substrate Id Optional"
+    },
+    "selected_substrate_title_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Substrate Title Optional"
+    },
+    "source_substrate_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Substrate Path Optional"
+    },
+    "substrate_experiment_routed": {
+      "title": "Substrate Experiment Routed",
+      "type": "boolean"
+    },
+    "target_claim_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Claim Id Optional"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "routing_id",
+    "routing_status",
+    "substrate_experiment_routed"
+  ],
+  "title": "SubstrateExperimentRoutingReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.51.0",
+  "x-factori-source-model": "factori.schemas.SubstrateExperimentRoutingReport",
+  "x-factori-verification-evidence": false
+}

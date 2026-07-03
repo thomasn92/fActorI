@@ -223,10 +223,18 @@ from factori.schemas import (
     ScientificSubstrateModelObject,
     ScientificSubstrateResultSchema,
     ScientificSubstrateVariable,
+    SubstrateExperimentComparisonTable,
+    SubstrateExperimentResult,
+    SubstrateExperimentRoutingReport,
+    SubstrateExperimentSpec,
 )
 from factori.scientific_substrate import (
     build_scientific_substrate,
     inspect_scientific_substrate,
+)
+from factori.substrate_experiment_routing import (
+    inspect_substrate_experiment_routing,
+    route_substrate_experiment,
 )
 
 
@@ -296,6 +304,10 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ScientificSubstrate
     assert ScientificSubstrateBuildReport
     assert ScientificSubstrateInspectionReport
+    assert SubstrateExperimentSpec
+    assert SubstrateExperimentRoutingReport
+    assert SubstrateExperimentResult
+    assert SubstrateExperimentComparisonTable
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -515,6 +527,213 @@ def test_scientific_substrate_builds_concrete_models_from_idea_space(
     assert "Region-Specific Distance Decay" in markdown
     assert "Low-Rank Residual Axes" in markdown
     assert "publication_ready: false" in markdown
+
+
+def test_substrate_experiment_routes_executes_and_links_bounded_result(
+    tmp_path,
+) -> None:
+    run_id = "run-substrate-experiment"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    source_bundle = (
+        Path(__file__).parent
+        / "fixtures"
+        / "experiments"
+        / "bundles"
+        / "distance_decay_spatial_interaction"
+    )
+    target_bundle = (
+        tmp_path
+        / "tests"
+        / "fixtures"
+        / "experiments"
+        / "bundles"
+        / "distance_decay_spatial_interaction"
+    )
+    target_bundle.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_bundle, target_bundle)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        enable_empirical_demonstration_gaps=True,
+    )
+    build_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=2,
+    )
+
+    routed = route_substrate_experiment(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    assert routed.report.substrate_experiment_routed is True
+    assert routed.report.experiment_bundle_optional == (
+        "tests/fixtures/experiments/bundles/distance_decay_spatial_interaction"
+    )
+    assert routed.spec is not None
+    assert routed.spec.model_equation == (
+        "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)"
+    )
+    assert routed.spec.baseline_model == "pooled-alpha gravity model"
+    assert routed.spec.method_model == "heterogeneous-alpha spatial interaction model"
+    assert {"MAE", "RMSE"} <= set(routed.spec.metric_names)
+    assert routed.spec.heterogeneity_settings == [
+        "low_heterogeneity",
+        "high_heterogeneity",
+    ]
+
+    sandbox = run_python_experiment_sandbox(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        experiment_spec=tmp_path / routed.spec_artifact.path,
+        sandbox_backend="uv_local",
+        execution_mode="apply",
+    )
+    inspected = inspect_substrate_experiment_routing(run_id=run_id, root=tmp_path)
+    experiment = ExperimentArtifact.model_validate_json(
+        (tmp_path / sandbox.report.ingested_experiment_artifact_path_optional).read_text(
+            encoding="utf-8"
+        )
+    )
+    substrate_result_path = next(
+        path
+        for path in experiment.artifact_paths
+        if path.endswith("substrate-experiment-result.json")
+    )
+    substrate_result = SubstrateExperimentResult.model_validate_json(
+        (tmp_path / substrate_result_path).read_text(encoding="utf-8")
+    )
+    claim_map = ClaimEvidenceMap.model_validate_json(
+        latest_claim_evidence_map_path(tmp_path, run_id).read_text(encoding="utf-8")
+    )
+    bounded_link = next(
+        link
+        for link in claim_map.links
+        if link.claim_id == BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID
+    )
+
+    assert sandbox.report.sandbox_status == "completed"
+    assert experiment.experiment_type == "substrate_distance_decay_uv_local"
+    assert experiment.status == "completed"
+    assert experiment.metrics["claim_support_satisfied"] is True
+    assert len(experiment.metrics["comparison_table"]) == 2
+    assert experiment.metrics["test_mae_method"] < experiment.metrics["test_mae_baseline"]
+    assert experiment.metrics["test_rmse_method"] <= experiment.metrics["test_rmse_baseline"]
+    assert inspected["comparison_table_present"] is True
+    assert inspected["heterogeneity_ablation_present"] is True
+    assert inspected["method_beat_baseline"] is True
+    assert inspected["claim_evidence_linked"] is True
+    assert bounded_link.classification == "experiment_supported_claim"
+    assert experiment.experiment_id in bounded_link.supporting_experiment_artifact_ids
+    assert substrate_result.result_label == "SyntheticExperimentVerified"
+    assert substrate_result.publication_ready is False
+    assert experiment.creates_scientific_validation is False
+
+
+def test_substrate_experiment_negative_result_is_inconclusive_not_crash() -> None:
+    table = SubstrateExperimentComparisonTable(
+        columns=["setting", "baseline_mae", "method_mae"],
+        rows=[
+            {"setting": "low_heterogeneity", "baseline_mae": 1.0, "method_mae": 1.1},
+            {"setting": "high_heterogeneity", "baseline_mae": 1.0, "method_mae": 1.2},
+        ],
+        heterogeneity_ablation_present=True,
+    )
+    result = SubstrateExperimentResult(
+        run_id="negative-substrate-run",
+        experiment_spec_id="negative-spec",
+        substrate_id="distance-substrate",
+        target_claim_id="bounded-claim",
+        result_status="negative_result",
+        result_label="NegativeResult",
+        claim_support_satisfied=False,
+        comparison_table=table,
+        bounded_result_summary=(
+            "The method did not satisfy the bounded synthetic comparison rule."
+        ),
+        limitations=["Synthetic scope only."],
+    )
+    assert result.result_label == "NegativeResult"
+    assert result.claim_support_satisfied is False
+    assert result.publication_ready is False
+    assert result.is_verification_evidence is False
+
+
+def test_autonomous_loop_prefers_selected_substrate_experiment_route(tmp_path) -> None:
+    run_id = "run-loop-substrate-experiment"
+    _prepare_reviewable_bundle(tmp_path, run_id=run_id)
+    source_bundle = (
+        Path(__file__).parent
+        / "fixtures"
+        / "experiments"
+        / "bundles"
+        / "distance_decay_spatial_interaction"
+    )
+    target_bundle = (
+        tmp_path
+        / "tests"
+        / "fixtures"
+        / "experiments"
+        / "bundles"
+        / "distance_decay_spatial_interaction"
+    )
+    target_bundle.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_bundle, target_bundle)
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    persist_claim_evidence_map(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        enable_empirical_demonstration_gaps=True,
+    )
+    build_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=2,
+    )
+
+    loop = run_autonomous_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        loop_backend="deterministic",
+        max_iterations=2,
+        max_attempts_per_gap=1,
+        enable_experiment_routing=True,
+        enable_empirical_demonstration_gaps=True,
+        python_sandbox_backend="uv_local",
+        max_sandbox_runs_per_loop=1,
+        max_sandbox_runs_per_iteration=1,
+    )
+    routing = inspect_substrate_experiment_routing(run_id=run_id, root=tmp_path)
+
+    assert routing["substrate_experiment_routed"] is True
+    assert routing["experiment_bundle_optional"].endswith(
+        "distance_decay_spatial_interaction"
+    )
+    assert routing["sandbox_status"] == "completed"
+    assert routing["comparison_table_present"] is True
+    assert loop.report.publication_ready is False
+    assert not list(
+        (tmp_path / "runs" / run_id / "reports").glob(
+            "experiment-gap-routing-[0-9][0-9][0-9][0-9].json"
+        )
+    )
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:
@@ -3805,8 +4024,39 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
         run_id=run_id,
         claim_ids_or_section_ids=[
             BOUNDED_EMPIRICAL_DEMONSTRATION_CLAIM_ID,
-            "demonstration-status",
+            "bounded-empirical-demonstration",
         ],
+        experiment_type="substrate_distance_decay_uv_local",
+        metrics={
+            "test_mae_baseline": 2.69526987,
+            "test_mae_method": 0.06396946,
+            "test_rmse_baseline": 9.07274655,
+            "test_rmse_method": 0.17413053,
+            "mae_improvement": 2.63130041,
+            "rmse_improvement": 8.89861602,
+            "claim_support_satisfied": True,
+            "heterogeneity_ablation_present": True,
+            "comparison_table": [
+                {
+                    "setting": "low_heterogeneity",
+                    "baseline_mae": 0.25385627,
+                    "method_mae": 0.05204437,
+                    "baseline_rmse": 0.40625991,
+                    "method_rmse": 0.09447819,
+                    "mae_improvement": 0.2018119,
+                    "rmse_improvement": 0.31178172,
+                },
+                {
+                    "setting": "high_heterogeneity",
+                    "baseline_mae": 2.69526987,
+                    "method_mae": 0.06396946,
+                    "baseline_rmse": 9.07274655,
+                    "method_rmse": 0.17413053,
+                    "mae_improvement": 2.63130041,
+                    "rmse_improvement": 8.89861602,
+                },
+            ],
+        },
     )
     ingest_experiment_artifact(
         run_id=run_id,
@@ -3903,13 +4153,18 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     assert substrate_inspection.substrate_count >= 2
     assert "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)" in markdown
     assert "pooled-alpha gravity baseline" in markdown
+    assert "baseline MAE `2.69526987`" in markdown
+    assert "method MAE `0.06396946`" in markdown
+    assert "low_heterogeneity" in markdown
+    assert "high_heterogeneity" in markdown
+    assert "The method beat the pooled-alpha baseline" in markdown
     assert "Generate synthetic regions, distances, origin masses" in markdown
     assert "MAE" in markdown
     assert "RMSE" in markdown
     assert "Low-Rank Residual Axes" in appendices
     assert "R ≈ U_k S_k V_k^T" in appendices
-    assert "completed uv-local synthetic experiment artifact" in markdown
-    assert "does not establish broad empirical validation" in markdown
+    assert "substrate-specific uv-local run" in markdown
+    assert "do not provide broad empirical validation" in markdown
     assert "No passed formal proof artifact" in markdown
     assert "retrieval path(s) remain deferred" in markdown
     assert "the method is empirically validated" not in markdown.casefold()
@@ -6425,12 +6680,14 @@ def _write_experiment_artifact_fixture(
         "The local fixture run completed and reports bounded metrics for this run only."
     ),
     config_hash: str = "7" * 64,
+    experiment_type: str = "local_synthetic_fixture",
+    metrics: dict[str, object] | None = None,
 ) -> Path:
     reviewed_run_id = artifact_run_id or run_id
     payload = {
         "run_id": run_id,
         "experiment_id": experiment_id,
-        "experiment_type": "local_synthetic_fixture",
+        "experiment_type": experiment_type,
         "claim_ids_or_section_ids": claim_ids_or_section_ids or ["demonstration-status"],
         "hypothesis_or_question": (
             "Can the local fixture record bounded experiment-output intake?"
@@ -6441,7 +6698,8 @@ def _write_experiment_artifact_fixture(
         "config_hash": config_hash,
         "code_commit_hash_optional": "abc123fixture",
         "command_optional": "factori fixture-experiment --local",
-        "metrics": {
+        "metrics": metrics
+        or {
             "fixture_metric": 1.0,
             "sample_count": 3,
         },

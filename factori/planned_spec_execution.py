@@ -36,6 +36,7 @@ from factori.schemas import (
     ProofArtifact,
     ProofObligationSpec,
     RetrievalExpansionRequest,
+    SubstrateExperimentSpec,
 )
 
 _EXECUTION_MODES = {"dry_run", "apply"}
@@ -1467,7 +1468,11 @@ def _previously_attempted_spec_fingerprints(reports: Path, run_id: str) -> set[s
 def _load_one_spec(path: Path, spec_type: str, run_id: str) -> _SpecRecord:
     try:
         if spec_type == "experiment_spec":
-            spec = PlannedExperimentSpec.model_validate_json(path.read_text(encoding="utf-8"))
+            payload = path.read_text(encoding="utf-8")
+            try:
+                spec = SubstrateExperimentSpec.model_validate_json(payload)
+            except ValueError:
+                spec = PlannedExperimentSpec.model_validate_json(payload)
             spec_id = spec.spec_id
         elif spec_type == "proof_obligation_spec":
             spec = ProofObligationSpec.model_validate_json(path.read_text(encoding="utf-8"))

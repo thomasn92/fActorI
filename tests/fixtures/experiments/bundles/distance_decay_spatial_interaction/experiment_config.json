@@ -1,0 +1,21 @@
+{
+  "approved_local_bundle": true,
+  "bundle_format": "factori-python-experiment-v1",
+  "distance_offset": 0.05,
+  "experiment_template": "distance_decay_spatial_interaction",
+  "n_regions": 18,
+  "noise_level": 0.01,
+  "seed": 1729,
+  "settings": [
+    {
+      "alpha_heterogeneity_strength": 0.12,
+      "name": "low_heterogeneity",
+      "seed_offset": 0
+    },
+    {
+      "alpha_heterogeneity_strength": 0.5,
+      "name": "high_heterogeneity",
+      "seed_offset": 1000
+    }
+  ]
+}

@@ -268,6 +268,11 @@ from factori.stage_c import StageCError, run_stage_c
 from factori.stage_c_selection import StageCSelectionError, run_stage_c_selection
 from factori.stagnation import compute_stagnation, forced_stagnation_action
 from factori.status import inspect_run_status, stage_status_detail, validate_resume_request
+from factori.substrate_experiment_routing import (
+    SubstrateExperimentRoutingError,
+    inspect_substrate_experiment_routing,
+    route_substrate_experiment,
+)
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -4030,6 +4035,78 @@ def inspect_scientific_substrate_command(
     typer.echo(f"Baseline present: {str(report.baseline_present).lower()}")
     typer.echo(f"Experiment design present: {str(report.experiment_design_present).lower()}")
     typer.echo(f"Result schema present: {str(report.result_schema_present).lower()}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("route-substrate-experiment")
+def route_substrate_experiment_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Route the selected scientific substrate to an approved local experiment."""
+    try:
+        result = route_substrate_experiment(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except SubstrateExperimentRoutingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        **result.report.model_dump(mode="json"),
+        "generated_experiment_spec_path": (
+            result.spec_artifact.path if result.spec_artifact else None
+        ),
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"routing_status={result.report.routing_status}")
+    typer.echo(
+        "substrate_experiment_routed="
+        f"{str(result.report.substrate_experiment_routed).lower()}"
+    )
+    typer.echo(
+        f"selected_substrate={result.report.selected_substrate_title_optional or 'none'}"
+    )
+    spec_path = (
+        result.report.generated_experiment_spec_path_optional
+        or result.report.existing_experiment_spec_path_optional
+        or "none"
+    )
+    typer.echo(
+        "experiment_spec="
+        f"{spec_path}"
+    )
+    typer.echo("publication_ready=false")
+
+
+@app.command("inspect-substrate-experiment-routing")
+def inspect_substrate_experiment_routing_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest substrate-specific experiment route and outcome."""
+    try:
+        payload = inspect_substrate_experiment_routing(run_id=run_id, root=root)
+    except SubstrateExperimentRoutingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"Substrate experiment routing: {payload['routing_status']}")
+    typer.echo(f"Selected substrate: {payload['selected_substrate_title_optional'] or 'none'}")
+    typer.echo(f"Experiment bundle: {payload['experiment_bundle_optional'] or 'none'}")
+    typer.echo(f"Sandbox status: {payload['sandbox_status'] or 'not run'}")
+    typer.echo(f"Comparison table present: {str(payload['comparison_table_present']).lower()}")
+    typer.echo(f"Claim-evidence linked: {str(payload['claim_evidence_linked']).lower()}")
     typer.echo("Publication ready: false")
 
 

@@ -79,6 +79,8 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic ScientificSubstrate generation from idea-space mutation axes, including concrete
   model equations, variables, DGP boundaries, baselines, measurable hypotheses, result schemas,
   limitations, and failure modes as context for future bounded experiments.
+- deterministic substrate-specific routing from the selected distance-decay substrate to an
+  approved offline uv experiment, with bounded comparison tables and negative-result retention.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

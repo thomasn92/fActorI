@@ -30,6 +30,7 @@ from factori.schemas import (
     ProofArtifact,
     ProofObligationSpec,
     RetrievalExpansionRequest,
+    SubstrateExperimentSpec,
 )
 
 _SPEC_PATTERNS = (
@@ -730,7 +731,14 @@ def _iter_specs(
             if path.name.endswith(".meta.json"):
                 continue
             try:
-                spec = model.model_validate_json(path.read_text(encoding="utf-8"))
+                payload = path.read_text(encoding="utf-8")
+                if model is PlannedExperimentSpec:
+                    try:
+                        spec = SubstrateExperimentSpec.model_validate_json(payload)
+                    except ValueError:
+                        spec = PlannedExperimentSpec.model_validate_json(payload)
+                else:
+                    spec = model.model_validate_json(payload)
             except (OSError, ValueError):
                 continue
             if spec.run_id == run_id:

@@ -325,6 +325,10 @@ from factori.schemas.manuscript import (
     SectionDraftingTask,
     SectionDraftSafetySummary,
     SectionRevisionPlan,
+    SubstrateExperimentComparisonTable,
+    SubstrateExperimentResult,
+    SubstrateExperimentRoutingReport,
+    SubstrateExperimentSpec,
 )
 from factori.schemas.pipeline import (
     DryRunValidationFinding,
@@ -535,6 +539,10 @@ __all__ = [
     "ScientificSubstrate",
     "ScientificSubstrateBuildReport",
     "ScientificSubstrateInspectionReport",
+    "SubstrateExperimentSpec",
+    "SubstrateExperimentRoutingReport",
+    "SubstrateExperimentResult",
+    "SubstrateExperimentComparisonTable",
     "ClaimEvidenceLink",
     "ClaimEvidenceMapLink",
     "ClaimEvidenceMap",

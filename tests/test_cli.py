@@ -293,6 +293,16 @@ def test_scientific_substrate_cli_builds_and_inspects_deterministic_run(
     assert inspected["publication_ready"] is False
 
 
+def test_substrate_experiment_routing_commands_are_registered() -> None:
+    route = CliRunner().invoke(app, ["route-substrate-experiment", "--help"])
+    inspect = CliRunner().invoke(
+        app,
+        ["inspect-substrate-experiment-routing", "--help"],
+    )
+    assert route.exit_code == 0, route.output
+    assert inspect.exit_code == 0, inspect.output
+
+
 def test_human_review_cli_commands_are_registered() -> None:
     ingest = CliRunner().invoke(app, ["ingest-human-review", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-human-review", "--help"])

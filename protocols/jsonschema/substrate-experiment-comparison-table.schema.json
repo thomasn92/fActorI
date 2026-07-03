@@ -1,0 +1,51 @@
+{
+  "$id": "https://schemas.factori.local/0.51.0/substrate-experiment-comparison-table.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Baseline-versus-method comparison table for a substrate experiment.",
+  "properties": {
+    "columns": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Columns",
+      "type": "array"
+    },
+    "heterogeneity_ablation_present": {
+      "default": false,
+      "title": "Heterogeneity Ablation Present",
+      "type": "boolean"
+    },
+    "rows": {
+      "items": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "type": "object"
+      },
+      "minItems": 1,
+      "title": "Rows",
+      "type": "array"
+    }
+  },
+  "required": [
+    "columns",
+    "rows"
+  ],
+  "title": "SubstrateExperimentComparisonTable",
+  "type": "object",
+  "x-factori-protocol-version": "0.51.0",
+  "x-factori-source-model": "factori.schemas.SubstrateExperimentComparisonTable",
+  "x-factori-verification-evidence": false
+}

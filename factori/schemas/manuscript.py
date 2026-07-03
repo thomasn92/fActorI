@@ -1511,6 +1511,72 @@ class PlannedExperimentSpec(StrictModel):
     is_verification_evidence: bool = False
 
 
+class SubstrateExperimentComparisonTable(StrictModel):
+    """Bounded baseline-versus-method comparisons from one substrate experiment."""
+
+    columns: list[str] = Field(min_length=1)
+    rows: list[dict[str, str | int | float]] = Field(min_length=1)
+    heterogeneity_ablation_present: bool = False
+
+
+class SubstrateExperimentSpec(PlannedExperimentSpec):
+    """Planned uv-local experiment instantiated from one selected substrate."""
+
+    source_substrate_id: str = Field(min_length=1)
+    source_substrate_path: str = Field(min_length=1)
+    model_equation: str = Field(min_length=1)
+    dgp_steps: list[str] = Field(min_length=1)
+    baseline_model: str = Field(min_length=1)
+    method_model: str = Field(min_length=1)
+    metric_names: list[str] = Field(min_length=1)
+    heterogeneity_settings: list[str] = Field(min_length=2)
+    ablation_or_stress_test: str = Field(min_length=1)
+    bounded_claim_rule: str = Field(min_length=1)
+    experiment_bundle_id: str = Field(min_length=1)
+
+
+class SubstrateExperimentResult(StrictModel):
+    """Outcome derived from substrate-specific metrics without broad authority."""
+
+    run_id: str = Field(min_length=1)
+    experiment_spec_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    target_claim_id: str = Field(min_length=1)
+    result_status: Literal["supported", "negative_result", "inconclusive"]
+    result_label: Literal["SyntheticExperimentVerified", "NegativeResult", "Inconclusive"]
+    claim_support_satisfied: bool
+    comparison_table: SubstrateExperimentComparisonTable
+    bounded_result_summary: str = Field(min_length=1)
+    limitations: list[str] = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstrateExperimentRoutingReport(StrictModel):
+    """Append-only route from a selected substrate to an approved local bundle."""
+
+    run_id: str = Field(min_length=1)
+    routing_id: str = Field(min_length=1)
+    routing_status: Literal[
+        "routed", "reused_existing_spec", "no_selected_substrate", "unsupported_substrate"
+    ]
+    substrate_experiment_routed: bool
+    selected_substrate_id_optional: str | None = None
+    selected_substrate_title_optional: str | None = None
+    source_substrate_path_optional: str | None = None
+    target_claim_id_optional: str | None = None
+    experiment_bundle_optional: str | None = None
+    generated_experiment_spec_path_optional: str | None = None
+    existing_experiment_spec_path_optional: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class ProofObligationSpec(StrictModel):
     """Planned formal proof obligation; never verification evidence."""
 
@@ -3784,6 +3850,10 @@ __all__ = [
     "AutonomousPlanExecutionReport",
     "AutonomousPlanExecutionIndex",
     "PlannedExperimentSpec",
+    "SubstrateExperimentSpec",
+    "SubstrateExperimentRoutingReport",
+    "SubstrateExperimentResult",
+    "SubstrateExperimentComparisonTable",
     "ProofObligationSpec",
     "RetrievalExpansionRequest",
     "PlannedSpecExecutionItem",

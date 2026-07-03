@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.50.0/autonomous-paper-run-index.schema.json",
+  "$id": "https://schemas.factori.local/0.51.0/autonomous-paper-run-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer for autonomous paper controller reports.",
@@ -84,7 +84,7 @@
   ],
   "title": "AutonomousPaperRunIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.50.0",
+  "x-factori-protocol-version": "0.51.0",
   "x-factori-source-model": "factori.schemas.AutonomousPaperRunIndex",
   "x-factori-verification-evidence": false
 }

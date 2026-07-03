@@ -517,6 +517,15 @@ def _build_sections(
         proof for proof in proofs if proof.proof_type in {"proof_plan", "informal_proof_note"}
     ]
     completed = [experiment for experiment in experiments if experiment.status == "completed"]
+    substrate_experiments = [
+        experiment
+        for experiment in experiments
+        if experiment.experiment_type == "substrate_distance_decay_uv_local"
+    ]
+    completed_substrate_experiments = [
+        experiment for experiment in substrate_experiments if experiment.status == "completed"
+    ]
+    displayed_experiments = completed_substrate_experiments or completed
     accepted = [record for record in registry.citations if record.accepted_for_registry]
     citation_keys = sorted(record.citation_key for record in accepted)
     primary_citation = f" [@{citation_keys[0]}]" if citation_keys else ""
@@ -554,7 +563,10 @@ def _build_sections(
         )
     )
     experiment_lines = []
-    for experiment in completed:
+    for experiment in displayed_experiments:
+        if experiment.experiment_type == "substrate_distance_decay_uv_local":
+            experiment_lines.extend(_substrate_experiment_metric_lines(experiment))
+            continue
         metrics = ", ".join(f"`{key}={value}`" for key, value in sorted(experiment.metrics.items()))
         experiment_lines.append(
             "A completed uv-local synthetic experiment artifact "
@@ -567,6 +579,13 @@ def _build_sections(
             "No completed experiment artifact is linked, so empirical demonstration remains a "
             "future bounded task rather than an asserted result."
         )
+    for experiment in substrate_experiments:
+        if experiment.status != "completed":
+            experiment_lines.append(
+                f"Substrate experiment `{experiment.experiment_id}` was retained as an "
+                f"{experiment.status} bounded result. It does not support the positive mapped "
+                "claim and does not imply real-world validation."
+            )
     result_lines = [
         (
             "Within this run, the bounded result is that the configured synthetic demonstration "
@@ -592,6 +611,9 @@ def _build_sections(
             "the model, prove novelty, or establish complete literature coverage."
         ),
     ]
+    for experiment in displayed_experiments:
+        if experiment.experiment_type == "substrate_distance_decay_uv_local":
+            result_lines.extend(_substrate_experiment_result_lines(experiment))
     escalation_text = (
         "This workflow trace is not evidence; capability escalation ended with "
         f"`{escalation.escalation_status}` after "
@@ -950,6 +972,84 @@ def _develop_section_body(heading: str, body: str) -> str:
                 "correctness beyond the recorded run."
             )
     return developed
+
+
+def _substrate_experiment_metric_lines(experiment: ExperimentArtifact) -> list[str]:
+    metrics = experiment.metrics
+    required = (
+        "test_mae_baseline",
+        "test_mae_method",
+        "test_rmse_baseline",
+        "test_rmse_method",
+    )
+    if any(name not in metrics for name in required):
+        return [
+            f"Substrate experiment `{experiment.experiment_id}` completed, but its comparison "
+            "metrics are incomplete and no positive comparison is asserted."
+        ]
+    lines = [
+        (
+            "The substrate-specific uv-local run compared the pooled-alpha baseline with the "
+            "heterogeneous-alpha method. Recorded high-heterogeneity metrics were "
+            f"baseline MAE `{metrics['test_mae_baseline']}`, method MAE "
+            f"`{metrics['test_mae_method']}`, baseline RMSE "
+            f"`{metrics['test_rmse_baseline']}`, and method RMSE "
+            f"`{metrics['test_rmse_method']}`."
+        )
+    ]
+    table = metrics.get("comparison_table")
+    if isinstance(table, list) and table:
+        lines.extend(
+            [
+                "| setting | baseline MAE | method MAE | baseline RMSE | method RMSE | "
+                "MAE improvement | RMSE improvement |",
+                "|---|---:|---:|---:|---:|---:|---:|",
+                *[
+                    "| {setting} | {baseline_mae} | {method_mae} | {baseline_rmse} | "
+                    "{method_rmse} | {mae_improvement} | {rmse_improvement} |".format(
+                        **row
+                    )
+                    for row in table
+                    if isinstance(row, dict)
+                    and {
+                        "setting",
+                        "baseline_mae",
+                        "method_mae",
+                        "baseline_rmse",
+                        "method_rmse",
+                        "mae_improvement",
+                        "rmse_improvement",
+                    }
+                    <= row.keys()
+                ],
+            ]
+        )
+    if metrics.get("heterogeneity_ablation_present"):
+        lines.append(
+            "The ablation includes low- and high-heterogeneity settings. The recorded result "
+            "tests whether the heterogeneous-alpha advantage changes with alpha_i variation; "
+            "it remains a synthetic stress test rather than real-world evidence."
+        )
+    return lines
+
+
+def _substrate_experiment_result_lines(experiment: ExperimentArtifact) -> list[str]:
+    metrics = experiment.metrics
+    supported = bool(metrics.get("claim_support_satisfied"))
+    direction = (
+        "The method beat the pooled-alpha baseline under the declared MAE/RMSE rule"
+        if supported
+        else "The method did not satisfy the declared MAE/RMSE support rule"
+    )
+    return [
+        f"{direction} for the recorded synthetic settings. This is a bounded synthetic result "
+        "for the mapped claim only, not evidence of performance on observed mobility data.",
+        (
+            "The high-heterogeneity MAE and RMSE improvements were "
+            f"`{metrics.get('mae_improvement')}` and `{metrics.get('rmse_improvement')}`. "
+            "The low/high heterogeneity comparison is retained as the declared ablation."
+        ),
+    ]
 
 
 def _normalize_paragraph(text: str) -> str:

@@ -364,6 +364,7 @@ class ControllerActionType(StrEnum):
     AUTONOMOUS_PAPER_CHECKPOINT_WRITTEN = "AutonomousPaperCheckpointWritten"
     AUTONOMOUS_PAPER_RESUME_WRITTEN = "AutonomousPaperResumeWritten"
     SCIENTIFIC_SUBSTRATE_BUILT = "ScientificSubstrateBuilt"
+    SUBSTRATE_EXPERIMENT_ROUTED = "SubstrateExperimentRouted"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

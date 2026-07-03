@@ -1,0 +1,146 @@
+"""Deterministic stdlib-only distance-decay spatial interaction experiment."""
+
+import json
+import math
+import random
+import statistics
+from pathlib import Path
+
+
+def _fit_alpha(rows: list[dict[str, float]]) -> float:
+    denominator = sum(row["log_distance"] ** 2 for row in rows)
+    if denominator == 0.0:
+        return 1.0
+    return -sum(row["log_distance"] * row["log_residual"] for row in rows) / denominator
+
+
+def _metrics(actual: list[float], predicted: list[float]) -> tuple[float, float]:
+    errors = [left - right for left, right in zip(actual, predicted, strict=True)]
+    mae = statistics.fmean(abs(error) for error in errors)
+    rmse = math.sqrt(statistics.fmean(error * error for error in errors))
+    return mae, rmse
+
+
+def _run_setting(config: dict[str, object], setting: dict[str, object]) -> dict[str, object]:
+    seed = int(config["seed"]) + int(setting["seed_offset"])
+    rng = random.Random(seed)
+    n_regions = int(config["n_regions"])
+    delta = float(config["distance_offset"])
+    noise_level = float(config["noise_level"])
+    strength = float(setting["alpha_heterogeneity_strength"])
+    coordinates = [(rng.random(), rng.random()) for _ in range(n_regions)]
+    origin_mass = [math.exp(rng.uniform(-0.2, 0.5)) for _ in range(n_regions)]
+    destination_attractiveness = [
+        math.exp(rng.uniform(-0.2, 0.5)) for _ in range(n_regions)
+    ]
+    alpha = [1.35 + strength * rng.uniform(-1.0, 1.0) for _ in range(n_regions)]
+    rows: list[dict[str, float | int | bool]] = []
+    for origin in range(n_regions):
+        for destination in range(n_regions):
+            if origin == destination:
+                continue
+            dx = coordinates[origin][0] - coordinates[destination][0]
+            dy = coordinates[origin][1] - coordinates[destination][1]
+            distance = math.sqrt(dx * dx + dy * dy) + delta
+            epsilon = rng.gauss(0.0, noise_level)
+            flow = (
+                origin_mass[origin]
+                * destination_attractiveness[destination]
+                * distance ** (-alpha[origin])
+                * math.exp(epsilon)
+            )
+            rows.append(
+                {
+                    "origin": origin,
+                    "destination": destination,
+                    "log_distance": math.log(distance),
+                    "log_residual": (
+                        math.log(flow)
+                        - math.log(origin_mass[origin])
+                        - math.log(destination_attractiveness[destination])
+                    ),
+                    "flow": flow,
+                    "origin_mass": origin_mass[origin],
+                    "destination_attractiveness": destination_attractiveness[destination],
+                    "test": (origin * 31 + destination * 17) % 5 == 0,
+                }
+            )
+    train = [row for row in rows if not bool(row["test"])]
+    test = [row for row in rows if bool(row["test"])]
+    pooled_alpha = _fit_alpha(train)
+    origin_alpha = {
+        origin: _fit_alpha([row for row in train if int(row["origin"]) == origin])
+        for origin in range(n_regions)
+    }
+    actual: list[float] = []
+    baseline_predictions: list[float] = []
+    method_predictions: list[float] = []
+    for row in test:
+        origin = int(row["origin"])
+        scale = float(row["origin_mass"]) * float(row["destination_attractiveness"])
+        distance = math.exp(float(row["log_distance"]))
+        actual.append(float(row["flow"]))
+        baseline_predictions.append(scale * distance ** (-pooled_alpha))
+        method_predictions.append(scale * distance ** (-origin_alpha[origin]))
+    baseline_mae, baseline_rmse = _metrics(actual, baseline_predictions)
+    method_mae, method_rmse = _metrics(actual, method_predictions)
+    return {
+        "setting": str(setting["name"]),
+        "baseline_mae": round(baseline_mae, 8),
+        "method_mae": round(method_mae, 8),
+        "baseline_rmse": round(baseline_rmse, 8),
+        "method_rmse": round(method_rmse, 8),
+        "mae_improvement": round(baseline_mae - method_mae, 8),
+        "rmse_improvement": round(baseline_rmse - method_rmse, 8),
+        "sample_count": len(rows),
+        "train_pair_count": len(train),
+        "test_pair_count": len(test),
+        "seed": seed,
+        "alpha_heterogeneity_strength": strength,
+        "noise_level": noise_level,
+    }
+
+
+def main() -> None:
+    config = json.loads(Path("experiment_config.json").read_text(encoding="utf-8"))
+    table = [_run_setting(config, setting) for setting in config["settings"]]
+    high = next(row for row in table if row["setting"] == "high_heterogeneity")
+    low = next(row for row in table if row["setting"] == "low_heterogeneity")
+    support = all(
+        float(row["method_mae"]) < float(row["baseline_mae"])
+        and float(row["method_rmse"]) <= float(row["baseline_rmse"])
+        for row in table
+    )
+    metrics = {
+        "test_mae_baseline": high["baseline_mae"],
+        "test_mae_method": high["method_mae"],
+        "test_rmse_baseline": high["baseline_rmse"],
+        "test_rmse_method": high["method_rmse"],
+        "mae_improvement": high["mae_improvement"],
+        "rmse_improvement": high["rmse_improvement"],
+        "sample_count": sum(int(row["sample_count"]) for row in table),
+        "train_pair_count": sum(int(row["train_pair_count"]) for row in table),
+        "test_pair_count": sum(int(row["test_pair_count"]) for row in table),
+        "seed": int(config["seed"]),
+        "comparison_table": table,
+        "heterogeneity_ablation_present": True,
+        "high_heterogeneity_advantage_exceeds_low": (
+            float(high["mae_improvement"]) > float(low["mae_improvement"])
+        ),
+        "claim_support_satisfied": support,
+        "scope": "synthetic distance-decay OD-flow comparison for one mapped claim",
+    }
+    Path("metrics.json").write_text(
+        json.dumps(metrics, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    Path("outputs").mkdir(exist_ok=True)
+    Path("outputs/comparison-table.json").write_text(
+        json.dumps(table, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print("distance-decay spatial interaction experiment completed")
+
+
+if __name__ == "__main__":
+    main()

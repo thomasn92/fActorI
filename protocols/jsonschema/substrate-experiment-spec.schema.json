@@ -1,0 +1,262 @@
+{
+  "$id": "https://schemas.factori.local/0.51.0/substrate-experiment-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Planned uv-local experiment instantiated from a selected substrate.",
+  "properties": {
+    "ablation_or_stress_test": {
+      "minLength": 1,
+      "title": "Ablation Or Stress Test",
+      "type": "string"
+    },
+    "allow_network": {
+      "default": false,
+      "title": "Allow Network",
+      "type": "boolean"
+    },
+    "baseline_model": {
+      "minLength": 1,
+      "title": "Baseline Model",
+      "type": "string"
+    },
+    "bounded_claim_rule": {
+      "minLength": 1,
+      "title": "Bounded Claim Rule",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "dgp_steps": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Dgp Steps",
+      "type": "array"
+    },
+    "expected_output_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Expected Output Artifacts",
+      "type": "array"
+    },
+    "experiment_bundle_id": {
+      "minLength": 1,
+      "title": "Experiment Bundle Id",
+      "type": "string"
+    },
+    "experiment_bundle_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Bundle Path Optional"
+    },
+    "heterogeneity_settings": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 2,
+      "title": "Heterogeneity Settings",
+      "type": "array"
+    },
+    "hypothesis_or_question": {
+      "minLength": 1,
+      "title": "Hypothesis Or Question",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method_model": {
+      "minLength": 1,
+      "title": "Method Model",
+      "type": "string"
+    },
+    "metric_names": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Metric Names",
+      "type": "array"
+    },
+    "model_equation": {
+      "minLength": 1,
+      "title": "Model Equation",
+      "type": "string"
+    },
+    "requested_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested Dependencies",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_backend": {
+      "default": "off",
+      "enum": [
+        "off",
+        "uv_local",
+        "fake"
+      ],
+      "title": "Sandbox Backend",
+      "type": "string"
+    },
+    "seed": {
+      "default": 1729,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "shell_command_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shell Command Optional"
+    },
+    "source_substrate_id": {
+      "minLength": 1,
+      "title": "Source Substrate Id",
+      "type": "string"
+    },
+    "source_substrate_path": {
+      "minLength": 1,
+      "title": "Source Substrate Path",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "status": {
+      "const": "planned",
+      "default": "planned",
+      "title": "Status",
+      "type": "string"
+    },
+    "suggested_baselines": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Suggested Baselines",
+      "type": "array"
+    },
+    "suggested_dataset": {
+      "minLength": 1,
+      "title": "Suggested Dataset",
+      "type": "string"
+    },
+    "suggested_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Suggested Metrics",
+      "type": "array"
+    },
+    "suggested_seed_policy": {
+      "minLength": 1,
+      "title": "Suggested Seed Policy",
+      "type": "string"
+    },
+    "target_claim_id": {
+      "minLength": 1,
+      "title": "Target Claim Id",
+      "type": "string"
+    },
+    "target_section": {
+      "minLength": 1,
+      "title": "Target Section",
+      "type": "string"
+    },
+    "template_family_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Template Family Optional"
+    },
+    "template_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Template Id Optional"
+    },
+    "timeout_seconds": {
+      "default": 30,
+      "maximum": 300,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "spec_id",
+    "target_claim_id",
+    "target_section",
+    "hypothesis_or_question",
+    "suggested_dataset",
+    "suggested_metrics",
+    "suggested_baselines",
+    "suggested_seed_policy",
+    "expected_output_artifacts",
+    "source_substrate_id",
+    "source_substrate_path",
+    "model_equation",
+    "dgp_steps",
+    "baseline_model",
+    "method_model",
+    "metric_names",
+    "heterogeneity_settings",
+    "ablation_or_stress_test",
+    "bounded_claim_rule",
+    "experiment_bundle_id"
+  ],
+  "title": "SubstrateExperimentSpec",
+  "type": "object",
+  "x-factori-protocol-version": "0.51.0",
+  "x-factori-source-model": "factori.schemas.SubstrateExperimentSpec",
+  "x-factori-verification-evidence": false
+}

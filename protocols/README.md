@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.51.0` adds substrate-specific experiment specifications, routing reports, bounded
+results, and baseline-versus-method comparison tables. The selected distance-decay substrate can
+now execute through the approved offline uv sandbox; successful results support only their mapped
+synthetic claim and negative results remain visible without publication authority.
+
 Protocol `0.50.0` adds context-only `ScientificSubstrate` contracts that instantiate concrete
 scientific objects from idea-space mutation axes. Substrates include model equations, notation,
 assumptions, DGP or dataset boundaries, baselines, measurable hypotheses, result schemas,

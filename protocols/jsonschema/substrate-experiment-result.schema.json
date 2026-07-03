@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "SubstrateExperimentComparisonTable": {
+      "additionalProperties": false,
+      "description": "Bounded baseline-versus-method comparisons from one substrate experiment.",
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "heterogeneity_ablation_present": {
+          "default": false,
+          "title": "Heterogeneity Ablation Present",
+          "type": "boolean"
+        },
+        "rows": {
+          "items": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "minItems": 1,
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "title": "SubstrateExperimentComparisonTable",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.51.0/substrate-experiment-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded substrate experiment outcome without broad validation authority.",
+  "properties": {
+    "bounded_result_summary": {
+      "minLength": 1,
+      "title": "Bounded Result Summary",
+      "type": "string"
+    },
+    "claim_support_satisfied": {
+      "title": "Claim Support Satisfied",
+      "type": "boolean"
+    },
+    "comparison_table": {
+      "$ref": "#/$defs/SubstrateExperimentComparisonTable"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "experiment_spec_id": {
+      "minLength": 1,
+      "title": "Experiment Spec Id",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "result_label": {
+      "enum": [
+        "SyntheticExperimentVerified",
+        "NegativeResult",
+        "Inconclusive"
+      ],
+      "title": "Result Label",
+      "type": "string"
+    },
+    "result_status": {
+      "enum": [
+        "supported",
+        "negative_result",
+        "inconclusive"
+      ],
+      "title": "Result Status",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    },
+    "target_claim_id": {
+      "minLength": 1,
+      "title": "Target Claim Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "experiment_spec_id",
+    "substrate_id",
+    "target_claim_id",
+    "result_status",
+    "result_label",
+    "claim_support_satisfied",
+    "comparison_table",
+    "bounded_result_summary",
+    "limitations"
+  ],
+  "title": "SubstrateExperimentResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.51.0",
+  "x-factori-source-model": "factori.schemas.SubstrateExperimentResult",
+  "x-factori-verification-evidence": false
+}

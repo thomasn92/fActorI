@@ -65,6 +65,8 @@ from factori.schemas import (
     PlannedSpecDedupIndex,
     SandboxBudgetPolicy,
 )
+from factori.scientific_substrate import latest_selected_scientific_substrate
+from factori.substrate_experiment_routing import route_substrate_experiment
 
 _LOOP_BACKENDS = {"deterministic", "fake", "openai"}
 
@@ -282,30 +284,65 @@ def run_autonomous_loop(
             break
 
         routing_result = None
+        substrate_routing_result = None
+        routing_report_path = None
+        iteration_routed_experiment_count = 0
+        iteration_created_experiment_spec_count = 0
         if enable_experiment_routing:
             remaining_loop_runs = max(max_sandbox_runs_per_loop - sandbox_runs_used, 0)
-            routing_result = route_experiment_gaps(
-                run_id=run_id,
-                root=root_path,
-                store=store,
-                ledger=ledger,
-                routing_backend="deterministic",
-                sandbox_budget_remaining=remaining_loop_runs,
-            )
-            experiment_routing_paths.extend(
-                [
+            selected_substrate, _ = latest_selected_scientific_substrate(root_path, run_id)
+            if selected_substrate is not None:
+                substrate_routing_result = route_substrate_experiment(
+                    run_id=run_id,
+                    root=root_path,
+                    store=store,
+                    ledger=ledger,
+                )
+            if (
+                substrate_routing_result is not None
+                and substrate_routing_result.report.substrate_experiment_routed
+            ):
+                substrate_paths = [
+                    substrate_routing_result.report_artifact.path,
+                    substrate_routing_result.markdown_artifact.path,
+                ]
+                if substrate_routing_result.spec_artifact is not None:
+                    substrate_paths.append(substrate_routing_result.spec_artifact.path)
+                experiment_routing_paths.extend(substrate_paths)
+                artifacts_created.extend(substrate_paths)
+                routing_report_path = substrate_routing_result.report_artifact.path
+                iteration_routed_experiment_count = 1
+                iteration_created_experiment_spec_count = int(
+                    substrate_routing_result.spec_artifact is not None
+                )
+                routed_experiment_gap_count += 1
+                routed_experiment_spec_count += iteration_created_experiment_spec_count
+                empirical_gaps_routed += 1
+            else:
+                routing_result = route_experiment_gaps(
+                    run_id=run_id,
+                    root=root_path,
+                    store=store,
+                    ledger=ledger,
+                    routing_backend="deterministic",
+                    sandbox_budget_remaining=remaining_loop_runs,
+                )
+                generic_paths = [
                     routing_result.report_artifact.path,
                     routing_result.markdown_artifact.path,
                     routing_result.index_artifact.path,
                     routing_result.registry_artifact.path,
                 ]
-            )
-            artifacts_created.extend(experiment_routing_paths[-4:])
-            routed_experiment_gap_count += routing_result.report.routed_gap_count
-            routed_experiment_spec_count += (
-                routing_result.report.created_experiment_spec_count
-            )
-            empirical_gaps_routed += routing_result.report.bounded_empirical_gaps_routed
+                experiment_routing_paths.extend(generic_paths)
+                artifacts_created.extend(generic_paths)
+                routing_report_path = routing_result.report_artifact.path
+                iteration_routed_experiment_count = routing_result.report.routed_gap_count
+                iteration_created_experiment_spec_count = (
+                    routing_result.report.created_experiment_spec_count
+                )
+                routed_experiment_gap_count += iteration_routed_experiment_count
+                routed_experiment_spec_count += iteration_created_experiment_spec_count
+                empirical_gaps_routed += routing_result.report.bounded_empirical_gaps_routed
 
         autonomous_execution = execute_autonomous_evidence_plan(
             run_id=run_id,
@@ -546,6 +583,15 @@ def run_autonomous_loop(
                     routing_result.registry_artifact.path,
                 ]
             )
+        if substrate_routing_result is not None:
+            iteration_paths.extend(
+                [
+                    substrate_routing_result.report_artifact.path,
+                    substrate_routing_result.markdown_artifact.path,
+                ]
+            )
+            if substrate_routing_result.spec_artifact is not None:
+                iteration_paths.append(substrate_routing_result.spec_artifact.path)
         artifacts_created.extend(iteration_paths)
 
         snapshot = _snapshot(
@@ -561,9 +607,7 @@ def run_autonomous_loop(
                 else 0
             ),
             routed_experiment_spec_count=(
-                routing_result.report.created_experiment_spec_count
-                if routing_result is not None
-                else 0
+                iteration_created_experiment_spec_count
             ),
         )
         terminal_history = build_gap_attempt_history(
@@ -734,9 +778,7 @@ def run_autonomous_loop(
                             else 0
                         ),
                         routed_experiment_spec_count=(
-                            routing_result.report.created_experiment_spec_count
-                            if routing_result is not None
-                            else 0
+                            iteration_created_experiment_spec_count
                         ),
                     )
                     decision = _decide_iteration(
@@ -783,15 +825,13 @@ def run_autonomous_loop(
                 else 0
             ),
             experiment_gap_routing_report_path=(
-                routing_result.report_artifact.path if routing_result is not None else None
+                routing_report_path
             ),
             routed_experiment_gap_count=(
-                routing_result.report.routed_gap_count if routing_result is not None else 0
+                iteration_routed_experiment_count
             ),
             routed_experiment_spec_count=(
-                routing_result.report.created_experiment_spec_count
-                if routing_result is not None
-                else 0
+                iteration_created_experiment_spec_count
             ),
             sandbox_budget_runs_used=sandbox_runs_used,
             sandbox_budget_runs_remaining=max(max_sandbox_runs_per_loop - sandbox_runs_used, 0),

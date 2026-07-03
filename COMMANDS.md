@@ -820,6 +820,8 @@ uv run factori inspect-autonomous-paper-checkpoints --run-id demo-paper
 uv run factori inspect-autonomous-paper-resume --run-id demo-paper
 uv run factori build-scientific-substrate --run-id demo-paper --max-substrates 2
 uv run factori inspect-scientific-substrate --run-id demo-paper --json
+uv run factori route-substrate-experiment --run-id demo-paper
+uv run factori inspect-substrate-experiment-routing --run-id demo-paper --json
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete

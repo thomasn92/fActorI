@@ -39,6 +39,9 @@ from factori.schemas import (
     PythonExperimentSandboxIndex,
     PythonExperimentSandboxManifest,
     PythonExperimentSandboxReport,
+    SubstrateExperimentComparisonTable,
+    SubstrateExperimentResult,
+    SubstrateExperimentSpec,
 )
 from factori.storage_protocols import Clock, SystemClock
 
@@ -205,6 +208,7 @@ def run_python_experiment_sandbox(
     metrics: dict[str, Any] | None = None
     metrics_hash: str | None = None
     output_hash: str | None = None
+    substrate_result: SubstrateExperimentResult | None = None
     created_candidate: str | None = None
     ingested_path: str | None = None
     map_rebuilt = False
@@ -221,6 +225,16 @@ def run_python_experiment_sandbox(
             _validate_output_authority(metrics, workdir / "outputs")
             metrics_hash = sha256_file(workdir / "metrics.json")
             output_hash = _hash_outputs(workdir / "outputs")
+            if isinstance(spec, SubstrateExperimentSpec):
+                substrate_result = _build_substrate_experiment_result(
+                    run_id=run_id,
+                    spec=spec,
+                    metrics=metrics,
+                )
+                _write_json_atomic(
+                    workdir / "substrate-experiment-result.json",
+                    substrate_result.model_dump(mode="json"),
+                )
             status = "completed"
     except subprocess.TimeoutExpired as exc:
         stdout = _decode_timeout_stream(exc.stdout)
@@ -251,6 +265,7 @@ def run_python_experiment_sandbox(
             config_hash=hashes["config_hash"],
             code_hash=hashes["code_hash"],
             clock=clock or SystemClock(),
+            substrate_result=substrate_result,
         )
         candidate_path = workdir / "experiment-artifact-candidate.json"
         _write_json_atomic(candidate_path, candidate.model_dump(mode="json"))
@@ -402,13 +417,21 @@ def render_python_experiment_sandbox_markdown(
     )
 
 
-def _load_spec(path_or_spec: str | Path | PlannedExperimentSpec) -> PlannedExperimentSpec:
+def _load_spec(
+    path_or_spec: str | Path | PlannedExperimentSpec,
+) -> PlannedExperimentSpec | SubstrateExperimentSpec:
     if isinstance(path_or_spec, PlannedExperimentSpec):
         return path_or_spec
     try:
-        return PlannedExperimentSpec.model_validate_json(
-            Path(path_or_spec).read_text(encoding="utf-8")
-        )
+        payload = Path(path_or_spec).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise PythonExperimentSandboxError(f"Invalid experiment spec: {exc}") from exc
+    try:
+        return SubstrateExperimentSpec.model_validate_json(payload)
+    except ValidationError:
+        pass
+    try:
+        return PlannedExperimentSpec.model_validate_json(payload)
     except (OSError, ValidationError) as exc:
         raise PythonExperimentSandboxError(f"Invalid experiment spec: {exc}") from exc
 
@@ -720,26 +743,47 @@ def _build_experiment_artifact(
     *,
     root_path: Path,
     run_id: str,
-    spec: PlannedExperimentSpec,
+    spec: PlannedExperimentSpec | SubstrateExperimentSpec,
     sandbox_run_id: str,
     workdir: Path,
     metrics: dict[str, Any],
     config_hash: str,
     code_hash: str,
     clock: Clock,
+    substrate_result: SubstrateExperimentResult | None = None,
 ) -> ExperimentArtifact:
     artifact_paths = [
         _display_path(workdir / name, root_path)
         for name in ("metrics.json", "stdout.txt", "stderr.txt", "artifact-manifest.json")
     ]
+    if substrate_result is not None:
+        artifact_paths.append(
+            _display_path(workdir / "substrate-experiment-result.json", root_path)
+        )
     now = clock.now()
+    outcome_supported = (
+        substrate_result is None or substrate_result.claim_support_satisfied
+    )
+    result_summary = (
+        substrate_result.bounded_result_summary
+        if substrate_result is not None
+        else (
+            "This is a synthetic/local experiment artifact. It supports only the bounded "
+            "mapped result claim for this run. It does not imply broad empirical validation, "
+            "correctness validation, novelty, or publication readiness."
+        )
+    )
     return ExperimentArtifact(
         run_id=run_id,
         experiment_id=f"uv-local-{sandbox_run_id}",
-        experiment_type="synthetic_uv_local",
+        experiment_type=(
+            "substrate_distance_decay_uv_local"
+            if substrate_result is not None
+            else "synthetic_uv_local"
+        ),
         claim_ids_or_section_ids=[spec.target_claim_id, _slug(spec.target_section)],
         hypothesis_or_question=spec.hypothesis_or_question,
-        status="completed",
+        status="completed" if outcome_supported else "inconclusive",
         dataset_name_optional=spec.suggested_dataset,
         dataset_hash_optional=sha256_json(
             {"bundle": spec.experiment_bundle_path_optional, "seed": spec.seed}
@@ -748,11 +792,7 @@ def _build_experiment_artifact(
         code_commit_hash_optional=code_hash,
         command_optional="uv run --offline --frozen --no-dev python experiment.py",
         metrics=metrics,
-        result_summary=(
-            "This is a synthetic/local experiment artifact. It supports only the bounded "
-            "mapped result claim for this run. It does not imply broad empirical validation, "
-            "correctness validation, novelty, or publication readiness."
-        ),
+        result_summary=result_summary,
         artifact_paths=artifact_paths,
         limitations=[
             "Synthetic/local fixture experiment only.",
@@ -762,6 +802,91 @@ def _build_experiment_artifact(
         ],
         created_at=now,
         ingested_at=now,
+        creates_scientific_validation=False,
+        implies_publication_readiness=False,
+        is_verification_evidence=False,
+    )
+
+
+def _build_substrate_experiment_result(
+    *,
+    run_id: str,
+    spec: SubstrateExperimentSpec,
+    metrics: dict[str, Any],
+) -> SubstrateExperimentResult:
+    required = {
+        "test_mae_baseline",
+        "test_mae_method",
+        "test_rmse_baseline",
+        "test_rmse_method",
+        "comparison_table",
+        "heterogeneity_ablation_present",
+        "claim_support_satisfied",
+    }
+    missing = sorted(required - metrics.keys())
+    if missing:
+        raise PythonExperimentSandboxError(
+            "substrate experiment metrics are missing required fields: "
+            + ", ".join(missing)
+        )
+    raw_rows = metrics["comparison_table"]
+    if not isinstance(raw_rows, list) or len(raw_rows) < 2:
+        raise PythonExperimentSandboxError(
+            "substrate experiment comparison table requires at least two settings"
+        )
+    columns = [
+        "setting",
+        "baseline_mae",
+        "method_mae",
+        "baseline_rmse",
+        "method_rmse",
+        "mae_improvement",
+        "rmse_improvement",
+    ]
+    rows: list[dict[str, str | int | float]] = []
+    for raw in raw_rows:
+        if not isinstance(raw, dict) or any(column not in raw for column in columns):
+            raise PythonExperimentSandboxError(
+                "substrate experiment comparison table is malformed"
+            )
+        rows.append(
+            {
+                key: value
+                for key, value in raw.items()
+                if isinstance(value, (str, int, float))
+            }
+        )
+    supported = bool(metrics["claim_support_satisfied"])
+    return SubstrateExperimentResult(
+        run_id=run_id,
+        experiment_spec_id=spec.spec_id,
+        substrate_id=spec.source_substrate_id,
+        target_claim_id=spec.target_claim_id,
+        result_status="supported" if supported else "negative_result",
+        result_label="SyntheticExperimentVerified" if supported else "NegativeResult",
+        claim_support_satisfied=supported,
+        comparison_table=SubstrateExperimentComparisonTable(
+            columns=columns,
+            rows=rows,
+            heterogeneity_ablation_present=bool(
+                metrics["heterogeneity_ablation_present"]
+            ),
+        ),
+        bounded_result_summary=(
+            "The heterogeneous-alpha method has lower MAE and no higher RMSE than the "
+            "pooled-alpha baseline for the recorded synthetic settings. This bounded result "
+            "does not imply validation beyond this synthetic run."
+            if supported
+            else "The heterogeneous-alpha method did not satisfy the declared bounded support "
+            "rule for every recorded synthetic setting. The run is retained as a negative "
+            "result and does not support the mapped positive claim."
+        ),
+        limitations=[
+            "Synthetic OD-flow data and fixed seeds only.",
+            "The result is scoped to the mapped claim and recorded heterogeneity settings.",
+            "The result does not imply real-world validation or publication readiness.",
+        ],
+        publication_ready=False,
         creates_scientific_validation=False,
         implies_publication_readiness=False,
         is_verification_evidence=False,

@@ -218,3 +218,9 @@ substrates with equations, notation, assumptions, DGPs, baselines, measurable hy
 schemas, limitations, and failure modes. Substrates are scientific planning context for future
 bounded experiments only; they do not create proof, experiment evidence, validation, or publication
 readiness.
+
+Milestone 85 routes a selected ScientificSubstrate to an approved substrate-specific uv-local
+experiment. The distance-decay route compares pooled and origin-specific alpha models across low
+and high synthetic heterogeneity settings, records MAE/RMSE comparison tables, ingests successful
+bounded artifacts, and retains failed support rules as negative or inconclusive results. Generic
+synthetic calibration remains the fallback when no supported selected substrate exists.

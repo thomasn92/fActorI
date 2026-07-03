@@ -203,6 +203,9 @@ All implementation modules are under `factori/`.
 - `scientific_substrate.py`: deterministic context-only construction of concrete scientific
   substrates from idea-space mutation axes, including equations, variables, assumptions, DGPs,
   baselines, measurable hypotheses, result schemas, and future experiment boundaries.
+- `substrate_experiment_routing.py`: append-only routing from selected scientific substrates to
+  approved local experiment bundles, preferring model-specific experiments over generic
+  calibration while preserving bounded claim and non-publication authority.
 - `abstract_synthesis.py`: abstract-model proposals, scoring, attacks, and synthesis artifacts.
 - `final_selection.py`: deterministic abstract-or-branch final nucleus selection.
 - `claims.py`: claim/evidence table and claim-admissibility helpers.

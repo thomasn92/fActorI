@@ -64,7 +64,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.50.0/research-object-manifest.schema.json",
+  "$id": "https://schemas.factori.local/0.51.0/research-object-manifest.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "References to research-object package files.",
@@ -98,7 +98,7 @@
   ],
   "title": "ResearchObjectManifest",
   "type": "object",
-  "x-factori-protocol-version": "0.50.0",
+  "x-factori-protocol-version": "0.51.0",
   "x-factori-source-model": "factori.schemas.ResearchObjectManifest",
   "x-factori-verification-evidence": false
 }

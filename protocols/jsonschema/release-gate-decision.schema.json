@@ -11,7 +11,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.50.0/release-gate-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.51.0/release-gate-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic release decision.",
@@ -71,7 +71,7 @@
   ],
   "title": "ReleaseGateDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.50.0",
+  "x-factori-protocol-version": "0.51.0",
   "x-factori-source-model": "factori.schemas.ReleaseGateDecision",
   "x-factori-verification-evidence": false
 }
