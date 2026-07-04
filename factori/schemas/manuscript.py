@@ -1800,6 +1800,158 @@ class CreativeMutationInspectionReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+class MutationTournamentEntry(StrictModel):
+    """One original or mutation substrate branch in a second-generation tournament."""
+
+    entry_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    substrate_model_type: str = Field(min_length=1)
+    branch_role: Literal["original_winner", "mutation"]
+    experiment_bundle_id: str = Field(min_length=1)
+    status: Literal["completed", "negative_result", "inconclusive", "failed", "not_run"]
+    experiment_spec_path_optional: str | None = None
+    sandbox_report_path_optional: str | None = None
+    experiment_artifact_path_optional: str | None = None
+    result_label_optional: str | None = None
+    primary_metric: float = 0.0
+    baseline_metric: float = 0.0
+    method_metric: float = 0.0
+    improvement_ratio: float = 0.0
+    complexity_penalty_optional: float | None = None
+    robustness_metric_optional: float | None = None
+    raw_score: float = 0.0
+    complexity_adjusted_score: float = 0.0
+    score: float = 0.0
+    outcome_label: Literal[
+        "original_winner_baseline",
+        "mutation_improved",
+        "mutation_matched",
+        "mutation_failed",
+        "mutation_inconclusive",
+    ]
+    selected_as_second_generation_winner: bool = False
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class MutationTournamentComparison(StrictModel):
+    """Second-generation comparison of mutation substrates against the prior winner."""
+
+    comparison_policy: str = Field(min_length=1)
+    metric_names: list[str] = Field(min_length=1)
+    rows: list[dict[str, str | int | float | bool | None]] = Field(default_factory=list)
+    original_winner_substrate_id: str = Field(min_length=1)
+    second_generation_winner_substrate_id_optional: str | None = None
+    second_generation_winner_title_optional: str | None = None
+    tournament_outcome: Literal[
+        "original_winner_remains_best",
+        "hierarchical_alpha_wins_by_parsimony",
+        "hybrid_wins_when_low_rank_residual_structure_exists",
+        "robustness_branch_wins_by_stability",
+        "all_mutations_inconclusive",
+    ]
+    mutation_improved_over_original: bool = False
+    comparison_table_present: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class MutationTournamentSpec(StrictModel):
+    """Execution plan for a second-generation mutation substrate tournament."""
+
+    run_id: str = Field(min_length=1)
+    mutation_tournament_id: str = Field(min_length=1)
+    source_scientific_substrate_build_path_optional: str | None = None
+    source_substrate_tournament_result_path_optional: str | None = None
+    source_creative_mutation_report_path_optional: str | None = None
+    original_winner_substrate_id: str = Field(min_length=1)
+    mutation_substrate_ids: list[str] = Field(default_factory=list)
+    execution_backend: Literal["uv_local"] = "uv_local"
+    selection_policy: str = Field(min_length=1)
+    substrate_count: int = Field(ge=0)
+    experiment_spec_paths: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class MutationTournamentResult(StrictModel):
+    """Append-only bounded result of testing creative mutation substrates."""
+
+    run_id: str = Field(min_length=1)
+    mutation_tournament_id: str = Field(min_length=1)
+    tournament_status: Literal[
+        "completed",
+        "completed_with_inconclusive_branches",
+        "no_mutation_substrates",
+        "failed",
+    ]
+    source_scientific_substrate_build_path_optional: str | None = None
+    source_substrate_tournament_result_path_optional: str | None = None
+    mutation_tournament_spec_path: str = Field(min_length=1)
+    original_winner_substrate_id: str = Field(min_length=1)
+    original_winner_title: str = Field(min_length=1)
+    original_winner_included: bool
+    mutation_substrate_count: int = Field(ge=0)
+    completed_branch_count: int = Field(ge=0)
+    inconclusive_branch_count: int = Field(ge=0)
+    failed_branch_count: int = Field(ge=0)
+    second_generation_winner_selected: bool
+    second_generation_winner_substrate_id_optional: str | None = None
+    second_generation_winner_title_optional: str | None = None
+    second_generation_winner_reason_optional: str | None = None
+    mutation_improved_over_original: bool = False
+    tournament_outcome: Literal[
+        "original_winner_remains_best",
+        "hierarchical_alpha_wins_by_parsimony",
+        "hybrid_wins_when_low_rank_residual_structure_exists",
+        "robustness_branch_wins_by_stability",
+        "all_mutations_inconclusive",
+    ]
+    entries: list[MutationTournamentEntry] = Field(default_factory=list)
+    comparison: MutationTournamentComparison
+    generated_experiment_spec_paths: list[str] = Field(default_factory=list)
+    sandbox_report_paths: list[str] = Field(default_factory=list)
+    experiment_artifact_paths: list[str] = Field(default_factory=list)
+    unsupported_claim_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class MutationTournamentInspectionReport(StrictModel):
+    """Read-only inspection report for the latest mutation substrate tournament."""
+
+    run_id: str = Field(min_length=1)
+    mutation_tournament_present: bool
+    latest_mutation_tournament_id_optional: str | None = None
+    tournament_status_optional: str | None = None
+    original_winner_included: bool = False
+    hierarchical_alpha_branch_completed: bool = False
+    hybrid_low_rank_branch_completed: bool = False
+    boundary_robustness_branch_completed: bool = False
+    second_generation_winner_selected: bool = False
+    second_generation_winner_title_optional: str | None = None
+    mutation_improved_over_original: bool = False
+    comparison_table_present: bool = False
+    entries: list[MutationTournamentEntry] = Field(default_factory=list)
+    result_optional: MutationTournamentResult | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 class ProofObligationSpec(StrictModel):
     """Planned formal proof obligation; never verification evidence."""
 
@@ -4086,6 +4238,11 @@ __all__ = [
     "CreativeMutationPlan",
     "CreativeMutationReport",
     "CreativeMutationInspectionReport",
+    "MutationTournamentSpec",
+    "MutationTournamentEntry",
+    "MutationTournamentResult",
+    "MutationTournamentComparison",
+    "MutationTournamentInspectionReport",
     "ProofObligationSpec",
     "RetrievalExpansionRequest",
     "PlannedSpecExecutionItem",

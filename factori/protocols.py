@@ -167,6 +167,11 @@ from factori.schemas import (
     ManuscriptDraftStatus,
     ManuscriptPlan,
     ModelNotationAssessment,
+    MutationTournamentComparison,
+    MutationTournamentEntry,
+    MutationTournamentInspectionReport,
+    MutationTournamentResult,
+    MutationTournamentSpec,
     NarrativeManuscriptContract,
     NumericalStudyAssessment,
     OutputHygieneReport,
@@ -259,7 +264,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.53.0"
+PROTOCOL_VERSION = "0.54.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -600,6 +605,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "CreativeMutationInspectionReport",
         CreativeMutationInspectionReport,
         "Read-only inspection report for creative mutation planning and application.",
+    ),
+    ProtocolDefinition(
+        "MutationTournamentSpec",
+        MutationTournamentSpec,
+        "Execution plan for a second-generation mutation substrate tournament.",
+    ),
+    ProtocolDefinition(
+        "MutationTournamentEntry",
+        MutationTournamentEntry,
+        "One original or mutation substrate branch in a mutation tournament.",
+    ),
+    ProtocolDefinition(
+        "MutationTournamentResult",
+        MutationTournamentResult,
+        "Append-only bounded result of testing creative mutation substrates.",
+    ),
+    ProtocolDefinition(
+        "MutationTournamentComparison",
+        MutationTournamentComparison,
+        "Second-generation comparison of mutation substrates against the prior winner.",
+    ),
+    ProtocolDefinition(
+        "MutationTournamentInspectionReport",
+        MutationTournamentInspectionReport,
+        "Read-only inspection report for the latest mutation substrate tournament.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

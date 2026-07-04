@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.53.0/idea-tree-export-report.schema.json",
+  "$id": "https://schemas.factori.local/0.54.0/idea-tree-export-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Context-only append-only idea-tree export result.",
@@ -80,7 +80,7 @@
   ],
   "title": "IdeaTreeExportReport",
   "type": "object",
-  "x-factori-protocol-version": "0.53.0",
+  "x-factori-protocol-version": "0.54.0",
   "x-factori-source-model": "factori.schemas.IdeaTreeExportReport",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.53.0/full-paper-generation-step-status.schema.json",
+  "$id": "https://schemas.factori.local/0.54.0/full-paper-generation-step-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Full-paper generation step status enum.",
   "enum": [
@@ -12,7 +12,7 @@
   ],
   "title": "FullPaperGenerationStepStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.53.0",
+  "x-factori-protocol-version": "0.54.0",
   "x-factori-source-model": "factori.schemas.FullPaperGenerationStepStatus",
   "x-factori-verification-evidence": false
 }

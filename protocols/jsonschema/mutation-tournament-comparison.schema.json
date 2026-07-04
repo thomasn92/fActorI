@@ -1,0 +1,128 @@
+{
+  "$id": "https://schemas.factori.local/0.54.0/mutation-tournament-comparison.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Second-generation comparison of mutation substrates against the prior winner.",
+  "properties": {
+    "comparison_policy": {
+      "minLength": 1,
+      "title": "Comparison Policy",
+      "type": "string"
+    },
+    "comparison_table_present": {
+      "default": false,
+      "title": "Comparison Table Present",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_names": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Metric Names",
+      "type": "array"
+    },
+    "mutation_improved_over_original": {
+      "default": false,
+      "title": "Mutation Improved Over Original",
+      "type": "boolean"
+    },
+    "original_winner_substrate_id": {
+      "minLength": 1,
+      "title": "Original Winner Substrate Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rows": {
+      "items": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": "object"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "second_generation_winner_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Second Generation Winner Substrate Id Optional"
+    },
+    "second_generation_winner_title_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Second Generation Winner Title Optional"
+    },
+    "tournament_outcome": {
+      "enum": [
+        "original_winner_remains_best",
+        "hierarchical_alpha_wins_by_parsimony",
+        "hybrid_wins_when_low_rank_residual_structure_exists",
+        "robustness_branch_wins_by_stability",
+        "all_mutations_inconclusive"
+      ],
+      "title": "Tournament Outcome",
+      "type": "string"
+    }
+  },
+  "required": [
+    "comparison_policy",
+    "metric_names",
+    "original_winner_substrate_id",
+    "tournament_outcome"
+  ],
+  "title": "MutationTournamentComparison",
+  "type": "object",
+  "x-factori-protocol-version": "0.54.0",
+  "x-factori-source-model": "factori.schemas.MutationTournamentComparison",
+  "x-factori-verification-evidence": false
+}

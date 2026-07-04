@@ -1,0 +1,569 @@
+{
+  "$defs": {
+    "MutationTournamentComparison": {
+      "additionalProperties": false,
+      "description": "Second-generation comparison of mutation substrates against the prior winner.",
+      "properties": {
+        "comparison_policy": {
+          "minLength": 1,
+          "title": "Comparison Policy",
+          "type": "string"
+        },
+        "comparison_table_present": {
+          "default": false,
+          "title": "Comparison Table Present",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "metric_names": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Metric Names",
+          "type": "array"
+        },
+        "mutation_improved_over_original": {
+          "default": false,
+          "title": "Mutation Improved Over Original",
+          "type": "boolean"
+        },
+        "original_winner_substrate_id": {
+          "minLength": 1,
+          "title": "Original Winner Substrate Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "rows": {
+          "items": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "second_generation_winner_substrate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Second Generation Winner Substrate Id Optional"
+        },
+        "second_generation_winner_title_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Second Generation Winner Title Optional"
+        },
+        "tournament_outcome": {
+          "enum": [
+            "original_winner_remains_best",
+            "hierarchical_alpha_wins_by_parsimony",
+            "hybrid_wins_when_low_rank_residual_structure_exists",
+            "robustness_branch_wins_by_stability",
+            "all_mutations_inconclusive"
+          ],
+          "title": "Tournament Outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "comparison_policy",
+        "metric_names",
+        "original_winner_substrate_id",
+        "tournament_outcome"
+      ],
+      "title": "MutationTournamentComparison",
+      "type": "object"
+    },
+    "MutationTournamentEntry": {
+      "additionalProperties": false,
+      "description": "One original or mutation substrate branch in a second-generation tournament.",
+      "properties": {
+        "baseline_metric": {
+          "default": 0.0,
+          "title": "Baseline Metric",
+          "type": "number"
+        },
+        "branch_role": {
+          "enum": [
+            "original_winner",
+            "mutation"
+          ],
+          "title": "Branch Role",
+          "type": "string"
+        },
+        "complexity_adjusted_score": {
+          "default": 0.0,
+          "title": "Complexity Adjusted Score",
+          "type": "number"
+        },
+        "complexity_penalty_optional": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Complexity Penalty Optional"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "entry_id": {
+          "minLength": 1,
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "experiment_artifact_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment Artifact Path Optional"
+        },
+        "experiment_bundle_id": {
+          "minLength": 1,
+          "title": "Experiment Bundle Id",
+          "type": "string"
+        },
+        "experiment_spec_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment Spec Path Optional"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "improvement_ratio": {
+          "default": 0.0,
+          "title": "Improvement Ratio",
+          "type": "number"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "method_metric": {
+          "default": 0.0,
+          "title": "Method Metric",
+          "type": "number"
+        },
+        "outcome_label": {
+          "enum": [
+            "original_winner_baseline",
+            "mutation_improved",
+            "mutation_matched",
+            "mutation_failed",
+            "mutation_inconclusive"
+          ],
+          "title": "Outcome Label",
+          "type": "string"
+        },
+        "primary_metric": {
+          "default": 0.0,
+          "title": "Primary Metric",
+          "type": "number"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "raw_score": {
+          "default": 0.0,
+          "title": "Raw Score",
+          "type": "number"
+        },
+        "result_label_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result Label Optional"
+        },
+        "robustness_metric_optional": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Robustness Metric Optional"
+        },
+        "sandbox_report_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sandbox Report Path Optional"
+        },
+        "score": {
+          "default": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "selected_as_second_generation_winner": {
+          "default": false,
+          "title": "Selected As Second Generation Winner",
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "negative_result",
+            "inconclusive",
+            "failed",
+            "not_run"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "substrate_id": {
+          "minLength": 1,
+          "title": "Substrate Id",
+          "type": "string"
+        },
+        "substrate_model_type": {
+          "minLength": 1,
+          "title": "Substrate Model Type",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entry_id",
+        "substrate_id",
+        "title",
+        "substrate_model_type",
+        "branch_role",
+        "experiment_bundle_id",
+        "status",
+        "outcome_label"
+      ],
+      "title": "MutationTournamentEntry",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.54.0/mutation-tournament-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only bounded result of testing creative mutation substrates.",
+  "properties": {
+    "comparison": {
+      "$ref": "#/$defs/MutationTournamentComparison"
+    },
+    "completed_branch_count": {
+      "minimum": 0,
+      "title": "Completed Branch Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/MutationTournamentEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "experiment_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Experiment Artifact Paths",
+      "type": "array"
+    },
+    "failed_branch_count": {
+      "minimum": 0,
+      "title": "Failed Branch Count",
+      "type": "integer"
+    },
+    "generated_experiment_spec_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Generated Experiment Spec Paths",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "inconclusive_branch_count": {
+      "minimum": 0,
+      "title": "Inconclusive Branch Count",
+      "type": "integer"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "mutation_improved_over_original": {
+      "default": false,
+      "title": "Mutation Improved Over Original",
+      "type": "boolean"
+    },
+    "mutation_substrate_count": {
+      "minimum": 0,
+      "title": "Mutation Substrate Count",
+      "type": "integer"
+    },
+    "mutation_tournament_id": {
+      "minLength": 1,
+      "title": "Mutation Tournament Id",
+      "type": "string"
+    },
+    "mutation_tournament_spec_path": {
+      "minLength": 1,
+      "title": "Mutation Tournament Spec Path",
+      "type": "string"
+    },
+    "original_winner_included": {
+      "title": "Original Winner Included",
+      "type": "boolean"
+    },
+    "original_winner_substrate_id": {
+      "minLength": 1,
+      "title": "Original Winner Substrate Id",
+      "type": "string"
+    },
+    "original_winner_title": {
+      "minLength": 1,
+      "title": "Original Winner Title",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sandbox_report_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sandbox Report Paths",
+      "type": "array"
+    },
+    "second_generation_winner_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Second Generation Winner Reason Optional"
+    },
+    "second_generation_winner_selected": {
+      "title": "Second Generation Winner Selected",
+      "type": "boolean"
+    },
+    "second_generation_winner_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Second Generation Winner Substrate Id Optional"
+    },
+    "second_generation_winner_title_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Second Generation Winner Title Optional"
+    },
+    "source_scientific_substrate_build_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Scientific Substrate Build Path Optional"
+    },
+    "source_substrate_tournament_result_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Substrate Tournament Result Path Optional"
+    },
+    "tournament_outcome": {
+      "enum": [
+        "original_winner_remains_best",
+        "hierarchical_alpha_wins_by_parsimony",
+        "hybrid_wins_when_low_rank_residual_structure_exists",
+        "robustness_branch_wins_by_stability",
+        "all_mutations_inconclusive"
+      ],
+      "title": "Tournament Outcome",
+      "type": "string"
+    },
+    "tournament_status": {
+      "enum": [
+        "completed",
+        "completed_with_inconclusive_branches",
+        "no_mutation_substrates",
+        "failed"
+      ],
+      "title": "Tournament Status",
+      "type": "string"
+    },
+    "unsupported_claim_count": {
+      "minimum": 0,
+      "title": "Unsupported Claim Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "mutation_tournament_id",
+    "tournament_status",
+    "mutation_tournament_spec_path",
+    "original_winner_substrate_id",
+    "original_winner_title",
+    "original_winner_included",
+    "mutation_substrate_count",
+    "completed_branch_count",
+    "inconclusive_branch_count",
+    "failed_branch_count",
+    "second_generation_winner_selected",
+    "tournament_outcome",
+    "comparison",
+    "unsupported_claim_count"
+  ],
+  "title": "MutationTournamentResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.54.0",
+  "x-factori-source-model": "factori.schemas.MutationTournamentResult",
+  "x-factori-verification-evidence": false
+}

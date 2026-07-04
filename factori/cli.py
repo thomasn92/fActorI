@@ -190,6 +190,11 @@ from factori.manuscript_drafting import (
     load_manuscript_drafting_inputs,
 )
 from factori.manuscript_plan import ManuscriptPlanError, run_manuscript_planning
+from factori.mutation_tournament import (
+    MutationTournamentError,
+    inspect_mutation_tournament,
+    run_mutation_tournament,
+)
 from factori.narrative_contract import (
     NarrativeContractError,
     build_narrative_contract,
@@ -4186,6 +4191,99 @@ def inspect_substrate_tournament_command(
     )
     typer.echo(f"Winner selected: {str(report.winner_selected).lower()}")
     typer.echo(f"Winner: {report.winner_substrate_title_optional or 'none'}")
+    typer.echo(f"Comparison table: {str(report.comparison_table_present).lower()}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("run-mutation-tournament")
+def run_mutation_tournament_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run a second-generation uv-local tournament over mutation substrates."""
+    try:
+        result = run_mutation_tournament(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except MutationTournamentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        **result.result.model_dump(mode="json"),
+        "mutation_tournament_present": True,
+        "publication_ready": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"tournament_status={result.result.tournament_status}")
+    typer.echo(
+        f"original_winner_included={str(result.result.original_winner_included).lower()}"
+    )
+    typer.echo(f"mutation_substrate_count={result.result.mutation_substrate_count}")
+    typer.echo(
+        "second_generation_winner_selected="
+        f"{str(result.result.second_generation_winner_selected).lower()}"
+    )
+    typer.echo(
+        f"second_generation_winner="
+        f"{result.result.second_generation_winner_title_optional or 'none'}"
+    )
+    typer.echo(f"tournament_outcome={result.result.tournament_outcome}")
+    typer.echo(
+        f"comparison_table_present="
+        f"{str(result.result.comparison.comparison_table_present).lower()}"
+    )
+    typer.echo("publication_ready=false")
+
+
+@app.command("inspect-mutation-tournament")
+def inspect_mutation_tournament_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest mutation tournament and second-generation winner."""
+    try:
+        report = inspect_mutation_tournament(run_id=run_id, root=root)
+    except MutationTournamentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    status = "present" if report.mutation_tournament_present else "absent"
+    typer.echo(f"Mutation tournament: {status}")
+    typer.echo(f"Tournament status: {report.tournament_status_optional or 'none'}")
+    typer.echo(
+        f"Original winner included: {str(report.original_winner_included).lower()}"
+    )
+    typer.echo(
+        "Hierarchical alpha branch completed: "
+        f"{str(report.hierarchical_alpha_branch_completed).lower()}"
+    )
+    typer.echo(
+        "Hybrid low-rank branch completed: "
+        f"{str(report.hybrid_low_rank_branch_completed).lower()}"
+    )
+    typer.echo(
+        "Boundary robustness branch completed: "
+        f"{str(report.boundary_robustness_branch_completed).lower()}"
+    )
+    typer.echo(
+        "Second-generation winner selected: "
+        f"{str(report.second_generation_winner_selected).lower()}"
+    )
+    typer.echo(f"Winner: {report.second_generation_winner_title_optional or 'none'}")
+    typer.echo(
+        f"Mutation improved over original: "
+        f"{str(report.mutation_improved_over_original).lower()}"
+    )
     typer.echo(f"Comparison table: {str(report.comparison_table_present).lower()}")
     typer.echo("Publication ready: false")
 

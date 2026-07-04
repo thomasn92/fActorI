@@ -237,3 +237,9 @@ diagnostics, ScientificSubstrates, and substrate tournament result to plan winne
 winner-loser hybrids, robustness stress tests, and missing-axis candidates. Applying selected
 mutations appends new IdeaTree branches and context-only ScientificSubstrate candidates for future
 bounded experiments without creating scientific validation or publication readiness.
+
+Milestone 88 adds a mutation-substrate experimental tournament. It routes the previous bounded
+substrate winner and applied mutation substrates to approved offline uv-local experiment bundles,
+compares raw improvement, complexity penalties, robustness or recovery metrics, selects a
+second-generation branch for final manuscript regeneration, and keeps all outcomes synthetic-scope
+without real-world validation or publication readiness.

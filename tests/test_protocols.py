@@ -60,6 +60,11 @@ from factori.schemas import (
     ManuscriptAssemblyReport,
     ManuscriptDraftingPlan,
     ManuscriptDraftingReport,
+    MutationTournamentComparison,
+    MutationTournamentEntry,
+    MutationTournamentInspectionReport,
+    MutationTournamentResult,
+    MutationTournamentSpec,
     PaperCriticFinding,
     PaperCriticReport,
     PaperReleaseReadinessPreview,
@@ -110,9 +115,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 255
+    assert len(first) == 260
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.53.0"
+    assert PROTOCOL_VERSION == "0.54.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -268,6 +273,17 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("CreativeMutationInspectionReport").model is (
         CreativeMutationInspectionReport
     )
+    assert get_protocol_definition("MutationTournamentSpec").model is MutationTournamentSpec
+    assert get_protocol_definition("MutationTournamentEntry").model is MutationTournamentEntry
+    assert get_protocol_definition("MutationTournamentResult").model is (
+        MutationTournamentResult
+    )
+    assert get_protocol_definition("MutationTournamentComparison").model is (
+        MutationTournamentComparison
+    )
+    assert get_protocol_definition("MutationTournamentInspectionReport").model is (
+        MutationTournamentInspectionReport
+    )
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -384,6 +400,11 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "CreativeMutationPlan",
         "CreativeMutationReport",
         "CreativeMutationInspectionReport",
+        "MutationTournamentSpec",
+        "MutationTournamentEntry",
+        "MutationTournamentResult",
+        "MutationTournamentComparison",
+        "MutationTournamentInspectionReport",
         "FullPaperGenerationStatus",
         "FullPaperGenerationStepStatus",
         "LLMOrchestrationStatus",

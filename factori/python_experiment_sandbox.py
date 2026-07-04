@@ -846,6 +846,14 @@ def _build_substrate_experiment_result(
     optional_columns = [
         "latent_factor_recovery_correlation",
         "explained_residual_variance",
+        "full_alpha_mae",
+        "full_alpha_rmse",
+        "parameter_count_baseline",
+        "parameter_count_method",
+        "parameter_count_full",
+        "complexity_penalized_score",
+        "robustness_ratio",
+        "performance_degradation",
     ]
     for column in optional_columns:
         if any(isinstance(raw, dict) and column in raw for raw in raw_rows):
@@ -867,6 +875,12 @@ def _build_substrate_experiment_result(
     substrate_family = (
         "pca_low_rank"
         if spec.experiment_bundle_id == "pca_low_rank_od_residual"
+        else "hierarchical_alpha"
+        if spec.experiment_bundle_id == "hierarchical_alpha_spatial_interaction"
+        else "gravity_low_rank_hybrid"
+        if spec.experiment_bundle_id == "gravity_low_rank_residual_hybrid"
+        else "boundary_perturbation"
+        if spec.experiment_bundle_id == "boundary_perturbation_distance_decay"
         else "distance_decay"
     )
     return SubstrateExperimentResult(
@@ -901,6 +915,12 @@ def _build_substrate_experiment_result(
 
 def _substrate_experiment_type(spec: PlannedExperimentSpec | SubstrateExperimentSpec) -> str:
     if isinstance(spec, SubstrateExperimentSpec):
+        if spec.experiment_bundle_id == "hierarchical_alpha_spatial_interaction":
+            return "substrate_hierarchical_alpha_uv_local"
+        if spec.experiment_bundle_id == "gravity_low_rank_residual_hybrid":
+            return "substrate_gravity_low_rank_hybrid_uv_local"
+        if spec.experiment_bundle_id == "boundary_perturbation_distance_decay":
+            return "substrate_boundary_perturbation_uv_local"
         if spec.experiment_bundle_id == "pca_low_rank_od_residual":
             return "substrate_pca_low_rank_uv_local"
         if spec.experiment_bundle_id == "distance_decay_spatial_interaction":
@@ -921,6 +941,43 @@ def _substrate_result_summary(substrate_family: str, supported: bool) -> str:
             "The low-rank residual method did not satisfy the declared bounded support rule "
             "for every recorded synthetic setting. The run is retained as a negative result "
             "and does not support the mapped positive claim."
+        )
+    if substrate_family == "hierarchical_alpha":
+        if supported:
+            return (
+                "The cluster-level alpha model improves on the pooled-alpha baseline while "
+                "using fewer parameters than the full origin-specific alpha model in the "
+                "recorded synthetic settings. This bounded result does not imply validation "
+                "beyond this synthetic run."
+            )
+        return (
+            "The cluster-level alpha model did not satisfy the declared bounded support rule "
+            "for every recorded synthetic setting. The run is retained as a negative result "
+            "and does not support the mapped positive claim."
+        )
+    if substrate_family == "gravity_low_rank_hybrid":
+        if supported:
+            return (
+                "The gravity plus low-rank residual hybrid improves on the distance-decay "
+                "winner in the recorded synthetic residual-structure settings. This bounded "
+                "result does not imply validation beyond this synthetic run."
+            )
+        return (
+            "The gravity plus low-rank residual hybrid did not satisfy the declared bounded "
+            "support rule for every recorded synthetic setting. The run is retained as a "
+            "negative result and does not support the mapped positive claim."
+        )
+    if substrate_family == "boundary_perturbation":
+        if supported:
+            return (
+                "The heterogeneous-alpha advantage persists under the recorded synthetic "
+                "boundary perturbation settings. This bounded result does not imply "
+                "validation beyond this synthetic run."
+            )
+        return (
+            "The boundary perturbation branch did not satisfy the declared bounded support "
+            "rule for every recorded synthetic setting. The run is retained as a negative "
+            "result and does not support the mapped positive claim."
         )
     if supported:
         return (

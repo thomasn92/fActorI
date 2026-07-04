@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.53.0/planned-experiment-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.54.0/planned-experiment-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned experiment specification without experiment-evidence authority.",
@@ -181,7 +181,7 @@
   ],
   "title": "PlannedExperimentSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.53.0",
+  "x-factori-protocol-version": "0.54.0",
   "x-factori-source-model": "factori.schemas.PlannedExperimentSpec",
   "x-factori-verification-evidence": false
 }

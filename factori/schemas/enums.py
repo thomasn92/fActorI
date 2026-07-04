@@ -368,6 +368,7 @@ class ControllerActionType(StrEnum):
     SUBSTRATE_TOURNAMENT_RUN = "SubstrateTournamentRun"
     CREATIVE_MUTATION_PLAN_WRITTEN = "CreativeMutationPlanWritten"
     CREATIVE_MUTATIONS_APPLIED = "CreativeMutationsApplied"
+    MUTATION_TOURNAMENT_RUN = "MutationTournamentRun"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

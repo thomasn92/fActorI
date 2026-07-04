@@ -216,6 +216,8 @@ uv run factori inspect-final-release-bundle --run-id demo --json
 uv run factori run-substrate-tournament --run-id demo
 uv run factori inspect-substrate-tournament --run-id demo
 uv run factori inspect-substrate-tournament --run-id demo --json
+uv run factori run-mutation-tournament --run-id demo
+uv run factori inspect-mutation-tournament --run-id demo --json
 uv run factori verify-final-release-bundle \
   --bundle-path runs/demo/release-bundles/final-bundle-0001
 uv run factori verify-final-release-bundle --run-id demo --json
@@ -830,6 +832,8 @@ uv run factori inspect-substrate-tournament --run-id demo-paper --json
 uv run factori plan-creative-mutations --run-id demo-paper --max-mutations 5
 uv run factori inspect-creative-mutations --run-id demo-paper --json
 uv run factori apply-creative-mutations --run-id demo-paper --max-mutations 3
+uv run factori run-mutation-tournament --run-id demo-paper
+uv run factori inspect-mutation-tournament --run-id demo-paper --json
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
@@ -855,6 +859,11 @@ validation, or publication readiness.
 and substrate tournament result to propose context-only next-generation branches.
 `apply-creative-mutations` appends selected mutation nodes and ScientificSubstrate candidates for
 future bounded experiments; it does not route experiments or create validation evidence.
+
+`run-mutation-tournament` routes the previous bounded tournament winner and applied mutation
+substrates to approved offline uv-local experiment bundles, compares raw and complexity-adjusted
+synthetic scores, and selects a second-generation manuscript branch. It is still synthetic-scope
+workflow context and does not establish real-world validation or publication readiness.
 
 ## Tests and Lint
 

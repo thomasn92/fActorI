@@ -127,6 +127,10 @@ from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
+from factori.mutation_tournament import (
+    inspect_mutation_tournament,
+    run_mutation_tournament,
+)
 from factori.planned_spec_execution import (
     execute_planned_specs,
     inspect_planned_spec_execution,
@@ -210,6 +214,11 @@ from factori.schemas import (
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     LLMOrchestrationConfig,
+    MutationTournamentComparison,
+    MutationTournamentEntry,
+    MutationTournamentInspectionReport,
+    MutationTournamentResult,
+    MutationTournamentSpec,
     PipelineRunConfig,
     PipelineStage,
     PlannedExperimentSpec,
@@ -335,6 +344,11 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert CreativeMutationPlan
     assert CreativeMutationReport
     assert CreativeMutationInspectionReport
+    assert MutationTournamentSpec
+    assert MutationTournamentEntry
+    assert MutationTournamentResult
+    assert MutationTournamentComparison
+    assert MutationTournamentInspectionReport
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -774,6 +788,9 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     for bundle_name in [
         "distance_decay_spatial_interaction",
         "pca_low_rank_od_residual",
+        "hierarchical_alpha_spatial_interaction",
+        "gravity_low_rank_residual_hybrid",
+        "boundary_perturbation_distance_decay",
     ]:
         shutil.copytree(fixture_root / bundle_name, target_root / bundle_name)
     retrieval_quality = RetrievalQualityReport(
@@ -961,6 +978,65 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         for candidate in mutation_plan.candidates
     )
 
+    mutation_tournament = run_mutation_tournament(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    inspected_mutation_tournament = inspect_mutation_tournament(
+        run_id=run_id,
+        root=tmp_path,
+    )
+    mutation_entries = mutation_tournament.result.entries
+    hierarchical_entry = next(
+        entry
+        for entry in mutation_entries
+        if entry.substrate_model_type == "hierarchical_region_cluster_distance_decay"
+    )
+    hybrid_entry = next(
+        entry
+        for entry in mutation_entries
+        if entry.substrate_model_type == "gravity_low_rank_residual_hybrid"
+    )
+    boundary_entry = next(
+        entry
+        for entry in mutation_entries
+        if entry.substrate_model_type
+        == "boundary_perturbation_distance_decay_robustness"
+    )
+    original_entry = next(
+        entry for entry in mutation_entries if entry.branch_role == "original_winner"
+    )
+    hybrid_spec = SubstrateExperimentSpec.model_validate_json(
+        (tmp_path / hybrid_entry.experiment_spec_path_optional).read_text(encoding="utf-8")
+    )
+
+    assert mutation_tournament.result.original_winner_included is True
+    assert mutation_tournament.result.mutation_substrate_count == 3
+    assert mutation_tournament.result.second_generation_winner_selected is True
+    assert mutation_tournament.result.comparison.comparison_table_present is True
+    assert inspected_mutation_tournament.mutation_tournament_present is True
+    assert inspected_mutation_tournament.hierarchical_alpha_branch_completed is True
+    assert inspected_mutation_tournament.hybrid_low_rank_branch_completed is True
+    assert inspected_mutation_tournament.boundary_robustness_branch_completed is True
+    assert original_entry.status == "completed"
+    assert hierarchical_entry.status == "completed"
+    assert hybrid_entry.status == "completed"
+    assert boundary_entry.status == "completed"
+    assert hierarchical_entry.complexity_penalty_optional is not None
+    assert hybrid_entry.experiment_bundle_id == "gravity_low_rank_residual_hybrid"
+    assert boundary_entry.experiment_bundle_id == "boundary_perturbation_distance_decay"
+    assert "U_k S_k V_k^T" in hybrid_spec.model_equation
+    assert mutation_tournament.result.tournament_outcome in {
+        "original_winner_remains_best",
+        "hierarchical_alpha_wins_by_parsimony",
+        "hybrid_wins_when_low_rank_residual_structure_exists",
+        "robustness_branch_wins_by_stability",
+    }
+    assert mutation_tournament.result.unsupported_claim_count == 0
+    assert mutation_tournament.result.publication_ready is False
+
     final = regenerate_final_manuscript(
         run_id=run_id,
         root=tmp_path,
@@ -980,8 +1056,20 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         bundle_path=tmp_path / bundle.report.bundle_path
     )
 
-    assert tournament.result.winner_substrate_title_optional in title
+    assert mutation_tournament.result.second_generation_winner_title_optional in title
     assert "A substrate tournament compared serious synthetic branches" in markdown
+    assert "A second-generation mutation tournament compared" in markdown
+    assert (
+        "| branch | role | outcome | improvement | complexity penalty | robustness | score |"
+        in markdown
+    )
+    assert (
+        mutation_tournament.result.second_generation_winner_title_optional
+        in markdown
+    )
+    assert "Boundary-Perturbation Robustness" in markdown
+    assert "Gravity Plus Low-Rank Residual Correction" in markdown
+    assert "Hierarchical Region-Cluster Distance Decay" in markdown
     assert "| substrate | result | MAE ratio | RMSE ratio | ablation | score |" in markdown
     assert tournament.result.winner_substrate_title_optional in markdown
     assert "Low-Rank Residual Axes" in markdown

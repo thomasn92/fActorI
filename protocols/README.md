@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.54.0` adds second-generation mutation tournament contracts. Mutation tournament specs,
+entries, comparisons, results, and inspection reports compare the previous bounded winner against
+experimentally routed mutation substrates while retaining synthetic-only evidence boundaries and
+publication readiness false.
+
 Protocol `0.53.0` adds tournament-driven creative mutation contracts. Mutation candidates, plans,
 application reports, inspection reports, and mutation operators connect bounded tournament
 feedback to new IdeaTree branches and ScientificSubstrate candidates without creating scientific

@@ -46,6 +46,11 @@ from factori.schemas import (
     IdeaSpacePCADiagnostic,
     LatexExportResult,
     ManuscriptDraftingPlan,
+    MutationTournamentComparison,
+    MutationTournamentEntry,
+    MutationTournamentInspectionReport,
+    MutationTournamentResult,
+    MutationTournamentSpec,
     NarrativeManuscriptContract,
     PaperCriticReport,
     PaperRevisionResult,
@@ -125,6 +130,11 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert CreativeMutationPlan in vars(schemas).values()
     assert CreativeMutationReport in vars(schemas).values()
     assert CreativeMutationInspectionReport in vars(schemas).values()
+    assert MutationTournamentSpec in vars(schemas).values()
+    assert MutationTournamentEntry in vars(schemas).values()
+    assert MutationTournamentResult in vars(schemas).values()
+    assert MutationTournamentComparison in vars(schemas).values()
+    assert MutationTournamentInspectionReport in vars(schemas).values()
     assert ArtifactRef in vars(schemas).values()
 
 
@@ -190,6 +200,11 @@ def test_schema_all_contains_expected_public_names() -> None:
         "CreativeMutationPlan",
         "CreativeMutationReport",
         "CreativeMutationInspectionReport",
+        "MutationTournamentSpec",
+        "MutationTournamentEntry",
+        "MutationTournamentResult",
+        "MutationTournamentComparison",
+        "MutationTournamentInspectionReport",
         "ArtifactRef",
         "DataRequirement",
         "VerificationLabel",
@@ -230,4 +245,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 255
+    assert len(get_protocol_definitions()) == 260

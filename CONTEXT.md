@@ -87,6 +87,9 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic tournament-driven creative mutation that preserves the bounded winner, repairs or
   hybridizes serious alternatives, injects missing idea-space axes, and writes new IdeaTree nodes
   plus ScientificSubstrate candidates as context for future experiments.
+- deterministic mutation-substrate tournaments that route the prior winner plus applied mutation
+  substrates to approved offline uv experiments, score raw fit, complexity, and robustness, and
+  select a bounded second-generation branch without real-world validation or publication readiness.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

@@ -1,0 +1,21 @@
+{
+  "approved_local_bundle": true,
+  "bundle_format": "factori-python-experiment-v1",
+  "distance_offset": 0.05,
+  "experiment_template": "boundary_perturbation_distance_decay",
+  "n_regions": 18,
+  "noise_level": 0.01,
+  "seed": 5021,
+  "settings": [
+    {
+      "name": "original_boundaries",
+      "perturbation_strength": 0.0,
+      "seed_offset": 0
+    },
+    {
+      "name": "perturbed_boundaries",
+      "perturbation_strength": 0.08,
+      "seed_offset": 1000
+    }
+  ]
+}

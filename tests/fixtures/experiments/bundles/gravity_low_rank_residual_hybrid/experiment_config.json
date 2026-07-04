@@ -1,0 +1,21 @@
+{
+  "approved_local_bundle": true,
+  "bundle_format": "factori-python-experiment-v1",
+  "distance_offset": 0.05,
+  "experiment_template": "gravity_low_rank_residual_hybrid",
+  "n_regions": 18,
+  "noise_level": 0.01,
+  "seed": 4013,
+  "settings": [
+    {
+      "factor_strength": 0.08,
+      "name": "low_residual_structure",
+      "seed_offset": 0
+    },
+    {
+      "factor_strength": 0.42,
+      "name": "high_residual_structure",
+      "seed_offset": 1000
+    }
+  ]
+}

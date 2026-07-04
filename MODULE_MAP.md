@@ -142,6 +142,9 @@ All implementation modules are under `factori/`.
 - `creative_mutations.py`: deterministic tournament-driven mutation planning and application over
   IdeaTree, idea-space, substrate, and tournament artifacts; selected mutations append new
   context-only IdeaTree nodes and ScientificSubstrate candidates.
+- `mutation_tournament.py`: second-generation bounded uv-local tournament over the previous
+  substrate winner plus applied mutation substrates, with complexity/robustness-aware scoring and
+  append-only context reports.
 - `checkpoints.py`: explicit stage completion artifacts and resume prerequisite tables.
 - `status.py`: read-only run status inspection, next-stage recommendation, and resume validation.
 - `rerun_policy.py`: artifact-based mutating-stage rerun decisions plus read-only ledger tip,
