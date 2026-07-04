@@ -1,0 +1,683 @@
+{
+  "$defs": {
+    "GenerationMutationCandidate": {
+      "additionalProperties": false,
+      "description": "One current-winner-conditioned scientific mutation candidate.",
+      "properties": {
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "cycle_index": {
+          "minimum": 2,
+          "title": "Cycle Index",
+          "type": "integer"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "equations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Equations",
+          "type": "array"
+        },
+        "expected_result_pattern": {
+          "minLength": 1,
+          "title": "Expected Result Pattern",
+          "type": "string"
+        },
+        "experiment_design": {
+          "minLength": 1,
+          "title": "Experiment Design",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "model_object": {
+          "minLength": 1,
+          "title": "Model Object",
+          "type": "string"
+        },
+        "mutation_id": {
+          "minLength": 1,
+          "title": "Mutation Id",
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/$defs/GenerationMutationOperator"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "research_question": {
+          "minLength": 1,
+          "title": "Research Question",
+          "type": "string"
+        },
+        "risk_or_failure_mode": {
+          "minLength": 1,
+          "title": "Risk Or Failure Mode",
+          "type": "string"
+        },
+        "selected_for_substrate_build": {
+          "default": false,
+          "title": "Selected For Substrate Build",
+          "type": "boolean"
+        },
+        "semantic_fingerprint": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Semantic Fingerprint",
+          "type": "string"
+        },
+        "source_idea_node_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Idea Node Ids",
+          "type": "array"
+        },
+        "source_substrate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Substrate Ids",
+          "type": "array"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "why_scientifically_distinct": {
+          "minLength": 1,
+          "title": "Why Scientifically Distinct",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mutation_id",
+        "cycle_index",
+        "operator",
+        "title",
+        "domain",
+        "research_question",
+        "model_object",
+        "equations",
+        "baseline",
+        "experiment_design",
+        "expected_result_pattern",
+        "why_scientifically_distinct",
+        "risk_or_failure_mode",
+        "semantic_fingerprint"
+      ],
+      "title": "GenerationMutationCandidate",
+      "type": "object"
+    },
+    "GenerationMutationContext": {
+      "additionalProperties": false,
+      "description": "Stable inputs used to condition one later-generation mutation plan.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "current_winner_score": {
+          "title": "Current Winner Score",
+          "type": "number"
+        },
+        "current_winner_substrate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Winner Substrate Id Optional"
+        },
+        "current_winner_title": {
+          "minLength": 1,
+          "title": "Current Winner Title",
+          "type": "string"
+        },
+        "cycle_index": {
+          "minimum": 2,
+          "title": "Cycle Index",
+          "type": "integer"
+        },
+        "idea_space_missing_axes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Idea Space Missing Axes",
+          "type": "array"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "losing_branch_titles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Losing Branch Titles",
+          "type": "array"
+        },
+        "previous_winner_score": {
+          "title": "Previous Winner Score",
+          "type": "number"
+        },
+        "previous_winner_substrate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Previous Winner Substrate Id Optional"
+        },
+        "previous_winner_title": {
+          "minLength": 1,
+          "title": "Previous Winner Title",
+          "type": "string"
+        },
+        "prior_mutation_fingerprints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Prior Mutation Fingerprints",
+          "type": "array"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_creative_search_report_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Creative Search Report Path"
+        },
+        "source_mutation_tournament_path": {
+          "minLength": 1,
+          "title": "Source Mutation Tournament Path",
+          "type": "string"
+        },
+        "tournament_metric_rows": {
+          "items": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Tournament Metric Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "cycle_index",
+        "current_winner_title",
+        "current_winner_score",
+        "previous_winner_title",
+        "previous_winner_score",
+        "source_mutation_tournament_path"
+      ],
+      "title": "GenerationMutationContext",
+      "type": "object"
+    },
+    "GenerationMutationDiversityCheck": {
+      "additionalProperties": false,
+      "description": "Semantic de-duplication result for one generation mutation plan.",
+      "properties": {
+        "candidate_count_before_dedup": {
+          "minimum": 0,
+          "title": "Candidate Count Before Dedup",
+          "type": "integer"
+        },
+        "compared_prior_candidate_count": {
+          "minimum": 0,
+          "title": "Compared Prior Candidate Count",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "diversity_check_passed": {
+          "title": "Diversity Check Passed",
+          "type": "boolean"
+        },
+        "duplicate_candidate_count": {
+          "minimum": 0,
+          "title": "Duplicate Candidate Count",
+          "type": "integer"
+        },
+        "duplicate_mutation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Duplicate Mutation Ids",
+          "type": "array"
+        },
+        "experiment_design_token_check_passed": {
+          "title": "Experiment Design Token Check Passed",
+          "type": "boolean"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "model_equation_token_check_passed": {
+          "title": "Model Equation Token Check Passed",
+          "type": "boolean"
+        },
+        "new_candidate_count": {
+          "minimum": 0,
+          "title": "New Candidate Count",
+          "type": "integer"
+        },
+        "normalized_title_check_passed": {
+          "title": "Normalized Title Check Passed",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidate_count_before_dedup",
+        "new_candidate_count",
+        "duplicate_candidate_count",
+        "compared_prior_candidate_count",
+        "normalized_title_check_passed",
+        "model_equation_token_check_passed",
+        "experiment_design_token_check_passed",
+        "diversity_check_passed"
+      ],
+      "title": "GenerationMutationDiversityCheck",
+      "type": "object"
+    },
+    "GenerationMutationOperator": {
+      "description": "Winner-conditioned operators for later creative-search generations.",
+      "enum": [
+        "robustness_refinement",
+        "robustness_parsimony_hybrid",
+        "robustness_representation_hybrid",
+        "adversarial_boundary_stress",
+        "negative_control"
+      ],
+      "title": "GenerationMutationOperator",
+      "type": "string"
+    },
+    "GenerationMutationPlan": {
+      "additionalProperties": false,
+      "description": "Context-only plan for current-winner-conditioned generation mutations.",
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/GenerationMutationCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "context": {
+          "$ref": "#/$defs/GenerationMutationContext"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "diversity_check": {
+          "$ref": "#/$defs/GenerationMutationDiversityCheck"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "max_mutations": {
+          "minimum": 1,
+          "title": "Max Mutations",
+          "type": "integer"
+        },
+        "mutation_count": {
+          "minimum": 0,
+          "title": "Mutation Count",
+          "type": "integer"
+        },
+        "operators_used": {
+          "items": {
+            "$ref": "#/$defs/GenerationMutationOperator"
+          },
+          "title": "Operators Used",
+          "type": "array"
+        },
+        "plan_id": {
+          "minLength": 1,
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "planning_status": {
+          "enum": [
+            "completed",
+            "completed_with_warnings",
+            "no_new_generation_mutations",
+            "failed"
+          ],
+          "title": "Planning Status",
+          "type": "string"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "selected_for_substrate_build_count": {
+          "minimum": 0,
+          "title": "Selected For Substrate Build Count",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "plan_id",
+        "planning_status",
+        "context",
+        "max_mutations",
+        "mutation_count",
+        "selected_for_substrate_build_count",
+        "diversity_check"
+      ],
+      "title": "GenerationMutationPlan",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.56.0/generation-mutation-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection of generation mutation planning and application.",
+  "properties": {
+    "applied_mutation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Applied Mutation Count",
+      "type": "integer"
+    },
+    "applied_mutation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Applied Mutation Ids",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "current_winner_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Winner Optional"
+    },
+    "cycle_index_optional": {
+      "anyOf": [
+        {
+          "minimum": 2,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cycle Index Optional"
+    },
+    "generation_mutation_plan_present": {
+      "title": "Generation Mutation Plan Present",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "includes_adversarial_boundary_stress": {
+      "default": false,
+      "title": "Includes Adversarial Boundary Stress",
+      "type": "boolean"
+    },
+    "includes_clustered_alpha_boundary_perturbation": {
+      "default": false,
+      "title": "Includes Clustered Alpha Boundary Perturbation",
+      "type": "boolean"
+    },
+    "includes_low_rank_boundary_diagnostic": {
+      "default": false,
+      "title": "Includes Low Rank Boundary Diagnostic",
+      "type": "boolean"
+    },
+    "includes_multi_scale_boundary_robustness": {
+      "default": false,
+      "title": "Includes Multi Scale Boundary Robustness",
+      "type": "boolean"
+    },
+    "includes_null_heterogeneity_control": {
+      "default": false,
+      "title": "Includes Null Heterogeneity Control",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_plan_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Plan Id Optional"
+    },
+    "latest_plan_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GenerationMutationPlan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mutation_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Mutation Count",
+      "type": "integer"
+    },
+    "new_idea_tree_node_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "New Idea Tree Node Count",
+      "type": "integer"
+    },
+    "new_scientific_substrate_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "New Scientific Substrate Count",
+      "type": "integer"
+    },
+    "planning_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Planning Status Optional"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scientific_substrate_build_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scientific Substrate Build Report Path Optional"
+    },
+    "scientific_substrate_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Scientific Substrate Paths",
+      "type": "array"
+    },
+    "selected_for_substrate_build_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected For Substrate Build Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "generation_mutation_plan_present"
+  ],
+  "title": "GenerationMutationInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.56.0",
+  "x-factori-source-model": "factori.schemas.GenerationMutationInspectionReport",
+  "x-factori-verification-evidence": false
+}

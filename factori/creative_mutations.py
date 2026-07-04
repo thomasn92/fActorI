@@ -759,6 +759,15 @@ def _substrate_from_mutation(
     )
 
 
+def scientific_substrate_from_creative_mutation(
+    *,
+    run_id: str,
+    candidate: CreativeMutationCandidate,
+) -> ScientificSubstrate:
+    """Convert a validated mutation candidate into a context-only substrate."""
+    return _substrate_from_mutation(run_id=run_id, candidate=candidate)
+
+
 def _variables_for_mutation(
     candidate: CreativeMutationCandidate,
 ) -> list[ScientificSubstrateVariable]:
@@ -773,7 +782,7 @@ def _variables_for_mutation(
             symbol="B_j", definition="destination attractiveness", role="covariate"
         ),
     ]
-    if "hierarchical" in title:
+    if "hierarchical" in title or "clustered" in title or "cluster-level" in title:
         return [
             *common,
             ScientificSubstrateVariable(
@@ -1052,4 +1061,5 @@ __all__ = [
     "plan_creative_mutations",
     "render_creative_mutation_plan_markdown",
     "render_creative_mutation_report_markdown",
+    "scientific_substrate_from_creative_mutation",
 ]

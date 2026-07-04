@@ -118,6 +118,10 @@ from factori.gap_strategy_diversification import (
     strategy_fingerprint,
     strategy_is_automation_ready,
 )
+from factori.generation_mutations import (
+    inspect_generation_mutations,
+    plan_generation_mutations,
+)
 from factori.hashing import sha256_file
 from factori.human_review import (
     HumanReviewIntakeError,
@@ -210,6 +214,12 @@ from factori.schemas import (
     GapAttemptRecord,
     GapStrategyOption,
     GeneratedSectionDraft,
+    GenerationMutationCandidate,
+    GenerationMutationContext,
+    GenerationMutationDiversityCheck,
+    GenerationMutationInspectionReport,
+    GenerationMutationOperator,
+    GenerationMutationPlan,
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
@@ -365,6 +375,12 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert CreativeSearchLineageEntry
     assert CreativeSearchControllerReport
     assert CreativeSearchInspectionReport
+    assert GenerationMutationContext
+    assert GenerationMutationOperator
+    assert GenerationMutationCandidate
+    assert GenerationMutationPlan
+    assert GenerationMutationDiversityCheck
+    assert GenerationMutationInspectionReport
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -1097,12 +1113,48 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     assert verification.unsupported_claim_count == 0
     assert verification.publication_ready is False
 
+    generation_preview = plan_generation_mutations(
+        run_id=run_id,
+        root=tmp_path,
+        cycle_index=2,
+        max_mutations=5,
+        write_report=False,
+    )
+    generation_titles = {candidate.title for candidate in generation_preview.candidates}
+    fixed_titles = {candidate.title for candidate in mutation_plan.candidates}
+    assert generation_preview.context.current_winner_title == (
+        mutation_tournament.result.second_generation_winner_title_optional
+    )
+    assert generation_preview.context.source_creative_search_report_path is None
+    assert all(
+        candidate.source_idea_node_ids
+        == ["creative-mutation-boundary-perturbation-robustness"]
+        for candidate in generation_preview.candidates
+    )
+    assert generation_preview.mutation_count == 5
+    assert generation_preview.selected_for_substrate_build_count >= 3
+    assert "Multi-Scale Boundary Robustness for Region-Specific Distance Decay" in (
+        generation_titles
+    )
+    assert "Clustered Distance Decay Under Boundary Perturbation" in generation_titles
+    assert (
+        "Low-Rank Residual Diagnostics for Boundary-Induced Spatial Heterogeneity"
+        in generation_titles
+    )
+    assert (
+        "Adversarial Boundary Perturbation Stress Test for Distance-Decay Models"
+        in generation_titles
+    )
+    assert "Null Heterogeneity Boundary Stress Test" in generation_titles
+    assert generation_titles.isdisjoint(fixed_titles)
+    assert generation_preview.diversity_check.diversity_check_passed is True
+
     creative_search = run_creative_search(
         run_id=run_id,
         root=tmp_path,
         store=store,
         ledger=ledger,
-        max_cycles=2,
+        max_cycles=1,
         min_improvement=0.01,
     )
     search_inspection = inspect_creative_search(run_id=run_id, root=tmp_path)
@@ -1138,6 +1190,39 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     assert search_verification.verification_status in {"verified", "verified_with_warnings"}
     assert search_verification.unsupported_claim_count == 0
     assert search_verification.publication_ready is False
+
+    generation_inspection = inspect_generation_mutations(
+        run_id=run_id,
+        root=tmp_path,
+    )
+    generation_tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
+    generation_substrates = inspect_scientific_substrate(run_id=run_id, root=tmp_path)
+    generation_cycle = creative_search.report.cycles[0]
+    assert creative_search.report.stop_reason is not (
+        CreativeSearchStopReason.NO_NEW_MUTATIONS
+    )
+    assert generation_cycle.new_idea_nodes_added >= 3
+    assert generation_cycle.new_substrates_added >= 3
+    assert "generation_mutation_apply" in generation_cycle.steps_executed
+    assert generation_inspection.applied_mutation_count >= 3
+    assert generation_inspection.new_idea_tree_node_count >= 3
+    assert generation_inspection.new_scientific_substrate_count >= 3
+    assert sum(
+        node.stage_origin == "generation_mutation" for node in generation_tree.nodes
+    ) >= 3
+    assert generation_substrates.substrate_count >= 8
+    assert creative_search.report.unsupported_claim_count == 0
+    assert creative_search.report.publication_ready is False
+
+    exhausted = plan_generation_mutations(
+        run_id=run_id,
+        root=tmp_path,
+        cycle_index=3,
+        max_mutations=5,
+        write_report=False,
+    )
+    assert exhausted.planning_status == "no_new_generation_mutations"
+    assert exhausted.mutation_count == 0
 
 
 def test_creative_search_stop_policy_handles_budget_no_mutations_and_no_improvement() -> None:

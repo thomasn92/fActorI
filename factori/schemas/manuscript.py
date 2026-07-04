@@ -17,6 +17,7 @@ from factori.schemas.enums import (
     FinalNucleusType,
     FullPaperGenerationStatus,
     FullPaperGenerationStepStatus,
+    GenerationMutationOperator,
     ManuscriptDraftStatus,
     NarrativeSectionRole,
     PaperCriticFindingSeverity,
@@ -2092,6 +2093,128 @@ class CreativeSearchInspectionReport(StrictModel):
     best_current_score_optional: float | None = None
     final_bundle_verification_status_optional: str | None = None
     report_optional: CreativeSearchControllerReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GenerationMutationContext(StrictModel):
+    """Stable inputs used to condition one later-generation mutation plan."""
+
+    run_id: str = Field(min_length=1)
+    cycle_index: int = Field(ge=2)
+    current_winner_title: str = Field(min_length=1)
+    current_winner_substrate_id_optional: str | None = None
+    current_winner_score: float
+    previous_winner_title: str = Field(min_length=1)
+    previous_winner_substrate_id_optional: str | None = None
+    previous_winner_score: float
+    losing_branch_titles: list[str] = Field(default_factory=list)
+    tournament_metric_rows: list[dict[str, str | int | float | bool | None]] = Field(
+        default_factory=list
+    )
+    idea_space_missing_axes: list[str] = Field(default_factory=list)
+    prior_mutation_fingerprints: list[str] = Field(default_factory=list)
+    source_creative_search_report_path: str | None = None
+    source_mutation_tournament_path: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GenerationMutationCandidate(StrictModel):
+    """One current-winner-conditioned scientific mutation candidate."""
+
+    mutation_id: str = Field(min_length=1)
+    cycle_index: int = Field(ge=2)
+    source_substrate_ids: list[str] = Field(default_factory=list)
+    source_idea_node_ids: list[str] = Field(default_factory=list)
+    operator: GenerationMutationOperator
+    title: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    research_question: str = Field(min_length=1)
+    model_object: str = Field(min_length=1)
+    equations: list[str] = Field(min_length=1)
+    baseline: str = Field(min_length=1)
+    experiment_design: str = Field(min_length=1)
+    expected_result_pattern: str = Field(min_length=1)
+    why_scientifically_distinct: str = Field(min_length=1)
+    risk_or_failure_mode: str = Field(min_length=1)
+    semantic_fingerprint: str = Field(pattern=HASH_RE.pattern)
+    selected_for_substrate_build: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GenerationMutationDiversityCheck(StrictModel):
+    """Semantic de-duplication result for one generation mutation plan."""
+
+    candidate_count_before_dedup: int = Field(ge=0)
+    new_candidate_count: int = Field(ge=0)
+    duplicate_candidate_count: int = Field(ge=0)
+    duplicate_mutation_ids: list[str] = Field(default_factory=list)
+    compared_prior_candidate_count: int = Field(ge=0)
+    normalized_title_check_passed: bool
+    model_equation_token_check_passed: bool
+    experiment_design_token_check_passed: bool
+    diversity_check_passed: bool
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GenerationMutationPlan(StrictModel):
+    """Context-only plan for current-winner-conditioned generation mutations."""
+
+    run_id: str = Field(min_length=1)
+    plan_id: str = Field(min_length=1)
+    planning_status: Literal[
+        "completed", "completed_with_warnings", "no_new_generation_mutations", "failed"
+    ]
+    context: GenerationMutationContext
+    max_mutations: int = Field(ge=1)
+    mutation_count: int = Field(ge=0)
+    selected_for_substrate_build_count: int = Field(ge=0)
+    operators_used: list[GenerationMutationOperator] = Field(default_factory=list)
+    candidates: list[GenerationMutationCandidate] = Field(default_factory=list)
+    diversity_check: GenerationMutationDiversityCheck
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class GenerationMutationInspectionReport(StrictModel):
+    """Read-only inspection of generation mutation planning and application."""
+
+    run_id: str = Field(min_length=1)
+    generation_mutation_plan_present: bool
+    latest_plan_id_optional: str | None = None
+    planning_status_optional: str | None = None
+    cycle_index_optional: int | None = Field(default=None, ge=2)
+    current_winner_optional: str | None = None
+    mutation_count: int = Field(default=0, ge=0)
+    selected_for_substrate_build_count: int = Field(default=0, ge=0)
+    applied_mutation_count: int = Field(default=0, ge=0)
+    new_idea_tree_node_count: int = Field(default=0, ge=0)
+    new_scientific_substrate_count: int = Field(default=0, ge=0)
+    applied_mutation_ids: list[str] = Field(default_factory=list)
+    scientific_substrate_paths: list[str] = Field(default_factory=list)
+    scientific_substrate_build_report_path_optional: str | None = None
+    includes_multi_scale_boundary_robustness: bool = False
+    includes_clustered_alpha_boundary_perturbation: bool = False
+    includes_low_rank_boundary_diagnostic: bool = False
+    includes_adversarial_boundary_stress: bool = False
+    includes_null_heterogeneity_control: bool = False
+    latest_plan_optional: GenerationMutationPlan | None = None
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -4395,6 +4518,11 @@ __all__ = [
     "CreativeSearchCycle",
     "CreativeSearchControllerReport",
     "CreativeSearchInspectionReport",
+    "GenerationMutationContext",
+    "GenerationMutationCandidate",
+    "GenerationMutationDiversityCheck",
+    "GenerationMutationPlan",
+    "GenerationMutationInspectionReport",
     "ProofObligationSpec",
     "RetrievalExpansionRequest",
     "PlannedSpecExecutionItem",

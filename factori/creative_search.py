@@ -25,6 +25,7 @@ from factori.final_manuscript_regeneration import (
     regenerate_final_manuscript,
 )
 from factori.final_release_bundle import FinalReleaseBundleError, build_final_release_bundle
+from factori.generation_mutations import GenerationMutationError
 from factori.idea_space import IdeaSpaceError, inspect_idea_space
 from factori.idea_tree import IdeaTreeError, inspect_idea_tree
 from factori.ledger import ResearchLedger
@@ -204,6 +205,7 @@ def run_creative_search(
             unapplied_ids = selected_ids - applied_ids
             new_idea_nodes = 0
             new_substrates = 0
+            generation_mutations_applied = False
             if unapplied_ids:
                 applied = apply_creative_mutations(
                     run_id=run_id,
@@ -218,6 +220,71 @@ def run_creative_search(
                 steps_executed.append("creative_mutation_apply")
             else:
                 steps_reused.append("creative_mutation_apply")
+                from factori.generation_mutations import (  # noqa: PLC0415
+                    apply_generation_mutations,
+                    inspect_generation_mutations,
+                    latest_generation_mutation_applications,
+                    plan_generation_mutations,
+                )
+
+                generation_inspection = inspect_generation_mutations(
+                    run_id=run_id,
+                    root=root_path,
+                )
+                generation_applied_ids = {
+                    mutation_id
+                    for application, _ in latest_generation_mutation_applications(
+                        run_id=run_id,
+                        root=root_path,
+                    )
+                    for mutation_id in application.applied_mutation_ids
+                }
+                generation_plan = generation_inspection.latest_plan_optional
+                available_generation_ids = (
+                    {
+                        candidate.mutation_id
+                        for candidate in generation_plan.candidates
+                        if candidate.selected_for_substrate_build
+                    }
+                    - generation_applied_ids
+                    if generation_plan is not None
+                    else set()
+                )
+                if not available_generation_ids:
+                    generation_plan = plan_generation_mutations(
+                        run_id=run_id,
+                        root=root_path,
+                        cycle_index=_next_generation_cycle_index(
+                            root_path,
+                            run_id,
+                            cycle_index,
+                        ),
+                        max_mutations=max(5, config.max_mutations_per_cycle),
+                        write_report=True,
+                    )
+                    available_generation_ids = {
+                        candidate.mutation_id
+                        for candidate in generation_plan.candidates
+                        if candidate.selected_for_substrate_build
+                    }
+                    steps_executed.append("generation_mutation_plan")
+                else:
+                    steps_reused.append("generation_mutation_plan")
+                if available_generation_ids:
+                    generation_apply = apply_generation_mutations(
+                        run_id=run_id,
+                        root=root_path,
+                        store=store,
+                        ledger=ledger,
+                        max_mutations=config.max_mutations_per_cycle,
+                    )
+                    generation_mutations_applied = True
+                    new_idea_nodes += generation_apply.report.new_idea_tree_node_count
+                    new_substrates += (
+                        generation_apply.report.new_scientific_substrate_count
+                    )
+                    artifact_paths.append(generation_apply.report_artifact.path)
+                    steps_executed.append("generation_mutation_apply")
 
             mutation_tournament = latest_mutation_tournament_result(root_path, run_id)
             new_experiments = 0
@@ -270,7 +337,7 @@ def run_creative_search(
                 cycle_index=cycle_index,
                 config=config,
                 no_improvement_cycles=no_improvement_cycles,
-                no_new_mutations=not unapplied_ids,
+                no_new_mutations=not unapplied_ids and not generation_mutations_applied,
                 all_mutations_inconclusive=(
                     mutation_tournament.tournament_outcome == "all_mutations_inconclusive"
                 ),
@@ -398,6 +465,7 @@ def run_creative_search(
             FinalBundleVerificationError,
             FinalManuscriptRegenerationError,
             FinalReleaseBundleError,
+            GenerationMutationError,
             IdeaSpaceError,
             IdeaTreeError,
             MutationTournamentError,
@@ -787,6 +855,16 @@ def _applied_mutation_ids(root: Path, run_id: str) -> set[str]:
         for report, _ in latest_creative_mutation_reports(run_id=run_id, root=root)
         for candidate in report.candidates
     }
+
+
+def _next_generation_cycle_index(
+    root: Path,
+    run_id: str,
+    controller_cycle_index: int,
+) -> int:
+    previous = latest_creative_search_report(root, run_id)
+    previous_cycles = previous.cycle_count if previous is not None else 1
+    return max(2, previous_cycles + controller_cycle_index)
 
 
 def _persist_cycle(

@@ -43,6 +43,12 @@ from factori.schemas import (
     FinalReleaseBundleReport,
     FinalReleaseReproducibilityManifest,
     FullPaperGenerationReport,
+    GenerationMutationCandidate,
+    GenerationMutationContext,
+    GenerationMutationDiversityCheck,
+    GenerationMutationInspectionReport,
+    GenerationMutationOperator,
+    GenerationMutationPlan,
     HumanReviewArtifact,
     IdeaClusterDiagnostic,
     IdeaNodeFeatureVector,
@@ -142,6 +148,12 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert CreativeSearchCycle in vars(schemas).values()
     assert CreativeSearchControllerReport in vars(schemas).values()
     assert CreativeSearchInspectionReport in vars(schemas).values()
+    assert GenerationMutationOperator in vars(schemas).values()
+    assert GenerationMutationContext in vars(schemas).values()
+    assert GenerationMutationCandidate in vars(schemas).values()
+    assert GenerationMutationDiversityCheck in vars(schemas).values()
+    assert GenerationMutationPlan in vars(schemas).values()
+    assert GenerationMutationInspectionReport in vars(schemas).values()
     assert MutationTournamentSpec in vars(schemas).values()
     assert MutationTournamentEntry in vars(schemas).values()
     assert MutationTournamentResult in vars(schemas).values()
@@ -218,6 +230,12 @@ def test_schema_all_contains_expected_public_names() -> None:
         "CreativeSearchCycle",
         "CreativeSearchControllerReport",
         "CreativeSearchInspectionReport",
+        "GenerationMutationOperator",
+        "GenerationMutationContext",
+        "GenerationMutationCandidate",
+        "GenerationMutationDiversityCheck",
+        "GenerationMutationPlan",
+        "GenerationMutationInspectionReport",
         "MutationTournamentSpec",
         "MutationTournamentEntry",
         "MutationTournamentResult",
@@ -263,4 +281,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 266
+    assert len(get_protocol_definitions()) == 272

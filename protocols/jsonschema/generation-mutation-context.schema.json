@@ -1,0 +1,158 @@
+{
+  "$id": "https://schemas.factori.local/0.56.0/generation-mutation-context.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Stable tournament and idea-space context for generation mutations.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "current_winner_score": {
+      "title": "Current Winner Score",
+      "type": "number"
+    },
+    "current_winner_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Winner Substrate Id Optional"
+    },
+    "current_winner_title": {
+      "minLength": 1,
+      "title": "Current Winner Title",
+      "type": "string"
+    },
+    "cycle_index": {
+      "minimum": 2,
+      "title": "Cycle Index",
+      "type": "integer"
+    },
+    "idea_space_missing_axes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Idea Space Missing Axes",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "losing_branch_titles": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Losing Branch Titles",
+      "type": "array"
+    },
+    "previous_winner_score": {
+      "title": "Previous Winner Score",
+      "type": "number"
+    },
+    "previous_winner_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Previous Winner Substrate Id Optional"
+    },
+    "previous_winner_title": {
+      "minLength": 1,
+      "title": "Previous Winner Title",
+      "type": "string"
+    },
+    "prior_mutation_fingerprints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Prior Mutation Fingerprints",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_creative_search_report_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Creative Search Report Path"
+    },
+    "source_mutation_tournament_path": {
+      "minLength": 1,
+      "title": "Source Mutation Tournament Path",
+      "type": "string"
+    },
+    "tournament_metric_rows": {
+      "items": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": "object"
+      },
+      "title": "Tournament Metric Rows",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "cycle_index",
+    "current_winner_title",
+    "current_winner_score",
+    "previous_winner_title",
+    "previous_winner_score",
+    "source_mutation_tournament_path"
+  ],
+  "title": "GenerationMutationContext",
+  "type": "object",
+  "x-factori-protocol-version": "0.56.0",
+  "x-factori-source-model": "factori.schemas.GenerationMutationContext",
+  "x-factori-verification-evidence": false
+}

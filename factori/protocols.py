@@ -116,6 +116,12 @@ from factori.schemas import (
     GapStrategyDiversificationReport,
     GapStrategyOption,
     GeneratedSectionDraft,
+    GenerationMutationCandidate,
+    GenerationMutationContext,
+    GenerationMutationDiversityCheck,
+    GenerationMutationInspectionReport,
+    GenerationMutationOperator,
+    GenerationMutationPlan,
     HumanReviewArtifact,
     HumanReviewDecision,
     HumanReviewReconciliationCycle,
@@ -270,7 +276,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.55.0"
+PROTOCOL_VERSION = "0.56.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -666,6 +672,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "CreativeSearchInspectionReport",
         CreativeSearchInspectionReport,
         "Read-only inspection of the latest recursive creative search.",
+    ),
+    ProtocolDefinition(
+        "GenerationMutationOperator",
+        GenerationMutationOperator,
+        "Current-winner-conditioned generation mutation operator enum.",
+    ),
+    ProtocolDefinition(
+        "GenerationMutationContext",
+        GenerationMutationContext,
+        "Stable tournament and idea-space context for generation mutations.",
+    ),
+    ProtocolDefinition(
+        "GenerationMutationCandidate",
+        GenerationMutationCandidate,
+        "One semantically de-duplicated generation mutation candidate.",
+    ),
+    ProtocolDefinition(
+        "GenerationMutationDiversityCheck",
+        GenerationMutationDiversityCheck,
+        "Semantic diversity and duplicate check for generation mutations.",
+    ),
+    ProtocolDefinition(
+        "GenerationMutationPlan",
+        GenerationMutationPlan,
+        "Context-only plan for current-winner-conditioned mutations.",
+    ),
+    ProtocolDefinition(
+        "GenerationMutationInspectionReport",
+        GenerationMutationInspectionReport,
+        "Read-only inspection of generation mutation planning and application.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

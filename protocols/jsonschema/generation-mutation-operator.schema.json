@@ -1,0 +1,17 @@
+{
+  "$id": "https://schemas.factori.local/0.56.0/generation-mutation-operator.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Current-winner-conditioned generation mutation operator enum.",
+  "enum": [
+    "robustness_refinement",
+    "robustness_parsimony_hybrid",
+    "robustness_representation_hybrid",
+    "adversarial_boundary_stress",
+    "negative_control"
+  ],
+  "title": "GenerationMutationOperator",
+  "type": "string",
+  "x-factori-protocol-version": "0.56.0",
+  "x-factori-source-model": "factori.schemas.GenerationMutationOperator",
+  "x-factori-verification-evidence": false
+}

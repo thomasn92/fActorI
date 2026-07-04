@@ -150,6 +150,12 @@ from factori.gap_strategy_diversification import (
     inspect_gap_strategy_diversification,
     persist_gap_strategy_diversification,
 )
+from factori.generation_mutations import (
+    GenerationMutationError,
+    apply_generation_mutations,
+    inspect_generation_mutations,
+    plan_generation_mutations,
+)
 from factori.human_review import (
     HumanReviewIntakeError,
     ingest_human_review,
@@ -4480,6 +4486,99 @@ def apply_creative_mutations_command(
     typer.echo(f"new_idea_tree_node_count={result.report.new_idea_tree_node_count}")
     typer.echo(
         f"new_scientific_substrate_count={result.report.new_scientific_substrate_count}"
+    )
+    typer.echo("publication_ready=false")
+
+
+@app.command("plan-generation-mutations")
+def plan_generation_mutations_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    cycle_index: Annotated[int | None, typer.Option("--cycle-index")] = None,
+    max_mutations: Annotated[int, typer.Option("--max-mutations")] = 5,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan fresh current-winner-conditioned generation mutations."""
+    try:
+        plan = plan_generation_mutations(
+            run_id=run_id,
+            root=root,
+            cycle_index=cycle_index,
+            max_mutations=max_mutations,
+            write_report=True,
+        )
+    except GenerationMutationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(plan.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo("generation_mutation_plan_present=true")
+    typer.echo(f"plan_id={plan.plan_id}")
+    typer.echo(f"cycle_index={plan.context.cycle_index}")
+    typer.echo(f"current_winner={plan.context.current_winner_title}")
+    typer.echo(f"planning_status={plan.planning_status}")
+    typer.echo(f"mutation_count={plan.mutation_count}")
+    typer.echo(f"selected_for_substrate_build={plan.selected_for_substrate_build_count}")
+    typer.echo("publication_ready=false")
+
+
+@app.command("inspect-generation-mutations")
+def inspect_generation_mutations_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest generation mutation planning and application."""
+    try:
+        report = inspect_generation_mutations(run_id=run_id, root=root)
+    except GenerationMutationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    status = "present" if report.generation_mutation_plan_present else "absent"
+    typer.echo(f"Generation mutation plan: {status}")
+    typer.echo(f"Current winner: {report.current_winner_optional or 'none'}")
+    typer.echo(f"Mutations: {report.mutation_count}")
+    typer.echo(f"Selected: {report.selected_for_substrate_build_count}")
+    typer.echo(f"Applied: {report.applied_mutation_count}")
+    typer.echo(f"New IdeaTree nodes: {report.new_idea_tree_node_count}")
+    typer.echo(f"New ScientificSubstrates: {report.new_scientific_substrate_count}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("apply-generation-mutations")
+def apply_generation_mutations_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_mutations: Annotated[int, typer.Option("--max-mutations")] = 3,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Append selected generation mutations as IdeaTree/substrate context."""
+    try:
+        result = apply_generation_mutations(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            max_mutations=max_mutations,
+        )
+    except GenerationMutationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"plan_id={result.plan.plan_id}")
+    typer.echo(f"applied_mutation_count={result.report.applied_mutation_count}")
+    typer.echo(f"new_idea_tree_node_count={result.report.new_idea_tree_node_count}")
+    typer.echo(
+        "new_scientific_substrate_count="
+        f"{result.report.new_scientific_substrate_count}"
     )
     typer.echo("publication_ready=false")
 

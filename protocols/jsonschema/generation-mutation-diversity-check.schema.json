@@ -1,0 +1,93 @@
+{
+  "$id": "https://schemas.factori.local/0.56.0/generation-mutation-diversity-check.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Semantic diversity and duplicate check for generation mutations.",
+  "properties": {
+    "candidate_count_before_dedup": {
+      "minimum": 0,
+      "title": "Candidate Count Before Dedup",
+      "type": "integer"
+    },
+    "compared_prior_candidate_count": {
+      "minimum": 0,
+      "title": "Compared Prior Candidate Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "diversity_check_passed": {
+      "title": "Diversity Check Passed",
+      "type": "boolean"
+    },
+    "duplicate_candidate_count": {
+      "minimum": 0,
+      "title": "Duplicate Candidate Count",
+      "type": "integer"
+    },
+    "duplicate_mutation_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Duplicate Mutation Ids",
+      "type": "array"
+    },
+    "experiment_design_token_check_passed": {
+      "title": "Experiment Design Token Check Passed",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model_equation_token_check_passed": {
+      "title": "Model Equation Token Check Passed",
+      "type": "boolean"
+    },
+    "new_candidate_count": {
+      "minimum": 0,
+      "title": "New Candidate Count",
+      "type": "integer"
+    },
+    "normalized_title_check_passed": {
+      "title": "Normalized Title Check Passed",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "candidate_count_before_dedup",
+    "new_candidate_count",
+    "duplicate_candidate_count",
+    "compared_prior_candidate_count",
+    "normalized_title_check_passed",
+    "model_equation_token_check_passed",
+    "experiment_design_token_check_passed",
+    "diversity_check_passed"
+  ],
+  "title": "GenerationMutationDiversityCheck",
+  "type": "object",
+  "x-factori-protocol-version": "0.56.0",
+  "x-factori-source-model": "factori.schemas.GenerationMutationDiversityCheck",
+  "x-factori-verification-evidence": false
+}

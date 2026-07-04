@@ -836,6 +836,9 @@ uv run factori run-mutation-tournament --run-id demo-paper
 uv run factori inspect-mutation-tournament --run-id demo-paper --json
 uv run factori run-creative-search --run-id demo-paper --max-cycles 3
 uv run factori inspect-creative-search --run-id demo-paper --json
+uv run factori plan-generation-mutations --run-id demo-paper --cycle-index 2 --max-mutations 5
+uv run factori inspect-generation-mutations --run-id demo-paper --json
+uv run factori apply-generation-mutations --run-id demo-paper --max-mutations 3
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
@@ -869,8 +872,15 @@ workflow context and does not establish real-world validation or publication rea
 
 `run-creative-search` composes the deterministic local idea, substrate, tournament, mutation,
 manuscript, bundle, and verification stages. Valid existing stage reports are reused; fixed mutation
-identities are not re-applied. Cycle and lineage reports remain workflow context only and the
-controller stops on explicit score, diversity, mutation, safety, or cycle-budget policy.
+identities are not re-applied. When the fixed mutation set is exhausted, it plans and applies fresh
+generation-dependent branches before considering `no_new_mutations`. Cycle and lineage reports
+remain workflow context only and the controller stops on explicit score, diversity, mutation,
+safety, or cycle-budget policy.
+
+`plan-generation-mutations` conditions deterministic branches on the latest creative-search and
+mutation-tournament winners, prior losers and metrics, idea-space gaps, and all prior mutation
+fingerprints. `apply-generation-mutations` appends selected IdeaTree nodes and ScientificSubstrate
+planning objects; neither command routes experiments or creates evidence.
 
 ## Tests and Lint
 

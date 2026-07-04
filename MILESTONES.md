@@ -252,3 +252,15 @@ without real-world validation or publication readiness.
   manuscript regeneration, final bundle assembly, and independent verification.
 - Creative-search reports remain context only and never create scientific validation or
   publication readiness.
+
+## M90 Generation-Dependent Mutation Operators
+
+- Added current-winner-conditioned generation mutation context, candidates, plans, semantic
+  diversity checks, and read-only inspection contracts.
+- Added deterministic multi-scale robustness, clustered-parsimony, residual-diagnostic,
+  adversarial-stress, and negative-control branches with semantic de-duplication against prior
+  creative and generation mutations.
+- Applying selected generation mutations appends IdeaTree nodes and ScientificSubstrate context;
+  recursive creative search uses this path when the fixed mutation set is exhausted.
+- Generation mutation artifacts do not create experiments, evidence, scientific validation, or
+  publication readiness.

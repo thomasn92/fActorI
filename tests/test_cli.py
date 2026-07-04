@@ -317,6 +317,15 @@ def test_substrate_experiment_routing_commands_are_registered() -> None:
         app,
         ["inspect-creative-search", "--help"],
     )
+    plan_generation = CliRunner().invoke(app, ["plan-generation-mutations", "--help"])
+    inspect_generation = CliRunner().invoke(
+        app,
+        ["inspect-generation-mutations", "--help"],
+    )
+    apply_generation = CliRunner().invoke(
+        app,
+        ["apply-generation-mutations", "--help"],
+    )
     assert route.exit_code == 0, route.output
     assert inspect.exit_code == 0, inspect.output
     assert tournament.exit_code == 0, tournament.output
@@ -338,6 +347,13 @@ def test_substrate_experiment_routing_commands_are_registered() -> None:
     assert "--min-improvement" in creative_search.output
     assert inspect_creative_search.exit_code == 0, inspect_creative_search.output
     assert "--json" in inspect_creative_search.output
+    assert plan_generation.exit_code == 0, plan_generation.output
+    assert "--cycle-index" in plan_generation.output
+    assert "--max-mutations" in plan_generation.output
+    assert inspect_generation.exit_code == 0, inspect_generation.output
+    assert "--json" in inspect_generation.output
+    assert apply_generation.exit_code == 0, apply_generation.output
+    assert "--max-mutations" in apply_generation.output
 
 
 def test_human_review_cli_commands_are_registered() -> None:

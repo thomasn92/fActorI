@@ -93,6 +93,9 @@ completed run from disk and checks consistency without changing provenance.
 - bounded recursive creative-search control that validates and reuses existing idea, substrate,
   tournament, and mutation artifacts, tracks score/diversity/lineage by cycle, stops on explicit
   deterministic policy, and rebuilds a verified final bundle without creating evidence authority.
+- deterministic generation-dependent mutation planning that conditions fresh branches on the
+  current and previous winners, losing branches, tournament metrics, missing idea-space axes, and
+  prior semantic fingerprints; selected plans append IdeaTree and ScientificSubstrate context only.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

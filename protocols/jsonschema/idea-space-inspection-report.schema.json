@@ -430,7 +430,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.55.0/idea-space-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.56.0/idea-space-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only idea-space inspection payload.",
@@ -609,7 +609,7 @@
   ],
   "title": "IdeaSpaceInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.55.0",
+  "x-factori-protocol-version": "0.56.0",
   "x-factori-source-model": "factori.schemas.IdeaSpaceInspectionReport",
   "x-factori-verification-evidence": false
 }

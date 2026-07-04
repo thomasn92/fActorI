@@ -371,6 +371,8 @@ class ControllerActionType(StrEnum):
     MUTATION_TOURNAMENT_RUN = "MutationTournamentRun"
     CREATIVE_SEARCH_CYCLE_WRITTEN = "CreativeSearchCycleWritten"
     CREATIVE_SEARCH_CONTROLLER_WRITTEN = "CreativeSearchControllerWritten"
+    GENERATION_MUTATION_PLAN_WRITTEN = "GenerationMutationPlanWritten"
+    GENERATION_MUTATIONS_APPLIED = "GenerationMutationsApplied"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -409,6 +411,16 @@ class CreativeSearchStopReason(StrEnum):
     BUDGET_EXHAUSTED = "budget_exhausted"
     SAFETY_BLOCKER = "safety_blocker"
     ARTIFACT_INCONSISTENCY = "artifact_inconsistency"
+
+
+class GenerationMutationOperator(StrEnum):
+    """Winner-conditioned operators for later creative-search generations."""
+
+    ROBUSTNESS_REFINEMENT = "robustness_refinement"
+    ROBUSTNESS_PARSIMONY_HYBRID = "robustness_parsimony_hybrid"
+    ROBUSTNESS_REPRESENTATION_HYBRID = "robustness_representation_hybrid"
+    ADVERSARIAL_BOUNDARY_STRESS = "adversarial_boundary_stress"
+    NEGATIVE_CONTROL = "negative_control"
 
 
 class ReplayStatus(StrEnum):
@@ -833,6 +845,7 @@ __all__ = [
     "ControllerActionType",
     "CreativeMutationOperator",
     "CreativeSearchStopReason",
+    "GenerationMutationOperator",
     "ReleaseGateStatus",
     "ReplayStatus",
     "DiagnosticSeverity",

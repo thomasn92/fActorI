@@ -15,6 +15,7 @@ from factori.schemas import (
     CreativeMutationReport,
     FinalManuscriptRegenerationReport,
     FinalNucleus,
+    GenerationMutationInspectionReport,
     IdeaEdge,
     IdeaNode,
     IdeaTree,
@@ -25,6 +26,9 @@ from factori.schemas import (
 _FINAL_REGENERATION_RE = re.compile(r"^final-manuscript-regeneration-(\d{4})\.json$")
 _IDEA_TREE_EXPORT_RE = re.compile(r"^idea-tree-(\d{4})\.(?:json|md)$")
 _CREATIVE_MUTATION_RE = re.compile(r"^creative-mutation-report-(\d{4})\.json$")
+_GENERATION_MUTATION_RE = re.compile(
+    r"^generation-mutation-application-(\d{4})\.json$"
+)
 _DEFERRED_BRANCH_STATUSES = {
     "BudgetDeferred",
     "DeferredRealDataCandidate",
@@ -319,6 +323,16 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
         default_parent=final_node_id or "idea-root",
         domain=domain,
     )
+    _append_generation_mutation_nodes(
+        root_path=root_path,
+        reports=reports,
+        nodes=nodes,
+        edges=edges,
+        source_paths=source_paths,
+        warnings=warnings,
+        default_parent=final_node_id or "idea-root",
+        domain=domain,
+    )
 
     if candidates:
         warnings.append(
@@ -574,6 +588,121 @@ def _creative_edge_type(operator: str) -> str:
     if operator == "missing_axis_injection":
         return "missing_axis_to_candidate"
     return "winner_to_refinement"
+
+
+def _append_generation_mutation_nodes(
+    *,
+    root_path: Path,
+    reports: Path,
+    nodes: list[IdeaNode],
+    edges: list[IdeaEdge],
+    source_paths: list[str],
+    warnings: list[str],
+    default_parent: str,
+    domain: str,
+) -> None:
+    node_ids = {node.node_id for node in nodes}
+    loaded = _load_generation_mutation_reports(reports, root_path, warnings)
+    for report, report_path in loaded:
+        source_paths.append(_relative_path(root_path, report_path))
+        source_paths.extend(report.scientific_substrate_paths)
+        plan = report.latest_plan_optional
+        if plan is None:
+            continue
+        applied_ids = set(report.applied_mutation_ids)
+        for candidate in plan.candidates:
+            if candidate.mutation_id not in applied_ids or candidate.mutation_id in node_ids:
+                continue
+            parent = next(
+                (
+                    source_id
+                    for source_id in candidate.source_idea_node_ids
+                    if source_id in node_ids
+                ),
+                default_parent,
+            )
+            nodes.append(
+                IdeaNode(
+                    node_id=candidate.mutation_id,
+                    parent_id_optional=parent,
+                    depth=_node_depth(nodes, parent) + 1,
+                    stage_origin="generation_mutation",
+                    title=candidate.title,
+                    domain=candidate.domain or domain,
+                    method_optional=candidate.model_object,
+                    research_question_optional=candidate.research_question,
+                    hypothesis_optional=candidate.expected_result_pattern,
+                    model_hint_optional="; ".join(candidate.equations),
+                    experiment_hint_optional=candidate.experiment_design,
+                    baseline_hint_optional=candidate.baseline,
+                    data_regime_optional="SyntheticOnly",
+                    status=(
+                        "selected" if candidate.selected_for_substrate_build else "generated"
+                    ),
+                    survivor_reason_optional=candidate.why_scientifically_distinct,
+                    selected_for_stage_c=False,
+                    selected_for_final_manuscript=False,
+                    artifact_refs=sorted(
+                        {
+                            _relative_path(root_path, report_path),
+                            *report.scientific_substrate_paths,
+                        }
+                    ),
+                    created_at=None,
+                )
+            )
+            node_ids.add(candidate.mutation_id)
+            edges.append(
+                _edge(
+                    edges,
+                    source=parent,
+                    target=candidate.mutation_id,
+                    edge_type=_generation_mutation_edge_type(candidate.operator.value),
+                    mutation_operator=candidate.operator.value,
+                    rationale=candidate.why_scientifically_distinct,
+                )
+            )
+
+
+def _generation_mutation_edge_type(operator: str) -> str:
+    if operator in {"robustness_refinement", "adversarial_boundary_stress"}:
+        return "winner_to_robustness"
+    if operator in {
+        "robustness_parsimony_hybrid",
+        "robustness_representation_hybrid",
+    }:
+        return "winner_loser_to_hybrid"
+    if operator == "negative_control":
+        return "winner_to_refinement"
+    return "missing_axis_to_candidate"
+
+
+def _load_generation_mutation_reports(
+    reports: Path,
+    root_path: Path,
+    warnings: list[str],
+) -> list[tuple[GenerationMutationInspectionReport, Path]]:
+    loaded: list[tuple[GenerationMutationInspectionReport, Path]] = []
+    for _, path in sorted(
+        (int(match.group(1)), path)
+        for path in reports.glob("generation-mutation-application-*.json")
+        if (match := _GENERATION_MUTATION_RE.fullmatch(path.name))
+    ):
+        try:
+            loaded.append(
+                (
+                    GenerationMutationInspectionReport.model_validate_json(
+                        path.read_text(encoding="utf-8")
+                    ),
+                    path,
+                )
+            )
+        except (OSError, ValueError):
+            warnings.append(
+                "Generation mutation report could not be parsed: "
+                f"{_relative_path(root_path, path)}"
+            )
+    return loaded
 
 
 def render_idea_tree_markdown(report: IdeaTreeInspectionReport) -> str:
