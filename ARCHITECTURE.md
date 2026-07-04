@@ -29,6 +29,12 @@ Constraints
 The SQLite ledger is append-only. Artifact contents are SHA-256 hashed and linked to their
 producing commits. Filesystem artifacts live below `runs/<run_id>/`.
 
+Stage 0 opportunity discovery is now inspectable as its own context layer. It extracts
+domain primitives from broad domains, scores a deterministic local library of method lenses with
+easy-win and false-bridge heuristics, and emits seed constraints for later candidate generation.
+These artifacts are creative-search context only and cannot create evidence, labels, validation, or
+publication readiness.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

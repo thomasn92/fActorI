@@ -264,3 +264,14 @@ without real-world validation or publication readiness.
   recursive creative search uses this path when the fixed mutation set is exhausted.
 - Generation mutation artifacts do not create experiments, evidence, scientific validation, or
   publication readiness.
+
+## M91 General Stage 0 Opportunity Discovery
+
+- Added first-class domain primitive, method lens, opportunity candidate, score-breakdown,
+  seed-constraint, discovery-report, and inspection contracts.
+- Added deterministic primitive extraction for human geography, market microstructure, option
+  surfaces, insurance risk, robust finance, and a generic fallback domain.
+- Added a local general method-lens library and easy-win scoring formula with underuse gating and
+  false-bridge penalties for decorative or unverifiable domain-method pairs.
+- Promoted opportunities write seed constraints for future Stage A candidate-tree generation.
+  Reports remain context only and never create evidence, validation, or publication readiness.

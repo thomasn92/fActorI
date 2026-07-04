@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.57.0` adds Stage 0 opportunity discovery contracts for extracted domain primitives,
+general method lenses, scored opportunity candidates, easy-win score breakdowns, promoted seed
+constraints, append-only discovery reports, and read-only inspection payloads. These contracts are
+creative-search context only and do not create evidence, validation, or publication readiness.
+
 Protocol `0.56.0` adds generation-dependent mutation context, operator, candidate, semantic
 diversity-check, plan, and inspection contracts. These contracts condition fresh scientific
 branches on the current tournament winner and prior search history without creating evidence or

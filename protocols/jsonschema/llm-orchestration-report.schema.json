@@ -988,7 +988,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.56.0/llm-orchestration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.57.0/llm-orchestration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Report for gated end-to-end LLM paper orchestration.",
@@ -1109,7 +1109,7 @@
   ],
   "title": "LLMOrchestrationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.56.0",
+  "x-factori-protocol-version": "0.57.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationReport",
   "x-factori-verification-evidence": false
 }

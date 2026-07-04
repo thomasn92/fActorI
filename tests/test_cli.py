@@ -133,6 +133,8 @@ def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
 
 
 def test_idea_tree_cli_commands_are_registered() -> None:
+    discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
+    inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
@@ -140,6 +142,11 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     build_substrate = CliRunner().invoke(app, ["build-scientific-substrate", "--help"])
     inspect_substrate = CliRunner().invoke(app, ["inspect-scientific-substrate", "--help"])
 
+    assert discover.exit_code == 0, discover.output
+    assert "--domain" in discover.output
+    assert "--max-methods" in discover.output
+    assert inspect_opps.exit_code == 0, inspect_opps.output
+    assert "--json" in inspect_opps.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
@@ -157,6 +164,52 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--mutation-axis" in build_substrate.output
     assert inspect_substrate.exit_code == 0, inspect_substrate.output
     assert "--json" in inspect_substrate.output
+
+
+def test_opportunity_discovery_cli_discovers_and_inspects(tmp_path) -> None:
+    run_id = "cli-opportunity-discovery"
+    runner = CliRunner()
+
+    discovered = runner.invoke(
+        app,
+        [
+            "discover-opportunities",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--domain",
+            "human geography",
+            "--max-methods",
+            "20",
+        ],
+    )
+    inspected = runner.invoke(
+        app,
+        [
+            "inspect-opportunities",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+
+    assert discovered.exit_code == 0, discovered.output
+    assert "primitive_count=" in discovered.output
+    assert "method_lens_count=" in discovered.output
+    assert "promoted_count=" in discovered.output
+    assert "publication_ready=false" in discovered.output
+    assert inspected.exit_code == 0, inspected.output
+    payload = json.loads(inspected.output)
+    assert payload["opportunity_discovery_present"] is True
+    assert payload["primitive_count"] > 0
+    assert payload["method_lens_count"] >= 10
+    assert payload["opportunity_count"] >= 10
+    assert payload["promoted_count"] >= 2
+    assert payload["seed_constraint_count"] == payload["promoted_count"]
+    assert payload["publication_ready"] is False
 
 
 def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:

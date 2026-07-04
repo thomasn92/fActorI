@@ -1,0 +1,81 @@
+{
+  "$id": "https://schemas.factori.local/0.57.0/method-lens.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One mathematical or computational method lens for Stage 0 discovery.",
+  "properties": {
+    "canonical_objects": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Canonical Objects",
+      "type": "array"
+    },
+    "data_requirements": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Data Requirements",
+      "type": "array"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "example_domains": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Example Domains",
+      "type": "array"
+    },
+    "method_family": {
+      "minLength": 1,
+      "title": "Method Family",
+      "type": "string"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "typical_baselines": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Typical Baselines",
+      "type": "array"
+    },
+    "typical_claim_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Typical Claim Types",
+      "type": "array"
+    },
+    "verification_modes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verification Modes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "method_id",
+    "name",
+    "method_family",
+    "description"
+  ],
+  "title": "MethodLens",
+  "type": "object",
+  "x-factori-protocol-version": "0.57.0",
+  "x-factori-source-model": "factori.schemas.MethodLens",
+  "x-factori-verification-evidence": false
+}

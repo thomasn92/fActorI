@@ -211,6 +211,12 @@ from factori.narrative_contract import (
     build_narrative_contract,
     load_narrative_inputs,
 )
+from factori.opportunity_discovery import (
+    OpportunityDiscoveryError,
+    discover_opportunities,
+    inspect_opportunities,
+    render_opportunity_discovery_text,
+)
 from factori.output_hygiene import (
     inspect_output_hygiene,
     summarize_output_hygiene,
@@ -3593,9 +3599,7 @@ def run_autonomous_paper_command(
             max_review_calls=max_review_calls,
             max_prose_calls=max_prose_calls,
             max_claim_adjudication_calls=max_claim_adjudication_calls,
-            max_source_relevance_adjudication_calls=(
-                max_source_relevance_adjudication_calls
-            ),
+            max_source_relevance_adjudication_calls=(max_source_relevance_adjudication_calls),
             max_estimated_cost_usd=max_estimated_cost_usd,
         ),
     )
@@ -3668,8 +3672,7 @@ def inspect_autonomous_paper_run_command(
         typer.echo(f"- {stage['stage_name']}: {stage['stage_status']}")
     typer.echo(f"Final bundle: {summary.get('final_bundle_path_optional') or 'not_available'}")
     typer.echo(
-        "Final verification: "
-        f"{summary.get('final_bundle_verification_status') or 'not_available'}"
+        f"Final verification: {summary.get('final_bundle_verification_status') or 'not_available'}"
     )
     typer.echo(f"Deferred gaps: {summary['deferred_gap_count']}")
     typer.echo(f"Unsupported claims: {summary['unsupported_claim_count']}")
@@ -3691,10 +3694,7 @@ def inspect_autonomous_paper_run_command(
         f"Human intervention required: {str(summary['human_intervention_required']).lower()}"
     )
     typer.echo("Publication ready: false")
-    typer.echo(
-        "Artifact: "
-        f"{summary['autonomous_paper_run_index']['latest_report_path']}"
-    )
+    typer.echo(f"Artifact: {summary['autonomous_paper_run_index']['latest_report_path']}")
 
 
 @app.command("inspect-autonomous-paper-checkpoints")
@@ -3903,6 +3903,60 @@ def regenerate_final_manuscript_command(
     typer.echo(f"final_manuscript={result.manuscript_artifact.path}")
 
 
+@app.command("discover-opportunities")
+def discover_opportunities_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    domain: Annotated[str, typer.Option("--domain")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_methods: Annotated[int, typer.Option("--max-methods")] = 20,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run deterministic Stage 0 domain-method opportunity discovery."""
+    try:
+        result = discover_opportunities(
+            run_id=run_id,
+            domain=domain,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            max_methods=max_methods,
+        )
+    except OpportunityDiscoveryError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"discovery_id={result.report.discovery_id}")
+    typer.echo(f"domain={result.report.domain}")
+    typer.echo(f"primitive_count={result.report.primitive_count}")
+    typer.echo(f"method_lens_count={result.report.method_lens_count}")
+    typer.echo(f"opportunity_count={result.report.opportunity_count}")
+    typer.echo(f"promoted_count={result.report.promoted_count}")
+    typer.echo(f"seed_constraint_count={result.report.seed_constraint_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-opportunities")
+def inspect_opportunities_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest deterministic Stage 0 opportunity discovery."""
+    try:
+        report = inspect_opportunities(run_id=run_id, root=root)
+    except OpportunityDiscoveryError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_opportunity_discovery_text(report))
+
+
 @app.command("inspect-idea-tree")
 def inspect_idea_tree_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -4095,21 +4149,15 @@ def route_substrate_experiment_command(
     typer.echo(f"run_id={run_id}")
     typer.echo(f"routing_status={result.report.routing_status}")
     typer.echo(
-        "substrate_experiment_routed="
-        f"{str(result.report.substrate_experiment_routed).lower()}"
+        f"substrate_experiment_routed={str(result.report.substrate_experiment_routed).lower()}"
     )
-    typer.echo(
-        f"selected_substrate={result.report.selected_substrate_title_optional or 'none'}"
-    )
+    typer.echo(f"selected_substrate={result.report.selected_substrate_title_optional or 'none'}")
     spec_path = (
         result.report.generated_experiment_spec_path_optional
         or result.report.existing_experiment_spec_path_optional
         or "none"
     )
-    typer.echo(
-        "experiment_spec="
-        f"{spec_path}"
-    )
+    typer.echo(f"experiment_spec={spec_path}")
     typer.echo("publication_ready=false")
 
 
@@ -4193,12 +4241,10 @@ def inspect_substrate_tournament_command(
     typer.echo(f"Tournament status: {report.tournament_status_optional or 'none'}")
     typer.echo(f"Substrate count: {report.substrate_count}")
     typer.echo(
-        "Distance-decay branch completed: "
-        f"{str(report.distance_decay_branch_completed).lower()}"
+        f"Distance-decay branch completed: {str(report.distance_decay_branch_completed).lower()}"
     )
     typer.echo(
-        "PCA/low-rank branch completed: "
-        f"{str(report.pca_low_rank_branch_completed).lower()}"
+        f"PCA/low-rank branch completed: {str(report.pca_low_rank_branch_completed).lower()}"
     )
     typer.echo(f"Winner selected: {str(report.winner_selected).lower()}")
     typer.echo(f"Winner: {report.winner_substrate_title_optional or 'none'}")
@@ -4233,9 +4279,7 @@ def run_mutation_tournament_command(
         return
     typer.echo(f"run_id={run_id}")
     typer.echo(f"tournament_status={result.result.tournament_status}")
-    typer.echo(
-        f"original_winner_included={str(result.result.original_winner_included).lower()}"
-    )
+    typer.echo(f"original_winner_included={str(result.result.original_winner_included).lower()}")
     typer.echo(f"mutation_substrate_count={result.result.mutation_substrate_count}")
     typer.echo(
         "second_generation_winner_selected="
@@ -4247,8 +4291,7 @@ def run_mutation_tournament_command(
     )
     typer.echo(f"tournament_outcome={result.result.tournament_outcome}")
     typer.echo(
-        f"comparison_table_present="
-        f"{str(result.result.comparison.comparison_table_present).lower()}"
+        f"comparison_table_present={str(result.result.comparison.comparison_table_present).lower()}"
     )
     typer.echo("publication_ready=false")
 
@@ -4271,16 +4314,13 @@ def inspect_mutation_tournament_command(
     status = "present" if report.mutation_tournament_present else "absent"
     typer.echo(f"Mutation tournament: {status}")
     typer.echo(f"Tournament status: {report.tournament_status_optional or 'none'}")
-    typer.echo(
-        f"Original winner included: {str(report.original_winner_included).lower()}"
-    )
+    typer.echo(f"Original winner included: {str(report.original_winner_included).lower()}")
     typer.echo(
         "Hierarchical alpha branch completed: "
         f"{str(report.hierarchical_alpha_branch_completed).lower()}"
     )
     typer.echo(
-        "Hybrid low-rank branch completed: "
-        f"{str(report.hybrid_low_rank_branch_completed).lower()}"
+        f"Hybrid low-rank branch completed: {str(report.hybrid_low_rank_branch_completed).lower()}"
     )
     typer.echo(
         "Boundary robustness branch completed: "
@@ -4292,8 +4332,7 @@ def inspect_mutation_tournament_command(
     )
     typer.echo(f"Winner: {report.second_generation_winner_title_optional or 'none'}")
     typer.echo(
-        f"Mutation improved over original: "
-        f"{str(report.mutation_improved_over_original).lower()}"
+        f"Mutation improved over original: {str(report.mutation_improved_over_original).lower()}"
     )
     typer.echo(f"Comparison table: {str(report.comparison_table_present).lower()}")
     typer.echo("Publication ready: false")
@@ -4305,20 +4344,14 @@ def run_creative_search_command(
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     max_cycles: Annotated[int, typer.Option("--max-cycles")] = 3,
     min_improvement: Annotated[float, typer.Option("--min-improvement")] = 0.01,
-    max_mutations_per_cycle: Annotated[
-        int, typer.Option("--max-mutations-per-cycle")
-    ] = 3,
-    max_substrates_per_cycle: Annotated[
-        int, typer.Option("--max-substrates-per-cycle")
-    ] = 3,
+    max_mutations_per_cycle: Annotated[int, typer.Option("--max-mutations-per-cycle")] = 3,
+    max_substrates_per_cycle: Annotated[int, typer.Option("--max-substrates-per-cycle")] = 3,
     stop_if_no_improvement: Annotated[
         bool, typer.Option("--stop-if-no-improvement/--no-stop-if-no-improvement")
     ] = True,
     stop_if_diversity_collapses: Annotated[
         bool,
-        typer.Option(
-            "--stop-if-diversity-collapses/--no-stop-if-diversity-collapses"
-        ),
+        typer.Option("--stop-if-diversity-collapses/--no-stop-if-diversity-collapses"),
     ] = True,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -4372,12 +4405,8 @@ def inspect_creative_search_command(
     typer.echo(f"Creative search: {status}")
     typer.echo(f"Controller status: {report.controller_status_optional or 'none'}")
     typer.echo(f"Cycles: {report.cycle_count}")
-    stop_reason = (
-        report.stop_reason_optional.value if report.stop_reason_optional else "none"
-    )
-    typer.echo(
-        f"Stop reason: {stop_reason}"
-    )
+    stop_reason = report.stop_reason_optional.value if report.stop_reason_optional else "none"
+    typer.echo(f"Stop reason: {stop_reason}")
     typer.echo(f"Lineage present: {str(report.lineage_present).lower()}")
     typer.echo(f"Starting winner: {report.starting_winner_optional or 'none'}")
     typer.echo(f"Ending winner: {report.ending_winner_optional or 'none'}")
@@ -4443,8 +4472,7 @@ def inspect_creative_mutations_command(
     typer.echo(f"Applied mutations: {report.applied_mutation_count}")
     typer.echo(f"New IdeaTree nodes added: {str(report.new_idea_tree_nodes_added).lower()}")
     typer.echo(
-        "New ScientificSubstrates created: "
-        f"{str(report.new_scientific_substrates_created).lower()}"
+        f"New ScientificSubstrates created: {str(report.new_scientific_substrates_created).lower()}"
     )
     typer.echo("Publication ready: false")
 
@@ -4472,9 +4500,7 @@ def apply_creative_mutations_command(
         **result.report.model_dump(mode="json"),
         "creative_mutation_plan_present": True,
         "new_idea_tree_nodes_added": result.report.new_idea_tree_node_count > 0,
-        "new_scientific_substrates_created": (
-            result.report.new_scientific_substrate_count > 0
-        ),
+        "new_scientific_substrates_created": (result.report.new_scientific_substrate_count > 0),
         "publication_ready": False,
     }
     if json_output:
@@ -4484,9 +4510,7 @@ def apply_creative_mutations_command(
     typer.echo(f"apply_status={result.report.apply_status}")
     typer.echo(f"applied_mutation_count={result.report.applied_mutation_count}")
     typer.echo(f"new_idea_tree_node_count={result.report.new_idea_tree_node_count}")
-    typer.echo(
-        f"new_scientific_substrate_count={result.report.new_scientific_substrate_count}"
-    )
+    typer.echo(f"new_scientific_substrate_count={result.report.new_scientific_substrate_count}")
     typer.echo("publication_ready=false")
 
 
@@ -4576,10 +4600,7 @@ def apply_generation_mutations_command(
     typer.echo(f"plan_id={result.plan.plan_id}")
     typer.echo(f"applied_mutation_count={result.report.applied_mutation_count}")
     typer.echo(f"new_idea_tree_node_count={result.report.new_idea_tree_node_count}")
-    typer.echo(
-        "new_scientific_substrate_count="
-        f"{result.report.new_scientific_substrate_count}"
-    )
+    typer.echo(f"new_scientific_substrate_count={result.report.new_scientific_substrate_count}")
     typer.echo("publication_ready=false")
 
 
@@ -4688,8 +4709,7 @@ def inspect_final_release_bundle_command(
         f"{'present' if summary.get('final_bundle_verification_present') else 'absent'}"
     )
     typer.echo(
-        "Verification status: "
-        f"{summary.get('final_bundle_verification_status') or 'not_available'}"
+        f"Verification status: {summary.get('final_bundle_verification_status') or 'not_available'}"
     )
     typer.echo(
         "Verification checks passed/failed/warned: "
@@ -4735,9 +4755,7 @@ def verify_final_release_bundle_command(
     typer.echo(f"Hash mismatches: {report.hash_mismatch_count}")
     typer.echo(f"Missing required artifacts: {report.missing_required_artifact_count}")
     typer.echo(f"Rejected reference leaks: {report.rejected_reference_leak_count}")
-    typer.echo(
-        f"Accepted references check: {str(report.accepted_reference_check_passed).lower()}"
-    )
+    typer.echo(f"Accepted references check: {str(report.accepted_reference_check_passed).lower()}")
     typer.echo(f"Claim-evidence check: {str(report.claim_evidence_check_passed).lower()}")
     typer.echo(f"Publication ready: {str(report.publication_ready).lower()}")
 
@@ -5507,10 +5525,7 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         "Missing required bundle artifacts: "
         f"{int(summary.get('final_release_bundle_missing_required_artifact_count') or 0)}"
     )
-    typer.echo(
-        "Final bundle verified: "
-        f"{summary.get('final_bundle_verified', 'unknown')}"
-    )
+    typer.echo(f"Final bundle verified: {summary.get('final_bundle_verified', 'unknown')}")
     typer.echo(
         "Final bundle verification status: "
         f"{summary.get('final_bundle_verification_status') or 'not_available'}"
@@ -5568,10 +5583,7 @@ def _print_paper_bundle_summary(summary: dict[str, object]) -> None:
         f"{int(summary.get('autonomous_paper_stages_reused_count') or 0)} / "
         f"{int(summary.get('autonomous_paper_stages_rerun_count') or 0)}"
     )
-    typer.echo(
-        "Resume blockers: "
-        f"{int(summary.get('autonomous_paper_resume_blocker_count') or 0)}"
-    )
+    typer.echo(f"Resume blockers: {int(summary.get('autonomous_paper_resume_blocker_count') or 0)}")
     typer.echo(
         "Evidence-aware refresh: "
         f"{'present' if summary.get('evidence_aware_refresh_report_present') else 'absent'}"

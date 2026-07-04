@@ -140,6 +140,14 @@ from factori.mutation_tournament import (
     inspect_mutation_tournament,
     run_mutation_tournament,
 )
+from factori.opportunity_discovery import (
+    OPPORTUNITY_THRESHOLD,
+    build_opportunity_discovery_report,
+    discover_opportunities,
+    extract_domain_primitives,
+    inspect_opportunities,
+    method_lens_library,
+)
 from factori.planned_spec_execution import (
     execute_planned_specs,
     inspect_planned_spec_execution,
@@ -188,6 +196,7 @@ from factori.schemas import (
     CreativeSearchInspectionReport,
     CreativeSearchLineageEntry,
     CreativeSearchStopReason,
+    DomainPrimitive,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
     ExperimentGapRoutingIndex,
@@ -235,11 +244,17 @@ from factori.schemas import (
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     LLMOrchestrationConfig,
+    MethodLens,
     MutationTournamentComparison,
     MutationTournamentEntry,
     MutationTournamentInspectionReport,
     MutationTournamentResult,
     MutationTournamentSpec,
+    OpportunityCandidate,
+    OpportunityDiscoveryInspectionReport,
+    OpportunityDiscoveryReport,
+    OpportunityScoreBreakdown,
+    OpportunitySeedConstraint,
     PipelineRunConfig,
     PipelineStage,
     PlannedExperimentSpec,
@@ -338,6 +353,13 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert IdeaTree
     assert IdeaTreeInspectionReport
     assert IdeaTreeExportReport
+    assert DomainPrimitive
+    assert MethodLens
+    assert OpportunityCandidate
+    assert OpportunityScoreBreakdown
+    assert OpportunityDiscoveryReport
+    assert OpportunityDiscoveryInspectionReport
+    assert OpportunitySeedConstraint
     assert IdeaNodeFeatureVector
     assert IdeaSpaceAxis
     assert IdeaSpacePCADiagnostic
@@ -381,6 +403,117 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert GenerationMutationPlan
     assert GenerationMutationDiversityCheck
     assert GenerationMutationInspectionReport
+
+
+def test_opportunity_discovery_extracts_primitives_and_scores_easy_wins(
+    tmp_path,
+) -> None:
+    run_id = "run-opportunity-discovery"
+
+    human_primitives = extract_domain_primitives("human geography")
+    market_primitives = extract_domain_primitives("market microstructure")
+    finance_primitives = extract_domain_primitives("robust finance")
+    generic_primitives = extract_domain_primitives("comparative ritual systems")
+    lenses = method_lens_library()
+    report = build_opportunity_discovery_report(
+        run_id=run_id,
+        domain="human geography",
+        max_methods=20,
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    result = discover_opportunities(
+        run_id=run_id,
+        domain="human geography",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_methods=20,
+    )
+    inspection = inspect_opportunities(run_id=run_id, root=tmp_path)
+
+    assert {primitive.name for primitive in human_primitives} >= {
+        "flows",
+        "distance",
+        "mobility",
+        "boundary effects",
+    }
+    assert {primitive.name for primitive in market_primitives} >= {
+        "order flow",
+        "limit order book",
+        "arrival intensity",
+        "price impact",
+    }
+    assert {primitive.name for primitive in finance_primitives} >= {
+        "loss distributions",
+        "risk measures",
+        "ambiguity sets",
+        "Wasserstein distance",
+    }
+    assert generic_primitives
+    assert {lens.name for lens in lenses} >= {
+        "optimal transport",
+        "copulas",
+        "graph curvature",
+        "spatial statistics",
+        "stochastic processes",
+        "topological data analysis",
+        "causal inference",
+        "information geometry",
+        "robust optimization",
+        "distributionally robust optimization",
+        "kernel methods",
+        "matrix factorization",
+        "agent-based modeling",
+        "convex duality",
+        "PDE / diffusion",
+        "network science",
+    }
+    assert report.primitive_count > 0
+    assert report.method_lens_count >= 10
+    assert report.opportunity_count >= 10
+    assert report.promoted_count >= 2
+    assert report.seed_constraint_count == report.promoted_count
+    assert all(
+        opportunity.score_breakdown.O_final >= OPPORTUNITY_THRESHOLD
+        for opportunity in report.opportunities
+        if opportunity.score_breakdown.promoted
+    )
+    assert all(
+        opportunity.score_breakdown.O_final < OPPORTUNITY_THRESHOLD
+        for opportunity in report.opportunities
+        if not opportunity.score_breakdown.promoted
+    )
+    assert all(
+        opportunity.score_breakdown.S_underuse == 0
+        for opportunity in report.opportunities
+        if opportunity.score_breakdown.S_fit < 0.70
+        or opportunity.score_breakdown.S_verify < 0.60
+    )
+    assert any(
+        opportunity.false_bridge_reasons
+        and not opportunity.score_breakdown.promoted
+        for opportunity in report.opportunities
+    )
+    assert any(
+        opportunity.method_lens.name != "spatial statistics"
+        for opportunity in report.opportunities
+        if opportunity.score_breakdown.promoted
+    )
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.OPPORTUNITY_DISCOVERY_WRITTEN
+    )
+    assert result.report_artifact.path.endswith("opportunity-discovery-0001.json")
+    assert (
+        tmp_path / "runs" / run_id / "reports" / "opportunity-discovery-0001.md"
+    ).is_file()
+    assert inspection.opportunity_discovery_present is True
+    assert inspection.promoted_count == result.report.promoted_count
+    assert inspection.seed_constraint_count == result.report.seed_constraint_count
+    assert inspection.report_optional is not None
+    assert inspection.report_optional.publication_ready is False
+    assert inspection.report_optional.creates_scientific_validation is False
+    assert inspection.report_optional.is_verification_evidence is False
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

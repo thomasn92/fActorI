@@ -1,0 +1,108 @@
+{
+  "$id": "https://schemas.factori.local/0.57.0/opportunity-seed-constraint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Promoted Stage 0 seed constraint for later candidate generation.",
+  "properties": {
+    "candidate_generation_hint": {
+      "minLength": 1,
+      "title": "Candidate Generation Hint",
+      "type": "string"
+    },
+    "constraint_fragments": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        ]
+      },
+      "title": "Constraint Fragments",
+      "type": "object"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "method_name": {
+      "minLength": 1,
+      "title": "Method Name",
+      "type": "string"
+    },
+    "opportunity_id": {
+      "minLength": 1,
+      "title": "Opportunity Id",
+      "type": "string"
+    },
+    "opportunity_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Opportunity Score",
+      "type": "number"
+    },
+    "primitive_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Primitive Ids",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "seed_id": {
+      "minLength": 1,
+      "title": "Seed Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "seed_id",
+    "run_id",
+    "domain",
+    "method_id",
+    "method_name",
+    "candidate_generation_hint",
+    "opportunity_id",
+    "opportunity_score"
+  ],
+  "title": "OpportunitySeedConstraint",
+  "type": "object",
+  "x-factori-protocol-version": "0.57.0",
+  "x-factori-source-model": "factori.schemas.OpportunitySeedConstraint",
+  "x-factori-verification-evidence": false
+}

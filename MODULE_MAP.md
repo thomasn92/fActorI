@@ -207,6 +207,9 @@ All implementation modules are under `factori/`.
 - `idea_tree.py`: read-only reconstruction of domain roots, Stage A candidates, Stage B variants,
   Stage C selection, pruning decisions, and final manuscript branches, plus append-only
   context-only Markdown/JSON exports without evidence or label authority.
+- `opportunity_discovery.py`: deterministic general Stage 0 extraction of domain primitives,
+  local method-lens scoring, false-bridge penalties, promoted easy-win opportunities, and seed
+  constraints for future candidate-tree generation.
 - `idea_space.py`: read-only feature-vector extraction and PCA-like diversity diagnostics over
   IdeaTree nodes, including near-duplicate detection, collapsed-axis warnings, and context-only
   recommended mutation axes.

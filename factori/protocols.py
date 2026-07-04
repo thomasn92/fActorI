@@ -64,6 +64,7 @@ from factori.schemas import (
     CreativeSearchStopReason,
     DataRequirement,
     DiagnosticReport,
+    DomainPrimitive,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
     EvidenceAwareRefreshReport,
@@ -178,6 +179,7 @@ from factori.schemas import (
     ManuscriptDraftingReport,
     ManuscriptDraftStatus,
     ManuscriptPlan,
+    MethodLens,
     ModelNotationAssessment,
     MutationTournamentComparison,
     MutationTournamentEntry,
@@ -186,6 +188,11 @@ from factori.schemas import (
     MutationTournamentSpec,
     NarrativeManuscriptContract,
     NumericalStudyAssessment,
+    OpportunityCandidate,
+    OpportunityDiscoveryInspectionReport,
+    OpportunityDiscoveryReport,
+    OpportunityScoreBreakdown,
+    OpportunitySeedConstraint,
     OutputHygieneReport,
     PaperCriticFinding,
     PaperCriticReport,
@@ -276,7 +283,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.56.0"
+PROTOCOL_VERSION = "0.57.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -477,6 +484,41 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "IdeaTreeExportReport",
         IdeaTreeExportReport,
         "Context-only append-only idea-tree export result.",
+    ),
+    ProtocolDefinition(
+        "DomainPrimitive",
+        DomainPrimitive,
+        "One deterministic primitive extracted from a broad Stage 0 domain.",
+    ),
+    ProtocolDefinition(
+        "MethodLens",
+        MethodLens,
+        "One mathematical or computational method lens for Stage 0 discovery.",
+    ),
+    ProtocolDefinition(
+        "OpportunityScoreBreakdown",
+        OpportunityScoreBreakdown,
+        "Deterministic easy-win score components for a domain-method pair.",
+    ),
+    ProtocolDefinition(
+        "OpportunityCandidate",
+        OpportunityCandidate,
+        "One scored Stage 0 domain-method opportunity candidate.",
+    ),
+    ProtocolDefinition(
+        "OpportunitySeedConstraint",
+        OpportunitySeedConstraint,
+        "Promoted Stage 0 seed constraint for later candidate generation.",
+    ),
+    ProtocolDefinition(
+        "OpportunityDiscoveryReport",
+        OpportunityDiscoveryReport,
+        "Append-only non-evidence Stage 0 opportunity discovery report.",
+    ),
+    ProtocolDefinition(
+        "OpportunityDiscoveryInspectionReport",
+        OpportunityDiscoveryInspectionReport,
+        "Read-only inspection report for latest Stage 0 opportunity discovery.",
     ),
     ProtocolDefinition(
         "IdeaNodeFeatureVector",

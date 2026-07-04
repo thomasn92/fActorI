@@ -96,6 +96,10 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic generation-dependent mutation planning that conditions fresh branches on the
   current and previous winners, losing branches, tournament metrics, missing idea-space axes, and
   prior semantic fingerprints; selected plans append IdeaTree and ScientificSubstrate context only.
+- deterministic general Stage 0 opportunity discovery that extracts domain primitives from
+  domain-only prompts, scores a local library of mathematical/computational method lenses with an
+  easy-win heuristic and false-bridge penalty, and emits promoted seed constraints for later
+  candidate-tree generation without creating evidence or publication readiness.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

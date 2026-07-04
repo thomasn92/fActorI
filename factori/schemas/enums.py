@@ -373,6 +373,7 @@ class ControllerActionType(StrEnum):
     CREATIVE_SEARCH_CONTROLLER_WRITTEN = "CreativeSearchControllerWritten"
     GENERATION_MUTATION_PLAN_WRITTEN = "GenerationMutationPlanWritten"
     GENERATION_MUTATIONS_APPLIED = "GenerationMutationsApplied"
+    OPPORTUNITY_DISCOVERY_WRITTEN = "OpportunityDiscoveryWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

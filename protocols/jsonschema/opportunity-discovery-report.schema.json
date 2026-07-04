@@ -1,0 +1,549 @@
+{
+  "$defs": {
+    "DomainPrimitive": {
+      "additionalProperties": false,
+      "description": "One deterministic Stage 0 primitive extracted from a broad research domain.",
+      "properties": {
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "example_instantiations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Example Instantiations",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "primitive_id": {
+          "minLength": 1,
+          "title": "Primitive Id",
+          "type": "string"
+        },
+        "primitive_type": {
+          "minLength": 1,
+          "title": "Primitive Type",
+          "type": "string"
+        },
+        "symbolic_tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Symbolic Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "primitive_id",
+        "domain",
+        "name",
+        "primitive_type",
+        "description"
+      ],
+      "title": "DomainPrimitive",
+      "type": "object"
+    },
+    "MethodLens": {
+      "additionalProperties": false,
+      "description": "One general mathematical or computational method lens for opportunity search.",
+      "properties": {
+        "canonical_objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Canonical Objects",
+          "type": "array"
+        },
+        "data_requirements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Data Requirements",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "example_domains": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Example Domains",
+          "type": "array"
+        },
+        "method_family": {
+          "minLength": 1,
+          "title": "Method Family",
+          "type": "string"
+        },
+        "method_id": {
+          "minLength": 1,
+          "title": "Method Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "typical_baselines": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Typical Baselines",
+          "type": "array"
+        },
+        "typical_claim_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Typical Claim Types",
+          "type": "array"
+        },
+        "verification_modes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Verification Modes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "method_id",
+        "name",
+        "method_family",
+        "description"
+      ],
+      "title": "MethodLens",
+      "type": "object"
+    },
+    "OpportunityCandidate": {
+      "additionalProperties": false,
+      "description": "One Stage 0 domain-method opportunity candidate.",
+      "properties": {
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "false_bridge_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "False Bridge Reasons",
+          "type": "array"
+        },
+        "matched_primitives": {
+          "items": {
+            "$ref": "#/$defs/DomainPrimitive"
+          },
+          "title": "Matched Primitives",
+          "type": "array"
+        },
+        "method_lens": {
+          "$ref": "#/$defs/MethodLens"
+        },
+        "opportunity_id": {
+          "minLength": 1,
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "paper_shape": {
+          "minLength": 1,
+          "title": "Paper Shape",
+          "type": "string"
+        },
+        "possible_baselines": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Possible Baselines",
+          "type": "array"
+        },
+        "possible_experiment_contracts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Possible Experiment Contracts",
+          "type": "array"
+        },
+        "possible_hypotheses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Possible Hypotheses",
+          "type": "array"
+        },
+        "possible_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Possible Questions",
+          "type": "array"
+        },
+        "possible_theory_objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Possible Theory Objects",
+          "type": "array"
+        },
+        "risk_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Flags",
+          "type": "array"
+        },
+        "score_breakdown": {
+          "$ref": "#/$defs/OpportunityScoreBreakdown"
+        }
+      },
+      "required": [
+        "opportunity_id",
+        "domain",
+        "method_lens",
+        "paper_shape",
+        "score_breakdown"
+      ],
+      "title": "OpportunityCandidate",
+      "type": "object"
+    },
+    "OpportunityScoreBreakdown": {
+      "additionalProperties": false,
+      "description": "Deterministic bounded score for one domain-method opportunity.",
+      "properties": {
+        "O_final": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "O Final",
+          "type": "number"
+        },
+        "O_raw": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "O Raw",
+          "type": "number"
+        },
+        "S_abundance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Abundance",
+          "type": "number"
+        },
+        "S_data": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Data",
+          "type": "number"
+        },
+        "S_fit": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Fit",
+          "type": "number"
+        },
+        "S_forced": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Forced",
+          "type": "number"
+        },
+        "S_paper": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Paper",
+          "type": "number"
+        },
+        "S_underuse": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Underuse",
+          "type": "number"
+        },
+        "S_underuse_raw": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Underuse Raw",
+          "type": "number"
+        },
+        "S_verify": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "S Verify",
+          "type": "number"
+        },
+        "promoted": {
+          "title": "Promoted",
+          "type": "boolean"
+        },
+        "rejection_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rejection Reason Optional"
+        }
+      },
+      "required": [
+        "S_fit",
+        "S_underuse_raw",
+        "S_underuse",
+        "S_abundance",
+        "S_verify",
+        "S_data",
+        "S_paper",
+        "S_forced",
+        "O_raw",
+        "O_final",
+        "promoted"
+      ],
+      "title": "OpportunityScoreBreakdown",
+      "type": "object"
+    },
+    "OpportunitySeedConstraint": {
+      "additionalProperties": false,
+      "description": "Promoted Stage 0 seed that can constrain later candidate generation.",
+      "properties": {
+        "candidate_generation_hint": {
+          "minLength": 1,
+          "title": "Candidate Generation Hint",
+          "type": "string"
+        },
+        "constraint_fragments": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "title": "Constraint Fragments",
+          "type": "object"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "method_id": {
+          "minLength": 1,
+          "title": "Method Id",
+          "type": "string"
+        },
+        "method_name": {
+          "minLength": 1,
+          "title": "Method Name",
+          "type": "string"
+        },
+        "opportunity_id": {
+          "minLength": 1,
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "opportunity_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Opportunity Score",
+          "type": "number"
+        },
+        "primitive_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Primitive Ids",
+          "type": "array"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "seed_id": {
+          "minLength": 1,
+          "title": "Seed Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seed_id",
+        "run_id",
+        "domain",
+        "method_id",
+        "method_name",
+        "candidate_generation_hint",
+        "opportunity_id",
+        "opportunity_score"
+      ],
+      "title": "OpportunitySeedConstraint",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.57.0/opportunity-discovery-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only non-evidence Stage 0 opportunity discovery report.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "discovery_id": {
+      "minLength": 1,
+      "title": "Discovery Id",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method_lens_count": {
+      "minimum": 0,
+      "title": "Method Lens Count",
+      "type": "integer"
+    },
+    "method_lenses": {
+      "items": {
+        "$ref": "#/$defs/MethodLens"
+      },
+      "title": "Method Lenses",
+      "type": "array"
+    },
+    "opportunities": {
+      "items": {
+        "$ref": "#/$defs/OpportunityCandidate"
+      },
+      "title": "Opportunities",
+      "type": "array"
+    },
+    "opportunity_count": {
+      "minimum": 0,
+      "title": "Opportunity Count",
+      "type": "integer"
+    },
+    "primitive_count": {
+      "minimum": 0,
+      "title": "Primitive Count",
+      "type": "integer"
+    },
+    "primitives": {
+      "items": {
+        "$ref": "#/$defs/DomainPrimitive"
+      },
+      "title": "Primitives",
+      "type": "array"
+    },
+    "promoted_count": {
+      "minimum": 0,
+      "title": "Promoted Count",
+      "type": "integer"
+    },
+    "promoted_method_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Promoted Method Ids",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "seed_constraint_count": {
+      "minimum": 0,
+      "title": "Seed Constraint Count",
+      "type": "integer"
+    },
+    "seed_constraints": {
+      "items": {
+        "$ref": "#/$defs/OpportunitySeedConstraint"
+      },
+      "title": "Seed Constraints",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "discovery_id",
+    "domain",
+    "primitive_count",
+    "method_lens_count",
+    "opportunity_count",
+    "promoted_count",
+    "seed_constraint_count"
+  ],
+  "title": "OpportunityDiscoveryReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.57.0",
+  "x-factori-source-model": "factori.schemas.OpportunityDiscoveryReport",
+  "x-factori-verification-evidence": false
+}

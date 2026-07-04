@@ -226,7 +226,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.56.0/gap-attempt-history.schema.json",
+  "$id": "https://schemas.factori.local/0.57.0/gap-attempt-history.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived append-only history of gap attempts and exhaustion state.",
@@ -342,7 +342,7 @@
   ],
   "title": "GapAttemptHistory",
   "type": "object",
-  "x-factori-protocol-version": "0.56.0",
+  "x-factori-protocol-version": "0.57.0",
   "x-factori-source-model": "factori.schemas.GapAttemptHistory",
   "x-factori-verification-evidence": false
 }

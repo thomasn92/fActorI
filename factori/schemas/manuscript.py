@@ -96,6 +96,133 @@ class FinalNucleus(StrictModel):
     synthesis_label: str = "AbstractSynthesis"
 
 
+class DomainPrimitive(StrictModel):
+    """One deterministic Stage 0 primitive extracted from a broad research domain."""
+
+    primitive_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    primitive_type: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    symbolic_tags: list[str] = Field(default_factory=list)
+    example_instantiations: list[str] = Field(default_factory=list)
+
+
+class MethodLens(StrictModel):
+    """One general mathematical or computational method lens for opportunity search."""
+
+    method_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    method_family: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    canonical_objects: list[str] = Field(default_factory=list)
+    typical_claim_types: list[str] = Field(default_factory=list)
+    typical_baselines: list[str] = Field(default_factory=list)
+    verification_modes: list[str] = Field(default_factory=list)
+    data_requirements: list[str] = Field(default_factory=list)
+    example_domains: list[str] = Field(default_factory=list)
+
+
+class OpportunityScoreBreakdown(StrictModel):
+    """Deterministic bounded score for one domain-method opportunity."""
+
+    S_fit: float = Field(ge=0.0, le=1.0)
+    S_underuse_raw: float = Field(ge=0.0, le=1.0)
+    S_underuse: float = Field(ge=0.0, le=1.0)
+    S_abundance: float = Field(ge=0.0, le=1.0)
+    S_verify: float = Field(ge=0.0, le=1.0)
+    S_data: float = Field(ge=0.0, le=1.0)
+    S_paper: float = Field(ge=0.0, le=1.0)
+    S_forced: float = Field(ge=0.0, le=1.0)
+    O_raw: float = Field(ge=0.0, le=1.0)
+    O_final: float = Field(ge=0.0, le=1.0)
+    promoted: bool
+    rejection_reason_optional: str | None = None
+
+
+class OpportunityCandidate(StrictModel):
+    """One Stage 0 domain-method opportunity candidate."""
+
+    opportunity_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    method_lens: MethodLens
+    matched_primitives: list[DomainPrimitive] = Field(default_factory=list)
+    possible_questions: list[str] = Field(default_factory=list)
+    possible_hypotheses: list[str] = Field(default_factory=list)
+    possible_theory_objects: list[str] = Field(default_factory=list)
+    possible_experiment_contracts: list[str] = Field(default_factory=list)
+    possible_baselines: list[str] = Field(default_factory=list)
+    paper_shape: str = Field(min_length=1)
+    risk_flags: list[str] = Field(default_factory=list)
+    score_breakdown: OpportunityScoreBreakdown
+    false_bridge_reasons: list[str] = Field(default_factory=list)
+
+
+class OpportunitySeedConstraint(StrictModel):
+    """Promoted Stage 0 seed that can constrain later candidate generation."""
+
+    seed_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    method_name: str = Field(min_length=1)
+    primitive_ids: list[str] = Field(default_factory=list)
+    constraint_fragments: dict[str, str | list[str]] = Field(default_factory=dict)
+    candidate_generation_hint: str = Field(min_length=1)
+    opportunity_id: str = Field(min_length=1)
+    opportunity_score: float = Field(ge=0.0, le=1.0)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class OpportunityDiscoveryReport(StrictModel):
+    """Append-only Stage 0 opportunity discovery report."""
+
+    run_id: str = Field(min_length=1)
+    discovery_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    primitive_count: int = Field(ge=0)
+    method_lens_count: int = Field(ge=0)
+    opportunity_count: int = Field(ge=0)
+    promoted_count: int = Field(ge=0)
+    promoted_method_ids: list[str] = Field(default_factory=list)
+    seed_constraint_count: int = Field(ge=0)
+    primitives: list[DomainPrimitive] = Field(default_factory=list)
+    method_lenses: list[MethodLens] = Field(default_factory=list)
+    opportunities: list[OpportunityCandidate] = Field(default_factory=list)
+    seed_constraints: list[OpportunitySeedConstraint] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class OpportunityDiscoveryInspectionReport(StrictModel):
+    """Read-only inspection payload for latest Stage 0 opportunity discovery."""
+
+    run_id: str = Field(min_length=1)
+    opportunity_discovery_present: bool
+    latest_discovery_id_optional: str | None = None
+    domain_optional: str | None = None
+    primitive_count: int = Field(default=0, ge=0)
+    method_lens_count: int = Field(default=0, ge=0)
+    opportunity_count: int = Field(default=0, ge=0)
+    promoted_count: int = Field(default=0, ge=0)
+    seed_constraint_count: int = Field(default=0, ge=0)
+    promoted_opportunities: list[OpportunityCandidate] = Field(default_factory=list)
+    rejected_opportunities: list[OpportunityCandidate] = Field(default_factory=list)
+    seed_constraints: list[OpportunitySeedConstraint] = Field(default_factory=list)
+    report_optional: OpportunityDiscoveryReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 IdeaNodeStatus = Literal[
     "root",
     "generated",
@@ -4467,6 +4594,13 @@ __all__ = [
     "AbstractionReport",
     "AbstractionAttackReport",
     "FinalNucleus",
+    "DomainPrimitive",
+    "MethodLens",
+    "OpportunityCandidate",
+    "OpportunityScoreBreakdown",
+    "OpportunityDiscoveryReport",
+    "OpportunityDiscoveryInspectionReport",
+    "OpportunitySeedConstraint",
     "IdeaNode",
     "IdeaEdge",
     "IdeaTree",

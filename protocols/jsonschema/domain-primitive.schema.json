@@ -1,0 +1,59 @@
+{
+  "$id": "https://schemas.factori.local/0.57.0/domain-primitive.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic primitive extracted from a broad Stage 0 domain.",
+  "properties": {
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "example_instantiations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Example Instantiations",
+      "type": "array"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "primitive_id": {
+      "minLength": 1,
+      "title": "Primitive Id",
+      "type": "string"
+    },
+    "primitive_type": {
+      "minLength": 1,
+      "title": "Primitive Type",
+      "type": "string"
+    },
+    "symbolic_tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Symbolic Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "primitive_id",
+    "domain",
+    "name",
+    "primitive_type",
+    "description"
+  ],
+  "title": "DomainPrimitive",
+  "type": "object",
+  "x-factori-protocol-version": "0.57.0",
+  "x-factori-source-model": "factori.schemas.DomainPrimitive",
+  "x-factori-verification-evidence": false
+}

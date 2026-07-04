@@ -1,0 +1,102 @@
+{
+  "$id": "https://schemas.factori.local/0.57.0/opportunity-score-breakdown.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic easy-win score components for a domain-method pair.",
+  "properties": {
+    "O_final": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "O Final",
+      "type": "number"
+    },
+    "O_raw": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "O Raw",
+      "type": "number"
+    },
+    "S_abundance": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Abundance",
+      "type": "number"
+    },
+    "S_data": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Data",
+      "type": "number"
+    },
+    "S_fit": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Fit",
+      "type": "number"
+    },
+    "S_forced": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Forced",
+      "type": "number"
+    },
+    "S_paper": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Paper",
+      "type": "number"
+    },
+    "S_underuse": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Underuse",
+      "type": "number"
+    },
+    "S_underuse_raw": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Underuse Raw",
+      "type": "number"
+    },
+    "S_verify": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "S Verify",
+      "type": "number"
+    },
+    "promoted": {
+      "title": "Promoted",
+      "type": "boolean"
+    },
+    "rejection_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rejection Reason Optional"
+    }
+  },
+  "required": [
+    "S_fit",
+    "S_underuse_raw",
+    "S_underuse",
+    "S_abundance",
+    "S_verify",
+    "S_data",
+    "S_paper",
+    "S_forced",
+    "O_raw",
+    "O_final",
+    "promoted"
+  ],
+  "title": "OpportunityScoreBreakdown",
+  "type": "object",
+  "x-factori-protocol-version": "0.57.0",
+  "x-factori-source-model": "factori.schemas.OpportunityScoreBreakdown",
+  "x-factori-verification-evidence": false
+}
