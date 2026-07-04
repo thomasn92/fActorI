@@ -369,6 +369,8 @@ class ControllerActionType(StrEnum):
     CREATIVE_MUTATION_PLAN_WRITTEN = "CreativeMutationPlanWritten"
     CREATIVE_MUTATIONS_APPLIED = "CreativeMutationsApplied"
     MUTATION_TOURNAMENT_RUN = "MutationTournamentRun"
+    CREATIVE_SEARCH_CYCLE_WRITTEN = "CreativeSearchCycleWritten"
+    CREATIVE_SEARCH_CONTROLLER_WRITTEN = "CreativeSearchControllerWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -394,6 +396,19 @@ class CreativeMutationOperator(StrEnum):
     MECHANISM_CHANGE = "mechanism_change"
     REPRESENTATION_CHANGE = "representation_change"
     LIMITATION_TO_PARAMETER = "limitation_to_parameter"
+
+
+class CreativeSearchStopReason(StrEnum):
+    """Deterministic terminal reasons for recursive creative search."""
+
+    MAX_CYCLES_REACHED = "max_cycles_reached"
+    NO_SCORE_IMPROVEMENT = "no_score_improvement"
+    DIVERSITY_COLLAPSE = "diversity_collapse"
+    NO_NEW_MUTATIONS = "no_new_mutations"
+    ALL_MUTATIONS_INCONCLUSIVE = "all_mutations_inconclusive"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    SAFETY_BLOCKER = "safety_blocker"
+    ARTIFACT_INCONSISTENCY = "artifact_inconsistency"
 
 
 class ReplayStatus(StrEnum):
@@ -817,6 +832,7 @@ __all__ = [
     "ArtifactType",
     "ControllerActionType",
     "CreativeMutationOperator",
+    "CreativeSearchStopReason",
     "ReleaseGateStatus",
     "ReplayStatus",
     "DiagnosticSeverity",

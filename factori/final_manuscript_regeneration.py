@@ -42,6 +42,7 @@ from factori.schemas import (
     CitationRegistry,
     ClaimEvidenceMap,
     ControllerActionType,
+    CreativeSearchControllerReport,
     ExperimentArtifact,
     FinalManuscriptClaimSummary,
     FinalManuscriptRegenerationIndex,
@@ -102,6 +103,7 @@ def regenerate_final_manuscript(
     ledger: ResearchLedger,
     backend: str = "deterministic",
     allow_external_calls: bool = False,
+    creative_search_report: CreativeSearchControllerReport | None = None,
 ) -> FinalManuscriptRegenerationResult:
     """Regenerate and persist a coherent manuscript from the final evidence state."""
     if backend not in {"deterministic", "fake", "openai"}:
@@ -176,6 +178,12 @@ def regenerate_final_manuscript(
 
     substrate_tournament = latest_substrate_tournament_result(root_path, run_id)
     mutation_tournament = latest_mutation_tournament_result(root_path, run_id)
+    if creative_search_report is None:
+        from factori.creative_search import (  # noqa: PLC0415
+            latest_creative_search_report,
+        )
+
+        creative_search_report = latest_creative_search_report(root_path, run_id)
     if substrate_tournament and substrate_tournament.winner_substrate_id_optional:
         tournament_selected = next(
             (
@@ -223,6 +231,7 @@ def regenerate_final_manuscript(
         scientific_substrates=scientific_substrates,
         substrate_tournament=substrate_tournament,
         mutation_tournament=mutation_tournament,
+        creative_search_report=creative_search_report,
     )
     markdown = _render_manuscript(title, sections)
 
@@ -549,6 +558,7 @@ def _build_sections(
     scientific_substrates: list[ScientificSubstrate] | None = None,
     substrate_tournament: SubstrateTournamentResult | None = None,
     mutation_tournament: MutationTournamentResult | None = None,
+    creative_search_report: CreativeSearchControllerReport | None = None,
 ) -> list[FinalManuscriptSection]:
     counts = claim_evidence_summary_fields(source_map)
     formal = [proof for proof in proofs if _formal_proof(proof)]
@@ -678,6 +688,8 @@ def _build_sections(
         result_lines.extend(_tournament_result_lines(substrate_tournament))
     if mutation_tournament is not None:
         result_lines.extend(_mutation_tournament_result_lines(mutation_tournament))
+    if creative_search_report is not None:
+        result_lines.extend(_creative_search_result_lines(creative_search_report))
     for experiment in displayed_experiments:
         if experiment.experiment_type in {
             "substrate_distance_decay_uv_local",
@@ -816,6 +828,7 @@ def _build_sections(
             f"{substrate_context['alternative_text']} "
             f"{_tournament_appendix_text(substrate_tournament)}"
             f" {_mutation_tournament_appendix_text(mutation_tournament)}"
+            f" {_creative_search_appendix_text(creative_search_report)}"
         ),
         "Appendix B: Autonomous Execution and Provenance": (
             f"The autonomous loop completed {loop.iterations_completed} iteration(s) with terminal "
@@ -1396,6 +1409,65 @@ def _mutation_tournament_result_lines(
         "readiness."
     )
     return lines
+
+
+def _creative_search_result_lines(
+    report: CreativeSearchControllerReport,
+) -> list[str]:
+    lines = [
+        (
+            "The recursive creative-search controller tracked bounded branch selection across "
+            f"{report.cycle_count} cycle(s) and stopped because `{report.stop_reason.value}`. "
+            "This lineage is search context, not scientific evidence."
+        ),
+        "| cycle | starting branch | starting score | ending branch | ending score | improvement |",
+        "|---:|---|---:|---|---:|---:|",
+    ]
+    for cycle in report.cycles:
+        lines.append(
+            f"| {cycle.cycle_index} | {cycle.starting_winner} | {cycle.starting_score} | "
+            f"{cycle.ending_winner} | {cycle.ending_score} | "
+            f"{cycle.absolute_improvement} |"
+        )
+    lines.extend(
+        [
+            "Winning lineage:",
+            "| stage | branch | bounded score |",
+            "|---|---|---:|",
+        ]
+    )
+    for entry in report.lineage:
+        score = entry.score_optional if entry.score_optional is not None else "n/a"
+        lines.append(
+            f"| {entry.lineage_role} | {_safe_lineage_title(entry.title)} | {score} |"
+        )
+    lines.append(
+        "Scores compare only the declared local synthetic fixtures and do not establish "
+        "real-world validation, novelty, broad correctness, or publication readiness."
+    )
+    return lines
+
+
+def _creative_search_appendix_text(
+    report: CreativeSearchControllerReport | None,
+) -> str:
+    if report is None:
+        return "No recursive creative-search controller report is present."
+    lineage = "; ".join(
+        f"{entry.lineage_role}: {_safe_lineage_title(entry.title)}"
+        for entry in report.lineage
+    )
+    return (
+        f"Recursive search lineage ({report.stop_reason.value}): {lineage}. "
+        "This is provenance and branch-selection context only, not verification evidence."
+    )
+
+
+def _safe_lineage_title(title: str) -> str:
+    """Keep provenance titles from being restated as unsupported authority claims."""
+    safe = re.sub(r"\b(theorem|conjecture|proof)\b", "formal-status variant", title, flags=re.I)
+    safe = re.sub(r"\bpublication[- ]ready\b", "release-bounded", safe, flags=re.I)
+    return " ".join(safe.split())
 
 
 def _tournament_appendix_text(tournament: SubstrateTournamentResult | None) -> str:

@@ -267,6 +267,9 @@ All implementation modules are under `factori/`.
   latest scoped claim-evidence, citation, retrieval, execution, escalation, and release state;
   writes immutable manuscript/report/index artifacts and reruns safety gates without creating
   evidence or publication readiness.
+- `creative_search.py`: bounded recursive orchestration over IdeaTree and idea-space inspection,
+  substrate construction, tournaments, creative mutation, final manuscript regeneration, bundle
+  assembly, and independent verification with append-only cycle and lineage reports.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

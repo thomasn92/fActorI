@@ -834,6 +834,8 @@ uv run factori inspect-creative-mutations --run-id demo-paper --json
 uv run factori apply-creative-mutations --run-id demo-paper --max-mutations 3
 uv run factori run-mutation-tournament --run-id demo-paper
 uv run factori inspect-mutation-tournament --run-id demo-paper --json
+uv run factori run-creative-search --run-id demo-paper --max-cycles 3
+uv run factori inspect-creative-search --run-id demo-paper --json
 ```
 
 The controller uses local/offline-safe defaults, records all stage outcomes, requires complete
@@ -864,6 +866,11 @@ future bounded experiments; it does not route experiments or create validation e
 substrates to approved offline uv-local experiment bundles, compares raw and complexity-adjusted
 synthetic scores, and selects a second-generation manuscript branch. It is still synthetic-scope
 workflow context and does not establish real-world validation or publication readiness.
+
+`run-creative-search` composes the deterministic local idea, substrate, tournament, mutation,
+manuscript, bundle, and verification stages. Valid existing stage reports are reused; fixed mutation
+identities are not re-applied. Cycle and lineage reports remain workflow context only and the
+controller stops on explicit score, diversity, mutation, safety, or cycle-budget policy.
 
 ## Tests and Lint
 

@@ -24,6 +24,12 @@ from factori.schemas import (
     CreativeMutationOperator,
     CreativeMutationPlan,
     CreativeMutationReport,
+    CreativeSearchControllerConfig,
+    CreativeSearchControllerReport,
+    CreativeSearchCycle,
+    CreativeSearchInspectionReport,
+    CreativeSearchLineageEntry,
+    CreativeSearchStopReason,
     DataRequirement,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
@@ -130,6 +136,12 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert CreativeMutationPlan in vars(schemas).values()
     assert CreativeMutationReport in vars(schemas).values()
     assert CreativeMutationInspectionReport in vars(schemas).values()
+    assert CreativeSearchStopReason in vars(schemas).values()
+    assert CreativeSearchControllerConfig in vars(schemas).values()
+    assert CreativeSearchLineageEntry in vars(schemas).values()
+    assert CreativeSearchCycle in vars(schemas).values()
+    assert CreativeSearchControllerReport in vars(schemas).values()
+    assert CreativeSearchInspectionReport in vars(schemas).values()
     assert MutationTournamentSpec in vars(schemas).values()
     assert MutationTournamentEntry in vars(schemas).values()
     assert MutationTournamentResult in vars(schemas).values()
@@ -200,6 +212,12 @@ def test_schema_all_contains_expected_public_names() -> None:
         "CreativeMutationPlan",
         "CreativeMutationReport",
         "CreativeMutationInspectionReport",
+        "CreativeSearchStopReason",
+        "CreativeSearchControllerConfig",
+        "CreativeSearchLineageEntry",
+        "CreativeSearchCycle",
+        "CreativeSearchControllerReport",
+        "CreativeSearchInspectionReport",
         "MutationTournamentSpec",
         "MutationTournamentEntry",
         "MutationTournamentResult",
@@ -245,4 +263,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 260
+    assert len(get_protocol_definitions()) == 266

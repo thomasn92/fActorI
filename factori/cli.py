@@ -81,6 +81,11 @@ from factori.creative_mutations import (
     inspect_creative_mutations,
     plan_creative_mutations,
 )
+from factori.creative_search import (
+    CreativeSearchError,
+    inspect_creative_search,
+    run_creative_search,
+)
 from factori.cross_run import CrossRunError, compare_runs, write_cross_run_report
 from factori.diagnostics import (
     DiagnosticError,
@@ -4285,6 +4290,92 @@ def inspect_mutation_tournament_command(
         f"{str(report.mutation_improved_over_original).lower()}"
     )
     typer.echo(f"Comparison table: {str(report.comparison_table_present).lower()}")
+    typer.echo("Publication ready: false")
+
+
+@app.command("run-creative-search")
+def run_creative_search_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_cycles: Annotated[int, typer.Option("--max-cycles")] = 3,
+    min_improvement: Annotated[float, typer.Option("--min-improvement")] = 0.01,
+    max_mutations_per_cycle: Annotated[
+        int, typer.Option("--max-mutations-per-cycle")
+    ] = 3,
+    max_substrates_per_cycle: Annotated[
+        int, typer.Option("--max-substrates-per-cycle")
+    ] = 3,
+    stop_if_no_improvement: Annotated[
+        bool, typer.Option("--stop-if-no-improvement/--no-stop-if-no-improvement")
+    ] = True,
+    stop_if_diversity_collapses: Annotated[
+        bool,
+        typer.Option(
+            "--stop-if-diversity-collapses/--no-stop-if-diversity-collapses"
+        ),
+    ] = True,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run bounded recursive creative search with local deterministic stages."""
+    try:
+        result = run_creative_search(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            max_cycles=max_cycles,
+            min_improvement=min_improvement,
+            max_mutations_per_cycle=max_mutations_per_cycle,
+            max_substrates_per_cycle=max_substrates_per_cycle,
+            stop_if_no_improvement=stop_if_no_improvement,
+            stop_if_diversity_collapses=stop_if_diversity_collapses,
+        )
+    except CreativeSearchError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo("creative_search_present=true")
+    typer.echo(f"search_id={result.report.search_id}")
+    typer.echo(f"controller_status={result.report.controller_status}")
+    typer.echo(f"cycle_count={result.report.cycle_count}")
+    typer.echo(f"stop_reason={result.report.stop_reason.value}")
+    typer.echo(f"best_current_winner={result.report.best_current_winner}")
+    typer.echo(f"best_current_score={result.report.best_current_score}")
+    typer.echo(
+        "final_bundle_verification_status="
+        f"{result.report.final_bundle_verification_status_optional or 'none'}"
+    )
+    typer.echo("publication_ready=false")
+
+
+@app.command("inspect-creative-search")
+def inspect_creative_search_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest recursive creative-search report without mutation."""
+    report = inspect_creative_search(run_id=run_id, root=root)
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    status = "present" if report.creative_search_present else "absent"
+    typer.echo(f"Creative search: {status}")
+    typer.echo(f"Controller status: {report.controller_status_optional or 'none'}")
+    typer.echo(f"Cycles: {report.cycle_count}")
+    stop_reason = (
+        report.stop_reason_optional.value if report.stop_reason_optional else "none"
+    )
+    typer.echo(
+        f"Stop reason: {stop_reason}"
+    )
+    typer.echo(f"Lineage present: {str(report.lineage_present).lower()}")
+    typer.echo(f"Starting winner: {report.starting_winner_optional or 'none'}")
+    typer.echo(f"Ending winner: {report.ending_winner_optional or 'none'}")
+    typer.echo(f"Best current score: {report.best_current_score_optional or 0.0}")
     typer.echo("Publication ready: false")
 
 

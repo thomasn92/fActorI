@@ -62,6 +62,11 @@ from factori.creative_mutations import (
     inspect_creative_mutations,
     plan_creative_mutations,
 )
+from factori.creative_search import (
+    _cycle_stop_decision,
+    inspect_creative_search,
+    run_creative_search,
+)
 from factori.evidence_artifact_intake import (
     EvidenceArtifactIntakeError,
     ingest_experiment_artifact,
@@ -173,6 +178,12 @@ from factori.schemas import (
     CreativeMutationInspectionReport,
     CreativeMutationPlan,
     CreativeMutationReport,
+    CreativeSearchControllerConfig,
+    CreativeSearchControllerReport,
+    CreativeSearchCycle,
+    CreativeSearchInspectionReport,
+    CreativeSearchLineageEntry,
+    CreativeSearchStopReason,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
     ExperimentGapRoutingIndex,
@@ -349,6 +360,11 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert MutationTournamentResult
     assert MutationTournamentComparison
     assert MutationTournamentInspectionReport
+    assert CreativeSearchControllerConfig
+    assert CreativeSearchCycle
+    assert CreativeSearchLineageEntry
+    assert CreativeSearchControllerReport
+    assert CreativeSearchInspectionReport
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
@@ -1080,6 +1096,85 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     assert verification.verification_status in {"verified", "verified_with_warnings"}
     assert verification.unsupported_claim_count == 0
     assert verification.publication_ready is False
+
+    creative_search = run_creative_search(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_cycles=2,
+        min_improvement=0.01,
+    )
+    search_inspection = inspect_creative_search(run_id=run_id, root=tmp_path)
+    search_markdown = (
+        tmp_path / creative_search.report.final_manuscript_path_optional
+    ).read_text(encoding="utf-8")
+    search_verification = verify_final_release_bundle(
+        bundle_path=tmp_path / creative_search.report.final_bundle_path_optional
+    )
+
+    assert creative_search.report.cycle_count >= 1
+    assert creative_search.report.stop_reason in {
+        CreativeSearchStopReason.MAX_CYCLES_REACHED,
+        CreativeSearchStopReason.NO_NEW_MUTATIONS,
+    }
+    assert creative_search.report.lineage_present is True
+    assert creative_search.report.score_improvement_recorded is True
+    assert (
+        creative_search.report.starting_winner
+        == tournament.result.winner_substrate_title_optional
+    )
+    assert (
+        creative_search.report.ending_winner
+        == mutation_tournament.result.second_generation_winner_title_optional
+    )
+    assert creative_search.report.ending_score > creative_search.report.starting_score
+    assert search_inspection.creative_search_present is True
+    assert search_inspection.lineage_present is True
+    assert "| cycle | starting branch | starting score | ending branch |" in search_markdown
+    assert "Winning lineage:" in search_markdown
+    assert creative_search.report.unsupported_claim_count == 0
+    assert creative_search.report.publication_ready is False
+    assert search_verification.verification_status in {"verified", "verified_with_warnings"}
+    assert search_verification.unsupported_claim_count == 0
+    assert search_verification.publication_ready is False
+
+
+def test_creative_search_stop_policy_handles_budget_no_mutations_and_no_improvement() -> None:
+    config = CreativeSearchControllerConfig(
+        run_id="creative-search-policy",
+        max_cycles=3,
+        min_improvement=0.01,
+    )
+    reason, _ = _cycle_stop_decision(
+        cycle_index=1,
+        config=config,
+        no_improvement_cycles=0,
+        no_new_mutations=True,
+        all_mutations_inconclusive=False,
+        diversity_collapsed=False,
+    )
+    assert reason is CreativeSearchStopReason.NO_NEW_MUTATIONS
+
+    reason, _ = _cycle_stop_decision(
+        cycle_index=2,
+        config=config,
+        no_improvement_cycles=2,
+        no_new_mutations=False,
+        all_mutations_inconclusive=False,
+        diversity_collapsed=False,
+    )
+    assert reason is CreativeSearchStopReason.NO_SCORE_IMPROVEMENT
+
+    reason, _ = _cycle_stop_decision(
+        cycle_index=3,
+        config=config,
+        no_improvement_cycles=0,
+        no_new_mutations=False,
+        all_mutations_inconclusive=False,
+        diversity_collapsed=False,
+    )
+    assert reason is CreativeSearchStopReason.MAX_CYCLES_REACHED
 
 
 def test_generate_full_paper_library_writes_expected_bundle(tmp_path) -> None:

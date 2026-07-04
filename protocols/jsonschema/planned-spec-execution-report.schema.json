@@ -191,7 +191,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.54.0/planned-spec-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.55.0/planned-spec-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-evidence planned local spec execution report.",
@@ -435,7 +435,7 @@
   ],
   "title": "PlannedSpecExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.54.0",
+  "x-factori-protocol-version": "0.55.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecExecutionReport",
   "x-factori-verification-evidence": false
 }

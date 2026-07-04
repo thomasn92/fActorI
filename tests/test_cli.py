@@ -312,6 +312,11 @@ def test_substrate_experiment_routing_commands_are_registered() -> None:
         app,
         ["inspect-mutation-tournament", "--help"],
     )
+    creative_search = CliRunner().invoke(app, ["run-creative-search", "--help"])
+    inspect_creative_search = CliRunner().invoke(
+        app,
+        ["inspect-creative-search", "--help"],
+    )
     assert route.exit_code == 0, route.output
     assert inspect.exit_code == 0, inspect.output
     assert tournament.exit_code == 0, tournament.output
@@ -328,6 +333,11 @@ def test_substrate_experiment_routing_commands_are_registered() -> None:
     assert "--run-id" in mutation_tournament.output
     assert inspect_mutation_tournament.exit_code == 0, inspect_mutation_tournament.output
     assert "--json" in inspect_mutation_tournament.output
+    assert creative_search.exit_code == 0, creative_search.output
+    assert "--max-cycles" in creative_search.output
+    assert "--min-improvement" in creative_search.output
+    assert inspect_creative_search.exit_code == 0, inspect_creative_search.output
+    assert "--json" in inspect_creative_search.output
 
 
 def test_human_review_cli_commands_are_registered() -> None:

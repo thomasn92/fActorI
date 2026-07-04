@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.54.0/narrative-manuscript-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.55.0/narrative-manuscript-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic paper narrative contract; not scientific validation.",
@@ -159,7 +159,7 @@
   ],
   "title": "NarrativeManuscriptContract",
   "type": "object",
-  "x-factori-protocol-version": "0.54.0",
+  "x-factori-protocol-version": "0.55.0",
   "x-factori-source-model": "factori.schemas.NarrativeManuscriptContract",
   "x-factori-verification-evidence": false
 }

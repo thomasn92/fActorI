@@ -90,6 +90,9 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic mutation-substrate tournaments that route the prior winner plus applied mutation
   substrates to approved offline uv experiments, score raw fit, complexity, and robustness, and
   select a bounded second-generation branch without real-world validation or publication readiness.
+- bounded recursive creative-search control that validates and reuses existing idea, substrate,
+  tournament, and mutation artifacts, tracks score/diversity/lineage by cycle, stops on explicit
+  deterministic policy, and rebuilds a verified final bundle without creating evidence authority.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

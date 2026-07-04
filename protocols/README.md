@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.55.0` adds bounded recursive creative-search configuration, cycle, lineage, stop-reason,
+controller-report, and inspection contracts. The controller composes existing deterministic local
+idea, substrate, tournament, mutation, manuscript, bundle, and verification stages without creating
+scientific validation or publication readiness.
+
 Protocol `0.54.0` adds second-generation mutation tournament contracts. Mutation tournament specs,
 entries, comparisons, results, and inspection reports compare the previous bounded winner against
 experimentally routed mutation substrates while retaining synthetic-only evidence boundaries and

@@ -155,13 +155,19 @@ def test_protocol_export_is_deterministic_and_emits_all_schemas(tmp_path: Path) 
         "mutation-tournament-result.schema.json",
         "mutation-tournament-comparison.schema.json",
         "mutation-tournament-inspection-report.schema.json",
+        "creative-search-stop-reason.schema.json",
+        "creative-search-controller-config.schema.json",
+        "creative-search-lineage-entry.schema.json",
+        "creative-search-cycle.schema.json",
+        "creative-search-controller-report.schema.json",
+        "creative-search-inspection-report.schema.json",
     } <= {path.name for path in first.schema_files}
     assert first_contents == second_contents
-    assert len(first.schema_files) == len(get_protocol_definitions()) == 260
+    assert len(first.schema_files) == len(get_protocol_definitions()) == 266
     for path in first.schema_files:
         schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert schema["x-factori-protocol-version"] == "0.54.0"
+        assert schema["x-factori-protocol-version"] == "0.55.0"
         assert schema["x-factori-verification-evidence"] is False
 
 
@@ -171,7 +177,7 @@ def test_protocol_version_and_examples_are_validated_by_source_models(tmp_path: 
 
     metadata = json.loads(result.version_file.read_text(encoding="utf-8"))
     assert metadata == {
-        "protocol_version": "0.54.0",
+        "protocol_version": "0.55.0",
         "schema_format": "json-schema",
         "source": "factori-pydantic-models",
         "generated_by": "factori export-protocols",
@@ -207,7 +213,7 @@ def test_export_cli_and_check_mode_work(tmp_path: Path) -> None:
     )
 
     assert exported.exit_code == 0, exported.output
-    assert "schemas=260" in exported.output
+    assert "schemas=266" in exported.output
     assert checked.exit_code == 0, checked.output
     assert "check=ok" in checked.output
 

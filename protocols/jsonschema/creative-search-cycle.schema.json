@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "CreativeSearchStopReason": {
+      "description": "Deterministic terminal reasons for recursive creative search.",
+      "enum": [
+        "max_cycles_reached",
+        "no_score_improvement",
+        "diversity_collapse",
+        "no_new_mutations",
+        "all_mutations_inconclusive",
+        "budget_exhausted",
+        "safety_blocker",
+        "artifact_inconsistency"
+      ],
+      "title": "CreativeSearchStopReason",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.55.0/creative-search-cycle.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One append-only recursive creative-search cycle summary.",
+  "properties": {
+    "absolute_improvement": {
+      "title": "Absolute Improvement",
+      "type": "number"
+    },
+    "artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Paths",
+      "type": "array"
+    },
+    "completed_at": {
+      "minLength": 1,
+      "title": "Completed At",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "cycle_index": {
+      "minimum": 1,
+      "title": "Cycle Index",
+      "type": "integer"
+    },
+    "cycle_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "stopped",
+        "failed"
+      ],
+      "title": "Cycle Status",
+      "type": "string"
+    },
+    "diversity_score_after": {
+      "minLength": 1,
+      "title": "Diversity Score After",
+      "type": "string"
+    },
+    "diversity_score_before": {
+      "minLength": 1,
+      "title": "Diversity Score Before",
+      "type": "string"
+    },
+    "ending_score": {
+      "title": "Ending Score",
+      "type": "number"
+    },
+    "ending_winner": {
+      "minLength": 1,
+      "title": "Ending Winner",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "near_duplicate_count_after": {
+      "minimum": 0,
+      "title": "Near Duplicate Count After",
+      "type": "integer"
+    },
+    "near_duplicate_count_before": {
+      "minimum": 0,
+      "title": "Near Duplicate Count Before",
+      "type": "integer"
+    },
+    "new_experiments_run": {
+      "minimum": 0,
+      "title": "New Experiments Run",
+      "type": "integer"
+    },
+    "new_idea_nodes_added": {
+      "minimum": 0,
+      "title": "New Idea Nodes Added",
+      "type": "integer"
+    },
+    "new_substrates_added": {
+      "minimum": 0,
+      "title": "New Substrates Added",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "relative_improvement": {
+      "title": "Relative Improvement",
+      "type": "number"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "search_id": {
+      "minLength": 1,
+      "title": "Search Id",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "minLength": 1,
+      "title": "Started At",
+      "type": "string"
+    },
+    "starting_score": {
+      "title": "Starting Score",
+      "type": "number"
+    },
+    "starting_winner": {
+      "minLength": 1,
+      "title": "Starting Winner",
+      "type": "string"
+    },
+    "steps_executed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Steps Executed",
+      "type": "array"
+    },
+    "steps_reused": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Steps Reused",
+      "type": "array"
+    },
+    "stop_recommendation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CreativeSearchStopReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "search_id",
+    "cycle_index",
+    "cycle_status",
+    "started_at",
+    "completed_at",
+    "starting_winner",
+    "starting_score",
+    "ending_winner",
+    "ending_score",
+    "absolute_improvement",
+    "relative_improvement",
+    "new_idea_nodes_added",
+    "new_substrates_added",
+    "new_experiments_run",
+    "diversity_score_before",
+    "diversity_score_after",
+    "near_duplicate_count_before",
+    "near_duplicate_count_after"
+  ],
+  "title": "CreativeSearchCycle",
+  "type": "object",
+  "x-factori-protocol-version": "0.55.0",
+  "x-factori-source-model": "factori.schemas.CreativeSearchCycle",
+  "x-factori-verification-evidence": false
+}

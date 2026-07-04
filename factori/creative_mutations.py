@@ -174,13 +174,25 @@ def apply_creative_mutations(
     else:
         plan = _load_plan(plan_path)
 
+    previously_applied = {
+        candidate.mutation_id
+        for previous_report, _ in latest_creative_mutation_reports(
+            run_id=run_id,
+            root=root_path,
+        )
+        for candidate in previous_report.candidates
+    }
     selected = [
         candidate
         for candidate in plan.candidates
         if candidate.selected_for_substrate_build
+        and candidate.mutation_id not in previously_applied
     ][:max_mutations]
     if not selected:
-        raise CreativeMutationError("No selected creative mutations are available to apply.")
+        raise CreativeMutationError(
+            "No new selected creative mutations are available to apply; all selected "
+            "mutation identities were already applied."
+        )
 
     report_number = _next_number(reports, _REPORT_RE)
     report_id = f"creative-mutation-report-{report_number:04d}"

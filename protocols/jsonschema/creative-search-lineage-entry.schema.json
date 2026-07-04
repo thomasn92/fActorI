@@ -1,0 +1,134 @@
+{
+  "$id": "https://schemas.factori.local/0.55.0/creative-search-lineage-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One bounded branch transition in creative-search lineage.",
+  "properties": {
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "cycle_index_optional": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cycle Index Optional"
+    },
+    "idea_node_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idea Node Id Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "lineage_index": {
+      "minimum": 0,
+      "title": "Lineage Index",
+      "type": "integer"
+    },
+    "lineage_role": {
+      "enum": [
+        "root_domain",
+        "initial_selected_branch",
+        "first_generation_winner",
+        "mutation_source",
+        "second_generation_winner",
+        "current_winner"
+      ],
+      "title": "Lineage Role",
+      "type": "string"
+    },
+    "outcome_summary": {
+      "minLength": 1,
+      "title": "Outcome Summary",
+      "type": "string"
+    },
+    "parent_substrate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Parent Substrate Ids",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "score_optional": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Score Optional"
+    },
+    "source_report_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Report Path Optional"
+    },
+    "substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Substrate Id Optional"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "lineage_index",
+    "lineage_role",
+    "title",
+    "outcome_summary"
+  ],
+  "title": "CreativeSearchLineageEntry",
+  "type": "object",
+  "x-factori-protocol-version": "0.55.0",
+  "x-factori-source-model": "factori.schemas.CreativeSearchLineageEntry",
+  "x-factori-verification-evidence": false
+}

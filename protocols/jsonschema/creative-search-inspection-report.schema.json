@@ -1,0 +1,803 @@
+{
+  "$defs": {
+    "CreativeSearchControllerConfig": {
+      "additionalProperties": false,
+      "description": "Bounded deterministic policy for recursive creative search.",
+      "properties": {
+        "execution_backend": {
+          "const": "deterministic_local",
+          "default": "deterministic_local",
+          "title": "Execution Backend",
+          "type": "string"
+        },
+        "external_api_allowed": {
+          "default": false,
+          "title": "External Api Allowed",
+          "type": "boolean"
+        },
+        "max_cycles": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Max Cycles",
+          "type": "integer"
+        },
+        "max_mutations_per_cycle": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Max Mutations Per Cycle",
+          "type": "integer"
+        },
+        "max_substrates_per_cycle": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Max Substrates Per Cycle",
+          "type": "integer"
+        },
+        "min_improvement": {
+          "default": 0.01,
+          "minimum": 0.0,
+          "title": "Min Improvement",
+          "type": "number"
+        },
+        "network_allowed": {
+          "default": false,
+          "title": "Network Allowed",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "stop_if_diversity_collapses": {
+          "default": true,
+          "title": "Stop If Diversity Collapses",
+          "type": "boolean"
+        },
+        "stop_if_no_improvement": {
+          "default": true,
+          "title": "Stop If No Improvement",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "title": "CreativeSearchControllerConfig",
+      "type": "object"
+    },
+    "CreativeSearchControllerReport": {
+      "additionalProperties": false,
+      "description": "Append-only aggregate report for bounded recursive creative search.",
+      "properties": {
+        "best_current_score": {
+          "title": "Best Current Score",
+          "type": "number"
+        },
+        "best_current_winner": {
+          "minLength": 1,
+          "title": "Best Current Winner",
+          "type": "string"
+        },
+        "completed_at": {
+          "minLength": 1,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/$defs/CreativeSearchControllerConfig"
+        },
+        "controller_status": {
+          "enum": [
+            "completed",
+            "completed_with_warnings",
+            "stopped",
+            "failed"
+          ],
+          "title": "Controller Status",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "cycle_count": {
+          "minimum": 0,
+          "title": "Cycle Count",
+          "type": "integer"
+        },
+        "cycles": {
+          "items": {
+            "$ref": "#/$defs/CreativeSearchCycle"
+          },
+          "title": "Cycles",
+          "type": "array"
+        },
+        "ending_score": {
+          "title": "Ending Score",
+          "type": "number"
+        },
+        "ending_winner": {
+          "minLength": 1,
+          "title": "Ending Winner",
+          "type": "string"
+        },
+        "final_bundle_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Bundle Path Optional"
+        },
+        "final_bundle_verification_status_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Bundle Verification Status Optional"
+        },
+        "final_manuscript_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Manuscript Path Optional"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "lineage": {
+          "items": {
+            "$ref": "#/$defs/CreativeSearchLineageEntry"
+          },
+          "title": "Lineage",
+          "type": "array"
+        },
+        "lineage_present": {
+          "default": false,
+          "title": "Lineage Present",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "score_improvement_recorded": {
+          "default": false,
+          "title": "Score Improvement Recorded",
+          "type": "boolean"
+        },
+        "search_id": {
+          "minLength": 1,
+          "title": "Search Id",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Started At",
+          "type": "string"
+        },
+        "starting_score": {
+          "title": "Starting Score",
+          "type": "number"
+        },
+        "starting_winner": {
+          "minLength": 1,
+          "title": "Starting Winner",
+          "type": "string"
+        },
+        "stop_detail": {
+          "minLength": 1,
+          "title": "Stop Detail",
+          "type": "string"
+        },
+        "stop_reason": {
+          "$ref": "#/$defs/CreativeSearchStopReason"
+        },
+        "total_absolute_improvement": {
+          "title": "Total Absolute Improvement",
+          "type": "number"
+        },
+        "total_relative_improvement": {
+          "title": "Total Relative Improvement",
+          "type": "number"
+        },
+        "unsupported_claim_count": {
+          "minimum": 0,
+          "title": "Unsupported Claim Count",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "search_id",
+        "controller_status",
+        "started_at",
+        "completed_at",
+        "config",
+        "cycle_count",
+        "stop_reason",
+        "stop_detail",
+        "starting_winner",
+        "starting_score",
+        "ending_winner",
+        "ending_score",
+        "total_absolute_improvement",
+        "total_relative_improvement",
+        "best_current_winner",
+        "best_current_score",
+        "unsupported_claim_count"
+      ],
+      "title": "CreativeSearchControllerReport",
+      "type": "object"
+    },
+    "CreativeSearchCycle": {
+      "additionalProperties": false,
+      "description": "One append-only recursive scientific-search cycle summary.",
+      "properties": {
+        "absolute_improvement": {
+          "title": "Absolute Improvement",
+          "type": "number"
+        },
+        "artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Paths",
+          "type": "array"
+        },
+        "completed_at": {
+          "minLength": 1,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "cycle_index": {
+          "minimum": 1,
+          "title": "Cycle Index",
+          "type": "integer"
+        },
+        "cycle_status": {
+          "enum": [
+            "completed",
+            "completed_with_warnings",
+            "stopped",
+            "failed"
+          ],
+          "title": "Cycle Status",
+          "type": "string"
+        },
+        "diversity_score_after": {
+          "minLength": 1,
+          "title": "Diversity Score After",
+          "type": "string"
+        },
+        "diversity_score_before": {
+          "minLength": 1,
+          "title": "Diversity Score Before",
+          "type": "string"
+        },
+        "ending_score": {
+          "title": "Ending Score",
+          "type": "number"
+        },
+        "ending_winner": {
+          "minLength": 1,
+          "title": "Ending Winner",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "near_duplicate_count_after": {
+          "minimum": 0,
+          "title": "Near Duplicate Count After",
+          "type": "integer"
+        },
+        "near_duplicate_count_before": {
+          "minimum": 0,
+          "title": "Near Duplicate Count Before",
+          "type": "integer"
+        },
+        "new_experiments_run": {
+          "minimum": 0,
+          "title": "New Experiments Run",
+          "type": "integer"
+        },
+        "new_idea_nodes_added": {
+          "minimum": 0,
+          "title": "New Idea Nodes Added",
+          "type": "integer"
+        },
+        "new_substrates_added": {
+          "minimum": 0,
+          "title": "New Substrates Added",
+          "type": "integer"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "relative_improvement": {
+          "title": "Relative Improvement",
+          "type": "number"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "search_id": {
+          "minLength": 1,
+          "title": "Search Id",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Started At",
+          "type": "string"
+        },
+        "starting_score": {
+          "title": "Starting Score",
+          "type": "number"
+        },
+        "starting_winner": {
+          "minLength": 1,
+          "title": "Starting Winner",
+          "type": "string"
+        },
+        "steps_executed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Steps Executed",
+          "type": "array"
+        },
+        "steps_reused": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Steps Reused",
+          "type": "array"
+        },
+        "stop_recommendation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CreativeSearchStopReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "search_id",
+        "cycle_index",
+        "cycle_status",
+        "started_at",
+        "completed_at",
+        "starting_winner",
+        "starting_score",
+        "ending_winner",
+        "ending_score",
+        "absolute_improvement",
+        "relative_improvement",
+        "new_idea_nodes_added",
+        "new_substrates_added",
+        "new_experiments_run",
+        "diversity_score_before",
+        "diversity_score_after",
+        "near_duplicate_count_before",
+        "near_duplicate_count_after"
+      ],
+      "title": "CreativeSearchCycle",
+      "type": "object"
+    },
+    "CreativeSearchLineageEntry": {
+      "additionalProperties": false,
+      "description": "One bounded branch transition in the winning creative-search lineage.",
+      "properties": {
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "cycle_index_optional": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cycle Index Optional"
+        },
+        "idea_node_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idea Node Id Optional"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "lineage_index": {
+          "minimum": 0,
+          "title": "Lineage Index",
+          "type": "integer"
+        },
+        "lineage_role": {
+          "enum": [
+            "root_domain",
+            "initial_selected_branch",
+            "first_generation_winner",
+            "mutation_source",
+            "second_generation_winner",
+            "current_winner"
+          ],
+          "title": "Lineage Role",
+          "type": "string"
+        },
+        "outcome_summary": {
+          "minLength": 1,
+          "title": "Outcome Summary",
+          "type": "string"
+        },
+        "parent_substrate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Parent Substrate Ids",
+          "type": "array"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "score_optional": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score Optional"
+        },
+        "source_report_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Report Path Optional"
+        },
+        "substrate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Substrate Id Optional"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lineage_index",
+        "lineage_role",
+        "title",
+        "outcome_summary"
+      ],
+      "title": "CreativeSearchLineageEntry",
+      "type": "object"
+    },
+    "CreativeSearchStopReason": {
+      "description": "Deterministic terminal reasons for recursive creative search.",
+      "enum": [
+        "max_cycles_reached",
+        "no_score_improvement",
+        "diversity_collapse",
+        "no_new_mutations",
+        "all_mutations_inconclusive",
+        "budget_exhausted",
+        "safety_blocker",
+        "artifact_inconsistency"
+      ],
+      "title": "CreativeSearchStopReason",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.55.0/creative-search-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection of the latest recursive creative search.",
+  "properties": {
+    "best_current_score_optional": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Best Current Score Optional"
+    },
+    "best_current_winner_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Best Current Winner Optional"
+    },
+    "controller_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Controller Status Optional"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creative_search_present": {
+      "title": "Creative Search Present",
+      "type": "boolean"
+    },
+    "cycle_count": {
+      "minimum": 0,
+      "title": "Cycle Count",
+      "type": "integer"
+    },
+    "ending_score_optional": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ending Score Optional"
+    },
+    "ending_winner_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ending Winner Optional"
+    },
+    "final_bundle_verification_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Bundle Verification Status Optional"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_search_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Search Id Optional"
+    },
+    "lineage_present": {
+      "default": false,
+      "title": "Lineage Present",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "report_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CreativeSearchControllerReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "score_improvement_recorded": {
+      "default": false,
+      "title": "Score Improvement Recorded",
+      "type": "boolean"
+    },
+    "starting_score_optional": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Starting Score Optional"
+    },
+    "starting_winner_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Starting Winner Optional"
+    },
+    "stop_reason_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CreativeSearchStopReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "creative_search_present",
+    "cycle_count"
+  ],
+  "title": "CreativeSearchInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.55.0",
+  "x-factori-source-model": "factori.schemas.CreativeSearchInspectionReport",
+  "x-factori-verification-evidence": false
+}

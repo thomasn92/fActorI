@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.54.0/retrieval-query.schema.json",
+  "$id": "https://schemas.factori.local/0.55.0/retrieval-query.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider retrieval query contract.",
@@ -64,7 +64,7 @@
   ],
   "title": "RetrievalQuery",
   "type": "object",
-  "x-factori-protocol-version": "0.54.0",
+  "x-factori-protocol-version": "0.55.0",
   "x-factori-source-model": "factori.schemas.RetrievalQuery",
   "x-factori-verification-evidence": false
 }

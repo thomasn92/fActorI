@@ -22,6 +22,12 @@ from factori.schemas import (
     CreativeMutationOperator,
     CreativeMutationPlan,
     CreativeMutationReport,
+    CreativeSearchControllerConfig,
+    CreativeSearchControllerReport,
+    CreativeSearchCycle,
+    CreativeSearchInspectionReport,
+    CreativeSearchLineageEntry,
+    CreativeSearchStopReason,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
     ExperimentRunContract,
@@ -115,9 +121,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 260
+    assert len(first) == 266
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.54.0"
+    assert PROTOCOL_VERSION == "0.55.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -284,6 +290,22 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("MutationTournamentInspectionReport").model is (
         MutationTournamentInspectionReport
     )
+    assert get_protocol_definition("CreativeSearchStopReason").model is (
+        CreativeSearchStopReason
+    )
+    assert get_protocol_definition("CreativeSearchControllerConfig").model is (
+        CreativeSearchControllerConfig
+    )
+    assert get_protocol_definition("CreativeSearchLineageEntry").model is (
+        CreativeSearchLineageEntry
+    )
+    assert get_protocol_definition("CreativeSearchCycle").model is CreativeSearchCycle
+    assert get_protocol_definition("CreativeSearchControllerReport").model is (
+        CreativeSearchControllerReport
+    )
+    assert get_protocol_definition("CreativeSearchInspectionReport").model is (
+        CreativeSearchInspectionReport
+    )
 
 
 def test_server_facing_protocols_and_enums_are_registered() -> None:
@@ -405,6 +427,12 @@ def test_server_facing_protocols_and_enums_are_registered() -> None:
         "MutationTournamentResult",
         "MutationTournamentComparison",
         "MutationTournamentInspectionReport",
+        "CreativeSearchStopReason",
+        "CreativeSearchControllerConfig",
+        "CreativeSearchLineageEntry",
+        "CreativeSearchCycle",
+        "CreativeSearchControllerReport",
+        "CreativeSearchInspectionReport",
         "FullPaperGenerationStatus",
         "FullPaperGenerationStepStatus",
         "LLMOrchestrationStatus",

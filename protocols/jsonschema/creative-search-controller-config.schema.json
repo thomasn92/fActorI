@@ -1,0 +1,76 @@
+{
+  "$id": "https://schemas.factori.local/0.55.0/creative-search-controller-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded deterministic recursive creative-search policy.",
+  "properties": {
+    "execution_backend": {
+      "const": "deterministic_local",
+      "default": "deterministic_local",
+      "title": "Execution Backend",
+      "type": "string"
+    },
+    "external_api_allowed": {
+      "default": false,
+      "title": "External Api Allowed",
+      "type": "boolean"
+    },
+    "max_cycles": {
+      "default": 3,
+      "minimum": 1,
+      "title": "Max Cycles",
+      "type": "integer"
+    },
+    "max_mutations_per_cycle": {
+      "default": 3,
+      "minimum": 1,
+      "title": "Max Mutations Per Cycle",
+      "type": "integer"
+    },
+    "max_substrates_per_cycle": {
+      "default": 3,
+      "minimum": 1,
+      "title": "Max Substrates Per Cycle",
+      "type": "integer"
+    },
+    "min_improvement": {
+      "default": 0.01,
+      "minimum": 0.0,
+      "title": "Min Improvement",
+      "type": "number"
+    },
+    "network_allowed": {
+      "default": false,
+      "title": "Network Allowed",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stop_if_diversity_collapses": {
+      "default": true,
+      "title": "Stop If Diversity Collapses",
+      "type": "boolean"
+    },
+    "stop_if_no_improvement": {
+      "default": true,
+      "title": "Stop If No Improvement",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "CreativeSearchControllerConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.55.0",
+  "x-factori-source-model": "factori.schemas.CreativeSearchControllerConfig",
+  "x-factori-verification-evidence": false
+}

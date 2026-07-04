@@ -56,6 +56,12 @@ from factori.schemas import (
     CreativeMutationOperator,
     CreativeMutationPlan,
     CreativeMutationReport,
+    CreativeSearchControllerConfig,
+    CreativeSearchControllerReport,
+    CreativeSearchCycle,
+    CreativeSearchInspectionReport,
+    CreativeSearchLineageEntry,
+    CreativeSearchStopReason,
     DataRequirement,
     DiagnosticReport,
     DraftSkeleton,
@@ -264,7 +270,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.54.0"
+PROTOCOL_VERSION = "0.55.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -630,6 +636,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "MutationTournamentInspectionReport",
         MutationTournamentInspectionReport,
         "Read-only inspection report for the latest mutation substrate tournament.",
+    ),
+    ProtocolDefinition(
+        "CreativeSearchStopReason",
+        CreativeSearchStopReason,
+        "Deterministic terminal reason for recursive creative search.",
+    ),
+    ProtocolDefinition(
+        "CreativeSearchControllerConfig",
+        CreativeSearchControllerConfig,
+        "Bounded deterministic recursive creative-search policy.",
+    ),
+    ProtocolDefinition(
+        "CreativeSearchLineageEntry",
+        CreativeSearchLineageEntry,
+        "One bounded branch transition in creative-search lineage.",
+    ),
+    ProtocolDefinition(
+        "CreativeSearchCycle",
+        CreativeSearchCycle,
+        "One append-only recursive creative-search cycle summary.",
+    ),
+    ProtocolDefinition(
+        "CreativeSearchControllerReport",
+        CreativeSearchControllerReport,
+        "Aggregate report for bounded recursive creative search.",
+    ),
+    ProtocolDefinition(
+        "CreativeSearchInspectionReport",
+        CreativeSearchInspectionReport,
+        "Read-only inspection of the latest recursive creative search.",
     ),
     ProtocolDefinition(
         "ClaimEvidenceMapLink",

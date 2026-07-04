@@ -1,0 +1,20 @@
+{
+  "$id": "https://schemas.factori.local/0.55.0/creative-search-stop-reason.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Deterministic terminal reason for recursive creative search.",
+  "enum": [
+    "max_cycles_reached",
+    "no_score_improvement",
+    "diversity_collapse",
+    "no_new_mutations",
+    "all_mutations_inconclusive",
+    "budget_exhausted",
+    "safety_blocker",
+    "artifact_inconsistency"
+  ],
+  "title": "CreativeSearchStopReason",
+  "type": "string",
+  "x-factori-protocol-version": "0.55.0",
+  "x-factori-source-model": "factori.schemas.CreativeSearchStopReason",
+  "x-factori-verification-evidence": false
+}

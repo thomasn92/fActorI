@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.54.0/source-relevance-adjudication.schema.json",
+  "$id": "https://schemas.factori.local/0.55.0/source-relevance-adjudication.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded source relevance adjudication; not scientific evidence.",
@@ -147,7 +147,7 @@
   ],
   "title": "SourceRelevanceAdjudication",
   "type": "object",
-  "x-factori-protocol-version": "0.54.0",
+  "x-factori-protocol-version": "0.55.0",
   "x-factori-source-model": "factori.schemas.SourceRelevanceAdjudication",
   "x-factori-verification-evidence": false
 }

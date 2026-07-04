@@ -13,6 +13,7 @@ from factori.schemas.enums import (
     ArtifactType,
     ChecklistCategory,
     CreativeMutationOperator,
+    CreativeSearchStopReason,
     FinalNucleusType,
     FullPaperGenerationStatus,
     FullPaperGenerationStepStatus,
@@ -1945,6 +1946,152 @@ class MutationTournamentInspectionReport(StrictModel):
     comparison_table_present: bool = False
     entries: list[MutationTournamentEntry] = Field(default_factory=list)
     result_optional: MutationTournamentResult | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeSearchControllerConfig(StrictModel):
+    """Bounded deterministic policy for recursive creative search."""
+
+    run_id: str = Field(min_length=1)
+    max_cycles: int = Field(default=3, ge=1)
+    min_improvement: float = Field(default=0.01, ge=0.0)
+    max_mutations_per_cycle: int = Field(default=3, ge=1)
+    max_substrates_per_cycle: int = Field(default=3, ge=1)
+    stop_if_no_improvement: bool = True
+    stop_if_diversity_collapses: bool = True
+    execution_backend: Literal["deterministic_local"] = "deterministic_local"
+    network_allowed: bool = False
+    external_api_allowed: bool = False
+    publication_ready: bool = False
+
+
+class CreativeSearchLineageEntry(StrictModel):
+    """One bounded branch transition in the winning creative-search lineage."""
+
+    lineage_index: int = Field(ge=0)
+    cycle_index_optional: int | None = Field(default=None, ge=1)
+    lineage_role: Literal[
+        "root_domain",
+        "initial_selected_branch",
+        "first_generation_winner",
+        "mutation_source",
+        "second_generation_winner",
+        "current_winner",
+    ]
+    title: str = Field(min_length=1)
+    idea_node_id_optional: str | None = None
+    substrate_id_optional: str | None = None
+    parent_substrate_ids: list[str] = Field(default_factory=list)
+    source_report_path_optional: str | None = None
+    score_optional: float | None = None
+    outcome_summary: str = Field(min_length=1)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeSearchCycle(StrictModel):
+    """One append-only recursive scientific-search cycle summary."""
+
+    run_id: str = Field(min_length=1)
+    search_id: str = Field(min_length=1)
+    cycle_index: int = Field(ge=1)
+    cycle_status: Literal[
+        "completed",
+        "completed_with_warnings",
+        "stopped",
+        "failed",
+    ]
+    started_at: str = Field(min_length=1)
+    completed_at: str = Field(min_length=1)
+    starting_winner: str = Field(min_length=1)
+    starting_score: float
+    ending_winner: str = Field(min_length=1)
+    ending_score: float
+    absolute_improvement: float
+    relative_improvement: float
+    new_idea_nodes_added: int = Field(ge=0)
+    new_substrates_added: int = Field(ge=0)
+    new_experiments_run: int = Field(ge=0)
+    diversity_score_before: str = Field(min_length=1)
+    diversity_score_after: str = Field(min_length=1)
+    near_duplicate_count_before: int = Field(ge=0)
+    near_duplicate_count_after: int = Field(ge=0)
+    stop_recommendation: CreativeSearchStopReason | None = None
+    steps_reused: list[str] = Field(default_factory=list)
+    steps_executed: list[str] = Field(default_factory=list)
+    artifact_paths: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeSearchControllerReport(StrictModel):
+    """Append-only aggregate report for bounded recursive creative search."""
+
+    run_id: str = Field(min_length=1)
+    search_id: str = Field(min_length=1)
+    controller_status: Literal[
+        "completed",
+        "completed_with_warnings",
+        "stopped",
+        "failed",
+    ]
+    started_at: str = Field(min_length=1)
+    completed_at: str = Field(min_length=1)
+    config: CreativeSearchControllerConfig
+    cycle_count: int = Field(ge=0)
+    cycles: list[CreativeSearchCycle] = Field(default_factory=list)
+    stop_reason: CreativeSearchStopReason
+    stop_detail: str = Field(min_length=1)
+    lineage: list[CreativeSearchLineageEntry] = Field(default_factory=list)
+    lineage_present: bool = False
+    starting_winner: str = Field(min_length=1)
+    starting_score: float
+    ending_winner: str = Field(min_length=1)
+    ending_score: float
+    total_absolute_improvement: float
+    total_relative_improvement: float
+    score_improvement_recorded: bool = False
+    best_current_winner: str = Field(min_length=1)
+    best_current_score: float
+    final_manuscript_path_optional: str | None = None
+    final_bundle_path_optional: str | None = None
+    final_bundle_verification_status_optional: str | None = None
+    unsupported_claim_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class CreativeSearchInspectionReport(StrictModel):
+    """Read-only view of the latest recursive creative-search report."""
+
+    run_id: str = Field(min_length=1)
+    creative_search_present: bool
+    latest_search_id_optional: str | None = None
+    controller_status_optional: str | None = None
+    cycle_count: int = Field(ge=0)
+    stop_reason_optional: CreativeSearchStopReason | None = None
+    lineage_present: bool = False
+    starting_winner_optional: str | None = None
+    ending_winner_optional: str | None = None
+    starting_score_optional: float | None = None
+    ending_score_optional: float | None = None
+    score_improvement_recorded: bool = False
+    best_current_winner_optional: str | None = None
+    best_current_score_optional: float | None = None
+    final_bundle_verification_status_optional: str | None = None
+    report_optional: CreativeSearchControllerReport | None = None
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -4243,6 +4390,11 @@ __all__ = [
     "MutationTournamentResult",
     "MutationTournamentComparison",
     "MutationTournamentInspectionReport",
+    "CreativeSearchControllerConfig",
+    "CreativeSearchLineageEntry",
+    "CreativeSearchCycle",
+    "CreativeSearchControllerReport",
+    "CreativeSearchInspectionReport",
     "ProofObligationSpec",
     "RetrievalExpansionRequest",
     "PlannedSpecExecutionItem",

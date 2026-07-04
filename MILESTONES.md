@@ -243,3 +243,12 @@ substrate winner and applied mutation substrates to approved offline uv-local ex
 compares raw improvement, complexity penalties, robustness or recovery metrics, selects a
 second-generation branch for final manuscript regeneration, and keeps all outcomes synthetic-scope
 without real-world validation or publication readiness.
+## M89 Recursive Creative Search Controller
+
+- Added append-only creative-search cycle, lineage, configuration, stop-reason, controller, and
+  inspection contracts.
+- Added deterministic stage reuse across M82-M88 with semantic mutation de-duplication.
+- Added score/diversity deltas, winning lineage, explicit stop policy, lineage-aware final
+  manuscript regeneration, final bundle assembly, and independent verification.
+- Creative-search reports remain context only and never create scientific validation or
+  publication readiness.

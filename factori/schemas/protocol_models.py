@@ -45,7 +45,7 @@ from factori.schemas.candidates import (
     Candidate,
     ScoreVector,
 )
-from factori.schemas.enums import CreativeMutationOperator
+from factori.schemas.enums import CreativeMutationOperator, CreativeSearchStopReason
 from factori.schemas.manuscript import (
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
@@ -77,6 +77,11 @@ from factori.schemas.manuscript import (
     CreativeMutationInspectionReport,
     CreativeMutationPlan,
     CreativeMutationReport,
+    CreativeSearchControllerConfig,
+    CreativeSearchControllerReport,
+    CreativeSearchCycle,
+    CreativeSearchInspectionReport,
+    CreativeSearchLineageEntry,
     DraftSkeleton,
     ExperimentArtifact,
     ExperimentGapRoutingIndex,
@@ -252,6 +257,12 @@ __all__ = [
     "MutationTournamentResult",
     "MutationTournamentComparison",
     "MutationTournamentInspectionReport",
+    "CreativeSearchStopReason",
+    "CreativeSearchControllerConfig",
+    "CreativeSearchLineageEntry",
+    "CreativeSearchCycle",
+    "CreativeSearchControllerReport",
+    "CreativeSearchInspectionReport",
     "CapabilityEscalationPolicy",
     "CapabilityEscalationItem",
     "CapabilityEscalationReport",
