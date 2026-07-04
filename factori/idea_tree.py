@@ -21,6 +21,7 @@ from factori.schemas import (
     IdeaTree,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    VarianceAugmentationReport,
 )
 
 _FINAL_REGENERATION_RE = re.compile(r"^final-manuscript-regeneration-(\d{4})\.json$")
@@ -29,6 +30,7 @@ _CREATIVE_MUTATION_RE = re.compile(r"^creative-mutation-report-(\d{4})\.json$")
 _GENERATION_MUTATION_RE = re.compile(
     r"^generation-mutation-application-(\d{4})\.json$"
 )
+_VARIANCE_APPLICATION_RE = re.compile(r"^variance-augmentation-application-(\d{4})\.json$")
 _DEFERRED_BRANCH_STATUSES = {
     "BudgetDeferred",
     "DeferredRealDataCandidate",
@@ -79,7 +81,11 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
                 "the tree uses candidate artifacts and ledger decisions where available."
             )
 
+    variance_applications = _load_variance_augmentation_applications(reports, root_path, warnings)
     domain = _resolve_domain(report_paths["config"], candidates, warnings)
+    if domain == "unknown domain" and variance_applications:
+        domain = variance_applications[-1][0].domain
+        warnings.append("Run domain was recovered from variance augmentation context.")
     if report_paths["config"].is_file():
         source_paths.append(_relative_path(root_path, report_paths["config"]))
 
@@ -333,6 +339,14 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
         default_parent=final_node_id or "idea-root",
         domain=domain,
     )
+    _append_variance_augmentation_nodes(
+        root_path=root_path,
+        reports_and_paths=variance_applications,
+        nodes=nodes,
+        edges=edges,
+        source_paths=source_paths,
+        domain=domain,
+    )
 
     if candidates:
         warnings.append(
@@ -449,7 +463,9 @@ def render_idea_tree_text(report: IdeaTreeInspectionReport) -> str:
         children.sort(key=lambda item: item.node_id)
     root = next(node for node in report.nodes if node.node_id == report.root_node_id)
     lines = [f"Root: {root.title}"]
-    stage_a = by_parent.get(root.node_id, [])
+    root_children = by_parent.get(root.node_id, [])
+    stage_a = [node for node in root_children if node.stage_origin != "opportunity_seed"]
+    opportunity_seeds = [node for node in root_children if node.stage_origin == "opportunity_seed"]
     has_final = report.final_node_id_optional is not None
     for candidate_index, candidate in enumerate(stage_a, start=1):
         candidate_last = candidate_index == len(stage_a) and not has_final
@@ -466,6 +482,16 @@ def render_idea_tree_text(report: IdeaTreeInspectionReport) -> str:
                 f"{prefix}{variant_branch} Variant {candidate_index}.{variant_index}: "
                 f"{variant.title} [{variant.status}]"
             )
+    if opportunity_seeds:
+        lines.append("├── Opportunity-seeded branches:")
+        for seed_index, seed in enumerate(opportunity_seeds, start=1):
+            seed_children = by_parent.get(seed.node_id, [])
+            seed_branch = "└──" if seed_index == len(opportunity_seeds) else "├──"
+            lines.append(f"│   {seed_branch} {seed.method_optional}: {len(seed_children)} branches")
+            seed_prefix = "        " if seed_index == len(opportunity_seeds) else "│   │   "
+            for child_index, child in enumerate(seed_children, start=1):
+                child_branch = "└──" if child_index == len(seed_children) else "├──"
+                lines.append(f"{seed_prefix}{child_branch} {child.title} [{child.status}]")
     final_node = next(
         (node for node in report.nodes if node.node_id == report.final_node_id_optional),
         None,
@@ -703,6 +729,143 @@ def _load_generation_mutation_reports(
                 f"{_relative_path(root_path, path)}"
             )
     return loaded
+
+
+def _load_variance_augmentation_applications(
+    reports: Path,
+    root_path: Path,
+    warnings: list[str],
+) -> list[tuple[VarianceAugmentationReport, Path]]:
+    loaded: list[tuple[VarianceAugmentationReport, Path]] = []
+    for _, path in sorted(
+        (int(match.group(1)), path)
+        for path in reports.glob("variance-augmentation-application-*.json")
+        if (match := _VARIANCE_APPLICATION_RE.fullmatch(path.name))
+    ):
+        try:
+            report = VarianceAugmentationReport.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            warnings.append(
+                "Variance augmentation application could not be parsed: "
+                f"{_relative_path(root_path, path)}"
+            )
+            continue
+        if report.applied_to_idea_tree:
+            loaded.append((report, path))
+    return loaded
+
+
+def _append_variance_augmentation_nodes(
+    *,
+    root_path: Path,
+    reports_and_paths: list[tuple[VarianceAugmentationReport, Path]],
+    nodes: list[IdeaNode],
+    edges: list[IdeaEdge],
+    source_paths: list[str],
+    domain: str,
+) -> None:
+    node_ids = {node.node_id for node in nodes}
+    for report, report_path in reports_and_paths:
+        report_ref = _relative_path(root_path, report_path)
+        source_paths.extend(
+            path
+            for path in (
+                report_ref,
+                report.source_opportunity_discovery_path,
+                report.source_augmentation_report_path_optional,
+            )
+            if path
+        )
+        applied_ids = set(report.applied_candidate_ids)
+        selected = [
+            candidate for candidate in report.candidates if candidate.candidate_id in applied_ids
+        ]
+        for method_id in sorted({candidate.source_method_lens_id for candidate in selected}):
+            method_candidates = [
+                candidate for candidate in selected if candidate.source_method_lens_id == method_id
+            ]
+            seed = method_candidates[0]
+            seed_node_id = f"idea-{seed.source_seed_id}"
+            if seed_node_id not in node_ids:
+                nodes.append(
+                    IdeaNode(
+                        node_id=seed_node_id,
+                        parent_id_optional="idea-root",
+                        depth=1,
+                        stage_origin="opportunity_seed",
+                        title=f"{seed.method_lens} opportunity seed",
+                        domain=seed.domain or domain,
+                        method_optional=seed.method_lens,
+                        status="expanded",
+                        survivor_reason_optional=(
+                            "Promoted by Stage 0 and expanded by deterministic "
+                            "variance augmentation."
+                        ),
+                        source_opportunity_id_optional=seed.source_opportunity_id,
+                        source_method_lens_id_optional=seed.source_method_lens_id,
+                        artifact_refs=sorted(
+                            {
+                                report_ref,
+                                report.source_opportunity_discovery_path,
+                            }
+                        ),
+                    )
+                )
+                node_ids.add(seed_node_id)
+                edges.append(
+                    _edge(
+                        edges,
+                        source="idea-root",
+                        target=seed_node_id,
+                        edge_type="root_to_opportunity_seed",
+                        rationale="Stage 0 promoted domain-method opportunity seed.",
+                    )
+                )
+            for candidate in method_candidates:
+                if candidate.candidate_id in node_ids:
+                    continue
+                nodes.append(
+                    IdeaNode(
+                        node_id=candidate.candidate_id,
+                        parent_id_optional=seed_node_id,
+                        depth=2,
+                        stage_origin="variance_augmentation",
+                        title=candidate.title,
+                        domain=candidate.domain,
+                        method_optional=candidate.method_lens,
+                        research_question_optional=candidate.research_question,
+                        hypothesis_optional=candidate.hypothesis,
+                        model_hint_optional=candidate.model_hint,
+                        experiment_hint_optional=candidate.experiment_or_proof_plan,
+                        baseline_hint_optional=candidate.baseline,
+                        data_regime_optional=candidate.data_regime,
+                        novelty_risk_optional=candidate.novelty_risk,
+                        scientific_interest_optional=candidate.scientific_interest_score,
+                        status="generated",
+                        survivor_reason_optional=(
+                            "Selected by opportunity-seeded coverage and diversity policy."
+                        ),
+                        source_opportunity_id_optional=candidate.source_opportunity_id,
+                        source_method_lens_id_optional=candidate.source_method_lens_id,
+                        artifact_refs=[report_ref],
+                    )
+                )
+                node_ids.add(candidate.candidate_id)
+                edges.append(
+                    _edge(
+                        edges,
+                        source=seed_node_id,
+                        target=candidate.candidate_id,
+                        edge_type="opportunity_seed_to_candidate",
+                        mutation_operator=candidate.variant_family,
+                        rationale=(
+                            "Deterministic opportunity-seeded variation across question, "
+                            "hypothesis, theory object, baseline, and verification path."
+                        ),
+                    )
+                )
 
 
 def render_idea_tree_markdown(report: IdeaTreeInspectionReport) -> str:

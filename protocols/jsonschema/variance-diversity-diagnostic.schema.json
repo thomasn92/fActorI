@@ -1,0 +1,81 @@
+{
+  "$id": "https://schemas.factori.local/0.58.0/variance-diversity-diagnostic.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Coverage and duplication diagnostic over variance-augmented branches.",
+  "properties": {
+    "baseline_duplicate_count": {
+      "minimum": 0,
+      "title": "Baseline Duplicate Count",
+      "type": "integer"
+    },
+    "candidate_count": {
+      "minimum": 0,
+      "title": "Candidate Count",
+      "type": "integer"
+    },
+    "diversity_score": {
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "title": "Diversity Score",
+      "type": "string"
+    },
+    "method_lens_coverage": {
+      "minimum": 0,
+      "title": "Method Lens Coverage",
+      "type": "integer"
+    },
+    "model_object_duplicate_count": {
+      "minimum": 0,
+      "title": "Model Object Duplicate Count",
+      "type": "integer"
+    },
+    "overrepresented_phrases": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Overrepresented Phrases",
+      "type": "array"
+    },
+    "research_question_duplicate_count": {
+      "minimum": 0,
+      "title": "Research Question Duplicate Count",
+      "type": "integer"
+    },
+    "seed_count": {
+      "minimum": 0,
+      "title": "Seed Count",
+      "type": "integer"
+    },
+    "selected_candidate_count": {
+      "minimum": 0,
+      "title": "Selected Candidate Count",
+      "type": "integer"
+    },
+    "underrepresented_method_lenses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Underrepresented Method Lenses",
+      "type": "array"
+    }
+  },
+  "required": [
+    "candidate_count",
+    "seed_count",
+    "method_lens_coverage",
+    "research_question_duplicate_count",
+    "model_object_duplicate_count",
+    "baseline_duplicate_count",
+    "diversity_score",
+    "selected_candidate_count"
+  ],
+  "title": "VarianceDiversityDiagnostic",
+  "type": "object",
+  "x-factori-protocol-version": "0.58.0",
+  "x-factori-source-model": "factori.schemas.VarianceDiversityDiagnostic",
+  "x-factori-verification-evidence": false
+}

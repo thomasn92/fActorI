@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.57.0/idea-node.schema.json",
+  "$id": "https://schemas.factori.local/0.58.0/idea-node.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One context-only node in the reconstructed creative search tree.",
@@ -185,6 +185,30 @@
       "title": "Selected For Stage C",
       "type": "boolean"
     },
+    "source_method_lens_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Method Lens Id Optional"
+    },
+    "source_opportunity_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Opportunity Id Optional"
+    },
     "stage_origin": {
       "minLength": 1,
       "title": "Stage Origin",
@@ -232,7 +256,7 @@
   ],
   "title": "IdeaNode",
   "type": "object",
-  "x-factori-protocol-version": "0.57.0",
+  "x-factori-protocol-version": "0.58.0",
   "x-factori-source-model": "factori.schemas.IdeaNode",
   "x-factori-verification-evidence": false
 }

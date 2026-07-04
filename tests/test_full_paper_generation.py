@@ -286,6 +286,12 @@ from factori.schemas import (
     SubstrateTournamentInspectionReport,
     SubstrateTournamentResult,
     SubstrateTournamentSpec,
+    VarianceAugmentationBatch,
+    VarianceAugmentationConfig,
+    VarianceAugmentationInspectionReport,
+    VarianceAugmentationReport,
+    VarianceAugmentedCandidate,
+    VarianceDiversityDiagnostic,
 )
 from factori.scientific_substrate import (
     build_scientific_substrate,
@@ -298,6 +304,12 @@ from factori.substrate_experiment_routing import (
 from factori.substrate_tournament import (
     inspect_substrate_tournament,
     run_substrate_tournament,
+)
+from factori.variance_augmentation import (
+    apply_variance_augmentation,
+    augment_variance,
+    build_variance_diversity_diagnostic,
+    inspect_variance_augmentation,
 )
 
 
@@ -360,6 +372,12 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert OpportunityDiscoveryReport
     assert OpportunityDiscoveryInspectionReport
     assert OpportunitySeedConstraint
+    assert VarianceAugmentationConfig
+    assert VarianceAugmentedCandidate
+    assert VarianceAugmentationBatch
+    assert VarianceAugmentationReport
+    assert VarianceAugmentationInspectionReport
+    assert VarianceDiversityDiagnostic
     assert IdeaNodeFeatureVector
     assert IdeaSpaceAxis
     assert IdeaSpacePCADiagnostic
@@ -514,6 +532,122 @@ def test_opportunity_discovery_extracts_primitives_and_scores_easy_wins(
     assert inspection.report_optional.publication_ready is False
     assert inspection.report_optional.creates_scientific_validation is False
     assert inspection.report_optional.is_verification_evidence is False
+
+
+def test_opportunity_seeded_variance_augments_and_applies_idea_tree(tmp_path) -> None:
+    run_id = "run-variance-augmentation"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    discovery = discover_opportunities(
+        run_id=run_id,
+        domain="human geography",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_methods=20,
+    )
+
+    result = augment_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        candidates_per_seed=4,
+        max_total_candidates=40,
+    )
+    inspection = inspect_variance_augmentation(run_id=run_id, root=tmp_path)
+
+    assert result.report.seed_count == discovery.report.seed_constraint_count == 8
+    assert result.report.candidate_count == 32
+    assert result.report.selected_candidate_count >= 16
+    assert result.report.diversity_diagnostic.method_lens_coverage >= 6
+    assert result.report.diversity_diagnostic.diversity_score in {"moderate", "high"}
+    assert set(result.report.method_lens_candidate_counts) >= {
+        "optimal transport",
+        "matrix factorization",
+        "graph curvature",
+        "topological data analysis",
+        "agent-based modeling",
+        "spatial statistics",
+        "network science",
+        "kernel methods",
+    }
+    assert all(batch.candidate_count == 4 for batch in result.report.batches)
+    assert all(batch.selected_candidate_count >= 2 for batch in result.report.batches)
+    assert {
+        candidate.variant_family
+        for candidate in result.report.candidates
+        if candidate.selected_for_idea_tree
+    } == {
+        "mechanism_variant",
+        "robustness_variant",
+        "counterexample_variant",
+        "benchmark_variant",
+        "representation_variant",
+    }
+    for batch in result.report.batches:
+        assert len({candidate.research_question for candidate in batch.candidates}) == 4
+        assert len({candidate.hypothesis for candidate in batch.candidates}) == 4
+        assert len({candidate.theory_object for candidate in batch.candidates}) == 4
+        assert len({candidate.experiment_or_proof_plan for candidate in batch.candidates}) == 4
+        assert len({candidate.baseline for candidate in batch.candidates}) >= 2
+    assert inspection.variance_augmentation_present is True
+    assert inspection.candidate_count == 32
+    assert inspection.publication_ready is False
+    assert result.report.creates_scientific_validation is False
+    assert result.report.is_verification_evidence is False
+    assert (
+        result.persistence.commit.action_type
+        == ControllerActionType.VARIANCE_AUGMENTATION_WRITTEN
+    )
+
+    duplicated = list(result.report.candidates)
+    duplicated[1] = duplicated[1].model_copy(
+        update={"research_question": duplicated[0].research_question}
+    )
+    duplicate_diagnostic = build_variance_diversity_diagnostic(
+        candidates=duplicated,
+        expected_method_lenses=[batch.method_lens for batch in result.report.batches],
+    )
+    assert duplicate_diagnostic.research_question_duplicate_count >= 1
+
+    applied = apply_variance_augmentation(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
+    variance_nodes = [
+        node for node in tree.nodes if node.stage_origin == "variance_augmentation"
+    ]
+    seed_nodes = [node for node in tree.nodes if node.stage_origin == "opportunity_seed"]
+
+    assert applied.report.idea_tree_nodes_added == result.report.selected_candidate_count
+    assert (
+        applied.persistence.commit.action_type
+        == ControllerActionType.VARIANCE_AUGMENTATION_APPLIED
+    )
+    assert len(variance_nodes) == result.report.selected_candidate_count
+    assert len(seed_nodes) == result.report.seed_count
+    assert all(node.source_opportunity_id_optional for node in variance_nodes)
+    assert all(node.source_method_lens_id_optional for node in variance_nodes)
+    seed_node_ids = {node.node_id for node in seed_nodes}
+    assert all(node.parent_id_optional in seed_node_ids for node in variance_nodes)
+    assert tree.publication_ready is False
+    assert tree.creates_scientific_validation is False
+
+    augment_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        candidates_per_seed=4,
+        max_total_candidates=40,
+    )
+    pending = inspect_variance_augmentation(run_id=run_id, root=tmp_path)
+    assert pending.latest_augmentation_id_optional == "variance-augmentation-0002"
+    assert pending.applied_to_idea_tree is False
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

@@ -275,3 +275,14 @@ without real-world validation or publication readiness.
   false-bridge penalties for decorative or unverifiable domain-method pairs.
 - Promoted opportunities write seed constraints for future Stage A candidate-tree generation.
   Reports remain context only and never create evidence, validation, or publication readiness.
+
+## M92 Opportunity-Seeded Variance Augmentation
+
+- Added deterministic mechanism, robustness, counterexample, benchmark, and representation
+  branches from promoted Stage 0 opportunity seeds.
+- Added coverage-first selection, duplicate diagnostics, method-lens coverage, and bounded
+  candidate caps so high-scoring lenses cannot collapse the pre-selection search tree.
+- Applying augmentation appends explicit opportunity-seed and source-linked candidate nodes to the
+  derived IdeaTree through immutable reports only.
+- Variance candidates and reports are creative-search context; they do not create evidence,
+  verification labels, scientific validation, or publication readiness.

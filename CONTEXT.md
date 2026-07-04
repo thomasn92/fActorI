@@ -100,6 +100,10 @@ completed run from disk and checks consistency without changing provenance.
   domain-only prompts, scores a local library of mathematical/computational method lenses with an
   easy-win heuristic and false-bridge penalty, and emits promoted seed constraints for later
   candidate-tree generation without creating evidence or publication readiness.
+- deterministic opportunity-seeded variance augmentation that expands every promoted Stage 0 seed
+  across mechanism, robustness, counterexample, benchmark, and representation branch families;
+  coverage-first selection appends source-linked IdeaTree context without creating evidence or
+  publication readiness.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

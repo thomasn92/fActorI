@@ -279,11 +279,17 @@ from factori.schemas import (
     SubstrateTournamentInspectionReport,
     SubstrateTournamentResult,
     SubstrateTournamentSpec,
+    VarianceAugmentationBatch,
+    VarianceAugmentationConfig,
+    VarianceAugmentationInspectionReport,
+    VarianceAugmentationReport,
+    VarianceAugmentedCandidate,
+    VarianceDiversityDiagnostic,
     VerificationLabel,
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.57.0"
+PROTOCOL_VERSION = "0.58.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -519,6 +525,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "OpportunityDiscoveryInspectionReport",
         OpportunityDiscoveryInspectionReport,
         "Read-only inspection report for latest Stage 0 opportunity discovery.",
+    ),
+    ProtocolDefinition(
+        "VarianceAugmentationConfig",
+        VarianceAugmentationConfig,
+        "Deterministic limits for opportunity-seeded candidate generation.",
+    ),
+    ProtocolDefinition(
+        "VarianceAugmentedCandidate",
+        VarianceAugmentedCandidate,
+        "One context-only branch lifted from a promoted opportunity seed.",
+    ),
+    ProtocolDefinition(
+        "VarianceAugmentationBatch",
+        VarianceAugmentationBatch,
+        "Candidate branches generated from one promoted opportunity seed.",
+    ),
+    ProtocolDefinition(
+        "VarianceDiversityDiagnostic",
+        VarianceDiversityDiagnostic,
+        "Coverage and duplication diagnostic over variance-augmented branches.",
+    ),
+    ProtocolDefinition(
+        "VarianceAugmentationReport",
+        VarianceAugmentationReport,
+        "Append-only opportunity-seeded variance generation or application report.",
+    ),
+    ProtocolDefinition(
+        "VarianceAugmentationInspectionReport",
+        VarianceAugmentationInspectionReport,
+        "Read-only inspection report for latest variance augmentation.",
     ),
     ProtocolDefinition(
         "IdeaNodeFeatureVector",

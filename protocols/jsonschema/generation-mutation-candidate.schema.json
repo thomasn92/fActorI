@@ -13,7 +13,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.57.0/generation-mutation-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.58.0/generation-mutation-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One semantically de-duplicated generation mutation candidate.",
@@ -147,7 +147,7 @@
   ],
   "title": "GenerationMutationCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.57.0",
+  "x-factori-protocol-version": "0.58.0",
   "x-factori-source-model": "factori.schemas.GenerationMutationCandidate",
   "x-factori-verification-evidence": false
 }

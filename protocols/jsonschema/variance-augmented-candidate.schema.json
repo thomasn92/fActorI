@@ -1,0 +1,201 @@
+{
+  "$id": "https://schemas.factori.local/0.58.0/variance-augmented-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One context-only branch lifted from a promoted opportunity seed.",
+  "properties": {
+    "baseline": {
+      "minLength": 1,
+      "title": "Baseline",
+      "type": "string"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "data_regime": {
+      "minLength": 1,
+      "title": "Data Regime",
+      "type": "string"
+    },
+    "difficulty_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Difficulty Score",
+      "type": "number"
+    },
+    "diversity_tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Diversity Tags",
+      "type": "array"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "easy_win_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Easy Win Score",
+      "type": "number"
+    },
+    "expected_substrate_type": {
+      "minLength": 1,
+      "title": "Expected Substrate Type",
+      "type": "string"
+    },
+    "experiment_or_proof_plan": {
+      "minLength": 1,
+      "title": "Experiment Or Proof Plan",
+      "type": "string"
+    },
+    "failure_mode": {
+      "minLength": 1,
+      "title": "Failure Mode",
+      "type": "string"
+    },
+    "hypothesis": {
+      "minLength": 1,
+      "title": "Hypothesis",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method_lens": {
+      "minLength": 1,
+      "title": "Method Lens",
+      "type": "string"
+    },
+    "model_hint": {
+      "minLength": 1,
+      "title": "Model Hint",
+      "type": "string"
+    },
+    "novelty_risk": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Novelty Risk",
+      "type": "number"
+    },
+    "paper_shape": {
+      "minLength": 1,
+      "title": "Paper Shape",
+      "type": "string"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "research_question": {
+      "minLength": 1,
+      "title": "Research Question",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scientific_interest_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scientific Interest Score",
+      "type": "number"
+    },
+    "selected_for_idea_tree": {
+      "default": false,
+      "title": "Selected For Idea Tree",
+      "type": "boolean"
+    },
+    "source_method_lens_id": {
+      "minLength": 1,
+      "title": "Source Method Lens Id",
+      "type": "string"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    },
+    "source_seed_id": {
+      "minLength": 1,
+      "title": "Source Seed Id",
+      "type": "string"
+    },
+    "theory_object": {
+      "minLength": 1,
+      "title": "Theory Object",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "variant_family": {
+      "enum": [
+        "mechanism_variant",
+        "robustness_variant",
+        "counterexample_variant",
+        "benchmark_variant",
+        "representation_variant"
+      ],
+      "title": "Variant Family",
+      "type": "string"
+    },
+    "verification_path": {
+      "minLength": 1,
+      "title": "Verification Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "run_id",
+    "source_seed_id",
+    "source_opportunity_id",
+    "source_method_lens_id",
+    "domain",
+    "method_lens",
+    "variant_family",
+    "title",
+    "research_question",
+    "hypothesis",
+    "theory_object",
+    "model_hint",
+    "experiment_or_proof_plan",
+    "baseline",
+    "failure_mode",
+    "paper_shape",
+    "verification_path",
+    "data_regime",
+    "expected_substrate_type",
+    "novelty_risk",
+    "difficulty_score",
+    "scientific_interest_score",
+    "easy_win_score"
+  ],
+  "title": "VarianceAugmentedCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.58.0",
+  "x-factori-source-model": "factori.schemas.VarianceAugmentedCandidate",
+  "x-factori-verification-evidence": false
+}

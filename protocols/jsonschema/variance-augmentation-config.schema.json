@@ -1,0 +1,40 @@
+{
+  "$id": "https://schemas.factori.local/0.58.0/variance-augmentation-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic limits for opportunity-seeded candidate generation.",
+  "properties": {
+    "candidates_per_seed": {
+      "default": 4,
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Candidates Per Seed",
+      "type": "integer"
+    },
+    "generator_backend": {
+      "const": "deterministic",
+      "default": "deterministic",
+      "title": "Generator Backend",
+      "type": "string"
+    },
+    "max_selected_candidates": {
+      "default": 20,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Max Selected Candidates",
+      "type": "integer"
+    },
+    "max_total_candidates": {
+      "default": 40,
+      "maximum": 200,
+      "minimum": 1,
+      "title": "Max Total Candidates",
+      "type": "integer"
+    }
+  },
+  "title": "VarianceAugmentationConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.58.0",
+  "x-factori-source-model": "factori.schemas.VarianceAugmentationConfig",
+  "x-factori-verification-evidence": false
+}

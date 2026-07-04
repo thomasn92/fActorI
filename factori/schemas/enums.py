@@ -374,6 +374,8 @@ class ControllerActionType(StrEnum):
     GENERATION_MUTATION_PLAN_WRITTEN = "GenerationMutationPlanWritten"
     GENERATION_MUTATIONS_APPLIED = "GenerationMutationsApplied"
     OPPORTUNITY_DISCOVERY_WRITTEN = "OpportunityDiscoveryWritten"
+    VARIANCE_AUGMENTATION_WRITTEN = "VarianceAugmentationWritten"
+    VARIANCE_AUGMENTATION_APPLIED = "VarianceAugmentationApplied"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

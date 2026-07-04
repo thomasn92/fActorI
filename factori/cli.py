@@ -306,6 +306,13 @@ from factori.substrate_tournament import (
     inspect_substrate_tournament,
     run_substrate_tournament,
 )
+from factori.variance_augmentation import (
+    VarianceAugmentationError,
+    apply_variance_augmentation,
+    augment_variance,
+    inspect_variance_augmentation,
+    render_variance_augmentation_text,
+)
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -3955,6 +3962,86 @@ def inspect_opportunities_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_opportunity_discovery_text(report))
+
+
+@app.command("augment-variance")
+def augment_variance_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    candidates_per_seed: Annotated[int, typer.Option("--candidates-per-seed")] = 4,
+    max_total_candidates: Annotated[int, typer.Option("--max-total-candidates")] = 40,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Generate deterministic high-variance branches from promoted Stage 0 seeds."""
+    try:
+        result = augment_variance(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            candidates_per_seed=candidates_per_seed,
+            max_total_candidates=max_total_candidates,
+        )
+    except (VarianceAugmentationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"augmentation_id={result.report.augmentation_id}")
+    typer.echo(f"seed_count={result.report.seed_count}")
+    typer.echo(f"candidate_count={result.report.candidate_count}")
+    typer.echo(f"selected_candidate_count={result.report.selected_candidate_count}")
+    typer.echo(f"method_lens_coverage={result.report.diversity_diagnostic.method_lens_coverage}")
+    typer.echo(f"diversity_score={result.report.diversity_diagnostic.diversity_score}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-variance-augmentation")
+def inspect_variance_augmentation_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest opportunity-seeded variance augmentation."""
+    try:
+        report = inspect_variance_augmentation(run_id=run_id, root=root)
+    except VarianceAugmentationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_variance_augmentation_text(report))
+
+
+@app.command("apply-variance-augmentation")
+def apply_variance_augmentation_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Append selected variance branches for IdeaTree reconstruction."""
+    try:
+        result = apply_variance_augmentation(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except VarianceAugmentationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"augmentation_id={result.report.augmentation_id}")
+    typer.echo(f"idea_tree_nodes_added={result.report.idea_tree_nodes_added}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
 
 
 @app.command("inspect-idea-tree")

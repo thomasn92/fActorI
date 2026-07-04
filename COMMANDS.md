@@ -207,6 +207,12 @@ uv run factori discover-opportunities \
   --run-id demo --domain "human geography" --max-methods 20
 uv run factori inspect-opportunities --run-id demo
 uv run factori inspect-opportunities --run-id demo --json
+uv run factori augment-variance --run-id demo
+uv run factori augment-variance \
+  --run-id demo --candidates-per-seed 5 --max-total-candidates 40
+uv run factori inspect-variance-augmentation --run-id demo
+uv run factori inspect-variance-augmentation --run-id demo --json
+uv run factori apply-variance-augmentation --run-id demo
 uv run factori inspect-idea-tree --run-id demo
 uv run factori inspect-idea-tree --run-id demo --json
 uv run factori export-idea-tree --run-id demo --format markdown

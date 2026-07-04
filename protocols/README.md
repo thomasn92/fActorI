@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.58.0` adds opportunity-seeded variance configuration, candidate, batch, diversity,
+report, and inspection contracts plus explicit IdeaTree opportunity-source links. These contracts
+expand Stage 0 seeds into context-only pre-selection branches and do not create evidence,
+validation, or publication readiness.
+
 Protocol `0.57.0` adds Stage 0 opportunity discovery contracts for extracted domain primitives,
 general method lenses, scored opportunity candidates, easy-win score breakdowns, promoted seed
 constraints, append-only discovery reports, and read-only inspection payloads. These contracts are

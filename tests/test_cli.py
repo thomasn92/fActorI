@@ -135,6 +135,13 @@ def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
 def test_idea_tree_cli_commands_are_registered() -> None:
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
+    augment = CliRunner().invoke(app, ["augment-variance", "--help"])
+    inspect_augmentation = CliRunner().invoke(
+        app, ["inspect-variance-augmentation", "--help"]
+    )
+    apply_augmentation = CliRunner().invoke(
+        app, ["apply-variance-augmentation", "--help"]
+    )
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
@@ -147,6 +154,13 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output
     assert "--json" in inspect_opps.output
+    assert augment.exit_code == 0, augment.output
+    assert "--candidates-per-seed" in augment.output
+    assert "--max-total-candidates" in augment.output
+    assert inspect_augmentation.exit_code == 0, inspect_augmentation.output
+    assert "--json" in inspect_augmentation.output
+    assert apply_augmentation.exit_code == 0, apply_augmentation.output
+    assert "--run-id" in apply_augmentation.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
@@ -210,6 +224,98 @@ def test_opportunity_discovery_cli_discovers_and_inspects(tmp_path) -> None:
     assert payload["promoted_count"] >= 2
     assert payload["seed_constraint_count"] == payload["promoted_count"]
     assert payload["publication_ready"] is False
+
+
+def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> None:
+    run_id = "cli-variance-augmentation"
+    runner = CliRunner()
+    discovery = runner.invoke(
+        app,
+        [
+            "discover-opportunities",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--domain",
+            "human geography",
+        ],
+    )
+    generated = runner.invoke(
+        app,
+        [
+            "augment-variance",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--candidates-per-seed",
+            "4",
+            "--max-total-candidates",
+            "40",
+        ],
+    )
+    inspected = runner.invoke(
+        app,
+        [
+            "inspect-variance-augmentation",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    applied = runner.invoke(
+        app,
+        [
+            "apply-variance-augmentation",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    tree = runner.invoke(
+        app,
+        [
+            "inspect-idea-tree",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+
+    assert discovery.exit_code == 0, discovery.output
+    assert generated.exit_code == 0, generated.output
+    assert "candidate_count=32" in generated.output
+    assert inspected.exit_code == 0, inspected.output
+    inspected_payload = json.loads(inspected.output)
+    assert inspected_payload["variance_augmentation_present"] is True
+    assert inspected_payload["seed_count"] == 8
+    assert inspected_payload["candidate_count"] == 32
+    assert inspected_payload["selected_candidate_count"] >= 16
+    assert inspected_payload["method_lens_coverage"] >= 6
+    assert inspected_payload["diversity_score_optional"] != "low"
+    assert inspected_payload["publication_ready"] is False
+    assert applied.exit_code == 0, applied.output
+    applied_payload = json.loads(applied.output)
+    assert applied_payload["applied_to_idea_tree"] is True
+    assert applied_payload["idea_tree_nodes_added"] >= 16
+    assert tree.exit_code == 0, tree.output
+    tree_payload = json.loads(tree.output)
+    variance_nodes = [
+        node
+        for node in tree_payload["nodes"]
+        if node["stage_origin"] == "variance_augmentation"
+    ]
+    assert len(variance_nodes) == applied_payload["idea_tree_nodes_added"]
+    assert all(node["source_opportunity_id_optional"] for node in variance_nodes)
+    assert all(node["source_method_lens_id_optional"] for node in variance_nodes)
+    assert tree_payload["publication_ready"] is False
 
 
 def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:

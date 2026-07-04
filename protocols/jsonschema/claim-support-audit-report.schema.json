@@ -386,7 +386,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.57.0/claim-support-audit-report.schema.json",
+  "$id": "https://schemas.factori.local/0.58.0/claim-support-audit-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic citation-placement and claim-support audit report.",
@@ -519,7 +519,7 @@
   ],
   "title": "ClaimSupportAuditReport",
   "type": "object",
-  "x-factori-protocol-version": "0.57.0",
+  "x-factori-protocol-version": "0.58.0",
   "x-factori-source-model": "factori.schemas.ClaimSupportAuditReport",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.57.0/idea-edge.schema.json",
+  "$id": "https://schemas.factori.local/0.58.0/idea-edge.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One context-only relation in the reconstructed creative search tree.",
@@ -20,7 +20,9 @@
         "winner_to_refinement",
         "winner_loser_to_hybrid",
         "winner_to_robustness",
-        "missing_axis_to_candidate"
+        "missing_axis_to_candidate",
+        "root_to_opportunity_seed",
+        "opportunity_seed_to_candidate"
       ],
       "title": "Edge Type",
       "type": "string"
@@ -62,7 +64,7 @@
   ],
   "title": "IdeaEdge",
   "type": "object",
-  "x-factori-protocol-version": "0.57.0",
+  "x-factori-protocol-version": "0.58.0",
   "x-factori-source-model": "factori.schemas.IdeaEdge",
   "x-factori-verification-evidence": false
 }

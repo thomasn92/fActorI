@@ -223,6 +223,137 @@ class OpportunityDiscoveryInspectionReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+VarianceCandidateFamily = Literal[
+    "mechanism_variant",
+    "robustness_variant",
+    "counterexample_variant",
+    "benchmark_variant",
+    "representation_variant",
+]
+
+VarianceDiversityScore = Literal["low", "moderate", "high"]
+
+
+class VarianceAugmentationConfig(StrictModel):
+    """Deterministic limits for opportunity-seeded candidate generation."""
+
+    candidates_per_seed: int = Field(default=4, ge=1, le=10)
+    max_total_candidates: int = Field(default=40, ge=1, le=200)
+    max_selected_candidates: int = Field(default=20, ge=1, le=100)
+    generator_backend: Literal["deterministic"] = "deterministic"
+
+
+class VarianceAugmentedCandidate(StrictModel):
+    """One context-only research branch lifted from an opportunity seed."""
+
+    candidate_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_seed_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    source_method_lens_id: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    method_lens: str = Field(min_length=1)
+    variant_family: VarianceCandidateFamily
+    title: str = Field(min_length=1)
+    research_question: str = Field(min_length=1)
+    hypothesis: str = Field(min_length=1)
+    theory_object: str = Field(min_length=1)
+    model_hint: str = Field(min_length=1)
+    experiment_or_proof_plan: str = Field(min_length=1)
+    baseline: str = Field(min_length=1)
+    failure_mode: str = Field(min_length=1)
+    paper_shape: str = Field(min_length=1)
+    verification_path: str = Field(min_length=1)
+    data_regime: str = Field(min_length=1)
+    expected_substrate_type: str = Field(min_length=1)
+    novelty_risk: float = Field(ge=0.0, le=1.0)
+    difficulty_score: float = Field(ge=0.0, le=1.0)
+    scientific_interest_score: float = Field(ge=0.0, le=1.0)
+    easy_win_score: float = Field(ge=0.0, le=1.0)
+    diversity_tags: list[str] = Field(default_factory=list)
+    selected_for_idea_tree: bool = False
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class VarianceAugmentationBatch(StrictModel):
+    """Candidates generated from one promoted opportunity seed."""
+
+    source_seed_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    source_method_lens_id: str = Field(min_length=1)
+    method_lens: str = Field(min_length=1)
+    opportunity_score: float = Field(ge=0.0, le=1.0)
+    candidate_count: int = Field(ge=0)
+    selected_candidate_count: int = Field(ge=0)
+    candidates: list[VarianceAugmentedCandidate] = Field(default_factory=list)
+
+
+class VarianceDiversityDiagnostic(StrictModel):
+    """Deterministic coverage and duplication diagnostics over augmented branches."""
+
+    candidate_count: int = Field(ge=0)
+    seed_count: int = Field(ge=0)
+    method_lens_coverage: int = Field(ge=0)
+    research_question_duplicate_count: int = Field(ge=0)
+    model_object_duplicate_count: int = Field(ge=0)
+    baseline_duplicate_count: int = Field(ge=0)
+    diversity_score: VarianceDiversityScore
+    underrepresented_method_lenses: list[str] = Field(default_factory=list)
+    overrepresented_phrases: list[str] = Field(default_factory=list)
+    selected_candidate_count: int = Field(ge=0)
+
+
+class VarianceAugmentationReport(StrictModel):
+    """Append-only opportunity-seeded variance generation or application report."""
+
+    run_id: str = Field(min_length=1)
+    augmentation_id: str = Field(min_length=1)
+    source_opportunity_discovery_path: str = Field(min_length=1)
+    source_augmentation_report_path_optional: str | None = None
+    domain: str = Field(min_length=1)
+    config: VarianceAugmentationConfig
+    seed_count: int = Field(ge=0)
+    candidate_count: int = Field(ge=0)
+    selected_candidate_count: int = Field(ge=0)
+    method_lens_candidate_counts: dict[str, int] = Field(default_factory=dict)
+    batches: list[VarianceAugmentationBatch] = Field(default_factory=list)
+    candidates: list[VarianceAugmentedCandidate] = Field(default_factory=list)
+    diversity_diagnostic: VarianceDiversityDiagnostic
+    applied_to_idea_tree: bool = False
+    applied_candidate_ids: list[str] = Field(default_factory=list)
+    idea_tree_nodes_added: int = Field(default=0, ge=0)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class VarianceAugmentationInspectionReport(StrictModel):
+    """Read-only view of the latest opportunity-seeded variance report."""
+
+    run_id: str = Field(min_length=1)
+    variance_augmentation_present: bool
+    latest_augmentation_id_optional: str | None = None
+    domain_optional: str | None = None
+    seed_count: int = Field(default=0, ge=0)
+    candidate_count: int = Field(default=0, ge=0)
+    selected_candidate_count: int = Field(default=0, ge=0)
+    method_lens_coverage: int = Field(default=0, ge=0)
+    diversity_score_optional: VarianceDiversityScore | None = None
+    idea_tree_nodes_added: int = Field(default=0, ge=0)
+    applied_to_idea_tree: bool = False
+    report_optional: VarianceAugmentationReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 IdeaNodeStatus = Literal[
     "root",
     "generated",
@@ -245,6 +376,8 @@ IdeaEdgeType = Literal[
     "winner_loser_to_hybrid",
     "winner_to_robustness",
     "missing_axis_to_candidate",
+    "root_to_opportunity_seed",
+    "opportunity_seed_to_candidate",
 ]
 
 
@@ -271,6 +404,8 @@ class IdeaNode(StrictModel):
     survivor_reason_optional: str | None = None
     selected_for_stage_c: bool = False
     selected_for_final_manuscript: bool = False
+    source_opportunity_id_optional: str | None = None
+    source_method_lens_id_optional: str | None = None
     artifact_refs: list[str] = Field(default_factory=list)
     created_at: str | None = None
 
@@ -4601,6 +4736,12 @@ __all__ = [
     "OpportunityDiscoveryReport",
     "OpportunityDiscoveryInspectionReport",
     "OpportunitySeedConstraint",
+    "VarianceAugmentationConfig",
+    "VarianceAugmentedCandidate",
+    "VarianceAugmentationBatch",
+    "VarianceAugmentationReport",
+    "VarianceAugmentationInspectionReport",
+    "VarianceDiversityDiagnostic",
     "IdeaNode",
     "IdeaEdge",
     "IdeaTree",

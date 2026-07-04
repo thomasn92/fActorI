@@ -210,6 +210,9 @@ All implementation modules are under `factori/`.
 - `opportunity_discovery.py`: deterministic general Stage 0 extraction of domain primitives,
   local method-lens scoring, false-bridge penalties, promoted easy-win opportunities, and seed
   constraints for future candidate-tree generation.
+- `variance_augmentation.py`: deterministic pre-selection lift from promoted opportunity seeds to
+  diverse mechanism, robustness, counterexample, benchmark, and representation branches, with
+  coverage-first IdeaTree selection and context-only append-only application reports.
 - `idea_space.py`: read-only feature-vector extraction and PCA-like diversity diagnostics over
   IdeaTree nodes, including near-duplicate detection, collapsed-axis warnings, and context-only
   recommended mutation axes.

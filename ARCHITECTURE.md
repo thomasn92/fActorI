@@ -35,6 +35,12 @@ easy-win and false-bridge heuristics, and emits seed constraints for later candi
 These artifacts are creative-search context only and cannot create evidence, labels, validation, or
 publication readiness.
 
+Opportunity-seeded variance augmentation is the deterministic lift immediately after Stage 0. It
+expands promoted seeds over distinct question, hypothesis, theory-object, baseline, failure, paper,
+and verification dimensions, diagnoses duplication and method coverage, and applies selected
+branches to the derived IdeaTree through append-only context reports. It does not create Stage A
+survivors, verification evidence, or publication authority.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

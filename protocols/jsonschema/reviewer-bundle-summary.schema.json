@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.57.0/reviewer-bundle-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.58.0/reviewer-bundle-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reviewer-facing generated-paper bundle summary.",
@@ -971,7 +971,7 @@
   ],
   "title": "ReviewerBundleSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.57.0",
+  "x-factori-protocol-version": "0.58.0",
   "x-factori-source-model": "factori.schemas.ReviewerBundleSummary",
   "x-factori-verification-evidence": false
 }

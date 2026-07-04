@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.57.0/scientific-substrate-assumption.schema.json",
+  "$id": "https://schemas.factori.local/0.58.0/scientific-substrate-assumption.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One explicit modeling or experiment assumption for a scientific substrate.",
@@ -33,7 +33,7 @@
   ],
   "title": "ScientificSubstrateAssumption",
   "type": "object",
-  "x-factori-protocol-version": "0.57.0",
+  "x-factori-protocol-version": "0.58.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrateAssumption",
   "x-factori-verification-evidence": false
 }
