@@ -281,6 +281,11 @@ from factori.schemas import (
     SubstrateExperimentResult,
     SubstrateExperimentRoutingReport,
     SubstrateExperimentSpec,
+    SubstratePromotionCandidate,
+    SubstratePromotionConfig,
+    SubstratePromotionDecision,
+    SubstratePromotionInspectionReport,
+    SubstratePromotionReport,
     SubstrateTournamentComparison,
     SubstrateTournamentEntry,
     SubstrateTournamentInspectionReport,
@@ -300,6 +305,10 @@ from factori.scientific_substrate import (
 from factori.substrate_experiment_routing import (
     inspect_substrate_experiment_routing,
     route_substrate_experiment,
+)
+from factori.substrate_promotion import (
+    inspect_substrate_promotion,
+    promote_variance_substrates,
 )
 from factori.substrate_tournament import (
     inspect_substrate_tournament,
@@ -392,6 +401,11 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ScientificSubstrate
     assert ScientificSubstrateBuildReport
     assert ScientificSubstrateInspectionReport
+    assert SubstratePromotionConfig
+    assert SubstratePromotionCandidate
+    assert SubstratePromotionDecision
+    assert SubstratePromotionReport
+    assert SubstratePromotionInspectionReport
     assert SubstrateExperimentSpec
     assert SubstrateExperimentRoutingReport
     assert SubstrateExperimentResult
@@ -648,6 +662,108 @@ def test_opportunity_seeded_variance_augments_and_applies_idea_tree(tmp_path) ->
     pending = inspect_variance_augmentation(run_id=run_id, root=tmp_path)
     assert pending.latest_augmentation_id_optional == "variance-augmentation-0002"
     assert pending.applied_to_idea_tree is False
+
+
+def test_variance_substrate_promotion_preserves_method_and_branch_diversity(
+    tmp_path,
+) -> None:
+    run_id = "run-substrate-promotion"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    discover_opportunities(
+        run_id=run_id,
+        domain="human geography",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_methods=20,
+    )
+    augment_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        candidates_per_seed=4,
+        max_total_candidates=40,
+    )
+    apply_variance_augmentation(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    result = promote_variance_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=8,
+    )
+    inspection = inspect_substrate_promotion(run_id=run_id, root=tmp_path)
+    substrate_inspection = inspect_scientific_substrate(
+        run_id=run_id,
+        root=tmp_path,
+    )
+    tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
+
+    assert result.report.promoted_substrate_count == 8
+    assert result.report.promoted_substrate_count <= 8
+    assert result.report.method_lens_coverage == 8
+    assert result.report.branch_family_coverage >= 3
+    assert len(set(result.report.created_substrate_ids)) == 8
+    assert {
+        substrate.source_method_lens_id_optional for substrate in result.substrates
+    } == {
+        "optimal_transport",
+        "matrix_factorization",
+        "graph_curvature",
+        "topological_data_analysis",
+        "agent_based_modeling",
+        "spatial_statistics",
+        "network_science",
+        "kernel_methods",
+    }
+    assert {
+        substrate.title for substrate in result.substrates
+    } >= {
+        "Wasserstein Robustness of Synthetic Spatial Accessibility Rankings",
+        "Low-Rank Residual Structure in Synthetic OD-Flow Heterogeneity",
+        "Curvature-Based Bottleneck Diagnostics in Synthetic Mobility Networks",
+        "Persistent Accessibility Structure Under Boundary Perturbation",
+        "Emergent Distance Decay from Heterogeneous Agent Accessibility Rules",
+        "Spatial Autocorrelation Diagnostics for Gravity Residual Misspecification",
+        "Boundary Stability of Mobility Communities in Synthetic OD Networks",
+        "Kernelized Spatial Interaction Under Nonmonotone Synthetic Regional Affinity",
+    }
+    for substrate in result.substrates:
+        assert substrate.concrete_model_object.equations
+        assert substrate.baseline
+        assert substrate.measurable_hypothesis
+        assert substrate.experiment_design.target_claim
+        assert substrate.experiment_design.metrics
+        assert substrate.result_schema.required_table_columns
+        assert substrate.limitations
+        assert substrate.failure_modes
+        assert substrate.source_variance_candidate_id_optional
+        assert substrate.source_opportunity_id_optional
+        assert substrate.source_method_lens_id_optional
+        assert substrate.publication_ready is False
+        assert substrate.creates_scientific_validation is False
+        assert substrate.is_verification_evidence is False
+    assert result.persistence.commit.action_type == (
+        ControllerActionType.VARIANCE_SUBSTRATES_PROMOTED
+    )
+    assert inspection.substrate_promotion_present is True
+    assert inspection.idea_tree_substrate_links_present is True
+    assert inspection.promoted_substrate_count == 8
+    assert all(decision.reason for decision in inspection.rejected_candidates)
+    assert substrate_inspection.substrate_count == 8
+    assert substrate_inspection.pca_low_rank_substrate_present is True
+    linked_nodes = [node for node in tree.nodes if node.scientific_substrate_ids]
+    assert len(linked_nodes) == 8
+    assert all(node.scientific_substrate_paths for node in linked_nodes)
+    assert tree.publication_ready is False
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

@@ -119,6 +119,18 @@
           "default": null,
           "title": "Source Idea Node Id Optional"
         },
+        "source_method_lens_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Method Lens Id Optional"
+        },
         "source_mutation_axis_optional": {
           "anyOf": [
             {
@@ -130,6 +142,30 @@
           ],
           "default": null,
           "title": "Source Mutation Axis Optional"
+        },
+        "source_opportunity_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Opportunity Id Optional"
+        },
+        "source_variance_candidate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Variance Candidate Id Optional"
         },
         "substrate_id": {
           "minLength": 1,
@@ -434,7 +470,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.58.0/scientific-substrate-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.59.0/scientific-substrate-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for generated scientific substrates.",
@@ -594,7 +630,7 @@
   ],
   "title": "ScientificSubstrateInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.58.0",
+  "x-factori-protocol-version": "0.59.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrateInspectionReport",
   "x-factori-verification-evidence": false
 }

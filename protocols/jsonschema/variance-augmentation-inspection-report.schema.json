@@ -506,7 +506,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.58.0/variance-augmentation-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.59.0/variance-augmentation-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for latest variance augmentation.",
@@ -641,7 +641,7 @@
   ],
   "title": "VarianceAugmentationInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.58.0",
+  "x-factori-protocol-version": "0.59.0",
   "x-factori-source-model": "factori.schemas.VarianceAugmentationInspectionReport",
   "x-factori-verification-evidence": false
 }

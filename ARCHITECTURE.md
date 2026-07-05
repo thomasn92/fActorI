@@ -41,6 +41,12 @@ and verification dimensions, diagnoses duplication and method coverage, and appl
 branches to the derived IdeaTree through append-only context reports. It does not create Stage A
 survivors, verification evidence, or publication authority.
 
+Diversity-constrained substrate promotion converts a bounded, coverage-first subset of those
+variance branches into concrete ScientificSubstrates. Selection balances easy-win and scientific
+interest scores, local verification feasibility, duplicate penalties, method-lens coverage, and
+branch-family coverage. Promotion links the derived IdeaTree nodes to append-only substrate
+artifacts but creates no experiment or proof evidence.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

@@ -274,6 +274,11 @@ from factori.schemas import (
     SubstrateExperimentResult,
     SubstrateExperimentRoutingReport,
     SubstrateExperimentSpec,
+    SubstratePromotionCandidate,
+    SubstratePromotionConfig,
+    SubstratePromotionDecision,
+    SubstratePromotionInspectionReport,
+    SubstratePromotionReport,
     SubstrateTournamentComparison,
     SubstrateTournamentEntry,
     SubstrateTournamentInspectionReport,
@@ -289,7 +294,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.58.0"
+PROTOCOL_VERSION = "0.59.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -555,6 +560,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "VarianceAugmentationInspectionReport",
         VarianceAugmentationInspectionReport,
         "Read-only inspection report for latest variance augmentation.",
+    ),
+    ProtocolDefinition(
+        "SubstratePromotionConfig",
+        SubstratePromotionConfig,
+        "Diversity and capacity constraints for variance substrate promotion.",
+    ),
+    ProtocolDefinition(
+        "SubstratePromotionCandidate",
+        SubstratePromotionCandidate,
+        "One scored variance candidate eligible for substrate promotion.",
+    ),
+    ProtocolDefinition(
+        "SubstratePromotionDecision",
+        SubstratePromotionDecision,
+        "One deterministic variance candidate promotion decision.",
+    ),
+    ProtocolDefinition(
+        "SubstratePromotionReport",
+        SubstratePromotionReport,
+        "Append-only diversity-constrained substrate promotion report.",
+    ),
+    ProtocolDefinition(
+        "SubstratePromotionInspectionReport",
+        SubstratePromotionInspectionReport,
+        "Read-only inspection report for latest substrate promotion.",
     ),
     ProtocolDefinition(
         "IdeaNodeFeatureVector",

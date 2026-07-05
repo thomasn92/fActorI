@@ -301,6 +301,12 @@ from factori.substrate_experiment_routing import (
     inspect_substrate_experiment_routing,
     route_substrate_experiment,
 )
+from factori.substrate_promotion import (
+    SubstratePromotionError,
+    inspect_substrate_promotion,
+    promote_variance_substrates,
+    render_substrate_promotion_text,
+)
 from factori.substrate_tournament import (
     SubstrateTournamentError,
     inspect_substrate_tournament,
@@ -4138,6 +4144,55 @@ def export_idea_space_report_command(
     typer.echo(f"recommended_mutation_axes={len(report.recommended_mutation_axes)}")
     typer.echo("publication_ready=false")
     typer.echo(f"artifact={artifact_path}")
+
+
+@app.command("promote-variance-substrates")
+def promote_variance_substrates_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    max_substrates: Annotated[int, typer.Option("--max-substrates")] = 8,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Promote diverse variance candidates into concrete ScientificSubstrates."""
+    try:
+        result = promote_variance_substrates(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            max_substrates=max_substrates,
+        )
+    except (SubstratePromotionError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"promotion_id={result.report.promotion_id}")
+    typer.echo(f"promoted_substrate_count={result.report.promoted_substrate_count}")
+    typer.echo(f"method_lens_coverage={result.report.method_lens_coverage}")
+    typer.echo(f"branch_family_coverage={result.report.branch_family_coverage}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-substrate-promotion")
+def inspect_substrate_promotion_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest diversity-constrained substrate promotion."""
+    try:
+        report = inspect_substrate_promotion(run_id=run_id, root=root)
+    except SubstratePromotionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_substrate_promotion_text(report))
 
 
 @app.command("build-scientific-substrate")

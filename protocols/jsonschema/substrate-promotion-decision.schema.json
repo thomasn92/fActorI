@@ -1,0 +1,94 @@
+{
+  "$id": "https://schemas.factori.local/0.59.0/substrate-promotion-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic variance candidate promotion decision.",
+  "properties": {
+    "branch_family": {
+      "enum": [
+        "mechanism_variant",
+        "robustness_variant",
+        "counterexample_variant",
+        "benchmark_variant",
+        "representation_variant"
+      ],
+      "title": "Branch Family",
+      "type": "string"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "created_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created Substrate Id Optional"
+    },
+    "created_substrate_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created Substrate Path Optional"
+    },
+    "method_lens": {
+      "minLength": 1,
+      "title": "Method Lens",
+      "type": "string"
+    },
+    "promoted": {
+      "title": "Promoted",
+      "type": "boolean"
+    },
+    "promotion_rank": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Promotion Rank"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "score_breakdown": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Score Breakdown",
+      "type": "object"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "method_lens",
+    "branch_family",
+    "promoted",
+    "reason"
+  ],
+  "title": "SubstratePromotionDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.59.0",
+  "x-factori-source-model": "factori.schemas.SubstratePromotionDecision",
+  "x-factori-verification-evidence": false
+}

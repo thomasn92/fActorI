@@ -213,6 +213,9 @@ All implementation modules are under `factori/`.
 - `variance_augmentation.py`: deterministic pre-selection lift from promoted opportunity seeds to
   diverse mechanism, robustness, counterexample, benchmark, and representation branches, with
   coverage-first IdeaTree selection and context-only append-only application reports.
+- `substrate_promotion.py`: diversity-constrained scoring and promotion of selected variance
+  branches into concrete ScientificSubstrates, with method-lens/branch-family coverage and
+  append-only IdeaTree substrate links that carry no evidence authority.
 - `idea_space.py`: read-only feature-vector extraction and PCA-like diversity diagnostics over
   IdeaTree nodes, including near-duplicate detection, collapsed-axis warnings, and context-only
   recommended mutation axes.

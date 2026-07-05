@@ -74,6 +74,11 @@ from factori.schemas import (
     ScientificSubstrate,
     ScientificSubstrateBuildReport,
     ScientificSubstrateInspectionReport,
+    SubstratePromotionCandidate,
+    SubstratePromotionConfig,
+    SubstratePromotionDecision,
+    SubstratePromotionInspectionReport,
+    SubstratePromotionReport,
     SubstrateTournamentComparison,
     SubstrateTournamentEntry,
     SubstrateTournamentInspectionReport,
@@ -132,6 +137,11 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert ScientificSubstrate in vars(schemas).values()
     assert ScientificSubstrateBuildReport in vars(schemas).values()
     assert ScientificSubstrateInspectionReport in vars(schemas).values()
+    assert SubstratePromotionConfig in vars(schemas).values()
+    assert SubstratePromotionCandidate in vars(schemas).values()
+    assert SubstratePromotionDecision in vars(schemas).values()
+    assert SubstratePromotionReport in vars(schemas).values()
+    assert SubstratePromotionInspectionReport in vars(schemas).values()
     assert SubstrateTournamentSpec in vars(schemas).values()
     assert SubstrateTournamentEntry in vars(schemas).values()
     assert SubstrateTournamentResult in vars(schemas).values()
@@ -214,6 +224,11 @@ def test_schema_all_contains_expected_public_names() -> None:
         "ScientificSubstrate",
         "ScientificSubstrateBuildReport",
         "ScientificSubstrateInspectionReport",
+        "SubstratePromotionConfig",
+        "SubstratePromotionCandidate",
+        "SubstratePromotionDecision",
+        "SubstratePromotionReport",
+        "SubstratePromotionInspectionReport",
         "SubstrateTournamentSpec",
         "SubstrateTournamentEntry",
         "SubstrateTournamentResult",
@@ -281,4 +296,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 285
+    assert len(get_protocol_definitions()) == 290

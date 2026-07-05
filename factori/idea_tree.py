@@ -21,6 +21,7 @@ from factori.schemas import (
     IdeaTree,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    SubstratePromotionReport,
     VarianceAugmentationReport,
 )
 
@@ -31,6 +32,7 @@ _GENERATION_MUTATION_RE = re.compile(
     r"^generation-mutation-application-(\d{4})\.json$"
 )
 _VARIANCE_APPLICATION_RE = re.compile(r"^variance-augmentation-application-(\d{4})\.json$")
+_SUBSTRATE_PROMOTION_RE = re.compile(r"^substrate-promotion-(\d{4})\.json$")
 _DEFERRED_BRANCH_STATUSES = {
     "BudgetDeferred",
     "DeferredRealDataCandidate",
@@ -82,6 +84,7 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
             )
 
     variance_applications = _load_variance_augmentation_applications(reports, root_path, warnings)
+    substrate_promotions = _load_substrate_promotion_reports(reports, root_path, warnings)
     domain = _resolve_domain(report_paths["config"], candidates, warnings)
     if domain == "unknown domain" and variance_applications:
         domain = variance_applications[-1][0].domain
@@ -347,6 +350,13 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
         source_paths=source_paths,
         domain=domain,
     )
+    _link_promoted_substrates(
+        root_path=root_path,
+        reports_and_paths=substrate_promotions,
+        nodes=nodes,
+        source_paths=source_paths,
+        warnings=warnings,
+    )
 
     if candidates:
         warnings.append(
@@ -491,7 +501,13 @@ def render_idea_tree_text(report: IdeaTreeInspectionReport) -> str:
             seed_prefix = "        " if seed_index == len(opportunity_seeds) else "│   │   "
             for child_index, child in enumerate(seed_children, start=1):
                 child_branch = "└──" if child_index == len(seed_children) else "├──"
-                lines.append(f"{seed_prefix}{child_branch} {child.title} [{child.status}]")
+                substrate_label = (
+                    " [substrate-linked]" if child.scientific_substrate_ids else ""
+                )
+                lines.append(
+                    f"{seed_prefix}{child_branch} {child.title} "
+                    f"[{child.status}]{substrate_label}"
+                )
     final_node = next(
         (node for node in report.nodes if node.node_id == report.final_node_id_optional),
         None,
@@ -866,6 +882,89 @@ def _append_variance_augmentation_nodes(
                         ),
                     )
                 )
+
+
+def _load_substrate_promotion_reports(
+    reports: Path,
+    root_path: Path,
+    warnings: list[str],
+) -> list[tuple[SubstratePromotionReport, Path]]:
+    loaded: list[tuple[SubstratePromotionReport, Path]] = []
+    for _, path in sorted(
+        (int(match.group(1)), path)
+        for path in reports.glob("substrate-promotion-*.json")
+        if (match := _SUBSTRATE_PROMOTION_RE.fullmatch(path.name))
+    ):
+        try:
+            loaded.append(
+                (
+                    SubstratePromotionReport.model_validate_json(
+                        path.read_text(encoding="utf-8")
+                    ),
+                    path,
+                )
+            )
+        except (OSError, ValueError):
+            warnings.append(
+                "Substrate promotion report could not be parsed: "
+                f"{_relative_path(root_path, path)}"
+            )
+    return loaded
+
+
+def _link_promoted_substrates(
+    *,
+    root_path: Path,
+    reports_and_paths: list[tuple[SubstratePromotionReport, Path]],
+    nodes: list[IdeaNode],
+    source_paths: list[str],
+    warnings: list[str],
+) -> None:
+    node_index = {node.node_id: index for index, node in enumerate(nodes)}
+    for report, report_path in reports_and_paths:
+        report_ref = _relative_path(root_path, report_path)
+        source_paths.extend(
+            [
+                report_ref,
+                report.scientific_substrate_build_report_path,
+                *report.created_substrate_paths,
+            ]
+        )
+        for decision in report.decisions:
+            if not decision.promoted or not decision.created_substrate_id_optional:
+                continue
+            index = node_index.get(decision.candidate_id)
+            if index is None:
+                warnings.append(
+                    "Promoted variance candidate is absent from IdeaTree: "
+                    f"{decision.candidate_id}."
+                )
+                continue
+            node = nodes[index]
+            substrate_path = decision.created_substrate_path_optional
+            nodes[index] = node.model_copy(
+                update={
+                    "scientific_substrate_ids": sorted(
+                        {
+                            *node.scientific_substrate_ids,
+                            decision.created_substrate_id_optional,
+                        }
+                    ),
+                    "scientific_substrate_paths": sorted(
+                        {
+                            *node.scientific_substrate_paths,
+                            *([substrate_path] if substrate_path else []),
+                        }
+                    ),
+                    "artifact_refs": sorted(
+                        {
+                            *node.artifact_refs,
+                            report_ref,
+                            *([substrate_path] if substrate_path else []),
+                        }
+                    ),
+                }
+            )
 
 
 def render_idea_tree_markdown(report: IdeaTreeInspectionReport) -> str:

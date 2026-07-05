@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.59.0` adds diversity-constrained substrate-promotion configuration, scored candidate,
+decision, report, and inspection contracts plus explicit links from variance IdeaTree nodes to
+their concrete ScientificSubstrates. Promotion remains planning context and creates no evidence,
+validation, or publication readiness.
+
 Protocol `0.58.0` adds opportunity-seeded variance configuration, candidate, batch, diversity,
 report, and inspection contracts plus explicit IdeaTree opportunity-source links. These contracts
 expand Stage 0 seeds into context-only pre-selection branches and do not create evidence,

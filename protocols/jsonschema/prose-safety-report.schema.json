@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.58.0/prose-safety-report.schema.json",
+  "$id": "https://schemas.factori.local/0.59.0/prose-safety-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One-section prose safety and grounding report.",
@@ -164,7 +164,7 @@
   ],
   "title": "ProseSafetyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.58.0",
+  "x-factori-protocol-version": "0.59.0",
   "x-factori-source-model": "factori.schemas.ProseSafetyReport",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,125 @@
+{
+  "$id": "https://schemas.factori.local/0.59.0/substrate-promotion-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One scored variance candidate eligible for substrate promotion.",
+  "properties": {
+    "branch_family": {
+      "enum": [
+        "mechanism_variant",
+        "robustness_variant",
+        "counterexample_variant",
+        "benchmark_variant",
+        "representation_variant"
+      ],
+      "title": "Branch Family",
+      "type": "string"
+    },
+    "branch_family_coverage_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Branch Family Coverage Score",
+      "type": "number"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "duplicate_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Duplicate Penalty",
+      "type": "number"
+    },
+    "easy_win_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Easy Win Score",
+      "type": "number"
+    },
+    "eligible": {
+      "title": "Eligible",
+      "type": "boolean"
+    },
+    "method_lens": {
+      "minLength": 1,
+      "title": "Method Lens",
+      "type": "string"
+    },
+    "method_lens_coverage_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Method Lens Coverage Score",
+      "type": "number"
+    },
+    "rejection_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rejection Reasons",
+      "type": "array"
+    },
+    "scientific_interest_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scientific Interest Score",
+      "type": "number"
+    },
+    "source_method_lens_id": {
+      "minLength": 1,
+      "title": "Source Method Lens Id",
+      "type": "string"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    },
+    "substrate_buildability": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Substrate Buildability",
+      "type": "number"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "total_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Total Score",
+      "type": "number"
+    },
+    "verification_path_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Verification Path Feasibility",
+      "type": "number"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "source_opportunity_id",
+    "source_method_lens_id",
+    "method_lens",
+    "branch_family",
+    "title",
+    "easy_win_score",
+    "scientific_interest_score",
+    "substrate_buildability",
+    "method_lens_coverage_score",
+    "branch_family_coverage_score",
+    "duplicate_penalty",
+    "verification_path_feasibility",
+    "total_score",
+    "eligible"
+  ],
+  "title": "SubstratePromotionCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.59.0",
+  "x-factori-source-model": "factori.schemas.SubstratePromotionCandidate",
+  "x-factori-verification-evidence": false
+}

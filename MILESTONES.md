@@ -286,3 +286,15 @@ without real-world validation or publication readiness.
   derived IdeaTree through immutable reports only.
 - Variance candidates and reports are creative-search context; they do not create evidence,
   verification labels, scientific validation, or publication readiness.
+
+## M93 Diversity-Constrained Substrate Promotion
+
+- Added deterministic composite scoring over easy-win value, scientific interest, substrate
+  buildability, local verification feasibility, duplicate penalties, and diversity coverage.
+- Added coverage-constrained selection of up to eight variance branches with at least four method
+  lenses and three branch families when the available candidates permit it.
+- Added concrete human-geography substrate templates for optimal transport, matrix factorization,
+  graph curvature, topological data analysis, agent-based modeling, spatial statistics, network
+  science, and kernel methods.
+- Promotion appends ScientificSubstrate artifacts and links their source IdeaTree nodes without
+  creating evidence, validation, or publication readiness.

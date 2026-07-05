@@ -213,6 +213,9 @@ uv run factori augment-variance \
 uv run factori inspect-variance-augmentation --run-id demo
 uv run factori inspect-variance-augmentation --run-id demo --json
 uv run factori apply-variance-augmentation --run-id demo
+uv run factori promote-variance-substrates --run-id demo --max-substrates 8
+uv run factori inspect-substrate-promotion --run-id demo
+uv run factori inspect-substrate-promotion --run-id demo --json
 uv run factori inspect-idea-tree --run-id demo
 uv run factori inspect-idea-tree --run-id demo --json
 uv run factori export-idea-tree --run-id demo --format markdown

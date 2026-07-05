@@ -112,6 +112,11 @@ from factori.schemas import (
     SectionRevisionPlan,
     StageBReviewerReport,
     StageRerunDecision,
+    SubstratePromotionCandidate,
+    SubstratePromotionConfig,
+    SubstratePromotionDecision,
+    SubstratePromotionInspectionReport,
+    SubstratePromotionReport,
     SubstrateTournamentComparison,
     SubstrateTournamentEntry,
     SubstrateTournamentInspectionReport,
@@ -127,9 +132,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 285
+    assert len(first) == 290
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.58.0"
+    assert PROTOCOL_VERSION == "0.59.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -264,6 +269,21 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     )
     assert get_protocol_definition("ScientificSubstrateInspectionReport").model is (
         ScientificSubstrateInspectionReport
+    )
+    assert get_protocol_definition("SubstratePromotionConfig").model is (
+        SubstratePromotionConfig
+    )
+    assert get_protocol_definition("SubstratePromotionCandidate").model is (
+        SubstratePromotionCandidate
+    )
+    assert get_protocol_definition("SubstratePromotionDecision").model is (
+        SubstratePromotionDecision
+    )
+    assert get_protocol_definition("SubstratePromotionReport").model is (
+        SubstratePromotionReport
+    )
+    assert get_protocol_definition("SubstratePromotionInspectionReport").model is (
+        SubstratePromotionInspectionReport
     )
     assert get_protocol_definition("SubstrateTournamentSpec").model is SubstrateTournamentSpec
     assert get_protocol_definition("SubstrateTournamentEntry").model is SubstrateTournamentEntry

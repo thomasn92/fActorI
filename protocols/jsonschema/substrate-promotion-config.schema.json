@@ -1,0 +1,40 @@
+{
+  "$id": "https://schemas.factori.local/0.59.0/substrate-promotion-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Diversity and capacity constraints for variance substrate promotion.",
+  "properties": {
+    "max_substrates": {
+      "default": 8,
+      "maximum": 40,
+      "minimum": 1,
+      "title": "Max Substrates",
+      "type": "integer"
+    },
+    "min_branch_families": {
+      "default": 3,
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Min Branch Families",
+      "type": "integer"
+    },
+    "min_method_lenses": {
+      "default": 4,
+      "maximum": 40,
+      "minimum": 1,
+      "title": "Min Method Lenses",
+      "type": "integer"
+    },
+    "promotion_backend": {
+      "const": "deterministic",
+      "default": "deterministic",
+      "title": "Promotion Backend",
+      "type": "string"
+    }
+  },
+  "title": "SubstratePromotionConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.59.0",
+  "x-factori-source-model": "factori.schemas.SubstratePromotionConfig",
+  "x-factori-verification-evidence": false
+}

@@ -142,6 +142,12 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     apply_augmentation = CliRunner().invoke(
         app, ["apply-variance-augmentation", "--help"]
     )
+    promote_substrates = CliRunner().invoke(
+        app, ["promote-variance-substrates", "--help"]
+    )
+    inspect_promotion = CliRunner().invoke(
+        app, ["inspect-substrate-promotion", "--help"]
+    )
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
@@ -161,6 +167,10 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--json" in inspect_augmentation.output
     assert apply_augmentation.exit_code == 0, apply_augmentation.output
     assert "--run-id" in apply_augmentation.output
+    assert promote_substrates.exit_code == 0, promote_substrates.output
+    assert "--max-substrates" in promote_substrates.output
+    assert inspect_promotion.exit_code == 0, inspect_promotion.output
+    assert "--json" in inspect_promotion.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
@@ -277,6 +287,30 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
             "--json",
         ],
     )
+    promoted = runner.invoke(
+        app,
+        [
+            "promote-variance-substrates",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--max-substrates",
+            "8",
+            "--json",
+        ],
+    )
+    promotion_inspection = runner.invoke(
+        app,
+        [
+            "inspect-substrate-promotion",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
     tree = runner.invoke(
         app,
         [
@@ -305,6 +339,16 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
     applied_payload = json.loads(applied.output)
     assert applied_payload["applied_to_idea_tree"] is True
     assert applied_payload["idea_tree_nodes_added"] >= 16
+    assert promoted.exit_code == 0, promoted.output
+    promoted_payload = json.loads(promoted.output)
+    assert promoted_payload["promoted_substrate_count"] == 8
+    assert promoted_payload["method_lens_coverage"] == 8
+    assert promoted_payload["branch_family_coverage"] >= 3
+    assert promoted_payload["publication_ready"] is False
+    assert promotion_inspection.exit_code == 0, promotion_inspection.output
+    promotion_payload = json.loads(promotion_inspection.output)
+    assert promotion_payload["substrate_promotion_present"] is True
+    assert promotion_payload["idea_tree_substrate_links_present"] is True
     assert tree.exit_code == 0, tree.output
     tree_payload = json.loads(tree.output)
     variance_nodes = [

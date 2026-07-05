@@ -240,6 +240,20 @@
           "default": null,
           "title": "Scientific Interest Optional"
         },
+        "scientific_substrate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scientific Substrate Ids",
+          "type": "array"
+        },
+        "scientific_substrate_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scientific Substrate Paths",
+          "type": "array"
+        },
         "selected_for_final_manuscript": {
           "default": false,
           "title": "Selected For Final Manuscript",
@@ -323,7 +337,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.58.0/idea-tree-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.59.0/idea-tree-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for a reconstructed idea tree.",
@@ -447,7 +461,7 @@
   ],
   "title": "IdeaTreeInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.58.0",
+  "x-factori-protocol-version": "0.59.0",
   "x-factori-source-model": "factori.schemas.IdeaTreeInspectionReport",
   "x-factori-verification-evidence": false
 }

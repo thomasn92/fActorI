@@ -354,6 +354,98 @@ class VarianceAugmentationInspectionReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+class SubstratePromotionConfig(StrictModel):
+    """Diversity and capacity constraints for variance substrate promotion."""
+
+    max_substrates: int = Field(default=8, ge=1, le=40)
+    min_method_lenses: int = Field(default=4, ge=1, le=40)
+    min_branch_families: int = Field(default=3, ge=1, le=5)
+    promotion_backend: Literal["deterministic"] = "deterministic"
+
+
+class SubstratePromotionCandidate(StrictModel):
+    """One scored variance candidate eligible for concrete substrate promotion."""
+
+    candidate_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    source_method_lens_id: str = Field(min_length=1)
+    method_lens: str = Field(min_length=1)
+    branch_family: VarianceCandidateFamily
+    title: str = Field(min_length=1)
+    easy_win_score: float = Field(ge=0.0, le=1.0)
+    scientific_interest_score: float = Field(ge=0.0, le=1.0)
+    substrate_buildability: float = Field(ge=0.0, le=1.0)
+    method_lens_coverage_score: float = Field(ge=0.0, le=1.0)
+    branch_family_coverage_score: float = Field(ge=0.0, le=1.0)
+    duplicate_penalty: float = Field(ge=0.0, le=1.0)
+    verification_path_feasibility: float = Field(ge=0.0, le=1.0)
+    total_score: float = Field(ge=0.0, le=1.0)
+    eligible: bool
+    rejection_reasons: list[str] = Field(default_factory=list)
+
+
+class SubstratePromotionDecision(StrictModel):
+    """One deterministic promotion decision and optional created substrate link."""
+
+    candidate_id: str = Field(min_length=1)
+    method_lens: str = Field(min_length=1)
+    branch_family: VarianceCandidateFamily
+    promoted: bool
+    promotion_rank: int | None = Field(default=None, ge=1)
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    reason: str = Field(min_length=1)
+    created_substrate_id_optional: str | None = None
+    created_substrate_path_optional: str | None = None
+
+
+class SubstratePromotionReport(StrictModel):
+    """Append-only report for diversity-constrained substrate promotion."""
+
+    run_id: str = Field(min_length=1)
+    promotion_id: str = Field(min_length=1)
+    source_variance_augmentation_path: str = Field(min_length=1)
+    source_variance_augmentation_id: str = Field(min_length=1)
+    scientific_substrate_build_report_path: str = Field(min_length=1)
+    config: SubstratePromotionConfig
+    selected_variance_candidate_count: int = Field(ge=0)
+    evaluated_candidate_count: int = Field(ge=0)
+    promoted_substrate_count: int = Field(ge=0)
+    rejected_candidate_count: int = Field(ge=0)
+    method_lens_coverage: int = Field(ge=0)
+    branch_family_coverage: int = Field(ge=0)
+    promoted_candidate_ids: list[str] = Field(default_factory=list)
+    created_substrate_ids: list[str] = Field(default_factory=list)
+    created_substrate_paths: list[str] = Field(default_factory=list)
+    candidates: list[SubstratePromotionCandidate] = Field(default_factory=list)
+    decisions: list[SubstratePromotionDecision] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class SubstratePromotionInspectionReport(StrictModel):
+    """Read-only inspection report for latest variance substrate promotion."""
+
+    run_id: str = Field(min_length=1)
+    substrate_promotion_present: bool
+    latest_promotion_id_optional: str | None = None
+    promoted_substrate_count: int = Field(default=0, ge=0)
+    rejected_candidate_count: int = Field(default=0, ge=0)
+    method_lens_coverage: int = Field(default=0, ge=0)
+    branch_family_coverage: int = Field(default=0, ge=0)
+    idea_tree_substrate_links_present: bool = False
+    promoted_candidates: list[SubstratePromotionDecision] = Field(default_factory=list)
+    rejected_candidates: list[SubstratePromotionDecision] = Field(default_factory=list)
+    report_optional: SubstratePromotionReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
 IdeaNodeStatus = Literal[
     "root",
     "generated",
@@ -406,6 +498,8 @@ class IdeaNode(StrictModel):
     selected_for_final_manuscript: bool = False
     source_opportunity_id_optional: str | None = None
     source_method_lens_id_optional: str | None = None
+    scientific_substrate_ids: list[str] = Field(default_factory=list)
+    scientific_substrate_paths: list[str] = Field(default_factory=list)
     artifact_refs: list[str] = Field(default_factory=list)
     created_at: str | None = None
 
@@ -684,6 +778,9 @@ class ScientificSubstrate(StrictModel):
     run_id: str = Field(min_length=1)
     source_idea_node_id_optional: str | None = None
     source_mutation_axis_optional: str | None = None
+    source_variance_candidate_id_optional: str | None = None
+    source_opportunity_id_optional: str | None = None
+    source_method_lens_id_optional: str | None = None
     title: str = Field(min_length=1)
     domain: str = Field(min_length=1)
     domain_problem: str = Field(min_length=1)
@@ -4742,6 +4839,11 @@ __all__ = [
     "VarianceAugmentationReport",
     "VarianceAugmentationInspectionReport",
     "VarianceDiversityDiagnostic",
+    "SubstratePromotionConfig",
+    "SubstratePromotionCandidate",
+    "SubstratePromotionDecision",
+    "SubstratePromotionReport",
+    "SubstratePromotionInspectionReport",
     "IdeaNode",
     "IdeaEdge",
     "IdeaTree",

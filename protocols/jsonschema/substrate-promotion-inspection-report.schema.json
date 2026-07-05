@@ -1,0 +1,507 @@
+{
+  "$defs": {
+    "SubstratePromotionCandidate": {
+      "additionalProperties": false,
+      "description": "One scored variance candidate eligible for concrete substrate promotion.",
+      "properties": {
+        "branch_family": {
+          "enum": [
+            "mechanism_variant",
+            "robustness_variant",
+            "counterexample_variant",
+            "benchmark_variant",
+            "representation_variant"
+          ],
+          "title": "Branch Family",
+          "type": "string"
+        },
+        "branch_family_coverage_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Branch Family Coverage Score",
+          "type": "number"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "duplicate_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Duplicate Penalty",
+          "type": "number"
+        },
+        "easy_win_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Easy Win Score",
+          "type": "number"
+        },
+        "eligible": {
+          "title": "Eligible",
+          "type": "boolean"
+        },
+        "method_lens": {
+          "minLength": 1,
+          "title": "Method Lens",
+          "type": "string"
+        },
+        "method_lens_coverage_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Method Lens Coverage Score",
+          "type": "number"
+        },
+        "rejection_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rejection Reasons",
+          "type": "array"
+        },
+        "scientific_interest_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Scientific Interest Score",
+          "type": "number"
+        },
+        "source_method_lens_id": {
+          "minLength": 1,
+          "title": "Source Method Lens Id",
+          "type": "string"
+        },
+        "source_opportunity_id": {
+          "minLength": 1,
+          "title": "Source Opportunity Id",
+          "type": "string"
+        },
+        "substrate_buildability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Substrate Buildability",
+          "type": "number"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "total_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Total Score",
+          "type": "number"
+        },
+        "verification_path_feasibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Verification Path Feasibility",
+          "type": "number"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "source_opportunity_id",
+        "source_method_lens_id",
+        "method_lens",
+        "branch_family",
+        "title",
+        "easy_win_score",
+        "scientific_interest_score",
+        "substrate_buildability",
+        "method_lens_coverage_score",
+        "branch_family_coverage_score",
+        "duplicate_penalty",
+        "verification_path_feasibility",
+        "total_score",
+        "eligible"
+      ],
+      "title": "SubstratePromotionCandidate",
+      "type": "object"
+    },
+    "SubstratePromotionConfig": {
+      "additionalProperties": false,
+      "description": "Diversity and capacity constraints for variance substrate promotion.",
+      "properties": {
+        "max_substrates": {
+          "default": 8,
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Max Substrates",
+          "type": "integer"
+        },
+        "min_branch_families": {
+          "default": 3,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Min Branch Families",
+          "type": "integer"
+        },
+        "min_method_lenses": {
+          "default": 4,
+          "maximum": 40,
+          "minimum": 1,
+          "title": "Min Method Lenses",
+          "type": "integer"
+        },
+        "promotion_backend": {
+          "const": "deterministic",
+          "default": "deterministic",
+          "title": "Promotion Backend",
+          "type": "string"
+        }
+      },
+      "title": "SubstratePromotionConfig",
+      "type": "object"
+    },
+    "SubstratePromotionDecision": {
+      "additionalProperties": false,
+      "description": "One deterministic promotion decision and optional created substrate link.",
+      "properties": {
+        "branch_family": {
+          "enum": [
+            "mechanism_variant",
+            "robustness_variant",
+            "counterexample_variant",
+            "benchmark_variant",
+            "representation_variant"
+          ],
+          "title": "Branch Family",
+          "type": "string"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "created_substrate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created Substrate Id Optional"
+        },
+        "created_substrate_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created Substrate Path Optional"
+        },
+        "method_lens": {
+          "minLength": 1,
+          "title": "Method Lens",
+          "type": "string"
+        },
+        "promoted": {
+          "title": "Promoted",
+          "type": "boolean"
+        },
+        "promotion_rank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Promotion Rank"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "score_breakdown": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Score Breakdown",
+          "type": "object"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "method_lens",
+        "branch_family",
+        "promoted",
+        "reason"
+      ],
+      "title": "SubstratePromotionDecision",
+      "type": "object"
+    },
+    "SubstratePromotionReport": {
+      "additionalProperties": false,
+      "description": "Append-only report for diversity-constrained substrate promotion.",
+      "properties": {
+        "branch_family_coverage": {
+          "minimum": 0,
+          "title": "Branch Family Coverage",
+          "type": "integer"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/SubstratePromotionCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "config": {
+          "$ref": "#/$defs/SubstratePromotionConfig"
+        },
+        "created_substrate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created Substrate Ids",
+          "type": "array"
+        },
+        "created_substrate_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Created Substrate Paths",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/SubstratePromotionDecision"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
+        "evaluated_candidate_count": {
+          "minimum": 0,
+          "title": "Evaluated Candidate Count",
+          "type": "integer"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "method_lens_coverage": {
+          "minimum": 0,
+          "title": "Method Lens Coverage",
+          "type": "integer"
+        },
+        "promoted_candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Promoted Candidate Ids",
+          "type": "array"
+        },
+        "promoted_substrate_count": {
+          "minimum": 0,
+          "title": "Promoted Substrate Count",
+          "type": "integer"
+        },
+        "promotion_id": {
+          "minLength": 1,
+          "title": "Promotion Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "rejected_candidate_count": {
+          "minimum": 0,
+          "title": "Rejected Candidate Count",
+          "type": "integer"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "scientific_substrate_build_report_path": {
+          "minLength": 1,
+          "title": "Scientific Substrate Build Report Path",
+          "type": "string"
+        },
+        "selected_variance_candidate_count": {
+          "minimum": 0,
+          "title": "Selected Variance Candidate Count",
+          "type": "integer"
+        },
+        "source_variance_augmentation_id": {
+          "minLength": 1,
+          "title": "Source Variance Augmentation Id",
+          "type": "string"
+        },
+        "source_variance_augmentation_path": {
+          "minLength": 1,
+          "title": "Source Variance Augmentation Path",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "promotion_id",
+        "source_variance_augmentation_path",
+        "source_variance_augmentation_id",
+        "scientific_substrate_build_report_path",
+        "config",
+        "selected_variance_candidate_count",
+        "evaluated_candidate_count",
+        "promoted_substrate_count",
+        "rejected_candidate_count",
+        "method_lens_coverage",
+        "branch_family_coverage"
+      ],
+      "title": "SubstratePromotionReport",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.59.0/substrate-promotion-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection report for latest substrate promotion.",
+  "properties": {
+    "branch_family_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Branch Family Coverage",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "idea_tree_substrate_links_present": {
+      "default": false,
+      "title": "Idea Tree Substrate Links Present",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_promotion_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Promotion Id Optional"
+    },
+    "method_lens_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Method Lens Coverage",
+      "type": "integer"
+    },
+    "promoted_candidates": {
+      "items": {
+        "$ref": "#/$defs/SubstratePromotionDecision"
+      },
+      "title": "Promoted Candidates",
+      "type": "array"
+    },
+    "promoted_substrate_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Promoted Substrate Count",
+      "type": "integer"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rejected_candidate_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Rejected Candidate Count",
+      "type": "integer"
+    },
+    "rejected_candidates": {
+      "items": {
+        "$ref": "#/$defs/SubstratePromotionDecision"
+      },
+      "title": "Rejected Candidates",
+      "type": "array"
+    },
+    "report_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SubstratePromotionReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "substrate_promotion_present": {
+      "title": "Substrate Promotion Present",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "substrate_promotion_present"
+  ],
+  "title": "SubstratePromotionInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.59.0",
+  "x-factori-source-model": "factori.schemas.SubstratePromotionInspectionReport",
+  "x-factori-verification-evidence": false
+}

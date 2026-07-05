@@ -376,6 +376,7 @@ class ControllerActionType(StrEnum):
     OPPORTUNITY_DISCOVERY_WRITTEN = "OpportunityDiscoveryWritten"
     VARIANCE_AUGMENTATION_WRITTEN = "VarianceAugmentationWritten"
     VARIANCE_AUGMENTATION_APPLIED = "VarianceAugmentationApplied"
+    VARIANCE_SUBSTRATES_PROMOTED = "VarianceSubstratesPromoted"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
