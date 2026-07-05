@@ -27,6 +27,7 @@ from factori.schemas.enums import (
     PaperRevisionStatus,
     PaperShapeStatus,
     RerunPolicy,
+    RouteExecutionStatus,
     VerificationLabel,
 )
 
@@ -535,6 +536,142 @@ class BranchRouteInspectionReport(StrictModel):
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
+
+
+RouteEvidenceLabel = Literal[
+    "SyntheticExperimentEvidence",
+    "BenchmarkEvidence",
+    "SymbolicReductionDraft",
+    "NegativeResult",
+    "InconclusiveResult",
+    "UnsupportedRouteDeferred",
+]
+
+
+class RouteExecutionInputContract(StrictModel):
+    """Bounded substrate inputs copied into a deterministic route execution spec."""
+
+    substrate_title: str = Field(min_length=1)
+    domain: str = Field(min_length=1)
+    model_type: str = Field(min_length=1)
+    equations: list[str] = Field(min_length=1)
+    variables_and_notation: list[dict[str, str]] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    dgp_or_dataset: str = Field(min_length=1)
+    baseline: str = Field(min_length=1)
+    proposed_method: str = Field(min_length=1)
+    measurable_hypothesis: str = Field(min_length=1)
+    metrics: list[str] = Field(default_factory=list)
+    seed: int = Field(ge=0)
+    route_parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class RouteExecutionOutputContract(StrictModel):
+    """Required bounded outputs and support boundary for one route execution."""
+
+    required_metrics: list[str] = Field(default_factory=list)
+    required_payload_fields: list[str] = Field(default_factory=list)
+    scope_label: str = Field(min_length=1)
+    success_criterion: str = Field(min_length=1)
+    failure_criterion: str = Field(min_length=1)
+
+
+class RouteExecutionSpec(StrictModel):
+    """One immutable deterministic execution specification for a branch route."""
+
+    spec_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    route_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    route_type: BranchRouteType
+    method_lens: str = Field(min_length=1)
+    branch_family: str = Field(min_length=1)
+    execution_backend: str = Field(min_length=1)
+    input_contract: RouteExecutionInputContract
+    output_contract: RouteExecutionOutputContract
+    expected_artifacts: list[str] = Field(default_factory=list)
+    allowed_evidence_labels: list[RouteEvidenceLabel] = Field(default_factory=list)
+    forbidden_claims: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_real_world_validation: bool = False
+
+
+class RouteExecutionResult(StrictModel):
+    """Deterministic bounded output for one route execution spec."""
+
+    result_id: str = Field(min_length=1)
+    spec_id: str = Field(min_length=1)
+    route_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    route_type: BranchRouteType
+    status: RouteExecutionStatus
+    execution_backend: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    metrics: dict[str, float | int | str | bool] = Field(default_factory=dict)
+    output_payload: dict[str, Any] = Field(default_factory=dict)
+    artifacts: list[str] = Field(default_factory=list)
+    evidence_label: RouteEvidenceLabel
+    scope_label: str = Field(min_length=1)
+    warnings: list[str] = Field(default_factory=list)
+    failure_reason_optional: str | None = None
+    creates_scientific_validation: bool = False
+    creates_real_world_validation: bool = False
+    publication_ready: bool = False
+
+
+class RouteExecutionReport(StrictModel):
+    """Append-only aggregate report for spec construction or route execution."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    report_status: RouteExecutionStatus
+    source_branch_route_plan_path: str = Field(min_length=1)
+    source_spec_build_path_optional: str | None = None
+    route_count: int = Field(ge=0)
+    spec_count: int = Field(ge=0)
+    executed_count: int = Field(ge=0)
+    deferred_count: int = Field(ge=0)
+    failed_count: int = Field(ge=0)
+    result_count: int = Field(ge=0)
+    synthetic_experiment_count: int = Field(ge=0)
+    benchmark_tournament_count: int = Field(ge=0)
+    applied_math_reduction_count: int = Field(ge=0)
+    evidence_label_counts: dict[str, int] = Field(default_factory=dict)
+    unsupported_route_counts: dict[str, int] = Field(default_factory=dict)
+    spec_paths: list[str] = Field(default_factory=list)
+    result_paths: list[str] = Field(default_factory=list)
+    specs: list[RouteExecutionSpec] = Field(default_factory=list)
+    results: list[RouteExecutionResult] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    creates_real_world_validation: bool = False
+    publication_ready: bool = False
+
+
+class RouteExecutionInspectionReport(StrictModel):
+    """Read-only inspection view of the latest route execution state."""
+
+    run_id: str = Field(min_length=1)
+    route_execution_present: bool
+    latest_report_id_optional: str | None = None
+    report_status_optional: RouteExecutionStatus | None = None
+    spec_count: int = Field(default=0, ge=0)
+    result_count: int = Field(default=0, ge=0)
+    executed_count: int = Field(default=0, ge=0)
+    deferred_count: int = Field(default=0, ge=0)
+    failed_count: int = Field(default=0, ge=0)
+    synthetic_experiment_count: int = Field(default=0, ge=0)
+    benchmark_tournament_count: int = Field(default=0, ge=0)
+    applied_math_reduction_count: int = Field(default=0, ge=0)
+    evidence_label_counts: dict[str, int] = Field(default_factory=dict)
+    unsupported_route_counts: dict[str, int] = Field(default_factory=dict)
+    specs: list[RouteExecutionSpec] = Field(default_factory=list)
+    results: list[RouteExecutionResult] = Field(default_factory=list)
+    report_optional: RouteExecutionReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    creates_scientific_validation: bool = False
+    creates_real_world_validation: bool = False
+    publication_ready: bool = False
 
 
 IdeaNodeStatus = Literal[
@@ -4939,6 +5076,12 @@ __all__ = [
     "BranchRouteDecision",
     "BranchRoutePlan",
     "BranchRouteInspectionReport",
+    "RouteExecutionInputContract",
+    "RouteExecutionOutputContract",
+    "RouteExecutionSpec",
+    "RouteExecutionResult",
+    "RouteExecutionReport",
+    "RouteExecutionInspectionReport",
     "IdeaNode",
     "IdeaEdge",
     "IdeaTree",

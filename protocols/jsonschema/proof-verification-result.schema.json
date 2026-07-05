@@ -16,7 +16,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.60.0/proof-verification-result.schema.json",
+  "$id": "https://schemas.factori.local/0.61.0/proof-verification-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider-neutral proof verification result for gated real proof backends.",
@@ -156,7 +156,7 @@
   ],
   "title": "ProofVerificationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.60.0",
+  "x-factori-protocol-version": "0.61.0",
   "x-factori-source-model": "factori.schemas.ProofVerificationResult",
   "x-factori-verification-evidence": false
 }

@@ -266,6 +266,13 @@ from factori.reviewer_change_requests import (
     ingest_reviewer_change_requests,
     inspect_reviewer_change_requests,
 )
+from factori.route_execution import (
+    RouteExecutionError,
+    build_route_execution_specs,
+    inspect_route_execution,
+    render_route_execution_text,
+    run_route_execution,
+)
 from factori.run_all import PipelineRunError, run_deterministic_pipeline
 from factori.schema_export import (
     DEFAULT_PROTOCOL_OUTPUT_DIR,
@@ -4248,6 +4255,82 @@ def inspect_branch_routes_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_branch_route_text(report))
+
+
+@app.command("build-route-execution-specs")
+def build_route_execution_specs_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build immutable deterministic execution specs for latest branch routes."""
+    try:
+        result = build_route_execution_specs(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except RouteExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"spec_count={result.report.spec_count}")
+    typer.echo(f"unsupported_route_count={sum(result.report.unsupported_route_counts.values())}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("run-route-execution")
+def run_route_execution_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run supported route specs through deterministic offline evaluators."""
+    try:
+        result = run_route_execution(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except RouteExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"result_count={result.report.result_count}")
+    typer.echo(f"executed_count={result.report.executed_count}")
+    typer.echo(f"deferred_count={result.report.deferred_count}")
+    typer.echo(f"failed_count={result.report.failed_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-route-execution")
+def inspect_route_execution_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest route execution specs and bounded results."""
+    try:
+        report = inspect_route_execution(run_id=run_id, root=root)
+    except RouteExecutionError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_route_execution_text(report))
 
 
 @app.command("build-scientific-substrate")

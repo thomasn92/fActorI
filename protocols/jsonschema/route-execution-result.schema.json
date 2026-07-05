@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    },
+    "RouteExecutionStatus": {
+      "description": "Lifecycle states for deterministic route execution.",
+      "enum": [
+        "not_started",
+        "spec_created",
+        "completed",
+        "completed_with_warnings",
+        "deferred_unsupported_route",
+        "failed"
+      ],
+      "title": "RouteExecutionStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.61.0/route-execution-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded deterministic output for one route execution specification.",
+  "properties": {
+    "artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "creates_real_world_validation": {
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_label": {
+      "enum": [
+        "SyntheticExperimentEvidence",
+        "BenchmarkEvidence",
+        "SymbolicReductionDraft",
+        "NegativeResult",
+        "InconclusiveResult",
+        "UnsupportedRouteDeferred"
+      ],
+      "title": "Evidence Label",
+      "type": "string"
+    },
+    "execution_backend": {
+      "minLength": 1,
+      "title": "Execution Backend",
+      "type": "string"
+    },
+    "failure_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Reason Optional"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "output_payload": {
+      "additionalProperties": true,
+      "title": "Output Payload",
+      "type": "object"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "result_id": {
+      "minLength": 1,
+      "title": "Result Id",
+      "type": "string"
+    },
+    "route_id": {
+      "minLength": 1,
+      "title": "Route Id",
+      "type": "string"
+    },
+    "route_type": {
+      "$ref": "#/$defs/BranchRouteType"
+    },
+    "scope_label": {
+      "minLength": 1,
+      "title": "Scope Label",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/RouteExecutionStatus"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "result_id",
+    "spec_id",
+    "route_id",
+    "substrate_id",
+    "route_type",
+    "status",
+    "execution_backend",
+    "summary",
+    "evidence_label",
+    "scope_label"
+  ],
+  "title": "RouteExecutionResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.61.0",
+  "x-factori-source-model": "factori.schemas.RouteExecutionResult",
+  "x-factori-verification-evidence": false
+}

@@ -52,6 +52,11 @@ counterexample, symbolic reduction, applied-math reduction, proof-plan, literatu
 false-bridge rejection path. It emits execution hints only; downstream stages retain all existing
 safety and evidence-intake authority.
 
+Route-specific execution turns those plans into immutable input/output contracts and deterministic
+offline results for supported synthetic, benchmark, and applied-math routes. Unsupported routes
+produce explicit deferred results. M95 outputs are not inserted into claim evidence and cannot
+establish real-world validation, formal proof, novelty, or publication readiness.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

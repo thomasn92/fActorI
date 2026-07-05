@@ -430,7 +430,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.60.0/idea-space-diversity-report.schema.json",
+  "$id": "https://schemas.factori.local/0.61.0/idea-space-diversity-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Context-only idea-space diversity report with recommended mutation axes.",
@@ -616,7 +616,7 @@
   ],
   "title": "IdeaSpaceDiversityReport",
   "type": "object",
-  "x-factori-protocol-version": "0.60.0",
+  "x-factori-protocol-version": "0.61.0",
   "x-factori-source-model": "factori.schemas.IdeaSpaceDiversityReport",
   "x-factori-verification-evidence": false
 }

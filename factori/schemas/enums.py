@@ -378,6 +378,8 @@ class ControllerActionType(StrEnum):
     VARIANCE_AUGMENTATION_APPLIED = "VarianceAugmentationApplied"
     VARIANCE_SUBSTRATES_PROMOTED = "VarianceSubstratesPromoted"
     BRANCH_ROUTES_WRITTEN = "BranchRoutesWritten"
+    ROUTE_EXECUTION_SPECS_WRITTEN = "RouteExecutionSpecsWritten"
+    ROUTE_EXECUTION_RUN = "RouteExecutionRun"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -402,6 +404,17 @@ class BranchRouteType(StrEnum):
     LITERATURE_NOVELTY_CHECK = "literature_novelty_check"
     DEFER_INSUFFICIENT_SUBSTRATE = "defer_insufficient_substrate"
     REJECT_FALSE_BRIDGE = "reject_false_bridge"
+
+
+class RouteExecutionStatus(StrEnum):
+    """Lifecycle states for deterministic route execution."""
+
+    NOT_STARTED = "not_started"
+    SPEC_CREATED = "spec_created"
+    COMPLETED = "completed"
+    COMPLETED_WITH_WARNINGS = "completed_with_warnings"
+    DEFERRED_UNSUPPORTED_ROUTE = "deferred_unsupported_route"
+    FAILED = "failed"
 
 
 class CreativeMutationOperator(StrEnum):
@@ -863,6 +876,7 @@ __all__ = [
     "ArtifactType",
     "ControllerActionType",
     "BranchRouteType",
+    "RouteExecutionStatus",
     "CreativeMutationOperator",
     "CreativeSearchStopReason",
     "GenerationMutationOperator",

@@ -76,6 +76,13 @@ from factori.schemas import (
     ProofArtifact,
     QualityRepairReport,
     ReviewerBundleSummary,
+    RouteExecutionInputContract,
+    RouteExecutionInspectionReport,
+    RouteExecutionOutputContract,
+    RouteExecutionReport,
+    RouteExecutionResult,
+    RouteExecutionSpec,
+    RouteExecutionStatus,
     ScientificSubstrate,
     ScientificSubstrateBuildReport,
     ScientificSubstrateInspectionReport,
@@ -147,6 +154,13 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert BranchRouteDecision in vars(schemas).values()
     assert BranchRoutePlan in vars(schemas).values()
     assert BranchRouteInspectionReport in vars(schemas).values()
+    assert RouteExecutionStatus in vars(schemas).values()
+    assert RouteExecutionInputContract in vars(schemas).values()
+    assert RouteExecutionOutputContract in vars(schemas).values()
+    assert RouteExecutionSpec in vars(schemas).values()
+    assert RouteExecutionResult in vars(schemas).values()
+    assert RouteExecutionReport in vars(schemas).values()
+    assert RouteExecutionInspectionReport in vars(schemas).values()
     assert SubstratePromotionConfig in vars(schemas).values()
     assert SubstratePromotionCandidate in vars(schemas).values()
     assert SubstratePromotionDecision in vars(schemas).values()
@@ -244,6 +258,13 @@ def test_schema_all_contains_expected_public_names() -> None:
         "BranchRouteDecision",
         "BranchRoutePlan",
         "BranchRouteInspectionReport",
+        "RouteExecutionStatus",
+        "RouteExecutionInputContract",
+        "RouteExecutionOutputContract",
+        "RouteExecutionSpec",
+        "RouteExecutionResult",
+        "RouteExecutionReport",
+        "RouteExecutionInspectionReport",
         "SubstrateTournamentSpec",
         "SubstrateTournamentEntry",
         "SubstrateTournamentResult",
@@ -311,4 +332,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 295
+    assert len(get_protocol_definitions()) == 302

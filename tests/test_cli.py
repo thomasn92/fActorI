@@ -150,6 +150,13 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     )
     route_branches = CliRunner().invoke(app, ["route-branches", "--help"])
     inspect_routes = CliRunner().invoke(app, ["inspect-branch-routes", "--help"])
+    build_route_specs = CliRunner().invoke(
+        app, ["build-route-execution-specs", "--help"]
+    )
+    run_route_execution = CliRunner().invoke(app, ["run-route-execution", "--help"])
+    inspect_route_execution = CliRunner().invoke(
+        app, ["inspect-route-execution", "--help"]
+    )
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
@@ -177,6 +184,12 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--run-id" in route_branches.output
     assert inspect_routes.exit_code == 0, inspect_routes.output
     assert "--json" in inspect_routes.output
+    assert build_route_specs.exit_code == 0, build_route_specs.output
+    assert "--run-id" in build_route_specs.output
+    assert run_route_execution.exit_code == 0, run_route_execution.output
+    assert "--json" in run_route_execution.output
+    assert inspect_route_execution.exit_code == 0, inspect_route_execution.output
+    assert "--json" in inspect_route_execution.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
@@ -339,6 +352,39 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
             "--json",
         ],
     )
+    specs_built = runner.invoke(
+        app,
+        [
+            "build-route-execution-specs",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    routes_executed = runner.invoke(
+        app,
+        [
+            "run-route-execution",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    execution_inspection = runner.invoke(
+        app,
+        [
+            "inspect-route-execution",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
     tree = runner.invoke(
         app,
         [
@@ -387,6 +433,19 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
     route_payload = json.loads(route_inspection.output)
     assert route_payload["branch_routes_present"] is True
     assert route_payload["route_count"] == 8
+    assert specs_built.exit_code == 0, specs_built.output
+    specs_payload = json.loads(specs_built.output)
+    assert specs_payload["spec_count"] == 8
+    assert specs_payload["report_status"] == "spec_created"
+    assert routes_executed.exit_code == 0, routes_executed.output
+    execution_payload = json.loads(routes_executed.output)
+    assert execution_payload["result_count"] == 8
+    assert execution_payload["executed_count"] == 8
+    assert execution_payload["failed_count"] == 0
+    assert execution_inspection.exit_code == 0, execution_inspection.output
+    execution_inspection_payload = json.loads(execution_inspection.output)
+    assert execution_inspection_payload["route_execution_present"] is True
+    assert execution_inspection_payload["publication_ready"] is False
     assert tree.exit_code == 0, tree.output
     tree_payload = json.loads(tree.output)
     variance_nodes = [

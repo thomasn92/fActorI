@@ -219,6 +219,10 @@ uv run factori inspect-substrate-promotion --run-id demo --json
 uv run factori route-branches --run-id demo
 uv run factori inspect-branch-routes --run-id demo
 uv run factori inspect-branch-routes --run-id demo --json
+uv run factori build-route-execution-specs --run-id demo
+uv run factori run-route-execution --run-id demo
+uv run factori inspect-route-execution --run-id demo
+uv run factori inspect-route-execution --run-id demo --json
 uv run factori inspect-idea-tree --run-id demo
 uv run factori inspect-idea-tree --run-id demo --json
 uv run factori export-idea-tree --run-id demo --format markdown

@@ -308,3 +308,12 @@ without real-world validation or publication readiness.
 - Routing reads the latest immutable ScientificSubstrate build and writes append-only JSON and
   Markdown plans without executing tools or creating evidence, validation, or publication
   readiness.
+
+## M95 Route-Specific Execution Specs and General Back-Half Execution
+
+- Added immutable per-route input/output contracts and execution specifications.
+- Added deterministic offline graph-curvature and agent-based synthetic evaluators, five general
+  human-geography benchmark evaluators, and a Wasserstein accessibility reduction draft.
+- Unsupported route classes now emit explicit deferred results rather than being omitted.
+- Execution results retain bounded synthetic, benchmark, draft, negative, inconclusive, or deferred
+  labels and never create real-world validation or publication readiness.

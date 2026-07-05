@@ -1,0 +1,731 @@
+{
+  "$defs": {
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    },
+    "RouteExecutionInputContract": {
+      "additionalProperties": false,
+      "description": "Bounded substrate inputs copied into a deterministic route execution spec.",
+      "properties": {
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "dgp_or_dataset": {
+          "minLength": 1,
+          "title": "Dgp Or Dataset",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "equations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Equations",
+          "type": "array"
+        },
+        "measurable_hypothesis": {
+          "minLength": 1,
+          "title": "Measurable Hypothesis",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "model_type": {
+          "minLength": 1,
+          "title": "Model Type",
+          "type": "string"
+        },
+        "proposed_method": {
+          "minLength": 1,
+          "title": "Proposed Method",
+          "type": "string"
+        },
+        "route_parameters": {
+          "additionalProperties": true,
+          "title": "Route Parameters",
+          "type": "object"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "substrate_title": {
+          "minLength": 1,
+          "title": "Substrate Title",
+          "type": "string"
+        },
+        "variables_and_notation": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Variables And Notation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "substrate_title",
+        "domain",
+        "model_type",
+        "equations",
+        "dgp_or_dataset",
+        "baseline",
+        "proposed_method",
+        "measurable_hypothesis",
+        "seed"
+      ],
+      "title": "RouteExecutionInputContract",
+      "type": "object"
+    },
+    "RouteExecutionOutputContract": {
+      "additionalProperties": false,
+      "description": "Required bounded outputs and support boundary for one route execution.",
+      "properties": {
+        "failure_criterion": {
+          "minLength": 1,
+          "title": "Failure Criterion",
+          "type": "string"
+        },
+        "required_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Metrics",
+          "type": "array"
+        },
+        "required_payload_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Payload Fields",
+          "type": "array"
+        },
+        "scope_label": {
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "success_criterion": {
+          "minLength": 1,
+          "title": "Success Criterion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope_label",
+        "success_criterion",
+        "failure_criterion"
+      ],
+      "title": "RouteExecutionOutputContract",
+      "type": "object"
+    },
+    "RouteExecutionReport": {
+      "additionalProperties": false,
+      "description": "Append-only aggregate report for spec construction or route execution.",
+      "properties": {
+        "applied_math_reduction_count": {
+          "minimum": 0,
+          "title": "Applied Math Reduction Count",
+          "type": "integer"
+        },
+        "benchmark_tournament_count": {
+          "minimum": 0,
+          "title": "Benchmark Tournament Count",
+          "type": "integer"
+        },
+        "creates_real_world_validation": {
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "deferred_count": {
+          "minimum": 0,
+          "title": "Deferred Count",
+          "type": "integer"
+        },
+        "evidence_label_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Evidence Label Counts",
+          "type": "object"
+        },
+        "executed_count": {
+          "minimum": 0,
+          "title": "Executed Count",
+          "type": "integer"
+        },
+        "failed_count": {
+          "minimum": 0,
+          "title": "Failed Count",
+          "type": "integer"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "report_id": {
+          "minLength": 1,
+          "title": "Report Id",
+          "type": "string"
+        },
+        "report_status": {
+          "$ref": "#/$defs/RouteExecutionStatus"
+        },
+        "result_count": {
+          "minimum": 0,
+          "title": "Result Count",
+          "type": "integer"
+        },
+        "result_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Result Paths",
+          "type": "array"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/$defs/RouteExecutionResult"
+          },
+          "title": "Results",
+          "type": "array"
+        },
+        "route_count": {
+          "minimum": 0,
+          "title": "Route Count",
+          "type": "integer"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_branch_route_plan_path": {
+          "minLength": 1,
+          "title": "Source Branch Route Plan Path",
+          "type": "string"
+        },
+        "source_spec_build_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Spec Build Path Optional"
+        },
+        "spec_count": {
+          "minimum": 0,
+          "title": "Spec Count",
+          "type": "integer"
+        },
+        "spec_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Spec Paths",
+          "type": "array"
+        },
+        "specs": {
+          "items": {
+            "$ref": "#/$defs/RouteExecutionSpec"
+          },
+          "title": "Specs",
+          "type": "array"
+        },
+        "synthetic_experiment_count": {
+          "minimum": 0,
+          "title": "Synthetic Experiment Count",
+          "type": "integer"
+        },
+        "unsupported_route_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Unsupported Route Counts",
+          "type": "object"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "report_id",
+        "report_status",
+        "source_branch_route_plan_path",
+        "route_count",
+        "spec_count",
+        "executed_count",
+        "deferred_count",
+        "failed_count",
+        "result_count",
+        "synthetic_experiment_count",
+        "benchmark_tournament_count",
+        "applied_math_reduction_count"
+      ],
+      "title": "RouteExecutionReport",
+      "type": "object"
+    },
+    "RouteExecutionResult": {
+      "additionalProperties": false,
+      "description": "Deterministic bounded output for one route execution spec.",
+      "properties": {
+        "artifacts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "creates_real_world_validation": {
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_label": {
+          "enum": [
+            "SyntheticExperimentEvidence",
+            "BenchmarkEvidence",
+            "SymbolicReductionDraft",
+            "NegativeResult",
+            "InconclusiveResult",
+            "UnsupportedRouteDeferred"
+          ],
+          "title": "Evidence Label",
+          "type": "string"
+        },
+        "execution_backend": {
+          "minLength": 1,
+          "title": "Execution Backend",
+          "type": "string"
+        },
+        "failure_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Reason Optional"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Metrics",
+          "type": "object"
+        },
+        "output_payload": {
+          "additionalProperties": true,
+          "title": "Output Payload",
+          "type": "object"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "result_id": {
+          "minLength": 1,
+          "title": "Result Id",
+          "type": "string"
+        },
+        "route_id": {
+          "minLength": 1,
+          "title": "Route Id",
+          "type": "string"
+        },
+        "route_type": {
+          "$ref": "#/$defs/BranchRouteType"
+        },
+        "scope_label": {
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "spec_id": {
+          "minLength": 1,
+          "title": "Spec Id",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/RouteExecutionStatus"
+        },
+        "substrate_id": {
+          "minLength": 1,
+          "title": "Substrate Id",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "result_id",
+        "spec_id",
+        "route_id",
+        "substrate_id",
+        "route_type",
+        "status",
+        "execution_backend",
+        "summary",
+        "evidence_label",
+        "scope_label"
+      ],
+      "title": "RouteExecutionResult",
+      "type": "object"
+    },
+    "RouteExecutionSpec": {
+      "additionalProperties": false,
+      "description": "One immutable deterministic execution specification for a branch route.",
+      "properties": {
+        "allowed_evidence_labels": {
+          "items": {
+            "enum": [
+              "SyntheticExperimentEvidence",
+              "BenchmarkEvidence",
+              "SymbolicReductionDraft",
+              "NegativeResult",
+              "InconclusiveResult",
+              "UnsupportedRouteDeferred"
+            ],
+            "type": "string"
+          },
+          "title": "Allowed Evidence Labels",
+          "type": "array"
+        },
+        "branch_family": {
+          "minLength": 1,
+          "title": "Branch Family",
+          "type": "string"
+        },
+        "creates_real_world_validation": {
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "execution_backend": {
+          "minLength": 1,
+          "title": "Execution Backend",
+          "type": "string"
+        },
+        "expected_artifacts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expected Artifacts",
+          "type": "array"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "input_contract": {
+          "$ref": "#/$defs/RouteExecutionInputContract"
+        },
+        "method_lens": {
+          "minLength": 1,
+          "title": "Method Lens",
+          "type": "string"
+        },
+        "output_contract": {
+          "$ref": "#/$defs/RouteExecutionOutputContract"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "route_id": {
+          "minLength": 1,
+          "title": "Route Id",
+          "type": "string"
+        },
+        "route_type": {
+          "$ref": "#/$defs/BranchRouteType"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "spec_id": {
+          "minLength": 1,
+          "title": "Spec Id",
+          "type": "string"
+        },
+        "substrate_id": {
+          "minLength": 1,
+          "title": "Substrate Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spec_id",
+        "run_id",
+        "route_id",
+        "substrate_id",
+        "route_type",
+        "method_lens",
+        "branch_family",
+        "execution_backend",
+        "input_contract",
+        "output_contract"
+      ],
+      "title": "RouteExecutionSpec",
+      "type": "object"
+    },
+    "RouteExecutionStatus": {
+      "description": "Lifecycle states for deterministic route execution.",
+      "enum": [
+        "not_started",
+        "spec_created",
+        "completed",
+        "completed_with_warnings",
+        "deferred_unsupported_route",
+        "failed"
+      ],
+      "title": "RouteExecutionStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.61.0/route-execution-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection report for latest route execution state.",
+  "properties": {
+    "applied_math_reduction_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Applied Math Reduction Count",
+      "type": "integer"
+    },
+    "benchmark_tournament_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Benchmark Tournament Count",
+      "type": "integer"
+    },
+    "creates_real_world_validation": {
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deferred_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred Count",
+      "type": "integer"
+    },
+    "evidence_label_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Evidence Label Counts",
+      "type": "object"
+    },
+    "executed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Executed Count",
+      "type": "integer"
+    },
+    "failed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Failed Count",
+      "type": "integer"
+    },
+    "latest_report_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Report Id Optional"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "report_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RouteExecutionReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "report_status_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RouteExecutionStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "result_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Result Count",
+      "type": "integer"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/RouteExecutionResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "route_execution_present": {
+      "title": "Route Execution Present",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "spec_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Spec Count",
+      "type": "integer"
+    },
+    "specs": {
+      "items": {
+        "$ref": "#/$defs/RouteExecutionSpec"
+      },
+      "title": "Specs",
+      "type": "array"
+    },
+    "synthetic_experiment_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Synthetic Experiment Count",
+      "type": "integer"
+    },
+    "unsupported_route_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Unsupported Route Counts",
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "route_execution_present"
+  ],
+  "title": "RouteExecutionInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.61.0",
+  "x-factori-source-model": "factori.schemas.RouteExecutionInspectionReport",
+  "x-factori-verification-evidence": false
+}

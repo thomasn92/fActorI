@@ -1,0 +1,18 @@
+{
+  "$id": "https://schemas.factori.local/0.61.0/route-execution-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Lifecycle state for route-specific spec construction and execution.",
+  "enum": [
+    "not_started",
+    "spec_created",
+    "completed",
+    "completed_with_warnings",
+    "deferred_unsupported_route",
+    "failed"
+  ],
+  "title": "RouteExecutionStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.61.0",
+  "x-factori-source-model": "factori.schemas.RouteExecutionStatus",
+  "x-factori-verification-evidence": false
+}

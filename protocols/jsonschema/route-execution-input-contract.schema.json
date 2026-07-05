@@ -1,0 +1,101 @@
+{
+  "$id": "https://schemas.factori.local/0.61.0/route-execution-input-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded substrate inputs copied into a deterministic execution spec.",
+  "properties": {
+    "assumptions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "baseline": {
+      "minLength": 1,
+      "title": "Baseline",
+      "type": "string"
+    },
+    "dgp_or_dataset": {
+      "minLength": 1,
+      "title": "Dgp Or Dataset",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "equations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Equations",
+      "type": "array"
+    },
+    "measurable_hypothesis": {
+      "minLength": 1,
+      "title": "Measurable Hypothesis",
+      "type": "string"
+    },
+    "metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "model_type": {
+      "minLength": 1,
+      "title": "Model Type",
+      "type": "string"
+    },
+    "proposed_method": {
+      "minLength": 1,
+      "title": "Proposed Method",
+      "type": "string"
+    },
+    "route_parameters": {
+      "additionalProperties": true,
+      "title": "Route Parameters",
+      "type": "object"
+    },
+    "seed": {
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "substrate_title": {
+      "minLength": 1,
+      "title": "Substrate Title",
+      "type": "string"
+    },
+    "variables_and_notation": {
+      "items": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "title": "Variables And Notation",
+      "type": "array"
+    }
+  },
+  "required": [
+    "substrate_title",
+    "domain",
+    "model_type",
+    "equations",
+    "dgp_or_dataset",
+    "baseline",
+    "proposed_method",
+    "measurable_hypothesis",
+    "seed"
+  ],
+  "title": "RouteExecutionInputContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.61.0",
+  "x-factori-source-model": "factori.schemas.RouteExecutionInputContract",
+  "x-factori-verification-evidence": false
+}

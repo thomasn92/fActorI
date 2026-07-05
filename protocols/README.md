@@ -7,6 +7,11 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.61.0` adds route execution status, input/output contracts, immutable execution specs,
+bounded deterministic results, aggregate reports, and read-only inspection contracts. M95 executes
+only approved offline synthetic, benchmark, and applied-math templates; outputs remain scoped and
+do not establish real-world validation or publication readiness.
+
 Protocol `0.60.0` adds deterministic branch-route types, execution hints, per-substrate decisions,
 append-only route plans, and read-only inspection contracts. Routing selects only the next bounded
 workflow class; it executes nothing and creates no evidence, validation, or publication readiness.

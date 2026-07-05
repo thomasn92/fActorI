@@ -1,0 +1,264 @@
+{
+  "$defs": {
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    },
+    "RouteExecutionInputContract": {
+      "additionalProperties": false,
+      "description": "Bounded substrate inputs copied into a deterministic route execution spec.",
+      "properties": {
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "dgp_or_dataset": {
+          "minLength": 1,
+          "title": "Dgp Or Dataset",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "equations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Equations",
+          "type": "array"
+        },
+        "measurable_hypothesis": {
+          "minLength": 1,
+          "title": "Measurable Hypothesis",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "model_type": {
+          "minLength": 1,
+          "title": "Model Type",
+          "type": "string"
+        },
+        "proposed_method": {
+          "minLength": 1,
+          "title": "Proposed Method",
+          "type": "string"
+        },
+        "route_parameters": {
+          "additionalProperties": true,
+          "title": "Route Parameters",
+          "type": "object"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "substrate_title": {
+          "minLength": 1,
+          "title": "Substrate Title",
+          "type": "string"
+        },
+        "variables_and_notation": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Variables And Notation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "substrate_title",
+        "domain",
+        "model_type",
+        "equations",
+        "dgp_or_dataset",
+        "baseline",
+        "proposed_method",
+        "measurable_hypothesis",
+        "seed"
+      ],
+      "title": "RouteExecutionInputContract",
+      "type": "object"
+    },
+    "RouteExecutionOutputContract": {
+      "additionalProperties": false,
+      "description": "Required bounded outputs and support boundary for one route execution.",
+      "properties": {
+        "failure_criterion": {
+          "minLength": 1,
+          "title": "Failure Criterion",
+          "type": "string"
+        },
+        "required_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Metrics",
+          "type": "array"
+        },
+        "required_payload_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Payload Fields",
+          "type": "array"
+        },
+        "scope_label": {
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "success_criterion": {
+          "minLength": 1,
+          "title": "Success Criterion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope_label",
+        "success_criterion",
+        "failure_criterion"
+      ],
+      "title": "RouteExecutionOutputContract",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.61.0/route-execution-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Immutable deterministic execution specification for one branch route.",
+  "properties": {
+    "allowed_evidence_labels": {
+      "items": {
+        "enum": [
+          "SyntheticExperimentEvidence",
+          "BenchmarkEvidence",
+          "SymbolicReductionDraft",
+          "NegativeResult",
+          "InconclusiveResult",
+          "UnsupportedRouteDeferred"
+        ],
+        "type": "string"
+      },
+      "title": "Allowed Evidence Labels",
+      "type": "array"
+    },
+    "branch_family": {
+      "minLength": 1,
+      "title": "Branch Family",
+      "type": "string"
+    },
+    "creates_real_world_validation": {
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "execution_backend": {
+      "minLength": 1,
+      "title": "Execution Backend",
+      "type": "string"
+    },
+    "expected_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Artifacts",
+      "type": "array"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "input_contract": {
+      "$ref": "#/$defs/RouteExecutionInputContract"
+    },
+    "method_lens": {
+      "minLength": 1,
+      "title": "Method Lens",
+      "type": "string"
+    },
+    "output_contract": {
+      "$ref": "#/$defs/RouteExecutionOutputContract"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "route_id": {
+      "minLength": 1,
+      "title": "Route Id",
+      "type": "string"
+    },
+    "route_type": {
+      "$ref": "#/$defs/BranchRouteType"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "spec_id",
+    "run_id",
+    "route_id",
+    "substrate_id",
+    "route_type",
+    "method_lens",
+    "branch_family",
+    "execution_backend",
+    "input_contract",
+    "output_contract"
+  ],
+  "title": "RouteExecutionSpec",
+  "type": "object",
+  "x-factori-protocol-version": "0.61.0",
+  "x-factori-source-model": "factori.schemas.RouteExecutionSpec",
+  "x-factori-verification-evidence": false
+}

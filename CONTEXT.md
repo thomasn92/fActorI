@@ -110,6 +110,9 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic general routing from ScientificSubstrates to bounded next-action classes, with
   fail-closed defer/reject outcomes and non-executing command hints that carry no evidence or
   publication authority.
+- deterministic offline execution specifications and bounded results for synthetic experiments,
+  benchmark tournaments, and applied-math reductions; unsupported route types defer explicitly,
+  and no route result creates real-world validation or publication readiness.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

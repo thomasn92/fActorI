@@ -219,6 +219,9 @@ All implementation modules are under `factori/`.
 - `branch_routing.py`: deterministic next-action classification over concrete substrates, with
   typed execution hints and fail-closed defer/reject outcomes; plans are append-only context and
   do not execute verification.
+- `route_execution.py`: immutable route execution specs and deterministic offline evaluators for
+  supported synthetic, benchmark, and applied-math routes, with explicit unsupported-route
+  deferrals and no real-world validation authority.
 - `idea_space.py`: read-only feature-vector extraction and PCA-like diversity diagnostics over
   IdeaTree nodes, including near-duplicate detection, collapsed-axis warnings, and context-only
   recommended mutation axes.

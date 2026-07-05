@@ -1,0 +1,47 @@
+{
+  "$id": "https://schemas.factori.local/0.61.0/route-execution-output-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Required bounded outputs and support boundary for route execution.",
+  "properties": {
+    "failure_criterion": {
+      "minLength": 1,
+      "title": "Failure Criterion",
+      "type": "string"
+    },
+    "required_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Metrics",
+      "type": "array"
+    },
+    "required_payload_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Payload Fields",
+      "type": "array"
+    },
+    "scope_label": {
+      "minLength": 1,
+      "title": "Scope Label",
+      "type": "string"
+    },
+    "success_criterion": {
+      "minLength": 1,
+      "title": "Success Criterion",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scope_label",
+    "success_criterion",
+    "failure_criterion"
+  ],
+  "title": "RouteExecutionOutputContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.61.0",
+  "x-factori-source-model": "factori.schemas.RouteExecutionOutputContract",
+  "x-factori-verification-evidence": false
+}

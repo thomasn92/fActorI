@@ -167,6 +167,12 @@ from factori.reviewer_change_requests import (
     ingest_reviewer_change_requests,
     inspect_reviewer_change_requests,
 )
+from factori.route_execution import (
+    build_route_execution_specs,
+    execute_route_spec,
+    inspect_route_execution,
+    run_route_execution,
+)
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
@@ -277,6 +283,13 @@ from factori.schemas import (
     RetrievalExpansionRequest,
     RetrievalQualityReport,
     ReviewerBundleSummary,
+    RouteExecutionInputContract,
+    RouteExecutionInspectionReport,
+    RouteExecutionOutputContract,
+    RouteExecutionReport,
+    RouteExecutionResult,
+    RouteExecutionSpec,
+    RouteExecutionStatus,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
     ScientificSubstrate,
@@ -341,6 +354,13 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert BranchRouteDecision
     assert BranchRoutePlan
     assert BranchRouteInspectionReport
+    assert RouteExecutionStatus
+    assert RouteExecutionInputContract
+    assert RouteExecutionOutputContract
+    assert RouteExecutionSpec
+    assert RouteExecutionResult
+    assert RouteExecutionReport
+    assert RouteExecutionInspectionReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
     assert HumanReviewArtifact
@@ -929,6 +949,142 @@ def test_general_branch_router_routes_promoted_substrates_and_fails_closed(
     assert false_bridge_decision.route_type == BranchRouteType.REJECT_FALSE_BRIDGE
     assert false_bridge_decision.defer_or_reject_reason_optional
     assert false_bridge_decision.publication_ready is False
+
+
+def test_route_execution_builds_specs_and_runs_general_back_half(tmp_path) -> None:
+    run_id = "run-route-execution"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    discover_opportunities(
+        run_id=run_id,
+        domain="human geography",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_methods=20,
+    )
+    augment_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        candidates_per_seed=4,
+        max_total_candidates=40,
+    )
+    apply_variance_augmentation(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    promote_variance_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=8,
+    )
+    route_branches(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    built = build_route_execution_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    executed = run_route_execution(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    inspection = inspect_route_execution(run_id=run_id, root=tmp_path)
+
+    assert built.report.report_status == RouteExecutionStatus.SPEC_CREATED
+    assert built.report.route_count == built.report.spec_count == 8
+    assert len(built.specs) == len({spec.route_id for spec in built.specs}) == 8
+    assert all(spec.input_contract.equations for spec in built.specs)
+    assert all(spec.input_contract.baseline for spec in built.specs)
+    assert all(spec.input_contract.measurable_hypothesis for spec in built.specs)
+    assert all(spec.output_contract.scope_label for spec in built.specs)
+    assert all("real-world validation" in spec.forbidden_claims for spec in built.specs)
+    assert all(spec.creates_real_world_validation is False for spec in built.specs)
+    assert built.persistence.commit.action_type == (
+        ControllerActionType.ROUTE_EXECUTION_SPECS_WRITTEN
+    )
+
+    report = executed.report
+    assert report.report_status == RouteExecutionStatus.COMPLETED
+    assert report.spec_count == report.result_count == report.executed_count == 8
+    assert report.deferred_count == 0
+    assert report.failed_count == 0
+    assert report.synthetic_experiment_count == 2
+    assert report.benchmark_tournament_count == 5
+    assert report.applied_math_reduction_count == 1
+    assert report.evidence_label_counts == {
+        "BenchmarkEvidence": 5,
+        "SymbolicReductionDraft": 1,
+        "SyntheticExperimentEvidence": 2,
+    }
+    assert executed.persistence.commit.action_type == ControllerActionType.ROUTE_EXECUTION_RUN
+    assert all(result.creates_scientific_validation is False for result in executed.results)
+    assert all(result.creates_real_world_validation is False for result in executed.results)
+    assert all(result.publication_ready is False for result in executed.results)
+
+    by_backend = {result.execution_backend: result for result in executed.results}
+    graph = by_backend["graph_curvature_bottleneck_synthetic"]
+    assert set(graph.metrics) >= {
+        "precision_at_k",
+        "recall_at_k",
+        "auc_proxy",
+        "false_positive_rate",
+    }
+    assert graph.scope_label == "fixed-seed synthetic substrate evaluation only"
+    agent = by_backend["agent_based_distance_decay_synthetic"]
+    assert agent.metrics["held_out_mae"] < agent.metrics["baseline_held_out_mae"]
+    assert agent.metrics["held_out_rmse"] < agent.metrics["baseline_held_out_rmse"]
+    benchmark_results = [
+        result
+        for result in executed.results
+        if result.route_type == BranchRouteType.BENCHMARK_TOURNAMENT
+    ]
+    assert len(benchmark_results) == 5
+    assert all(result.output_payload["comparison_table"] for result in benchmark_results)
+    reduction = by_backend["wasserstein_accessibility_symbolic_reduction"]
+    assert reduction.evidence_label == "SymbolicReductionDraft"
+    assert reduction.output_payload["symbolic_reduction_steps"]
+    assert reduction.output_payload["assumptions"]
+    assert reduction.output_payload["finite_dimensional_target"]
+    assert reduction.output_payload["unresolved_steps"]
+    assert "not proof" in reduction.scope_label
+
+    unsupported_spec = built.specs[0].model_copy(
+        update={
+            "spec_id": "unsupported-proof-plan-spec",
+            "route_type": BranchRouteType.PROOF_PLAN,
+            "execution_backend": "unsupported_route_deferred",
+            "allowed_evidence_labels": ["UnsupportedRouteDeferred"],
+        }
+    )
+    unsupported = execute_route_spec(
+        spec=unsupported_spec,
+        result_id="unsupported-proof-plan-result",
+    )
+    assert unsupported.status == RouteExecutionStatus.DEFERRED_UNSUPPORTED_ROUTE
+    assert unsupported.evidence_label == "UnsupportedRouteDeferred"
+    assert unsupported.failure_reason_optional
+    assert unsupported.publication_ready is False
+
+    assert inspection.route_execution_present is True
+    assert inspection.result_count == 8
+    assert inspection.failed_count == 0
+    assert inspection.creates_real_world_validation is False
+    assert inspection.publication_ready is False
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

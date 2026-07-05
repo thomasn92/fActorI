@@ -254,6 +254,13 @@ from factori.schemas import (
     ReviewerChangeRequestSet,
     ReviewerPromptContract,
     RevisionSafetyReport,
+    RouteExecutionInputContract,
+    RouteExecutionInspectionReport,
+    RouteExecutionOutputContract,
+    RouteExecutionReport,
+    RouteExecutionResult,
+    RouteExecutionSpec,
+    RouteExecutionStatus,
     RunStatusReport,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
@@ -299,7 +306,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.60.0"
+PROTOCOL_VERSION = "0.61.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -615,6 +622,41 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "BranchRouteInspectionReport",
         BranchRouteInspectionReport,
         "Read-only inspection report for the latest branch route plan.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionStatus",
+        RouteExecutionStatus,
+        "Lifecycle state for route-specific spec construction and execution.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionInputContract",
+        RouteExecutionInputContract,
+        "Bounded substrate inputs copied into a deterministic execution spec.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionOutputContract",
+        RouteExecutionOutputContract,
+        "Required bounded outputs and support boundary for route execution.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionSpec",
+        RouteExecutionSpec,
+        "Immutable deterministic execution specification for one branch route.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionResult",
+        RouteExecutionResult,
+        "Bounded deterministic output for one route execution specification.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionReport",
+        RouteExecutionReport,
+        "Append-only aggregate report for route specs or execution results.",
+    ),
+    ProtocolDefinition(
+        "RouteExecutionInspectionReport",
+        RouteExecutionInspectionReport,
+        "Read-only inspection report for latest route execution state.",
     ),
     ProtocolDefinition(
         "IdeaNodeFeatureVector",

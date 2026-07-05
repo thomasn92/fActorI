@@ -195,7 +195,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.60.0/branch-route-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.61.0/branch-route-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only deterministic route plan over the latest substrate build.",
@@ -330,7 +330,7 @@
   ],
   "title": "BranchRoutePlan",
   "type": "object",
-  "x-factori-protocol-version": "0.60.0",
+  "x-factori-protocol-version": "0.61.0",
   "x-factori-source-model": "factori.schemas.BranchRoutePlan",
   "x-factori-verification-evidence": false
 }

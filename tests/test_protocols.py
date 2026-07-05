@@ -103,6 +103,13 @@ from factori.schemas import (
     QualityRepairReport,
     ReviewerBundleSummary,
     RevisionSafetyReport,
+    RouteExecutionInputContract,
+    RouteExecutionInspectionReport,
+    RouteExecutionOutputContract,
+    RouteExecutionReport,
+    RouteExecutionResult,
+    RouteExecutionSpec,
+    RouteExecutionStatus,
     RunStatusReport,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
@@ -137,9 +144,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 295
+    assert len(first) == 302
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.60.0"
+    assert PROTOCOL_VERSION == "0.61.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -298,6 +305,19 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     assert get_protocol_definition("BranchRoutePlan").model is BranchRoutePlan
     assert get_protocol_definition("BranchRouteInspectionReport").model is (
         BranchRouteInspectionReport
+    )
+    assert get_protocol_definition("RouteExecutionStatus").model is RouteExecutionStatus
+    assert get_protocol_definition("RouteExecutionInputContract").model is (
+        RouteExecutionInputContract
+    )
+    assert get_protocol_definition("RouteExecutionOutputContract").model is (
+        RouteExecutionOutputContract
+    )
+    assert get_protocol_definition("RouteExecutionSpec").model is RouteExecutionSpec
+    assert get_protocol_definition("RouteExecutionResult").model is RouteExecutionResult
+    assert get_protocol_definition("RouteExecutionReport").model is RouteExecutionReport
+    assert get_protocol_definition("RouteExecutionInspectionReport").model is (
+        RouteExecutionInspectionReport
     )
     assert get_protocol_definition("SubstrateTournamentSpec").model is SubstrateTournamentSpec
     assert get_protocol_definition("SubstrateTournamentEntry").model is SubstrateTournamentEntry
