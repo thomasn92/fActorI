@@ -11,6 +11,7 @@ from factori.schemas.artifacts import ArtifactRef
 from factori.schemas.base import HASH_RE, StrictModel
 from factori.schemas.enums import (
     ArtifactType,
+    BranchRouteType,
     ChecklistCategory,
     CreativeMutationOperator,
     CreativeSearchStopReason,
@@ -439,6 +440,96 @@ class SubstratePromotionInspectionReport(StrictModel):
     promoted_candidates: list[SubstratePromotionDecision] = Field(default_factory=list)
     rejected_candidates: list[SubstratePromotionDecision] = Field(default_factory=list)
     report_optional: SubstratePromotionReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+BranchRouteCommandClass = Literal[
+    "generate-experiment-spec",
+    "run-benchmark-tournament",
+    "search-counterexamples",
+    "derive-symbolic-reduction",
+    "build-proof-plan",
+    "run-literature-novelty-check",
+]
+
+
+class BranchRouteExecutionHint(StrictModel):
+    """Non-executing description of the next command class for a branch."""
+
+    command_class_optional: BranchRouteCommandClass | None = None
+    ready_for_execution: bool
+    suggested_arguments: list[str] = Field(default_factory=list)
+    safety_notes: list[str] = Field(default_factory=list)
+    executes_now: bool = False
+    network_required: bool = False
+
+
+class BranchRouteDecision(StrictModel):
+    """One deterministic next-action decision for a ScientificSubstrate."""
+
+    route_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    idea_node_id_optional: str | None = None
+    method_lens: str = Field(min_length=1)
+    branch_family: str = Field(min_length=1)
+    route_type: BranchRouteType
+    route_confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = Field(min_length=1)
+    required_artifacts: list[str] = Field(default_factory=list)
+    expected_outputs: list[str] = Field(default_factory=list)
+    execution_hint: BranchRouteExecutionHint
+    defer_or_reject_reason_optional: str | None = None
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class BranchRoutePlan(StrictModel):
+    """Append-only deterministic routing plan over one substrate build."""
+
+    run_id: str = Field(min_length=1)
+    routing_id: str = Field(min_length=1)
+    routing_backend: Literal["deterministic"] = "deterministic"
+    source_scientific_substrate_build_path: str = Field(min_length=1)
+    substrate_count: int = Field(ge=0)
+    route_count: int = Field(ge=0)
+    route_type_counts: dict[str, int] = Field(default_factory=dict)
+    routed_count: int = Field(ge=0)
+    deferred_count: int = Field(ge=0)
+    rejected_count: int = Field(ge=0)
+    synthetic_experiment_count: int = Field(ge=0)
+    benchmark_tournament_count: int = Field(ge=0)
+    counterexample_search_count: int = Field(ge=0)
+    applied_math_reduction_count: int = Field(ge=0)
+    proof_plan_count: int = Field(ge=0)
+    decisions: list[BranchRouteDecision] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class BranchRouteInspectionReport(StrictModel):
+    """Read-only inspection view of the latest branch route plan."""
+
+    run_id: str = Field(min_length=1)
+    branch_routes_present: bool
+    latest_routing_id_optional: str | None = None
+    substrate_count: int = Field(default=0, ge=0)
+    route_count: int = Field(default=0, ge=0)
+    route_type_counts: dict[str, int] = Field(default_factory=dict)
+    routed_count: int = Field(default=0, ge=0)
+    deferred_count: int = Field(default=0, ge=0)
+    rejected_count: int = Field(default=0, ge=0)
+    decisions: list[BranchRouteDecision] = Field(default_factory=list)
+    plan_optional: BranchRoutePlan | None = None
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -4844,6 +4935,10 @@ __all__ = [
     "SubstratePromotionDecision",
     "SubstratePromotionReport",
     "SubstratePromotionInspectionReport",
+    "BranchRouteExecutionHint",
+    "BranchRouteDecision",
+    "BranchRoutePlan",
+    "BranchRouteInspectionReport",
     "IdeaNode",
     "IdeaEdge",
     "IdeaTree",

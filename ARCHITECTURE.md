@@ -47,6 +47,11 @@ interest scores, local verification feasibility, duplicate penalties, method-len
 branch-family coverage. Promotion links the derived IdeaTree nodes to append-only substrate
 artifacts but creates no experiment or proof evidence.
 
+The general branch-type router classifies each concrete substrate into an experiment, benchmark,
+counterexample, symbolic reduction, applied-math reduction, proof-plan, literature-check, defer, or
+false-bridge rejection path. It emits execution hints only; downstream stages retain all existing
+safety and evidence-intake authority.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

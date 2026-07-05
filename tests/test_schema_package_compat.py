@@ -14,6 +14,11 @@ from factori.schemas import (
     AutonomousPaperRunIndex,
     AutonomousPaperRunReport,
     AutonomousPaperRunStage,
+    BranchRouteDecision,
+    BranchRouteExecutionHint,
+    BranchRouteInspectionReport,
+    BranchRoutePlan,
+    BranchRouteType,
     BranchStatus,
     Candidate,
     ClaimEvidenceMap,
@@ -137,6 +142,11 @@ def test_key_public_models_import_from_factori_schemas() -> None:
     assert ScientificSubstrate in vars(schemas).values()
     assert ScientificSubstrateBuildReport in vars(schemas).values()
     assert ScientificSubstrateInspectionReport in vars(schemas).values()
+    assert BranchRouteType in vars(schemas).values()
+    assert BranchRouteExecutionHint in vars(schemas).values()
+    assert BranchRouteDecision in vars(schemas).values()
+    assert BranchRoutePlan in vars(schemas).values()
+    assert BranchRouteInspectionReport in vars(schemas).values()
     assert SubstratePromotionConfig in vars(schemas).values()
     assert SubstratePromotionCandidate in vars(schemas).values()
     assert SubstratePromotionDecision in vars(schemas).values()
@@ -229,6 +239,11 @@ def test_schema_all_contains_expected_public_names() -> None:
         "SubstratePromotionDecision",
         "SubstratePromotionReport",
         "SubstratePromotionInspectionReport",
+        "BranchRouteType",
+        "BranchRouteExecutionHint",
+        "BranchRouteDecision",
+        "BranchRoutePlan",
+        "BranchRouteInspectionReport",
         "SubstrateTournamentSpec",
         "SubstrateTournamentEntry",
         "SubstrateTournamentResult",
@@ -296,4 +311,4 @@ def test_protocol_source_model_paths_remain_stable() -> None:
     assert get_protocol_definition("PaperShapeCritique").source_model == (
         "factori.schemas.PaperShapeCritique"
     )
-    assert len(get_protocol_definitions()) == 290
+    assert len(get_protocol_definitions()) == 295

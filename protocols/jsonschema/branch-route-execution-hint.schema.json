@@ -1,0 +1,64 @@
+{
+  "$id": "https://schemas.factori.local/0.60.0/branch-route-execution-hint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-executing next-command hint for a routed scientific branch.",
+  "properties": {
+    "command_class_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "generate-experiment-spec",
+            "run-benchmark-tournament",
+            "search-counterexamples",
+            "derive-symbolic-reduction",
+            "build-proof-plan",
+            "run-literature-novelty-check"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Command Class Optional"
+    },
+    "executes_now": {
+      "default": false,
+      "title": "Executes Now",
+      "type": "boolean"
+    },
+    "network_required": {
+      "default": false,
+      "title": "Network Required",
+      "type": "boolean"
+    },
+    "ready_for_execution": {
+      "title": "Ready For Execution",
+      "type": "boolean"
+    },
+    "safety_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Notes",
+      "type": "array"
+    },
+    "suggested_arguments": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Suggested Arguments",
+      "type": "array"
+    }
+  },
+  "required": [
+    "ready_for_execution"
+  ],
+  "title": "BranchRouteExecutionHint",
+  "type": "object",
+  "x-factori-protocol-version": "0.60.0",
+  "x-factori-source-model": "factori.schemas.BranchRouteExecutionHint",
+  "x-factori-verification-evidence": false
+}

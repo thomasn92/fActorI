@@ -43,6 +43,11 @@ from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
 )
+from factori.branch_routing import (
+    build_branch_route_decision,
+    inspect_branch_routes,
+    route_branches,
+)
 from factori.capability_escalation import (
     escalate_capabilities,
     inspect_capability_escalation,
@@ -175,6 +180,11 @@ from factori.schemas import (
     AutonomousPaperRunReport,
     AutonomousPaperRunStage,
     AutonomousPlanExecutionReport,
+    BranchRouteDecision,
+    BranchRouteExecutionHint,
+    BranchRouteInspectionReport,
+    BranchRoutePlan,
+    BranchRouteType,
     CapabilityEscalationIndex,
     CapabilityEscalationItem,
     CapabilityEscalationPolicy,
@@ -326,6 +336,11 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
     assert FullPaperGenerationReport
+    assert BranchRouteType
+    assert BranchRouteExecutionHint
+    assert BranchRouteDecision
+    assert BranchRoutePlan
+    assert BranchRouteInspectionReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
     assert HumanReviewArtifact
@@ -764,6 +779,156 @@ def test_variance_substrate_promotion_preserves_method_and_branch_diversity(
     assert len(linked_nodes) == 8
     assert all(node.scientific_substrate_paths for node in linked_nodes)
     assert tree.publication_ready is False
+
+
+def test_general_branch_router_routes_promoted_substrates_and_fails_closed(
+    tmp_path,
+) -> None:
+    run_id = "run-general-branch-router"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    discover_opportunities(
+        run_id=run_id,
+        domain="human geography",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_methods=20,
+    )
+    augment_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        candidates_per_seed=4,
+        max_total_candidates=40,
+    )
+    apply_variance_augmentation(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    promotion = promote_variance_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=8,
+    )
+
+    result = route_branches(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    inspection = inspect_branch_routes(run_id=run_id, root=tmp_path)
+
+    assert result.plan.substrate_count == 8
+    assert result.plan.route_count == result.plan.substrate_count
+    assert result.plan.routed_count == 8
+    assert result.plan.deferred_count == 0
+    assert result.plan.rejected_count == 0
+    assert len(result.plan.route_type_counts) >= 3
+    assert result.plan.route_type_counts == {
+        "applied_math_reduction": 1,
+        "benchmark_tournament": 5,
+        "synthetic_experiment": 2,
+    }
+    by_method = {decision.method_lens: decision for decision in result.plan.decisions}
+    assert by_method["optimal transport"].route_type == (
+        BranchRouteType.APPLIED_MATH_REDUCTION
+    )
+    assert by_method["matrix factorization"].route_type == (
+        BranchRouteType.BENCHMARK_TOURNAMENT
+    )
+    assert by_method["graph curvature"].route_type == (
+        BranchRouteType.SYNTHETIC_EXPERIMENT
+    )
+    assert by_method["agent based modeling"].route_type == (
+        BranchRouteType.SYNTHETIC_EXPERIMENT
+    )
+    assert by_method["network science"].route_type == (
+        BranchRouteType.BENCHMARK_TOURNAMENT
+    )
+    assert all(decision.execution_hint.executes_now is False for decision in result.plan.decisions)
+    assert all(
+        decision.execution_hint.network_required is False
+        for decision in result.plan.decisions
+    )
+    assert all(decision.publication_ready is False for decision in result.plan.decisions)
+    assert all(
+        decision.creates_scientific_validation is False
+        and decision.is_verification_evidence is False
+        for decision in result.plan.decisions
+    )
+    assert result.persistence.commit.action_type == ControllerActionType.BRANCH_ROUTES_WRITTEN
+    assert inspection.branch_routes_present is True
+    assert inspection.route_count == 8
+    assert inspection.publication_ready is False
+    assert (
+        tmp_path
+        / "runs"
+        / run_id
+        / "reports"
+        / "branch-route-plan-0001.md"
+    ).is_file()
+
+    source = promotion.substrates[0]
+    counterexample = source.model_copy(
+        update={
+            "substrate_id": "counterexample-substrate",
+            "title": "Counterexample: when does the benchmark fail?",
+            "source_mutation_axis_optional": "matrix factorization / counterexample_variant",
+        }
+    )
+    counterexample_decision = build_branch_route_decision(
+        run_id=run_id,
+        route_id="counterexample-route",
+        substrate=counterexample,
+    )
+    assert counterexample_decision.route_type == BranchRouteType.COUNTEREXAMPLE_SEARCH
+
+    weak_design = source.experiment_design.model_copy(update={"baseline": "none"})
+    weak_model = source.concrete_model_object.model_copy(
+        update={"model_type": "placeholder", "equations": ["none"]}
+    )
+    weak = source.model_copy(
+        update={
+            "substrate_id": "weak-substrate",
+            "concrete_model_object": weak_model,
+            "baseline": "none",
+            "experiment_design": weak_design,
+        }
+    )
+    weak_decision = build_branch_route_decision(
+        run_id=run_id,
+        route_id="weak-route",
+        substrate=weak,
+    )
+    assert weak_decision.route_type == BranchRouteType.DEFER_INSUFFICIENT_SUBSTRATE
+    assert weak_decision.defer_or_reject_reason_optional
+    assert weak_decision.execution_hint.ready_for_execution is False
+
+    false_bridge_model = source.concrete_model_object.model_copy(
+        update={"model_type": "decorative"}
+    )
+    false_bridge = source.model_copy(
+        update={
+            "substrate_id": "false-bridge-substrate",
+            "concrete_model_object": false_bridge_model,
+            "mechanism": "Decorative method vocabulary with no primitive mapping.",
+        }
+    )
+    false_bridge_decision = build_branch_route_decision(
+        run_id=run_id,
+        route_id="false-bridge-route",
+        substrate=false_bridge,
+    )
+    assert false_bridge_decision.route_type == BranchRouteType.REJECT_FALSE_BRIDGE
+    assert false_bridge_decision.defer_or_reject_reason_optional
+    assert false_bridge_decision.publication_ready is False
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

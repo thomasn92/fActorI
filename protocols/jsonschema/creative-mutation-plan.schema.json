@@ -152,7 +152,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.59.0/creative-mutation-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.60.0/creative-mutation-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Context-only plan for tournament-driven creative mutations.",
@@ -284,7 +284,7 @@
   ],
   "title": "CreativeMutationPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.59.0",
+  "x-factori-protocol-version": "0.60.0",
   "x-factori-source-model": "factori.schemas.CreativeMutationPlan",
   "x-factori-verification-evidence": false
 }

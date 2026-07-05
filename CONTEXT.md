@@ -107,6 +107,9 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic diversity-constrained promotion of selected variance branches into concrete
   ScientificSubstrates while preserving method-lens and branch-family coverage; promoted IdeaTree
   nodes carry substrate links, but promotion creates no evidence or publication readiness.
+- deterministic general routing from ScientificSubstrates to bounded next-action classes, with
+  fail-closed defer/reject outcomes and non-executing command hints that carry no evidence or
+  publication authority.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

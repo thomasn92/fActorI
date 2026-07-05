@@ -7,6 +7,10 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.60.0` adds deterministic branch-route types, execution hints, per-substrate decisions,
+append-only route plans, and read-only inspection contracts. Routing selects only the next bounded
+workflow class; it executes nothing and creates no evidence, validation, or publication readiness.
+
 Protocol `0.59.0` adds diversity-constrained substrate-promotion configuration, scored candidate,
 decision, report, and inspection contracts plus explicit links from variance IdeaTree nodes to
 their concrete ScientificSubstrates. Promotion remains planning context and creates no evidence,

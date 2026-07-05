@@ -1,0 +1,451 @@
+{
+  "$defs": {
+    "BranchRouteDecision": {
+      "additionalProperties": false,
+      "description": "One deterministic next-action decision for a ScientificSubstrate.",
+      "properties": {
+        "branch_family": {
+          "minLength": 1,
+          "title": "Branch Family",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "defer_or_reject_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Defer Or Reject Reason Optional"
+        },
+        "execution_hint": {
+          "$ref": "#/$defs/BranchRouteExecutionHint"
+        },
+        "expected_outputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expected Outputs",
+          "type": "array"
+        },
+        "idea_node_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idea Node Id Optional"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "method_lens": {
+          "minLength": 1,
+          "title": "Method Lens",
+          "type": "string"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "required_artifacts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Artifacts",
+          "type": "array"
+        },
+        "route_confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Route Confidence",
+          "type": "number"
+        },
+        "route_id": {
+          "minLength": 1,
+          "title": "Route Id",
+          "type": "string"
+        },
+        "route_type": {
+          "$ref": "#/$defs/BranchRouteType"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "substrate_id": {
+          "minLength": 1,
+          "title": "Substrate Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "route_id",
+        "run_id",
+        "substrate_id",
+        "method_lens",
+        "branch_family",
+        "route_type",
+        "route_confidence",
+        "reason",
+        "execution_hint"
+      ],
+      "title": "BranchRouteDecision",
+      "type": "object"
+    },
+    "BranchRouteExecutionHint": {
+      "additionalProperties": false,
+      "description": "Non-executing description of the next command class for a branch.",
+      "properties": {
+        "command_class_optional": {
+          "anyOf": [
+            {
+              "enum": [
+                "generate-experiment-spec",
+                "run-benchmark-tournament",
+                "search-counterexamples",
+                "derive-symbolic-reduction",
+                "build-proof-plan",
+                "run-literature-novelty-check"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command Class Optional"
+        },
+        "executes_now": {
+          "default": false,
+          "title": "Executes Now",
+          "type": "boolean"
+        },
+        "network_required": {
+          "default": false,
+          "title": "Network Required",
+          "type": "boolean"
+        },
+        "ready_for_execution": {
+          "title": "Ready For Execution",
+          "type": "boolean"
+        },
+        "safety_notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Safety Notes",
+          "type": "array"
+        },
+        "suggested_arguments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Suggested Arguments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ready_for_execution"
+      ],
+      "title": "BranchRouteExecutionHint",
+      "type": "object"
+    },
+    "BranchRoutePlan": {
+      "additionalProperties": false,
+      "description": "Append-only deterministic routing plan over one substrate build.",
+      "properties": {
+        "applied_math_reduction_count": {
+          "minimum": 0,
+          "title": "Applied Math Reduction Count",
+          "type": "integer"
+        },
+        "benchmark_tournament_count": {
+          "minimum": 0,
+          "title": "Benchmark Tournament Count",
+          "type": "integer"
+        },
+        "counterexample_search_count": {
+          "minimum": 0,
+          "title": "Counterexample Search Count",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/BranchRouteDecision"
+          },
+          "title": "Decisions",
+          "type": "array"
+        },
+        "deferred_count": {
+          "minimum": 0,
+          "title": "Deferred Count",
+          "type": "integer"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "proof_plan_count": {
+          "minimum": 0,
+          "title": "Proof Plan Count",
+          "type": "integer"
+        },
+        "publication_ready": {
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "rejected_count": {
+          "minimum": 0,
+          "title": "Rejected Count",
+          "type": "integer"
+        },
+        "route_count": {
+          "minimum": 0,
+          "title": "Route Count",
+          "type": "integer"
+        },
+        "route_type_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Route Type Counts",
+          "type": "object"
+        },
+        "routed_count": {
+          "minimum": 0,
+          "title": "Routed Count",
+          "type": "integer"
+        },
+        "routing_backend": {
+          "const": "deterministic",
+          "default": "deterministic",
+          "title": "Routing Backend",
+          "type": "string"
+        },
+        "routing_id": {
+          "minLength": 1,
+          "title": "Routing Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_scientific_substrate_build_path": {
+          "minLength": 1,
+          "title": "Source Scientific Substrate Build Path",
+          "type": "string"
+        },
+        "substrate_count": {
+          "minimum": 0,
+          "title": "Substrate Count",
+          "type": "integer"
+        },
+        "synthetic_experiment_count": {
+          "minimum": 0,
+          "title": "Synthetic Experiment Count",
+          "type": "integer"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "routing_id",
+        "source_scientific_substrate_build_path",
+        "substrate_count",
+        "route_count",
+        "routed_count",
+        "deferred_count",
+        "rejected_count",
+        "synthetic_experiment_count",
+        "benchmark_tournament_count",
+        "counterexample_search_count",
+        "applied_math_reduction_count",
+        "proof_plan_count"
+      ],
+      "title": "BranchRoutePlan",
+      "type": "object"
+    },
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.60.0/branch-route-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection report for the latest branch route plan.",
+  "properties": {
+    "branch_routes_present": {
+      "title": "Branch Routes Present",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "decisions": {
+      "items": {
+        "$ref": "#/$defs/BranchRouteDecision"
+      },
+      "title": "Decisions",
+      "type": "array"
+    },
+    "deferred_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Deferred Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_routing_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Routing Id Optional"
+    },
+    "plan_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BranchRoutePlan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rejected_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Rejected Count",
+      "type": "integer"
+    },
+    "route_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Route Count",
+      "type": "integer"
+    },
+    "route_type_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Route Type Counts",
+      "type": "object"
+    },
+    "routed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Routed Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "substrate_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Substrate Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "branch_routes_present"
+  ],
+  "title": "BranchRouteInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.60.0",
+  "x-factori-source-model": "factori.schemas.BranchRouteInspectionReport",
+  "x-factori-verification-evidence": false
+}

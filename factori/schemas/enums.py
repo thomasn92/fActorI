@@ -377,6 +377,7 @@ class ControllerActionType(StrEnum):
     VARIANCE_AUGMENTATION_WRITTEN = "VarianceAugmentationWritten"
     VARIANCE_AUGMENTATION_APPLIED = "VarianceAugmentationApplied"
     VARIANCE_SUBSTRATES_PROMOTED = "VarianceSubstratesPromoted"
+    BRANCH_ROUTES_WRITTEN = "BranchRoutesWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -387,6 +388,20 @@ class ReleaseGateStatus(StrEnum):
     RELEASE_READY = "ReleaseReady"
     RELEASE_BLOCKED = "ReleaseBlocked"
     RELEASE_READY_WITH_WARNINGS = "ReleaseReadyWithWarnings"
+
+
+class BranchRouteType(StrEnum):
+    """Deterministic next-action classes for concrete scientific branches."""
+
+    SYNTHETIC_EXPERIMENT = "synthetic_experiment"
+    BENCHMARK_TOURNAMENT = "benchmark_tournament"
+    COUNTEREXAMPLE_SEARCH = "counterexample_search"
+    SYMBOLIC_DERIVATION = "symbolic_derivation"
+    APPLIED_MATH_REDUCTION = "applied_math_reduction"
+    PROOF_PLAN = "proof_plan"
+    LITERATURE_NOVELTY_CHECK = "literature_novelty_check"
+    DEFER_INSUFFICIENT_SUBSTRATE = "defer_insufficient_substrate"
+    REJECT_FALSE_BRIDGE = "reject_false_bridge"
 
 
 class CreativeMutationOperator(StrEnum):
@@ -847,6 +862,7 @@ __all__ = [
     "BranchStatus",
     "ArtifactType",
     "ControllerActionType",
+    "BranchRouteType",
     "CreativeMutationOperator",
     "CreativeSearchStopReason",
     "GenerationMutationOperator",

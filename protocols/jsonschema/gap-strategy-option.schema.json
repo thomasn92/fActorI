@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.59.0/gap-strategy-option.schema.json",
+  "$id": "https://schemas.factori.local/0.60.0/gap-strategy-option.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One bounded deterministic alternative for an exhausted workflow gap.",
@@ -150,7 +150,7 @@
   ],
   "title": "GapStrategyOption",
   "type": "object",
-  "x-factori-protocol-version": "0.59.0",
+  "x-factori-protocol-version": "0.60.0",
   "x-factori-source-model": "factori.schemas.GapStrategyOption",
   "x-factori-verification-evidence": false
 }

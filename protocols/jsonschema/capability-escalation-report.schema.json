@@ -154,7 +154,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.59.0/capability-escalation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.60.0/capability-escalation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-evidence capability escalation report.",
@@ -343,7 +343,7 @@
   ],
   "title": "CapabilityEscalationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.59.0",
+  "x-factori-protocol-version": "0.60.0",
   "x-factori-source-model": "factori.schemas.CapabilityEscalationReport",
   "x-factori-verification-evidence": false
 }

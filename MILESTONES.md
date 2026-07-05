@@ -298,3 +298,13 @@ without real-world validation or publication readiness.
   science, and kernel methods.
 - Promotion appends ScientificSubstrate artifacts and links their source IdeaTree nodes without
   creating evidence, validation, or publication readiness.
+
+## M94 General Branch-Type Router
+
+- Added deterministic routing across synthetic experiments, benchmark tournaments,
+  counterexample searches, symbolic and applied-math reductions, proof plans, bounded literature
+  checks, insufficient-substrate deferrals, and false-bridge rejections.
+- Added typed non-executing command hints plus per-route artifact and expected-output contracts.
+- Routing reads the latest immutable ScientificSubstrate build and writes append-only JSON and
+  Markdown plans without executing tools or creating evidence, validation, or publication
+  readiness.

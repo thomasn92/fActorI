@@ -37,6 +37,12 @@ from factori.autonomous_plan_execution import (
     execute_autonomous_evidence_plan,
     inspect_autonomous_plan_execution,
 )
+from factori.branch_routing import (
+    BranchRoutingError,
+    inspect_branch_routes,
+    render_branch_route_text,
+    route_branches,
+)
 from factori.capability_escalation import (
     CapabilityEscalationError,
     escalate_capabilities,
@@ -4193,6 +4199,55 @@ def inspect_substrate_promotion_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_substrate_promotion_text(report))
+
+
+@app.command("route-branches")
+def route_branches_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Assign each latest ScientificSubstrate its deterministic next action."""
+    try:
+        result = route_branches(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except BranchRoutingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.plan.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"routing_id={result.plan.routing_id}")
+    typer.echo(f"substrate_count={result.plan.substrate_count}")
+    typer.echo(f"route_count={result.plan.route_count}")
+    typer.echo(f"routed_count={result.plan.routed_count}")
+    typer.echo(f"deferred_count={result.plan.deferred_count}")
+    typer.echo(f"rejected_count={result.plan.rejected_count}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.plan_artifact.path}")
+
+
+@app.command("inspect-branch-routes")
+def inspect_branch_routes_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest deterministic ScientificSubstrate route plan."""
+    try:
+        report = inspect_branch_routes(run_id=run_id, root=root)
+    except BranchRoutingError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_branch_route_text(report))
 
 
 @app.command("build-scientific-substrate")

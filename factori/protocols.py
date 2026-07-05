@@ -33,6 +33,11 @@ from factori.schemas import (
     AutonomousPlanExecutionReport,
     BaselineReport,
     BibliographyEntry,
+    BranchRouteDecision,
+    BranchRouteExecutionHint,
+    BranchRouteInspectionReport,
+    BranchRoutePlan,
+    BranchRouteType,
     BridgeReport,
     Candidate,
     CapabilityEscalationIndex,
@@ -294,7 +299,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.59.0"
+PROTOCOL_VERSION = "0.60.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -585,6 +590,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "SubstratePromotionInspectionReport",
         SubstratePromotionInspectionReport,
         "Read-only inspection report for latest substrate promotion.",
+    ),
+    ProtocolDefinition(
+        "BranchRouteType",
+        BranchRouteType,
+        "Deterministic next-action class assigned to a scientific branch.",
+    ),
+    ProtocolDefinition(
+        "BranchRouteExecutionHint",
+        BranchRouteExecutionHint,
+        "Non-executing next-command hint for a routed scientific branch.",
+    ),
+    ProtocolDefinition(
+        "BranchRouteDecision",
+        BranchRouteDecision,
+        "One context-only route decision for a ScientificSubstrate.",
+    ),
+    ProtocolDefinition(
+        "BranchRoutePlan",
+        BranchRoutePlan,
+        "Append-only deterministic route plan over the latest substrate build.",
+    ),
+    ProtocolDefinition(
+        "BranchRouteInspectionReport",
+        BranchRouteInspectionReport,
+        "Read-only inspection report for the latest branch route plan.",
     ),
     ProtocolDefinition(
         "IdeaNodeFeatureVector",

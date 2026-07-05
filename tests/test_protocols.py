@@ -14,6 +14,11 @@ from factori.schemas import (
     AutonomousPaperRunIndex,
     AutonomousPaperRunReport,
     AutonomousPaperRunStage,
+    BranchRouteDecision,
+    BranchRouteExecutionHint,
+    BranchRouteInspectionReport,
+    BranchRoutePlan,
+    BranchRouteType,
     ClaimEvidenceMap,
     ClaimEvidenceMapLink,
     CompleteMarkdownDraft,
@@ -132,9 +137,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 290
+    assert len(first) == 295
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.59.0"
+    assert PROTOCOL_VERSION == "0.60.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 
@@ -284,6 +289,15 @@ def test_protocol_aliases_map_to_existing_typed_models() -> None:
     )
     assert get_protocol_definition("SubstratePromotionInspectionReport").model is (
         SubstratePromotionInspectionReport
+    )
+    assert get_protocol_definition("BranchRouteType").model is BranchRouteType
+    assert get_protocol_definition("BranchRouteExecutionHint").model is (
+        BranchRouteExecutionHint
+    )
+    assert get_protocol_definition("BranchRouteDecision").model is BranchRouteDecision
+    assert get_protocol_definition("BranchRoutePlan").model is BranchRoutePlan
+    assert get_protocol_definition("BranchRouteInspectionReport").model is (
+        BranchRouteInspectionReport
     )
     assert get_protocol_definition("SubstrateTournamentSpec").model is SubstrateTournamentSpec
     assert get_protocol_definition("SubstrateTournamentEntry").model is SubstrateTournamentEntry

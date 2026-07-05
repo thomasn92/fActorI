@@ -148,6 +148,8 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     inspect_promotion = CliRunner().invoke(
         app, ["inspect-substrate-promotion", "--help"]
     )
+    route_branches = CliRunner().invoke(app, ["route-branches", "--help"])
+    inspect_routes = CliRunner().invoke(app, ["inspect-branch-routes", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
@@ -171,6 +173,10 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--max-substrates" in promote_substrates.output
     assert inspect_promotion.exit_code == 0, inspect_promotion.output
     assert "--json" in inspect_promotion.output
+    assert route_branches.exit_code == 0, route_branches.output
+    assert "--run-id" in route_branches.output
+    assert inspect_routes.exit_code == 0, inspect_routes.output
+    assert "--json" in inspect_routes.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
@@ -311,6 +317,28 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
             "--json",
         ],
     )
+    routed = runner.invoke(
+        app,
+        [
+            "route-branches",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    route_inspection = runner.invoke(
+        app,
+        [
+            "inspect-branch-routes",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
     tree = runner.invoke(
         app,
         [
@@ -349,6 +377,16 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
     promotion_payload = json.loads(promotion_inspection.output)
     assert promotion_payload["substrate_promotion_present"] is True
     assert promotion_payload["idea_tree_substrate_links_present"] is True
+    assert routed.exit_code == 0, routed.output
+    routed_payload = json.loads(routed.output)
+    assert routed_payload["substrate_count"] == 8
+    assert routed_payload["route_count"] == 8
+    assert len(routed_payload["route_type_counts"]) >= 3
+    assert routed_payload["publication_ready"] is False
+    assert route_inspection.exit_code == 0, route_inspection.output
+    route_payload = json.loads(route_inspection.output)
+    assert route_payload["branch_routes_present"] is True
+    assert route_payload["route_count"] == 8
     assert tree.exit_code == 0, tree.output
     tree_payload = json.loads(tree.output)
     variance_nodes = [

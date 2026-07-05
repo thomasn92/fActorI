@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.59.0/substrate-tournament-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.60.0/substrate-tournament-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Execution plan for a bounded multi-substrate synthetic tournament.",
@@ -85,7 +85,7 @@
   ],
   "title": "SubstrateTournamentSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.59.0",
+  "x-factori-protocol-version": "0.60.0",
   "x-factori-source-model": "factori.schemas.SubstrateTournamentSpec",
   "x-factori-verification-evidence": false
 }

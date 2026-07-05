@@ -1,0 +1,21 @@
+{
+  "$id": "https://schemas.factori.local/0.60.0/branch-route-type.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Deterministic next-action class assigned to a scientific branch.",
+  "enum": [
+    "synthetic_experiment",
+    "benchmark_tournament",
+    "counterexample_search",
+    "symbolic_derivation",
+    "applied_math_reduction",
+    "proof_plan",
+    "literature_novelty_check",
+    "defer_insufficient_substrate",
+    "reject_false_bridge"
+  ],
+  "title": "BranchRouteType",
+  "type": "string",
+  "x-factori-protocol-version": "0.60.0",
+  "x-factori-source-model": "factori.schemas.BranchRouteType",
+  "x-factori-verification-evidence": false
+}
