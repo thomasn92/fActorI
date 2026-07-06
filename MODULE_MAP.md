@@ -309,6 +309,11 @@ All implementation modules are under `factori/`.
 - `llm_substrate.py`: M99 input verification, non-fake substrate orchestration, decorative-bridge
   and duplicate filtering, coverage selection, append-only provenance, and standard
   ScientificSubstrate compatibility persistence.
+- `adapters/llm_route_planning.py`: gated OpenAI structured-output adapter for route adjudication,
+  execution-spec design, route-label policy, and candidate-level authority rejection.
+- `llm_route_planning.py`: M100 input verification, non-fake route/spec orchestration, local
+  contract validation, append-only reports, production records, and standard route/spec
+  compatibility persistence without execution.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

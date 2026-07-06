@@ -61,6 +61,7 @@
         "substrate_selection",
         "branch_routing",
         "experiment_design",
+        "spec_validation",
         "experiment_code_generation",
         "experiment_execution",
         "metric_computation",
@@ -149,7 +150,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/route-execution-result.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/route-execution-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded deterministic output for one route execution specification.",
@@ -182,10 +183,15 @@
       "enum": [
         "SyntheticExperimentEvidence",
         "BenchmarkEvidence",
+        "CounterexampleEvidence",
+        "SymbolicDerivationDraft",
         "SymbolicReductionDraft",
+        "ProofPlanDraft",
+        "RetrievalNoveltyAssessment",
         "NegativeResult",
         "InconclusiveResult",
-        "UnsupportedRouteDeferred"
+        "UnsupportedRouteDeferred",
+        "RejectedFalseBridge"
       ],
       "title": "Evidence Label",
       "type": "string"
@@ -295,7 +301,7 @@
   ],
   "title": "RouteExecutionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionResult",
   "x-factori-verification-evidence": false
 }

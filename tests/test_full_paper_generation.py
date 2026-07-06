@@ -20,6 +20,16 @@ from factori.adapters.deep_opportunity import (
     parse_opportunity_items,
 )
 from factori.adapters.fake import FakeProseGenerator
+from factori.adapters.llm_route_planning import (
+    ROUTE_ALLOWED_LABELS,
+    ExecutionSpecProposal,
+    RouteDecisionProposal,
+    RoutePlanningProposalItem,
+    RoutePlanningResponse,
+    RoutePlanningScoreProposal,
+    build_llm_route_planning_prompt,
+    parse_route_planning_response,
+)
 from factori.adapters.llm_substrate import (
     SubstrateCandidateProposal,
     SubstrateGenerationResponse,
@@ -183,6 +193,11 @@ from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
+from factori.llm_route_planning import (
+    LLMRoutePlanningError,
+    inspect_llm_routes,
+    plan_llm_routes,
+)
 from factori.llm_substrate import (
     LLMSubstrateError,
     construct_llm_substrates,
@@ -332,11 +347,19 @@ from factori.schemas import (
     IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    LLMExecutionSpecCandidate,
     LLMOpportunityDiscoveryRawArtifact,
     LLMOrchestrationConfig,
     LLMPairRankingPrompt,
     LLMPairRankingReport,
     LLMPairRankingResult,
+    LLMRouteDecisionCandidate,
+    LLMRoutePlanningConfig,
+    LLMRoutePlanningInspectionReport,
+    LLMRoutePlanningPrompt,
+    LLMRoutePlanningRawArtifact,
+    LLMRoutePlanningReport,
+    LLMRoutePlanningScore,
     LLMScientificSubstrateCandidate,
     LLMSubstrateConstructionConfig,
     LLMSubstrateConstructionInspectionReport,
@@ -886,6 +909,167 @@ class MockLLMSubstrateGenerator:
         )
 
 
+class MockLLMRoutePlanner:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-route-planning-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self) -> None:
+        self.received_substrate_ids: list[str] = []
+        self.raw_items: list[dict[str, object]] = []
+
+    def plan_route(
+        self,
+        *,
+        prompt_id,
+        substrate_payload,
+        source_metadata_payload,
+        retrieval_context_payload,
+    ):
+        index = len(self.received_substrate_ids)
+        substrate_id = substrate_payload["substrate_id"]
+        self.received_substrate_ids.append(substrate_id)
+        routes = [
+            BranchRouteType.SYNTHETIC_EXPERIMENT,
+            BranchRouteType.BENCHMARK_TOURNAMENT,
+            BranchRouteType.APPLIED_MATH_REDUCTION,
+            BranchRouteType.LITERATURE_NOVELTY_CHECK,
+            BranchRouteType.PROOF_PLAN,
+        ]
+        route = routes[index % len(routes)]
+        prompt = build_llm_route_planning_prompt(
+            prompt_id=prompt_id,
+            backend_name=self.backend_name,
+            model=self.model,
+            substrate_payload=substrate_payload,
+            source_metadata_payload=source_metadata_payload,
+            retrieval_context_payload=retrieval_context_payload,
+        )
+        code_route = route in {
+            BranchRouteType.SYNTHETIC_EXPERIMENT,
+            BranchRouteType.BENCHMARK_TOURNAMENT,
+            BranchRouteType.COUNTEREXAMPLE_SEARCH,
+        }
+        literature_route = route == BranchRouteType.LITERATURE_NOVELTY_CHECK
+        proof_route = route == BranchRouteType.PROOF_PLAN
+        labels = list(ROUTE_ALLOWED_LABELS[route])
+        decision = RouteDecisionProposal(
+            route_type=route,
+            route_confidence=0.86,
+            scientific_reason=(
+                f"The {route.value} route directly tests the substrate's declared bounded "
+                "question and retains negative outcomes."
+            ),
+            why_not_other_routes=[
+                "A broader route would add authority not supported by the current substrate.",
+                "The selected route has the clearest bounded failure criterion.",
+            ],
+            required_artifacts=["scientific_substrate", "route_execution_contract"],
+            allowed_evidence_labels=labels,
+            forbidden_claims=["publication ready"],
+        )
+        standard = source_metadata_payload["standard_scientific_substrate"]
+        design = substrate_payload["experiment_or_proof_design"]
+        spec = ExecutionSpecProposal(
+            route_type=route,
+            title=f"Bounded {route.value} for {substrate_id}",
+            objective="Attempt the declared bounded claim while preserving negative results.",
+            input_contract=RouteExecutionInputContract(
+                substrate_title=substrate_payload["title"],
+                domain=standard["domain"],
+                model_type=substrate_payload["concrete_model_object"]["model_type"],
+                equations=substrate_payload["concrete_model_object"]["equations"],
+                variables_and_notation=substrate_payload["variables_and_notation"],
+                assumptions=[item["statement"] for item in substrate_payload["assumptions"]],
+                dgp_or_dataset=design["dgp"],
+                baseline="; ".join(substrate_payload["baseline_candidates"]),
+                proposed_method=design["method"],
+                measurable_hypothesis=substrate_payload["hypothesis"],
+                metrics=substrate_payload["expected_metrics"],
+                seed=1729,
+                route_parameters={"route_family": route.value, "bounded": True},
+            ),
+            output_contract=RouteExecutionOutputContract(
+                required_metrics=substrate_payload["expected_metrics"],
+                required_payload_fields=["status", "limitations", "negative_control_result"],
+                scope_label="bounded planning output; no evidence until M102 execution",
+                success_criterion=design["success_criterion"],
+                failure_criterion=design["failure_criterion"],
+            ),
+            baseline_plan=substrate_payload["baseline_candidates"],
+            control_plan=["hold the data regime and seed plan fixed"],
+            negative_control_plan=substrate_payload["negative_controls"],
+            robustness_plan=[design["ablation_or_stress_test"]],
+            metric_plan=substrate_payload["expected_metrics"],
+            success_criteria=[design["success_criterion"]],
+            failure_criteria=[design["failure_criterion"]],
+            proof_obligations=(
+                ["Formalize the bounded proposition and discharge each assumption-dependent step."]
+                if proof_route
+                else []
+            ),
+            formalization_target_optional=(
+                "A checker-readable bounded proposition" if proof_route else None
+            ),
+            retrieval_queries=(
+                [f"{substrate_payload['title']} closest prior formulations"]
+                if literature_route
+                else []
+            ),
+            expected_artifacts=["execution_manifest", "bounded_result_or_draft"],
+            sandbox_requirements=(
+                ["offline local sandbox", "fixed seeds", "resource limits"]
+                if code_route
+                else []
+            ),
+            allowed_evidence_labels=labels,
+            forbidden_claims=["publication ready"],
+            execution_backend_required=(
+                "uv_local"
+                if code_route
+                else "retrieval_real"
+                if literature_route
+                else "local_symbolic_draft"
+            ),
+            requires_code_generation=code_route,
+            requires_literature_retrieval=literature_route,
+            requires_symbolic_checker=False,
+            requires_human_review=False,
+        )
+        item = RoutePlanningProposalItem(
+            decision=decision,
+            execution_spec=spec,
+            score=RoutePlanningScoreProposal(
+                route_fit=0.88,
+                baseline_quality=0.84,
+                control_quality=0.83,
+                metric_clarity=0.86,
+                execution_feasibility=0.80,
+                claim_safety=0.92,
+                failure_mode_value=0.82,
+                paper_coherence=0.81,
+                false_bridge_penalty=0.12,
+                tautology_penalty=0.14,
+                scope_risk_penalty=0.10,
+                final_score=0.87 - index * 0.005,
+                score_explanation="Mocked structured LLM route-planning score.",
+            ),
+        )
+        self.raw_items.append(item.model_dump(mode="json"))
+        accepted, reasons, repairs = parse_route_planning_response(
+            {"plans": [item.model_dump(mode="json")]}
+        )
+        return RoutePlanningResponse(
+            prompt=prompt,
+            raw_response={"plans": [item.model_dump(mode="json")]},
+            accepted=accepted,
+            rejection_reasons=reasons,
+            repair_actions=repairs,
+        )
+
+
 def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
@@ -930,6 +1114,14 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert LLMSubstrateConstructionReport
     assert LLMSubstrateConstructionInspectionReport
     assert LLMSubstrateRawArtifact
+    assert LLMRoutePlanningConfig
+    assert LLMRoutePlanningPrompt
+    assert LLMRouteDecisionCandidate
+    assert LLMExecutionSpecCandidate
+    assert LLMRoutePlanningScore
+    assert LLMRoutePlanningRawArtifact
+    assert LLMRoutePlanningReport
+    assert LLMRoutePlanningInspectionReport
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -2683,6 +2875,233 @@ def test_llm_substrates_construct_production_safe_scientific_objects(tmp_path) -
             store=store,
             ledger=ledger,
             generator=fallback,
+            config=result.report.config,
+        )
+
+
+def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
+    run_id = "run-llm-routes-strict"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=8,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockDeepOpportunityGenerator(),
+        retriever=MockRealOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="real_retrieval",
+            max_pairs=8,
+            max_generation_calls=8,
+            opportunities_per_pair=2,
+            max_selected_opportunities=16,
+            require_non_fake_backends=True,
+        ),
+    )
+    generate_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockLLMVarianceGenerator(),
+        config=LLMVarianceGenerationConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_opportunities=6,
+            variants_per_opportunity=5,
+            max_variants_total=30,
+            max_selected_variants=20,
+            max_generation_calls=6,
+            min_variant_family_coverage=5,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    construct_idea_tree_from_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    construct_llm_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockLLMSubstrateGenerator(),
+        config=LLMSubstrateConstructionConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_variants=8,
+            max_constructed_substrates=8,
+            max_selected_substrates=5,
+            max_generation_calls=8,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            min_route_hint_coverage=3,
+            require_non_fake_backends=True,
+        ),
+    )
+    planner = MockLLMRoutePlanner()
+    result = plan_llm_routes(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=LLMRoutePlanningConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=5,
+            max_planning_calls=5,
+            require_non_fake_backends=True,
+        ),
+    )
+    inspected = inspect_llm_routes(run_id=run_id, root=tmp_path)
+
+    assert result.report.selected_substrate_count == 5
+    assert result.report.route_decision_count == 5
+    assert result.report.execution_spec_count == 5
+    assert result.report.rejected_output_count == 0
+    assert result.report.repaired_output_count == 5
+    assert result.report.route_type_coverage >= 3
+    assert result.report.production_ready is True
+    assert result.report.publication_ready is False
+    assert len(planner.received_substrate_ids) == 5
+    assert all(item.scientific_reason for item in result.report.decisions)
+    assert all(item.allowed_evidence_labels for item in result.report.decisions)
+    assert all(item.forbidden_claims for item in result.report.decisions)
+    assert all(item.input_contract.route_parameters for item in result.report.execution_specs)
+    assert all(item.output_contract.required_metrics for item in result.report.execution_specs)
+    assert all(item.baseline_plan for item in result.report.execution_specs)
+    assert all(item.control_plan for item in result.report.execution_specs)
+    assert all(item.negative_control_plan for item in result.report.execution_specs)
+    assert all(item.metric_plan for item in result.report.execution_specs)
+    assert all(item.success_criteria for item in result.report.execution_specs)
+    assert all(item.failure_criteria for item in result.report.execution_specs)
+    assert all(
+        item.creates_scientific_validation is False
+        for item in result.report.execution_specs
+    )
+    assert all(
+        item.creates_real_world_validation is False
+        for item in result.report.execution_specs
+    )
+    assert all(
+        set(item.allowed_evidence_labels) == set(ROUTE_ALLOWED_LABELS[item.route_type])
+        for item in result.report.execution_specs
+    )
+    assert result.compatibility_spec_report.results == []
+    assert result.compatibility_spec_report.evidence_label_counts == {}
+    assert (tmp_path / result.report.compatibility_branch_route_plan_path).is_file()
+    assert (tmp_path / result.report.compatibility_route_execution_specs_path).is_file()
+    assert inspected.llm_route_planning_present is True
+    assert inspected.route_decision_count == 5
+    assert any(
+        item.stage_kind == ScientificStageKind.BRANCH_ROUTING
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        and item.allowed_in_production
+        for item in result.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.EXPERIMENT_DESIGN
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        and item.allowed_in_production
+        for item in result.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.SPEC_VALIDATION
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        and item.allowed_in_production
+        for item in result.report.backend_records
+    )
+
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    valid_raw = planner.raw_items[0]
+    unsafe_cases = []
+    real_world = json.loads(json.dumps(valid_raw))
+    real_world["execution_spec"]["objective"] = "This establishes real-world validation."
+    unsafe_cases.append((real_world, "real-world validation"))
+    publication = json.loads(json.dumps(valid_raw))
+    publication["decision"]["scientific_reason"] = "The paper is publication ready."
+    unsafe_cases.append((publication, "publication readiness"))
+    missing_contract = json.loads(json.dumps(valid_raw))
+    missing_contract["execution_spec"]["input_contract"]["route_parameters"] = {}
+    unsafe_cases.append((missing_contract, "route parameters"))
+    wrong_labels = json.loads(json.dumps(valid_raw))
+    wrong_labels["decision"]["allowed_evidence_labels"] = ["BenchmarkEvidence"]
+    unsafe_cases.append((wrong_labels, "labels do not match"))
+    missing_baseline = json.loads(json.dumps(valid_raw))
+    missing_baseline["execution_spec"].pop("baseline_plan")
+    unsafe_cases.append((missing_baseline, "baseline_plan"))
+
+    proof = json.loads(json.dumps(valid_raw))
+    proof["decision"]["route_type"] = "proof_plan"
+    proof["decision"]["allowed_evidence_labels"] = list(
+        ROUTE_ALLOWED_LABELS[BranchRouteType.PROOF_PLAN]
+    )
+    proof["execution_spec"]["route_type"] = "proof_plan"
+    proof["execution_spec"]["allowed_evidence_labels"] = list(
+        ROUTE_ALLOWED_LABELS[BranchRouteType.PROOF_PLAN]
+    )
+    proof["execution_spec"]["requires_code_generation"] = False
+    proof["execution_spec"]["proof_obligations"] = []
+    proof["execution_spec"]["formalization_target_optional"] = None
+    unsafe_cases.append((proof, "proof obligations"))
+
+    literature = json.loads(json.dumps(valid_raw))
+    literature["decision"]["route_type"] = "literature_novelty_check"
+    literature["decision"]["allowed_evidence_labels"] = list(
+        ROUTE_ALLOWED_LABELS[BranchRouteType.LITERATURE_NOVELTY_CHECK]
+    )
+    literature["execution_spec"]["route_type"] = "literature_novelty_check"
+    literature["execution_spec"]["allowed_evidence_labels"] = list(
+        ROUTE_ALLOWED_LABELS[BranchRouteType.LITERATURE_NOVELTY_CHECK]
+    )
+    literature["execution_spec"]["requires_code_generation"] = False
+    literature["execution_spec"]["requires_literature_retrieval"] = False
+    literature["execution_spec"]["retrieval_queries"] = []
+    unsafe_cases.append((literature, "retrieval requirement"))
+
+    for payload, expected_reason in unsafe_cases:
+        accepted, reasons, _ = parse_route_planning_response({"plans": [payload]})
+        assert accepted is None
+        assert any(expected_reason in reason for reason in reasons)
+
+    fallback = MockLLMRoutePlanner()
+    fallback.fallback_used = True
+    with pytest.raises(LLMRoutePlanningError, match="forbids deterministic fallback"):
+        plan_llm_routes(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            planner=fallback,
             config=result.report.config,
         )
 

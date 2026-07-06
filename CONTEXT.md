@@ -131,6 +131,10 @@ completed run from disk and checks consistency without changing provenance.
   including concrete model objects, notation, assumptions, baselines, bounded verification plans,
   result schemas, negative controls, failure modes, and limitations; deterministic validation and
   coverage selection do not author science or create evidence.
+- schema-constrained non-fake LLM route adjudication and execution-spec planning over selected
+  ScientificSubstrates, with explicit baselines, controls, metrics, failure criteria, proof or
+  retrieval obligations, allowed future labels, and forbidden claims; local contract validation
+  executes nothing and creates no evidence.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

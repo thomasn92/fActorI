@@ -32,6 +32,7 @@
         "substrate_selection",
         "branch_routing",
         "experiment_design",
+        "spec_validation",
         "experiment_code_generation",
         "experiment_execution",
         "metric_computation",
@@ -47,7 +48,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/stage-backend-record.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/stage-backend-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Explicit backend authority record for one pipeline stage.",
@@ -120,7 +121,7 @@
   ],
   "title": "StageBackendRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.StageBackendRecord",
   "x-factori-verification-evidence": false
 }

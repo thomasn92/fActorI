@@ -205,7 +205,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/final-nucleus.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/final-nucleus.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Selected abstraction or candidate nucleus.",
@@ -282,7 +282,7 @@
   ],
   "title": "FinalNucleus",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.FinalNucleus",
   "x-factori-verification-evidence": false
 }

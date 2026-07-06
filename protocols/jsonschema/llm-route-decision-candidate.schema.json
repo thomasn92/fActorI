@@ -1,0 +1,182 @@
+{
+  "$defs": {
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.67.0/llm-route-decision-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One non-fake LLM scientific route decision candidate.",
+  "properties": {
+    "allowed_evidence_labels": {
+      "items": {
+        "enum": [
+          "SyntheticExperimentEvidence",
+          "BenchmarkEvidence",
+          "CounterexampleEvidence",
+          "SymbolicDerivationDraft",
+          "SymbolicReductionDraft",
+          "ProofPlanDraft",
+          "RetrievalNoveltyAssessment",
+          "NegativeResult",
+          "InconclusiveResult",
+          "UnsupportedRouteDeferred",
+          "RejectedFalseBridge"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Evidence Labels",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "defer_or_reject_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Defer Or Reject Reason Optional"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "fallback_route_type_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BranchRouteType"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "required_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Artifacts",
+      "type": "array"
+    },
+    "route_confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Route Confidence",
+      "type": "number"
+    },
+    "route_id": {
+      "minLength": 1,
+      "title": "Route Id",
+      "type": "string"
+    },
+    "route_type": {
+      "$ref": "#/$defs/BranchRouteType"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scientific_reason": {
+      "minLength": 1,
+      "title": "Scientific Reason",
+      "type": "string"
+    },
+    "source_idea_node_id": {
+      "minLength": 1,
+      "title": "Source Idea Node Id",
+      "type": "string"
+    },
+    "source_substrate_id": {
+      "minLength": 1,
+      "title": "Source Substrate Id",
+      "type": "string"
+    },
+    "why_not_other_routes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Why Not Other Routes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "route_id",
+    "run_id",
+    "source_substrate_id",
+    "source_idea_node_id",
+    "domain_id",
+    "method_id",
+    "route_type",
+    "route_confidence",
+    "scientific_reason",
+    "why_not_other_routes",
+    "required_artifacts",
+    "allowed_evidence_labels",
+    "forbidden_claims"
+  ],
+  "title": "LLMRouteDecisionCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.67.0",
+  "x-factori-source-model": "factori.schemas.LLMRouteDecisionCandidate",
+  "x-factori-verification-evidence": false
+}

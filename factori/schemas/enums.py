@@ -387,6 +387,7 @@ class ControllerActionType(StrEnum):
     LLM_VARIANCE_GENERATION_WRITTEN = "LLMVarianceGenerationWritten"
     LLM_IDEA_TREE_CONSTRUCTION_WRITTEN = "LLMIdeaTreeConstructionWritten"
     LLM_SUBSTRATE_CONSTRUCTION_WRITTEN = "LLMSubstrateConstructionWritten"
+    LLM_ROUTE_PLANNING_WRITTEN = "LLMRoutePlanningWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -454,6 +455,7 @@ class ScientificStageKind(StrEnum):
     SUBSTRATE_SELECTION = "substrate_selection"
     BRANCH_ROUTING = "branch_routing"
     EXPERIMENT_DESIGN = "experiment_design"
+    SPEC_VALIDATION = "spec_validation"
     EXPERIMENT_CODE_GENERATION = "experiment_code_generation"
     EXPERIMENT_EXECUTION = "experiment_execution"
     METRIC_COMPUTATION = "metric_computation"

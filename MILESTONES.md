@@ -374,3 +374,15 @@ without real-world validation or publication readiness.
 - Added append-only raw and construction reports plus standard ScientificSubstrate compatibility
   artifacts for downstream routing. Construction is production-eligible only with non-fake M99
   inputs and no fallback; it creates no evidence, scientific validation, or publication readiness.
+
+## M101 LLM Route and Execution-Spec Planning
+
+- Added a gated OpenAI structured-output stage that selects one scientific route and constructs one
+  bounded, non-executing specification per selected M100 substrate.
+- Added route-specific allowed-label enforcement, mandatory forbidden claims, executable
+  experiment contracts, proof obligations, literature retrieval requirements, and fail-closed
+  authority checks.
+- Added append-only raw and planning reports plus BranchRoutePlan and RouteExecutionSpec
+  compatibility artifacts. Route choice and design require a non-fake LLM in strict mode; local
+  validation is infrastructure only and no code, metrics, evidence, or publication readiness is
+  produced.

@@ -356,6 +356,7 @@
         "substrate_selection",
         "branch_routing",
         "experiment_design",
+        "spec_validation",
         "experiment_code_generation",
         "experiment_execution",
         "metric_computation",
@@ -444,7 +445,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/deep-opportunity-discovery-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/deep-opportunity-discovery-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest deep opportunity discovery report.",
@@ -594,7 +595,7 @@
   ],
   "title": "DeepOpportunityDiscoveryInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.DeepOpportunityDiscoveryInspectionReport",
   "x-factori-verification-evidence": false
 }

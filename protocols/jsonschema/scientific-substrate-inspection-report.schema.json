@@ -470,7 +470,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/scientific-substrate-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/scientific-substrate-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for generated scientific substrates.",
@@ -630,7 +630,7 @@
   ],
   "title": "ScientificSubstrateInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrateInspectionReport",
   "x-factori-verification-evidence": false
 }

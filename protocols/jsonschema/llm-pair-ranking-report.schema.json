@@ -204,6 +204,7 @@
         "substrate_selection",
         "branch_routing",
         "experiment_design",
+        "spec_validation",
         "experiment_code_generation",
         "experiment_execution",
         "metric_computation",
@@ -292,7 +293,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/llm-pair-ranking-report.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/llm-pair-ranking-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-fake LLM ranking report over compatible pairs.",
@@ -398,7 +399,7 @@
   ],
   "title": "LLMPairRankingReport",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.LLMPairRankingReport",
   "x-factori-verification-evidence": false
 }

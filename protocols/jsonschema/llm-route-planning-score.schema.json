@@ -1,0 +1,117 @@
+{
+  "$id": "https://schemas.factori.local/0.67.0/llm-route-planning-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-fake LLM scientific score for one route/spec pair.",
+  "properties": {
+    "baseline_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Quality",
+      "type": "number"
+    },
+    "claim_safety": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Claim Safety",
+      "type": "number"
+    },
+    "control_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Control Quality",
+      "type": "number"
+    },
+    "execution_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Execution Feasibility",
+      "type": "number"
+    },
+    "failure_mode_value": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Failure Mode Value",
+      "type": "number"
+    },
+    "false_bridge_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "False Bridge Penalty",
+      "type": "number"
+    },
+    "final_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Final Score",
+      "type": "number"
+    },
+    "metric_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Metric Clarity",
+      "type": "number"
+    },
+    "paper_coherence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Paper Coherence",
+      "type": "number"
+    },
+    "route_fit": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Route Fit",
+      "type": "number"
+    },
+    "route_id": {
+      "minLength": 1,
+      "title": "Route Id",
+      "type": "string"
+    },
+    "scope_risk_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scope Risk Penalty",
+      "type": "number"
+    },
+    "score_explanation": {
+      "minLength": 1,
+      "title": "Score Explanation",
+      "type": "string"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    },
+    "tautology_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tautology Penalty",
+      "type": "number"
+    }
+  },
+  "required": [
+    "route_id",
+    "substrate_id",
+    "route_fit",
+    "baseline_quality",
+    "control_quality",
+    "metric_clarity",
+    "execution_feasibility",
+    "claim_safety",
+    "failure_mode_value",
+    "paper_coherence",
+    "false_bridge_penalty",
+    "tautology_penalty",
+    "scope_risk_penalty",
+    "final_score",
+    "score_explanation"
+  ],
+  "title": "LLMRoutePlanningScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.67.0",
+  "x-factori-source-model": "factori.schemas.LLMRoutePlanningScore",
+  "x-factori-verification-evidence": false
+}

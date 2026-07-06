@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.66.0/planned-spec-execution-item.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/planned-spec-execution-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One bounded disposition of a planned local spec execution.",
@@ -189,7 +189,7 @@
   ],
   "title": "PlannedSpecExecutionItem",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecExecutionItem",
   "x-factori-verification-evidence": false
 }

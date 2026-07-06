@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.67.0` adds non-fake LLM route adjudication and execution-spec planning contracts,
+including typed inputs and outputs, baselines, controls, negative controls, robustness plans,
+metrics, success/failure criteria, proof obligations, retrieval queries, route-specific allowed
+labels, forbidden claims, raw-call provenance, and inspection. These plans execute nothing and
+create no evidence, real-world validation, or publication readiness.
+
 Protocol `0.66.0` adds non-fake LLM ScientificSubstrate construction contracts, including concrete
 model objects, notation, assumptions, baselines, bounded verification designs, result schemas,
 negative controls, failure modes, route hints, scientific scores, raw-call provenance, and

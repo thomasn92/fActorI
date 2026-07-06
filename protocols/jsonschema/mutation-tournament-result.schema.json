@@ -336,7 +336,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/mutation-tournament-result.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/mutation-tournament-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only bounded result of testing creative mutation substrates.",
@@ -563,7 +563,7 @@
   ],
   "title": "MutationTournamentResult",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.MutationTournamentResult",
   "x-factori-verification-evidence": false
 }

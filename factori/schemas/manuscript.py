@@ -956,6 +956,208 @@ class LLMSubstrateConstructionInspectionReport(StrictModel):
     is_verification_evidence: Literal[False] = False
 
 
+RouteEvidenceLabel = Literal[
+    "SyntheticExperimentEvidence",
+    "BenchmarkEvidence",
+    "CounterexampleEvidence",
+    "SymbolicDerivationDraft",
+    "SymbolicReductionDraft",
+    "ProofPlanDraft",
+    "RetrievalNoveltyAssessment",
+    "NegativeResult",
+    "InconclusiveResult",
+    "UnsupportedRouteDeferred",
+    "RejectedFalseBridge",
+]
+
+
+class LLMRoutePlanningConfig(StrictModel):
+    """Bounded configuration for non-fake LLM route and spec planning."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    max_source_substrates: int = Field(default=12, ge=1)
+    max_planning_calls: int = Field(default=12, ge=1)
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class LLMRoutePlanningPrompt(StrictModel):
+    """Secret-free prompt contract for one LLM route-planning call."""
+
+    prompt_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    substrate_payload: dict[str, Any]
+    source_metadata_payload: dict[str, Any]
+    retrieval_context_payload: dict[str, Any]
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+
+
+class LLMRouteDecisionCandidate(StrictModel):
+    """One non-fake LLM scientific route decision; planning context only."""
+
+    route_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    source_idea_node_id: str = Field(min_length=1)
+    domain_id: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    route_type: BranchRouteType
+    fallback_route_type_optional: BranchRouteType | None = None
+    route_confidence: float = Field(ge=0.0, le=1.0)
+    scientific_reason: str = Field(min_length=1)
+    why_not_other_routes: list[str] = Field(min_length=1)
+    required_artifacts: list[str] = Field(min_length=1)
+    allowed_evidence_labels: list[RouteEvidenceLabel] = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    defer_or_reject_reason_optional: str | None = None
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMExecutionSpecCandidate(StrictModel):
+    """One LLM-authored, non-executing contract for a future route action."""
+
+    spec_id: str = Field(min_length=1)
+    route_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    route_type: BranchRouteType
+    title: str = Field(min_length=1)
+    objective: str = Field(min_length=1)
+    input_contract: RouteExecutionInputContract
+    output_contract: RouteExecutionOutputContract
+    baseline_plan: list[str] = Field(min_length=1)
+    control_plan: list[str] = Field(min_length=1)
+    negative_control_plan: list[str] = Field(min_length=1)
+    robustness_plan: list[str] = Field(min_length=1)
+    metric_plan: list[str] = Field(min_length=1)
+    success_criteria: list[str] = Field(min_length=1)
+    failure_criteria: list[str] = Field(min_length=1)
+    proof_obligations: list[str] = Field(default_factory=list)
+    formalization_target_optional: str | None = None
+    retrieval_queries: list[str] = Field(default_factory=list)
+    expected_artifacts: list[str] = Field(min_length=1)
+    sandbox_requirements: list[str] = Field(default_factory=list)
+    allowed_evidence_labels: list[RouteEvidenceLabel] = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    execution_backend_required: str = Field(min_length=1)
+    requires_code_generation: bool
+    requires_literature_retrieval: bool
+    requires_symbolic_checker: bool
+    requires_human_review: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMRoutePlanningScore(StrictModel):
+    """Non-fake LLM scientific score for one route/spec pair."""
+
+    route_id: str = Field(min_length=1)
+    substrate_id: str = Field(min_length=1)
+    route_fit: float = Field(ge=0.0, le=1.0)
+    baseline_quality: float = Field(ge=0.0, le=1.0)
+    control_quality: float = Field(ge=0.0, le=1.0)
+    metric_clarity: float = Field(ge=0.0, le=1.0)
+    execution_feasibility: float = Field(ge=0.0, le=1.0)
+    claim_safety: float = Field(ge=0.0, le=1.0)
+    failure_mode_value: float = Field(ge=0.0, le=1.0)
+    paper_coherence: float = Field(ge=0.0, le=1.0)
+    false_bridge_penalty: float = Field(ge=0.0, le=1.0)
+    tautology_penalty: float = Field(ge=0.0, le=1.0)
+    scope_risk_penalty: float = Field(ge=0.0, le=1.0)
+    final_score: float = Field(ge=0.0, le=1.0)
+    score_explanation: str = Field(min_length=1)
+
+
+class LLMRoutePlanningRawArtifact(StrictModel):
+    """Secret-free raw provenance for one LLM route/spec planning call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt: LLMRoutePlanningPrompt
+    raw_response: dict[str, Any]
+    accepted_route_id_optional: str | None = None
+    accepted_spec_id_optional: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMRoutePlanningReport(StrictModel):
+    """Append-only non-fake LLM route and execution-spec planning report."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    planning_status: Literal["completed", "completed_with_warnings", "failed"]
+    config: LLMRoutePlanningConfig
+    source_substrate_report_path: str = Field(min_length=1)
+    source_scientific_substrate_paths: list[str] = Field(default_factory=list)
+    source_variant_report_path: str = Field(min_length=1)
+    source_deep_opportunity_report_path: str = Field(min_length=1)
+    selected_substrate_count: int = Field(ge=0)
+    route_decision_count: int = Field(ge=0)
+    execution_spec_count: int = Field(ge=0)
+    rejected_output_count: int = Field(ge=0)
+    repaired_output_count: int = Field(ge=0)
+    route_type_coverage: int = Field(ge=0)
+    route_type_counts: dict[str, int] = Field(default_factory=dict)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    compatibility_branch_route_plan_path: str = Field(min_length=1)
+    compatibility_route_execution_specs_path: str = Field(min_length=1)
+    decisions: list[LLMRouteDecisionCandidate] = Field(default_factory=list)
+    execution_specs: list[LLMExecutionSpecCandidate] = Field(default_factory=list)
+    scores: list[LLMRoutePlanningScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMRoutePlanningInspectionReport(StrictModel):
+    """Read-only inspection of the latest LLM route-planning report."""
+
+    run_id: str = Field(min_length=1)
+    llm_route_planning_present: bool
+    latest_report_id_optional: str | None = None
+    planning_status_optional: str | None = None
+    selected_substrate_count: int = Field(default=0, ge=0)
+    route_decision_count: int = Field(default=0, ge=0)
+    execution_spec_count: int = Field(default=0, ge=0)
+    rejected_output_count: int = Field(default=0, ge=0)
+    repaired_output_count: int = Field(default=0, ge=0)
+    route_type_coverage: int = Field(default=0, ge=0)
+    route_type_counts: dict[str, int] = Field(default_factory=dict)
+    decisions: list[LLMRouteDecisionCandidate] = Field(default_factory=list)
+    execution_specs: list[LLMExecutionSpecCandidate] = Field(default_factory=list)
+    scores: list[LLMRoutePlanningScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class DomainPrimitive(StrictModel):
     """One deterministic Stage 0 primitive extracted from a broad research domain."""
 
@@ -1357,7 +1559,7 @@ class BranchRoutePlan(StrictModel):
 
     run_id: str = Field(min_length=1)
     routing_id: str = Field(min_length=1)
-    routing_backend: Literal["deterministic"] = "deterministic"
+    routing_backend: Literal["deterministic", "llm_openai", "llm_other"] = "deterministic"
     source_scientific_substrate_build_path: str = Field(min_length=1)
     substrate_count: int = Field(ge=0)
     route_count: int = Field(ge=0)
@@ -1398,16 +1600,6 @@ class BranchRouteInspectionReport(StrictModel):
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
-
-
-RouteEvidenceLabel = Literal[
-    "SyntheticExperimentEvidence",
-    "BenchmarkEvidence",
-    "SymbolicReductionDraft",
-    "NegativeResult",
-    "InconclusiveResult",
-    "UnsupportedRouteDeferred",
-]
 
 
 class RouteExecutionInputContract(StrictModel):
@@ -5985,6 +6177,14 @@ __all__ = [
     "LLMSubstrateRawArtifact",
     "LLMSubstrateConstructionReport",
     "LLMSubstrateConstructionInspectionReport",
+    "LLMRoutePlanningConfig",
+    "LLMRoutePlanningPrompt",
+    "LLMRouteDecisionCandidate",
+    "LLMExecutionSpecCandidate",
+    "LLMRoutePlanningScore",
+    "LLMRoutePlanningRawArtifact",
+    "LLMRoutePlanningReport",
+    "LLMRoutePlanningInspectionReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

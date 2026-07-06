@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.66.0/substrate-experiment-routing-report.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/substrate-experiment-routing-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only route from a selected substrate to an approved local bundle.",
@@ -148,7 +148,7 @@
   ],
   "title": "SubstrateExperimentRoutingReport",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.SubstrateExperimentRoutingReport",
   "x-factori-verification-evidence": false
 }

@@ -14,6 +14,7 @@ from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
 from factori.adapters.deep_opportunity import OpenAIDeepOpportunityGenerator
 from factori.adapters.errors import AdapterError
+from factori.adapters.llm_route_planning import OpenAILLMRoutePlanner
 from factori.adapters.llm_substrate import OpenAILLMSubstrateGenerator
 from factori.adapters.llm_variance import OpenAILLMVarianceGenerator
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
@@ -225,6 +226,12 @@ from factori.llm_orchestration import (
     llm_orchestration_result_model,
     run_llm_paper_orchestration,
 )
+from factori.llm_route_planning import (
+    LLMRoutePlanningError,
+    inspect_llm_routes,
+    plan_llm_routes,
+    render_llm_route_text,
+)
 from factori.llm_substrate import (
     LLMSubstrateError,
     construct_llm_substrates,
@@ -331,6 +338,7 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     LLMBudgetConfig,
     LLMOrchestrationConfig,
+    LLMRoutePlanningConfig,
     LLMSubstrateConstructionConfig,
     LLMVarianceGenerationConfig,
     PipelineDryRunPlan,
@@ -4461,6 +4469,94 @@ def inspect_llm_substrates_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_llm_substrate_text(report))
+
+
+@app.command("plan-llm-routes")
+def plan_llm_routes_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_source_substrates: Annotated[
+        int,
+        typer.Option("--max-source-substrates"),
+    ] = 12,
+    max_planning_calls: Annotated[
+        int,
+        typer.Option("--max-planning-calls"),
+    ] = 12,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan scientific routes and non-executing specs with a gated LLM."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai route planning is implemented; no deterministic fallback exists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        planner = OpenAILLMRoutePlanner(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        config = LLMRoutePlanningConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=max_source_substrates,
+            max_planning_calls=max_planning_calls,
+            require_non_fake_backends=require_non_fake_backends,
+        )
+        result = plan_llm_routes(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            planner=planner,
+            config=config,
+        )
+    except (AdapterError, LLMRoutePlanningError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"selected_substrate_count={result.report.selected_substrate_count}")
+    typer.echo(f"route_decision_count={result.report.route_decision_count}")
+    typer.echo(f"execution_spec_count={result.report.execution_spec_count}")
+    typer.echo(f"route_type_coverage={result.report.route_type_coverage}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-llm-routes")
+def inspect_llm_routes_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest non-fake LLM route-planning report."""
+    try:
+        report = inspect_llm_routes(run_id=run_id, root=root)
+    except LLMRoutePlanningError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_llm_route_text(report))
 
 
 @app.command("discover-opportunities")

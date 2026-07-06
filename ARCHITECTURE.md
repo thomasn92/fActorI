@@ -96,6 +96,13 @@ duplicates, and selects for domain, method, and route coverage. Selected candida
 persisted through the standard ScientificSubstrate contract for downstream routing, but neither
 representation creates evidence, validation, or publication readiness.
 
+LLM route planning replaces heuristic scientific routing on the strict production path. For each
+selected LLM substrate, the recorded non-fake LLM chooses one preferred route and authors a bounded
+execution contract with baselines, controls, metrics, robustness checks, success/failure criteria,
+and claim boundaries. Local validation enforces route-specific label policy and requires executable
+experiment contracts, proof obligations, or retrieval queries as appropriate. Compatibility route
+and spec artifacts remain non-executing context; M101 computes no metrics and creates no evidence.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

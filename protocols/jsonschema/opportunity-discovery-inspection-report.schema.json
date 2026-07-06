@@ -581,6 +581,7 @@
         "substrate_selection",
         "branch_routing",
         "experiment_design",
+        "spec_validation",
         "experiment_code_generation",
         "experiment_execution",
         "metric_computation",
@@ -669,7 +670,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.66.0/opportunity-discovery-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/opportunity-discovery-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for latest Stage 0 opportunity discovery.",
@@ -803,7 +804,7 @@
   ],
   "title": "OpportunityDiscoveryInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.OpportunityDiscoveryInspectionReport",
   "x-factori-verification-evidence": false
 }

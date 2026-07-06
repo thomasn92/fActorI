@@ -1,0 +1,405 @@
+{
+  "$defs": {
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    },
+    "RouteExecutionInputContract": {
+      "additionalProperties": false,
+      "description": "Bounded substrate inputs copied into a deterministic route execution spec.",
+      "properties": {
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "dgp_or_dataset": {
+          "minLength": 1,
+          "title": "Dgp Or Dataset",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "equations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Equations",
+          "type": "array"
+        },
+        "measurable_hypothesis": {
+          "minLength": 1,
+          "title": "Measurable Hypothesis",
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "model_type": {
+          "minLength": 1,
+          "title": "Model Type",
+          "type": "string"
+        },
+        "proposed_method": {
+          "minLength": 1,
+          "title": "Proposed Method",
+          "type": "string"
+        },
+        "route_parameters": {
+          "additionalProperties": true,
+          "title": "Route Parameters",
+          "type": "object"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "substrate_title": {
+          "minLength": 1,
+          "title": "Substrate Title",
+          "type": "string"
+        },
+        "variables_and_notation": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Variables And Notation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "substrate_title",
+        "domain",
+        "model_type",
+        "equations",
+        "dgp_or_dataset",
+        "baseline",
+        "proposed_method",
+        "measurable_hypothesis",
+        "seed"
+      ],
+      "title": "RouteExecutionInputContract",
+      "type": "object"
+    },
+    "RouteExecutionOutputContract": {
+      "additionalProperties": false,
+      "description": "Required bounded outputs and support boundary for one route execution.",
+      "properties": {
+        "failure_criterion": {
+          "minLength": 1,
+          "title": "Failure Criterion",
+          "type": "string"
+        },
+        "required_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Metrics",
+          "type": "array"
+        },
+        "required_payload_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Payload Fields",
+          "type": "array"
+        },
+        "scope_label": {
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "success_criterion": {
+          "minLength": 1,
+          "title": "Success Criterion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope_label",
+        "success_criterion",
+        "failure_criterion"
+      ],
+      "title": "RouteExecutionOutputContract",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.67.0/llm-execution-spec-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One LLM-authored non-executing route specification.",
+  "properties": {
+    "allowed_evidence_labels": {
+      "items": {
+        "enum": [
+          "SyntheticExperimentEvidence",
+          "BenchmarkEvidence",
+          "CounterexampleEvidence",
+          "SymbolicDerivationDraft",
+          "SymbolicReductionDraft",
+          "ProofPlanDraft",
+          "RetrievalNoveltyAssessment",
+          "NegativeResult",
+          "InconclusiveResult",
+          "UnsupportedRouteDeferred",
+          "RejectedFalseBridge"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Evidence Labels",
+      "type": "array"
+    },
+    "baseline_plan": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Baseline Plan",
+      "type": "array"
+    },
+    "control_plan": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Control Plan",
+      "type": "array"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_backend_required": {
+      "minLength": 1,
+      "title": "Execution Backend Required",
+      "type": "string"
+    },
+    "expected_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Expected Artifacts",
+      "type": "array"
+    },
+    "failure_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Failure Criteria",
+      "type": "array"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "formalization_target_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Formalization Target Optional"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "input_contract": {
+      "$ref": "#/$defs/RouteExecutionInputContract"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_plan": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Metric Plan",
+      "type": "array"
+    },
+    "negative_control_plan": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Negative Control Plan",
+      "type": "array"
+    },
+    "objective": {
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "output_contract": {
+      "$ref": "#/$defs/RouteExecutionOutputContract"
+    },
+    "proof_obligations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Proof Obligations",
+      "type": "array"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "requires_code_generation": {
+      "title": "Requires Code Generation",
+      "type": "boolean"
+    },
+    "requires_human_review": {
+      "title": "Requires Human Review",
+      "type": "boolean"
+    },
+    "requires_literature_retrieval": {
+      "title": "Requires Literature Retrieval",
+      "type": "boolean"
+    },
+    "requires_symbolic_checker": {
+      "title": "Requires Symbolic Checker",
+      "type": "boolean"
+    },
+    "retrieval_queries": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Retrieval Queries",
+      "type": "array"
+    },
+    "robustness_plan": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Robustness Plan",
+      "type": "array"
+    },
+    "route_id": {
+      "minLength": 1,
+      "title": "Route Id",
+      "type": "string"
+    },
+    "route_type": {
+      "$ref": "#/$defs/BranchRouteType"
+    },
+    "sandbox_requirements": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sandbox Requirements",
+      "type": "array"
+    },
+    "source_substrate_id": {
+      "minLength": 1,
+      "title": "Source Substrate Id",
+      "type": "string"
+    },
+    "spec_id": {
+      "minLength": 1,
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "success_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Success Criteria",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "spec_id",
+    "route_id",
+    "source_substrate_id",
+    "route_type",
+    "title",
+    "objective",
+    "input_contract",
+    "output_contract",
+    "baseline_plan",
+    "control_plan",
+    "negative_control_plan",
+    "robustness_plan",
+    "metric_plan",
+    "success_criteria",
+    "failure_criteria",
+    "expected_artifacts",
+    "allowed_evidence_labels",
+    "forbidden_claims",
+    "execution_backend_required",
+    "requires_code_generation",
+    "requires_literature_retrieval",
+    "requires_symbolic_checker",
+    "requires_human_review"
+  ],
+  "title": "LLMExecutionSpecCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.67.0",
+  "x-factori-source-model": "factori.schemas.LLMExecutionSpecCandidate",
+  "x-factori-verification-evidence": false
+}

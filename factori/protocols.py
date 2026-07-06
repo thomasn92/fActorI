@@ -181,6 +181,7 @@ from factori.schemas import (
     LLMCallAccountingRecord,
     LLMCallStatus,
     LLMCandidateParseReport,
+    LLMExecutionSpecCandidate,
     LLMOpportunityDiscoveryRawArtifact,
     LLMOrchestrationConfig,
     LLMOrchestrationReport,
@@ -193,6 +194,13 @@ from factori.schemas import (
     LLMPairRankingResult,
     LLMPromptContract,
     LLMReviewerParseResult,
+    LLMRouteDecisionCandidate,
+    LLMRoutePlanningConfig,
+    LLMRoutePlanningInspectionReport,
+    LLMRoutePlanningPrompt,
+    LLMRoutePlanningRawArtifact,
+    LLMRoutePlanningReport,
+    LLMRoutePlanningScore,
     LLMRunSafetyReport,
     LLMScientificSubstrateCandidate,
     LLMSubstrateConstructionConfig,
@@ -346,7 +354,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.66.0"
+PROTOCOL_VERSION = "0.67.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -747,6 +755,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "LLMSubstrateConstructionInspectionReport",
         LLMSubstrateConstructionInspectionReport,
         "Read-only inspection of the latest LLM substrate construction report.",
+    ),
+    ProtocolDefinition(
+        "LLMRoutePlanningConfig",
+        LLMRoutePlanningConfig,
+        "Bounded configuration for non-fake LLM route and execution-spec planning.",
+    ),
+    ProtocolDefinition(
+        "LLMRoutePlanningPrompt",
+        LLMRoutePlanningPrompt,
+        "Secret-free prompt contract for one LLM route-planning call.",
+    ),
+    ProtocolDefinition(
+        "LLMRouteDecisionCandidate",
+        LLMRouteDecisionCandidate,
+        "One non-fake LLM scientific route decision candidate.",
+    ),
+    ProtocolDefinition(
+        "LLMExecutionSpecCandidate",
+        LLMExecutionSpecCandidate,
+        "One LLM-authored non-executing route specification.",
+    ),
+    ProtocolDefinition(
+        "LLMRoutePlanningScore",
+        LLMRoutePlanningScore,
+        "Non-fake LLM scientific score for one route/spec pair.",
+    ),
+    ProtocolDefinition(
+        "LLMRoutePlanningRawArtifact",
+        LLMRoutePlanningRawArtifact,
+        "Secret-free raw prompt and response provenance for route planning.",
+    ),
+    ProtocolDefinition(
+        "LLMRoutePlanningReport",
+        LLMRoutePlanningReport,
+        "Append-only non-fake LLM route and execution-spec planning report.",
+    ),
+    ProtocolDefinition(
+        "LLMRoutePlanningInspectionReport",
+        LLMRoutePlanningInspectionReport,
+        "Read-only inspection of the latest LLM route-planning report.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

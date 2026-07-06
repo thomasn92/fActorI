@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.66.0/llm-orchestration-step-status.schema.json",
+  "$id": "https://schemas.factori.local/0.67.0/llm-orchestration-step-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "LLM paper orchestration step status enum.",
   "enum": [
@@ -12,7 +12,7 @@
   ],
   "title": "LLMOrchestrationStepStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.66.0",
+  "x-factori-protocol-version": "0.67.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationStepStatus",
   "x-factori-verification-evidence": false
 }

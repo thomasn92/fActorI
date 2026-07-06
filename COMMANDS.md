@@ -934,6 +934,12 @@ strict runs also use `--require-non-fake-backends` and reject non-production sou
 fallback. `inspect-llm-substrates` reads the latest report without mutation. Selected outputs are
 also available through `inspect-scientific-substrate` for downstream route planning.
 
+`plan-llm-routes` reads selected M100 substrates and uses the gated `llm-openai` backend to choose
+scientific routes and author bounded execution specs. Strict mode rejects fallback, unsafe labels,
+non-executable experiment contracts, missing proof obligations, and retrieval-free literature
+routes. `inspect-llm-routes` is read-only. M101 plans only: it does not generate code, execute
+experiments, compute metrics, or create evidence.
+
 ## Tests and Lint
 
 Canonical `uv` commands:
