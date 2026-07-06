@@ -127,6 +127,10 @@ completed run from disk and checks consistency without changing provenance.
   mechanism, robustness, counterexample, benchmark, representation, stronger-baseline, and
   negative-control branches; deterministic selection and IdeaTree construction preserve backend
   and retrieval provenance without authoring science or creating evidence.
+- schema-constrained non-fake LLM ScientificSubstrate construction from selected variance nodes,
+  including concrete model objects, notation, assumptions, baselines, bounded verification plans,
+  result schemas, negative controls, failure modes, and limitations; deterministic validation and
+  coverage selection do not author science or create evidence.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

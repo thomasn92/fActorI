@@ -151,6 +151,12 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     construct_llm_tree = CliRunner().invoke(
         app, ["construct-idea-tree-from-llm-variance", "--help"]
     )
+    construct_llm_substrates = CliRunner().invoke(
+        app, ["construct-llm-substrates", "--help"]
+    )
+    inspect_llm_substrates = CliRunner().invoke(
+        app, ["inspect-llm-substrates", "--help"]
+    )
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -193,6 +199,11 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--json" in inspect_llm_variance.output
     assert construct_llm_tree.exit_code == 0, construct_llm_tree.output
     assert "--run-id" in construct_llm_tree.output
+    assert construct_llm_substrates.exit_code == 0, construct_llm_substrates.output
+    assert "--require-non-fake" in construct_llm_substrates.output
+    assert "--allow-external-calls" in construct_llm_substrates.output
+    assert inspect_llm_substrates.exit_code == 0, inspect_llm_substrates.output
+    assert "--json" in inspect_llm_substrates.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output

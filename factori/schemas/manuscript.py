@@ -767,6 +767,195 @@ class LLMVarianceGenerationInspectionReport(StrictModel):
     is_verification_evidence: Literal[False] = False
 
 
+LLMSubstrateRouteHint = Literal[
+    "synthetic_experiment",
+    "benchmark_tournament",
+    "counterexample_search",
+    "symbolic_derivation",
+    "applied_math_reduction",
+    "proof_plan",
+    "literature_novelty_check",
+    "defer_insufficient_substrate",
+    "reject_false_bridge",
+]
+
+
+class LLMSubstrateConstructionConfig(StrictModel):
+    """Bounded configuration for non-fake LLM substrate construction."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    max_source_variants: int = Field(default=30, ge=1)
+    max_constructed_substrates: int = Field(default=20, ge=1)
+    max_selected_substrates: int = Field(default=12, ge=1)
+    max_generation_calls: int = Field(default=20, ge=1)
+    min_domain_family_coverage: int = Field(default=4, ge=1)
+    min_method_family_coverage: int = Field(default=4, ge=1)
+    min_route_hint_coverage: int = Field(default=3, ge=1, le=9)
+    near_duplicate_suppression: bool = True
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class LLMSubstratePrompt(StrictModel):
+    """Secret-free prompt contract for one selected LLM variance node."""
+
+    prompt_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    source_variant_id: str = Field(min_length=1)
+    source_payload: dict[str, Any]
+    opportunity_payload: dict[str, Any]
+    retrieval_context_payload: dict[str, Any]
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+
+
+class LLMScientificSubstrateCandidate(StrictModel):
+    """One LLM-authored concrete scientific substrate candidate."""
+
+    substrate_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_idea_node_id: str = Field(min_length=1)
+    source_variant_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    source_pair_id: str = Field(min_length=1)
+    domain_id: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    domain_problem: str = Field(min_length=1)
+    central_tension: str = Field(min_length=1)
+    concrete_model_object: ScientificSubstrateModelObject
+    mathematical_or_computational_form: list[str] = Field(min_length=1)
+    variables_and_notation: list[ScientificSubstrateVariable] = Field(min_length=1)
+    assumptions: list[ScientificSubstrateAssumption] = Field(min_length=1)
+    hypothesis: str = Field(min_length=1)
+    baseline_candidates: list[str] = Field(min_length=1)
+    experiment_or_proof_design: ScientificSubstrateExperimentDesign
+    benchmark_design: str = Field(min_length=1)
+    negative_controls: list[str] = Field(min_length=1)
+    result_schema: ScientificSubstrateResultSchema
+    expected_metrics: list[str] = Field(min_length=1)
+    failure_modes: list[str] = Field(min_length=1)
+    limitations: list[str] = Field(min_length=1)
+    scope_boundary: str = Field(min_length=1)
+    verification_path: str = Field(min_length=1)
+    route_hint: LLMSubstrateRouteHint
+    novelty_risk: str = Field(min_length=1)
+    false_bridge_risk: str = Field(min_length=1)
+    tautology_risk: str = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+    @field_validator("novelty_risk")
+    @classmethod
+    def require_hypothesis_scope(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.lower().startswith("hypothesis:"):
+            raise ValueError("novelty risk must begin with 'Hypothesis:'")
+        return normalized
+
+
+class LLMSubstrateConstructionScore(StrictModel):
+    """Non-fake LLM score for one constructed scientific substrate."""
+
+    substrate_id: str = Field(min_length=1)
+    model_concreteness: float = Field(ge=0.0, le=1.0)
+    baseline_quality: float = Field(ge=0.0, le=1.0)
+    verification_feasibility: float = Field(ge=0.0, le=1.0)
+    assumption_clarity: float = Field(ge=0.0, le=1.0)
+    metric_clarity: float = Field(ge=0.0, le=1.0)
+    negative_control_quality: float = Field(ge=0.0, le=1.0)
+    failure_mode_quality: float = Field(ge=0.0, le=1.0)
+    paper_coherence: float = Field(ge=0.0, le=1.0)
+    false_bridge_penalty: float = Field(ge=0.0, le=1.0)
+    tautology_penalty: float = Field(ge=0.0, le=1.0)
+    scope_risk_penalty: float = Field(ge=0.0, le=1.0)
+    final_score: float = Field(ge=0.0, le=1.0)
+    score_explanation: str = Field(min_length=1)
+
+
+class LLMSubstrateRawArtifact(StrictModel):
+    """Secret-free raw prompt/response provenance for one substrate call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_variant_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt: LLMSubstratePrompt
+    raw_response: dict[str, Any]
+    accepted_substrate_id_optional: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMSubstrateConstructionReport(StrictModel):
+    """Append-only non-fake LLM scientific substrate construction report."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    construction_status: Literal["completed", "completed_with_warnings", "failed"]
+    config: LLMSubstrateConstructionConfig
+    source_variance_report_path: str = Field(min_length=1)
+    source_idea_tree_construction_report_path: str = Field(min_length=1)
+    source_deep_opportunity_report_path: str = Field(min_length=1)
+    source_variant_count: int = Field(ge=0)
+    constructed_substrate_count: int = Field(ge=0)
+    rejected_substrate_count: int = Field(ge=0)
+    repaired_substrate_count: int = Field(ge=0)
+    selected_substrate_count: int = Field(ge=0)
+    domain_family_coverage: int = Field(ge=0)
+    method_family_coverage: int = Field(ge=0)
+    route_hint_coverage: int = Field(ge=0)
+    near_duplicate_suppressed_count: int = Field(ge=0)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    scientific_substrate_paths: list[str] = Field(default_factory=list)
+    candidates: list[LLMScientificSubstrateCandidate] = Field(default_factory=list)
+    scores: list[LLMSubstrateConstructionScore] = Field(default_factory=list)
+    selected_substrate_ids: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMSubstrateConstructionInspectionReport(StrictModel):
+    """Read-only inspection of the latest LLM substrate report."""
+
+    run_id: str = Field(min_length=1)
+    llm_substrate_construction_present: bool
+    latest_report_id_optional: str | None = None
+    construction_status_optional: str | None = None
+    source_variant_count: int = Field(default=0, ge=0)
+    constructed_substrate_count: int = Field(default=0, ge=0)
+    rejected_substrate_count: int = Field(default=0, ge=0)
+    repaired_substrate_count: int = Field(default=0, ge=0)
+    selected_substrate_count: int = Field(default=0, ge=0)
+    domain_family_coverage: int = Field(default=0, ge=0)
+    method_family_coverage: int = Field(default=0, ge=0)
+    route_hint_coverage: int = Field(default=0, ge=0)
+    near_duplicate_suppressed_count: int = Field(default=0, ge=0)
+    selected_substrates: list[LLMScientificSubstrateCandidate] = Field(default_factory=list)
+    selected_scores: list[LLMSubstrateConstructionScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class DomainPrimitive(StrictModel):
     """One deterministic Stage 0 primitive extracted from a broad research domain."""
 
@@ -5789,6 +5978,13 @@ __all__ = [
     "LLMVarianceRawArtifact",
     "LLMVarianceGenerationReport",
     "LLMVarianceGenerationInspectionReport",
+    "LLMSubstrateConstructionConfig",
+    "LLMSubstratePrompt",
+    "LLMScientificSubstrateCandidate",
+    "LLMSubstrateConstructionScore",
+    "LLMSubstrateRawArtifact",
+    "LLMSubstrateConstructionReport",
+    "LLMSubstrateConstructionInspectionReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

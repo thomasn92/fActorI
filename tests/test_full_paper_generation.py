@@ -20,6 +20,14 @@ from factori.adapters.deep_opportunity import (
     parse_opportunity_items,
 )
 from factori.adapters.fake import FakeProseGenerator
+from factori.adapters.llm_substrate import (
+    SubstrateCandidateProposal,
+    SubstrateGenerationResponse,
+    SubstrateProposalItem,
+    SubstrateScoreProposal,
+    build_llm_substrate_prompt,
+    parse_substrate_response,
+)
 from factori.adapters.llm_variance import (
     VarianceCandidateProposal,
     VarianceGenerationResponse,
@@ -175,6 +183,12 @@ from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
+from factori.llm_substrate import (
+    LLMSubstrateError,
+    construct_llm_substrates,
+    inspect_llm_substrates,
+    select_llm_substrates,
+)
 from factori.llm_variance import (
     LLMVarianceError,
     construct_idea_tree_from_llm_variance,
@@ -323,6 +337,13 @@ from factori.schemas import (
     LLMPairRankingPrompt,
     LLMPairRankingReport,
     LLMPairRankingResult,
+    LLMScientificSubstrateCandidate,
+    LLMSubstrateConstructionConfig,
+    LLMSubstrateConstructionInspectionReport,
+    LLMSubstrateConstructionReport,
+    LLMSubstrateConstructionScore,
+    LLMSubstratePrompt,
+    LLMSubstrateRawArtifact,
     LLMVarianceBatch,
     LLMVarianceCandidate,
     LLMVarianceGenerationConfig,
@@ -721,6 +742,150 @@ class MockLLMVarianceGenerator:
         )
 
 
+class MockLLMSubstrateGenerator:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-substrate-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self, *, reject_first: bool = False) -> None:
+        self.reject_first = reject_first
+        self.received_variant_ids: list[str] = []
+
+    def construct_substrate(
+        self,
+        *,
+        prompt_id,
+        source_payload,
+        opportunity_payload,
+        retrieval_context_payload,
+    ):
+        variant_id = source_payload["variant_id"]
+        method_id = source_payload["method_id"]
+        call_index = len(self.received_variant_ids)
+        self.received_variant_ids.append(variant_id)
+        prompt = build_llm_substrate_prompt(
+            prompt_id=prompt_id,
+            backend_name=self.backend_name,
+            model=self.model,
+            source_payload=source_payload,
+            opportunity_payload=opportunity_payload,
+            retrieval_context_payload=retrieval_context_payload,
+        )
+        routes = [
+            "synthetic_experiment",
+            "benchmark_tournament",
+            "counterexample_search",
+            "applied_math_reduction",
+        ]
+        candidate = SubstrateCandidateProposal(
+            title=f"Concrete {method_id} substrate for {variant_id}",
+            domain_problem=source_payload["research_question"],
+            central_tension=(
+                "The proposed mechanism must outperform declared baselines without encoding "
+                "the result in the synthetic design."
+            ),
+            concrete_model_object=ScientificSubstrateModelObject(
+                model_type=f"bounded {method_id} operator",
+                equations=[f"{method_id}_theta(x) = x + theta_{call_index}"],
+                algorithm_optional=f"Fit the {method_id} operator on training observations.",
+                parameter_interpretation=["theta controls the proposed bounded mechanism"],
+                identifiability_notes="Identify theta only within the declared synthetic regime.",
+                what_would_falsify_it="No held-out improvement over both baselines.",
+            ),
+            mathematical_or_computational_form=[
+                f"{method_id}_theta(x) = x + theta_{call_index}"
+            ],
+            variables_and_notation=[
+                ScientificSubstrateVariable(
+                    symbol="x",
+                    definition="bounded domain observation",
+                    role="input",
+                ),
+                ScientificSubstrateVariable(
+                    symbol="theta",
+                    definition="mechanism parameter",
+                    role="estimated parameter",
+                ),
+            ],
+            assumptions=[
+                ScientificSubstrateAssumption(
+                    assumption_id="A1",
+                    statement="Synthetic observations follow the declared bounded DGP.",
+                    rationale="The experiment tests mechanism behavior under controlled inputs.",
+                    violation_consequence="The result cannot be transferred outside scope.",
+                )
+            ],
+            hypothesis=(
+                "The proposed bounded mechanism improves held-out error relative to the null "
+                "and regularized baselines."
+            ),
+            baseline_candidates=["null baseline", "regularized baseline"],
+            experiment_or_proof_design=ScientificSubstrateExperimentDesign(
+                target_claim="Bounded synthetic held-out improvement.",
+                data_regime="synthetic_only",
+                dgp="Generate fixed-seed observations under mechanism and null regimes.",
+                train_test_split_optional="80/20 deterministic split",
+                baseline="null and regularized baselines",
+                method=f"fit the {method_id} operator",
+                metrics=["held_out_mae", "held_out_rmse"],
+                seed_plan="Seeds 11, 17, and 23.",
+                ablation_or_stress_test="Remove the mechanism and increase noise.",
+                success_criterion="Both held-out metrics improve across declared seeds.",
+                failure_criterion="Either metric fails to improve or reverses under control.",
+            ),
+            benchmark_design="Compare proposed, null, and regularized models on held-out data.",
+            negative_controls=["set theta to zero", "shuffle the mechanism labels"],
+            result_schema=ScientificSubstrateResultSchema(
+                baseline_metric_names=["baseline_mae", "baseline_rmse"],
+                method_metric_names=["method_mae", "method_rmse"],
+                comparison_direction="lower is better",
+                required_table_columns=["seed", "baseline_mae", "method_mae"],
+                claim_supported_if="method_mae < baseline_mae and method_rmse <= baseline_rmse",
+                claim_not_supported_if="the bounded comparison rule is not satisfied",
+            ),
+            expected_metrics=["held_out_mae", "held_out_rmse"],
+            failure_modes=["no improvement", "control reversal", "unstable parameter recovery"],
+            limitations=["synthetic scope only", "finite seed set"],
+            scope_boundary="This is a proposed bounded synthetic evaluation, not validation.",
+            verification_path="Execute the declared local synthetic benchmark and retain failures.",
+            route_hint=routes[call_index % len(routes)],
+            novelty_risk="Hypothesis: retrieval may reveal a closely related construction.",
+            false_bridge_risk="The method-object mapping may not survive the negative control.",
+            tautology_risk="The DGP may favor the proposed operator.",
+        )
+        item = SubstrateProposalItem(
+            candidate=candidate,
+            score=SubstrateScoreProposal(
+                model_concreteness=0.88,
+                baseline_quality=0.85,
+                verification_feasibility=0.84,
+                assumption_clarity=0.82,
+                metric_clarity=0.86,
+                negative_control_quality=0.81,
+                failure_mode_quality=0.80,
+                paper_coherence=0.83,
+                false_bridge_penalty=0.14,
+                tautology_penalty=0.16,
+                scope_risk_penalty=0.12,
+                final_score=0.88 - call_index * 0.005,
+                score_explanation="Mocked structured LLM substrate score.",
+            ),
+        )
+        reasons = []
+        accepted = item
+        if self.reject_first and call_index == 0:
+            accepted = None
+            reasons = ["method vocabulary is decorative"]
+        return SubstrateGenerationResponse(
+            prompt=prompt,
+            raw_response={"substrates": [item.model_dump(mode="json")]},
+            accepted=accepted,
+            rejection_reasons=reasons,
+        )
+
+
 def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
@@ -758,6 +923,13 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert DeepOpportunityCandidate
     assert DeepOpportunityScore
     assert LLMOpportunityDiscoveryRawArtifact
+    assert LLMSubstrateConstructionConfig
+    assert LLMSubstratePrompt
+    assert LLMScientificSubstrateCandidate
+    assert LLMSubstrateConstructionScore
+    assert LLMSubstrateConstructionReport
+    assert LLMSubstrateConstructionInspectionReport
+    assert LLMSubstrateRawArtifact
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -2302,6 +2474,210 @@ def test_llm_variance_constructs_production_safe_idea_tree(tmp_path) -> None:
     fallback.fallback_used = True
     with pytest.raises(LLMVarianceError, match="forbids deterministic"):
         generate_llm_variance(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            generator=fallback,
+            config=result.report.config,
+        )
+
+
+def test_llm_substrate_parser_rejects_incomplete_and_authority_claims() -> None:
+    generator = MockLLMSubstrateGenerator()
+    response = generator.construct_substrate(
+        prompt_id="substrate-parser-prompt",
+        source_payload={
+            "variant_id": "variant-source",
+            "method_id": "kernel-methods",
+            "research_question": "Does the bounded kernel mechanism improve held-out error?",
+        },
+        opportunity_payload={"opportunity_id": "opportunity-source"},
+        retrieval_context_payload={"retrieval_mode": "real_retrieval"},
+    )
+    valid = response.accepted.model_dump(mode="json")
+    valid["candidate"]["novelty_risk"] = "A close construction may exist."
+    accepted, reasons = parse_substrate_response({"substrates": [valid]})
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.candidate.novelty_risk.startswith("Hypothesis:")
+
+    for field_name in ["baseline_candidates", "verification_path", "result_schema"]:
+        invalid = json.loads(json.dumps(valid))
+        invalid["candidate"].pop(field_name)
+        parsed, rejected = parse_substrate_response({"substrates": [invalid]})
+        assert parsed is None
+        assert field_name in rejected[0]
+
+    for unsafe_text, expected in [
+        ("The model is proven for all regimes.", "claims proof"),
+        ("This supplies real-world validation.", "real-world validation"),
+    ]:
+        invalid = json.loads(json.dumps(valid))
+        invalid["candidate"]["hypothesis"] = unsafe_text
+        parsed, rejected = parse_substrate_response({"substrates": [invalid]})
+        assert parsed is None
+        assert any(expected in item for item in rejected)
+
+
+def test_llm_substrates_construct_production_safe_scientific_objects(tmp_path) -> None:
+    run_id = "run-llm-substrates-strict"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=8,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockDeepOpportunityGenerator(),
+        retriever=MockRealOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="real_retrieval",
+            max_pairs=8,
+            max_generation_calls=8,
+            opportunities_per_pair=2,
+            max_selected_opportunities=16,
+            require_non_fake_backends=True,
+        ),
+    )
+    generate_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockLLMVarianceGenerator(),
+        config=LLMVarianceGenerationConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_opportunities=6,
+            variants_per_opportunity=5,
+            max_variants_total=30,
+            max_selected_variants=20,
+            max_generation_calls=6,
+            min_variant_family_coverage=5,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    construct_idea_tree_from_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    generator = MockLLMSubstrateGenerator(reject_first=True)
+    result = construct_llm_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=generator,
+        config=LLMSubstrateConstructionConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_variants=9,
+            max_constructed_substrates=9,
+            max_selected_substrates=6,
+            max_generation_calls=9,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            min_route_hint_coverage=3,
+            require_non_fake_backends=True,
+        ),
+    )
+    inspected = inspect_llm_substrates(run_id=run_id, root=tmp_path)
+    standard = inspect_scientific_substrate(run_id=run_id, root=tmp_path)
+
+    assert result.report.source_variant_count == 9
+    assert result.report.constructed_substrate_count == 8
+    assert result.report.rejected_substrate_count == 1
+    assert result.report.selected_substrate_count == 6
+    assert result.report.domain_family_coverage >= 4
+    assert result.report.method_family_coverage >= 4
+    assert result.report.route_hint_coverage >= 3
+    assert result.report.production_ready is True
+    assert result.report.publication_ready is False
+    assert all((tmp_path / path).is_file() for path in result.report.raw_artifact_paths)
+    assert all((tmp_path / path).is_file() for path in result.report.scientific_substrate_paths)
+    assert all(item.concrete_model_object.equations for item in result.report.candidates)
+    assert all(item.variables_and_notation for item in result.report.candidates)
+    assert all(item.assumptions for item in result.report.candidates)
+    assert all(item.baseline_candidates for item in result.report.candidates)
+    assert all(item.verification_path for item in result.report.candidates)
+    assert all(item.result_schema.required_table_columns for item in result.report.candidates)
+    assert all(item.negative_controls for item in result.report.candidates)
+    assert all(item.creates_scientific_validation is False for item in result.report.candidates)
+    assert inspected.llm_substrate_construction_present is True
+    assert inspected.selected_substrate_count == 6
+    assert standard.scientific_substrate_present is True
+    assert standard.substrate_count == 6
+    assert any(
+        record.stage_kind == ScientificStageKind.SUBSTRATE_CONSTRUCTION
+        and record.backend_kind == BackendKind.LLM_OPENAI
+        and record.allowed_in_production
+        for record in result.report.backend_records
+    )
+    assert any(
+        record.stage_kind == ScientificStageKind.SUBSTRATE_SELECTION
+        and record.backend_kind == BackendKind.HEURISTIC
+        and record.allowed_in_production
+        and not record.is_scientific_generation
+        and not record.is_scientific_judgment
+        for record in result.report.backend_records
+    )
+
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    pair_by_id = {
+        item.pair_id: item
+        for item in inspect_atlas_scan(run_id=run_id, root=tmp_path).selected_pairs
+    }
+    original = result.report.candidates[0]
+    duplicate = original.model_copy(update={"substrate_id": "exact-duplicate"})
+    original_score = next(
+        item for item in result.report.scores if item.substrate_id == original.substrate_id
+    )
+    duplicate_score = original_score.model_copy(update={"substrate_id": duplicate.substrate_id})
+    selected, _, suppressed = select_llm_substrates(
+        candidates=[original, duplicate],
+        scores=[original_score, duplicate_score],
+        pairs=[pair_by_id[original.source_pair_id]],
+        max_selected=2,
+        min_domain_families=1,
+        min_method_families=1,
+        min_route_hints=1,
+    )
+    assert len(selected) == 1
+    assert suppressed == 1
+
+    fallback = MockLLMSubstrateGenerator()
+    fallback.fallback_used = True
+    with pytest.raises(LLMSubstrateError, match="forbids deterministic fallback"):
+        construct_llm_substrates(
             run_id=run_id,
             root=tmp_path,
             store=store,

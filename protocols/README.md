@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.66.0` adds non-fake LLM ScientificSubstrate construction contracts, including concrete
+model objects, notation, assumptions, baselines, bounded verification designs, result schemas,
+negative controls, failure modes, route hints, scientific scores, raw-call provenance, and
+read-only inspection. Deterministic selection is capacity/diversity infrastructure over LLM-authored
+content; it creates no scientific validation or publication readiness.
+
 Protocol `0.65.0` adds non-fake LLM variance-generation contracts, scientific variant scores and
 batches, secret-free raw-call provenance, deterministic IdeaTree construction reports, and
 optional source-pair, source-opportunity, variant-family, backend, and retrieval-context metadata

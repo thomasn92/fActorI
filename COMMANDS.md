@@ -928,6 +928,12 @@ or non-production M98 input. `inspect-llm-variance` is read-only.
 variant nodes with source-pair, backend, family, and retrieval provenance. It does not generate
 science, evidence, or publication readiness.
 
+`construct-llm-substrates` reads selected M99 variance nodes and uses the gated `llm-openai`
+backend to construct concrete ScientificSubstrates. Live calls require `--allow-external-calls`;
+strict runs also use `--require-non-fake-backends` and reject non-production source variance or any
+fallback. `inspect-llm-substrates` reads the latest report without mutation. Selected outputs are
+also available through `inspect-scientific-substrate` for downstream route planning.
+
 ## Tests and Lint
 
 Canonical `uv` commands:

@@ -304,6 +304,11 @@ All implementation modules are under `factori/`.
   variants, scores, family contracts, and candidate-level boundary rejection.
 - `llm_variance.py`: M98 input loading, non-fake variance orchestration, semantic/source-repeat
   filtering, diversity selection, append-only reports, and deterministic IdeaTree construction.
+- `adapters/llm_substrate.py`: gated OpenAI structured-output adapter for concrete scientific
+  substrate construction and scoring, with completeness and authority-boundary rejection.
+- `llm_substrate.py`: M99 input verification, non-fake substrate orchestration, decorative-bridge
+  and duplicate filtering, coverage selection, append-only provenance, and standard
+  ScientificSubstrate compatibility persistence.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

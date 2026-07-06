@@ -46,6 +46,10 @@ _STAGE_FILES: tuple[tuple[re.Pattern[str], ScientificStageKind], ...] = (
         ScientificStageKind.IDEA_TREE_CONSTRUCTION,
     ),
     (re.compile(r"^substrate-promotion-\d{4}\.json$"), ScientificStageKind.SUBSTRATE_CONSTRUCTION),
+    (
+        re.compile(r"^llm-substrate-construction-report-\d{4}\.json$"),
+        ScientificStageKind.SUBSTRATE_CONSTRUCTION,
+    ),
     (re.compile(r"^branch-route-plan-\d{4}\.json$"), ScientificStageKind.BRANCH_ROUTING),
     (
         re.compile(r"^route-execution-spec-build-\d{4}\.json$"),

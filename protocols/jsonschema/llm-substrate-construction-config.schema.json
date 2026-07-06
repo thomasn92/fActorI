@@ -1,0 +1,85 @@
+{
+  "$id": "https://schemas.factori.local/0.66.0/llm-substrate-construction-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded configuration for non-fake LLM scientific substrate construction.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "fail_on_silent_fallback": {
+      "default": true,
+      "title": "Fail On Silent Fallback",
+      "type": "boolean"
+    },
+    "max_constructed_substrates": {
+      "default": 20,
+      "minimum": 1,
+      "title": "Max Constructed Substrates",
+      "type": "integer"
+    },
+    "max_generation_calls": {
+      "default": 20,
+      "minimum": 1,
+      "title": "Max Generation Calls",
+      "type": "integer"
+    },
+    "max_selected_substrates": {
+      "default": 12,
+      "minimum": 1,
+      "title": "Max Selected Substrates",
+      "type": "integer"
+    },
+    "max_source_variants": {
+      "default": 30,
+      "minimum": 1,
+      "title": "Max Source Variants",
+      "type": "integer"
+    },
+    "min_domain_family_coverage": {
+      "default": 4,
+      "minimum": 1,
+      "title": "Min Domain Family Coverage",
+      "type": "integer"
+    },
+    "min_method_family_coverage": {
+      "default": 4,
+      "minimum": 1,
+      "title": "Min Method Family Coverage",
+      "type": "integer"
+    },
+    "min_route_hint_coverage": {
+      "default": 3,
+      "maximum": 9,
+      "minimum": 1,
+      "title": "Min Route Hint Coverage",
+      "type": "integer"
+    },
+    "near_duplicate_suppression": {
+      "default": true,
+      "title": "Near Duplicate Suppression",
+      "type": "boolean"
+    },
+    "require_non_fake_backends": {
+      "default": false,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "backend"
+  ],
+  "title": "LLMSubstrateConstructionConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.66.0",
+  "x-factori-source-model": "factori.schemas.LLMSubstrateConstructionConfig",
+  "x-factori-verification-evidence": false
+}

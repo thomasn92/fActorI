@@ -194,6 +194,13 @@ from factori.schemas import (
     LLMPromptContract,
     LLMReviewerParseResult,
     LLMRunSafetyReport,
+    LLMScientificSubstrateCandidate,
+    LLMSubstrateConstructionConfig,
+    LLMSubstrateConstructionInspectionReport,
+    LLMSubstrateConstructionReport,
+    LLMSubstrateConstructionScore,
+    LLMSubstratePrompt,
+    LLMSubstrateRawArtifact,
     LLMVarianceBatch,
     LLMVarianceCandidate,
     LLMVarianceGenerationConfig,
@@ -339,7 +346,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.65.0"
+PROTOCOL_VERSION = "0.66.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -705,6 +712,41 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "IdeaTreeConstructionReport",
         IdeaTreeConstructionReport,
         "Deterministic construction context for LLM-authored IdeaTree branches.",
+    ),
+    ProtocolDefinition(
+        "LLMSubstrateConstructionConfig",
+        LLMSubstrateConstructionConfig,
+        "Bounded configuration for non-fake LLM scientific substrate construction.",
+    ),
+    ProtocolDefinition(
+        "LLMSubstratePrompt",
+        LLMSubstratePrompt,
+        "Secret-free prompt contract for one selected LLM variance node.",
+    ),
+    ProtocolDefinition(
+        "LLMScientificSubstrateCandidate",
+        LLMScientificSubstrateCandidate,
+        "One non-fake LLM concrete scientific substrate candidate.",
+    ),
+    ProtocolDefinition(
+        "LLMSubstrateConstructionScore",
+        LLMSubstrateConstructionScore,
+        "Non-fake LLM scientific score for one substrate candidate.",
+    ),
+    ProtocolDefinition(
+        "LLMSubstrateRawArtifact",
+        LLMSubstrateRawArtifact,
+        "Secret-free raw prompt and response provenance for one substrate call.",
+    ),
+    ProtocolDefinition(
+        "LLMSubstrateConstructionReport",
+        LLMSubstrateConstructionReport,
+        "Append-only non-fake LLM substrate construction and selection report.",
+    ),
+    ProtocolDefinition(
+        "LLMSubstrateConstructionInspectionReport",
+        LLMSubstrateConstructionInspectionReport,
+        "Read-only inspection of the latest LLM substrate construction report.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

@@ -23,7 +23,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.65.0/experiment-run-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.66.0/experiment-run-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider-neutral synthetic experiment request contract.",
@@ -154,7 +154,7 @@
   ],
   "title": "ExperimentRunContract",
   "type": "object",
-  "x-factori-protocol-version": "0.65.0",
+  "x-factori-protocol-version": "0.66.0",
   "x-factori-source-model": "factori.schemas.ExperimentRunContract",
   "x-factori-verification-evidence": false
 }

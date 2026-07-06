@@ -1,0 +1,111 @@
+{
+  "$id": "https://schemas.factori.local/0.66.0/llm-substrate-construction-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-fake LLM scientific score for one substrate candidate.",
+  "properties": {
+    "assumption_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Assumption Clarity",
+      "type": "number"
+    },
+    "baseline_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Quality",
+      "type": "number"
+    },
+    "failure_mode_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Failure Mode Quality",
+      "type": "number"
+    },
+    "false_bridge_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "False Bridge Penalty",
+      "type": "number"
+    },
+    "final_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Final Score",
+      "type": "number"
+    },
+    "metric_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Metric Clarity",
+      "type": "number"
+    },
+    "model_concreteness": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Model Concreteness",
+      "type": "number"
+    },
+    "negative_control_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Negative Control Quality",
+      "type": "number"
+    },
+    "paper_coherence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Paper Coherence",
+      "type": "number"
+    },
+    "scope_risk_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scope Risk Penalty",
+      "type": "number"
+    },
+    "score_explanation": {
+      "minLength": 1,
+      "title": "Score Explanation",
+      "type": "string"
+    },
+    "substrate_id": {
+      "minLength": 1,
+      "title": "Substrate Id",
+      "type": "string"
+    },
+    "tautology_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tautology Penalty",
+      "type": "number"
+    },
+    "verification_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Verification Feasibility",
+      "type": "number"
+    }
+  },
+  "required": [
+    "substrate_id",
+    "model_concreteness",
+    "baseline_quality",
+    "verification_feasibility",
+    "assumption_clarity",
+    "metric_clarity",
+    "negative_control_quality",
+    "failure_mode_quality",
+    "paper_coherence",
+    "false_bridge_penalty",
+    "tautology_penalty",
+    "scope_risk_penalty",
+    "final_score",
+    "score_explanation"
+  ],
+  "title": "LLMSubstrateConstructionScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.66.0",
+  "x-factori-source-model": "factori.schemas.LLMSubstrateConstructionScore",
+  "x-factori-verification-evidence": false
+}

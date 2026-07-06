@@ -87,6 +87,15 @@ local construction stage records parent opportunity and child variant nodes for 
 IdeaTree. Construction is production-eligible infrastructure only when its scientific inputs carry
 non-fake, no-fallback provenance.
 
+LLM ScientificSubstrate construction turns selected variance nodes into concrete scientific
+objects through an explicitly gated non-fake structured-output adapter. The LLM supplies model
+objects, equations or algorithms, notation, assumptions, hypotheses, baselines, bounded designs,
+negative controls, result schemas, failure modes, limitations, route hints, and scientific scores.
+Deterministic code validates authority boundaries, rejects decorative bridges, suppresses semantic
+duplicates, and selects for domain, method, and route coverage. Selected candidates are also
+persisted through the standard ScientificSubstrate contract for downstream routing, but neither
+representation creates evidence, validation, or publication readiness.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

@@ -1,0 +1,169 @@
+{
+  "$defs": {
+    "LLMSubstratePrompt": {
+      "additionalProperties": false,
+      "description": "Secret-free prompt contract for one selected LLM variance node.",
+      "properties": {
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "opportunity_payload": {
+          "additionalProperties": true,
+          "title": "Opportunity Payload",
+          "type": "object"
+        },
+        "prompt_id": {
+          "minLength": 1,
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "prompt_text": {
+          "minLength": 1,
+          "title": "Prompt Text",
+          "type": "string"
+        },
+        "requested_output_schema": {
+          "additionalProperties": true,
+          "title": "Requested Output Schema",
+          "type": "object"
+        },
+        "retrieval_context_payload": {
+          "additionalProperties": true,
+          "title": "Retrieval Context Payload",
+          "type": "object"
+        },
+        "source_payload": {
+          "additionalProperties": true,
+          "title": "Source Payload",
+          "type": "object"
+        },
+        "source_variant_id": {
+          "minLength": 1,
+          "title": "Source Variant Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prompt_id",
+        "backend_name",
+        "model",
+        "source_variant_id",
+        "source_payload",
+        "opportunity_payload",
+        "retrieval_context_payload",
+        "prompt_text",
+        "requested_output_schema"
+      ],
+      "title": "LLMSubstratePrompt",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.66.0/llm-substrate-raw-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Secret-free raw prompt and response provenance for one substrate call.",
+  "properties": {
+    "accepted_substrate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accepted Substrate Id Optional"
+    },
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fallback_used": {
+      "default": false,
+      "title": "Fallback Used",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt": {
+      "$ref": "#/$defs/LLMSubstratePrompt"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "raw_artifact_id": {
+      "minLength": 1,
+      "title": "Raw Artifact Id",
+      "type": "string"
+    },
+    "raw_response": {
+      "additionalProperties": true,
+      "title": "Raw Response",
+      "type": "object"
+    },
+    "rejection_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rejection Reasons",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_variant_id": {
+      "minLength": 1,
+      "title": "Source Variant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "raw_artifact_id",
+    "run_id",
+    "source_variant_id",
+    "backend_name",
+    "model",
+    "prompt",
+    "raw_response"
+  ],
+  "title": "LLMSubstrateRawArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.66.0",
+  "x-factori-source-model": "factori.schemas.LLMSubstrateRawArtifact",
+  "x-factori-verification-evidence": false
+}

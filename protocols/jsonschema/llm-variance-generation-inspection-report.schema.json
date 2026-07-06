@@ -330,6 +330,7 @@
         "idea_tree_construction",
         "variance_generation",
         "substrate_construction",
+        "substrate_selection",
         "branch_routing",
         "experiment_design",
         "experiment_code_generation",
@@ -420,7 +421,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.65.0/llm-variance-generation-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.66.0/llm-variance-generation-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest LLM variance generation report.",
@@ -576,7 +577,7 @@
   ],
   "title": "LLMVarianceGenerationInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.65.0",
+  "x-factori-protocol-version": "0.66.0",
   "x-factori-source-model": "factori.schemas.LLMVarianceGenerationInspectionReport",
   "x-factori-verification-evidence": false
 }

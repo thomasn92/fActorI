@@ -363,3 +363,14 @@ without real-world validation or publication readiness.
 - Added append-only raw and generation reports plus deterministic IdeaTree construction reports.
   Reconstructed tree nodes preserve source pair/opportunity, method, variant family, backend kind,
   and retrieval-context metadata without creating evidence or publication readiness.
+
+## M100 LLM ScientificSubstrate Construction
+
+- Added a gated OpenAI structured-output stage that converts selected M99 variance nodes into
+  concrete scientific model objects, notation, assumptions, hypotheses, baselines, bounded
+  verification designs, result schemas, negative controls, failure modes, and limitations.
+- Added candidate-level completeness and authority validation, decorative-method rejection,
+  semantic duplicate suppression, and domain/method/route coverage selection over LLM scores.
+- Added append-only raw and construction reports plus standard ScientificSubstrate compatibility
+  artifacts for downstream routing. Construction is production-eligible only with non-fake M99
+  inputs and no fallback; it creates no evidence, scientific validation, or publication readiness.

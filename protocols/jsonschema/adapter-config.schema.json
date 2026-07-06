@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.65.0/adapter-config.schema.json",
+  "$id": "https://schemas.factori.local/0.66.0/adapter-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Fake-default adapter configuration.",
@@ -218,7 +218,7 @@
   },
   "title": "AdapterConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.65.0",
+  "x-factori-protocol-version": "0.66.0",
   "x-factori-source-model": "factori.adapters.config.AdapterConfig",
   "x-factori-verification-evidence": false
 }
