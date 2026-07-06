@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.62.0/production-mode-violation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One backend authority violation found by a production-mode check.",
+  "properties": {
+    "artifact_id": {
+      "minLength": 1,
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "backend_kind": {
+      "$ref": "#/$defs/BackendKind"
+    },
+    "blocking": {
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "message": {
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "stage_kind": {
+      "$ref": "#/$defs/ScientificStageKind"
+    },
+    "violation_type": {
+      "minLength": 1,
+      "title": "Violation Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "stage_kind",
+    "artifact_id",
+    "backend_kind",
+    "violation_type",
+    "message",
+    "blocking"
+  ],
+  "title": "ProductionModeViolation",
+  "type": "object",
+  "x-factori-protocol-version": "0.62.0",
+  "x-factori-source-model": "factori.schemas.ProductionModeViolation",
+  "x-factori-verification-evidence": false
+}

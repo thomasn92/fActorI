@@ -157,6 +157,12 @@ from factori.planned_spec_execution import (
     execute_planned_specs,
     inspect_planned_spec_execution,
 )
+from factori.production_mode import (
+    check_production_mode,
+    evaluate_production_mode,
+    inspect_backends,
+    stage_backend_record,
+)
 from factori.python_experiment_sandbox import (
     PythonExperimentSandboxError,
     inspect_python_experiment_sandbox,
@@ -186,6 +192,7 @@ from factori.schemas import (
     AutonomousPaperRunReport,
     AutonomousPaperRunStage,
     AutonomousPlanExecutionReport,
+    BackendKind,
     BranchRouteDecision,
     BranchRouteExecutionHint,
     BranchRouteInspectionReport,
@@ -277,6 +284,9 @@ from factori.schemas import (
     PlannedSpecDedupIndex,
     PlannedSpecDuplicateRecord,
     PlannedSpecExecutionReport,
+    ProductionModePolicy,
+    ProductionModeReport,
+    ProductionModeViolation,
     ProofArtifact,
     ProofObligationSpec,
     QualityRepairReport,
@@ -292,6 +302,7 @@ from factori.schemas import (
     RouteExecutionStatus,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
+    ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
     ScientificSubstrateBuildReport,
@@ -300,6 +311,7 @@ from factori.schemas import (
     ScientificSubstrateModelObject,
     ScientificSubstrateResultSchema,
     ScientificSubstrateVariable,
+    StageBackendRecord,
     SubstrateExperimentComparisonTable,
     SubstrateExperimentResult,
     SubstrateExperimentRoutingReport,
@@ -361,6 +373,12 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert RouteExecutionResult
     assert RouteExecutionReport
     assert RouteExecutionInspectionReport
+    assert BackendKind
+    assert ScientificStageKind
+    assert StageBackendRecord
+    assert ProductionModePolicy
+    assert ProductionModeViolation
+    assert ProductionModeReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
     assert HumanReviewArtifact
@@ -554,12 +572,10 @@ def test_opportunity_discovery_extracts_primitives_and_scores_easy_wins(
     assert all(
         opportunity.score_breakdown.S_underuse == 0
         for opportunity in report.opportunities
-        if opportunity.score_breakdown.S_fit < 0.70
-        or opportunity.score_breakdown.S_verify < 0.60
+        if opportunity.score_breakdown.S_fit < 0.70 or opportunity.score_breakdown.S_verify < 0.60
     )
     assert any(
-        opportunity.false_bridge_reasons
-        and not opportunity.score_breakdown.promoted
+        opportunity.false_bridge_reasons and not opportunity.score_breakdown.promoted
         for opportunity in report.opportunities
     )
     assert any(
@@ -571,9 +587,7 @@ def test_opportunity_discovery_extracts_primitives_and_scores_easy_wins(
         ControllerActionType.OPPORTUNITY_DISCOVERY_WRITTEN
     )
     assert result.report_artifact.path.endswith("opportunity-discovery-0001.json")
-    assert (
-        tmp_path / "runs" / run_id / "reports" / "opportunity-discovery-0001.md"
-    ).is_file()
+    assert (tmp_path / "runs" / run_id / "reports" / "opportunity-discovery-0001.md").is_file()
     assert inspection.opportunity_discovery_present is True
     assert inspection.promoted_count == result.report.promoted_count
     assert inspection.seed_constraint_count == result.report.seed_constraint_count
@@ -646,8 +660,7 @@ def test_opportunity_seeded_variance_augments_and_applies_idea_tree(tmp_path) ->
     assert result.report.creates_scientific_validation is False
     assert result.report.is_verification_evidence is False
     assert (
-        result.persistence.commit.action_type
-        == ControllerActionType.VARIANCE_AUGMENTATION_WRITTEN
+        result.persistence.commit.action_type == ControllerActionType.VARIANCE_AUGMENTATION_WRITTEN
     )
 
     duplicated = list(result.report.candidates)
@@ -667,15 +680,12 @@ def test_opportunity_seeded_variance_augments_and_applies_idea_tree(tmp_path) ->
         ledger=ledger,
     )
     tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
-    variance_nodes = [
-        node for node in tree.nodes if node.stage_origin == "variance_augmentation"
-    ]
+    variance_nodes = [node for node in tree.nodes if node.stage_origin == "variance_augmentation"]
     seed_nodes = [node for node in tree.nodes if node.stage_origin == "opportunity_seed"]
 
     assert applied.report.idea_tree_nodes_added == result.report.selected_candidate_count
     assert (
-        applied.persistence.commit.action_type
-        == ControllerActionType.VARIANCE_AUGMENTATION_APPLIED
+        applied.persistence.commit.action_type == ControllerActionType.VARIANCE_AUGMENTATION_APPLIED
     )
     assert len(variance_nodes) == result.report.selected_candidate_count
     assert len(seed_nodes) == result.report.seed_count
@@ -747,9 +757,7 @@ def test_variance_substrate_promotion_preserves_method_and_branch_diversity(
     assert result.report.method_lens_coverage == 8
     assert result.report.branch_family_coverage >= 3
     assert len(set(result.report.created_substrate_ids)) == 8
-    assert {
-        substrate.source_method_lens_id_optional for substrate in result.substrates
-    } == {
+    assert {substrate.source_method_lens_id_optional for substrate in result.substrates} == {
         "optimal_transport",
         "matrix_factorization",
         "graph_curvature",
@@ -759,9 +767,7 @@ def test_variance_substrate_promotion_preserves_method_and_branch_diversity(
         "network_science",
         "kernel_methods",
     }
-    assert {
-        substrate.title for substrate in result.substrates
-    } >= {
+    assert {substrate.title for substrate in result.substrates} >= {
         "Wasserstein Robustness of Synthetic Spatial Accessibility Rankings",
         "Low-Rank Residual Structure in Synthetic OD-Flow Heterogeneity",
         "Curvature-Based Bottleneck Diagnostics in Synthetic Mobility Networks",
@@ -857,25 +863,14 @@ def test_general_branch_router_routes_promoted_substrates_and_fails_closed(
         "synthetic_experiment": 2,
     }
     by_method = {decision.method_lens: decision for decision in result.plan.decisions}
-    assert by_method["optimal transport"].route_type == (
-        BranchRouteType.APPLIED_MATH_REDUCTION
-    )
-    assert by_method["matrix factorization"].route_type == (
-        BranchRouteType.BENCHMARK_TOURNAMENT
-    )
-    assert by_method["graph curvature"].route_type == (
-        BranchRouteType.SYNTHETIC_EXPERIMENT
-    )
-    assert by_method["agent based modeling"].route_type == (
-        BranchRouteType.SYNTHETIC_EXPERIMENT
-    )
-    assert by_method["network science"].route_type == (
-        BranchRouteType.BENCHMARK_TOURNAMENT
-    )
+    assert by_method["optimal transport"].route_type == (BranchRouteType.APPLIED_MATH_REDUCTION)
+    assert by_method["matrix factorization"].route_type == (BranchRouteType.BENCHMARK_TOURNAMENT)
+    assert by_method["graph curvature"].route_type == (BranchRouteType.SYNTHETIC_EXPERIMENT)
+    assert by_method["agent based modeling"].route_type == (BranchRouteType.SYNTHETIC_EXPERIMENT)
+    assert by_method["network science"].route_type == (BranchRouteType.BENCHMARK_TOURNAMENT)
     assert all(decision.execution_hint.executes_now is False for decision in result.plan.decisions)
     assert all(
-        decision.execution_hint.network_required is False
-        for decision in result.plan.decisions
+        decision.execution_hint.network_required is False for decision in result.plan.decisions
     )
     assert all(decision.publication_ready is False for decision in result.plan.decisions)
     assert all(
@@ -887,13 +882,7 @@ def test_general_branch_router_routes_promoted_substrates_and_fails_closed(
     assert inspection.branch_routes_present is True
     assert inspection.route_count == 8
     assert inspection.publication_ready is False
-    assert (
-        tmp_path
-        / "runs"
-        / run_id
-        / "reports"
-        / "branch-route-plan-0001.md"
-    ).is_file()
+    assert (tmp_path / "runs" / run_id / "reports" / "branch-route-plan-0001.md").is_file()
 
     source = promotion.substrates[0]
     counterexample = source.model_copy(
@@ -1087,6 +1076,202 @@ def test_route_execution_builds_specs_and_runs_general_back_half(tmp_path) -> No
     assert inspection.publication_ready is False
 
 
+def test_strict_production_mode_classifies_and_blocks_template_science(tmp_path) -> None:
+    run_id = "run-production-mode"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    discovery = discover_opportunities(
+        run_id=run_id,
+        domain="human geography",
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_methods=20,
+    )
+    variance = augment_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        candidates_per_seed=4,
+        max_total_candidates=40,
+    )
+    apply_variance_augmentation(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    promotion = promote_variance_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        max_substrates=8,
+    )
+    routes = route_branches(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    specs = build_route_execution_specs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    execution = run_route_execution(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    assert discovery.report.backend_records[0].backend_kind == (BackendKind.DETERMINISTIC_TEMPLATE)
+    assert variance.report.backend_records[0].stage_kind == (
+        ScientificStageKind.VARIANCE_GENERATION
+    )
+    assert promotion.report.backend_records[0].allowed_in_production is False
+    assert routes.plan.backend_records[0].backend_kind == BackendKind.HEURISTIC
+    assert specs.report.backend_records[0].stage_kind == ScientificStageKind.EXPERIMENT_DESIGN
+    assert {record.backend_kind for record in execution.report.backend_records} == {
+        BackendKind.FIXTURE
+    }
+    assert all(result.backend_records for result in execution.results)
+
+    inventory = inspect_backends(run_id=run_id, root=tmp_path)
+    assert inventory.stage_count == 7
+    assert inventory.blocking_violation_count == 0
+    assert inventory.production_ready is False
+    assert inventory.publication_ready is False
+
+    development = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=False,
+    )
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert development.report.blocking_violation_count == 0
+    assert strict.report.blocking_violation_count == 7
+    assert strict.report.production_ready is False
+    assert strict.report.publication_ready is False
+    assert {violation.stage_kind for violation in strict.report.violations} >= {
+        ScientificStageKind.OPPORTUNITY_DISCOVERY,
+        ScientificStageKind.VARIANCE_GENERATION,
+        ScientificStageKind.SUBSTRATE_CONSTRUCTION,
+        ScientificStageKind.BRANCH_ROUTING,
+        ScientificStageKind.EXPERIMENT_DESIGN,
+        ScientificStageKind.EXPERIMENT_EXECUTION,
+        ScientificStageKind.METRIC_COMPUTATION,
+    }
+    reports = tmp_path / "runs" / run_id / "reports"
+    assert (reports / "production-mode-report-0001.json").is_file()
+    assert (reports / "production-mode-report-0002.json").is_file()
+
+
+def test_production_policy_allows_execution_audits_and_blocks_missing_or_fallback() -> None:
+    allowed = [
+        stage_backend_record(
+            stage_id="local-execution",
+            stage_kind=ScientificStageKind.EXPERIMENT_EXECUTION,
+            backend_kind=BackendKind.LOCAL_EXECUTION,
+            backend_name="uv_local",
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            reason="Actual local execution artifact.",
+            artifact_ids=["local-execution-artifact"],
+        ),
+        stage_backend_record(
+            stage_id="metric-computation",
+            stage_kind=ScientificStageKind.METRIC_COMPUTATION,
+            backend_kind=BackendKind.LOCAL_EXECUTION,
+            backend_name="computed_metrics",
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            reason="Metrics computed from local execution output.",
+            artifact_ids=["metric-artifact"],
+        ),
+        stage_backend_record(
+            stage_id="claim-audit",
+            stage_kind=ScientificStageKind.CLAIM_AUDIT,
+            backend_kind=BackendKind.HEURISTIC,
+            backend_name="deterministic_claim_audit",
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            reason="Deterministic claim-boundary verification.",
+            artifact_ids=["claim-audit-artifact"],
+        ),
+        stage_backend_record(
+            stage_id="bundle-verification",
+            stage_kind=ScientificStageKind.BUNDLE_VERIFICATION,
+            backend_kind=BackendKind.HEURISTIC,
+            backend_name="hash_bundle_verifier",
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            reason="Deterministic hash and manifest verification.",
+            artifact_ids=["bundle-verification-artifact"],
+        ),
+        stage_backend_record(
+            stage_id="llm-opportunity",
+            stage_kind=ScientificStageKind.OPPORTUNITY_DISCOVERY,
+            backend_kind=BackendKind.LLM_OPENAI,
+            backend_name="openai-opportunity-generator",
+            is_scientific_generation=True,
+            is_scientific_judgment=False,
+            is_execution_or_verification=False,
+            reason="Non-fake scientific generation backend.",
+            artifact_ids=["llm-opportunity-artifact"],
+        ),
+    ]
+    policy = ProductionModePolicy(require_non_fake_backends=True)
+    passing = evaluate_production_mode(
+        run_id="production-policy-pass",
+        records=allowed,
+        policy=policy,
+        expected_stage_kinds=[record.stage_kind for record in allowed],
+    )
+    assert passing.blocking_violation_count == 0
+    assert passing.production_ready is True
+    assert passing.publication_ready is False
+
+    missing = evaluate_production_mode(
+        run_id="production-policy-missing",
+        records=allowed[:1],
+        policy=policy,
+        expected_stage_kinds=[
+            ScientificStageKind.EXPERIMENT_EXECUTION,
+            ScientificStageKind.MANUSCRIPT_SYNTHESIS,
+        ],
+    )
+    assert any(
+        violation.violation_type == "missing_backend_record" for violation in missing.violations
+    )
+
+    silent_fallback = allowed[-1].model_copy(
+        update={"fallback_used": True, "fallback_disclosed": False}
+    )
+    fallback = evaluate_production_mode(
+        run_id="production-policy-fallback",
+        records=[silent_fallback],
+        policy=policy,
+        expected_stage_kinds=[ScientificStageKind.OPPORTUNITY_DISCOVERY],
+    )
+    assert any(violation.violation_type == "silent_fallback" for violation in fallback.violations)
+
+
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
     run_id = "run-idea-tree"
     run_deterministic_pipeline(
@@ -1138,9 +1323,7 @@ def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:
     markdown_path = tmp_path / markdown_export.export_path
     json_path = tmp_path / json_export.export_path
     markdown = markdown_path.read_text(encoding="utf-8")
-    exported = IdeaTreeInspectionReport.model_validate_json(
-        json_path.read_text(encoding="utf-8")
-    )
+    exported = IdeaTreeInspectionReport.model_validate_json(json_path.read_text(encoding="utf-8"))
     assert "Root: human geography" in markdown
     assert "Candidate 1:" in markdown
     assert "Variant" in markdown
@@ -1194,24 +1377,12 @@ def test_idea_space_diagnostic_flags_collapsed_scientific_axes(tmp_path) -> None
     assert any(vector.uses_synthetic_data for vector in report.feature_vectors)
     assert report.diversity_score == "low"
     assert report.near_duplicate_node_pairs
-    assert any(
-        "synthetic stress testing" in warning
-        for warning in report.collapsed_axis_warnings
-    )
-    assert any(
-        "concrete model" in warning for warning in report.missing_axis_warnings
-    )
+    assert any("synthetic stress testing" in warning for warning in report.collapsed_axis_warnings)
+    assert any("concrete model" in warning for warning in report.missing_axis_warnings)
     assert any("equation" in warning for warning in report.missing_axis_warnings)
-    assert any(
-        "validation-mode variants" in warning
-        for warning in report.collapsed_axis_warnings
-    )
-    assert "region-specific distance-decay gravity model" in (
-        report.recommended_mutation_axes
-    )
-    assert "PCA/low-rank OD-flow representation model" in (
-        report.recommended_mutation_axes
-    )
+    assert any("validation-mode variants" in warning for warning in report.collapsed_axis_warnings)
+    assert "region-specific distance-decay gravity model" in (report.recommended_mutation_axes)
+    assert "PCA/low-rank OD-flow representation model" in (report.recommended_mutation_axes)
     assert report.pca_inspired_branch["model_idea"].startswith(
         "Represent regional OD-flow residuals"
     )
@@ -1240,9 +1411,7 @@ def test_scientific_substrate_builds_concrete_models_from_idea_space(
         )
     )
     idea_space = inspect_idea_space(run_id=run_id, root=tmp_path)
-    assert "region-specific distance-decay gravity model" in (
-        idea_space.recommended_mutation_axes
-    )
+    assert "region-specific distance-decay gravity model" in (idea_space.recommended_mutation_axes)
     store = ArtifactStore(tmp_path)
     ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
 
@@ -1255,17 +1424,10 @@ def test_scientific_substrate_builds_concrete_models_from_idea_space(
     )
     inspection = inspect_scientific_substrate(run_id=run_id, root=tmp_path)
     markdown = (
-        tmp_path
-        / "runs"
-        / run_id
-        / "reports"
-        / "scientific-substrate-build-0001.md"
+        tmp_path / "runs" / run_id / "reports" / "scientific-substrate-build-0001.md"
     ).read_text(encoding="utf-8")
 
-    assert (
-        result.persistence.commit.action_type
-        == ControllerActionType.SCIENTIFIC_SUBSTRATE_BUILT
-    )
+    assert result.persistence.commit.action_type == ControllerActionType.SCIENTIFIC_SUBSTRATE_BUILT
     assert result.report.substrate_count >= 2
     assert inspection.scientific_substrate_present is True
     assert inspection.substrate_count >= 2
@@ -1275,17 +1437,14 @@ def test_scientific_substrate_builds_concrete_models_from_idea_space(
     assert inspection.result_schema_present is True
     assert inspection.publication_ready is False
     distance = next(
-        substrate
-        for substrate in result.substrates
-        if "Distance Decay" in substrate.title
+        substrate for substrate in result.substrates if "Distance Decay" in substrate.title
     )
     pca = next(
         substrate for substrate in result.substrates if "Low-Rank Residual" in substrate.title
     )
     assert distance.selected_for_next_experiment is True
     assert (
-        "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)"
-        in distance.concrete_model_object.equations
+        "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)" in distance.concrete_model_object.equations
     )
     assert distance.baseline == "pooled-alpha gravity baseline"
     assert distance.measurable_hypothesis.startswith(
@@ -1356,9 +1515,7 @@ def test_substrate_experiment_routes_executes_and_links_bounded_result(
         "tests/fixtures/experiments/bundles/distance_decay_spatial_interaction"
     )
     assert routed.spec is not None
-    assert routed.spec.model_equation == (
-        "F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)"
-    )
+    assert routed.spec.model_equation == ("F_ij = A_i B_j d_ij^{-alpha_i} exp(epsilon_ij)")
     assert routed.spec.baseline_model == "pooled-alpha gravity model"
     assert routed.spec.method_model == "heterogeneous-alpha spatial interaction model"
     assert {"MAE", "RMSE"} <= set(routed.spec.metric_names)
@@ -1500,9 +1657,7 @@ def test_autonomous_loop_prefers_selected_substrate_experiment_route(tmp_path) -
     routing = inspect_substrate_experiment_routing(run_id=run_id, root=tmp_path)
 
     assert routing["substrate_experiment_routed"] is True
-    assert routing["experiment_bundle_optional"].endswith(
-        "distance_decay_spatial_interaction"
-    )
+    assert routing["experiment_bundle_optional"].endswith("distance_decay_spatial_interaction")
     assert routing["sandbox_status"] == "completed"
     assert routing["comparison_table_present"] is True
     assert loop.report.publication_ready is False
@@ -1591,9 +1746,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     )
     inspected = inspect_substrate_tournament(run_id=run_id, root=tmp_path)
     pca_spec_path = next(
-        path
-        for path in tournament.result.generated_experiment_spec_paths
-        if "pca-low-rank" in path
+        path for path in tournament.result.generated_experiment_spec_paths if "pca-low-rank" in path
     )
     pca_spec = SubstrateExperimentSpec.model_validate_json(
         (tmp_path / pca_spec_path).read_text(encoding="utf-8")
@@ -1670,9 +1823,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         "Gravity Plus Low-Rank Residual Correction for Synthetic OD Heterogeneity"
         in mutation_titles
     )
-    assert "Boundary-Perturbation Robustness of Region-Specific Distance Decay" in (
-        mutation_titles
-    )
+    assert "Boundary-Perturbation Robustness of Region-Specific Distance Decay" in (mutation_titles)
     assert "Kernelized Spatial Interaction Under Synthetic Regional Heterogeneity" in (
         mutation_titles
     )
@@ -1681,17 +1832,14 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     assert applied_mutations.report.new_scientific_substrate_count == 3
     assert post_mutation_inspection.new_idea_tree_nodes_added is True
     assert post_mutation_inspection.new_scientific_substrates_created is True
-    mutation_nodes = [
-        node for node in idea_tree.nodes if node.stage_origin == "creative_mutation"
-    ]
+    mutation_nodes = [node for node in idea_tree.nodes if node.stage_origin == "creative_mutation"]
     assert len(mutation_nodes) >= 3
     assert any("Hierarchical Region-Cluster" in node.title for node in mutation_nodes)
     assert any("Gravity Plus Low-Rank" in node.title for node in mutation_nodes)
     assert any("Boundary-Perturbation" in node.title for node in mutation_nodes)
     assert scientific_substrate_inspection.substrate_count >= 5
     assert any(
-        substrate.concrete_model_object.model_type
-        == "hierarchical_region_cluster_distance_decay"
+        substrate.concrete_model_object.model_type == "hierarchical_region_cluster_distance_decay"
         for substrate in scientific_substrate_inspection.substrates
     )
     assert any(
@@ -1703,9 +1851,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         == "boundary_perturbation_distance_decay_robustness"
         for substrate in scientific_substrate_inspection.substrates
     )
-    assert any(
-        vector.stage_origin == "creative_mutation" for vector in idea_space.feature_vectors
-    )
+    assert any(vector.stage_origin == "creative_mutation" for vector in idea_space.feature_vectors)
     assert all(
         not candidate.publication_ready
         and not candidate.creates_scientific_validation
@@ -1738,8 +1884,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     boundary_entry = next(
         entry
         for entry in mutation_entries
-        if entry.substrate_model_type
-        == "boundary_perturbation_distance_decay_robustness"
+        if entry.substrate_model_type == "boundary_perturbation_distance_decay_robustness"
     )
     original_entry = next(
         entry for entry in mutation_entries if entry.branch_role == "original_winner"
@@ -1788,9 +1933,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         store=store,
         ledger=ledger,
     )
-    verification = verify_final_release_bundle(
-        bundle_path=tmp_path / bundle.report.bundle_path
-    )
+    verification = verify_final_release_bundle(bundle_path=tmp_path / bundle.report.bundle_path)
 
     assert mutation_tournament.result.second_generation_winner_title_optional in title
     assert "A substrate tournament compared serious synthetic branches" in markdown
@@ -1799,10 +1942,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         "| branch | role | outcome | improvement | complexity penalty | robustness | score |"
         in markdown
     )
-    assert (
-        mutation_tournament.result.second_generation_winner_title_optional
-        in markdown
-    )
+    assert mutation_tournament.result.second_generation_winner_title_optional in markdown
     assert "Boundary-Perturbation Robustness" in markdown
     assert "Gravity Plus Low-Rank Residual Correction" in markdown
     assert "Hierarchical Region-Cluster Distance Decay" in markdown
@@ -1831,8 +1971,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     )
     assert generation_preview.context.source_creative_search_report_path is None
     assert all(
-        candidate.source_idea_node_ids
-        == ["creative-mutation-boundary-perturbation-robustness"]
+        candidate.source_idea_node_ids == ["creative-mutation-boundary-perturbation-robustness"]
         for candidate in generation_preview.candidates
     )
     assert generation_preview.mutation_count == 5
@@ -1862,9 +2001,9 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
         min_improvement=0.01,
     )
     search_inspection = inspect_creative_search(run_id=run_id, root=tmp_path)
-    search_markdown = (
-        tmp_path / creative_search.report.final_manuscript_path_optional
-    ).read_text(encoding="utf-8")
+    search_markdown = (tmp_path / creative_search.report.final_manuscript_path_optional).read_text(
+        encoding="utf-8"
+    )
     search_verification = verify_final_release_bundle(
         bundle_path=tmp_path / creative_search.report.final_bundle_path_optional
     )
@@ -1877,8 +2016,7 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     assert creative_search.report.lineage_present is True
     assert creative_search.report.score_improvement_recorded is True
     assert (
-        creative_search.report.starting_winner
-        == tournament.result.winner_substrate_title_optional
+        creative_search.report.starting_winner == tournament.result.winner_substrate_title_optional
     )
     assert (
         creative_search.report.ending_winner
@@ -1902,18 +2040,14 @@ def test_substrate_tournament_runs_distance_and_pca_branches_and_updates_final_m
     generation_tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
     generation_substrates = inspect_scientific_substrate(run_id=run_id, root=tmp_path)
     generation_cycle = creative_search.report.cycles[0]
-    assert creative_search.report.stop_reason is not (
-        CreativeSearchStopReason.NO_NEW_MUTATIONS
-    )
+    assert creative_search.report.stop_reason is not (CreativeSearchStopReason.NO_NEW_MUTATIONS)
     assert generation_cycle.new_idea_nodes_added >= 3
     assert generation_cycle.new_substrates_added >= 3
     assert "generation_mutation_apply" in generation_cycle.steps_executed
     assert generation_inspection.applied_mutation_count >= 3
     assert generation_inspection.new_idea_tree_node_count >= 3
     assert generation_inspection.new_scientific_substrate_count >= 3
-    assert sum(
-        node.stage_origin == "generation_mutation" for node in generation_tree.nodes
-    ) >= 3
+    assert sum(node.stage_origin == "generation_mutation" for node in generation_tree.nodes) >= 3
     assert generation_substrates.substrate_count >= 8
     assert creative_search.report.unsupported_claim_count == 0
     assert creative_search.report.publication_ready is False
@@ -5342,8 +5476,7 @@ def test_final_manuscript_regeneration_is_scoped_safe_and_preferred(tmp_path) ->
     assert final_idea.status == "final"
     assert final_idea.selected_for_final_manuscript is True
     assert any(
-        node.selected_for_final_manuscript and node.status == "selected"
-        for node in idea_tree.nodes
+        node.selected_for_final_manuscript and node.status == "selected" for node in idea_tree.nodes
     )
     assert (tmp_path / result.report.final_manuscript_path).is_file()
     assert (tmp_path / result.report.final_manuscript_structured_path).is_file()
@@ -5602,9 +5735,7 @@ def test_final_release_bundle_assembles_layout_hashes_and_scoped_exports(tmp_pat
     assert inspected_after_verification["final_bundle_hash_mismatch_count"] == 0
     assert paper_after_verification["final_bundle_verified"] is True
     assert lint_after_verification["final_bundle_verification_present"] is True
-    assert lint_after_verification["final_bundle_verification_status"] == (
-        "verified_with_warnings"
-    )
+    assert lint_after_verification["final_bundle_verification_status"] == ("verified_with_warnings")
     assert lint_after_verification["final_bundle_publication_ready_flag"] is False
 
     cli_by_path = CliRunner().invoke(
@@ -5670,9 +5801,7 @@ def test_final_release_bundle_assembles_layout_hashes_and_scoped_exports(tmp_pat
     assert rejected_report.rejected_reference_leak_count == 1
 
     hard_rejected_reference = tampered_bundle("hard-rejected-reference")
-    with (hard_rejected_reference / "paper" / "references.bib").open(
-        "a", encoding="utf-8"
-    ) as file:
+    with (hard_rejected_reference / "paper" / "references.bib").open("a", encoding="utf-8") as file:
         file.write("\n@misc{HardRejectedSourceFixture, title={Hard-rejected source}}\n")
     hard_rejected_report = verify_final_release_bundle(bundle_path=hard_rejected_reference)
     assert hard_rejected_report.verification_status == "failed"
@@ -5700,9 +5829,7 @@ def test_final_release_bundle_assembles_layout_hashes_and_scoped_exports(tmp_pat
     deferred_id = next(
         item["target_claim_id_optional"]
         for item in json.loads(
-            (deferred_claim / "reports" / "autonomous-loop-report.json").read_text(
-                encoding="utf-8"
-            )
+            (deferred_claim / "reports" / "autonomous-loop-report.json").read_text(encoding="utf-8")
         )["gap_terminal_classifications"]
         if item["terminal_class"] == "deferred_exhausted_proof"
     )
@@ -5720,9 +5847,7 @@ def test_final_release_bundle_assembles_layout_hashes_and_scoped_exports(tmp_pat
     deferred_reproducibility_path = (
         deferred_claim / "reproducibility" / "reproducibility-manifest.json"
     )
-    deferred_reproducibility = json.loads(
-        deferred_reproducibility_path.read_text(encoding="utf-8")
-    )
+    deferred_reproducibility = json.loads(deferred_reproducibility_path.read_text(encoding="utf-8"))
     deferred_reproducibility["artifact_hashes"]["claim_evidence_map"] = sha256_file(
         deferred_map_path
     )
@@ -5926,8 +6051,7 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
 
     report = result.report
     assert (
-        result.persistence.commit.action_type
-        == ControllerActionType.AUTONOMOUS_PAPER_RUN_WRITTEN
+        result.persistence.commit.action_type == ControllerActionType.AUTONOMOUS_PAPER_RUN_WRITTEN
     )
     assert report.controller_status in {
         "completed_with_warnings",
@@ -5964,13 +6088,16 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     assert (reports / "autonomous-paper-run-0001.json").is_file()
     assert (reports / "autonomous-paper-run-0001.md").is_file()
     assert (reports / "autonomous-paper-run-index-0001.json").is_file()
-    assert len(
-        [
-            path
-            for path in reports.glob("autonomous-paper-checkpoint-*.json")
-            if "-index-" not in path.name and not path.name.endswith(".meta.json")
-        ]
-    ) == 6
+    assert (
+        len(
+            [
+                path
+                for path in reports.glob("autonomous-paper-checkpoint-*.json")
+                if "-index-" not in path.name and not path.name.endswith(".meta.json")
+            ]
+        )
+        == 6
+    )
     markdown = (reports / "autonomous-paper-run-0001.md").read_text(encoding="utf-8")
     assert "publication_ready: false" in markdown
     assert "inspect-final-release-bundle" in markdown
@@ -6051,9 +6178,7 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     assert (reports / "autonomous-paper-run-index-0002.json").is_file()
     assert (reports / "autonomous-paper-resume-0001.json").is_file()
     assert (reports / "autonomous-paper-resume-0001.md").is_file()
-    assert len(list(reports.glob("final-bundle-verification-*.json"))) == (
-        verification_count + 1
-    )
+    assert len(list(reports.glob("final-bundle-verification-*.json"))) == (verification_count + 1)
 
     checkpoints = inspect_autonomous_paper_checkpoints(run_id=run_id, root=tmp_path)
     resume = inspect_autonomous_paper_resume(run_id=run_id, root=tmp_path)
@@ -6075,9 +6200,7 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     assert lint_after_resume["autonomous_paper_checkpoint_present"] is True
     assert lint_after_resume["autonomous_paper_checkpoint_count"] == 8
     assert lint_after_resume["autonomous_paper_resume_allowed"] is True
-    assert lint_after_resume["autonomous_paper_latest_resume_status"] == (
-        "completed_with_warnings"
-    )
+    assert lint_after_resume["autonomous_paper_latest_resume_status"] == ("completed_with_warnings")
     assert lint_after_resume["autonomous_paper_stages_reused_count"] == 4
     assert lint_after_resume["autonomous_paper_stages_rerun_count"] == 2
 
@@ -6161,9 +6284,7 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     assert any("stale" in item for item in stale_protocol_verification.blockers)
 
     missing_manuscript_root = copied_root("missing-final-manuscript")
-    manuscript_report, _ = latest_final_manuscript_regeneration(
-        missing_manuscript_root, run_id
-    )
+    manuscript_report, _ = latest_final_manuscript_regeneration(missing_manuscript_root, run_id)
     assert manuscript_report is not None
     (missing_manuscript_root / manuscript_report.final_manuscript_path).unlink()
     assert not verify_autonomous_paper_checkpoints(
@@ -6181,10 +6302,7 @@ def test_autonomous_paper_controller_runs_full_mvp_and_fails_closed(tmp_path) ->
     bundle_report, _ = latest_final_release_bundle(corrupt_bundle_root, run_id)
     assert bundle_report is not None
     bundle_hash_path = (
-        corrupt_bundle_root
-        / bundle_report.bundle_path
-        / "reproducibility"
-        / "hashes.sha256"
+        corrupt_bundle_root / bundle_report.bundle_path / "reproducibility" / "hashes.sha256"
     )
     bundle_hash_path.write_text(
         bundle_hash_path.read_text(encoding="utf-8") + "stale\n",
@@ -6250,19 +6368,15 @@ def test_autonomous_paper_reports_stage_c_root_failure_for_openai_candidates(
         reports = root / "runs" / run_id / "reports"
         reports.mkdir(parents=True, exist_ok=True)
         (reports / "stage-a-report.md").write_text(
-            "# Stage A\n\n"
-            "- Generated candidates: 4\n"
-            "- Passing Stage A gate: 4\n",
+            "# Stage A\n\n- Generated candidates: 4\n- Passing Stage A gate: 4\n",
             encoding="utf-8",
         )
         (reports / "stage-b-report.md").write_text(
-            "# Stage B\n\n"
-            "- Passing Stage B: 0\n",
+            "# Stage B\n\n- Passing Stage B: 0\n",
             encoding="utf-8",
         )
         (reports / "stage-c-selection-report.md").write_text(
-            "# Stage C\n\n"
-            "- Stage C ready: 0\n",
+            "# Stage C\n\n- Stage C ready: 0\n",
             encoding="utf-8",
         )
         report = SimpleNamespace(
@@ -6349,9 +6463,7 @@ def test_autonomous_paper_resume_after_injected_base_checkpoint_crash(tmp_path) 
     assert partial["checkpoint_count"] == 1
     assert partial["latest_completed_stage"] == "base_generation"
     assert partial["resume_allowed"] is True
-    assert not list(
-        (tmp_path / "runs" / run_id / "reports").glob("autonomous-paper-run-*.json")
-    )
+    assert not list((tmp_path / "runs" / run_id / "reports").glob("autonomous-paper-run-*.json"))
 
     resumed = run_autonomous_paper(
         config=config,

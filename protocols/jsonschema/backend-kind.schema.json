@@ -1,0 +1,22 @@
+{
+  "$id": "https://schemas.factori.local/0.62.0/backend-kind.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Authority classification for a pipeline backend.",
+  "enum": [
+    "fake",
+    "fixture",
+    "deterministic_template",
+    "heuristic",
+    "llm_openai",
+    "llm_other",
+    "retrieval_real",
+    "local_execution",
+    "symbolic_checker",
+    "human"
+  ],
+  "title": "BackendKind",
+  "type": "string",
+  "x-factori-protocol-version": "0.62.0",
+  "x-factori-source-model": "factori.schemas.BackendKind",
+  "x-factori-verification-evidence": false
+}

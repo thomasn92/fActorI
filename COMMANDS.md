@@ -903,6 +903,12 @@ mutation-tournament winners, prior losers and metrics, idea-space gaps, and all 
 fingerprints. `apply-generation-mutations` appends selected IdeaTree nodes and ScientificSubstrate
 planning objects; neither command routes experiments or creates evidence.
 
+`inspect-backends` reads M91-M95 backend authority records without mutation. `check-production-mode`
+writes an append-only backend audit; add `--require-non-fake-backends` to fail when scientific
+generation/judgment is fake, fixture, template, heuristic-only, missing, or silently substituted.
+The same flag on current M91-M95 generation commands rejects those deterministic scaffold stages
+before they write artifacts.
+
 ## Tests and Lint
 
 Canonical `uv` commands:

@@ -113,6 +113,9 @@ completed run from disk and checks consistency without changing provenance.
 - deterministic offline execution specifications and bounded results for synthetic experiments,
   benchmark tournaments, and applied-math reductions; unsupported route types defer explicitly,
   and no route result creates real-world validation or publication readiness.
+- explicit backend-authority records and strict non-fake production-mode checks that reject
+  template-authored scientific generation, heuristic scientific judgment, and fixture metrics
+  while allowing deterministic infrastructure and genuine local execution/verification stages.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

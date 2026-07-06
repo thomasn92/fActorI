@@ -288,6 +288,9 @@ All implementation modules are under `factori/`.
 - `generation_mutations.py`: deterministic later-generation mutation planning and application
   conditioned on current tournament winners, prior branches, idea-space gaps, and semantic
   de-duplication; writes context-only IdeaTree and ScientificSubstrate additions.
+- `production_mode.py`: backend-authority inventory, legacy M91-M95 classification, strict
+  non-fake policy evaluation, append-only audit reports, and human-readable inspection without
+  scientific evidence or publication-readiness authority.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

@@ -119,9 +119,7 @@ def test_autonomous_paper_cli_commands_are_registered() -> None:
 
 
 def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
-    checkpoints = CliRunner().invoke(
-        app, ["inspect-autonomous-paper-checkpoints", "--help"]
-    )
+    checkpoints = CliRunner().invoke(app, ["inspect-autonomous-paper-checkpoints", "--help"])
     resume = CliRunner().invoke(app, ["inspect-autonomous-paper-resume", "--help"])
 
     assert checkpoints.exit_code == 0, checkpoints.output
@@ -136,27 +134,17 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
-    inspect_augmentation = CliRunner().invoke(
-        app, ["inspect-variance-augmentation", "--help"]
-    )
-    apply_augmentation = CliRunner().invoke(
-        app, ["apply-variance-augmentation", "--help"]
-    )
-    promote_substrates = CliRunner().invoke(
-        app, ["promote-variance-substrates", "--help"]
-    )
-    inspect_promotion = CliRunner().invoke(
-        app, ["inspect-substrate-promotion", "--help"]
-    )
+    inspect_augmentation = CliRunner().invoke(app, ["inspect-variance-augmentation", "--help"])
+    apply_augmentation = CliRunner().invoke(app, ["apply-variance-augmentation", "--help"])
+    promote_substrates = CliRunner().invoke(app, ["promote-variance-substrates", "--help"])
+    inspect_promotion = CliRunner().invoke(app, ["inspect-substrate-promotion", "--help"])
     route_branches = CliRunner().invoke(app, ["route-branches", "--help"])
     inspect_routes = CliRunner().invoke(app, ["inspect-branch-routes", "--help"])
-    build_route_specs = CliRunner().invoke(
-        app, ["build-route-execution-specs", "--help"]
-    )
+    build_route_specs = CliRunner().invoke(app, ["build-route-execution-specs", "--help"])
     run_route_execution = CliRunner().invoke(app, ["run-route-execution", "--help"])
-    inspect_route_execution = CliRunner().invoke(
-        app, ["inspect-route-execution", "--help"]
-    )
+    inspect_route_execution = CliRunner().invoke(app, ["inspect-route-execution", "--help"])
+    inspect_backends = CliRunner().invoke(app, ["inspect-backends", "--help"])
+    check_production = CliRunner().invoke(app, ["check-production-mode", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-idea-tree", "--help"])
     export = CliRunner().invoke(app, ["export-idea-tree", "--help"])
     inspect_space = CliRunner().invoke(app, ["inspect-idea-space", "--help"])
@@ -190,6 +178,10 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--json" in run_route_execution.output
     assert inspect_route_execution.exit_code == 0, inspect_route_execution.output
     assert "--json" in inspect_route_execution.output
+    assert inspect_backends.exit_code == 0, inspect_backends.output
+    assert "--json" in inspect_backends.output
+    assert check_production.exit_code == 0, check_production.output
+    assert "--require-non-fake" in check_production.output
     assert inspect.exit_code == 0, inspect.output
     assert "--run-id" in inspect.output
     assert "--json" in inspect.output
@@ -385,6 +377,40 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
             "--json",
         ],
     )
+    backend_inspection = runner.invoke(
+        app,
+        [
+            "inspect-backends",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    development_check = runner.invoke(
+        app,
+        [
+            "check-production-mode",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    strict_check = runner.invoke(
+        app,
+        [
+            "check-production-mode",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--require-non-fake-backends",
+            "--json",
+        ],
+    )
     tree = runner.invoke(
         app,
         [
@@ -446,17 +472,48 @@ def test_variance_augmentation_cli_generates_inspects_and_applies(tmp_path) -> N
     execution_inspection_payload = json.loads(execution_inspection.output)
     assert execution_inspection_payload["route_execution_present"] is True
     assert execution_inspection_payload["publication_ready"] is False
+    assert backend_inspection.exit_code == 0, backend_inspection.output
+    backend_payload = json.loads(backend_inspection.output)
+    assert backend_payload["stage_count"] == 7
+    assert backend_payload["blocking_violation_count"] == 0
+    assert development_check.exit_code == 0, development_check.output
+    development_payload = json.loads(development_check.output)
+    assert development_payload["blocking_violation_count"] == 0
+    assert development_payload["production_ready"] is False
+    assert strict_check.exit_code == 1, strict_check.output
+    strict_payload = json.loads(strict_check.output)
+    assert strict_payload["blocking_violation_count"] == 7
+    assert strict_payload["production_ready"] is False
+    assert strict_payload["publication_ready"] is False
     assert tree.exit_code == 0, tree.output
     tree_payload = json.loads(tree.output)
     variance_nodes = [
-        node
-        for node in tree_payload["nodes"]
-        if node["stage_origin"] == "variance_augmentation"
+        node for node in tree_payload["nodes"] if node["stage_origin"] == "variance_augmentation"
     ]
     assert len(variance_nodes) == applied_payload["idea_tree_nodes_added"]
     assert all(node["source_opportunity_id_optional"] for node in variance_nodes)
     assert all(node["source_method_lens_id_optional"] for node in variance_nodes)
     assert tree_payload["publication_ready"] is False
+
+
+def test_strict_non_fake_flag_rejects_template_stage_before_writing(tmp_path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "discover-opportunities",
+            "--run-id",
+            "strict-template-stage",
+            "--root",
+            str(tmp_path),
+            "--domain",
+            "human geography",
+            "--require-non-fake-backends",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Strict non-fake production mode rejected opportunity_discovery" in result.output
+    assert not (tmp_path / "runs" / "strict-template-stage").exists()
 
 
 def test_idea_tree_cli_inspects_and_exports_deterministic_run(tmp_path) -> None:
@@ -528,14 +585,9 @@ def test_idea_space_cli_inspects_and_exports_deterministic_run(tmp_path) -> None
     assert payload["diversity_score"] == "low"
     assert payload["effective_rank"] >= 0
     assert payload["publication_ready"] is False
-    assert "PCA/low-rank OD-flow representation model" in (
-        payload["recommended_mutation_axes"]
-    )
+    assert "PCA/low-rank OD-flow representation model" in (payload["recommended_mutation_axes"])
     assert exported.exit_code == 0, exported.output
-    assert (
-        "artifact=runs/cli-idea-space/reports/idea-space-report-0001.md"
-        in exported.output
-    )
+    assert "artifact=runs/cli-idea-space/reports/idea-space-report-0001.md" in exported.output
     assert "publication_ready=false" in exported.output
 
 
@@ -1200,9 +1252,7 @@ def test_hybrid_preflight_does_not_charge_fake_candidate_or_reviewer_calls() -> 
     assert summary["prose_calls"] > 0
     assert summary["claim_adjudication_calls"] == 12
     assert summary["source_relevance_adjudication_calls"] == 4
-    assert summary["estimated_max_calls"] == (
-        summary["prose_calls"] + 12 + 4
-    )
+    assert summary["estimated_max_calls"] == (summary["prose_calls"] + 12 + 4)
 
 
 def test_zero_candidate_call_budget_blocks_only_real_candidate_backend(tmp_path) -> None:

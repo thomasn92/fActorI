@@ -46,11 +46,13 @@ from factori.schemas.candidates import (
     ScoreVector,
 )
 from factori.schemas.enums import (
+    BackendKind,
     BranchRouteType,
     CreativeMutationOperator,
     CreativeSearchStopReason,
     GenerationMutationOperator,
     RouteExecutionStatus,
+    ScientificStageKind,
 )
 from factori.schemas.manuscript import (
     AutonomousEvidenceGapPlan,
@@ -153,6 +155,9 @@ from factori.schemas.manuscript import (
     PlannedSpecExecutionIndex,
     PlannedSpecExecutionItem,
     PlannedSpecExecutionReport,
+    ProductionModePolicy,
+    ProductionModeReport,
+    ProductionModeViolation,
     ProofArtifact,
     ProofObligationSpec,
     PythonExperimentSandboxIndex,
@@ -172,6 +177,7 @@ from factori.schemas.manuscript import (
     SandboxBudgetPolicy,
     SandboxBudgetReport,
     SectionRevisionPlan,
+    StageBackendRecord,
     SubstratePromotionCandidate,
     SubstratePromotionConfig,
     SubstratePromotionDecision,
@@ -217,6 +223,8 @@ from factori.schemas.verification import (
 )
 
 __all__ = [
+    "BackendKind",
+    "ScientificStageKind",
     "Candidate",
     "ScoreVector",
     "LedgerCommit",
@@ -309,6 +317,10 @@ __all__ = [
     "OpportunityDiscoveryReport",
     "OpportunityDiscoveryInspectionReport",
     "OpportunitySeedConstraint",
+    "StageBackendRecord",
+    "ProductionModePolicy",
+    "ProductionModeViolation",
+    "ProductionModeReport",
     "VarianceAugmentationConfig",
     "VarianceAugmentedCandidate",
     "VarianceAugmentationBatch",

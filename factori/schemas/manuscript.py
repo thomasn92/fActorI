@@ -11,6 +11,7 @@ from factori.schemas.artifacts import ArtifactRef
 from factori.schemas.base import HASH_RE, StrictModel
 from factori.schemas.enums import (
     ArtifactType,
+    BackendKind,
     BranchRouteType,
     ChecklistCategory,
     CreativeMutationOperator,
@@ -28,6 +29,7 @@ from factori.schemas.enums import (
     PaperShapeStatus,
     RerunPolicy,
     RouteExecutionStatus,
+    ScientificStageKind,
     VerificationLabel,
 )
 
@@ -96,6 +98,84 @@ class FinalNucleus(StrictModel):
     evidence_artifacts: list[ArtifactRef] = Field(default_factory=list)
     reason: str = Field(min_length=1)
     synthesis_label: str = "AbstractSynthesis"
+
+
+class StageBackendRecord(StrictModel):
+    """Explicit authority classification for one pipeline stage backend."""
+
+    stage_id: str = Field(min_length=1)
+    stage_kind: ScientificStageKind
+    backend_kind: BackendKind
+    backend_name: str = Field(min_length=1)
+    is_scientific_generation: bool
+    is_scientific_judgment: bool
+    is_execution_or_verification: bool
+    allowed_in_production: bool
+    reason: str = Field(min_length=1)
+    artifact_ids: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    fallback_disclosed: bool = True
+
+
+class ProductionModePolicy(StrictModel):
+    """Fail-closed policy separating scientific generation from infrastructure."""
+
+    require_non_fake_backends: bool = False
+    allow_deterministic_infrastructure: bool = True
+    allow_local_execution: bool = True
+    allow_metric_computation: bool = True
+    allow_claim_audit: bool = True
+    allow_bundle_verification: bool = True
+    allow_human_override: bool = True
+    forbidden_backend_kinds: list[BackendKind] = Field(
+        default_factory=lambda: [
+            BackendKind.FAKE,
+            BackendKind.FIXTURE,
+            BackendKind.DETERMINISTIC_TEMPLATE,
+            BackendKind.HEURISTIC,
+        ]
+    )
+    forbidden_scientific_stage_backend_pairs: list[str] = Field(default_factory=list)
+    fail_on_silent_fallback: bool = True
+    fail_on_missing_backend_record: bool = True
+
+
+class ProductionModeViolation(StrictModel):
+    """One production-mode policy violation."""
+
+    stage_kind: ScientificStageKind
+    artifact_id: str = Field(min_length=1)
+    backend_kind: BackendKind
+    violation_type: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    blocking: bool
+
+
+class ProductionModeReport(StrictModel):
+    """Backend inventory and strict-production policy result for one run."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    production_mode_check_present: bool = True
+    require_non_fake_backends: bool
+    stage_count: int = Field(ge=0)
+    scientific_generation_stage_count: int = Field(ge=0)
+    scientific_judgment_stage_count: int = Field(ge=0)
+    execution_or_verification_stage_count: int = Field(ge=0)
+    violation_count: int = Field(ge=0)
+    blocking_violation_count: int = Field(ge=0)
+    allowed_stage_count: int = Field(ge=0)
+    forbidden_stage_count: int = Field(ge=0)
+    production_ready: bool
+    policy: ProductionModePolicy
+    stage_records: list[StageBackendRecord] = Field(default_factory=list)
+    violations: list[ProductionModeViolation] = Field(default_factory=list)
+    missing_stage_kinds: list[ScientificStageKind] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
 
 
 class DomainPrimitive(StrictModel):
@@ -195,6 +275,7 @@ class OpportunityDiscoveryReport(StrictModel):
     method_lenses: list[MethodLens] = Field(default_factory=list)
     opportunities: list[OpportunityCandidate] = Field(default_factory=list)
     seed_constraints: list[OpportunitySeedConstraint] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -324,6 +405,7 @@ class VarianceAugmentationReport(StrictModel):
     batches: list[VarianceAugmentationBatch] = Field(default_factory=list)
     candidates: list[VarianceAugmentedCandidate] = Field(default_factory=list)
     diversity_diagnostic: VarianceDiversityDiagnostic
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     applied_to_idea_tree: bool = False
     applied_candidate_ids: list[str] = Field(default_factory=list)
     idea_tree_nodes_added: int = Field(default=0, ge=0)
@@ -420,6 +502,7 @@ class SubstratePromotionReport(StrictModel):
     created_substrate_paths: list[str] = Field(default_factory=list)
     candidates: list[SubstratePromotionCandidate] = Field(default_factory=list)
     decisions: list[SubstratePromotionDecision] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -510,6 +593,7 @@ class BranchRoutePlan(StrictModel):
     applied_math_reduction_count: int = Field(ge=0)
     proof_plan_count: int = Field(ge=0)
     decisions: list[BranchRouteDecision] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     publication_ready: bool = False
     creates_scientific_validation: bool = False
@@ -592,6 +676,7 @@ class RouteExecutionSpec(StrictModel):
     expected_artifacts: list[str] = Field(default_factory=list)
     allowed_evidence_labels: list[RouteEvidenceLabel] = Field(default_factory=list)
     forbidden_claims: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     publication_ready: bool = False
     creates_real_world_validation: bool = False
 
@@ -614,6 +699,7 @@ class RouteExecutionResult(StrictModel):
     scope_label: str = Field(min_length=1)
     warnings: list[str] = Field(default_factory=list)
     failure_reason_optional: str | None = None
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     creates_scientific_validation: bool = False
     creates_real_world_validation: bool = False
     publication_ready: bool = False
@@ -642,6 +728,7 @@ class RouteExecutionReport(StrictModel):
     result_paths: list[str] = Field(default_factory=list)
     specs: list[RouteExecutionSpec] = Field(default_factory=list)
     results: list[RouteExecutionResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     creates_scientific_validation: bool = False
     creates_real_world_validation: bool = False
@@ -5054,6 +5141,10 @@ __all__ = [
     "AbstractionReport",
     "AbstractionAttackReport",
     "FinalNucleus",
+    "StageBackendRecord",
+    "ProductionModePolicy",
+    "ProductionModeViolation",
+    "ProductionModeReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

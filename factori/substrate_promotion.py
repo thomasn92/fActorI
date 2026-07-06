@@ -12,10 +12,13 @@ from pydantic import ValidationError
 from factori.artifacts import ArtifactStore
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.production_mode import stage_backend_record
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    BackendKind,
     ControllerActionType,
+    ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
     ScientificSubstrateBuildReport,
@@ -35,9 +38,7 @@ from factori.schemas import (
 _PROMOTION_RE = re.compile(r"^substrate-promotion-(\d{4})\.json$")
 _BUILD_RE = re.compile(r"^scientific-substrate-build-(\d{4})\.json$")
 _VARIANCE_RE = re.compile(r"^variance-augmentation-(\d{4})\.json$")
-_VARIANCE_APPLICATION_RE = re.compile(
-    r"^variance-augmentation-application-(\d{4})\.json$"
-)
+_VARIANCE_APPLICATION_RE = re.compile(r"^variance-augmentation-application-(\d{4})\.json$")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 _PREFERRED_FAMILY = {
@@ -104,9 +105,7 @@ def promote_variance_substrates(
     config = SubstratePromotionConfig(max_substrates=max_substrates)
     source_path, variance_report = _load_latest_variance_report(reports)
     selected = [
-        candidate
-        for candidate in variance_report.candidates
-        if candidate.selected_for_idea_tree
+        candidate for candidate in variance_report.candidates if candidate.selected_for_idea_tree
     ]
     if not selected:
         raise SubstratePromotionError(
@@ -138,8 +137,7 @@ def promote_variance_substrates(
         for index, substrate in enumerate(substrates, start=1)
     ]
     substrate_paths = [
-        f"runs/{run_id}/reports/{artifact_id}.json"
-        for artifact_id in substrate_artifact_ids
+        f"runs/{run_id}/reports/{artifact_id}.json" for artifact_id in substrate_artifact_ids
     ]
     substrate_by_candidate = {
         substrate.source_variance_candidate_id_optional: (substrate, path)
@@ -205,6 +203,22 @@ def promote_variance_substrates(
         created_substrate_paths=substrate_paths,
         candidates=scored,
         decisions=decisions,
+        backend_records=[
+            stage_backend_record(
+                stage_id=promotion_id,
+                stage_kind=ScientificStageKind.SUBSTRATE_CONSTRUCTION,
+                backend_kind=BackendKind.DETERMINISTIC_TEMPLATE,
+                backend_name="deterministic_scientific_substrate_templates",
+                is_scientific_generation=True,
+                is_scientific_judgment=False,
+                is_execution_or_verification=False,
+                reason=(
+                    "Concrete model objects, hypotheses, experiment designs, and result schemas "
+                    "come from deterministic substrate templates."
+                ),
+                artifact_ids=[promotion_id, build_report.build_id],
+            )
+        ],
         warnings=warnings,
         publication_ready=False,
         creates_scientific_validation=False,
@@ -227,9 +241,7 @@ def promote_variance_substrates(
             "json",
             metadata,
         )
-        for artifact_id, substrate in zip(
-            substrate_artifact_ids, substrates, strict=True
-        )
+        for artifact_id, substrate in zip(substrate_artifact_ids, substrates, strict=True)
     ]
     specs.extend(
         [
@@ -291,16 +303,13 @@ def inspect_substrate_promotion(
             publication_ready=False,
         )
     try:
-        report = SubstratePromotionReport.model_validate_json(
-            path.read_text(encoding="utf-8")
-        )
+        report = SubstratePromotionReport.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValidationError) as exc:
         raise SubstratePromotionError(f"Could not load substrate promotion: {exc}") from exc
     promoted = [decision for decision in report.decisions if decision.promoted]
     rejected = [decision for decision in report.decisions if not decision.promoted]
     links_present = bool(promoted) and all(
-        decision.created_substrate_id_optional
-        and decision.created_substrate_path_optional
+        decision.created_substrate_id_optional and decision.created_substrate_path_optional
         for decision in promoted
     )
     return SubstratePromotionInspectionReport(
@@ -339,10 +348,7 @@ def render_substrate_promotion_text(report: SubstratePromotionInspectionReport) 
         f"Rejected candidates: {report.rejected_candidate_count}",
         f"Method-lens coverage: {report.method_lens_coverage}",
         f"Branch-family coverage: {report.branch_family_coverage}",
-        (
-            "IdeaTree substrate links: "
-            f"{str(report.idea_tree_substrate_links_present).lower()}"
-        ),
+        (f"IdeaTree substrate links: {str(report.idea_tree_substrate_links_present).lower()}"),
         "Promoted:",
     ]
     lines.extend(
@@ -408,9 +414,7 @@ def _score_candidates(
         template_available = _template_for(candidate) is not None
         buildability = 1.0 if template_available else 0.72
         feasibility = _verification_feasibility(candidate)
-        duplicate_penalty = (
-            0.35 if fingerprints[_semantic_fingerprint(candidate)] > 1 else 0.0
-        )
+        duplicate_penalty = 0.35 if fingerprints[_semantic_fingerprint(candidate)] > 1 else 0.0
         method_coverage = 1.0 - (method_counts[candidate.method_lens] - 1) / total
         family_coverage = 1.0 - (family_counts[candidate.variant_family] - 1) / total
         total_score = _bounded(
@@ -526,9 +530,7 @@ def _decisions(
         linked = substrate_by_candidate.get(candidate.candidate_id)
         promoted_candidate = candidate.candidate_id in rank_by_id
         if promoted_candidate:
-            reason = (
-                "Promoted by composite score with method-lens and branch-family coverage."
-            )
+            reason = "Promoted by composite score with method-lens and branch-family coverage."
         elif not candidate.eligible:
             reason = "; ".join(candidate.rejection_reasons)
         else:
@@ -547,9 +549,7 @@ def _decisions(
                     "method_lens_coverage_score": candidate.method_lens_coverage_score,
                     "branch_family_coverage_score": candidate.branch_family_coverage_score,
                     "duplicate_penalty": candidate.duplicate_penalty,
-                    "verification_path_feasibility": (
-                        candidate.verification_path_feasibility
-                    ),
+                    "verification_path_feasibility": (candidate.verification_path_feasibility),
                     "total_score": candidate.total_score,
                 },
                 reason=reason,
@@ -1044,8 +1044,7 @@ def _verification_feasibility(candidate: VarianceAugmentedCandidate) -> float:
         f"{candidate.data_regime}"
     ).lower()
     if "private data" in text or any(
-        phrase in text
-        for phrase in ("requires network", "network access", "external retrieval")
+        phrase in text for phrase in ("requires network", "network access", "external retrieval")
     ):
         return 0.45
     if "synthetic" in text or "deterministic" in text or "held-out" in text:
@@ -1079,9 +1078,7 @@ def _load_latest_variance_report(
                 application_path.read_text(encoding="utf-8")
             )
         except (OSError, ValidationError) as exc:
-            raise SubstratePromotionError(
-                f"Could not load variance application: {exc}"
-            ) from exc
+            raise SubstratePromotionError(f"Could not load variance application: {exc}") from exc
         source_stem = (
             Path(application.source_augmentation_report_path_optional).stem
             if application.source_augmentation_report_path_optional
@@ -1118,9 +1115,7 @@ def _next_number(reports: Path, pattern: re.Pattern[str]) -> int:
     return int(match.group(1)) + 1 if match else 1
 
 
-def _substrate_artifact_id(
-    build_number: int, index: int, substrate: ScientificSubstrate
-) -> str:
+def _substrate_artifact_id(build_number: int, index: int, substrate: ScientificSubstrate) -> str:
     return f"scientific-substrate-{build_number:04d}-{index:02d}-{_slug(substrate.title)}"
 
 

@@ -13,9 +13,11 @@ from factori.artifacts import ArtifactStore
 from factori.commands import ensure_run_initialized
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.production_mode import stage_backend_record
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    BackendKind,
     ControllerActionType,
     DomainPrimitive,
     MethodLens,
@@ -24,6 +26,7 @@ from factori.schemas import (
     OpportunityDiscoveryReport,
     OpportunityScoreBreakdown,
     OpportunitySeedConstraint,
+    ScientificStageKind,
 )
 
 OPPORTUNITY_THRESHOLD = 0.70
@@ -688,6 +691,22 @@ def build_opportunity_discovery_report(
         method_lenses=methods,
         opportunities=opportunities,
         seed_constraints=seeds,
+        backend_records=[
+            stage_backend_record(
+                stage_id=discovery_id,
+                stage_kind=ScientificStageKind.OPPORTUNITY_DISCOVERY,
+                backend_kind=BackendKind.DETERMINISTIC_TEMPLATE,
+                backend_name="deterministic_method_lens_library",
+                is_scientific_generation=True,
+                is_scientific_judgment=False,
+                is_execution_or_verification=False,
+                reason=(
+                    "Domain primitives, method opportunities, questions, and seed constraints "
+                    "come from deterministic local templates and heuristics."
+                ),
+                artifact_ids=[discovery_id],
+            )
+        ],
         warnings=warnings,
         publication_ready=False,
         creates_scientific_validation=False,

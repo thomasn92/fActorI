@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.62.0` adds backend-kind and scientific-stage classifications, explicit stage backend
+records, and fail-closed production-mode policy, violation, and report contracts. Strict mode
+rejects fake, fixture, deterministic-template, and heuristic scientific generation or judgment
+while preserving deterministic infrastructure, local execution, metric computation, claim audit,
+and bundle verification authority boundaries.
+
 Protocol `0.61.0` adds route execution status, input/output contracts, immutable execution specs,
 bounded deterministic results, aggregate reports, and read-only inspection contracts. M95 executes
 only approved offline synthetic, benchmark, and applied-math templates; outputs remain scoped and

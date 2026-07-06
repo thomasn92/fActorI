@@ -380,6 +380,7 @@ class ControllerActionType(StrEnum):
     BRANCH_ROUTES_WRITTEN = "BranchRoutesWritten"
     ROUTE_EXECUTION_SPECS_WRITTEN = "RouteExecutionSpecsWritten"
     ROUTE_EXECUTION_RUN = "RouteExecutionRun"
+    PRODUCTION_MODE_CHECKED = "ProductionModeChecked"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -415,6 +416,41 @@ class RouteExecutionStatus(StrEnum):
     COMPLETED_WITH_WARNINGS = "completed_with_warnings"
     DEFERRED_UNSUPPORTED_ROUTE = "deferred_unsupported_route"
     FAILED = "failed"
+
+
+class BackendKind(StrEnum):
+    """Authority classification for scientific and infrastructure backends."""
+
+    FAKE = "fake"
+    FIXTURE = "fixture"
+    DETERMINISTIC_TEMPLATE = "deterministic_template"
+    HEURISTIC = "heuristic"
+    LLM_OPENAI = "llm_openai"
+    LLM_OTHER = "llm_other"
+    RETRIEVAL_REAL = "retrieval_real"
+    LOCAL_EXECUTION = "local_execution"
+    SYMBOLIC_CHECKER = "symbolic_checker"
+    HUMAN = "human"
+
+
+class ScientificStageKind(StrEnum):
+    """Scientific-generation, judgment, execution, and validation stage classes."""
+
+    OPPORTUNITY_DISCOVERY = "opportunity_discovery"
+    VARIANCE_GENERATION = "variance_generation"
+    SUBSTRATE_CONSTRUCTION = "substrate_construction"
+    BRANCH_ROUTING = "branch_routing"
+    EXPERIMENT_DESIGN = "experiment_design"
+    EXPERIMENT_CODE_GENERATION = "experiment_code_generation"
+    EXPERIMENT_EXECUTION = "experiment_execution"
+    METRIC_COMPUTATION = "metric_computation"
+    ADJUDICATION = "adjudication"
+    CRITIC_REVIEW = "critic_review"
+    LITERATURE_RETRIEVAL = "literature_retrieval"
+    NOVELTY_ASSESSMENT = "novelty_assessment"
+    MANUSCRIPT_SYNTHESIS = "manuscript_synthesis"
+    CLAIM_AUDIT = "claim_audit"
+    BUNDLE_VERIFICATION = "bundle_verification"
 
 
 class CreativeMutationOperator(StrEnum):
@@ -877,6 +913,8 @@ __all__ = [
     "ControllerActionType",
     "BranchRouteType",
     "RouteExecutionStatus",
+    "BackendKind",
+    "ScientificStageKind",
     "CreativeMutationOperator",
     "CreativeSearchStopReason",
     "GenerationMutationOperator",

@@ -1,5 +1,22 @@
 {
   "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
     "BranchRouteDecision": {
       "additionalProperties": false,
       "description": "One deterministic next-action decision for a ScientificSubstrate.",
@@ -193,9 +210,104 @@
       ],
       "title": "BranchRouteType",
       "type": "string"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.61.0/branch-route-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.62.0/branch-route-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only deterministic route plan over the latest substrate build.",
@@ -204,6 +316,13 @@
       "minimum": 0,
       "title": "Applied Math Reduction Count",
       "type": "integer"
+    },
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
     },
     "benchmark_tournament_count": {
       "minimum": 0,
@@ -330,7 +449,7 @@
   ],
   "title": "BranchRoutePlan",
   "type": "object",
-  "x-factori-protocol-version": "0.61.0",
+  "x-factori-protocol-version": "0.62.0",
   "x-factori-source-model": "factori.schemas.BranchRoutePlan",
   "x-factori-verification-evidence": false
 }

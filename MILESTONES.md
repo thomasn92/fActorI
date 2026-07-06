@@ -317,3 +317,13 @@ without real-world validation or publication readiness.
 - Unsupported route classes now emit explicit deferred results rather than being omitted.
 - Execution results retain bounded synthetic, benchmark, draft, negative, inconclusive, or deferred
   labels and never create real-world validation or publication readiness.
+
+## M96 Strict Non-Fake Production Mode
+
+- Added backend-kind and scientific-stage classifications plus explicit per-stage authority records.
+- Added read-only backend inspection and append-only production-mode checks with strict fail-closed
+  handling for template science, heuristic scientific judgment, fixture metrics, missing records,
+  and undisclosed fallback.
+- M91-M95 reports now disclose their deterministic-template, heuristic, and fixture provenance.
+- Local numerical execution, computed metrics, claim audits, bundle verification, hashing, and
+  provenance remain deterministic and production-eligible within their bounded roles.

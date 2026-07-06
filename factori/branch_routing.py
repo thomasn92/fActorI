@@ -12,15 +12,18 @@ from pydantic import ValidationError
 from factori.artifacts import ArtifactStore
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.production_mode import stage_backend_record
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    BackendKind,
     BranchRouteDecision,
     BranchRouteExecutionHint,
     BranchRouteInspectionReport,
     BranchRoutePlan,
     BranchRouteType,
     ControllerActionType,
+    ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateBuildReport,
 )
@@ -189,10 +192,23 @@ def route_branches(
         applied_math_reduction_count=counts[BranchRouteType.APPLIED_MATH_REDUCTION.value],
         proof_plan_count=counts[BranchRouteType.PROOF_PLAN.value],
         decisions=decisions,
+        backend_records=[
+            stage_backend_record(
+                stage_id=routing_id,
+                stage_kind=ScientificStageKind.BRANCH_ROUTING,
+                backend_kind=BackendKind.HEURISTIC,
+                backend_name="deterministic_branch_route_rules",
+                is_scientific_generation=False,
+                is_scientific_judgment=True,
+                is_execution_or_verification=False,
+                reason=(
+                    "Lexical and structural heuristics choose the scientific evaluation route."
+                ),
+                artifact_ids=[routing_id],
+            )
+        ],
         warnings=(
-            ["Latest ScientificSubstrate build contains no substrates."]
-            if not substrates
-            else []
+            ["Latest ScientificSubstrate build contains no substrates."] if not substrates else []
         ),
         publication_ready=False,
         creates_scientific_validation=False,
@@ -276,9 +292,7 @@ def build_branch_route_decision(
             command_class_optional=command,
             ready_for_execution=ready,
             suggested_arguments=(
-                ["--run-id", run_id, "--substrate-id", substrate.substrate_id]
-                if ready
-                else []
+                ["--run-id", run_id, "--substrate-id", substrate.substrate_id] if ready else []
             ),
             safety_notes=[
                 "This hint does not execute the action or create evidence.",
@@ -295,9 +309,7 @@ def build_branch_route_decision(
     )
 
 
-def inspect_branch_routes(
-    *, run_id: str, root: str | Path = "."
-) -> BranchRouteInspectionReport:
+def inspect_branch_routes(*, run_id: str, root: str | Path = ".") -> BranchRouteInspectionReport:
     """Inspect the latest persisted route plan without mutating the run."""
     reports = Path(root) / "runs" / run_id / "reports"
     path = _latest_matching(reports, _ROUTE_RE)
@@ -354,8 +366,7 @@ def render_branch_route_text(report: BranchRouteInspectionReport) -> str:
         "Route type counts:",
     ]
     lines.extend(
-        f"- {route_type}: {count}"
-        for route_type, count in sorted(report.route_type_counts.items())
+        f"- {route_type}: {count}" for route_type, count in sorted(report.route_type_counts.items())
     )
     lines.append("Decisions:")
     lines.extend(
@@ -412,9 +423,7 @@ def _classify_route(
     text = _substrate_text(substrate)
     has_equation = any(_meaningful(value) for value in substrate.concrete_model_object.equations)
     has_model = _meaningful(substrate.concrete_model_object.model_type)
-    has_dgp = _meaningful(substrate.dgp_or_dataset) and _meaningful(
-        substrate.experiment_design.dgp
-    )
+    has_dgp = _meaningful(substrate.dgp_or_dataset) and _meaningful(substrate.experiment_design.dgp)
     has_baseline = _meaningful(substrate.baseline) and _meaningful(
         substrate.experiment_design.baseline
     )
@@ -538,9 +547,7 @@ def _load_latest_substrates(
 ) -> tuple[Path, ScientificSubstrateBuildReport, list[ScientificSubstrate]]:
     build_path = _latest_matching(reports, _BUILD_RE)
     if build_path is None:
-        raise BranchRoutingError(
-            f"No ScientificSubstrate build report found for run_id={run_id}."
-        )
+        raise BranchRoutingError(f"No ScientificSubstrate build report found for run_id={run_id}.")
     try:
         build = ScientificSubstrateBuildReport.model_validate_json(
             build_path.read_text(encoding="utf-8")
@@ -556,9 +563,7 @@ def _load_latest_substrates(
         if not path.is_relative_to(root_resolved):
             raise BranchRoutingError("ScientificSubstrate path escapes the configured root.")
         try:
-            substrate = ScientificSubstrate.model_validate_json(
-                path.read_text(encoding="utf-8")
-            )
+            substrate = ScientificSubstrate.model_validate_json(path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as exc:
             raise BranchRoutingError(f"Could not load ScientificSubstrate {path}: {exc}") from exc
         if substrate.run_id != run_id:

@@ -236,6 +236,12 @@ from factori.planned_spec_execution import (
     execute_planned_specs,
     inspect_planned_spec_execution,
 )
+from factori.production_mode import (
+    ProductionModeError,
+    check_production_mode,
+    inspect_backends,
+    render_production_mode_text,
+)
 from factori.prose_contract import SectionDraftGenerationError, generate_section_draft
 from factori.protocol_compat import ProtocolCompatibilityStatus, compare_schema_dirs
 from factori.protocol_validation import (
@@ -359,6 +365,17 @@ def _ensure_run_initialized(root: Path, run_id: str) -> None:
             payload={"run_id": run_id},
             timestamp="1970-01-01T00:00:00.000000Z",
         )
+
+
+def _reject_non_fake_requirement(*, required: bool, stage_name: str) -> None:
+    if not required:
+        return
+    typer.echo(
+        f"Strict non-fake production mode rejected {stage_name}: the current backend is "
+        "template, heuristic, or fixture based.",
+        err=True,
+    )
+    raise typer.Exit(code=1)
 
 
 def _parse_rerun_policy(value: str) -> RerunPolicy:
@@ -3588,9 +3605,17 @@ def run_autonomous_paper_command(
         float | None,
         typer.Option("--max-estimated-cost-usd"),
     ] = None,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run the complete fail-closed autonomous paper MVP in one command."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="run-autonomous-paper",
+    )
     config = LLMOrchestrationConfig(
         run_id=run_id,
         domain=domain,
@@ -3935,9 +3960,17 @@ def discover_opportunities_command(
     domain: Annotated[str, typer.Option("--domain")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     max_methods: Annotated[int, typer.Option("--max-methods")] = 20,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run deterministic Stage 0 domain-method opportunity discovery."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="opportunity_discovery",
+    )
     try:
         result = discover_opportunities(
             run_id=run_id,
@@ -3989,9 +4022,17 @@ def augment_variance_command(
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     candidates_per_seed: Annotated[int, typer.Option("--candidates-per-seed")] = 4,
     max_total_candidates: Annotated[int, typer.Option("--max-total-candidates")] = 40,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Generate deterministic high-variance branches from promoted Stage 0 seeds."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="variance_generation",
+    )
     try:
         result = augment_variance(
             run_id=run_id,
@@ -4164,9 +4205,17 @@ def promote_variance_substrates_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     max_substrates: Annotated[int, typer.Option("--max-substrates")] = 8,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Promote diverse variance candidates into concrete ScientificSubstrates."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="substrate_construction",
+    )
     try:
         result = promote_variance_substrates(
             run_id=run_id,
@@ -4212,9 +4261,17 @@ def inspect_substrate_promotion_command(
 def route_branches_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Assign each latest ScientificSubstrate its deterministic next action."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="branch_routing",
+    )
     try:
         result = route_branches(
             run_id=run_id,
@@ -4261,9 +4318,17 @@ def inspect_branch_routes_command(
 def build_route_execution_specs_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Build immutable deterministic execution specs for latest branch routes."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="experiment_design",
+    )
     try:
         result = build_route_execution_specs(
             run_id=run_id,
@@ -4289,9 +4354,17 @@ def build_route_execution_specs_command(
 def run_route_execution_command(
     run_id: Annotated[str, typer.Option("--run-id")],
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run supported route specs through deterministic offline evaluators."""
+    _reject_non_fake_requirement(
+        required=require_non_fake_backends,
+        stage_name="route_execution_fixture_metrics",
+    )
     try:
         result = run_route_execution(
             run_id=run_id,
@@ -4331,6 +4404,55 @@ def inspect_route_execution_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_route_execution_text(report))
+
+
+@app.command("inspect-backends")
+def inspect_backends_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect scientific-stage backend authority without mutating the run."""
+    try:
+        report = inspect_backends(run_id=run_id, root=root)
+    except ProductionModeError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_production_mode_text(report))
+
+
+@app.command("check-production-mode")
+def check_production_mode_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Persist a backend-authority check and fail on strict blocking violations."""
+    try:
+        result = check_production_mode(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            require_non_fake_backends=require_non_fake_backends,
+        )
+    except (ProductionModeError, LedgerError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+    else:
+        typer.echo(render_production_mode_text(result.report))
+        typer.echo(f"artifact={result.report_artifact.path}")
+    if result.report.blocking_violation_count:
+        raise typer.Exit(code=1)
 
 
 @app.command("build-scientific-substrate")

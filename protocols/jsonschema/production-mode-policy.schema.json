@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.62.0/production-mode-policy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Fail-closed policy for strict non-fake scientific execution.",
+  "properties": {
+    "allow_bundle_verification": {
+      "default": true,
+      "title": "Allow Bundle Verification",
+      "type": "boolean"
+    },
+    "allow_claim_audit": {
+      "default": true,
+      "title": "Allow Claim Audit",
+      "type": "boolean"
+    },
+    "allow_deterministic_infrastructure": {
+      "default": true,
+      "title": "Allow Deterministic Infrastructure",
+      "type": "boolean"
+    },
+    "allow_human_override": {
+      "default": true,
+      "title": "Allow Human Override",
+      "type": "boolean"
+    },
+    "allow_local_execution": {
+      "default": true,
+      "title": "Allow Local Execution",
+      "type": "boolean"
+    },
+    "allow_metric_computation": {
+      "default": true,
+      "title": "Allow Metric Computation",
+      "type": "boolean"
+    },
+    "fail_on_missing_backend_record": {
+      "default": true,
+      "title": "Fail On Missing Backend Record",
+      "type": "boolean"
+    },
+    "fail_on_silent_fallback": {
+      "default": true,
+      "title": "Fail On Silent Fallback",
+      "type": "boolean"
+    },
+    "forbidden_backend_kinds": {
+      "items": {
+        "$ref": "#/$defs/BackendKind"
+      },
+      "title": "Forbidden Backend Kinds",
+      "type": "array"
+    },
+    "forbidden_scientific_stage_backend_pairs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Scientific Stage Backend Pairs",
+      "type": "array"
+    },
+    "require_non_fake_backends": {
+      "default": false,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    }
+  },
+  "title": "ProductionModePolicy",
+  "type": "object",
+  "x-factori-protocol-version": "0.62.0",
+  "x-factori-source-model": "factori.schemas.ProductionModePolicy",
+  "x-factori-verification-evidence": false
+}

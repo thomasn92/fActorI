@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.61.0/experiment-template.schema.json",
+  "$id": "https://schemas.factori.local/0.62.0/experiment-template.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Approved local experiment template metadata.",
@@ -123,7 +123,7 @@
   ],
   "title": "ExperimentTemplate",
   "type": "object",
-  "x-factori-protocol-version": "0.61.0",
+  "x-factori-protocol-version": "0.62.0",
   "x-factori-source-model": "factori.schemas.ExperimentTemplate",
   "x-factori-verification-evidence": false
 }

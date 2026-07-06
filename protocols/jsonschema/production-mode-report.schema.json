@@ -1,0 +1,364 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "ProductionModePolicy": {
+      "additionalProperties": false,
+      "description": "Fail-closed policy separating scientific generation from infrastructure.",
+      "properties": {
+        "allow_bundle_verification": {
+          "default": true,
+          "title": "Allow Bundle Verification",
+          "type": "boolean"
+        },
+        "allow_claim_audit": {
+          "default": true,
+          "title": "Allow Claim Audit",
+          "type": "boolean"
+        },
+        "allow_deterministic_infrastructure": {
+          "default": true,
+          "title": "Allow Deterministic Infrastructure",
+          "type": "boolean"
+        },
+        "allow_human_override": {
+          "default": true,
+          "title": "Allow Human Override",
+          "type": "boolean"
+        },
+        "allow_local_execution": {
+          "default": true,
+          "title": "Allow Local Execution",
+          "type": "boolean"
+        },
+        "allow_metric_computation": {
+          "default": true,
+          "title": "Allow Metric Computation",
+          "type": "boolean"
+        },
+        "fail_on_missing_backend_record": {
+          "default": true,
+          "title": "Fail On Missing Backend Record",
+          "type": "boolean"
+        },
+        "fail_on_silent_fallback": {
+          "default": true,
+          "title": "Fail On Silent Fallback",
+          "type": "boolean"
+        },
+        "forbidden_backend_kinds": {
+          "items": {
+            "$ref": "#/$defs/BackendKind"
+          },
+          "title": "Forbidden Backend Kinds",
+          "type": "array"
+        },
+        "forbidden_scientific_stage_backend_pairs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Scientific Stage Backend Pairs",
+          "type": "array"
+        },
+        "require_non_fake_backends": {
+          "default": false,
+          "title": "Require Non Fake Backends",
+          "type": "boolean"
+        }
+      },
+      "title": "ProductionModePolicy",
+      "type": "object"
+    },
+    "ProductionModeViolation": {
+      "additionalProperties": false,
+      "description": "One production-mode policy violation.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        },
+        "violation_type": {
+          "minLength": 1,
+          "title": "Violation Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage_kind",
+        "artifact_id",
+        "backend_kind",
+        "violation_type",
+        "message",
+        "blocking"
+      ],
+      "title": "ProductionModeViolation",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.62.0/production-mode-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Backend inventory and strict-production policy result for one run.",
+  "properties": {
+    "allowed_stage_count": {
+      "minimum": 0,
+      "title": "Allowed Stage Count",
+      "type": "integer"
+    },
+    "blocking_violation_count": {
+      "minimum": 0,
+      "title": "Blocking Violation Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_or_verification_stage_count": {
+      "minimum": 0,
+      "title": "Execution Or Verification Stage Count",
+      "type": "integer"
+    },
+    "forbidden_stage_count": {
+      "minimum": 0,
+      "title": "Forbidden Stage Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "missing_stage_kinds": {
+      "items": {
+        "$ref": "#/$defs/ScientificStageKind"
+      },
+      "title": "Missing Stage Kinds",
+      "type": "array"
+    },
+    "policy": {
+      "$ref": "#/$defs/ProductionModePolicy"
+    },
+    "production_mode_check_present": {
+      "default": true,
+      "title": "Production Mode Check Present",
+      "type": "boolean"
+    },
+    "production_ready": {
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "require_non_fake_backends": {
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scientific_generation_stage_count": {
+      "minimum": 0,
+      "title": "Scientific Generation Stage Count",
+      "type": "integer"
+    },
+    "scientific_judgment_stage_count": {
+      "minimum": 0,
+      "title": "Scientific Judgment Stage Count",
+      "type": "integer"
+    },
+    "stage_count": {
+      "minimum": 0,
+      "title": "Stage Count",
+      "type": "integer"
+    },
+    "stage_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Stage Records",
+      "type": "array"
+    },
+    "violation_count": {
+      "minimum": 0,
+      "title": "Violation Count",
+      "type": "integer"
+    },
+    "violations": {
+      "items": {
+        "$ref": "#/$defs/ProductionModeViolation"
+      },
+      "title": "Violations",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "report_id",
+    "require_non_fake_backends",
+    "stage_count",
+    "scientific_generation_stage_count",
+    "scientific_judgment_stage_count",
+    "execution_or_verification_stage_count",
+    "violation_count",
+    "blocking_violation_count",
+    "allowed_stage_count",
+    "forbidden_stage_count",
+    "production_ready",
+    "policy"
+  ],
+  "title": "ProductionModeReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.62.0",
+  "x-factori-source-model": "factori.schemas.ProductionModeReport",
+  "x-factori-verification-evidence": false
+}

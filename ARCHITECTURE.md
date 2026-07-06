@@ -57,6 +57,13 @@ offline results for supported synthetic, benchmark, and applied-math routes. Uns
 produce explicit deferred results. M95 outputs are not inserted into claim evidence and cannot
 establish real-world validation, formal proof, novelty, or publication readiness.
 
+Production-mode checks inventory backend authority separately from artifact validity. Development
+mode permits deterministic scaffolding with explicit non-production labels. Strict mode fails
+closed when scientific generation or judgment uses fake, fixture, deterministic-template, or
+heuristic backends, when fixed metrics masquerade as execution, when backend records are missing,
+or when a fallback is undisclosed. Deterministic hashing, provenance, local execution, computed
+metrics, claim audits, and bundle verification remain allowed within their non-generative roles.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

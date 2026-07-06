@@ -14,13 +14,16 @@ from factori.artifacts import ArtifactStore
 from factori.commands import ensure_run_initialized
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.production_mode import stage_backend_record
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    BackendKind,
     ControllerActionType,
     OpportunityCandidate,
     OpportunityDiscoveryReport,
     OpportunitySeedConstraint,
+    ScientificStageKind,
     VarianceAugmentationBatch,
     VarianceAugmentationConfig,
     VarianceAugmentationInspectionReport,
@@ -440,6 +443,22 @@ def build_variance_augmentation_report(
         batches=batches,
         candidates=candidates,
         diversity_diagnostic=diagnostic,
+        backend_records=[
+            stage_backend_record(
+                stage_id=augmentation_id,
+                stage_kind=ScientificStageKind.VARIANCE_GENERATION,
+                backend_kind=BackendKind.DETERMINISTIC_TEMPLATE,
+                backend_name="deterministic_variance_candidate_templates",
+                is_scientific_generation=True,
+                is_scientific_judgment=False,
+                is_execution_or_verification=False,
+                reason=(
+                    "Research questions, hypotheses, models, baselines, and verification paths "
+                    "come from deterministic branch-family templates."
+                ),
+                artifact_ids=[augmentation_id],
+            )
+        ],
         warnings=warnings,
         publication_ready=False,
         creates_scientific_validation=False,
@@ -773,8 +792,7 @@ def _select_candidates(
             (
                 candidate
                 for candidate in sorted(candidates, key=_candidate_rank)
-                if candidate.variant_family == family
-                and candidate.candidate_id not in selected_ids
+                if candidate.variant_family == family and candidate.candidate_id not in selected_ids
             ),
             None,
         )

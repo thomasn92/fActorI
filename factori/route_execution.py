@@ -14,9 +14,11 @@ from pydantic import ValidationError
 from factori.artifacts import ArtifactStore
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
+from factori.production_mode import stage_backend_record
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    BackendKind,
     BranchRouteDecision,
     BranchRoutePlan,
     BranchRouteType,
@@ -28,8 +30,10 @@ from factori.schemas import (
     RouteExecutionResult,
     RouteExecutionSpec,
     RouteExecutionStatus,
+    ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateBuildReport,
+    StageBackendRecord,
 )
 
 _ROUTE_PLAN_RE = re.compile(r"^branch-route-plan-(\d{4})\.json$")
@@ -128,6 +132,12 @@ def build_route_execution_specs(
         result_paths=[],
         specs=specs,
         results=[],
+        backend_records=[
+            _spec_backend_record(
+                stage_id=report_id,
+                artifact_ids=[report_id, *[spec.spec_id for spec in specs]],
+            )
+        ],
         warnings=(
             ["Unsupported routes have specs but will be explicitly deferred on execution."]
             if unsupported
@@ -232,6 +242,9 @@ def run_route_execution(
             )
         else:
             result = result.model_copy(update={"artifacts": [result_path]})
+        result = result.model_copy(
+            update={"backend_records": _fixture_result_backend_records(result_id)}
+        )
         results.append(result)
 
     status_counts = Counter(result.status for result in results)
@@ -287,6 +300,10 @@ def run_route_execution(
         result_paths=result_paths,
         specs=specs,
         results=results,
+        backend_records=_fixture_result_backend_records(
+            report_id,
+            artifact_ids=[report_id, *[result.result_id for result in results]],
+        ),
         warnings=(
             ["One or more unsupported route types were explicitly deferred."]
             if deferred_count
@@ -349,9 +366,7 @@ def inspect_route_execution(
 ) -> RouteExecutionInspectionReport:
     """Inspect the latest execution report, or latest spec build if not yet run."""
     reports = Path(root) / "runs" / run_id / "reports"
-    path = _latest_matching(reports, _EXECUTION_RE) or _latest_matching(
-        reports, _SPEC_BUILD_RE
-    )
+    path = _latest_matching(reports, _EXECUTION_RE) or _latest_matching(reports, _SPEC_BUILD_RE)
     if path is None:
         return RouteExecutionInspectionReport(
             run_id=run_id,
@@ -483,8 +498,7 @@ def _spec_for_route(
             model_type=substrate.concrete_model_object.model_type,
             equations=substrate.concrete_model_object.equations,
             variables_and_notation=[
-                variable.model_dump(mode="json")
-                for variable in substrate.variables_and_notation
+                variable.model_dump(mode="json") for variable in substrate.variables_and_notation
             ],
             assumptions=[assumption.statement for assumption in substrate.assumptions],
             dgp_or_dataset=substrate.dgp_or_dataset,
@@ -505,6 +519,7 @@ def _spec_for_route(
         expected_artifacts=["route_execution_result_json"],
         allowed_evidence_labels=allowed_labels,
         forbidden_claims=_FORBIDDEN_CLAIMS,
+        backend_records=[_spec_backend_record(stage_id=spec_id, artifact_ids=[spec_id])],
         publication_ready=False,
         creates_real_world_validation=False,
     )
@@ -543,9 +558,7 @@ def execute_route_spec(*, spec: RouteExecutionSpec, result_id: str) -> RouteExec
     return _validate_result_contract(spec=spec, result=result)
 
 
-def _execute_synthetic(
-    *, spec: RouteExecutionSpec, result_id: str
-) -> RouteExecutionResult:
+def _execute_synthetic(*, spec: RouteExecutionSpec, result_id: str) -> RouteExecutionResult:
     method = _method_id(spec.method_lens)
     if method == "graph_curvature":
         metrics: dict[str, float | int | str | bool] = {
@@ -588,8 +601,7 @@ def _execute_synthetic(
         payload = {
             "bundle_id": "generic_substrate_synthetic",
             "comparison": (
-                f"{spec.input_contract.baseline} vs "
-                f"{spec.input_contract.proposed_method}"
+                f"{spec.input_contract.baseline} vs {spec.input_contract.proposed_method}"
             ),
         }
     return _completed_result(
@@ -603,9 +615,7 @@ def _execute_synthetic(
     )
 
 
-def _execute_benchmark(
-    *, spec: RouteExecutionSpec, result_id: str
-) -> RouteExecutionResult:
+def _execute_benchmark(*, spec: RouteExecutionSpec, result_id: str) -> RouteExecutionResult:
     method = _method_id(spec.method_lens)
     if method == "matrix_factorization":
         table = [
@@ -701,15 +711,11 @@ def _execute_benchmark(
     )
 
 
-def _execute_applied_math(
-    *, spec: RouteExecutionSpec, result_id: str
-) -> RouteExecutionResult:
+def _execute_applied_math(*, spec: RouteExecutionSpec, result_id: str) -> RouteExecutionResult:
     payload = {
         "bundle_id": "wasserstein_accessibility_symbolic_reduction",
         "base_object": "a_i = sum_j w_j exp(-gamma d_ij)",
-        "robust_object": (
-            "sup_{w': W_c(w,w') <= delta} sum_j w'_j exp(-gamma d_ij)"
-        ),
+        "robust_object": ("sup_{w': W_c(w,w') <= delta} sum_j w'_j exp(-gamma d_ij)"),
         "symbolic_reduction_steps": [
             "Define phi_ij = exp(-gamma d_ij).",
             "Introduce lambda >= 0 for the Wasserstein transport-cost constraint.",
@@ -722,8 +728,7 @@ def _execute_applied_math(
             "transport cost is finite on the declared support",
         ],
         "finite_dimensional_target": (
-            "inf_{lambda >= 0} lambda*delta + sum_j w_j "
-            "max_l(phi_il - lambda*c_jl)"
+            "inf_{lambda >= 0} lambda*delta + sum_j w_j max_l(phi_il - lambda*c_jl)"
         ),
         "unresolved_steps": [
             "check strong-duality conditions for the exact ambiguity-set convention",
@@ -780,13 +785,9 @@ def _completed_result(
 def _validate_result_contract(
     *, spec: RouteExecutionSpec, result: RouteExecutionResult
 ) -> RouteExecutionResult:
-    missing_metrics = sorted(
-        set(spec.output_contract.required_metrics).difference(result.metrics)
-    )
+    missing_metrics = sorted(set(spec.output_contract.required_metrics).difference(result.metrics))
     missing_payload = sorted(
-        set(spec.output_contract.required_payload_fields).difference(
-            result.output_payload
-        )
+        set(spec.output_contract.required_payload_fields).difference(result.output_payload)
     )
     label_allowed = result.evidence_label in spec.allowed_evidence_labels
     if not missing_metrics and not missing_payload and label_allowed:
@@ -926,9 +927,7 @@ def _scope_for(route_type: BranchRouteType) -> str:
     return "workflow deferral; no scientific support"
 
 
-def _load_latest_route_plan(
-    *, run_id: str, reports: Path
-) -> tuple[Path, BranchRoutePlan]:
+def _load_latest_route_plan(*, run_id: str, reports: Path) -> tuple[Path, BranchRoutePlan]:
     path = _latest_matching(reports, _ROUTE_PLAN_RE)
     if path is None:
         raise RouteExecutionError(f"No BranchRoutePlan found for run_id={run_id}.")
@@ -955,9 +954,7 @@ def _load_route_substrates(
     for relative in build.substrate_paths:
         path = _safe_path(root, relative)
         try:
-            substrate = ScientificSubstrate.model_validate_json(
-                path.read_text(encoding="utf-8")
-            )
+            substrate = ScientificSubstrate.model_validate_json(path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as exc:
             raise RouteExecutionError(f"Could not load route substrate: {exc}") from exc
         if substrate.run_id != run_id:
@@ -975,9 +972,7 @@ def _load_route_substrates(
     return substrates
 
 
-def _load_latest_spec_build(
-    *, run_id: str, reports: Path
-) -> tuple[Path, RouteExecutionReport]:
+def _load_latest_spec_build(*, run_id: str, reports: Path) -> tuple[Path, RouteExecutionReport]:
     path = _latest_matching(reports, _SPEC_BUILD_RE)
     if path is None:
         raise RouteExecutionError(
@@ -1016,6 +1011,56 @@ def _safe_path(root: Path, relative: str) -> Path:
     if not path.is_relative_to(root.resolve()):
         raise RouteExecutionError("Route execution input path escapes configured root.")
     return path
+
+
+def _spec_backend_record(*, stage_id: str, artifact_ids: list[str]) -> StageBackendRecord:
+    return stage_backend_record(
+        stage_id=stage_id,
+        stage_kind=ScientificStageKind.EXPERIMENT_DESIGN,
+        backend_kind=BackendKind.DETERMINISTIC_TEMPLATE,
+        backend_name="route_execution_spec_templates",
+        is_scientific_generation=True,
+        is_scientific_judgment=False,
+        is_execution_or_verification=False,
+        reason=(
+            "Experiment, benchmark, and reduction contracts are generated from fixed "
+            "deterministic templates."
+        ),
+        artifact_ids=artifact_ids,
+    )
+
+
+def _fixture_result_backend_records(
+    stage_id: str, artifact_ids: list[str] | None = None
+) -> list[StageBackendRecord]:
+    artifacts = artifact_ids or [stage_id]
+    return [
+        stage_backend_record(
+            stage_id=f"{stage_id}-execution",
+            stage_kind=ScientificStageKind.EXPERIMENT_EXECUTION,
+            backend_kind=BackendKind.FIXTURE,
+            backend_name="fixed_route_result_values",
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            reason=(
+                "The M95 evaluator returns fixed values and does not execute generated "
+                "experiment code."
+            ),
+            artifact_ids=artifacts,
+        ),
+        stage_backend_record(
+            stage_id=f"{stage_id}-metrics",
+            stage_kind=ScientificStageKind.METRIC_COMPUTATION,
+            backend_kind=BackendKind.FIXTURE,
+            backend_name="fixed_route_metric_values",
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            reason="M95 metric values are fixture constants, not computed execution outputs.",
+            artifact_ids=artifacts,
+        ),
+    ]
 
 
 def _metadata(stage: str) -> dict[str, Any]:

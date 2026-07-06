@@ -31,6 +31,7 @@ from factori.schemas import (
     AutonomousPlanExecutionAction,
     AutonomousPlanExecutionIndex,
     AutonomousPlanExecutionReport,
+    BackendKind,
     BaselineReport,
     BibliographyEntry,
     BranchRouteDecision,
@@ -219,6 +220,9 @@ from factori.schemas import (
     PlannedSpecExecutionItem,
     PlannedSpecExecutionReport,
     PlannedStage,
+    ProductionModePolicy,
+    ProductionModeReport,
+    ProductionModeViolation,
     ProofArtifact,
     ProofObligationSpec,
     ProofVerificationContract,
@@ -264,6 +268,7 @@ from factori.schemas import (
     RunStatusReport,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
+    ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
     ScientificSubstrateBuildReport,
@@ -278,6 +283,7 @@ from factori.schemas import (
     SectionDraftSafetySummary,
     SectionRevisionPlan,
     SourceRelevanceAdjudication,
+    StageBackendRecord,
     StageBReviewerReport,
     StageCheckpoint,
     StageRerunDecision,
@@ -306,7 +312,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.61.0"
+PROTOCOL_VERSION = "0.62.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -507,6 +513,36 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "IdeaTreeExportReport",
         IdeaTreeExportReport,
         "Context-only append-only idea-tree export result.",
+    ),
+    ProtocolDefinition(
+        "BackendKind",
+        BackendKind,
+        "Authority classification for a pipeline backend.",
+    ),
+    ProtocolDefinition(
+        "ScientificStageKind",
+        ScientificStageKind,
+        "Scientific generation, judgment, execution, or verification stage class.",
+    ),
+    ProtocolDefinition(
+        "StageBackendRecord",
+        StageBackendRecord,
+        "Explicit backend authority record for one pipeline stage.",
+    ),
+    ProtocolDefinition(
+        "ProductionModePolicy",
+        ProductionModePolicy,
+        "Fail-closed policy for strict non-fake scientific execution.",
+    ),
+    ProtocolDefinition(
+        "ProductionModeViolation",
+        ProductionModeViolation,
+        "One backend authority violation found by a production-mode check.",
+    ),
+    ProtocolDefinition(
+        "ProductionModeReport",
+        ProductionModeReport,
+        "Backend inventory and strict-production policy result for one run.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",
