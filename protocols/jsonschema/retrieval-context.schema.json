@@ -1,0 +1,236 @@
+{
+  "$defs": {
+    "RetrievedSourceSummary": {
+      "additionalProperties": false,
+      "description": "Bounded literature metadata supplied as context, never verification evidence.",
+      "properties": {
+        "abstract_or_snippet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Abstract Or Snippet"
+        },
+        "authors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Authors",
+          "type": "array"
+        },
+        "claims_literature_coverage": {
+          "const": false,
+          "default": false,
+          "title": "Claims Literature Coverage",
+          "type": "boolean"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "fake_or_mocked": {
+          "title": "Fake Or Mocked",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "proves_novelty": {
+          "const": false,
+          "default": false,
+          "title": "Proves Novelty",
+          "type": "boolean"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "relevance_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Relevance Score"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "venue": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Venue"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        }
+      },
+      "required": [
+        "source_id",
+        "title",
+        "provider",
+        "fake_or_mocked"
+      ],
+      "title": "RetrievedSourceSummary",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.64.0/retrieval-context.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Per-pair retrieval context with explicit novelty and coverage boundaries.",
+  "properties": {
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "context_id": {
+      "minLength": 1,
+      "title": "Context Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "novelty_established": {
+      "const": false,
+      "default": false,
+      "title": "Novelty Established",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "retrieval_confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Retrieval Confidence",
+      "type": "number"
+    },
+    "retrieval_mode": {
+      "enum": [
+        "mocked_retrieval",
+        "real_retrieval"
+      ],
+      "title": "Retrieval Mode",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_pair_id": {
+      "minLength": 1,
+      "title": "Source Pair Id",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/RetrievedSourceSummary"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "underuse_established": {
+      "const": false,
+      "default": false,
+      "title": "Underuse Established",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "context_id",
+    "run_id",
+    "source_pair_id",
+    "retrieval_mode",
+    "backend_name",
+    "query",
+    "retrieval_confidence",
+    "limitations"
+  ],
+  "title": "RetrievalContext",
+  "type": "object",
+  "x-factori-protocol-version": "0.64.0",
+  "x-factori-source-model": "factori.schemas.RetrievalContext",
+  "x-factori-verification-evidence": false
+}

@@ -339,3 +339,15 @@ without real-world validation or publication readiness.
   near-duplicate suppression, and false-bridge risk limits.
 - Novelty and underuse outputs are schema-enforced hypotheses; M97 performs no literature retrieval
   and creates no evidence, scientific validation, or publication readiness.
+
+## M98 Deep LLM Opportunity Discovery with Retrieval Context
+
+- Added per-pair mocked or real retrieval contexts with bounded source summaries and explicit
+  novelty, underuse, coverage, evidence, and publication boundaries.
+- Added a separately gated OpenAI structured generator for concrete research questions,
+  hypotheses, model objects, Q/H/T/E/B plans, baselines, metrics, negative controls, failure modes,
+  and scientific scores, with no deterministic scientific fallback.
+- Added per-candidate rejection for incomplete or unsafe output and coverage-constrained selection
+  over LLM scores without deterministic scientific re-ranking.
+- Mocked retrieval is development-only; strict production requires a real retrieval backend and a
+  non-fake LLM. All raw, retrieval, report, and inspection artifacts remain non-evidence context.

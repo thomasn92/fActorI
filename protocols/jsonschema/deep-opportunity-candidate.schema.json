@@ -1,0 +1,216 @@
+{
+  "$id": "https://schemas.factori.local/0.64.0/deep-opportunity-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Concrete non-fake LLM research opportunity with Q/H/T/E/B fields.",
+  "properties": {
+    "baseline_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Baseline Candidates",
+      "type": "array"
+    },
+    "benchmark_plan": {
+      "minLength": 1,
+      "title": "Benchmark Plan",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "data_regime": {
+      "minLength": 1,
+      "title": "Data Regime",
+      "type": "string"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "domain_name": {
+      "minLength": 1,
+      "title": "Domain Name",
+      "type": "string"
+    },
+    "expected_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Expected Metrics",
+      "type": "array"
+    },
+    "experiment_or_proof_plan": {
+      "minLength": 1,
+      "title": "Experiment Or Proof Plan",
+      "type": "string"
+    },
+    "failure_modes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Failure Modes",
+      "type": "array"
+    },
+    "false_bridge_risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "False Bridge Risks",
+      "type": "array"
+    },
+    "hypothesis": {
+      "minLength": 1,
+      "title": "Hypothesis",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "mathematical_or_computational_form": {
+      "minLength": 1,
+      "title": "Mathematical Or Computational Form",
+      "type": "string"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "method_name": {
+      "minLength": 1,
+      "title": "Method Name",
+      "type": "string"
+    },
+    "negative_controls": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Negative Controls",
+      "type": "array"
+    },
+    "novelty_risk": {
+      "minLength": 1,
+      "title": "Novelty Risk",
+      "type": "string"
+    },
+    "opportunity_id": {
+      "minLength": 1,
+      "title": "Opportunity Id",
+      "type": "string"
+    },
+    "paper_shape": {
+      "minLength": 1,
+      "title": "Paper Shape",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_next_stage": {
+      "minLength": 1,
+      "title": "Recommended Next Stage",
+      "type": "string"
+    },
+    "research_question": {
+      "minLength": 1,
+      "title": "Research Question",
+      "type": "string"
+    },
+    "retrieval_contradictions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Retrieval Contradictions",
+      "type": "array"
+    },
+    "retrieval_support_summary": {
+      "minLength": 1,
+      "title": "Retrieval Support Summary",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_pair_id": {
+      "minLength": 1,
+      "title": "Source Pair Id",
+      "type": "string"
+    },
+    "tautology_risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tautology Risks",
+      "type": "array"
+    },
+    "theory_or_model_object": {
+      "minLength": 1,
+      "title": "Theory Or Model Object",
+      "type": "string"
+    },
+    "underuse_hypothesis": {
+      "minLength": 1,
+      "title": "Underuse Hypothesis",
+      "type": "string"
+    },
+    "verification_path": {
+      "minLength": 1,
+      "title": "Verification Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "opportunity_id",
+    "run_id",
+    "source_pair_id",
+    "domain_id",
+    "method_id",
+    "domain_name",
+    "method_name",
+    "research_question",
+    "hypothesis",
+    "theory_or_model_object",
+    "mathematical_or_computational_form",
+    "experiment_or_proof_plan",
+    "benchmark_plan",
+    "baseline_candidates",
+    "expected_metrics",
+    "failure_modes",
+    "negative_controls",
+    "data_regime",
+    "verification_path",
+    "paper_shape",
+    "novelty_risk",
+    "underuse_hypothesis",
+    "retrieval_support_summary",
+    "recommended_next_stage"
+  ],
+  "title": "DeepOpportunityCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.64.0",
+  "x-factori-source-model": "factori.schemas.DeepOpportunityCandidate",
+  "x-factori-verification-evidence": false
+}

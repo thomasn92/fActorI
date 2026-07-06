@@ -1,0 +1,107 @@
+{
+  "$id": "https://schemas.factori.local/0.64.0/deep-opportunity-discovery-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded configuration for retrieval-contextualized LLM opportunity discovery.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "fail_on_silent_fallback": {
+      "default": true,
+      "title": "Fail On Silent Fallback",
+      "type": "boolean"
+    },
+    "max_generation_calls": {
+      "default": 30,
+      "minimum": 1,
+      "title": "Max Generation Calls",
+      "type": "integer"
+    },
+    "max_opportunities_per_domain_family": {
+      "default": 6,
+      "minimum": 1,
+      "title": "Max Opportunities Per Domain Family",
+      "type": "integer"
+    },
+    "max_opportunities_per_method_family": {
+      "default": 6,
+      "minimum": 1,
+      "title": "Max Opportunities Per Method Family",
+      "type": "integer"
+    },
+    "max_pairs": {
+      "default": 30,
+      "minimum": 1,
+      "title": "Max Pairs",
+      "type": "integer"
+    },
+    "max_retrieval_sources_per_pair": {
+      "default": 5,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Max Retrieval Sources Per Pair",
+      "type": "integer"
+    },
+    "max_selected_opportunities": {
+      "default": 40,
+      "minimum": 1,
+      "title": "Max Selected Opportunities",
+      "type": "integer"
+    },
+    "min_domain_family_coverage": {
+      "default": 8,
+      "minimum": 1,
+      "title": "Min Domain Family Coverage",
+      "type": "integer"
+    },
+    "min_method_family_coverage": {
+      "default": 8,
+      "minimum": 1,
+      "title": "Min Method Family Coverage",
+      "type": "integer"
+    },
+    "near_duplicate_suppression": {
+      "default": true,
+      "title": "Near Duplicate Suppression",
+      "type": "boolean"
+    },
+    "opportunities_per_pair": {
+      "default": 3,
+      "maximum": 4,
+      "minimum": 2,
+      "title": "Opportunities Per Pair",
+      "type": "integer"
+    },
+    "require_non_fake_backends": {
+      "default": false,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "retrieval_mode": {
+      "enum": [
+        "mocked_retrieval",
+        "real_retrieval"
+      ],
+      "title": "Retrieval Mode",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "backend",
+    "retrieval_mode"
+  ],
+  "title": "DeepOpportunityDiscoveryConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.64.0",
+  "x-factori-source-model": "factori.schemas.DeepOpportunityDiscoveryConfig",
+  "x-factori-verification-evidence": false
+}

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.63.0/domain-atlas-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.64.0/domain-atlas-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One curated domain entry used as atlas search infrastructure.",
@@ -94,7 +94,7 @@
   ],
   "title": "DomainAtlasEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.63.0",
+  "x-factori-protocol-version": "0.64.0",
   "x-factori-source-model": "factori.schemas.DomainAtlasEntry",
   "x-factori-verification-evidence": false
 }

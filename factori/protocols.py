@@ -73,6 +73,11 @@ from factori.schemas import (
     CreativeSearchLineageEntry,
     CreativeSearchStopReason,
     DataRequirement,
+    DeepOpportunityCandidate,
+    DeepOpportunityDiscoveryConfig,
+    DeepOpportunityDiscoveryInspectionReport,
+    DeepOpportunityDiscoveryReport,
+    DeepOpportunityScore,
     DiagnosticReport,
     DomainAtlasEntry,
     DomainMethodPair,
@@ -175,6 +180,7 @@ from factori.schemas import (
     LLMCallAccountingRecord,
     LLMCallStatus,
     LLMCandidateParseReport,
+    LLMOpportunityDiscoveryRawArtifact,
     LLMOrchestrationConfig,
     LLMOrchestrationReport,
     LLMOrchestrationResult,
@@ -256,6 +262,7 @@ from factori.schemas import (
     ResearchObjectManifest,
     ResumeValidationReport,
     RetrievalAdequacyCertificate,
+    RetrievalContext,
     RetrievalExpansionRequest,
     RetrievalParseReport,
     RetrievalQualityReport,
@@ -263,6 +270,7 @@ from factori.schemas import (
     RetrievalResult,
     RetrievalRunReport,
     RetrievedDocument,
+    RetrievedSourceSummary,
     ReviewerBundleSummary,
     ReviewerChangeRequest,
     ReviewerChangeRequestSet,
@@ -322,7 +330,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.63.0"
+PROTOCOL_VERSION = "0.64.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -603,6 +611,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "AtlasScanInspectionReport",
         AtlasScanInspectionReport,
         "Read-only latest atlas build or pair-scan inspection payload.",
+    ),
+    ProtocolDefinition(
+        "DeepOpportunityDiscoveryConfig",
+        DeepOpportunityDiscoveryConfig,
+        "Bounded configuration for retrieval-contextualized LLM opportunity discovery.",
+    ),
+    ProtocolDefinition(
+        "RetrievedSourceSummary",
+        RetrievedSourceSummary,
+        "Bounded source metadata supplied as non-evidence retrieval context.",
+    ),
+    ProtocolDefinition(
+        "RetrievalContext",
+        RetrievalContext,
+        "Per-pair retrieval context with explicit novelty and coverage boundaries.",
+    ),
+    ProtocolDefinition(
+        "DeepOpportunityCandidate",
+        DeepOpportunityCandidate,
+        "Concrete non-fake LLM research opportunity with Q/H/T/E/B fields.",
+    ),
+    ProtocolDefinition(
+        "DeepOpportunityScore",
+        DeepOpportunityScore,
+        "Non-fake LLM scientific score for one concrete opportunity.",
+    ),
+    ProtocolDefinition(
+        "LLMOpportunityDiscoveryRawArtifact",
+        LLMOpportunityDiscoveryRawArtifact,
+        "Secret-free prompt and raw-response provenance for one discovery call.",
+    ),
+    ProtocolDefinition(
+        "DeepOpportunityDiscoveryReport",
+        DeepOpportunityDiscoveryReport,
+        "Append-only retrieval-contextualized LLM opportunity discovery report.",
+    ),
+    ProtocolDefinition(
+        "DeepOpportunityDiscoveryInspectionReport",
+        DeepOpportunityDiscoveryInspectionReport,
+        "Read-only inspection of the latest deep opportunity discovery report.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

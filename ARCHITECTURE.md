@@ -71,6 +71,14 @@ sent to an explicitly gated LLM for scientific ranking. Coverage-constrained sel
 domain/method-family diversity without asserting novelty or underuse; those remain hypotheses until
 future retrieval-backed assessment.
 
+Deep opportunity discovery is the first production scientific-generation stage after atlas
+selection. For each selected pair it obtains bounded retrieval context, then asks an explicitly
+gated non-fake LLM for concrete questions, hypotheses, model objects, experiment/proof plans,
+baselines, negative controls, failure modes, and scores. Deterministic code validates contracts,
+rejects unsafe or incomplete proposals, and preserves family diversity; it does not author or rank
+the scientific content. Mocked retrieval is non-production, while real retrieval remains context
+only and cannot establish novelty, underuse, complete coverage, or scientific validation.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

@@ -296,6 +296,10 @@ All implementation modules are under `factori/`.
   diversity-constrained selection, persistence, and read-only inspection.
 - `adapters/atlas_ranking.py`: explicitly gated OpenAI structured-output adapter for pair-ranking
   judgment with injectable transport, exact pair coverage, and hypothesis-label enforcement.
+- `adapters/deep_opportunity.py`: explicitly gated OpenAI structured-output adapter for concrete
+  opportunity generation and scoring, with per-candidate contract and boundary rejection.
+- `deep_opportunity_discovery.py`: retrieval context assembly, strict non-fake opportunity
+  orchestration, diversity selection, append-only raw/context/report persistence, and inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

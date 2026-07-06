@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.64.0` adds retrieval-contextualized deep opportunity discovery contracts: bounded
+source summaries, per-pair retrieval contexts, concrete Q/H/T/E/B opportunities, non-fake LLM
+scientific scores, secret-free raw-call provenance, append-only reports, and read-only inspection.
+Novelty and underuse remain hypotheses, mocked retrieval remains non-production, and no discovery
+artifact creates scientific validation or publication readiness.
+
 Protocol `0.63.0` adds curated domain/method atlas entries, exclusion-only compatibility pairs and
 reports, strict LLM pair-ranking prompt/result/report contracts, and diversity-constrained atlas
 scan inspection. Atlas metadata and negative compatibility filtering are production infrastructure;

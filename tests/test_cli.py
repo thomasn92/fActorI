@@ -7,6 +7,13 @@ import pytest
 from typer.testing import CliRunner
 
 from factori.adapters.atlas_ranking import build_pair_ranking_prompt
+from factori.adapters.deep_opportunity import (
+    OpportunityGenerationResponse,
+    OpportunityProposal,
+    OpportunityProposalEnvelope,
+    OpportunityProposalItem,
+    OpportunityScoreProposal,
+)
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.cli import app
@@ -137,6 +144,8 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     build_atlas = CliRunner().invoke(app, ["build-domain-method-atlas", "--help"])
     scan_atlas = CliRunner().invoke(app, ["scan-domain-method-pairs", "--help"])
     inspect_atlas = CliRunner().invoke(app, ["inspect-atlas-scan", "--help"])
+    discover_deep = CliRunner().invoke(app, ["discover-deep-opportunities", "--help"])
+    inspect_deep = CliRunner().invoke(app, ["inspect-deep-opportunities", "--help"])
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -166,6 +175,12 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--allow-external-calls" in scan_atlas.output
     assert inspect_atlas.exit_code == 0, inspect_atlas.output
     assert "--json" in inspect_atlas.output
+    assert discover_deep.exit_code == 0, discover_deep.output
+    assert "--retrieval-mode" in discover_deep.output
+    assert "--require-non-fake" in discover_deep.output
+    assert "--allow-external-calls" in discover_deep.output
+    assert inspect_deep.exit_code == 0, inspect_deep.output
+    assert "--json" in inspect_deep.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output
@@ -315,6 +330,198 @@ def test_atlas_cli_builds_scans_and_inspects_with_mocked_llm(tmp_path, monkeypat
     inspected_payload = json.loads(inspected.output)
     assert inspected_payload["atlas_scan_present"] is True
     assert inspected_payload["selected_pair_count"] == 30
+
+
+def test_deep_opportunity_cli_discovers_and_inspects_with_mocked_backends(
+    tmp_path, monkeypatch
+) -> None:
+    class MockRanker:
+        backend_name = "llm-openai-mocked-transport"
+        backend_kind = BackendKind.LLM_OPENAI
+        model = "mock-atlas-model"
+        fallback_used = False
+        fallback_disclosed = True
+
+        def rank_batch(self, *, pair_payloads, batch_index, prompt_id):
+            prompt = build_pair_ranking_prompt(
+                pair_payloads=pair_payloads,
+                batch_index=batch_index,
+                prompt_id=prompt_id,
+                backend_name=self.backend_name,
+                model=self.model,
+            )
+            return prompt, [
+                LLMPairRankingResult(
+                    pair_id=payload["pair_id"],
+                    rank_score=0.82,
+                    scientific_fit=0.82,
+                    tractability=0.8,
+                    question_abundance=0.8,
+                    baseline_clarity=0.8,
+                    verification_feasibility=0.8,
+                    paper_shape_clarity=0.8,
+                    false_bridge_risk=0.2,
+                    tautology_risk=0.2,
+                    novelty_hypothesis="Hypothesis: novelty requires retrieval.",
+                    underuse_hypothesis="Hypothesis: underuse requires retrieval.",
+                    ranking_explanation="Mocked LLM ranking.",
+                    recommended_for_deep_discovery=True,
+                )
+                for payload in pair_payloads
+            ]
+
+    class MockGenerator:
+        backend_name = "llm-openai-mocked-transport"
+        backend_kind = BackendKind.LLM_OPENAI
+        model = "mock-deep-model"
+        fallback_used = False
+        fallback_disclosed = True
+
+        def generate_for_pair(
+            self, *, pair_payload, retrieval_payload, opportunities_per_pair
+        ):
+            pair = pair_payload["pair"]
+            items = []
+            for index in range(opportunities_per_pair):
+                items.append(
+                    OpportunityProposalItem(
+                        candidate=OpportunityProposal(
+                            research_question=(
+                                f"What bounded mechanism {index} can test {pair['pair_id']}?"
+                            ),
+                            hypothesis="The mechanism changes a declared synthetic metric.",
+                            theory_or_model_object=f"Concrete operator T_{index}",
+                            mathematical_or_computational_form=f"T_{index}(x)=x",
+                            experiment_or_proof_plan="Run a fixed-seed synthetic comparison.",
+                            benchmark_plan="Compare against null and standard baselines.",
+                            baseline_candidates=["null baseline"],
+                            expected_metrics=["held_out_error"],
+                            failure_modes=["no improvement"],
+                            negative_controls=["remove the mechanism"],
+                            data_regime="synthetic_only",
+                            verification_path="bounded synthetic benchmark",
+                            paper_shape="model, result, negative control, limitations",
+                            novelty_risk="Hypothesis: a close prior may exist.",
+                            underuse_hypothesis=(
+                                "Hypothesis: underuse is not established by mocked retrieval."
+                            ),
+                            retrieval_support_summary=(
+                                f"Context mode is {retrieval_payload['retrieval_mode']}."
+                            ),
+                            retrieval_contradictions=[],
+                            false_bridge_risks=[],
+                            tautology_risks=["DGP construction risk"],
+                            recommended_next_stage="variance_generation",
+                        ),
+                        score=OpportunityScoreProposal(
+                            scientific_fit=0.8,
+                            tractability=0.8,
+                            question_specificity=0.8,
+                            baseline_strength=0.8,
+                            verification_feasibility=0.8,
+                            expected_signal=0.8,
+                            failure_mode_value=0.8,
+                            paper_coherence=0.8,
+                            novelty_risk_penalty=0.2,
+                            false_bridge_penalty=0.2,
+                            tautology_penalty=0.2,
+                            retrieval_confidence=retrieval_payload[
+                                "retrieval_confidence"
+                            ],
+                            final_score=0.8 - index * 0.01,
+                            score_explanation="Mocked score.",
+                        ),
+                    )
+                )
+            return OpportunityGenerationResponse(
+                prompt_text="mock deep opportunity prompt",
+                requested_output_schema=OpportunityProposalEnvelope.model_json_schema(),
+                raw_response={
+                    "opportunities": [item.model_dump(mode="json") for item in items]
+                },
+                accepted=items,
+                rejected=[],
+            )
+
+    monkeypatch.setattr("factori.cli.OpenAIAtlasPairRanker", lambda **kwargs: MockRanker())
+    monkeypatch.setattr(
+        "factori.cli.OpenAIDeepOpportunityGenerator",
+        lambda **kwargs: MockGenerator(),
+    )
+    run_id = "cli-deep-opportunity"
+    runner = CliRunner()
+    assert runner.invoke(
+        app,
+        [
+            "build-domain-method-atlas",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+        ],
+    ).exit_code == 0
+    scan = runner.invoke(
+        app,
+        [
+            "scan-domain-method-pairs",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--allow-external-calls",
+            "--batch-size",
+            "100",
+            "--max-ranking-calls",
+            "10",
+        ],
+    )
+    discovered = runner.invoke(
+        app,
+        [
+            "discover-deep-opportunities",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--retrieval-mode",
+            "mocked",
+            "--allow-external-calls",
+            "--max-pairs",
+            "4",
+            "--max-generation-calls",
+            "4",
+            "--opportunities-per-pair",
+            "2",
+            "--json",
+        ],
+    )
+    inspected = runner.invoke(
+        app,
+        [
+            "inspect-deep-opportunities",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+
+    assert scan.exit_code == 0, scan.output
+    assert discovered.exit_code == 0, discovered.output
+    payload = json.loads(discovered.output)
+    assert payload["selected_pair_count"] == 4
+    assert payload["generated_opportunity_count"] == 8
+    assert payload["selected_opportunity_count"] > 0
+    assert payload["config"]["retrieval_mode"] == "mocked_retrieval"
+    assert payload["production_ready"] is False
+    assert payload["publication_ready"] is False
+    assert inspected.exit_code == 0, inspected.output
+    inspection = json.loads(inspected.output)
+    assert inspection["deep_opportunity_discovery_present"] is True
+    assert inspection["selected_opportunity_count"] == payload[
+        "selected_opportunity_count"
+    ]
 
 
 def test_opportunity_discovery_cli_discovers_and_inspects(tmp_path) -> None:

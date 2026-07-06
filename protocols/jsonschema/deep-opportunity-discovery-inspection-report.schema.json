@@ -1,0 +1,598 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "DeepOpportunityCandidate": {
+      "additionalProperties": false,
+      "description": "Concrete non-fake LLM opportunity grounded in atlas and retrieval context.",
+      "properties": {
+        "baseline_candidates": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Baseline Candidates",
+          "type": "array"
+        },
+        "benchmark_plan": {
+          "minLength": 1,
+          "title": "Benchmark Plan",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "data_regime": {
+          "minLength": 1,
+          "title": "Data Regime",
+          "type": "string"
+        },
+        "domain_id": {
+          "minLength": 1,
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "domain_name": {
+          "minLength": 1,
+          "title": "Domain Name",
+          "type": "string"
+        },
+        "expected_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Expected Metrics",
+          "type": "array"
+        },
+        "experiment_or_proof_plan": {
+          "minLength": 1,
+          "title": "Experiment Or Proof Plan",
+          "type": "string"
+        },
+        "failure_modes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Failure Modes",
+          "type": "array"
+        },
+        "false_bridge_risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "False Bridge Risks",
+          "type": "array"
+        },
+        "hypothesis": {
+          "minLength": 1,
+          "title": "Hypothesis",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "const": false,
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "mathematical_or_computational_form": {
+          "minLength": 1,
+          "title": "Mathematical Or Computational Form",
+          "type": "string"
+        },
+        "method_id": {
+          "minLength": 1,
+          "title": "Method Id",
+          "type": "string"
+        },
+        "method_name": {
+          "minLength": 1,
+          "title": "Method Name",
+          "type": "string"
+        },
+        "negative_controls": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Negative Controls",
+          "type": "array"
+        },
+        "novelty_risk": {
+          "minLength": 1,
+          "title": "Novelty Risk",
+          "type": "string"
+        },
+        "opportunity_id": {
+          "minLength": 1,
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "paper_shape": {
+          "minLength": 1,
+          "title": "Paper Shape",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "recommended_next_stage": {
+          "minLength": 1,
+          "title": "Recommended Next Stage",
+          "type": "string"
+        },
+        "research_question": {
+          "minLength": 1,
+          "title": "Research Question",
+          "type": "string"
+        },
+        "retrieval_contradictions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Retrieval Contradictions",
+          "type": "array"
+        },
+        "retrieval_support_summary": {
+          "minLength": 1,
+          "title": "Retrieval Support Summary",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_pair_id": {
+          "minLength": 1,
+          "title": "Source Pair Id",
+          "type": "string"
+        },
+        "tautology_risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tautology Risks",
+          "type": "array"
+        },
+        "theory_or_model_object": {
+          "minLength": 1,
+          "title": "Theory Or Model Object",
+          "type": "string"
+        },
+        "underuse_hypothesis": {
+          "minLength": 1,
+          "title": "Underuse Hypothesis",
+          "type": "string"
+        },
+        "verification_path": {
+          "minLength": 1,
+          "title": "Verification Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "opportunity_id",
+        "run_id",
+        "source_pair_id",
+        "domain_id",
+        "method_id",
+        "domain_name",
+        "method_name",
+        "research_question",
+        "hypothesis",
+        "theory_or_model_object",
+        "mathematical_or_computational_form",
+        "experiment_or_proof_plan",
+        "benchmark_plan",
+        "baseline_candidates",
+        "expected_metrics",
+        "failure_modes",
+        "negative_controls",
+        "data_regime",
+        "verification_path",
+        "paper_shape",
+        "novelty_risk",
+        "underuse_hypothesis",
+        "retrieval_support_summary",
+        "recommended_next_stage"
+      ],
+      "title": "DeepOpportunityCandidate",
+      "type": "object"
+    },
+    "DeepOpportunityScore": {
+      "additionalProperties": false,
+      "description": "Non-fake LLM scientific score for one concrete opportunity.",
+      "properties": {
+        "baseline_strength": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Baseline Strength",
+          "type": "number"
+        },
+        "expected_signal": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Expected Signal",
+          "type": "number"
+        },
+        "failure_mode_value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Failure Mode Value",
+          "type": "number"
+        },
+        "false_bridge_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "False Bridge Penalty",
+          "type": "number"
+        },
+        "final_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Final Score",
+          "type": "number"
+        },
+        "novelty_risk_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Novelty Risk Penalty",
+          "type": "number"
+        },
+        "opportunity_id": {
+          "minLength": 1,
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "paper_coherence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Paper Coherence",
+          "type": "number"
+        },
+        "question_specificity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Question Specificity",
+          "type": "number"
+        },
+        "retrieval_confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Retrieval Confidence",
+          "type": "number"
+        },
+        "scientific_fit": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Scientific Fit",
+          "type": "number"
+        },
+        "score_explanation": {
+          "minLength": 1,
+          "title": "Score Explanation",
+          "type": "string"
+        },
+        "tautology_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tautology Penalty",
+          "type": "number"
+        },
+        "tractability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tractability",
+          "type": "number"
+        },
+        "verification_feasibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Verification Feasibility",
+          "type": "number"
+        }
+      },
+      "required": [
+        "opportunity_id",
+        "scientific_fit",
+        "tractability",
+        "question_specificity",
+        "baseline_strength",
+        "verification_feasibility",
+        "expected_signal",
+        "failure_mode_value",
+        "paper_coherence",
+        "novelty_risk_penalty",
+        "false_bridge_penalty",
+        "tautology_penalty",
+        "retrieval_confidence",
+        "final_score",
+        "score_explanation"
+      ],
+      "title": "DeepOpportunityScore",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.64.0/deep-opportunity-discovery-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection of the latest deep opportunity discovery report.",
+  "properties": {
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deep_opportunity_discovery_present": {
+      "title": "Deep Opportunity Discovery Present",
+      "type": "boolean"
+    },
+    "discovery_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Discovery Id Optional"
+    },
+    "discovery_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Discovery Status Optional"
+    },
+    "domain_family_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Domain Family Coverage",
+      "type": "integer"
+    },
+    "generated_opportunity_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Generated Opportunity Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "method_family_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Method Family Coverage",
+      "type": "integer"
+    },
+    "production_ready": {
+      "default": false,
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rejected_opportunity_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Rejected Opportunity Count",
+      "type": "integer"
+    },
+    "retrieval_mode_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Mode Optional"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_opportunities": {
+      "items": {
+        "$ref": "#/$defs/DeepOpportunityCandidate"
+      },
+      "title": "Selected Opportunities",
+      "type": "array"
+    },
+    "selected_opportunity_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Opportunity Count",
+      "type": "integer"
+    },
+    "selected_pair_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Pair Count",
+      "type": "integer"
+    },
+    "selected_scores": {
+      "items": {
+        "$ref": "#/$defs/DeepOpportunityScore"
+      },
+      "title": "Selected Scores",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "deep_opportunity_discovery_present"
+  ],
+  "title": "DeepOpportunityDiscoveryInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.64.0",
+  "x-factori-source-model": "factori.schemas.DeepOpportunityDiscoveryInspectionReport",
+  "x-factori-verification-evidence": false
+}

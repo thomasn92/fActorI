@@ -1,0 +1,107 @@
+{
+  "$id": "https://schemas.factori.local/0.64.0/llm-opportunity-discovery-raw-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Secret-free prompt and raw-response provenance for one discovery call.",
+  "properties": {
+    "accepted_opportunity_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Opportunity Ids",
+      "type": "array"
+    },
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fallback_used": {
+      "default": false,
+      "title": "Fallback Used",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt_text": {
+      "minLength": 1,
+      "title": "Prompt Text",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "raw_artifact_id": {
+      "minLength": 1,
+      "title": "Raw Artifact Id",
+      "type": "string"
+    },
+    "raw_response": {
+      "additionalProperties": true,
+      "title": "Raw Response",
+      "type": "object"
+    },
+    "rejected_outputs": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejected Outputs",
+      "type": "array"
+    },
+    "requested_output_schema": {
+      "additionalProperties": true,
+      "title": "Requested Output Schema",
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_pair_id": {
+      "minLength": 1,
+      "title": "Source Pair Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "raw_artifact_id",
+    "run_id",
+    "source_pair_id",
+    "backend_name",
+    "model",
+    "prompt_text",
+    "requested_output_schema",
+    "raw_response"
+  ],
+  "title": "LLMOpportunityDiscoveryRawArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.64.0",
+  "x-factori-source-model": "factori.schemas.LLMOpportunityDiscoveryRawArtifact",
+  "x-factori-verification-evidence": false
+}

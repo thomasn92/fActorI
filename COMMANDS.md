@@ -914,6 +914,12 @@ performs exclusion-only compatibility filtering and requires the gated `llm-open
 scientific ranking; use `--allow-external-calls` and `--require-non-fake-backends` for a live strict
 scan. `inspect-atlas-scan` reads the latest build or ranked scan without mutation.
 
+`discover-deep-opportunities` reads the selected atlas pairs and uses the explicitly gated
+`llm-openai` backend to generate concrete Q/H/T/E/B opportunities. Development runs may use
+`--retrieval-mode mocked`; strict production requires `--retrieval-mode real`, OpenAI and OpenAlex
+credentials, `--allow-external-calls`, and `--require-non-fake-backends`. There is no deterministic
+scientific fallback. `inspect-deep-opportunities` reads the latest report without mutation.
+
 ## Tests and Lint
 
 Canonical `uv` commands:

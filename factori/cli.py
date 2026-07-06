@@ -12,8 +12,10 @@ import typer
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
 from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
+from factori.adapters.deep_opportunity import OpenAIDeepOpportunityGenerator
 from factori.adapters.errors import AdapterError
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
+from factori.adapters.retrieval_real import OpenAlexRetrievalClient
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
     AutonomousEvidencePlanError,
@@ -84,6 +86,7 @@ from factori.config import (
     DEFAULT_RUN_ID,
     LEDGER_FILENAME,
     OPENAI_API_KEY_ENV,
+    OPENALEX_API_KEY_ENV,
 )
 from factori.creative_mutations import (
     CreativeMutationError,
@@ -97,6 +100,14 @@ from factori.creative_search import (
     run_creative_search,
 )
 from factori.cross_run import CrossRunError, compare_runs, write_cross_run_report
+from factori.deep_opportunity_discovery import (
+    DeepOpportunityDiscoveryError,
+    MockedOpportunityRetriever,
+    OpenAlexOpportunityRetriever,
+    discover_deep_opportunities,
+    inspect_deep_opportunities,
+    render_deep_opportunity_text,
+)
 from factori.diagnostics import (
     DiagnosticError,
     build_diagnostic_report,
@@ -300,6 +311,7 @@ from factori.schemas import (
     ArtifactType,
     ControllerActionType,
     DataRequirement,
+    DeepOpportunityDiscoveryConfig,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
     LLMBudgetConfig,
@@ -4076,6 +4088,131 @@ def inspect_atlas_scan_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_atlas_scan_text(report))
+
+
+@app.command("discover-deep-opportunities")
+def discover_deep_opportunities_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    retrieval_mode: Annotated[str, typer.Option("--retrieval-mode")] = "mocked",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_pairs: Annotated[int, typer.Option("--max-pairs")] = 30,
+    opportunities_per_pair: Annotated[
+        int,
+        typer.Option("--opportunities-per-pair"),
+    ] = 3,
+    max_selected_opportunities: Annotated[
+        int,
+        typer.Option("--max-selected-opportunities"),
+    ] = 40,
+    max_generation_calls: Annotated[
+        int,
+        typer.Option("--max-generation-calls"),
+    ] = 30,
+    max_retrieval_sources_per_pair: Annotated[
+        int,
+        typer.Option("--max-retrieval-sources-per-pair"),
+    ] = 5,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Generate concrete retrieval-contextualized opportunities with a non-fake LLM."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only the llm-openai deep opportunity backend is implemented; no deterministic "
+            "generation fallback is available.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    normalized_retrieval = retrieval_mode.strip().lower().replace("-", "_")
+    if normalized_retrieval in {"mocked", "mock"}:
+        normalized_retrieval = "mocked_retrieval"
+    elif normalized_retrieval in {"real", "openalex"}:
+        normalized_retrieval = "real_retrieval"
+    if normalized_retrieval not in {"mocked_retrieval", "real_retrieval"}:
+        typer.echo("retrieval-mode must be mocked or real", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        generator = OpenAIDeepOpportunityGenerator(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        if normalized_retrieval == "real_retrieval":
+            retriever = OpenAlexOpportunityRetriever(
+                OpenAlexRetrievalClient(
+                    api_key=os.environ.get(OPENALEX_API_KEY_ENV, ""),
+                    default_limit=max_retrieval_sources_per_pair,
+                    allow_external_calls=allow_external_calls,
+                )
+            )
+        else:
+            retriever = MockedOpportunityRetriever()
+        config = DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode=normalized_retrieval,
+            max_pairs=max_pairs,
+            max_generation_calls=max_generation_calls,
+            opportunities_per_pair=opportunities_per_pair,
+            max_selected_opportunities=max_selected_opportunities,
+            max_retrieval_sources_per_pair=max_retrieval_sources_per_pair,
+            require_non_fake_backends=require_non_fake_backends,
+        )
+        result = discover_deep_opportunities(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            generator=generator,
+            retriever=retriever,
+            config=config,
+        )
+    except (AdapterError, DeepOpportunityDiscoveryError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"discovery_id={result.report.discovery_id}")
+    typer.echo(f"selected_pair_count={result.report.selected_pair_count}")
+    typer.echo(
+        f"generated_opportunity_count={result.report.generated_opportunity_count}"
+    )
+    typer.echo(f"selected_opportunity_count={result.report.selected_opportunity_count}")
+    typer.echo(f"retrieval_mode={result.report.config.retrieval_mode}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-deep-opportunities")
+def inspect_deep_opportunities_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest deep opportunity discovery report without mutation."""
+    try:
+        report = inspect_deep_opportunities(run_id=run_id, root=root)
+    except DeepOpportunityDiscoveryError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_deep_opportunity_text(report))
 
 
 @app.command("discover-opportunities")

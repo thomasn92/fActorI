@@ -1,0 +1,118 @@
+{
+  "$id": "https://schemas.factori.local/0.64.0/deep-opportunity-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-fake LLM scientific score for one concrete opportunity.",
+  "properties": {
+    "baseline_strength": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Strength",
+      "type": "number"
+    },
+    "expected_signal": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Expected Signal",
+      "type": "number"
+    },
+    "failure_mode_value": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Failure Mode Value",
+      "type": "number"
+    },
+    "false_bridge_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "False Bridge Penalty",
+      "type": "number"
+    },
+    "final_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Final Score",
+      "type": "number"
+    },
+    "novelty_risk_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Novelty Risk Penalty",
+      "type": "number"
+    },
+    "opportunity_id": {
+      "minLength": 1,
+      "title": "Opportunity Id",
+      "type": "string"
+    },
+    "paper_coherence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Paper Coherence",
+      "type": "number"
+    },
+    "question_specificity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Question Specificity",
+      "type": "number"
+    },
+    "retrieval_confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Retrieval Confidence",
+      "type": "number"
+    },
+    "scientific_fit": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scientific Fit",
+      "type": "number"
+    },
+    "score_explanation": {
+      "minLength": 1,
+      "title": "Score Explanation",
+      "type": "string"
+    },
+    "tautology_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tautology Penalty",
+      "type": "number"
+    },
+    "tractability": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tractability",
+      "type": "number"
+    },
+    "verification_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Verification Feasibility",
+      "type": "number"
+    }
+  },
+  "required": [
+    "opportunity_id",
+    "scientific_fit",
+    "tractability",
+    "question_specificity",
+    "baseline_strength",
+    "verification_feasibility",
+    "expected_signal",
+    "failure_mode_value",
+    "paper_coherence",
+    "novelty_risk_penalty",
+    "false_bridge_penalty",
+    "tautology_penalty",
+    "retrieval_confidence",
+    "final_score",
+    "score_explanation"
+  ],
+  "title": "DeepOpportunityScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.64.0",
+  "x-factori-source-model": "factori.schemas.DeepOpportunityScore",
+  "x-factori-verification-evidence": false
+}

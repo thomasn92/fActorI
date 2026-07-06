@@ -11,6 +11,14 @@ from typer.testing import CliRunner
 
 import factori.autonomous_paper_run as autonomous_paper_module
 from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker, build_pair_ranking_prompt
+from factori.adapters.deep_opportunity import (
+    OpportunityGenerationResponse,
+    OpportunityProposal,
+    OpportunityProposalEnvelope,
+    OpportunityProposalItem,
+    OpportunityScoreProposal,
+    parse_opportunity_items,
+)
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
@@ -72,6 +80,12 @@ from factori.creative_search import (
     _cycle_stop_decision,
     inspect_creative_search,
     run_creative_search,
+)
+from factori.deep_opportunity_discovery import (
+    DeepOpportunityDiscoveryError,
+    MockedOpportunityRetriever,
+    discover_deep_opportunities,
+    inspect_deep_opportunities,
 )
 from factori.domain_method_atlas import (
     AtlasScanError,
@@ -235,6 +249,11 @@ from factori.schemas import (
     CreativeSearchInspectionReport,
     CreativeSearchLineageEntry,
     CreativeSearchStopReason,
+    DeepOpportunityCandidate,
+    DeepOpportunityDiscoveryConfig,
+    DeepOpportunityDiscoveryInspectionReport,
+    DeepOpportunityDiscoveryReport,
+    DeepOpportunityScore,
     DomainAtlasEntry,
     DomainMethodPair,
     DomainPrimitive,
@@ -284,6 +303,7 @@ from factori.schemas import (
     IdeaTree,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    LLMOpportunityDiscoveryRawArtifact,
     LLMOrchestrationConfig,
     LLMPairRankingPrompt,
     LLMPairRankingReport,
@@ -312,8 +332,10 @@ from factori.schemas import (
     ProofArtifact,
     ProofObligationSpec,
     QualityRepairReport,
+    RetrievalContext,
     RetrievalExpansionRequest,
     RetrievalQualityReport,
+    RetrievedSourceSummary,
     ReviewerBundleSummary,
     RouteExecutionInputContract,
     RouteExecutionInspectionReport,
@@ -428,6 +450,136 @@ class MockAtlasPairRanker:
         return prompt, results
 
 
+class MockDeepOpportunityGenerator:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-deep-opportunity-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self, *, duplicate: bool = False) -> None:
+        self.duplicate = duplicate
+        self.received_pair_ids: list[str] = []
+
+    def generate_for_pair(
+        self,
+        *,
+        pair_payload,
+        retrieval_payload,
+        opportunities_per_pair,
+    ):
+        pair = pair_payload["pair"]
+        domain = pair_payload["domain"]
+        method = pair_payload["method"]
+        pair_id = pair["pair_id"]
+        self.received_pair_ids.append(pair_id)
+        accepted = []
+        for index in range(opportunities_per_pair):
+            suffix = 0 if self.duplicate else index
+            proposal = OpportunityProposal(
+                research_question=(
+                    f"How does {method['name']} change bounded {domain['name']} "
+                    f"behavior under perturbation family {suffix}?"
+                ),
+                hypothesis=(
+                    f"A concrete {method['name']} object improves metric {suffix} over "
+                    "the declared baseline in a bounded synthetic regime."
+                ),
+                theory_or_model_object=(
+                    f"{method['canonical_objects'][0]} object over "
+                    f"{domain['canonical_objects'][0]}"
+                ),
+                mathematical_or_computational_form=f"T_{suffix}(x) = x + {suffix}",
+                experiment_or_proof_plan=(
+                    f"Run a fixed-seed synthetic comparison for perturbation {suffix}."
+                ),
+                benchmark_plan="Compare the proposed object with null and standard baselines.",
+                baseline_candidates=["null baseline", "standard domain baseline"],
+                expected_metrics=["held_out_error", "stability"],
+                failure_modes=["no improvement", "unstable behavior"],
+                negative_controls=["remove the proposed mechanism"],
+                data_regime="synthetic_only",
+                verification_path="bounded synthetic benchmark",
+                paper_shape="model, benchmark, negative control, and limitations",
+                novelty_risk="Hypothesis: retrieval may reveal a close prior formulation.",
+                underuse_hypothesis=(
+                    "Hypothesis: the concrete pairing may be underexplored; bounded "
+                    "retrieval cannot establish this."
+                ),
+                retrieval_support_summary=(
+                    f"The {retrieval_payload['retrieval_mode']} context supplies only "
+                    "bounded metadata."
+                ),
+                retrieval_contradictions=[],
+                false_bridge_risks=["object mapping may be too generic"],
+                tautology_risks=["DGP could encode the expected result"],
+                recommended_next_stage="variance_generation",
+            )
+            score = OpportunityScoreProposal(
+                scientific_fit=0.82,
+                tractability=0.80,
+                question_specificity=0.78,
+                baseline_strength=0.81,
+                verification_feasibility=0.84,
+                expected_signal=0.75,
+                failure_mode_value=0.77,
+                paper_coherence=0.79,
+                novelty_risk_penalty=0.20,
+                false_bridge_penalty=0.15,
+                tautology_penalty=0.18,
+                retrieval_confidence=retrieval_payload["retrieval_confidence"],
+                final_score=0.84 - 0.01 * index,
+                score_explanation="Mocked structured LLM score for offline testing.",
+            )
+            accepted.append(OpportunityProposalItem(candidate=proposal, score=score))
+        return OpportunityGenerationResponse(
+            prompt_text=f"mock prompt for {pair_id}",
+            requested_output_schema=OpportunityProposalEnvelope.model_json_schema(),
+            raw_response={
+                "opportunities": [item.model_dump(mode="json") for item in accepted]
+            },
+            accepted=accepted,
+            rejected=[],
+        )
+
+
+class MockRealOpportunityRetriever:
+    backend_name = "openalex-mocked-transport"
+    backend_kind = BackendKind.RETRIEVAL_REAL
+    retrieval_mode = "real_retrieval"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def retrieve(self, **kwargs):
+        context = MockedOpportunityRetriever().retrieve(**kwargs)
+        pair = kwargs["pair"]
+        return context.model_copy(
+            update={
+                "retrieval_mode": "real_retrieval",
+                "backend_name": self.backend_name,
+                "retrieval_confidence": 0.7,
+                "sources": [
+                    RetrievedSourceSummary(
+                        source_id=f"openalex-{pair.pair_id}",
+                        title="Mocked transport result representing real retrieval metadata",
+                        authors=["Test Author"],
+                        year=2025,
+                        venue="Test Venue",
+                        abstract_or_snippet="Bounded source metadata for injected transport tests.",
+                        doi="10.0000/test",
+                        relevance_score=0.8,
+                        provider="openalex",
+                        fake_or_mocked=False,
+                    )
+                ],
+                "limitations": [
+                    "Injected transport test; no network was used.",
+                    "Novelty and underuse remain hypotheses.",
+                ],
+            }
+        )
+
+
 def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
@@ -459,6 +611,14 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert LLMPairRankingResult
     assert LLMPairRankingReport
     assert AtlasScanReport
+    assert DeepOpportunityDiscoveryConfig
+    assert RetrievedSourceSummary
+    assert RetrievalContext
+    assert DeepOpportunityCandidate
+    assert DeepOpportunityScore
+    assert LLMOpportunityDiscoveryRawArtifact
+    assert DeepOpportunityDiscoveryReport
+    assert DeepOpportunityDiscoveryInspectionReport
     assert AtlasScanInspectionReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
@@ -1582,6 +1742,240 @@ def test_atlas_strict_mode_rejects_fake_ranking_fallback_and_suppresses_duplicat
     )
     assert len(selected_pairs) == 1
     assert duplicate_count == 1
+
+
+def test_deep_opportunity_parser_rejects_missing_contracts_and_scopes_hypotheses() -> None:
+    valid = {
+        "candidate": {
+            "research_question": "Does a bounded model beat a declared baseline?",
+            "hypothesis": "The bounded model reduces held-out error in simulation.",
+            "theory_or_model_object": "A concrete matrix operator T.",
+            "mathematical_or_computational_form": "T(x) = Ax",
+            "experiment_or_proof_plan": "Run a fixed-seed synthetic comparison.",
+            "benchmark_plan": "Compare T with the identity baseline.",
+            "baseline_candidates": ["identity baseline"],
+            "expected_metrics": ["held_out_error"],
+            "failure_modes": ["no held-out improvement"],
+            "negative_controls": ["set A to identity"],
+            "data_regime": "synthetic_only",
+            "verification_path": "bounded synthetic benchmark",
+            "paper_shape": "model, benchmark, limitations",
+            "novelty_risk": "A close formulation may already exist.",
+            "underuse_hypothesis": "The pairing may be underexplored.",
+            "retrieval_support_summary": "One bounded metadata result was supplied.",
+            "retrieval_contradictions": [],
+            "false_bridge_risks": [],
+            "tautology_risks": ["the DGP may favor T"],
+            "recommended_next_stage": "variance_generation",
+        },
+        "score": {
+            "scientific_fit": 0.8,
+            "tractability": 0.8,
+            "question_specificity": 0.8,
+            "baseline_strength": 0.8,
+            "verification_feasibility": 0.8,
+            "expected_signal": 0.7,
+            "failure_mode_value": 0.8,
+            "paper_coherence": 0.8,
+            "novelty_risk_penalty": 0.2,
+            "false_bridge_penalty": 0.2,
+            "tautology_penalty": 0.2,
+            "retrieval_confidence": 0.3,
+            "final_score": 0.8,
+            "score_explanation": "Structured mocked score.",
+        },
+    }
+    missing_baseline = json.loads(json.dumps(valid))
+    missing_baseline["candidate"].pop("baseline_candidates")
+    missing_verification = json.loads(json.dumps(valid))
+    missing_verification["candidate"].pop("verification_path")
+    novelty_as_fact = json.loads(json.dumps(valid))
+    novelty_as_fact["candidate"]["research_question"] = (
+        "This is novel and should it beat the baseline?"
+    )
+
+    accepted, rejected = parse_opportunity_items(
+        {
+            "opportunities": [
+                valid,
+                missing_baseline,
+                missing_verification,
+                novelty_as_fact,
+            ]
+        }
+    )
+
+    assert len(accepted) == 1
+    assert len(rejected) == 3
+    assert accepted[0].candidate.novelty_risk.startswith("Hypothesis:")
+    assert accepted[0].candidate.underuse_hypothesis.startswith("Hypothesis:")
+    assert "baseline_candidates" in rejected[0]["reasons"][0]
+    assert "verification_path" in rejected[1]["reasons"][0]
+    assert "novelty as fact" in rejected[2]["reasons"][0]
+
+
+def test_deep_opportunity_discovery_with_mocked_retrieval_is_context_only(tmp_path) -> None:
+    run_id = "run-deep-opportunity-mocked"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=12,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    generator = MockDeepOpportunityGenerator(duplicate=True)
+    result = discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=generator,
+        retriever=MockedOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="mocked_retrieval",
+            max_pairs=12,
+            max_generation_calls=12,
+            opportunities_per_pair=3,
+            max_selected_opportunities=20,
+        ),
+    )
+    inspected = inspect_deep_opportunities(run_id=run_id, root=tmp_path)
+
+    assert result.report.selected_pair_count == 12
+    assert result.report.generated_opportunity_count == 36
+    assert result.report.selected_opportunity_count >= 8
+    assert result.report.near_duplicate_suppressed_count == 24
+    assert result.report.domain_family_coverage >= 8
+    assert result.report.method_family_coverage >= 8
+    assert result.report.config.retrieval_mode == "mocked_retrieval"
+    assert result.report.production_ready is False
+    assert result.report.publication_ready is False
+    assert len(result.report.raw_artifact_paths) == 12
+    assert len(result.report.retrieval_context_paths) == 12
+    assert all((tmp_path / path).is_file() for path in result.report.raw_artifact_paths)
+    assert all(
+        (tmp_path / path).is_file() for path in result.report.retrieval_context_paths
+    )
+    assert set(generator.received_pair_ids) == {
+        item.source_pair_id for item in result.report.candidates
+    }
+    assert all(item.baseline_candidates for item in result.report.candidates)
+    assert all(item.verification_path for item in result.report.candidates)
+    assert all(item.theory_or_model_object for item in result.report.candidates)
+    assert all(item.negative_controls for item in result.report.candidates)
+    assert all(item.creates_scientific_validation is False for item in result.report.candidates)
+    assert inspected.deep_opportunity_discovery_present is True
+    assert inspected.selected_opportunity_count == result.report.selected_opportunity_count
+    assert any(
+        record.stage_kind == ScientificStageKind.OPPORTUNITY_DISCOVERY
+        and record.backend_kind == BackendKind.LLM_OPENAI
+        and record.allowed_in_production
+        for record in result.report.backend_records
+    )
+    assert any(
+        record.stage_kind == ScientificStageKind.LITERATURE_RETRIEVAL
+        and record.backend_kind == BackendKind.FIXTURE
+        and not record.allowed_in_production
+        for record in result.report.backend_records
+    )
+
+    strict_audit = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict_audit.report.blocking_violation_count > 0
+    assert any(
+        violation.stage_kind == ScientificStageKind.LITERATURE_RETRIEVAL
+        for violation in strict_audit.report.violations
+    )
+
+
+def test_deep_opportunity_strict_mode_accepts_injected_real_retrieval_and_no_fallback(
+    tmp_path,
+) -> None:
+    run_id = "run-deep-opportunity-strict"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=12,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    config = DeepOpportunityDiscoveryConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        retrieval_mode="real_retrieval",
+        max_pairs=12,
+        max_generation_calls=12,
+        opportunities_per_pair=2,
+        max_selected_opportunities=20,
+        require_non_fake_backends=True,
+    )
+    result = discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockDeepOpportunityGenerator(),
+        retriever=MockRealOpportunityRetriever(),
+        config=config,
+    )
+
+    assert result.report.generated_opportunity_count == 24
+    assert result.report.selected_opportunity_count > 0
+    assert result.report.production_ready is True
+    assert result.report.publication_ready is False
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    with pytest.raises(DeepOpportunityDiscoveryError, match="requires real retrieval"):
+        discover_deep_opportunities(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            generator=MockDeepOpportunityGenerator(),
+            retriever=MockedOpportunityRetriever(),
+            config=config.model_copy(update={"retrieval_mode": "mocked_retrieval"}),
+        )
+    fallback = MockDeepOpportunityGenerator()
+    fallback.fallback_used = True
+    with pytest.raises(DeepOpportunityDiscoveryError, match="forbids deterministic"):
+        discover_deep_opportunities(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            generator=fallback,
+            retriever=MockRealOpportunityRetriever(),
+            config=config,
+        )
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

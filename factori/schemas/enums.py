@@ -383,6 +383,7 @@ class ControllerActionType(StrEnum):
     PRODUCTION_MODE_CHECKED = "ProductionModeChecked"
     DOMAIN_METHOD_ATLAS_BUILT = "DomainMethodAtlasBuilt"
     ATLAS_SCAN_WRITTEN = "AtlasScanWritten"
+    DEEP_OPPORTUNITY_DISCOVERY_WRITTEN = "DeepOpportunityDiscoveryWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 

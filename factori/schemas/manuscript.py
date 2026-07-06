@@ -378,6 +378,203 @@ class AtlasScanInspectionReport(StrictModel):
     is_verification_evidence: bool = False
 
 
+class DeepOpportunityDiscoveryConfig(StrictModel):
+    """Bounded configuration for retrieval-contextualized LLM opportunity generation."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    retrieval_mode: Literal["mocked_retrieval", "real_retrieval"]
+    max_pairs: int = Field(default=30, ge=1)
+    max_generation_calls: int = Field(default=30, ge=1)
+    opportunities_per_pair: int = Field(default=3, ge=2, le=4)
+    max_selected_opportunities: int = Field(default=40, ge=1)
+    min_domain_family_coverage: int = Field(default=8, ge=1)
+    min_method_family_coverage: int = Field(default=8, ge=1)
+    max_opportunities_per_domain_family: int = Field(default=6, ge=1)
+    max_opportunities_per_method_family: int = Field(default=6, ge=1)
+    max_retrieval_sources_per_pair: int = Field(default=5, ge=1, le=20)
+    near_duplicate_suppression: bool = True
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class RetrievedSourceSummary(StrictModel):
+    """Bounded literature metadata supplied as context, never verification evidence."""
+
+    source_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    authors: list[str] = Field(default_factory=list)
+    year: int | None = Field(default=None, ge=0)
+    venue: str | None = None
+    abstract_or_snippet: str | None = None
+    doi: str | None = None
+    relevance_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    provider: str = Field(min_length=1)
+    fake_or_mocked: bool
+    is_verification_evidence: Literal[False] = False
+    proves_novelty: Literal[False] = False
+    claims_literature_coverage: Literal[False] = False
+
+
+class RetrievalContext(StrictModel):
+    """Per-pair retrieval context used by deep opportunity discovery."""
+
+    context_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_pair_id: str = Field(min_length=1)
+    retrieval_mode: Literal["mocked_retrieval", "real_retrieval"]
+    backend_name: str = Field(min_length=1)
+    query: str = Field(min_length=1)
+    sources: list[RetrievedSourceSummary] = Field(default_factory=list)
+    retrieval_confidence: float = Field(ge=0.0, le=1.0)
+    limitations: list[str] = Field(min_length=1)
+    novelty_established: Literal[False] = False
+    underuse_established: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+    publication_ready: Literal[False] = False
+
+
+class DeepOpportunityCandidate(StrictModel):
+    """Concrete non-fake LLM opportunity grounded in atlas and retrieval context."""
+
+    opportunity_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_pair_id: str = Field(min_length=1)
+    domain_id: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    domain_name: str = Field(min_length=1)
+    method_name: str = Field(min_length=1)
+    research_question: str = Field(min_length=1)
+    hypothesis: str = Field(min_length=1)
+    theory_or_model_object: str = Field(min_length=1)
+    mathematical_or_computational_form: str = Field(min_length=1)
+    experiment_or_proof_plan: str = Field(min_length=1)
+    benchmark_plan: str = Field(min_length=1)
+    baseline_candidates: list[str] = Field(min_length=1)
+    expected_metrics: list[str] = Field(min_length=1)
+    failure_modes: list[str] = Field(min_length=1)
+    negative_controls: list[str] = Field(min_length=1)
+    data_regime: str = Field(min_length=1)
+    verification_path: str = Field(min_length=1)
+    paper_shape: str = Field(min_length=1)
+    novelty_risk: str = Field(min_length=1)
+    underuse_hypothesis: str = Field(min_length=1)
+    retrieval_support_summary: str = Field(min_length=1)
+    retrieval_contradictions: list[str] = Field(default_factory=list)
+    false_bridge_risks: list[str] = Field(default_factory=list)
+    tautology_risks: list[str] = Field(default_factory=list)
+    recommended_next_stage: str = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+    @field_validator("novelty_risk", "underuse_hypothesis")
+    @classmethod
+    def require_hypothesis_scope(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.lower().startswith("hypothesis:"):
+            raise ValueError("novelty and underuse must begin with 'Hypothesis:'")
+        return normalized
+
+
+class DeepOpportunityScore(StrictModel):
+    """Non-fake LLM scientific score for one concrete opportunity."""
+
+    opportunity_id: str = Field(min_length=1)
+    scientific_fit: float = Field(ge=0.0, le=1.0)
+    tractability: float = Field(ge=0.0, le=1.0)
+    question_specificity: float = Field(ge=0.0, le=1.0)
+    baseline_strength: float = Field(ge=0.0, le=1.0)
+    verification_feasibility: float = Field(ge=0.0, le=1.0)
+    expected_signal: float = Field(ge=0.0, le=1.0)
+    failure_mode_value: float = Field(ge=0.0, le=1.0)
+    paper_coherence: float = Field(ge=0.0, le=1.0)
+    novelty_risk_penalty: float = Field(ge=0.0, le=1.0)
+    false_bridge_penalty: float = Field(ge=0.0, le=1.0)
+    tautology_penalty: float = Field(ge=0.0, le=1.0)
+    retrieval_confidence: float = Field(ge=0.0, le=1.0)
+    final_score: float = Field(ge=0.0, le=1.0)
+    score_explanation: str = Field(min_length=1)
+
+
+class LLMOpportunityDiscoveryRawArtifact(StrictModel):
+    """Secret-free prompt/response provenance for one pair generation call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_pair_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+    raw_response: dict[str, Any]
+    accepted_opportunity_ids: list[str] = Field(default_factory=list)
+    rejected_outputs: list[dict[str, Any]] = Field(default_factory=list)
+    fallback_used: bool = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+    publication_ready: Literal[False] = False
+
+
+class DeepOpportunityDiscoveryReport(StrictModel):
+    """Append-only result of retrieval-contextualized non-fake opportunity discovery."""
+
+    run_id: str = Field(min_length=1)
+    discovery_id: str = Field(min_length=1)
+    discovery_status: Literal["completed", "completed_with_warnings", "failed"]
+    config: DeepOpportunityDiscoveryConfig
+    source_atlas_scan_path: str = Field(min_length=1)
+    selected_pair_count: int = Field(ge=0)
+    attempted_pair_count: int = Field(ge=0)
+    generated_opportunity_count: int = Field(ge=0)
+    rejected_opportunity_count: int = Field(ge=0)
+    selected_opportunity_count: int = Field(ge=0)
+    domain_family_coverage: int = Field(ge=0)
+    method_family_coverage: int = Field(ge=0)
+    near_duplicate_suppressed_count: int = Field(ge=0)
+    retrieval_context_paths: list[str] = Field(default_factory=list)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    candidates: list[DeepOpportunityCandidate] = Field(default_factory=list)
+    scores: list[DeepOpportunityScore] = Field(default_factory=list)
+    selected_opportunity_ids: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class DeepOpportunityDiscoveryInspectionReport(StrictModel):
+    """Read-only inspection of the latest deep opportunity discovery report."""
+
+    run_id: str = Field(min_length=1)
+    deep_opportunity_discovery_present: bool
+    discovery_id_optional: str | None = None
+    discovery_status_optional: str | None = None
+    selected_pair_count: int = Field(default=0, ge=0)
+    generated_opportunity_count: int = Field(default=0, ge=0)
+    selected_opportunity_count: int = Field(default=0, ge=0)
+    rejected_opportunity_count: int = Field(default=0, ge=0)
+    domain_family_coverage: int = Field(default=0, ge=0)
+    method_family_coverage: int = Field(default=0, ge=0)
+    retrieval_mode_optional: str | None = None
+    selected_opportunities: list[DeepOpportunityCandidate] = Field(default_factory=list)
+    selected_scores: list[DeepOpportunityScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class DomainPrimitive(StrictModel):
     """One deterministic Stage 0 primitive extracted from a broad research domain."""
 
@@ -5355,6 +5552,14 @@ __all__ = [
     "LLMPairRankingReport",
     "AtlasScanReport",
     "AtlasScanInspectionReport",
+    "DeepOpportunityDiscoveryConfig",
+    "RetrievedSourceSummary",
+    "RetrievalContext",
+    "DeepOpportunityCandidate",
+    "DeepOpportunityScore",
+    "LLMOpportunityDiscoveryRawArtifact",
+    "DeepOpportunityDiscoveryReport",
+    "DeepOpportunityDiscoveryInspectionReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

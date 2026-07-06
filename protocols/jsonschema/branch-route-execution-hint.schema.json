@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.63.0/branch-route-execution-hint.schema.json",
+  "$id": "https://schemas.factori.local/0.64.0/branch-route-execution-hint.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-executing next-command hint for a routed scientific branch.",
@@ -58,7 +58,7 @@
   ],
   "title": "BranchRouteExecutionHint",
   "type": "object",
-  "x-factori-protocol-version": "0.63.0",
+  "x-factori-protocol-version": "0.64.0",
   "x-factori-source-model": "factori.schemas.BranchRouteExecutionHint",
   "x-factori-verification-evidence": false
 }

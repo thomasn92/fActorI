@@ -31,6 +31,10 @@ _STAGE_FILES: tuple[tuple[re.Pattern[str], ScientificStageKind], ...] = (
         ScientificStageKind.ATLAS_CONSTRUCTION,
     ),
     (re.compile(r"^atlas-scan-\d{4}\.json$"), ScientificStageKind.PAIR_RANKING),
+    (
+        re.compile(r"^deep-opportunity-discovery-report-\d{4}\.json$"),
+        ScientificStageKind.OPPORTUNITY_DISCOVERY,
+    ),
     (re.compile(r"^opportunity-discovery-\d{4}\.json$"), ScientificStageKind.OPPORTUNITY_DISCOVERY),
     (re.compile(r"^variance-augmentation-\d{4}\.json$"), ScientificStageKind.VARIANCE_GENERATION),
     (re.compile(r"^substrate-promotion-\d{4}\.json$"), ScientificStageKind.SUBSTRATE_CONSTRUCTION),
