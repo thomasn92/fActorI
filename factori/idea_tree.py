@@ -19,6 +19,7 @@ from factori.schemas import (
     IdeaEdge,
     IdeaNode,
     IdeaTree,
+    IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     SubstratePromotionReport,
@@ -33,6 +34,9 @@ _GENERATION_MUTATION_RE = re.compile(
 )
 _VARIANCE_APPLICATION_RE = re.compile(r"^variance-augmentation-application-(\d{4})\.json$")
 _SUBSTRATE_PROMOTION_RE = re.compile(r"^substrate-promotion-(\d{4})\.json$")
+_LLM_TREE_CONSTRUCTION_RE = re.compile(
+    r"^idea-tree-construction-report-(\d{4})\.json$"
+)
 _DEFERRED_BRANCH_STATUSES = {
     "BudgetDeferred",
     "DeferredRealDataCandidate",
@@ -85,10 +89,16 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
 
     variance_applications = _load_variance_augmentation_applications(reports, root_path, warnings)
     substrate_promotions = _load_substrate_promotion_reports(reports, root_path, warnings)
+    llm_tree_constructions = _load_llm_tree_construction_reports(
+        reports, root_path, warnings
+    )
     domain = _resolve_domain(report_paths["config"], candidates, warnings)
     if domain == "unknown domain" and variance_applications:
         domain = variance_applications[-1][0].domain
         warnings.append("Run domain was recovered from variance augmentation context.")
+    if domain == "unknown domain" and llm_tree_constructions:
+        domain = "domain/method atlas opportunity search"
+        warnings.append("Run domain was recovered as a multi-domain atlas search context.")
     if report_paths["config"].is_file():
         source_paths.append(_relative_path(root_path, report_paths["config"]))
 
@@ -349,6 +359,14 @@ def build_idea_tree(*, run_id: str, root: str | Path = ".") -> IdeaTree:
         edges=edges,
         source_paths=source_paths,
         domain=domain,
+    )
+    _append_llm_variance_nodes(
+        root_path=root_path,
+        reports_and_paths=llm_tree_constructions,
+        nodes=nodes,
+        edges=edges,
+        source_paths=source_paths,
+        warnings=warnings,
     )
     _link_promoted_substrates(
         root_path=root_path,
@@ -745,6 +763,78 @@ def _load_generation_mutation_reports(
                 f"{_relative_path(root_path, path)}"
             )
     return loaded
+
+
+def _load_llm_tree_construction_reports(
+    reports: Path,
+    root_path: Path,
+    warnings: list[str],
+) -> list[tuple[IdeaTreeConstructionReport, Path]]:
+    loaded: list[tuple[IdeaTreeConstructionReport, Path]] = []
+    for _, path in sorted(
+        (int(match.group(1)), path)
+        for path in reports.glob("idea-tree-construction-report-*.json")
+        if (match := _LLM_TREE_CONSTRUCTION_RE.fullmatch(path.name))
+    ):
+        try:
+            loaded.append(
+                (
+                    IdeaTreeConstructionReport.model_validate_json(
+                        path.read_text(encoding="utf-8")
+                    ),
+                    path,
+                )
+            )
+        except (OSError, ValueError):
+            warnings.append(
+                "LLM IdeaTree construction report could not be parsed: "
+                f"{_relative_path(root_path, path)}"
+            )
+    return loaded
+
+
+def _append_llm_variance_nodes(
+    *,
+    root_path: Path,
+    reports_and_paths: list[tuple[IdeaTreeConstructionReport, Path]],
+    nodes: list[IdeaNode],
+    edges: list[IdeaEdge],
+    source_paths: list[str],
+    warnings: list[str],
+) -> None:
+    node_ids = {node.node_id for node in nodes}
+    for report, path in reports_and_paths:
+        source_paths.extend(
+            [
+                _relative_path(root_path, path),
+                report.source_variance_report_path,
+                report.source_deep_opportunity_report_path,
+            ]
+        )
+        for node in report.nodes:
+            if node.node_id in node_ids:
+                warnings.append(
+                    f"Skipped duplicate LLM variance IdeaTree node {node.node_id}."
+                )
+                continue
+            nodes.append(node)
+            node_ids.add(node.node_id)
+        for edge in report.edges:
+            if edge.source_node_id not in node_ids or edge.target_node_id not in node_ids:
+                warnings.append(
+                    f"Skipped LLM variance edge with missing endpoint {edge.edge_id}."
+                )
+                continue
+            edges.append(
+                _edge(
+                    edges,
+                    source=edge.source_node_id,
+                    target=edge.target_node_id,
+                    edge_type=edge.edge_type,
+                    mutation_operator=edge.mutation_operator_optional,
+                    rationale=edge.rationale,
+                )
+            )
 
 
 def _load_variance_augmentation_applications(

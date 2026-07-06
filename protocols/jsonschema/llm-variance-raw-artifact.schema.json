@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "LLMVariancePrompt": {
+      "additionalProperties": false,
+      "description": "Secret-free prompt contract for one source opportunity.",
+      "properties": {
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_id": {
+          "minLength": 1,
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "prompt_text": {
+          "minLength": 1,
+          "title": "Prompt Text",
+          "type": "string"
+        },
+        "requested_output_schema": {
+          "additionalProperties": true,
+          "title": "Requested Output Schema",
+          "type": "object"
+        },
+        "requested_variant_count": {
+          "maximum": 7,
+          "minimum": 3,
+          "title": "Requested Variant Count",
+          "type": "integer"
+        },
+        "retrieval_context_payload": {
+          "additionalProperties": true,
+          "title": "Retrieval Context Payload",
+          "type": "object"
+        },
+        "source_opportunity_id": {
+          "minLength": 1,
+          "title": "Source Opportunity Id",
+          "type": "string"
+        },
+        "source_payload": {
+          "additionalProperties": true,
+          "title": "Source Payload",
+          "type": "object"
+        }
+      },
+      "required": [
+        "prompt_id",
+        "backend_name",
+        "model",
+        "source_opportunity_id",
+        "requested_variant_count",
+        "source_payload",
+        "retrieval_context_payload",
+        "prompt_text",
+        "requested_output_schema"
+      ],
+      "title": "LLMVariancePrompt",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-raw-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Secret-free raw prompt and response provenance for one variance call.",
+  "properties": {
+    "accepted_variant_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Variant Ids",
+      "type": "array"
+    },
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fallback_used": {
+      "default": false,
+      "title": "Fallback Used",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt": {
+      "$ref": "#/$defs/LLMVariancePrompt"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "raw_artifact_id": {
+      "minLength": 1,
+      "title": "Raw Artifact Id",
+      "type": "string"
+    },
+    "raw_response": {
+      "additionalProperties": true,
+      "title": "Raw Response",
+      "type": "object"
+    },
+    "rejected_outputs": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejected Outputs",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "raw_artifact_id",
+    "run_id",
+    "source_opportunity_id",
+    "backend_name",
+    "model",
+    "prompt",
+    "raw_response"
+  ],
+  "title": "LLMVarianceRawArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVarianceRawArtifact",
+  "x-factori-verification-evidence": false
+}

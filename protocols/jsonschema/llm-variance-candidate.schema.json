@@ -1,0 +1,214 @@
+{
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One non-fake LLM scientific variant around a deep opportunity.",
+  "properties": {
+    "baseline_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Baseline Candidates",
+      "type": "array"
+    },
+    "benchmark_plan": {
+      "minLength": 1,
+      "title": "Benchmark Plan",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "data_regime": {
+      "minLength": 1,
+      "title": "Data Regime",
+      "type": "string"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "expected_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Expected Metrics",
+      "type": "array"
+    },
+    "experiment_or_proof_plan": {
+      "minLength": 1,
+      "title": "Experiment Or Proof Plan",
+      "type": "string"
+    },
+    "failure_modes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Failure Modes",
+      "type": "array"
+    },
+    "false_bridge_risk": {
+      "minLength": 1,
+      "title": "False Bridge Risk",
+      "type": "string"
+    },
+    "hypothesis": {
+      "minLength": 1,
+      "title": "Hypothesis",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "mathematical_or_computational_form": {
+      "minLength": 1,
+      "title": "Mathematical Or Computational Form",
+      "type": "string"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "negative_controls": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Negative Controls",
+      "type": "array"
+    },
+    "novelty_risk": {
+      "minLength": 1,
+      "title": "Novelty Risk",
+      "type": "string"
+    },
+    "paper_role": {
+      "minLength": 1,
+      "title": "Paper Role",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "research_question": {
+      "minLength": 1,
+      "title": "Research Question",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scientific_rationale": {
+      "minLength": 1,
+      "title": "Scientific Rationale",
+      "type": "string"
+    },
+    "selected_for_tree": {
+      "default": false,
+      "title": "Selected For Tree",
+      "type": "boolean"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    },
+    "source_pair_id": {
+      "minLength": 1,
+      "title": "Source Pair Id",
+      "type": "string"
+    },
+    "tautology_risk": {
+      "minLength": 1,
+      "title": "Tautology Risk",
+      "type": "string"
+    },
+    "theory_or_model_object": {
+      "minLength": 1,
+      "title": "Theory Or Model Object",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "variant_family": {
+      "enum": [
+        "mechanism",
+        "robustness",
+        "counterexample",
+        "benchmark",
+        "representation",
+        "baseline_strengthening",
+        "negative_control"
+      ],
+      "title": "Variant Family",
+      "type": "string"
+    },
+    "variant_id": {
+      "minLength": 1,
+      "title": "Variant Id",
+      "type": "string"
+    },
+    "verification_path": {
+      "minLength": 1,
+      "title": "Verification Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "variant_id",
+    "run_id",
+    "source_opportunity_id",
+    "source_pair_id",
+    "domain_id",
+    "method_id",
+    "variant_family",
+    "title",
+    "research_question",
+    "hypothesis",
+    "theory_or_model_object",
+    "mathematical_or_computational_form",
+    "experiment_or_proof_plan",
+    "benchmark_plan",
+    "baseline_candidates",
+    "negative_controls",
+    "failure_modes",
+    "verification_path",
+    "expected_metrics",
+    "data_regime",
+    "paper_role",
+    "scientific_rationale",
+    "novelty_risk",
+    "false_bridge_risk",
+    "tautology_risk"
+  ],
+  "title": "LLMVarianceCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVarianceCandidate",
+  "x-factori-verification-evidence": false
+}

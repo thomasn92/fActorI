@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.65.0` adds non-fake LLM variance-generation contracts, scientific variant scores and
+batches, secret-free raw-call provenance, deterministic IdeaTree construction reports, and
+optional source-pair, source-opportunity, variant-family, backend, and retrieval-context metadata
+on IdeaTree nodes. Tree construction remains deterministic infrastructure over LLM-authored
+content and creates no evidence or publication readiness.
+
 Protocol `0.64.0` adds retrieval-contextualized deep opportunity discovery contracts: bounded
 source summaries, per-pair retrieval contexts, concrete Q/H/T/E/B opportunities, non-fake LLM
 scientific scores, secret-free raw-call provenance, append-only reports, and read-only inspection.

@@ -228,7 +228,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/opportunity-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/opportunity-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One scored Stage 0 domain-method opportunity candidate.",
@@ -320,7 +320,7 @@
   ],
   "title": "OpportunityCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.OpportunityCandidate",
   "x-factori-verification-evidence": false
 }

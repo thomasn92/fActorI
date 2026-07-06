@@ -1,5 +1,23 @@
 {
   "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
     "IdeaEdge": {
       "additionalProperties": false,
       "description": "One parent, mutation, pruning, selection, or finalization relation.",
@@ -22,7 +40,9 @@
             "winner_to_robustness",
             "missing_axis_to_candidate",
             "root_to_opportunity_seed",
-            "opportunity_seed_to_candidate"
+            "opportunity_seed_to_candidate",
+            "root_to_deep_opportunity",
+            "deep_opportunity_to_variant"
           ],
           "title": "Edge Type",
           "type": "string"
@@ -75,6 +95,17 @@
           },
           "title": "Artifact Refs",
           "type": "array"
+        },
+        "backend_kind_optional": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackendKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "baseline_hint_optional": {
           "anyOf": [
@@ -226,6 +257,18 @@
           "default": null,
           "title": "Research Question Optional"
         },
+        "retrieval_context_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieval Context Id Optional"
+        },
         "scientific_interest_optional": {
           "anyOf": [
             {
@@ -288,6 +331,18 @@
           "default": null,
           "title": "Source Opportunity Id Optional"
         },
+        "source_pair_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Pair Id Optional"
+        },
         "stage_origin": {
           "minLength": 1,
           "title": "Stage Origin",
@@ -323,6 +378,18 @@
           "minLength": 1,
           "title": "Title",
           "type": "string"
+        },
+        "variant_family_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Family Optional"
         }
       },
       "required": [
@@ -337,7 +404,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/idea-tree.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/idea-tree.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived research idea search tree without evidence authority.",
@@ -421,7 +488,7 @@
   ],
   "title": "IdeaTree",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.IdeaTree",
   "x-factori-verification-evidence": false
 }

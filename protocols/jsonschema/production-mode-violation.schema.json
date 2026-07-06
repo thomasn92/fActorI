@@ -26,6 +26,7 @@
         "compatibility_filter",
         "pair_ranking",
         "diversity_selection",
+        "idea_tree_construction",
         "variance_generation",
         "substrate_construction",
         "branch_routing",
@@ -45,7 +46,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/production-mode-violation.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/production-mode-violation.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One backend authority violation found by a production-mode check.",
@@ -86,7 +87,7 @@
   ],
   "title": "ProductionModeViolation",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.ProductionModeViolation",
   "x-factori-verification-evidence": false
 }

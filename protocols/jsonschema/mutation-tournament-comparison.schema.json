@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.64.0/mutation-tournament-comparison.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/mutation-tournament-comparison.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Second-generation comparison of mutation substrates against the prior winner.",
@@ -122,7 +122,7 @@
   ],
   "title": "MutationTournamentComparison",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.MutationTournamentComparison",
   "x-factori-verification-evidence": false
 }

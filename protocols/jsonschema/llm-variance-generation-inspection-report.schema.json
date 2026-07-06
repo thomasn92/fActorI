@@ -1,0 +1,582 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "LLMVarianceCandidate": {
+      "additionalProperties": false,
+      "description": "One non-fake LLM scientific variant around a deep opportunity.",
+      "properties": {
+        "baseline_candidates": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Baseline Candidates",
+          "type": "array"
+        },
+        "benchmark_plan": {
+          "minLength": 1,
+          "title": "Benchmark Plan",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "data_regime": {
+          "minLength": 1,
+          "title": "Data Regime",
+          "type": "string"
+        },
+        "domain_id": {
+          "minLength": 1,
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "expected_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Expected Metrics",
+          "type": "array"
+        },
+        "experiment_or_proof_plan": {
+          "minLength": 1,
+          "title": "Experiment Or Proof Plan",
+          "type": "string"
+        },
+        "failure_modes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Failure Modes",
+          "type": "array"
+        },
+        "false_bridge_risk": {
+          "minLength": 1,
+          "title": "False Bridge Risk",
+          "type": "string"
+        },
+        "hypothesis": {
+          "minLength": 1,
+          "title": "Hypothesis",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "const": false,
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "mathematical_or_computational_form": {
+          "minLength": 1,
+          "title": "Mathematical Or Computational Form",
+          "type": "string"
+        },
+        "method_id": {
+          "minLength": 1,
+          "title": "Method Id",
+          "type": "string"
+        },
+        "negative_controls": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Negative Controls",
+          "type": "array"
+        },
+        "novelty_risk": {
+          "minLength": 1,
+          "title": "Novelty Risk",
+          "type": "string"
+        },
+        "paper_role": {
+          "minLength": 1,
+          "title": "Paper Role",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "research_question": {
+          "minLength": 1,
+          "title": "Research Question",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "scientific_rationale": {
+          "minLength": 1,
+          "title": "Scientific Rationale",
+          "type": "string"
+        },
+        "selected_for_tree": {
+          "default": false,
+          "title": "Selected For Tree",
+          "type": "boolean"
+        },
+        "source_opportunity_id": {
+          "minLength": 1,
+          "title": "Source Opportunity Id",
+          "type": "string"
+        },
+        "source_pair_id": {
+          "minLength": 1,
+          "title": "Source Pair Id",
+          "type": "string"
+        },
+        "tautology_risk": {
+          "minLength": 1,
+          "title": "Tautology Risk",
+          "type": "string"
+        },
+        "theory_or_model_object": {
+          "minLength": 1,
+          "title": "Theory Or Model Object",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "variant_family": {
+          "enum": [
+            "mechanism",
+            "robustness",
+            "counterexample",
+            "benchmark",
+            "representation",
+            "baseline_strengthening",
+            "negative_control"
+          ],
+          "title": "Variant Family",
+          "type": "string"
+        },
+        "variant_id": {
+          "minLength": 1,
+          "title": "Variant Id",
+          "type": "string"
+        },
+        "verification_path": {
+          "minLength": 1,
+          "title": "Verification Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "variant_id",
+        "run_id",
+        "source_opportunity_id",
+        "source_pair_id",
+        "domain_id",
+        "method_id",
+        "variant_family",
+        "title",
+        "research_question",
+        "hypothesis",
+        "theory_or_model_object",
+        "mathematical_or_computational_form",
+        "experiment_or_proof_plan",
+        "benchmark_plan",
+        "baseline_candidates",
+        "negative_controls",
+        "failure_modes",
+        "verification_path",
+        "expected_metrics",
+        "data_regime",
+        "paper_role",
+        "scientific_rationale",
+        "novelty_risk",
+        "false_bridge_risk",
+        "tautology_risk"
+      ],
+      "title": "LLMVarianceCandidate",
+      "type": "object"
+    },
+    "LLMVarianceScore": {
+      "additionalProperties": false,
+      "description": "Non-fake LLM score for one scientific variant.",
+      "properties": {
+        "baseline_quality": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Baseline Quality",
+          "type": "number"
+        },
+        "branch_diversity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Branch Diversity",
+          "type": "number"
+        },
+        "failure_mode_value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Failure Mode Value",
+          "type": "number"
+        },
+        "false_bridge_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "False Bridge Penalty",
+          "type": "number"
+        },
+        "final_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Final Score",
+          "type": "number"
+        },
+        "novelty_risk_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Novelty Risk Penalty",
+          "type": "number"
+        },
+        "paper_coherence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Paper Coherence",
+          "type": "number"
+        },
+        "score_explanation": {
+          "minLength": 1,
+          "title": "Score Explanation",
+          "type": "string"
+        },
+        "specificity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Specificity",
+          "type": "number"
+        },
+        "tautology_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tautology Penalty",
+          "type": "number"
+        },
+        "variant_id": {
+          "minLength": 1,
+          "title": "Variant Id",
+          "type": "string"
+        },
+        "verification_feasibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Verification Feasibility",
+          "type": "number"
+        }
+      },
+      "required": [
+        "variant_id",
+        "specificity",
+        "branch_diversity",
+        "baseline_quality",
+        "verification_feasibility",
+        "failure_mode_value",
+        "paper_coherence",
+        "novelty_risk_penalty",
+        "false_bridge_penalty",
+        "tautology_penalty",
+        "final_score",
+        "score_explanation"
+      ],
+      "title": "LLMVarianceScore",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-generation-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection of the latest LLM variance generation report.",
+  "properties": {
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "domain_family_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Domain Family Coverage",
+      "type": "integer"
+    },
+    "generated_variant_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Generated Variant Count",
+      "type": "integer"
+    },
+    "generation_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Generation Status Optional"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_report_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Report Id Optional"
+    },
+    "llm_variance_present": {
+      "title": "Llm Variance Present",
+      "type": "boolean"
+    },
+    "method_family_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Method Family Coverage",
+      "type": "integer"
+    },
+    "near_duplicate_suppressed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Near Duplicate Suppressed Count",
+      "type": "integer"
+    },
+    "production_ready": {
+      "default": false,
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rejected_variant_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Rejected Variant Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "selected_scores": {
+      "items": {
+        "$ref": "#/$defs/LLMVarianceScore"
+      },
+      "title": "Selected Scores",
+      "type": "array"
+    },
+    "selected_variant_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Variant Count",
+      "type": "integer"
+    },
+    "selected_variants": {
+      "items": {
+        "$ref": "#/$defs/LLMVarianceCandidate"
+      },
+      "title": "Selected Variants",
+      "type": "array"
+    },
+    "source_opportunity_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Source Opportunity Count",
+      "type": "integer"
+    },
+    "source_repeat_suppressed_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Source Repeat Suppressed Count",
+      "type": "integer"
+    },
+    "variant_family_coverage": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Variant Family Coverage",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "llm_variance_present"
+  ],
+  "title": "LLMVarianceGenerationInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVarianceGenerationInspectionReport",
+  "x-factori-verification-evidence": false
+}

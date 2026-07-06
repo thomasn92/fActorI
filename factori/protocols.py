@@ -156,6 +156,7 @@ from factori.schemas import (
     IdeaSpaceInspectionReport,
     IdeaSpacePCADiagnostic,
     IdeaTree,
+    IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     LatexCompileCheckReport,
@@ -193,6 +194,14 @@ from factori.schemas import (
     LLMPromptContract,
     LLMReviewerParseResult,
     LLMRunSafetyReport,
+    LLMVarianceBatch,
+    LLMVarianceCandidate,
+    LLMVarianceGenerationConfig,
+    LLMVarianceGenerationInspectionReport,
+    LLMVarianceGenerationReport,
+    LLMVariancePrompt,
+    LLMVarianceRawArtifact,
+    LLMVarianceScore,
     MainMessageAssessment,
     MainResultAssessment,
     ManuscriptAssemblyReport,
@@ -330,7 +339,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.64.0"
+PROTOCOL_VERSION = "0.65.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -651,6 +660,51 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "DeepOpportunityDiscoveryInspectionReport",
         DeepOpportunityDiscoveryInspectionReport,
         "Read-only inspection of the latest deep opportunity discovery report.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceGenerationConfig",
+        LLMVarianceGenerationConfig,
+        "Bounded configuration for non-fake LLM scientific variance generation.",
+    ),
+    ProtocolDefinition(
+        "LLMVariancePrompt",
+        LLMVariancePrompt,
+        "Secret-free prompt contract for one source opportunity variance call.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceCandidate",
+        LLMVarianceCandidate,
+        "One non-fake LLM scientific variant around a deep opportunity.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceScore",
+        LLMVarianceScore,
+        "Non-fake LLM score for one scientific variant.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceBatch",
+        LLMVarianceBatch,
+        "Validated variance candidates and diagnostics for one source opportunity.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceRawArtifact",
+        LLMVarianceRawArtifact,
+        "Secret-free raw prompt and response provenance for one variance call.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceGenerationReport",
+        LLMVarianceGenerationReport,
+        "Append-only non-fake LLM variance generation and selection report.",
+    ),
+    ProtocolDefinition(
+        "LLMVarianceGenerationInspectionReport",
+        LLMVarianceGenerationInspectionReport,
+        "Read-only inspection of the latest LLM variance generation report.",
+    ),
+    ProtocolDefinition(
+        "IdeaTreeConstructionReport",
+        IdeaTreeConstructionReport,
+        "Deterministic construction context for LLM-authored IdeaTree branches.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

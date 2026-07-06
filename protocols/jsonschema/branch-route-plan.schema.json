@@ -220,6 +220,7 @@
         "compatibility_filter",
         "pair_ranking",
         "diversity_selection",
+        "idea_tree_construction",
         "variance_generation",
         "substrate_construction",
         "branch_routing",
@@ -312,7 +313,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/branch-route-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/branch-route-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only deterministic route plan over the latest substrate build.",
@@ -454,7 +455,7 @@
   ],
   "title": "BranchRoutePlan",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.BranchRoutePlan",
   "x-factori-verification-evidence": false
 }

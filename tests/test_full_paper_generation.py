@@ -20,6 +20,14 @@ from factori.adapters.deep_opportunity import (
     parse_opportunity_items,
 )
 from factori.adapters.fake import FakeProseGenerator
+from factori.adapters.llm_variance import (
+    VarianceCandidateProposal,
+    VarianceGenerationResponse,
+    VarianceProposalItem,
+    VarianceScoreProposal,
+    build_llm_variance_prompt,
+    parse_variance_items,
+)
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
     build_autonomous_evidence_gap_plan,
@@ -167,6 +175,12 @@ from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
+from factori.llm_variance import (
+    LLMVarianceError,
+    construct_idea_tree_from_llm_variance,
+    generate_llm_variance,
+    inspect_llm_variance,
+)
 from factori.mutation_tournament import (
     inspect_mutation_tournament,
     run_mutation_tournament,
@@ -301,6 +315,7 @@ from factori.schemas import (
     IdeaSpaceInspectionReport,
     IdeaSpacePCADiagnostic,
     IdeaTree,
+    IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     LLMOpportunityDiscoveryRawArtifact,
@@ -308,6 +323,14 @@ from factori.schemas import (
     LLMPairRankingPrompt,
     LLMPairRankingReport,
     LLMPairRankingResult,
+    LLMVarianceBatch,
+    LLMVarianceCandidate,
+    LLMVarianceGenerationConfig,
+    LLMVarianceGenerationInspectionReport,
+    LLMVarianceGenerationReport,
+    LLMVariancePrompt,
+    LLMVarianceRawArtifact,
+    LLMVarianceScore,
     MethodAtlasEntry,
     MethodLens,
     MutationTournamentComparison,
@@ -580,6 +603,124 @@ class MockRealOpportunityRetriever:
         )
 
 
+class MockLLMVarianceGenerator:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-variance-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self, *, include_filtered_variants: bool = False) -> None:
+        self.received_source_ids: list[str] = []
+        self.include_filtered_variants = include_filtered_variants
+
+    def generate_variants(
+        self,
+        *,
+        prompt_id,
+        source_payload,
+        retrieval_context_payload,
+        variants_per_opportunity,
+    ):
+        families = [
+            "mechanism",
+            "benchmark",
+            "robustness",
+            "baseline_strengthening",
+            "negative_control",
+            "representation",
+            "counterexample",
+        ][:variants_per_opportunity]
+        source_id = source_payload["opportunity_id"]
+        self.received_source_ids.append(source_id)
+        prompt = build_llm_variance_prompt(
+            prompt_id=prompt_id,
+            backend_name=self.backend_name,
+            model=self.model,
+            source_payload=source_payload,
+            retrieval_context_payload=retrieval_context_payload,
+            variants_per_opportunity=variants_per_opportunity,
+        )
+        items = []
+        for index, family in enumerate(families):
+            proposal = VarianceCandidateProposal(
+                variant_family=family,
+                title=f"{family.title()} variant {index} for {source_id}",
+                research_question=(
+                    f"How does {family} perturbation {index} change the bounded "
+                    f"mechanism in {source_id}?"
+                ),
+                hypothesis=(
+                    f"The {family} branch changes metric {index} relative to both "
+                    "declared baselines in a synthetic regime."
+                ),
+                theory_or_model_object=f"Variant operator V_{index} for {family}",
+                mathematical_or_computational_form=f"V_{index}(x)=x+{index + 1}",
+                experiment_or_proof_plan=(
+                    f"Run fixed-seed {family} perturbations and retain failures."
+                ),
+                benchmark_plan=(
+                    "Compare with a null baseline and a stronger regularized baseline."
+                ),
+                baseline_candidates=["null baseline", "regularized baseline"],
+                negative_controls=[f"remove {family} mechanism"],
+                failure_modes=["no improvement", "unstable response"],
+                verification_path="bounded synthetic comparison",
+                expected_metrics=["held_out_error", "stability"],
+                data_regime="synthetic_only",
+                paper_role=f"{family} branch",
+                scientific_rationale=(
+                    f"This changes the source mechanism along the {family} axis."
+                ),
+                novelty_risk="Hypothesis: retrieval may contain a close branch.",
+                false_bridge_risk="The object mapping may fail under perturbation.",
+                tautology_risk="The synthetic design may favor the mechanism.",
+            )
+            if self.include_filtered_variants and index == 5:
+                proposal = items[0].candidate.model_copy(
+                    update={"variant_family": "representation"}
+                )
+            if self.include_filtered_variants and index == 6:
+                proposal = proposal.model_copy(
+                    update={
+                        "research_question": source_payload["research_question"],
+                        "theory_or_model_object": source_payload[
+                            "theory_or_model_object"
+                        ],
+                        "mathematical_or_computational_form": source_payload[
+                            "mathematical_or_computational_form"
+                        ],
+                        "experiment_or_proof_plan": source_payload[
+                            "experiment_or_proof_plan"
+                        ],
+                    }
+                )
+            items.append(
+                VarianceProposalItem(
+                    candidate=proposal,
+                    score=VarianceScoreProposal(
+                        specificity=0.82,
+                        branch_diversity=0.84,
+                        baseline_quality=0.8,
+                        verification_feasibility=0.83,
+                        failure_mode_value=0.79,
+                        paper_coherence=0.81,
+                        novelty_risk_penalty=0.2,
+                        false_bridge_penalty=0.15,
+                        tautology_penalty=0.18,
+                        final_score=0.86 - 0.01 * index,
+                        score_explanation="Mocked structured LLM variance score.",
+                    ),
+                )
+            )
+        return VarianceGenerationResponse(
+            prompt=prompt,
+            raw_response={"variants": [item.model_dump(mode="json") for item in items]},
+            accepted=items,
+            rejected=[],
+        )
+
+
 def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
@@ -619,6 +760,15 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert LLMOpportunityDiscoveryRawArtifact
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
+    assert LLMVarianceGenerationConfig
+    assert LLMVariancePrompt
+    assert LLMVarianceCandidate
+    assert LLMVarianceScore
+    assert LLMVarianceBatch
+    assert LLMVarianceRawArtifact
+    assert LLMVarianceGenerationReport
+    assert LLMVarianceGenerationInspectionReport
+    assert IdeaTreeConstructionReport
     assert AtlasScanInspectionReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
@@ -1975,6 +2125,189 @@ def test_deep_opportunity_strict_mode_accepts_injected_real_retrieval_and_no_fal
             generator=fallback,
             retriever=MockRealOpportunityRetriever(),
             config=config,
+        )
+
+
+def test_llm_variance_parser_rejects_missing_contract_fields_and_scopes_novelty() -> None:
+    source = DeepOpportunityCandidate(
+        opportunity_id="deep-source",
+        run_id="variance-parser",
+        source_pair_id="pair-source",
+        domain_id="domain",
+        method_id="method",
+        domain_name="Domain",
+        method_name="Method",
+        research_question="Does the source model change a metric?",
+        hypothesis="The source model changes a bounded metric.",
+        theory_or_model_object="Source operator S",
+        mathematical_or_computational_form="S(x)=x",
+        experiment_or_proof_plan="Run a synthetic source comparison.",
+        benchmark_plan="Compare with a null baseline.",
+        baseline_candidates=["null baseline"],
+        expected_metrics=["error"],
+        failure_modes=["no change"],
+        negative_controls=["remove S"],
+        data_regime="synthetic_only",
+        verification_path="bounded benchmark",
+        paper_shape="model and benchmark",
+        novelty_risk="Hypothesis: prior work may be close.",
+        underuse_hypothesis="Hypothesis: underuse is not established.",
+        retrieval_support_summary="Bounded metadata only.",
+        recommended_next_stage="variance_generation",
+    )
+    response = MockLLMVarianceGenerator().generate_variants(
+        prompt_id="variance-prompt",
+        source_payload=source.model_dump(mode="json"),
+        retrieval_context_payload={"retrieval_mode": "real_retrieval"},
+        variants_per_opportunity=3,
+    )
+    valid = response.accepted[0].model_dump(mode="json")
+    valid["candidate"]["novelty_risk"] = "A close branch may exist."
+    missing_baseline = json.loads(json.dumps(valid))
+    missing_baseline["candidate"].pop("baseline_candidates")
+    missing_verification = json.loads(json.dumps(valid))
+    missing_verification["candidate"].pop("verification_path")
+
+    accepted, rejected = parse_variance_items(
+        {"variants": [valid, missing_baseline, missing_verification]}
+    )
+
+    assert len(accepted) == 1
+    assert len(rejected) == 2
+    assert accepted[0].candidate.novelty_risk.startswith("Hypothesis:")
+    assert "baseline_candidates" in rejected[0]["reasons"][0]
+    assert "verification_path" in rejected[1]["reasons"][0]
+
+
+def test_llm_variance_constructs_production_safe_idea_tree(tmp_path) -> None:
+    run_id = "run-llm-variance-strict"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=8,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockDeepOpportunityGenerator(),
+        retriever=MockRealOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="real_retrieval",
+            max_pairs=8,
+            max_generation_calls=8,
+            opportunities_per_pair=2,
+            max_selected_opportunities=16,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMVarianceGenerator(include_filtered_variants=True)
+    result = generate_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=generator,
+        config=LLMVarianceGenerationConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_opportunities=6,
+            variants_per_opportunity=7,
+            max_variants_total=42,
+            max_selected_variants=30,
+            max_generation_calls=6,
+            min_variant_family_coverage=5,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    inspected = inspect_llm_variance(run_id=run_id, root=tmp_path)
+
+    assert result.report.source_opportunity_count == 6
+    assert result.report.generated_variant_count == 42
+    assert result.report.selected_variant_count == 30
+    assert result.report.variant_family_coverage >= 5
+    assert result.report.domain_family_coverage >= 4
+    assert result.report.method_family_coverage >= 4
+    assert result.report.near_duplicate_suppressed_count == 6
+    assert result.report.source_repeat_suppressed_count == 6
+    assert result.report.production_ready is True
+    assert result.report.publication_ready is False
+    assert len(result.report.raw_artifact_paths) == 6
+    assert all((tmp_path / path).is_file() for path in result.report.raw_artifact_paths)
+    assert all(item.baseline_candidates for item in result.report.candidates)
+    assert all(item.verification_path for item in result.report.candidates)
+    assert all(item.theory_or_model_object for item in result.report.candidates)
+    assert all(item.creates_scientific_validation is False for item in result.report.candidates)
+    assert inspected.llm_variance_present is True
+    assert inspected.selected_variant_count == 30
+    assert any(
+        record.stage_kind == ScientificStageKind.VARIANCE_GENERATION
+        and record.backend_kind == BackendKind.LLM_OPENAI
+        and record.allowed_in_production
+        for record in result.report.backend_records
+    )
+
+    construction = construct_idea_tree_from_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    tree = inspect_idea_tree(run_id=run_id, root=tmp_path)
+
+    assert construction.report.parent_opportunity_node_count == 6
+    assert construction.report.variant_node_count == 30
+    assert construction.report.idea_tree_nodes_added == 36
+    assert construction.report.idea_tree_edges_added == 36
+    assert construction.report.production_ready is True
+    assert tree.node_count == 37
+    llm_nodes = [node for node in tree.nodes if node.stage_origin == "llm_variance"]
+    assert len(llm_nodes) == 30
+    assert all(node.source_pair_id_optional for node in llm_nodes)
+    assert all(node.source_opportunity_id_optional for node in llm_nodes)
+    assert all(node.variant_family_optional for node in llm_nodes)
+    assert all(node.backend_kind_optional == BackendKind.LLM_OPENAI for node in llm_nodes)
+    assert all(node.retrieval_context_id_optional for node in llm_nodes)
+    assert any(
+        record.stage_kind == ScientificStageKind.IDEA_TREE_CONSTRUCTION
+        and record.backend_kind == BackendKind.LOCAL_EXECUTION
+        and record.allowed_in_production
+        for record in construction.report.backend_records
+    )
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    fallback = MockLLMVarianceGenerator()
+    fallback.fallback_used = True
+    with pytest.raises(LLMVarianceError, match="forbids deterministic"):
+        generate_llm_variance(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            generator=fallback,
+            config=result.report.config,
         )
 
 

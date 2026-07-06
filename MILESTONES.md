@@ -351,3 +351,15 @@ without real-world validation or publication readiness.
   over LLM scores without deterministic scientific re-ranking.
 - Mocked retrieval is development-only; strict production requires a real retrieval backend and a
   non-fake LLM. All raw, retrieval, report, and inspection artifacts remain non-evidence context.
+
+## M99 LLM Variance Generation and IdeaTree Construction
+
+- Added a gated OpenAI structured-output stage that expands selected M98 opportunities across
+  mechanism, robustness, counterexample, benchmark, representation, baseline-strengthening, and
+  negative-control families without deterministic scientific fallback.
+- Added candidate-level Q/H/T/E/B validation, novelty/validation boundaries, mandatory family
+  contracts, source-repeat filtering, semantic duplicate suppression, and coverage selection over
+  LLM-authored scores.
+- Added append-only raw and generation reports plus deterministic IdeaTree construction reports.
+  Reconstructed tree nodes preserve source pair/opportunity, method, variant family, backend kind,
+  and retrieval-context metadata without creating evidence or publication readiness.

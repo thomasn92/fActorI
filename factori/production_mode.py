@@ -37,6 +37,14 @@ _STAGE_FILES: tuple[tuple[re.Pattern[str], ScientificStageKind], ...] = (
     ),
     (re.compile(r"^opportunity-discovery-\d{4}\.json$"), ScientificStageKind.OPPORTUNITY_DISCOVERY),
     (re.compile(r"^variance-augmentation-\d{4}\.json$"), ScientificStageKind.VARIANCE_GENERATION),
+    (
+        re.compile(r"^llm-variance-generation-report-\d{4}\.json$"),
+        ScientificStageKind.VARIANCE_GENERATION,
+    ),
+    (
+        re.compile(r"^idea-tree-construction-report-\d{4}\.json$"),
+        ScientificStageKind.IDEA_TREE_CONSTRUCTION,
+    ),
     (re.compile(r"^substrate-promotion-\d{4}\.json$"), ScientificStageKind.SUBSTRATE_CONSTRUCTION),
     (re.compile(r"^branch-route-plan-\d{4}\.json$"), ScientificStageKind.BRANCH_ROUTING),
     (

@@ -575,6 +575,198 @@ class DeepOpportunityDiscoveryInspectionReport(StrictModel):
     is_verification_evidence: Literal[False] = False
 
 
+LLMVarianceFamily = Literal[
+    "mechanism",
+    "robustness",
+    "counterexample",
+    "benchmark",
+    "representation",
+    "baseline_strengthening",
+    "negative_control",
+]
+
+
+class LLMVarianceGenerationConfig(StrictModel):
+    """Bounded non-fake LLM variance-generation configuration."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    max_source_opportunities: int = Field(default=20, ge=1)
+    variants_per_opportunity: int = Field(default=5, ge=3, le=7)
+    max_variants_total: int = Field(default=100, ge=1)
+    max_selected_variants: int = Field(default=40, ge=1)
+    max_generation_calls: int = Field(default=20, ge=1)
+    min_variant_family_coverage: int = Field(default=5, ge=1, le=7)
+    min_domain_family_coverage: int = Field(default=6, ge=1)
+    min_method_family_coverage: int = Field(default=6, ge=1)
+    near_duplicate_suppression: bool = True
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class LLMVariancePrompt(StrictModel):
+    """Secret-free prompt contract for one source opportunity."""
+
+    prompt_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    requested_variant_count: int = Field(ge=3, le=7)
+    source_payload: dict[str, Any]
+    retrieval_context_payload: dict[str, Any]
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+
+
+class LLMVarianceCandidate(StrictModel):
+    """One non-fake LLM scientific variant around a deep opportunity."""
+
+    variant_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    source_pair_id: str = Field(min_length=1)
+    domain_id: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    variant_family: LLMVarianceFamily
+    title: str = Field(min_length=1)
+    research_question: str = Field(min_length=1)
+    hypothesis: str = Field(min_length=1)
+    theory_or_model_object: str = Field(min_length=1)
+    mathematical_or_computational_form: str = Field(min_length=1)
+    experiment_or_proof_plan: str = Field(min_length=1)
+    benchmark_plan: str = Field(min_length=1)
+    baseline_candidates: list[str] = Field(min_length=1)
+    negative_controls: list[str] = Field(min_length=1)
+    failure_modes: list[str] = Field(min_length=1)
+    verification_path: str = Field(min_length=1)
+    expected_metrics: list[str] = Field(min_length=1)
+    data_regime: str = Field(min_length=1)
+    paper_role: str = Field(min_length=1)
+    scientific_rationale: str = Field(min_length=1)
+    novelty_risk: str = Field(min_length=1)
+    false_bridge_risk: str = Field(min_length=1)
+    tautology_risk: str = Field(min_length=1)
+    selected_for_tree: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+    @field_validator("novelty_risk")
+    @classmethod
+    def require_hypothesis_scope(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.lower().startswith("hypothesis:"):
+            raise ValueError("novelty risk must begin with 'Hypothesis:'")
+        return normalized
+
+
+class LLMVarianceScore(StrictModel):
+    """Non-fake LLM score for one scientific variant."""
+
+    variant_id: str = Field(min_length=1)
+    specificity: float = Field(ge=0.0, le=1.0)
+    branch_diversity: float = Field(ge=0.0, le=1.0)
+    baseline_quality: float = Field(ge=0.0, le=1.0)
+    verification_feasibility: float = Field(ge=0.0, le=1.0)
+    failure_mode_value: float = Field(ge=0.0, le=1.0)
+    paper_coherence: float = Field(ge=0.0, le=1.0)
+    novelty_risk_penalty: float = Field(ge=0.0, le=1.0)
+    false_bridge_penalty: float = Field(ge=0.0, le=1.0)
+    tautology_penalty: float = Field(ge=0.0, le=1.0)
+    final_score: float = Field(ge=0.0, le=1.0)
+    score_explanation: str = Field(min_length=1)
+
+
+class LLMVarianceBatch(StrictModel):
+    """Validated variants and diagnostics for one source opportunity call."""
+
+    batch_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    prompt: LLMVariancePrompt
+    generated_variant_ids: list[str] = Field(default_factory=list)
+    rejected_outputs: list[dict[str, Any]] = Field(default_factory=list)
+    family_counts: dict[str, int] = Field(default_factory=dict)
+    required_family_contract_passed: bool
+
+
+class LLMVarianceRawArtifact(StrictModel):
+    """Secret-free raw prompt/response provenance for one variance call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt: LLMVariancePrompt
+    raw_response: dict[str, Any]
+    accepted_variant_ids: list[str] = Field(default_factory=list)
+    rejected_outputs: list[dict[str, Any]] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMVarianceGenerationReport(StrictModel):
+    """Append-only report for non-fake LLM scientific variance generation."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    generation_status: Literal["completed", "completed_with_warnings", "failed"]
+    config: LLMVarianceGenerationConfig
+    source_deep_opportunity_report_path: str = Field(min_length=1)
+    source_opportunity_count: int = Field(ge=0)
+    generated_variant_count: int = Field(ge=0)
+    rejected_variant_count: int = Field(ge=0)
+    selected_variant_count: int = Field(ge=0)
+    variant_family_coverage: int = Field(ge=0)
+    domain_family_coverage: int = Field(ge=0)
+    method_family_coverage: int = Field(ge=0)
+    near_duplicate_suppressed_count: int = Field(ge=0)
+    source_repeat_suppressed_count: int = Field(ge=0)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    batches: list[LLMVarianceBatch] = Field(default_factory=list)
+    candidates: list[LLMVarianceCandidate] = Field(default_factory=list)
+    scores: list[LLMVarianceScore] = Field(default_factory=list)
+    selected_variant_ids: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMVarianceGenerationInspectionReport(StrictModel):
+    """Read-only inspection of the latest LLM variance report."""
+
+    run_id: str = Field(min_length=1)
+    llm_variance_present: bool
+    latest_report_id_optional: str | None = None
+    generation_status_optional: str | None = None
+    source_opportunity_count: int = Field(default=0, ge=0)
+    generated_variant_count: int = Field(default=0, ge=0)
+    rejected_variant_count: int = Field(default=0, ge=0)
+    selected_variant_count: int = Field(default=0, ge=0)
+    variant_family_coverage: int = Field(default=0, ge=0)
+    domain_family_coverage: int = Field(default=0, ge=0)
+    method_family_coverage: int = Field(default=0, ge=0)
+    near_duplicate_suppressed_count: int = Field(default=0, ge=0)
+    source_repeat_suppressed_count: int = Field(default=0, ge=0)
+    selected_variants: list[LLMVarianceCandidate] = Field(default_factory=list)
+    selected_scores: list[LLMVarianceScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class DomainPrimitive(StrictModel):
     """One deterministic Stage 0 primitive extracted from a broad research domain."""
 
@@ -1182,6 +1374,8 @@ IdeaEdgeType = Literal[
     "missing_axis_to_candidate",
     "root_to_opportunity_seed",
     "opportunity_seed_to_candidate",
+    "root_to_deep_opportunity",
+    "deep_opportunity_to_variant",
 ]
 
 
@@ -1209,7 +1403,11 @@ class IdeaNode(StrictModel):
     selected_for_stage_c: bool = False
     selected_for_final_manuscript: bool = False
     source_opportunity_id_optional: str | None = None
+    source_pair_id_optional: str | None = None
     source_method_lens_id_optional: str | None = None
+    variant_family_optional: str | None = None
+    backend_kind_optional: BackendKind | None = None
+    retrieval_context_id_optional: str | None = None
     scientific_substrate_ids: list[str] = Field(default_factory=list)
     scientific_substrate_paths: list[str] = Field(default_factory=list)
     artifact_refs: list[str] = Field(default_factory=list)
@@ -1241,6 +1439,29 @@ class IdeaTree(StrictModel):
     implies_publication_readiness: bool = False
     is_verification_evidence: bool = False
     publication_ready: bool = False
+
+
+class IdeaTreeConstructionReport(StrictModel):
+    """Append-only deterministic construction context for LLM-authored tree branches."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    construction_status: Literal["completed", "completed_with_warnings", "failed"]
+    source_variance_report_path: str = Field(min_length=1)
+    source_deep_opportunity_report_path: str = Field(min_length=1)
+    parent_opportunity_node_count: int = Field(ge=0)
+    variant_node_count: int = Field(ge=0)
+    idea_tree_nodes_added: int = Field(ge=0)
+    idea_tree_edges_added: int = Field(ge=0)
+    nodes: list[IdeaNode] = Field(default_factory=list)
+    edges: list[IdeaEdge] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
 
 
 class IdeaTreeInspectionReport(StrictModel):
@@ -5560,6 +5781,14 @@ __all__ = [
     "LLMOpportunityDiscoveryRawArtifact",
     "DeepOpportunityDiscoveryReport",
     "DeepOpportunityDiscoveryInspectionReport",
+    "LLMVarianceGenerationConfig",
+    "LLMVariancePrompt",
+    "LLMVarianceCandidate",
+    "LLMVarianceScore",
+    "LLMVarianceBatch",
+    "LLMVarianceRawArtifact",
+    "LLMVarianceGenerationReport",
+    "LLMVarianceGenerationInspectionReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",
@@ -5591,6 +5820,7 @@ __all__ = [
     "IdeaNode",
     "IdeaEdge",
     "IdeaTree",
+    "IdeaTreeConstructionReport",
     "IdeaTreeInspectionReport",
     "IdeaTreeExportReport",
     "IdeaNodeFeatureVector",

@@ -421,7 +421,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Research candidate branch.",
@@ -582,7 +582,7 @@
   ],
   "title": "Candidate",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.Candidate",
   "x-factori-verification-evidence": false
 }

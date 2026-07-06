@@ -14,6 +14,7 @@ from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
 from factori.adapters.deep_opportunity import OpenAIDeepOpportunityGenerator
 from factori.adapters.errors import AdapterError
+from factori.adapters.llm_variance import OpenAILLMVarianceGenerator
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.adapters.retrieval_real import OpenAlexRetrievalClient
 from factori.artifacts import ArtifactStore
@@ -223,6 +224,13 @@ from factori.llm_orchestration import (
     llm_orchestration_result_model,
     run_llm_paper_orchestration,
 )
+from factori.llm_variance import (
+    LLMVarianceError,
+    construct_idea_tree_from_llm_variance,
+    generate_llm_variance,
+    inspect_llm_variance,
+    render_llm_variance_text,
+)
 from factori.manuscript_drafting import (
     ManuscriptDraftingError,
     draft_manuscript,
@@ -316,6 +324,7 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     LLMBudgetConfig,
     LLMOrchestrationConfig,
+    LLMVarianceGenerationConfig,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
@@ -4213,6 +4222,137 @@ def inspect_deep_opportunities_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_deep_opportunity_text(report))
+
+
+@app.command("generate-llm-variance")
+def generate_llm_variance_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_source_opportunities: Annotated[
+        int,
+        typer.Option("--max-source-opportunities"),
+    ] = 20,
+    variants_per_opportunity: Annotated[
+        int,
+        typer.Option("--variants-per-opportunity"),
+    ] = 5,
+    max_variants_total: Annotated[int, typer.Option("--max-variants-total")] = 100,
+    max_selected_variants: Annotated[
+        int,
+        typer.Option("--max-selected-variants"),
+    ] = 40,
+    max_generation_calls: Annotated[
+        int,
+        typer.Option("--max-generation-calls"),
+    ] = 20,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Generate production-classified scientific variance with a gated non-fake LLM."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai variance generation is implemented; no deterministic fallback "
+            "is available.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        generator = OpenAILLMVarianceGenerator(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        config = LLMVarianceGenerationConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_opportunities=max_source_opportunities,
+            variants_per_opportunity=variants_per_opportunity,
+            max_variants_total=max_variants_total,
+            max_selected_variants=max_selected_variants,
+            max_generation_calls=max_generation_calls,
+            require_non_fake_backends=require_non_fake_backends,
+        )
+        result = generate_llm_variance(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            generator=generator,
+            config=config,
+        )
+    except (AdapterError, LLMVarianceError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"source_opportunity_count={result.report.source_opportunity_count}")
+    typer.echo(f"generated_variant_count={result.report.generated_variant_count}")
+    typer.echo(f"selected_variant_count={result.report.selected_variant_count}")
+    typer.echo(f"variant_family_coverage={result.report.variant_family_coverage}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-llm-variance")
+def inspect_llm_variance_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest LLM variance report without mutation."""
+    try:
+        report = inspect_llm_variance(run_id=run_id, root=root)
+    except LLMVarianceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_llm_variance_text(report))
+
+
+@app.command("construct-idea-tree-from-llm-variance")
+def construct_idea_tree_from_llm_variance_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Persist deterministic IdeaTree construction context from selected LLM variants."""
+    try:
+        result = construct_idea_tree_from_llm_variance(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except LLMVarianceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"parent_nodes_added={result.report.parent_opportunity_node_count}")
+    typer.echo(f"variant_nodes_added={result.report.variant_node_count}")
+    typer.echo(f"idea_tree_nodes_added={result.report.idea_tree_nodes_added}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
 
 
 @app.command("discover-opportunities")

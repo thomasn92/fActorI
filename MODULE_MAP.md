@@ -300,6 +300,10 @@ All implementation modules are under `factori/`.
   opportunity generation and scoring, with per-candidate contract and boundary rejection.
 - `deep_opportunity_discovery.py`: retrieval context assembly, strict non-fake opportunity
   orchestration, diversity selection, append-only raw/context/report persistence, and inspection.
+- `adapters/llm_variance.py`: gated OpenAI structured-output adapter for scientific branch
+  variants, scores, family contracts, and candidate-level boundary rejection.
+- `llm_variance.py`: M98 input loading, non-fake variance orchestration, semantic/source-repeat
+  filtering, diversity selection, append-only reports, and deterministic IdeaTree construction.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

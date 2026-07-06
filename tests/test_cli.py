@@ -146,6 +146,11 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     inspect_atlas = CliRunner().invoke(app, ["inspect-atlas-scan", "--help"])
     discover_deep = CliRunner().invoke(app, ["discover-deep-opportunities", "--help"])
     inspect_deep = CliRunner().invoke(app, ["inspect-deep-opportunities", "--help"])
+    generate_llm_variance = CliRunner().invoke(app, ["generate-llm-variance", "--help"])
+    inspect_llm_variance = CliRunner().invoke(app, ["inspect-llm-variance", "--help"])
+    construct_llm_tree = CliRunner().invoke(
+        app, ["construct-idea-tree-from-llm-variance", "--help"]
+    )
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -181,6 +186,13 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--allow-external-calls" in discover_deep.output
     assert inspect_deep.exit_code == 0, inspect_deep.output
     assert "--json" in inspect_deep.output
+    assert generate_llm_variance.exit_code == 0, generate_llm_variance.output
+    assert "--require-non-fake" in generate_llm_variance.output
+    assert "--allow-external-calls" in generate_llm_variance.output
+    assert inspect_llm_variance.exit_code == 0, inspect_llm_variance.output
+    assert "--json" in inspect_llm_variance.output
+    assert construct_llm_tree.exit_code == 0, construct_llm_tree.output
+    assert "--run-id" in construct_llm_tree.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output

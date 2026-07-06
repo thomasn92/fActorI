@@ -920,6 +920,14 @@ scan. `inspect-atlas-scan` reads the latest build or ranked scan without mutatio
 credentials, `--allow-external-calls`, and `--require-non-fake-backends`. There is no deterministic
 scientific fallback. `inspect-deep-opportunities` reads the latest report without mutation.
 
+`generate-llm-variance` reads selected M98 opportunities and uses the gated `llm-openai` backend
+to generate and score 3-7 scientific variants per source. Live calls require
+`--allow-external-calls`; strict runs also use `--require-non-fake-backends` and reject any fallback
+or non-production M98 input. `inspect-llm-variance` is read-only.
+`construct-idea-tree-from-llm-variance` deterministically records parent opportunity and selected
+variant nodes with source-pair, backend, family, and retrieval provenance. It does not generate
+science, evidence, or publication readiness.
+
 ## Tests and Lint
 
 Canonical `uv` commands:

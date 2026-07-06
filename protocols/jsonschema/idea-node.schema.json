@@ -1,5 +1,25 @@
 {
-  "$id": "https://schemas.factori.local/0.64.0/idea-node.schema.json",
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.65.0/idea-node.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One context-only node in the reconstructed creative search tree.",
@@ -10,6 +30,17 @@
       },
       "title": "Artifact Refs",
       "type": "array"
+    },
+    "backend_kind_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BackendKind"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "baseline_hint_optional": {
       "anyOf": [
@@ -161,6 +192,18 @@
       "default": null,
       "title": "Research Question Optional"
     },
+    "retrieval_context_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Context Id Optional"
+    },
     "scientific_interest_optional": {
       "anyOf": [
         {
@@ -223,6 +266,18 @@
       "default": null,
       "title": "Source Opportunity Id Optional"
     },
+    "source_pair_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Pair Id Optional"
+    },
     "stage_origin": {
       "minLength": 1,
       "title": "Stage Origin",
@@ -258,6 +313,18 @@
       "minLength": 1,
       "title": "Title",
       "type": "string"
+    },
+    "variant_family_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Variant Family Optional"
     }
   },
   "required": [
@@ -270,7 +337,7 @@
   ],
   "title": "IdeaNode",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.IdeaNode",
   "x-factori-verification-evidence": false
 }

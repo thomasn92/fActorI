@@ -1,0 +1,125 @@
+{
+  "$defs": {
+    "LLMVariancePrompt": {
+      "additionalProperties": false,
+      "description": "Secret-free prompt contract for one source opportunity.",
+      "properties": {
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_id": {
+          "minLength": 1,
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "prompt_text": {
+          "minLength": 1,
+          "title": "Prompt Text",
+          "type": "string"
+        },
+        "requested_output_schema": {
+          "additionalProperties": true,
+          "title": "Requested Output Schema",
+          "type": "object"
+        },
+        "requested_variant_count": {
+          "maximum": 7,
+          "minimum": 3,
+          "title": "Requested Variant Count",
+          "type": "integer"
+        },
+        "retrieval_context_payload": {
+          "additionalProperties": true,
+          "title": "Retrieval Context Payload",
+          "type": "object"
+        },
+        "source_opportunity_id": {
+          "minLength": 1,
+          "title": "Source Opportunity Id",
+          "type": "string"
+        },
+        "source_payload": {
+          "additionalProperties": true,
+          "title": "Source Payload",
+          "type": "object"
+        }
+      },
+      "required": [
+        "prompt_id",
+        "backend_name",
+        "model",
+        "source_opportunity_id",
+        "requested_variant_count",
+        "source_payload",
+        "retrieval_context_payload",
+        "prompt_text",
+        "requested_output_schema"
+      ],
+      "title": "LLMVariancePrompt",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-batch.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Validated variance candidates and diagnostics for one source opportunity.",
+  "properties": {
+    "batch_id": {
+      "minLength": 1,
+      "title": "Batch Id",
+      "type": "string"
+    },
+    "family_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Family Counts",
+      "type": "object"
+    },
+    "generated_variant_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Generated Variant Ids",
+      "type": "array"
+    },
+    "prompt": {
+      "$ref": "#/$defs/LLMVariancePrompt"
+    },
+    "rejected_outputs": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejected Outputs",
+      "type": "array"
+    },
+    "required_family_contract_passed": {
+      "title": "Required Family Contract Passed",
+      "type": "boolean"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "batch_id",
+    "source_opportunity_id",
+    "prompt",
+    "required_family_contract_passed"
+  ],
+  "title": "LLMVarianceBatch",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVarianceBatch",
+  "x-factori-verification-evidence": false
+}

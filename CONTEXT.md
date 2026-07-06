@@ -123,6 +123,10 @@ completed run from disk and checks consistency without changing provenance.
   explicitly gated non-fake LLM for concrete Q/H/T/E/B generation and scientific scoring;
   mocked retrieval is development-only, real retrieval remains bounded literature context, and
   novelty/underuse remain hypotheses rather than established findings.
+- schema-constrained non-fake LLM variance generation over selected deep opportunities, with
+  mechanism, robustness, counterexample, benchmark, representation, stronger-baseline, and
+  negative-control branches; deterministic selection and IdeaTree construction preserve backend
+  and retrieval provenance without authoring science or creating evidence.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

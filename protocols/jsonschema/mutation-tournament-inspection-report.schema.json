@@ -563,7 +563,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/mutation-tournament-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/mutation-tournament-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for the latest mutation substrate tournament.",
@@ -700,7 +700,7 @@
   ],
   "title": "MutationTournamentInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.MutationTournamentInspectionReport",
   "x-factori-verification-evidence": false
 }

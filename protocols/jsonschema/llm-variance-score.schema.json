@@ -1,0 +1,97 @@
+{
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-fake LLM score for one scientific variant.",
+  "properties": {
+    "baseline_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Quality",
+      "type": "number"
+    },
+    "branch_diversity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Branch Diversity",
+      "type": "number"
+    },
+    "failure_mode_value": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Failure Mode Value",
+      "type": "number"
+    },
+    "false_bridge_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "False Bridge Penalty",
+      "type": "number"
+    },
+    "final_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Final Score",
+      "type": "number"
+    },
+    "novelty_risk_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Novelty Risk Penalty",
+      "type": "number"
+    },
+    "paper_coherence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Paper Coherence",
+      "type": "number"
+    },
+    "score_explanation": {
+      "minLength": 1,
+      "title": "Score Explanation",
+      "type": "string"
+    },
+    "specificity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Specificity",
+      "type": "number"
+    },
+    "tautology_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tautology Penalty",
+      "type": "number"
+    },
+    "variant_id": {
+      "minLength": 1,
+      "title": "Variant Id",
+      "type": "string"
+    },
+    "verification_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Verification Feasibility",
+      "type": "number"
+    }
+  },
+  "required": [
+    "variant_id",
+    "specificity",
+    "branch_diversity",
+    "baseline_quality",
+    "verification_feasibility",
+    "failure_mode_value",
+    "paper_coherence",
+    "novelty_risk_penalty",
+    "false_bridge_penalty",
+    "tautology_penalty",
+    "final_score",
+    "score_explanation"
+  ],
+  "title": "LLMVarianceScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVarianceScore",
+  "x-factori-verification-evidence": false
+}

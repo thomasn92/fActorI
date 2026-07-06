@@ -1,0 +1,635 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "IdeaEdge": {
+      "additionalProperties": false,
+      "description": "One parent, mutation, pruning, selection, or finalization relation.",
+      "properties": {
+        "edge_id": {
+          "minLength": 1,
+          "title": "Edge Id",
+          "type": "string"
+        },
+        "edge_type": {
+          "enum": [
+            "root_to_candidate",
+            "candidate_to_variant",
+            "variant_to_selected",
+            "candidate_to_pruned",
+            "variant_to_pruned",
+            "selected_to_final",
+            "winner_to_refinement",
+            "winner_loser_to_hybrid",
+            "winner_to_robustness",
+            "missing_axis_to_candidate",
+            "root_to_opportunity_seed",
+            "opportunity_seed_to_candidate",
+            "root_to_deep_opportunity",
+            "deep_opportunity_to_variant"
+          ],
+          "title": "Edge Type",
+          "type": "string"
+        },
+        "mutation_operator_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mutation Operator Optional"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "source_node_id": {
+          "minLength": 1,
+          "title": "Source Node Id",
+          "type": "string"
+        },
+        "target_node_id": {
+          "minLength": 1,
+          "title": "Target Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edge_id",
+        "source_node_id",
+        "target_node_id",
+        "edge_type",
+        "rationale"
+      ],
+      "title": "IdeaEdge",
+      "type": "object"
+    },
+    "IdeaNode": {
+      "additionalProperties": false,
+      "description": "One inspectable node in the derived research idea search tree.",
+      "properties": {
+        "artifact_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "backend_kind_optional": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackendKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "baseline_hint_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Hint Optional"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "data_regime_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Regime Optional"
+        },
+        "depth": {
+          "minimum": 0,
+          "title": "Depth",
+          "type": "integer"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "experiment_hint_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment Hint Optional"
+        },
+        "hypothesis_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis Optional"
+        },
+        "method_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method Optional"
+        },
+        "model_hint_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Hint Optional"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "novelty_risk_optional": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Novelty Risk Optional"
+        },
+        "parent_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id Optional"
+        },
+        "prune_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prune Reason Optional"
+        },
+        "research_question_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Research Question Optional"
+        },
+        "retrieval_context_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieval Context Id Optional"
+        },
+        "scientific_interest_optional": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scientific Interest Optional"
+        },
+        "scientific_substrate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scientific Substrate Ids",
+          "type": "array"
+        },
+        "scientific_substrate_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scientific Substrate Paths",
+          "type": "array"
+        },
+        "selected_for_final_manuscript": {
+          "default": false,
+          "title": "Selected For Final Manuscript",
+          "type": "boolean"
+        },
+        "selected_for_stage_c": {
+          "default": false,
+          "title": "Selected For Stage C",
+          "type": "boolean"
+        },
+        "source_method_lens_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Method Lens Id Optional"
+        },
+        "source_opportunity_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Opportunity Id Optional"
+        },
+        "source_pair_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Pair Id Optional"
+        },
+        "stage_origin": {
+          "minLength": 1,
+          "title": "Stage Origin",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "root",
+            "generated",
+            "expanded",
+            "survived",
+            "pruned",
+            "selected",
+            "final",
+            "deferred"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "survivor_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Survivor Reason Optional"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "variant_family_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Variant Family Optional"
+        }
+      },
+      "required": [
+        "node_id",
+        "depth",
+        "stage_origin",
+        "title",
+        "domain",
+        "status"
+      ],
+      "title": "IdeaNode",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.65.0/idea-tree-construction-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic construction context for LLM-authored IdeaTree branches.",
+  "properties": {
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "construction_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "failed"
+      ],
+      "title": "Construction Status",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "edges": {
+      "items": {
+        "$ref": "#/$defs/IdeaEdge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "idea_tree_edges_added": {
+      "minimum": 0,
+      "title": "Idea Tree Edges Added",
+      "type": "integer"
+    },
+    "idea_tree_nodes_added": {
+      "minimum": 0,
+      "title": "Idea Tree Nodes Added",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/IdeaNode"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "parent_opportunity_node_count": {
+      "minimum": 0,
+      "title": "Parent Opportunity Node Count",
+      "type": "integer"
+    },
+    "production_ready": {
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_deep_opportunity_report_path": {
+      "minLength": 1,
+      "title": "Source Deep Opportunity Report Path",
+      "type": "string"
+    },
+    "source_variance_report_path": {
+      "minLength": 1,
+      "title": "Source Variance Report Path",
+      "type": "string"
+    },
+    "variant_node_count": {
+      "minimum": 0,
+      "title": "Variant Node Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "report_id",
+    "construction_status",
+    "source_variance_report_path",
+    "source_deep_opportunity_report_path",
+    "parent_opportunity_node_count",
+    "variant_node_count",
+    "idea_tree_nodes_added",
+    "idea_tree_edges_added",
+    "production_ready"
+  ],
+  "title": "IdeaTreeConstructionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.IdeaTreeConstructionReport",
+  "x-factori-verification-evidence": false
+}

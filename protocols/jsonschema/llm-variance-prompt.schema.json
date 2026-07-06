@@ -1,0 +1,70 @@
+{
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-prompt.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Secret-free prompt contract for one source opportunity variance call.",
+  "properties": {
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt_id": {
+      "minLength": 1,
+      "title": "Prompt Id",
+      "type": "string"
+    },
+    "prompt_text": {
+      "minLength": 1,
+      "title": "Prompt Text",
+      "type": "string"
+    },
+    "requested_output_schema": {
+      "additionalProperties": true,
+      "title": "Requested Output Schema",
+      "type": "object"
+    },
+    "requested_variant_count": {
+      "maximum": 7,
+      "minimum": 3,
+      "title": "Requested Variant Count",
+      "type": "integer"
+    },
+    "retrieval_context_payload": {
+      "additionalProperties": true,
+      "title": "Retrieval Context Payload",
+      "type": "object"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    },
+    "source_payload": {
+      "additionalProperties": true,
+      "title": "Source Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "prompt_id",
+    "backend_name",
+    "model",
+    "source_opportunity_id",
+    "requested_variant_count",
+    "source_payload",
+    "retrieval_context_payload",
+    "prompt_text",
+    "requested_output_schema"
+  ],
+  "title": "LLMVariancePrompt",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVariancePrompt",
+  "x-factori-verification-evidence": false
+}

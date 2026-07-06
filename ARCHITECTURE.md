@@ -79,6 +79,14 @@ rejects unsafe or incomplete proposals, and preserves family diversity; it does 
 the scientific content. Mocked retrieval is non-production, while real retrieval remains context
 only and cannot establish novelty, underuse, complete coverage, or scientific validation.
 
+LLM variance generation expands selected deep opportunities into scientifically distinct branch
+families through another explicitly gated non-fake structured-output adapter. Deterministic code
+validates required baselines, controls, verification paths, family coverage, source-distance, and
+duplicate constraints, then preserves the LLM scores while selecting a diverse subset. A separate
+local construction stage records parent opportunity and child variant nodes for the derived
+IdeaTree. Construction is production-eligible infrastructure only when its scientific inputs carry
+non-fake, no-fallback provenance.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

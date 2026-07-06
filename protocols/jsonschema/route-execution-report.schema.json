@@ -449,6 +449,7 @@
         "compatibility_filter",
         "pair_ranking",
         "diversity_selection",
+        "idea_tree_construction",
         "variance_generation",
         "substrate_construction",
         "branch_routing",
@@ -541,7 +542,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.64.0/route-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.65.0/route-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only aggregate report for route specs or execution results.",
@@ -710,7 +711,7 @@
   ],
   "title": "RouteExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.64.0",
+  "x-factori-protocol-version": "0.65.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionReport",
   "x-factori-verification-evidence": false
 }

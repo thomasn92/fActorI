@@ -384,6 +384,8 @@ class ControllerActionType(StrEnum):
     DOMAIN_METHOD_ATLAS_BUILT = "DomainMethodAtlasBuilt"
     ATLAS_SCAN_WRITTEN = "AtlasScanWritten"
     DEEP_OPPORTUNITY_DISCOVERY_WRITTEN = "DeepOpportunityDiscoveryWritten"
+    LLM_VARIANCE_GENERATION_WRITTEN = "LLMVarianceGenerationWritten"
+    LLM_IDEA_TREE_CONSTRUCTION_WRITTEN = "LLMIdeaTreeConstructionWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -445,6 +447,7 @@ class ScientificStageKind(StrEnum):
     COMPATIBILITY_FILTER = "compatibility_filter"
     PAIR_RANKING = "pair_ranking"
     DIVERSITY_SELECTION = "diversity_selection"
+    IDEA_TREE_CONSTRUCTION = "idea_tree_construction"
     VARIANCE_GENERATION = "variance_generation"
     SUBSTRATE_CONSTRUCTION = "substrate_construction"
     BRANCH_ROUTING = "branch_routing"

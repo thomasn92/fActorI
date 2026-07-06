@@ -1,0 +1,92 @@
+{
+  "$id": "https://schemas.factori.local/0.65.0/llm-variance-generation-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded configuration for non-fake LLM scientific variance generation.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "fail_on_silent_fallback": {
+      "default": true,
+      "title": "Fail On Silent Fallback",
+      "type": "boolean"
+    },
+    "max_generation_calls": {
+      "default": 20,
+      "minimum": 1,
+      "title": "Max Generation Calls",
+      "type": "integer"
+    },
+    "max_selected_variants": {
+      "default": 40,
+      "minimum": 1,
+      "title": "Max Selected Variants",
+      "type": "integer"
+    },
+    "max_source_opportunities": {
+      "default": 20,
+      "minimum": 1,
+      "title": "Max Source Opportunities",
+      "type": "integer"
+    },
+    "max_variants_total": {
+      "default": 100,
+      "minimum": 1,
+      "title": "Max Variants Total",
+      "type": "integer"
+    },
+    "min_domain_family_coverage": {
+      "default": 6,
+      "minimum": 1,
+      "title": "Min Domain Family Coverage",
+      "type": "integer"
+    },
+    "min_method_family_coverage": {
+      "default": 6,
+      "minimum": 1,
+      "title": "Min Method Family Coverage",
+      "type": "integer"
+    },
+    "min_variant_family_coverage": {
+      "default": 5,
+      "maximum": 7,
+      "minimum": 1,
+      "title": "Min Variant Family Coverage",
+      "type": "integer"
+    },
+    "near_duplicate_suppression": {
+      "default": true,
+      "title": "Near Duplicate Suppression",
+      "type": "boolean"
+    },
+    "require_non_fake_backends": {
+      "default": false,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "variants_per_opportunity": {
+      "default": 5,
+      "maximum": 7,
+      "minimum": 3,
+      "title": "Variants Per Opportunity",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "backend"
+  ],
+  "title": "LLMVarianceGenerationConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.65.0",
+  "x-factori-source-model": "factori.schemas.LLMVarianceGenerationConfig",
+  "x-factori-verification-evidence": false
+}
