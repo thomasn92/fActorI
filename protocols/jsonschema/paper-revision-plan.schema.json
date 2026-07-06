@@ -77,7 +77,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.67.0/paper-revision-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/paper-revision-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic non-authoritative paper revision plan.",
@@ -153,7 +153,7 @@
   ],
   "title": "PaperRevisionPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.PaperRevisionPlan",
   "x-factori-verification-evidence": false
 }

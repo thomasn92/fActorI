@@ -135,6 +135,10 @@ completed run from disk and checks consistency without changing provenance.
   ScientificSubstrates, with explicit baselines, controls, metrics, failure criteria, proof or
   retrieval obligations, allowed future labels, and forbidden claims; local contract validation
   executes nothing and creates no evidence.
+- schema-constrained non-fake LLM Python experiment-code generation for executable route specs,
+  followed by deterministic AST safety auditing, isolated offline local execution, and metric
+  extraction exclusively from successful sandbox `output.json` artifacts. Unsafe, failed, and
+  negative-control-failing scripts remain blocked or inconclusive and cannot fabricate evidence.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

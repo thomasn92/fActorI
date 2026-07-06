@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.67.0/capability-escalation-index.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/capability-escalation-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable capability escalation reports.",
@@ -95,7 +95,7 @@
   ],
   "title": "CapabilityEscalationIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.CapabilityEscalationIndex",
   "x-factori-verification-evidence": false
 }

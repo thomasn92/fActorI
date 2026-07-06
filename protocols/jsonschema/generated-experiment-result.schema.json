@@ -1,0 +1,210 @@
+{
+  "$defs": {
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.68.0/generated-experiment-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded evidence-label decision derived from actual local execution.",
+  "properties": {
+    "baseline_summary": {
+      "minLength": 1,
+      "title": "Baseline Summary",
+      "type": "string"
+    },
+    "control_summary": {
+      "minLength": 1,
+      "title": "Control Summary",
+      "type": "string"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_label": {
+      "enum": [
+        "SyntheticExperimentEvidence",
+        "BenchmarkEvidence",
+        "CounterexampleEvidence",
+        "SymbolicDerivationDraft",
+        "SymbolicReductionDraft",
+        "ProofPlanDraft",
+        "RetrievalNoveltyAssessment",
+        "NegativeResult",
+        "InconclusiveResult",
+        "UnsupportedRouteDeferred",
+        "RejectedFalseBridge"
+      ],
+      "title": "Evidence Label",
+      "type": "string"
+    },
+    "failure_criteria_satisfied": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Criteria Satisfied"
+    },
+    "failure_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Reason Optional"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_sources": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metric Sources",
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "negative_control_summary": {
+      "minLength": 1,
+      "title": "Negative Control Summary",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "result_id": {
+      "minLength": 1,
+      "title": "Result Id",
+      "type": "string"
+    },
+    "route_type": {
+      "$ref": "#/$defs/BranchRouteType"
+    },
+    "scope_label": {
+      "minLength": 1,
+      "title": "Scope Label",
+      "type": "string"
+    },
+    "source_route_id": {
+      "minLength": 1,
+      "title": "Source Route Id",
+      "type": "string"
+    },
+    "source_spec_id": {
+      "minLength": 1,
+      "title": "Source Spec Id",
+      "type": "string"
+    },
+    "source_substrate_id": {
+      "minLength": 1,
+      "title": "Source Substrate Id",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "negative_result",
+        "inconclusive",
+        "failed",
+        "blocked_safety_audit",
+        "deferred_non_executable_route"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "success_criteria_satisfied": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Success Criteria Satisfied"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "result_id",
+    "source_spec_id",
+    "source_route_id",
+    "source_substrate_id",
+    "route_type",
+    "status",
+    "evidence_label",
+    "scope_label",
+    "baseline_summary",
+    "control_summary",
+    "negative_control_summary"
+  ],
+  "title": "GeneratedExperimentResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.GeneratedExperimentResult",
+  "x-factori-verification-evidence": false
+}

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.67.0/deep-opportunity-discovery-config.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/deep-opportunity-discovery-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded configuration for retrieval-contextualized LLM opportunity discovery.",
@@ -101,7 +101,7 @@
   ],
   "title": "DeepOpportunityDiscoveryConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.DeepOpportunityDiscoveryConfig",
   "x-factori-verification-evidence": false
 }

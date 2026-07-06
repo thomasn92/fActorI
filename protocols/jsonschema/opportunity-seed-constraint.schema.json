@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.67.0/opportunity-seed-constraint.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/opportunity-seed-constraint.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Promoted Stage 0 seed constraint for later candidate generation.",
@@ -102,7 +102,7 @@
   ],
   "title": "OpportunitySeedConstraint",
   "type": "object",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.OpportunitySeedConstraint",
   "x-factori-verification-evidence": false
 }

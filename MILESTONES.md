@@ -386,3 +386,15 @@ without real-world validation or publication readiness.
   compatibility artifacts. Route choice and design require a non-fake LLM in strict mode; local
   validation is infrastructure only and no code, metrics, evidence, or publication readiness is
   produced.
+
+## M102 Safe LLM Experiment Code and Genuine Local Metrics
+
+- Added a gated OpenAI structured-output adapter for self-contained Python implementations of
+  executable M101 routes, with no deterministic code fallback in strict mode.
+- Added fail-closed AST auditing for network, process, dynamic execution, filesystem escape,
+  nondeterminism, missing baselines/controls/metrics, and hardcoded metric values.
+- Added isolated fixed-seed local execution with time, memory, output, path, and dependency bounds;
+  stdout, stderr, process state, and output JSON are persisted append-only.
+- Metrics are accepted only from successful sandbox `output.json` artifacts. Failed, blocked, or
+  negative-control-failing runs produce bounded inconclusive or negative outcomes, never invented
+  metrics, real-world validation, or publication readiness.

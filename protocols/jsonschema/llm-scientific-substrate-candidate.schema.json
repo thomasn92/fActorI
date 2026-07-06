@@ -261,7 +261,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.67.0/llm-scientific-substrate-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/llm-scientific-substrate-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One non-fake LLM concrete scientific substrate candidate.",
@@ -503,7 +503,7 @@
   ],
   "title": "LLMScientificSubstrateCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.LLMScientificSubstrateCandidate",
   "x-factori-verification-evidence": false
 }

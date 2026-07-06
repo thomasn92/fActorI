@@ -20,6 +20,13 @@ from factori.adapters.deep_opportunity import (
     parse_opportunity_items,
 )
 from factori.adapters.fake import FakeProseGenerator
+from factori.adapters.llm_experiment_codegen import (
+    ExperimentCodeGenerationResponse,
+    ExperimentCodeProposal,
+    ExperimentCodeProposalEnvelope,
+    build_experiment_codegen_prompt,
+    parse_experiment_codegen_response,
+)
 from factori.adapters.llm_route_planning import (
     ROUTE_ALLOWED_LABELS,
     ExecutionSpecProposal,
@@ -175,6 +182,15 @@ from factori.gap_strategy_diversification import (
     strategy_fingerprint,
     strategy_is_automation_ready,
 )
+from factori.generated_experiment_safety import audit_generated_experiment_code
+from factori.generated_experiments import (
+    GeneratedExperimentError,
+    extract_metrics_from_output,
+    generate_experiment_code,
+    inspect_experiment_code,
+    inspect_generated_experiment_results,
+    run_generated_experiments,
+)
 from factori.generation_mutations import (
     inspect_generation_mutations,
     plan_generation_mutations,
@@ -302,6 +318,7 @@ from factori.schemas import (
     DomainPrimitive,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    ExperimentCodeSafetyAudit,
     ExperimentGapRoutingIndex,
     ExperimentGapRoutingReport,
     ExperimentTemplate,
@@ -325,6 +342,9 @@ from factori.schemas import (
     GapAttemptHistory,
     GapAttemptRecord,
     GapStrategyOption,
+    GeneratedExperimentExecutionReport,
+    GeneratedExperimentInspectionReport,
+    GeneratedExperimentResult,
     GeneratedSectionDraft,
     GenerationMutationCandidate,
     GenerationMutationContext,
@@ -348,6 +368,9 @@ from factori.schemas import (
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     LLMExecutionSpecCandidate,
+    LLMExperimentCodeArtifact,
+    LLMExperimentCodegenConfig,
+    LLMExperimentCodeRawArtifact,
     LLMOpportunityDiscoveryRawArtifact,
     LLMOrchestrationConfig,
     LLMPairRankingPrompt,
@@ -377,6 +400,7 @@ from factori.schemas import (
     LLMVarianceScore,
     MethodAtlasEntry,
     MethodLens,
+    MetricExtractionResult,
     MutationTournamentComparison,
     MutationTournamentEntry,
     MutationTournamentInspectionReport,
@@ -413,6 +437,8 @@ from factori.schemas import (
     RouteExecutionStatus,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
+    SandboxExecutionConfig,
+    SandboxExecutionResult,
     ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
@@ -934,6 +960,7 @@ class MockLLMRoutePlanner:
         routes = [
             BranchRouteType.SYNTHETIC_EXPERIMENT,
             BranchRouteType.BENCHMARK_TOURNAMENT,
+            BranchRouteType.COUNTEREXAMPLE_SEARCH,
             BranchRouteType.APPLIED_MATH_REDUCTION,
             BranchRouteType.LITERATURE_NOVELTY_CHECK,
             BranchRouteType.PROOF_PLAN,
@@ -1070,6 +1097,193 @@ class MockLLMRoutePlanner:
         )
 
 
+class MockLLMExperimentCodeGenerator:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-experiment-code-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self) -> None:
+        self.received_spec_ids: list[str] = []
+
+    def generate_code(self, *, spec_payload, substrate_payload, allowed_dependencies):
+        index = len(self.received_spec_ids)
+        self.received_spec_ids.append(spec_payload["spec_id"])
+        prompt, schema = build_experiment_codegen_prompt(
+            spec_payload=spec_payload,
+            substrate_payload=substrate_payload,
+            allowed_dependencies=allowed_dependencies,
+        )
+        required_metrics = spec_payload["output_contract"]["required_metrics"]
+        metric_assignments = "\n".join(
+            f"metric_{metric_index} = held_out_mae + ({metric_index} * 0.0)"
+            for metric_index, _ in enumerate(required_metrics)
+        )
+        metric_items = ",\n        ".join(
+            f"{metric!r}: metric_{metric_index}"
+            for metric_index, metric in enumerate(required_metrics)
+        )
+        negative_controls_passed = index != 3
+        runtime_failure = index == 4
+        unsafe_import = "import subprocess\n" if index == 2 else ""
+        failure_line = (
+            "raise RuntimeError('intentional execution failure')\n"
+            if runtime_failure
+            else ""
+        )
+        code = f"""import json
+import random
+{unsafe_import}
+SEED = 1729
+rng = random.Random(SEED)
+observations = [rng.random() for _ in range(24)]
+baseline_predictions = [0.0 for _ in observations]
+method_predictions = [value * 0.8 for value in observations]
+baseline_errors = [
+    abs(value - prediction)
+    for value, prediction in zip(observations, baseline_predictions)
+]
+method_errors = [
+    abs(value - prediction)
+    for value, prediction in zip(observations, method_predictions)
+]
+baseline_mae = sum(baseline_errors) / len(baseline_errors)
+held_out_mae = sum(method_errors) / len(method_errors)
+negative_control_values = list(baseline_errors)
+{metric_assignments}
+{failure_line}payload = {{
+    "metrics": {{
+        {metric_items}
+    }},
+    "baseline_summary": "Computed null baseline on generated observations.",
+    "control_summary": "Seed and sample count were held fixed.",
+    "negative_control_summary": "Computed mechanism-disabled negative control.",
+    "negative_controls_passed": {negative_controls_passed!r},
+    "success_criteria_satisfied": True,
+    "failure_criteria_satisfied": False,
+}}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+print("completed bounded experiment")
+"""
+        proposal = ExperimentCodeProposal(
+            code=code,
+            expected_output_files=["output.json"],
+            required_inputs=[],
+            declared_dependencies=[],
+            random_seed=1729,
+            timeout_seconds=10,
+        )
+        payload = ExperimentCodeProposalEnvelope(experiment=proposal).model_dump(mode="json")
+        accepted, reasons = parse_experiment_codegen_response(
+            payload,
+            allowed_dependencies=allowed_dependencies,
+        )
+        return ExperimentCodeGenerationResponse(
+            prompt_text=prompt,
+            requested_output_schema=schema,
+            raw_response=payload,
+            accepted=accepted,
+            rejection_reasons=reasons,
+        )
+
+
+def _prepare_m102_route_fixture(tmp_path: Path, run_id: str):
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=8,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockDeepOpportunityGenerator(),
+        retriever=MockRealOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="real_retrieval",
+            max_pairs=8,
+            max_generation_calls=8,
+            opportunities_per_pair=2,
+            max_selected_opportunities=16,
+            require_non_fake_backends=True,
+        ),
+    )
+    generate_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockLLMVarianceGenerator(),
+        config=LLMVarianceGenerationConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_opportunities=6,
+            variants_per_opportunity=5,
+            max_variants_total=30,
+            max_selected_variants=20,
+            max_generation_calls=6,
+            min_variant_family_coverage=5,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    construct_idea_tree_from_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    construct_llm_substrates(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockLLMSubstrateGenerator(),
+        config=LLMSubstrateConstructionConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_variants=10,
+            max_constructed_substrates=10,
+            max_selected_substrates=8,
+            max_generation_calls=10,
+            min_domain_family_coverage=4,
+            min_method_family_coverage=4,
+            min_route_hint_coverage=3,
+            require_non_fake_backends=True,
+        ),
+    )
+    route_result = plan_llm_routes(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=MockLLMRoutePlanner(),
+        config=LLMRoutePlanningConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=8,
+            max_planning_calls=8,
+            require_non_fake_backends=True,
+        ),
+    )
+    return store, ledger, route_result
+
+
 def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
@@ -1122,6 +1336,16 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert LLMRoutePlanningRawArtifact
     assert LLMRoutePlanningReport
     assert LLMRoutePlanningInspectionReport
+    assert LLMExperimentCodegenConfig
+    assert LLMExperimentCodeArtifact
+    assert ExperimentCodeSafetyAudit
+    assert SandboxExecutionConfig
+    assert SandboxExecutionResult
+    assert MetricExtractionResult
+    assert GeneratedExperimentResult
+    assert GeneratedExperimentExecutionReport
+    assert GeneratedExperimentInspectionReport
+    assert LLMExperimentCodeRawArtifact
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -3103,6 +3327,243 @@ def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
             ledger=ledger,
             planner=fallback,
             config=result.report.config,
+        )
+
+
+def test_generated_experiment_safety_audit_blocks_unsafe_code() -> None:
+    safe_code = """import json
+baseline_values = [1.0, 2.0]
+method_values = [0.5, 1.0]
+negative_control_values = list(baseline_values)
+held_out_mae = sum(method_values) / len(method_values)
+payload = {"metrics": {"held_out_mae": held_out_mae}}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+"""
+
+    def artifact(code: str) -> LLMExperimentCodeArtifact:
+        return LLMExperimentCodeArtifact(
+            code_artifact_id="code-audit-test",
+            run_id="run-audit",
+            source_spec_id="spec-audit",
+            source_route_id="route-audit",
+            source_substrate_id="substrate-audit",
+            route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+            backend_kind=BackendKind.LLM_OPENAI,
+            entrypoint="experiment.py",
+            code=code,
+            expected_output_files=["output.json"],
+            required_inputs=[],
+            declared_dependencies=[],
+            random_seed=1729,
+            timeout_seconds=10,
+            filesystem_scope="sandbox_workdir_only",
+        )
+
+    safe = audit_generated_experiment_code(
+        artifact=artifact(safe_code),
+        required_metrics=["held_out_mae"],
+        negative_controls_required=True,
+        allowed_dependencies=[],
+    )
+    assert safe.passed is True
+    assert safe.blocked is False
+
+    unsafe_cases = [
+        ("import subprocess\n" + safe_code, "subprocess_found"),
+        ("import requests\n" + safe_code, "network_access_found"),
+        (safe_code + "\neval('1 + 1')\n", "unsafe_eval_exec_found"),
+        (
+            safe_code.replace(
+                'open("output.json", "w", encoding="utf-8")',
+                'open("../escape.json", "w", encoding="utf-8")',
+            ),
+            "filesystem_escape_found",
+        ),
+        (safe_code.replace('with open("output.json", "w", encoding="utf-8") as handle:\n'
+                           '    json.dump(payload, handle)\n', ""), "reasons"),
+    ]
+    for code, field in unsafe_cases:
+        audit = audit_generated_experiment_code(
+            artifact=artifact(code),
+            required_metrics=["held_out_mae"],
+            negative_controls_required=True,
+            allowed_dependencies=[],
+        )
+        assert audit.blocked is True
+        assert getattr(audit, field)
+
+
+def test_metric_extraction_accepts_only_successful_output_json() -> None:
+    execution = SandboxExecutionResult(
+        execution_id="execution-1",
+        code_artifact_id="code-1",
+        status="completed",
+        exit_code=0,
+        stdout_path="runs/run/reports/stdout.txt",
+        stderr_path="runs/run/reports/stderr.txt",
+        output_json_path="runs/run/reports/output.json",
+        artifact_paths=["runs/run/reports/output.json"],
+        runtime_seconds=0.1,
+        timeout=False,
+        memory_limit_mb=128,
+        seed=1729,
+    )
+    extracted = extract_metrics_from_output(
+        execution=execution,
+        output_payload={"metrics": {"held_out_mae": 0.25}},
+        required_metrics=["held_out_mae"],
+        output_json_path=execution.output_json_path,
+    )
+    missing = extract_metrics_from_output(
+        execution=execution,
+        output_payload={"metrics": {}},
+        required_metrics=["held_out_mae"],
+        output_json_path=execution.output_json_path,
+    )
+    failed = extract_metrics_from_output(
+        execution=execution.model_copy(update={"status": "failed", "exit_code": 1}),
+        output_payload={"metrics": {"held_out_mae": 0.01}},
+        required_metrics=["held_out_mae"],
+        output_json_path=execution.output_json_path,
+    )
+
+    assert extracted.schema_valid is True
+    assert extracted.metrics == {"held_out_mae": 0.25}
+    assert extracted.metric_sources["held_out_mae"].endswith("#metrics.held_out_mae")
+    assert missing.schema_valid is False
+    assert missing.metrics == {}
+    assert failed.schema_valid is False
+    assert failed.metrics == {}
+
+
+def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) -> None:
+    run_id = "run-generated-experiments-strict"
+    store, ledger, route_result = _prepare_m102_route_fixture(tmp_path, run_id)
+    generator = MockLLMExperimentCodeGenerator()
+    codegen = generate_experiment_code(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=generator,
+        config=LLMExperimentCodegenConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_executable_specs=8,
+            max_codegen_calls=8,
+            default_timeout_seconds=10,
+            memory_limit_mb=256,
+            allowed_dependencies=[],
+            require_non_fake_backends=True,
+        ),
+    )
+    code_inspection = inspect_experiment_code(run_id=run_id, root=tmp_path)
+
+    assert route_result.report.execution_spec_count == 8
+    assert codegen.report.executable_spec_count == 5
+    assert codegen.report.non_executable_spec_count == 3
+    assert codegen.report.code_artifact_count == 5
+    assert codegen.report.safety_audit_count == 5
+    assert codegen.report.blocked_code_count == 1
+    assert codegen.report.deferred_non_executable_route_count == 3
+    assert codegen.report.fixture_metric_count == 0
+    assert codegen.report.production_ready is True
+    assert codegen.report.publication_ready is False
+    assert len(generator.received_spec_ids) == 5
+    assert all((tmp_path / path).is_file() for path in codegen.report.code_artifact_paths)
+    blocked = next(item for item in codegen.report.safety_audits if item.blocked)
+    assert "subprocess" in blocked.subprocess_found
+    assert code_inspection.generated_experiment_present is True
+    assert code_inspection.blocked_code_count == 1
+    assert any(
+        item.stage_kind == ScientificStageKind.EXPERIMENT_CODE_GENERATION
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in codegen.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.CODE_SAFETY_AUDIT
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in codegen.report.backend_records
+    )
+
+    execution = run_generated_experiments(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    inspected = inspect_generated_experiment_results(run_id=run_id, root=tmp_path)
+
+    assert execution.report.executed_code_count == 4
+    assert execution.report.failed_execution_count == 1
+    assert execution.report.metric_extraction_count == 4
+    assert execution.report.fixture_metric_count == 0
+    assert execution.report.production_ready is True
+    assert execution.report.publication_ready is False
+    assert all((tmp_path / path).is_file() for path in execution.report.sandbox_execution_paths)
+    assert all((tmp_path / path).is_file() for path in execution.report.metric_extraction_paths)
+    successful = [
+        item for item in execution.report.generated_results if item.status == "completed"
+    ]
+    assert {item.evidence_label for item in successful} >= {
+        "SyntheticExperimentEvidence",
+        "BenchmarkEvidence",
+    }
+    assert all(item.metrics for item in successful)
+    assert all(
+        source.endswith(("#metrics.held_out_mae", "#metrics.held_out_rmse"))
+        for item in successful
+        for source in item.metric_sources.values()
+    )
+    negative_control = next(
+        item
+        for item in execution.report.generated_results
+        if "Negative controls did not pass" in " ".join(item.warnings)
+    )
+    assert negative_control.status == "inconclusive"
+    assert negative_control.evidence_label == "InconclusiveResult"
+    failed_results = [
+        item
+        for item in execution.report.generated_results
+        if item.status in {"failed", "blocked_safety_audit"}
+    ]
+    assert failed_results
+    assert all(item.metrics == {} for item in failed_results)
+    assert inspected.generated_experiment_present is True
+    assert inspected.executed_code_count == 4
+    assert any(
+        item.stage_kind == ScientificStageKind.EXPERIMENT_EXECUTION
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in execution.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.METRIC_COMPUTATION
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in execution.report.backend_records
+    )
+
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    fallback = MockLLMExperimentCodeGenerator()
+    fallback.fallback_used = True
+    with pytest.raises(GeneratedExperimentError, match="forbids deterministic fallback"):
+        generate_experiment_code(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            generator=fallback,
+            config=codegen.report.config,
         )
 
 

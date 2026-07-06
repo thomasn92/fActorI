@@ -159,6 +159,18 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     )
     plan_llm_routes = CliRunner().invoke(app, ["plan-llm-routes", "--help"])
     inspect_llm_routes = CliRunner().invoke(app, ["inspect-llm-routes", "--help"])
+    generate_experiment_code = CliRunner().invoke(
+        app, ["generate-experiment-code", "--help"]
+    )
+    inspect_experiment_code = CliRunner().invoke(
+        app, ["inspect-experiment-code", "--help"]
+    )
+    run_generated_experiments = CliRunner().invoke(
+        app, ["run-generated-experiments", "--help"]
+    )
+    inspect_generated_results = CliRunner().invoke(
+        app, ["inspect-generated-experiment-results", "--help"]
+    )
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -211,6 +223,15 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--allow-external-calls" in plan_llm_routes.output
     assert inspect_llm_routes.exit_code == 0, inspect_llm_routes.output
     assert "--json" in inspect_llm_routes.output
+    assert generate_experiment_code.exit_code == 0, generate_experiment_code.output
+    assert "--allow-external-calls" in generate_experiment_code.output
+    assert "--require-non-fake" in generate_experiment_code.output
+    assert inspect_experiment_code.exit_code == 0, inspect_experiment_code.output
+    assert "--json" in inspect_experiment_code.output
+    assert run_generated_experiments.exit_code == 0, run_generated_experiments.output
+    assert "--require-non-fake" in run_generated_experiments.output
+    assert inspect_generated_results.exit_code == 0, inspect_generated_results.output
+    assert "--json" in inspect_generated_results.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output

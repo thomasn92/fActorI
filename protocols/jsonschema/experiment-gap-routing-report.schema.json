@@ -161,7 +161,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.67.0/experiment-gap-routing-report.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/experiment-gap-routing-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-evidence experiment-gap routing report.",
@@ -309,7 +309,7 @@
   ],
   "title": "ExperimentGapRoutingReport",
   "type": "object",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.ExperimentGapRoutingReport",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,72 @@
+{
+  "$id": "https://schemas.factori.local/0.68.0/sandbox-execution-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Offline local sandbox limits for one audited generated script.",
+  "properties": {
+    "allowed_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Dependencies",
+      "type": "array"
+    },
+    "entrypoint": {
+      "minLength": 1,
+      "title": "Entrypoint",
+      "type": "string"
+    },
+    "execution_backend": {
+      "const": "uv_local",
+      "default": "uv_local",
+      "title": "Execution Backend",
+      "type": "string"
+    },
+    "memory_limit_mb": {
+      "maximum": 4096,
+      "minimum": 64,
+      "title": "Memory Limit Mb",
+      "type": "integer"
+    },
+    "network_disabled": {
+      "const": true,
+      "default": true,
+      "title": "Network Disabled",
+      "type": "boolean"
+    },
+    "output_json_filename": {
+      "minLength": 1,
+      "title": "Output Json Filename",
+      "type": "string"
+    },
+    "output_limit_bytes": {
+      "default": 1048576,
+      "minimum": 1024,
+      "title": "Output Limit Bytes",
+      "type": "integer"
+    },
+    "seed": {
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "timeout_seconds": {
+      "maximum": 300,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "entrypoint",
+    "output_json_filename",
+    "timeout_seconds",
+    "memory_limit_mb",
+    "seed"
+  ],
+  "title": "SandboxExecutionConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.SandboxExecutionConfig",
+  "x-factori-verification-evidence": false
+}

@@ -86,6 +86,7 @@ from factori.schemas import (
     EmpiricalBoundaryAssessment,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
+    ExperimentCodeSafetyAudit,
     ExperimentGapRoutingIndex,
     ExperimentGapRoutingItem,
     ExperimentGapRoutingReport,
@@ -133,6 +134,9 @@ from factori.schemas import (
     GapStrategyDiversificationIndex,
     GapStrategyDiversificationReport,
     GapStrategyOption,
+    GeneratedExperimentExecutionReport,
+    GeneratedExperimentInspectionReport,
+    GeneratedExperimentResult,
     GeneratedSectionDraft,
     GenerationMutationCandidate,
     GenerationMutationContext,
@@ -182,6 +186,9 @@ from factori.schemas import (
     LLMCallStatus,
     LLMCandidateParseReport,
     LLMExecutionSpecCandidate,
+    LLMExperimentCodeArtifact,
+    LLMExperimentCodegenConfig,
+    LLMExperimentCodeRawArtifact,
     LLMOpportunityDiscoveryRawArtifact,
     LLMOrchestrationConfig,
     LLMOrchestrationReport,
@@ -226,6 +233,7 @@ from factori.schemas import (
     ManuscriptPlan,
     MethodAtlasEntry,
     MethodLens,
+    MetricExtractionResult,
     ModelNotationAssessment,
     MutationTournamentComparison,
     MutationTournamentEntry,
@@ -310,6 +318,8 @@ from factori.schemas import (
     RunStatusReport,
     SandboxBudgetPolicy,
     SandboxBudgetReport,
+    SandboxExecutionConfig,
+    SandboxExecutionResult,
     ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
@@ -354,7 +364,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.67.0"
+PROTOCOL_VERSION = "0.68.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -795,6 +805,56 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "LLMRoutePlanningInspectionReport",
         LLMRoutePlanningInspectionReport,
         "Read-only inspection of the latest LLM route-planning report.",
+    ),
+    ProtocolDefinition(
+        "LLMExperimentCodegenConfig",
+        LLMExperimentCodegenConfig,
+        "Bounded strict configuration for non-fake LLM experiment-code generation.",
+    ),
+    ProtocolDefinition(
+        "LLMExperimentCodeArtifact",
+        LLMExperimentCodeArtifact,
+        "One LLM-authored Python experiment proposal before execution.",
+    ),
+    ProtocolDefinition(
+        "ExperimentCodeSafetyAudit",
+        ExperimentCodeSafetyAudit,
+        "Deterministic static safety audit for one generated experiment script.",
+    ),
+    ProtocolDefinition(
+        "SandboxExecutionConfig",
+        SandboxExecutionConfig,
+        "Offline local sandbox limits for one audited generated script.",
+    ),
+    ProtocolDefinition(
+        "SandboxExecutionResult",
+        SandboxExecutionResult,
+        "Observed bounded process result for one generated experiment script.",
+    ),
+    ProtocolDefinition(
+        "MetricExtractionResult",
+        MetricExtractionResult,
+        "Metrics extracted only from one successful sandbox output JSON artifact.",
+    ),
+    ProtocolDefinition(
+        "GeneratedExperimentResult",
+        GeneratedExperimentResult,
+        "Bounded evidence-label decision derived from actual local execution.",
+    ),
+    ProtocolDefinition(
+        "LLMExperimentCodeRawArtifact",
+        LLMExperimentCodeRawArtifact,
+        "Secret-free prompt and response provenance for experiment-code generation.",
+    ),
+    ProtocolDefinition(
+        "GeneratedExperimentExecutionReport",
+        GeneratedExperimentExecutionReport,
+        "Append-only code-generation or local execution report over M101 specs.",
+    ),
+    ProtocolDefinition(
+        "GeneratedExperimentInspectionReport",
+        GeneratedExperimentInspectionReport,
+        "Read-only inspection of generated experiment code and execution results.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

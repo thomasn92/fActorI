@@ -1,0 +1,97 @@
+{
+  "$id": "https://schemas.factori.local/0.68.0/metric-extraction-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Metrics extracted only from one successful sandbox output JSON artifact.",
+  "properties": {
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_id": {
+      "minLength": 1,
+      "title": "Execution Id",
+      "type": "string"
+    },
+    "extraction_warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Extraction Warnings",
+      "type": "array"
+    },
+    "invalid_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Invalid Metrics",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_sources": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metric Sources",
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "metrics_extracted": {
+      "title": "Metrics Extracted",
+      "type": "boolean"
+    },
+    "missing_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Metrics",
+      "type": "array"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "schema_valid": {
+      "title": "Schema Valid",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "execution_id",
+    "metrics_extracted",
+    "schema_valid"
+  ],
+  "title": "MetricExtractionResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.MetricExtractionResult",
+  "x-factori-verification-evidence": false
+}

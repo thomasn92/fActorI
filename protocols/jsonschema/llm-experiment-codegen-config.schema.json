@@ -1,0 +1,70 @@
+{
+  "$id": "https://schemas.factori.local/0.68.0/llm-experiment-codegen-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded strict configuration for non-fake LLM experiment-code generation.",
+  "properties": {
+    "allowed_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Dependencies",
+      "type": "array"
+    },
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "default_timeout_seconds": {
+      "default": 30,
+      "maximum": 300,
+      "minimum": 1,
+      "title": "Default Timeout Seconds",
+      "type": "integer"
+    },
+    "fail_on_silent_fallback": {
+      "default": true,
+      "title": "Fail On Silent Fallback",
+      "type": "boolean"
+    },
+    "max_codegen_calls": {
+      "default": 12,
+      "minimum": 1,
+      "title": "Max Codegen Calls",
+      "type": "integer"
+    },
+    "max_executable_specs": {
+      "default": 12,
+      "minimum": 1,
+      "title": "Max Executable Specs",
+      "type": "integer"
+    },
+    "memory_limit_mb": {
+      "default": 512,
+      "maximum": 4096,
+      "minimum": 64,
+      "title": "Memory Limit Mb",
+      "type": "integer"
+    },
+    "require_non_fake_backends": {
+      "default": false,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "backend"
+  ],
+  "title": "LLMExperimentCodegenConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.LLMExperimentCodegenConfig",
+  "x-factori-verification-evidence": false
+}

@@ -314,6 +314,13 @@ All implementation modules are under `factori/`.
 - `llm_route_planning.py`: M100 input verification, non-fake route/spec orchestration, local
   contract validation, append-only reports, production records, and standard route/spec
   compatibility persistence without execution.
+- `adapters/llm_experiment_codegen.py`: explicitly gated OpenAI structured-output adapter for one
+  self-contained bounded Python script per executable M101 specification, without fallback.
+- `generated_experiment_safety.py`: deterministic AST and contract audit for imports, network and
+  process access, path scope, dynamic execution, seed control, required metrics, and controls.
+- `generated_experiments.py`: M101 input verification, LLM code persistence, static audits,
+  isolated local process execution, output-JSON-only metric extraction, bounded result labels,
+  strict production records, and read-only inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

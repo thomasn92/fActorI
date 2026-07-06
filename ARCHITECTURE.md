@@ -428,6 +428,12 @@ Lean path is the real-proof adapter seam, and the gated local synthetic runner i
 synthetic experiment seam. Both remain disabled unless explicitly selected. No real empirical
 scientific experiments or real-data ingestion are implemented.
 
+M102-generated experiment code is proposal context until it passes the deterministic AST audit and
+runs successfully in the bounded local sandbox. Only numeric values parsed from that execution's
+persisted `output.json` are metric sources. LLM responses, route specifications, failed processes,
+and fixture values cannot supply metrics. Successful labels remain synthetic, benchmark, or
+counterexample scope only and never establish real-world validation.
+
 ## Narrative Paper Shape Boundary
 
 The manuscript-quality layer checks whether the planned paper has a central message, problem

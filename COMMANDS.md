@@ -940,6 +940,26 @@ non-executable experiment contracts, missing proof obligations, and retrieval-fr
 routes. `inspect-llm-routes` is read-only. M101 plans only: it does not generate code, execute
 experiments, compute metrics, or create evidence.
 
+`generate-experiment-code` reads executable M101 specs and uses the gated `llm-openai` backend to
+author one self-contained Python script per spec. `inspect-experiment-code` shows code and static
+audit counts. Live generation requires `--allow-external-calls`; strict mode also uses
+`--require-non-fake-backends` and forbids fallback.
+
+`run-generated-experiments` executes only scripts that passed the local AST audit, in isolated
+fixed-seed working directories with network imports, subprocesses, path escape, dynamic execution,
+and undeclared dependencies blocked. `inspect-generated-experiment-results` is read-only. Metrics
+are accepted only from the process-generated `output.json`; failed or invalid runs provide no
+metrics and remain inconclusive.
+
+```bash
+uv run factori generate-experiment-code --run-id atlas-scan-001 --backend llm-openai \
+  --allow-external-calls --require-non-fake-backends
+uv run factori inspect-experiment-code --run-id atlas-scan-001 --json
+uv run factori run-generated-experiments --run-id atlas-scan-001 \
+  --require-non-fake-backends
+uv run factori inspect-generated-experiment-results --run-id atlas-scan-001 --json
+```
+
 ## Tests and Lint
 
 Canonical `uv` commands:

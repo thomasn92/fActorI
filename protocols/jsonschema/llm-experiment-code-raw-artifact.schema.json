@@ -1,0 +1,105 @@
+{
+  "$id": "https://schemas.factori.local/0.68.0/llm-experiment-code-raw-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Secret-free prompt and response provenance for experiment-code generation.",
+  "properties": {
+    "accepted_code_artifact_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Accepted Code Artifact Id Optional"
+    },
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "fallback_used": {
+      "default": false,
+      "title": "Fallback Used",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt_text": {
+      "minLength": 1,
+      "title": "Prompt Text",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "raw_artifact_id": {
+      "minLength": 1,
+      "title": "Raw Artifact Id",
+      "type": "string"
+    },
+    "raw_response": {
+      "additionalProperties": true,
+      "title": "Raw Response",
+      "type": "object"
+    },
+    "rejection_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rejection Reasons",
+      "type": "array"
+    },
+    "requested_output_schema": {
+      "additionalProperties": true,
+      "title": "Requested Output Schema",
+      "type": "object"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_spec_id": {
+      "minLength": 1,
+      "title": "Source Spec Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "raw_artifact_id",
+    "run_id",
+    "source_spec_id",
+    "backend_name",
+    "model",
+    "prompt_text",
+    "requested_output_schema",
+    "raw_response"
+  ],
+  "title": "LLMExperimentCodeRawArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.LLMExperimentCodeRawArtifact",
+  "x-factori-verification-evidence": false
+}

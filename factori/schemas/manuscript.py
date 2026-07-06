@@ -1158,6 +1158,254 @@ class LLMRoutePlanningInspectionReport(StrictModel):
     is_verification_evidence: Literal[False] = False
 
 
+class LLMExperimentCodegenConfig(StrictModel):
+    """Bounded configuration for non-fake experiment-code generation."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    max_executable_specs: int = Field(default=12, ge=1)
+    max_codegen_calls: int = Field(default=12, ge=1)
+    default_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    memory_limit_mb: int = Field(default=512, ge=64, le=4096)
+    allowed_dependencies: list[str] = Field(default_factory=lambda: ["numpy"])
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class LLMExperimentCodeArtifact(StrictModel):
+    """One LLM-authored Python experiment proposal; not an execution result."""
+
+    code_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_spec_id: str = Field(min_length=1)
+    source_route_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    route_type: BranchRouteType
+    backend_kind: BackendKind
+    language: Literal["python"] = "python"
+    entrypoint: str = Field(min_length=1)
+    code: str = Field(min_length=1)
+    expected_output_files: list[str] = Field(min_length=1)
+    required_inputs: list[str] = Field(default_factory=list)
+    declared_dependencies: list[str] = Field(default_factory=list)
+    random_seed: int = Field(ge=0)
+    timeout_seconds: int = Field(ge=1, le=300)
+    network_required: Literal[False] = False
+    filesystem_scope: str = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ExperimentCodeSafetyAudit(StrictModel):
+    """Deterministic AST and policy audit for generated experiment code."""
+
+    code_artifact_id: str = Field(min_length=1)
+    passed: bool
+    blocked: bool
+    reasons: list[str] = Field(default_factory=list)
+    forbidden_imports_found: list[str] = Field(default_factory=list)
+    network_access_found: list[str] = Field(default_factory=list)
+    filesystem_escape_found: list[str] = Field(default_factory=list)
+    subprocess_found: list[str] = Field(default_factory=list)
+    unsafe_eval_exec_found: list[str] = Field(default_factory=list)
+    nondeterminism_risk: list[str] = Field(default_factory=list)
+    resource_risk: list[str] = Field(default_factory=list)
+    allowed_imports: list[str] = Field(default_factory=list)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class SandboxExecutionConfig(StrictModel):
+    """Local isolated-process policy for one audited generated script."""
+
+    execution_backend: Literal["uv_local"] = "uv_local"
+    entrypoint: str = Field(min_length=1)
+    output_json_filename: str = Field(min_length=1)
+    timeout_seconds: int = Field(ge=1, le=300)
+    memory_limit_mb: int = Field(ge=64, le=4096)
+    output_limit_bytes: int = Field(default=1_048_576, ge=1024)
+    network_disabled: Literal[True] = True
+    seed: int = Field(ge=0)
+    allowed_dependencies: list[str] = Field(default_factory=list)
+
+
+class SandboxExecutionResult(StrictModel):
+    """Observed process outcome for one generated script."""
+
+    execution_id: str = Field(min_length=1)
+    code_artifact_id: str = Field(min_length=1)
+    status: Literal["completed", "failed", "timed_out", "blocked"]
+    exit_code: int | None = None
+    stdout_path: str = Field(min_length=1)
+    stderr_path: str = Field(min_length=1)
+    output_json_path: str | None = None
+    artifact_paths: list[str] = Field(default_factory=list)
+    runtime_seconds: float = Field(ge=0.0)
+    timeout: bool
+    memory_limit_mb: int = Field(ge=64)
+    network_disabled: Literal[True] = True
+    seed: int = Field(ge=0)
+    failure_reason_optional: str | None = None
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class MetricExtractionResult(StrictModel):
+    """Metrics parsed only from one successful sandbox output JSON."""
+
+    execution_id: str = Field(min_length=1)
+    metrics_extracted: bool
+    metrics: dict[str, float | int] = Field(default_factory=dict)
+    metric_sources: dict[str, str] = Field(default_factory=dict)
+    schema_valid: bool
+    missing_metrics: list[str] = Field(default_factory=list)
+    invalid_metrics: list[str] = Field(default_factory=list)
+    extraction_warnings: list[str] = Field(default_factory=list)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class GeneratedExperimentResult(StrictModel):
+    """Bounded result classification derived from actual local execution only."""
+
+    result_id: str = Field(min_length=1)
+    source_spec_id: str = Field(min_length=1)
+    source_route_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    route_type: BranchRouteType
+    status: Literal[
+        "completed",
+        "negative_result",
+        "inconclusive",
+        "failed",
+        "blocked_safety_audit",
+        "deferred_non_executable_route",
+    ]
+    evidence_label: RouteEvidenceLabel
+    scope_label: str = Field(min_length=1)
+    metrics: dict[str, float | int] = Field(default_factory=dict)
+    metric_sources: dict[str, str] = Field(default_factory=dict)
+    baseline_summary: str = Field(min_length=1)
+    control_summary: str = Field(min_length=1)
+    negative_control_summary: str = Field(min_length=1)
+    success_criteria_satisfied: bool | None = None
+    failure_criteria_satisfied: bool | None = None
+    warnings: list[str] = Field(default_factory=list)
+    failure_reason_optional: str | None = None
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    publication_ready: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class LLMExperimentCodeRawArtifact(StrictModel):
+    """Secret-free prompt/response provenance for one experiment-code call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_spec_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+    raw_response: dict[str, Any]
+    accepted_code_artifact_id_optional: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class GeneratedExperimentExecutionReport(StrictModel):
+    """Append-only code-generation or execution report over M101 specs."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    phase: Literal["code_generation", "execution"]
+    report_status: Literal[
+        "code_generated",
+        "completed",
+        "completed_with_warnings",
+        "failed",
+    ]
+    source_route_planning_report_path: str = Field(min_length=1)
+    source_codegen_report_path_optional: str | None = None
+    config: LLMExperimentCodegenConfig
+    executable_spec_count: int = Field(ge=0)
+    non_executable_spec_count: int = Field(ge=0)
+    code_artifact_count: int = Field(ge=0)
+    safety_audit_count: int = Field(ge=0)
+    blocked_code_count: int = Field(ge=0)
+    executed_code_count: int = Field(ge=0)
+    failed_execution_count: int = Field(ge=0)
+    metric_extraction_count: int = Field(ge=0)
+    deferred_non_executable_route_count: int = Field(ge=0)
+    fixture_metric_count: Literal[0] = 0
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    code_artifact_paths: list[str] = Field(default_factory=list)
+    safety_audit_paths: list[str] = Field(default_factory=list)
+    sandbox_execution_paths: list[str] = Field(default_factory=list)
+    metric_extraction_paths: list[str] = Field(default_factory=list)
+    generated_result_paths: list[str] = Field(default_factory=list)
+    code_artifacts: list[LLMExperimentCodeArtifact] = Field(default_factory=list)
+    safety_audits: list[ExperimentCodeSafetyAudit] = Field(default_factory=list)
+    sandbox_configs: list[SandboxExecutionConfig] = Field(default_factory=list)
+    sandbox_executions: list[SandboxExecutionResult] = Field(default_factory=list)
+    metric_extractions: list[MetricExtractionResult] = Field(default_factory=list)
+    generated_results: list[GeneratedExperimentResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class GeneratedExperimentInspectionReport(StrictModel):
+    """Read-only inspection of generated code or its latest execution results."""
+
+    run_id: str = Field(min_length=1)
+    generated_experiment_present: bool
+    phase_optional: str | None = None
+    latest_report_id_optional: str | None = None
+    report_status_optional: str | None = None
+    executable_spec_count: int = Field(default=0, ge=0)
+    non_executable_spec_count: int = Field(default=0, ge=0)
+    code_artifact_count: int = Field(default=0, ge=0)
+    safety_audit_count: int = Field(default=0, ge=0)
+    blocked_code_count: int = Field(default=0, ge=0)
+    executed_code_count: int = Field(default=0, ge=0)
+    failed_execution_count: int = Field(default=0, ge=0)
+    metric_extraction_count: int = Field(default=0, ge=0)
+    deferred_non_executable_route_count: int = Field(default=0, ge=0)
+    fixture_metric_count: int = Field(default=0, ge=0)
+    code_artifacts: list[LLMExperimentCodeArtifact] = Field(default_factory=list)
+    safety_audits: list[ExperimentCodeSafetyAudit] = Field(default_factory=list)
+    sandbox_configs: list[SandboxExecutionConfig] = Field(default_factory=list)
+    sandbox_executions: list[SandboxExecutionResult] = Field(default_factory=list)
+    metric_extractions: list[MetricExtractionResult] = Field(default_factory=list)
+    generated_results: list[GeneratedExperimentResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class DomainPrimitive(StrictModel):
     """One deterministic Stage 0 primitive extracted from a broad research domain."""
 
@@ -6185,6 +6433,16 @@ __all__ = [
     "LLMRoutePlanningRawArtifact",
     "LLMRoutePlanningReport",
     "LLMRoutePlanningInspectionReport",
+    "LLMExperimentCodegenConfig",
+    "LLMExperimentCodeArtifact",
+    "ExperimentCodeSafetyAudit",
+    "SandboxExecutionConfig",
+    "SandboxExecutionResult",
+    "MetricExtractionResult",
+    "GeneratedExperimentResult",
+    "GeneratedExperimentExecutionReport",
+    "GeneratedExperimentInspectionReport",
+    "LLMExperimentCodeRawArtifact",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

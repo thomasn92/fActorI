@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.67.0/backend-kind.schema.json",
+  "$id": "https://schemas.factori.local/0.68.0/backend-kind.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Authority classification for a pipeline backend.",
   "enum": [
@@ -17,7 +17,7 @@
   ],
   "title": "BackendKind",
   "type": "string",
-  "x-factori-protocol-version": "0.67.0",
+  "x-factori-protocol-version": "0.68.0",
   "x-factori-source-model": "factori.schemas.BackendKind",
   "x-factori-verification-evidence": false
 }

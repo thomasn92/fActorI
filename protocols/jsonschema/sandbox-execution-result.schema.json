@@ -1,0 +1,146 @@
+{
+  "$id": "https://schemas.factori.local/0.68.0/sandbox-execution-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Observed bounded process result for one generated experiment script.",
+  "properties": {
+    "artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Paths",
+      "type": "array"
+    },
+    "code_artifact_id": {
+      "minLength": 1,
+      "title": "Code Artifact Id",
+      "type": "string"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_id": {
+      "minLength": 1,
+      "title": "Execution Id",
+      "type": "string"
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Code"
+    },
+    "failure_reason_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Reason Optional"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "memory_limit_mb": {
+      "minimum": 64,
+      "title": "Memory Limit Mb",
+      "type": "integer"
+    },
+    "network_disabled": {
+      "const": true,
+      "default": true,
+      "title": "Network Disabled",
+      "type": "boolean"
+    },
+    "output_json_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output Json Path"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "runtime_seconds": {
+      "minimum": 0.0,
+      "title": "Runtime Seconds",
+      "type": "number"
+    },
+    "seed": {
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed",
+        "timed_out",
+        "blocked"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "stderr_path": {
+      "minLength": 1,
+      "title": "Stderr Path",
+      "type": "string"
+    },
+    "stdout_path": {
+      "minLength": 1,
+      "title": "Stdout Path",
+      "type": "string"
+    },
+    "timeout": {
+      "title": "Timeout",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "execution_id",
+    "code_artifact_id",
+    "status",
+    "stdout_path",
+    "stderr_path",
+    "runtime_seconds",
+    "timeout",
+    "memory_limit_mb",
+    "seed"
+  ],
+  "title": "SandboxExecutionResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.SandboxExecutionResult",
+  "x-factori-verification-evidence": false
+}

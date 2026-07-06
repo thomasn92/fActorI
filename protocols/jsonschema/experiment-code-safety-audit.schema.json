@@ -1,0 +1,112 @@
+{
+  "$id": "https://schemas.factori.local/0.68.0/experiment-code-safety-audit.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic static safety audit for one generated experiment script.",
+  "properties": {
+    "allowed_imports": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Imports",
+      "type": "array"
+    },
+    "blocked": {
+      "title": "Blocked",
+      "type": "boolean"
+    },
+    "code_artifact_id": {
+      "minLength": 1,
+      "title": "Code Artifact Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "filesystem_escape_found": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Filesystem Escape Found",
+      "type": "array"
+    },
+    "forbidden_imports_found": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Forbidden Imports Found",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "network_access_found": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Network Access Found",
+      "type": "array"
+    },
+    "nondeterminism_risk": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Nondeterminism Risk",
+      "type": "array"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "resource_risk": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Resource Risk",
+      "type": "array"
+    },
+    "subprocess_found": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Subprocess Found",
+      "type": "array"
+    },
+    "unsafe_eval_exec_found": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsafe Eval Exec Found",
+      "type": "array"
+    }
+  },
+  "required": [
+    "code_artifact_id",
+    "passed",
+    "blocked"
+  ],
+  "title": "ExperimentCodeSafetyAudit",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.ExperimentCodeSafetyAudit",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,185 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.68.0/llm-experiment-code-artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One LLM-authored Python experiment proposal before execution.",
+  "properties": {
+    "backend_kind": {
+      "$ref": "#/$defs/BackendKind"
+    },
+    "code": {
+      "minLength": 1,
+      "title": "Code",
+      "type": "string"
+    },
+    "code_artifact_id": {
+      "minLength": 1,
+      "title": "Code Artifact Id",
+      "type": "string"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "declared_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Declared Dependencies",
+      "type": "array"
+    },
+    "entrypoint": {
+      "minLength": 1,
+      "title": "Entrypoint",
+      "type": "string"
+    },
+    "expected_output_files": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Expected Output Files",
+      "type": "array"
+    },
+    "filesystem_scope": {
+      "minLength": 1,
+      "title": "Filesystem Scope",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "language": {
+      "const": "python",
+      "default": "python",
+      "title": "Language",
+      "type": "string"
+    },
+    "network_required": {
+      "const": false,
+      "default": false,
+      "title": "Network Required",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "title": "Random Seed",
+      "type": "integer"
+    },
+    "required_inputs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Inputs",
+      "type": "array"
+    },
+    "route_type": {
+      "$ref": "#/$defs/BranchRouteType"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_route_id": {
+      "minLength": 1,
+      "title": "Source Route Id",
+      "type": "string"
+    },
+    "source_spec_id": {
+      "minLength": 1,
+      "title": "Source Spec Id",
+      "type": "string"
+    },
+    "source_substrate_id": {
+      "minLength": 1,
+      "title": "Source Substrate Id",
+      "type": "string"
+    },
+    "timeout_seconds": {
+      "maximum": 300,
+      "minimum": 1,
+      "title": "Timeout Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "code_artifact_id",
+    "run_id",
+    "source_spec_id",
+    "source_route_id",
+    "source_substrate_id",
+    "route_type",
+    "backend_kind",
+    "entrypoint",
+    "code",
+    "expected_output_files",
+    "random_seed",
+    "timeout_seconds",
+    "filesystem_scope"
+  ],
+  "title": "LLMExperimentCodeArtifact",
+  "type": "object",
+  "x-factori-protocol-version": "0.68.0",
+  "x-factori-source-model": "factori.schemas.LLMExperimentCodeArtifact",
+  "x-factori-verification-evidence": false
+}

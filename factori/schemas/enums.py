@@ -388,6 +388,8 @@ class ControllerActionType(StrEnum):
     LLM_IDEA_TREE_CONSTRUCTION_WRITTEN = "LLMIdeaTreeConstructionWritten"
     LLM_SUBSTRATE_CONSTRUCTION_WRITTEN = "LLMSubstrateConstructionWritten"
     LLM_ROUTE_PLANNING_WRITTEN = "LLMRoutePlanningWritten"
+    LLM_EXPERIMENT_CODE_WRITTEN = "LLMExperimentCodeWritten"
+    GENERATED_EXPERIMENT_EXECUTION_WRITTEN = "GeneratedExperimentExecutionWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -457,6 +459,7 @@ class ScientificStageKind(StrEnum):
     EXPERIMENT_DESIGN = "experiment_design"
     SPEC_VALIDATION = "spec_validation"
     EXPERIMENT_CODE_GENERATION = "experiment_code_generation"
+    CODE_SAFETY_AUDIT = "code_safety_audit"
     EXPERIMENT_EXECUTION = "experiment_execution"
     METRIC_COMPUTATION = "metric_computation"
     ADJUDICATION = "adjudication"

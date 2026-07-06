@@ -14,6 +14,7 @@ from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
 from factori.adapters.deep_opportunity import OpenAIDeepOpportunityGenerator
 from factori.adapters.errors import AdapterError
+from factori.adapters.llm_experiment_codegen import OpenAILLMExperimentCodeGenerator
 from factori.adapters.llm_route_planning import OpenAILLMRoutePlanner
 from factori.adapters.llm_substrate import OpenAILLMSubstrateGenerator
 from factori.adapters.llm_variance import OpenAILLMVarianceGenerator
@@ -181,6 +182,14 @@ from factori.gap_strategy_diversification import (
     inspect_gap_strategy_diversification,
     persist_gap_strategy_diversification,
 )
+from factori.generated_experiments import (
+    GeneratedExperimentError,
+    generate_experiment_code,
+    inspect_experiment_code,
+    inspect_generated_experiment_results,
+    render_generated_experiment_text,
+    run_generated_experiments,
+)
 from factori.generation_mutations import (
     GenerationMutationError,
     apply_generation_mutations,
@@ -337,6 +346,7 @@ from factori.schemas import (
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
     LLMBudgetConfig,
+    LLMExperimentCodegenConfig,
     LLMOrchestrationConfig,
     LLMRoutePlanningConfig,
     LLMSubstrateConstructionConfig,
@@ -4557,6 +4567,142 @@ def inspect_llm_routes_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_llm_route_text(report))
+
+
+@app.command("generate-experiment-code")
+def generate_experiment_code_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_executable_specs: Annotated[
+        int,
+        typer.Option("--max-executable-specs"),
+    ] = 12,
+    max_codegen_calls: Annotated[int, typer.Option("--max-codegen-calls")] = 12,
+    timeout_seconds: Annotated[int, typer.Option("--timeout-seconds")] = 30,
+    memory_limit_mb: Annotated[int, typer.Option("--memory-limit-mb")] = 512,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Generate and statically audit bounded Python experiments with a gated LLM."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai experiment-code generation is implemented; no fallback exists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        generator = OpenAILLMExperimentCodeGenerator(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        result = generate_experiment_code(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            generator=generator,
+            config=LLMExperimentCodegenConfig(
+                run_id=run_id,
+                backend="llm-openai",
+                max_executable_specs=max_executable_specs,
+                max_codegen_calls=max_codegen_calls,
+                default_timeout_seconds=timeout_seconds,
+                memory_limit_mb=memory_limit_mb,
+                require_non_fake_backends=require_non_fake_backends,
+            ),
+        )
+    except (AdapterError, GeneratedExperimentError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"executable_spec_count={result.report.executable_spec_count}")
+    typer.echo(f"code_artifact_count={result.report.code_artifact_count}")
+    typer.echo(f"blocked_code_count={result.report.blocked_code_count}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-experiment-code")
+def inspect_experiment_code_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest generated experiment-code and safety-audit report."""
+    try:
+        report = inspect_experiment_code(run_id=run_id, root=root)
+    except GeneratedExperimentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_generated_experiment_text(report))
+
+
+@app.command("run-generated-experiments")
+def run_generated_experiments_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Execute audited generated experiments and extract observed metrics."""
+    try:
+        result = run_generated_experiments(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            require_non_fake_backends=require_non_fake_backends,
+        )
+    except GeneratedExperimentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(render_generated_experiment_text(inspect_generated_experiment_results(
+        run_id=run_id,
+        root=root,
+    )))
+
+
+@app.command("inspect-generated-experiment-results")
+def inspect_generated_experiment_results_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest sandbox results and genuine metric extractions."""
+    try:
+        report = inspect_generated_experiment_results(run_id=run_id, root=root)
+    except GeneratedExperimentError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_generated_experiment_text(report))
 
 
 @app.command("discover-opportunities")
