@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from factori.schemas.adapters import GeneratedSectionDraft, ProseSafetyReport, ProseSectionContract
 from factori.schemas.artifacts import ArtifactRef
@@ -172,6 +172,206 @@ class ProductionModeReport(StrictModel):
     violations: list[ProductionModeViolation] = Field(default_factory=list)
     missing_stage_kinds: list[ScientificStageKind] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class DomainAtlasEntry(StrictModel):
+    """One curated domain entry used as production search infrastructure."""
+
+    domain_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    domain_family: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    canonical_objects: list[str] = Field(min_length=1)
+    data_types: list[str] = Field(min_length=1)
+    natural_baselines: list[str] = Field(min_length=1)
+    verification_modes: list[str] = Field(min_length=1)
+    standard_metrics: list[str] = Field(min_length=1)
+    common_failure_modes: list[str] = Field(min_length=1)
+    example_questions: list[str] = Field(default_factory=list)
+
+
+class MethodAtlasEntry(StrictModel):
+    """One curated method lens used as production search infrastructure."""
+
+    method_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    method_family: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    canonical_objects: list[str] = Field(min_length=1)
+    natural_problem_types: list[str] = Field(min_length=1)
+    required_inputs: list[str] = Field(min_length=1)
+    typical_outputs: list[str] = Field(min_length=1)
+    verification_modes: list[str] = Field(min_length=1)
+    natural_baselines: list[str] = Field(min_length=1)
+    false_bridge_patterns: list[str] = Field(min_length=1)
+
+
+class DomainMethodPair(StrictModel):
+    """One domain-method pair after exclusion-only compatibility analysis."""
+
+    pair_id: str = Field(min_length=1)
+    domain_id: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    domain_family: str = Field(min_length=1)
+    method_family: str = Field(min_length=1)
+    object_mapping_candidates: list[str] = Field(default_factory=list)
+    baseline_candidates: list[str] = Field(default_factory=list)
+    verification_path_candidates: list[str] = Field(default_factory=list)
+    data_or_simulation_candidates: list[str] = Field(default_factory=list)
+    compatibility_status: Literal["compatible", "weak_compatible", "excluded"]
+
+
+class CompatibilityExclusion(StrictModel):
+    """Deterministic negative compatibility finding without opportunity authority."""
+
+    pair_id: str = Field(min_length=1)
+    excluded: bool
+    exclusion_reasons: list[str] = Field(default_factory=list)
+    missing_object_mapping: bool
+    missing_baseline: bool
+    missing_verification_path: bool
+    missing_data_or_simulation_path: bool
+    decorative_vocabulary_risk: bool
+
+
+class CompatibilityFilterReport(StrictModel):
+    """Exclusion-only compatibility report over the curated atlas product."""
+
+    run_id: str = Field(min_length=1)
+    filter_id: str = Field(min_length=1)
+    source_atlas_path: str = Field(min_length=1)
+    raw_pair_count: int = Field(ge=0)
+    excluded_pair_count: int = Field(ge=0)
+    surviving_pair_count: int = Field(ge=0)
+    compatibility_status_counts: dict[str, int] = Field(default_factory=dict)
+    pairs: list[DomainMethodPair] = Field(default_factory=list)
+    exclusions: list[CompatibilityExclusion] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class LLMPairRankingPrompt(StrictModel):
+    """Secret-free structured prompt contract for one pair-ranking batch."""
+
+    prompt_id: str = Field(min_length=1)
+    batch_index: int = Field(ge=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    pair_ids: list[str] = Field(min_length=1)
+    pair_payloads: list[dict[str, Any]] = Field(min_length=1)
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+    novelty_underuse_are_hypotheses: bool = True
+
+
+class LLMPairRankingResult(StrictModel):
+    """Non-fake LLM scientific judgment for one surviving atlas pair."""
+
+    pair_id: str = Field(min_length=1)
+    rank_score: float = Field(ge=0.0, le=1.0)
+    scientific_fit: float = Field(ge=0.0, le=1.0)
+    tractability: float = Field(ge=0.0, le=1.0)
+    question_abundance: float = Field(ge=0.0, le=1.0)
+    baseline_clarity: float = Field(ge=0.0, le=1.0)
+    verification_feasibility: float = Field(ge=0.0, le=1.0)
+    paper_shape_clarity: float = Field(ge=0.0, le=1.0)
+    false_bridge_risk: float = Field(ge=0.0, le=1.0)
+    tautology_risk: float = Field(ge=0.0, le=1.0)
+    novelty_hypothesis: str = Field(min_length=1)
+    underuse_hypothesis: str = Field(min_length=1)
+    ranking_explanation: str = Field(min_length=1)
+    recommended_for_deep_discovery: bool
+
+    @field_validator("novelty_hypothesis", "underuse_hypothesis")
+    @classmethod
+    def require_hypothesis_label(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.lower().startswith("hypothesis:"):
+            raise ValueError("novelty and underuse values must begin with 'Hypothesis:'")
+        return normalized
+
+
+class LLMPairRankingReport(StrictModel):
+    """Append-only ranking report produced only by a recorded LLM backend."""
+
+    run_id: str = Field(min_length=1)
+    ranking_id: str = Field(min_length=1)
+    source_compatibility_filter_path: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    batch_count: int = Field(ge=0)
+    surviving_pair_count: int = Field(ge=0)
+    ranked_pair_count: int = Field(ge=0)
+    prompts: list[LLMPairRankingPrompt] = Field(default_factory=list)
+    results: list[LLMPairRankingResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AtlasScanReport(StrictModel):
+    """Curated atlas build or non-fake ranked pair-scan report."""
+
+    run_id: str = Field(min_length=1)
+    scan_id: str = Field(min_length=1)
+    scan_status: Literal["atlas_built", "completed", "completed_with_warnings"]
+    source_atlas_path_optional: str | None = None
+    domain_count: int = Field(ge=0)
+    method_count: int = Field(ge=0)
+    raw_pair_count: int = Field(ge=0)
+    excluded_pair_count: int = Field(ge=0)
+    surviving_pair_count: int = Field(ge=0)
+    llm_ranked_pair_count: int = Field(ge=0)
+    selected_pair_count: int = Field(ge=0)
+    domain_family_coverage: int = Field(ge=0)
+    method_family_coverage: int = Field(ge=0)
+    domains: list[DomainAtlasEntry] = Field(default_factory=list)
+    methods: list[MethodAtlasEntry] = Field(default_factory=list)
+    compatibility_filter_path_optional: str | None = None
+    llm_pair_ranking_path_optional: str | None = None
+    selected_pairs: list[DomainMethodPair] = Field(default_factory=list)
+    selected_rankings: list[LLMPairRankingResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: bool = False
+    creates_scientific_validation: bool = False
+    implies_publication_readiness: bool = False
+    is_verification_evidence: bool = False
+
+
+class AtlasScanInspectionReport(StrictModel):
+    """Read-only latest atlas and ranked-scan inspection payload."""
+
+    run_id: str = Field(min_length=1)
+    atlas_scan_present: bool
+    latest_scan_id_optional: str | None = None
+    latest_scan_status_optional: str | None = None
+    domain_count: int = Field(default=0, ge=0)
+    method_count: int = Field(default=0, ge=0)
+    raw_pair_count: int = Field(default=0, ge=0)
+    excluded_pair_count: int = Field(default=0, ge=0)
+    surviving_pair_count: int = Field(default=0, ge=0)
+    llm_ranked_pair_count: int = Field(default=0, ge=0)
+    selected_pair_count: int = Field(default=0, ge=0)
+    domain_family_coverage: int = Field(default=0, ge=0)
+    method_family_coverage: int = Field(default=0, ge=0)
+    selected_pairs: list[DomainMethodPair] = Field(default_factory=list)
+    selected_rankings: list[LLMPairRankingResult] = Field(default_factory=list)
+    report_optional: AtlasScanReport | None = None
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
     publication_ready: bool = False
     creates_scientific_validation: bool = False
     implies_publication_readiness: bool = False
@@ -5145,6 +5345,16 @@ __all__ = [
     "ProductionModePolicy",
     "ProductionModeViolation",
     "ProductionModeReport",
+    "DomainAtlasEntry",
+    "MethodAtlasEntry",
+    "DomainMethodPair",
+    "CompatibilityExclusion",
+    "CompatibilityFilterReport",
+    "LLMPairRankingPrompt",
+    "LLMPairRankingResult",
+    "LLMPairRankingReport",
+    "AtlasScanReport",
+    "AtlasScanInspectionReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.62.0/scientific-substrate-build-report.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/scientific-substrate-build-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only report for deterministic scientific-substrate generation.",
@@ -163,7 +163,7 @@
   ],
   "title": "ScientificSubstrateBuildReport",
   "type": "object",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrateBuildReport",
   "x-factori-verification-evidence": false
 }

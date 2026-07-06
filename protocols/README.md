@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.63.0` adds curated domain/method atlas entries, exclusion-only compatibility pairs and
+reports, strict LLM pair-ranking prompt/result/report contracts, and diversity-constrained atlas
+scan inspection. Atlas metadata and negative compatibility filtering are production infrastructure;
+scientific pair ranking requires a recorded non-fake LLM backend, and novelty/underuse remain
+hypotheses until retrieval evidence exists.
+
 Protocol `0.62.0` adds backend-kind and scientific-stage classifications, explicit stage backend
 records, and fail-closed production-mode policy, violation, and report contracts. Strict mode
 rejects fake, fixture, deterministic-template, and heuristic scientific generation or judgment

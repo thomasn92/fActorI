@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.62.0/autonomous-paper-checkpoint-index.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/autonomous-paper-checkpoint-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Immutable index snapshot over autonomous paper checkpoints.",
@@ -78,7 +78,7 @@
   ],
   "title": "AutonomousPaperCheckpointIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.schemas.AutonomousPaperCheckpointIndex",
   "x-factori-verification-evidence": false
 }

@@ -6,6 +6,7 @@
         "fake",
         "fixture",
         "deterministic_template",
+        "curated_catalog",
         "heuristic",
         "llm_openai",
         "llm_other",
@@ -18,7 +19,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.62.0/production-mode-policy.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/production-mode-policy.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Fail-closed policy for strict non-fake scientific execution.",
@@ -85,7 +86,7 @@
   },
   "title": "ProductionModePolicy",
   "type": "object",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.schemas.ProductionModePolicy",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,402 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "LLMPairRankingPrompt": {
+      "additionalProperties": false,
+      "description": "Secret-free structured prompt contract for one pair-ranking batch.",
+      "properties": {
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "batch_index": {
+          "minimum": 1,
+          "title": "Batch Index",
+          "type": "integer"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "novelty_underuse_are_hypotheses": {
+          "default": true,
+          "title": "Novelty Underuse Are Hypotheses",
+          "type": "boolean"
+        },
+        "pair_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Pair Ids",
+          "type": "array"
+        },
+        "pair_payloads": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "minItems": 1,
+          "title": "Pair Payloads",
+          "type": "array"
+        },
+        "prompt_id": {
+          "minLength": 1,
+          "title": "Prompt Id",
+          "type": "string"
+        },
+        "prompt_text": {
+          "minLength": 1,
+          "title": "Prompt Text",
+          "type": "string"
+        },
+        "requested_output_schema": {
+          "additionalProperties": true,
+          "title": "Requested Output Schema",
+          "type": "object"
+        }
+      },
+      "required": [
+        "prompt_id",
+        "batch_index",
+        "backend_name",
+        "model",
+        "pair_ids",
+        "pair_payloads",
+        "prompt_text",
+        "requested_output_schema"
+      ],
+      "title": "LLMPairRankingPrompt",
+      "type": "object"
+    },
+    "LLMPairRankingResult": {
+      "additionalProperties": false,
+      "description": "Non-fake LLM scientific judgment for one surviving atlas pair.",
+      "properties": {
+        "baseline_clarity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Baseline Clarity",
+          "type": "number"
+        },
+        "false_bridge_risk": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "False Bridge Risk",
+          "type": "number"
+        },
+        "novelty_hypothesis": {
+          "minLength": 1,
+          "title": "Novelty Hypothesis",
+          "type": "string"
+        },
+        "pair_id": {
+          "minLength": 1,
+          "title": "Pair Id",
+          "type": "string"
+        },
+        "paper_shape_clarity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Paper Shape Clarity",
+          "type": "number"
+        },
+        "question_abundance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Question Abundance",
+          "type": "number"
+        },
+        "rank_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Rank Score",
+          "type": "number"
+        },
+        "ranking_explanation": {
+          "minLength": 1,
+          "title": "Ranking Explanation",
+          "type": "string"
+        },
+        "recommended_for_deep_discovery": {
+          "title": "Recommended For Deep Discovery",
+          "type": "boolean"
+        },
+        "scientific_fit": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Scientific Fit",
+          "type": "number"
+        },
+        "tautology_risk": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tautology Risk",
+          "type": "number"
+        },
+        "tractability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tractability",
+          "type": "number"
+        },
+        "underuse_hypothesis": {
+          "minLength": 1,
+          "title": "Underuse Hypothesis",
+          "type": "string"
+        },
+        "verification_feasibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Verification Feasibility",
+          "type": "number"
+        }
+      },
+      "required": [
+        "pair_id",
+        "rank_score",
+        "scientific_fit",
+        "tractability",
+        "question_abundance",
+        "baseline_clarity",
+        "verification_feasibility",
+        "paper_shape_clarity",
+        "false_bridge_risk",
+        "tautology_risk",
+        "novelty_hypothesis",
+        "underuse_hypothesis",
+        "ranking_explanation",
+        "recommended_for_deep_discovery"
+      ],
+      "title": "LLMPairRankingResult",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "variance_generation",
+        "substrate_construction",
+        "branch_routing",
+        "experiment_design",
+        "experiment_code_generation",
+        "experiment_execution",
+        "metric_computation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.63.0/llm-pair-ranking-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only non-fake LLM ranking report over compatible pairs.",
+  "properties": {
+    "backend_name": {
+      "minLength": 1,
+      "title": "Backend Name",
+      "type": "string"
+    },
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "batch_count": {
+      "minimum": 0,
+      "title": "Batch Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "prompts": {
+      "items": {
+        "$ref": "#/$defs/LLMPairRankingPrompt"
+      },
+      "title": "Prompts",
+      "type": "array"
+    },
+    "publication_ready": {
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "ranked_pair_count": {
+      "minimum": 0,
+      "title": "Ranked Pair Count",
+      "type": "integer"
+    },
+    "ranking_id": {
+      "minLength": 1,
+      "title": "Ranking Id",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/LLMPairRankingResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_compatibility_filter_path": {
+      "minLength": 1,
+      "title": "Source Compatibility Filter Path",
+      "type": "string"
+    },
+    "surviving_pair_count": {
+      "minimum": 0,
+      "title": "Surviving Pair Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "ranking_id",
+    "source_compatibility_filter_path",
+    "backend_name",
+    "model",
+    "batch_count",
+    "surviving_pair_count",
+    "ranked_pair_count"
+  ],
+  "title": "LLMPairRankingReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.63.0",
+  "x-factori-source-model": "factori.schemas.LLMPairRankingReport",
+  "x-factori-verification-evidence": false
+}

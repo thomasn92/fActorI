@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.62.0/release-status.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/release-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Release status enum.",
   "enum": [
@@ -9,7 +9,7 @@
   ],
   "title": "ReleaseStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.schemas.ReleaseGateStatus",
   "x-factori-verification-evidence": false
 }

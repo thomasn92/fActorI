@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.62.0/idea-edge.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/idea-edge.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One context-only relation in the reconstructed creative search tree.",
@@ -64,7 +64,7 @@
   ],
   "title": "IdeaEdge",
   "type": "object",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.schemas.IdeaEdge",
   "x-factori-verification-evidence": false
 }

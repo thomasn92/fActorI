@@ -291,6 +291,11 @@ All implementation modules are under `factori/`.
 - `production_mode.py`: backend-authority inventory, legacy M91-M95 classification, strict
   non-fake policy evaluation, append-only audit reports, and human-readable inspection without
   scientific evidence or publication-readiness authority.
+- `domain_method_atlas.py`: curated domain/method catalogs, Cartesian pair construction,
+  exclusion-only compatibility filtering, batched non-fake pair ranking orchestration,
+  diversity-constrained selection, persistence, and read-only inspection.
+- `adapters/atlas_ranking.py`: explicitly gated OpenAI structured-output adapter for pair-ranking
+  judgment with injectable transport, exact pair coverage, and hypothesis-label enforcement.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

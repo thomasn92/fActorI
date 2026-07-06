@@ -327,3 +327,15 @@ without real-world validation or publication readiness.
 - M91-M95 reports now disclose their deterministic-template, heuristic, and fixture provenance.
 - Local numerical execution, computed metrics, claim audits, bundle verification, hashing, and
   provenance remain deterministic and production-eligible within their bounded roles.
+
+## M97 Domain/Method Atlas and Non-Fake Pair Ranking
+
+- Added curated catalogs spanning 42 domains and 32 method lenses as production infrastructure.
+- Added the 1,344-pair Cartesian atlas plus exclusion-only object, baseline, verification, data,
+  and decorative-bridge compatibility checks without positive opportunity scoring.
+- Added a separately gated OpenAI structured pair-ranker with exact batch coverage validation and
+  no deterministic fallback.
+- Added diversity-constrained top-pair selection with family coverage, per-family caps,
+  near-duplicate suppression, and false-bridge risk limits.
+- Novelty and underuse outputs are schema-enforced hypotheses; M97 performs no literature retrieval
+  and creates no evidence, scientific validation, or publication readiness.

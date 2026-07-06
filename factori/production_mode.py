@@ -26,6 +26,11 @@ from factori.schemas import (
 
 _REPORT_RE = re.compile(r"^production-mode-report-(\d{4})\.json$")
 _STAGE_FILES: tuple[tuple[re.Pattern[str], ScientificStageKind], ...] = (
+    (
+        re.compile(r"^domain-method-atlas-\d{4}\.json$"),
+        ScientificStageKind.ATLAS_CONSTRUCTION,
+    ),
+    (re.compile(r"^atlas-scan-\d{4}\.json$"), ScientificStageKind.PAIR_RANKING),
     (re.compile(r"^opportunity-discovery-\d{4}\.json$"), ScientificStageKind.OPPORTUNITY_DISCOVERY),
     (re.compile(r"^variance-augmentation-\d{4}\.json$"), ScientificStageKind.VARIANCE_GENERATION),
     (re.compile(r"^substrate-promotion-\d{4}\.json$"), ScientificStageKind.SUBSTRATE_CONSTRUCTION),

@@ -1,0 +1,83 @@
+{
+  "$id": "https://schemas.factori.local/0.63.0/domain-method-pair.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One domain-method pair with exclusion-only compatibility metadata.",
+  "properties": {
+    "baseline_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Baseline Candidates",
+      "type": "array"
+    },
+    "compatibility_status": {
+      "enum": [
+        "compatible",
+        "weak_compatible",
+        "excluded"
+      ],
+      "title": "Compatibility Status",
+      "type": "string"
+    },
+    "data_or_simulation_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Data Or Simulation Candidates",
+      "type": "array"
+    },
+    "domain_family": {
+      "minLength": 1,
+      "title": "Domain Family",
+      "type": "string"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "method_family": {
+      "minLength": 1,
+      "title": "Method Family",
+      "type": "string"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "object_mapping_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Object Mapping Candidates",
+      "type": "array"
+    },
+    "pair_id": {
+      "minLength": 1,
+      "title": "Pair Id",
+      "type": "string"
+    },
+    "verification_path_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verification Path Candidates",
+      "type": "array"
+    }
+  },
+  "required": [
+    "pair_id",
+    "domain_id",
+    "method_id",
+    "domain_family",
+    "method_family",
+    "compatibility_status"
+  ],
+  "title": "DomainMethodPair",
+  "type": "object",
+  "x-factori-protocol-version": "0.63.0",
+  "x-factori-source-model": "factori.schemas.DomainMethodPair",
+  "x-factori-verification-evidence": false
+}

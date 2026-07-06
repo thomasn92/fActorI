@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from factori.adapters.atlas_ranking import build_pair_ranking_prompt
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.cli import app
@@ -24,6 +25,7 @@ from factori.llm_orchestration import (
 )
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
+    BackendKind,
     BibliographyEntry,
     CitationRecord,
     CitationRegistry,
@@ -33,6 +35,7 @@ from factori.schemas import (
     FullPaperReleaseGateConfig,
     LLMBudgetConfig,
     LLMOrchestrationConfig,
+    LLMPairRankingResult,
     PipelineRunConfig,
     PipelineStage,
     RetrievalQualityReport,
@@ -131,6 +134,9 @@ def test_autonomous_paper_checkpoint_cli_commands_are_registered() -> None:
 
 
 def test_idea_tree_cli_commands_are_registered() -> None:
+    build_atlas = CliRunner().invoke(app, ["build-domain-method-atlas", "--help"])
+    scan_atlas = CliRunner().invoke(app, ["scan-domain-method-pairs", "--help"])
+    inspect_atlas = CliRunner().invoke(app, ["inspect-atlas-scan", "--help"])
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -153,6 +159,13 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     inspect_substrate = CliRunner().invoke(app, ["inspect-scientific-substrate", "--help"])
 
     assert discover.exit_code == 0, discover.output
+    assert build_atlas.exit_code == 0, build_atlas.output
+    assert "--run-id" in build_atlas.output
+    assert scan_atlas.exit_code == 0, scan_atlas.output
+    assert "--require-non-fake" in scan_atlas.output
+    assert "--allow-external-calls" in scan_atlas.output
+    assert inspect_atlas.exit_code == 0, inspect_atlas.output
+    assert "--json" in inspect_atlas.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output
@@ -199,6 +212,109 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--mutation-axis" in build_substrate.output
     assert inspect_substrate.exit_code == 0, inspect_substrate.output
     assert "--json" in inspect_substrate.output
+
+
+def test_atlas_cli_builds_scans_and_inspects_with_mocked_llm(tmp_path, monkeypatch) -> None:
+    class MockRanker:
+        backend_name = "llm-openai-mocked-transport"
+        backend_kind = BackendKind.LLM_OPENAI
+        model = "mock-atlas-model"
+        fallback_used = False
+        fallback_disclosed = True
+
+        def rank_batch(self, *, pair_payloads, batch_index, prompt_id):
+            prompt = build_pair_ranking_prompt(
+                pair_payloads=pair_payloads,
+                batch_index=batch_index,
+                prompt_id=prompt_id,
+                backend_name=self.backend_name,
+                model=self.model,
+            )
+            return prompt, [
+                LLMPairRankingResult(
+                    pair_id=payload["pair_id"],
+                    rank_score=0.8,
+                    scientific_fit=0.8,
+                    tractability=0.8,
+                    question_abundance=0.8,
+                    baseline_clarity=0.8,
+                    verification_feasibility=0.8,
+                    paper_shape_clarity=0.8,
+                    false_bridge_risk=0.2,
+                    tautology_risk=0.2,
+                    novelty_hypothesis="Hypothesis: novelty requires retrieval.",
+                    underuse_hypothesis="Hypothesis: underuse requires retrieval.",
+                    ranking_explanation="Mocked LLM ranking.",
+                    recommended_for_deep_discovery=True,
+                )
+                for payload in pair_payloads
+            ]
+
+    monkeypatch.setattr(
+        "factori.cli.OpenAIAtlasPairRanker",
+        lambda **kwargs: MockRanker(),
+    )
+    run_id = "cli-atlas-scan"
+    runner = CliRunner()
+    built = runner.invoke(
+        app,
+        [
+            "build-domain-method-atlas",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+    scanned = runner.invoke(
+        app,
+        [
+            "scan-domain-method-pairs",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--backend",
+            "llm-openai",
+            "--allow-external-calls",
+            "--require-non-fake-backends",
+            "--batch-size",
+            "100",
+            "--max-ranking-calls",
+            "10",
+            "--json",
+        ],
+    )
+    inspected = runner.invoke(
+        app,
+        [
+            "inspect-atlas-scan",
+            "--run-id",
+            run_id,
+            "--root",
+            str(tmp_path),
+            "--json",
+        ],
+    )
+
+    assert built.exit_code == 0, built.output
+    built_payload = json.loads(built.output)
+    assert built_payload["domain_count"] == 42
+    assert built_payload["method_count"] == 32
+    assert scanned.exit_code == 0, scanned.output
+    scan_payload = json.loads(scanned.output)
+    assert scan_payload["raw_pair_count"] == 1344
+    assert scan_payload["llm_ranked_pair_count"] > 0
+    assert scan_payload["selected_pair_count"] == 30
+    assert scan_payload["domain_family_coverage"] >= 8
+    assert scan_payload["method_family_coverage"] >= 8
+    assert scan_payload["production_ready"] is True
+    assert scan_payload["publication_ready"] is False
+    assert inspected.exit_code == 0, inspected.output
+    inspected_payload = json.loads(inspected.output)
+    assert inspected_payload["atlas_scan_present"] is True
+    assert inspected_payload["selected_pair_count"] == 30
 
 
 def test_opportunity_discovery_cli_discovers_and_inspects(tmp_path) -> None:

@@ -381,6 +381,8 @@ class ControllerActionType(StrEnum):
     ROUTE_EXECUTION_SPECS_WRITTEN = "RouteExecutionSpecsWritten"
     ROUTE_EXECUTION_RUN = "RouteExecutionRun"
     PRODUCTION_MODE_CHECKED = "ProductionModeChecked"
+    DOMAIN_METHOD_ATLAS_BUILT = "DomainMethodAtlasBuilt"
+    ATLAS_SCAN_WRITTEN = "AtlasScanWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -424,6 +426,7 @@ class BackendKind(StrEnum):
     FAKE = "fake"
     FIXTURE = "fixture"
     DETERMINISTIC_TEMPLATE = "deterministic_template"
+    CURATED_CATALOG = "curated_catalog"
     HEURISTIC = "heuristic"
     LLM_OPENAI = "llm_openai"
     LLM_OTHER = "llm_other"
@@ -437,6 +440,10 @@ class ScientificStageKind(StrEnum):
     """Scientific-generation, judgment, execution, and validation stage classes."""
 
     OPPORTUNITY_DISCOVERY = "opportunity_discovery"
+    ATLAS_CONSTRUCTION = "atlas_construction"
+    COMPATIBILITY_FILTER = "compatibility_filter"
+    PAIR_RANKING = "pair_ranking"
+    DIVERSITY_SELECTION = "diversity_selection"
     VARIANCE_GENERATION = "variance_generation"
     SUBSTRATE_CONSTRUCTION = "substrate_construction"
     BRANCH_ROUTING = "branch_routing"

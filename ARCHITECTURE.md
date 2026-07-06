@@ -64,6 +64,13 @@ heuristic backends, when fixed metrics masquerade as execution, when backend rec
 or when a fallback is undisclosed. Deterministic hashing, provenance, local execution, computed
 metrics, claim audits, and bundle verification remain allowed within their non-generative roles.
 
+The Stage -1 atlas is curated search infrastructure, not scientific opportunity generation. It
+constructs a broad domain-method product and deterministically excludes pairs missing an object
+mapping, baseline, verification path, or admissible data/simulation path. Only surviving pairs are
+sent to an explicitly gated LLM for scientific ranking. Coverage-constrained selection preserves
+domain/method-family diversity without asserting novelty or underuse; those remain hypotheses until
+future retrieval-backed assessment.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol

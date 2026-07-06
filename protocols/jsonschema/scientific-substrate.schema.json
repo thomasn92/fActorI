@@ -261,7 +261,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.62.0/scientific-substrate.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/scientific-substrate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Context-only concrete scientific substrate generated from idea-space axes.",
@@ -470,7 +470,7 @@
   ],
   "title": "ScientificSubstrate",
   "type": "object",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrate",
   "x-factori-verification-evidence": false
 }

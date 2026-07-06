@@ -1,0 +1,102 @@
+{
+  "$id": "https://schemas.factori.local/0.63.0/method-atlas-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One curated method-lens entry used as atlas search infrastructure.",
+  "properties": {
+    "canonical_objects": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Canonical Objects",
+      "type": "array"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "false_bridge_patterns": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "False Bridge Patterns",
+      "type": "array"
+    },
+    "method_family": {
+      "minLength": 1,
+      "title": "Method Family",
+      "type": "string"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "natural_baselines": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Natural Baselines",
+      "type": "array"
+    },
+    "natural_problem_types": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Natural Problem Types",
+      "type": "array"
+    },
+    "required_inputs": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Inputs",
+      "type": "array"
+    },
+    "typical_outputs": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Typical Outputs",
+      "type": "array"
+    },
+    "verification_modes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Verification Modes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "method_id",
+    "name",
+    "method_family",
+    "description",
+    "canonical_objects",
+    "natural_problem_types",
+    "required_inputs",
+    "typical_outputs",
+    "verification_modes",
+    "natural_baselines",
+    "false_bridge_patterns"
+  ],
+  "title": "MethodAtlasEntry",
+  "type": "object",
+  "x-factori-protocol-version": "0.63.0",
+  "x-factori-source-model": "factori.schemas.MethodAtlasEntry",
+  "x-factori-verification-evidence": false
+}

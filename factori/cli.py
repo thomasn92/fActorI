@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
+from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
+from factori.adapters.errors import AdapterError
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
@@ -80,6 +83,7 @@ from factori.config import (
     DEFAULT_ROOT,
     DEFAULT_RUN_ID,
     LEDGER_FILENAME,
+    OPENAI_API_KEY_ENV,
 )
 from factori.creative_mutations import (
     CreativeMutationError,
@@ -97,6 +101,13 @@ from factori.diagnostics import (
     DiagnosticError,
     build_diagnostic_report,
     write_diagnostic_report,
+)
+from factori.domain_method_atlas import (
+    AtlasScanError,
+    build_domain_method_atlas,
+    inspect_atlas_scan,
+    render_atlas_scan_text,
+    scan_domain_method_pairs,
 )
 from factori.draft_skeleton import DraftSkeletonError, run_draft_skeleton_generation
 from factori.dry_run import build_pipeline_dry_run_plan
@@ -3952,6 +3963,119 @@ def regenerate_final_manuscript_command(
     typer.echo(f"deferred_gap_count={result.report.deferred_gap_count}")
     typer.echo("publication_ready=false")
     typer.echo(f"final_manuscript={result.manuscript_artifact.path}")
+
+
+@app.command("build-domain-method-atlas")
+def build_domain_method_atlas_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Persist the curated production-eligible domain and method atlas."""
+    try:
+        result = build_domain_method_atlas(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except AtlasScanError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"scan_id={result.report.scan_id}")
+    typer.echo(f"domain_count={result.report.domain_count}")
+    typer.echo(f"method_count={result.report.method_count}")
+    typer.echo("production_ready=true")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("scan-domain-method-pairs")
+def scan_domain_method_pairs_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    top_pairs: Annotated[int, typer.Option("--top-pairs")] = 30,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    batch_size: Annotated[int, typer.Option("--batch-size")] = 20,
+    max_ranking_calls: Annotated[int, typer.Option("--max-ranking-calls")] = 50,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Rank compatible atlas pairs with an explicitly gated non-fake LLM."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only the llm-openai atlas ranking backend is implemented; no deterministic "
+            "ranking fallback is available.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    api_key = os.environ.get(OPENAI_API_KEY_ENV, "")
+    try:
+        ranker = OpenAIAtlasPairRanker(
+            api_key=api_key,
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        result = scan_domain_method_pairs(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            ranker=ranker,
+            top_pairs=top_pairs,
+            require_non_fake_backends=require_non_fake_backends,
+            batch_size=batch_size,
+            max_ranking_calls=max_ranking_calls,
+        )
+    except (AdapterError, AtlasScanError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"scan_id={result.report.scan_id}")
+    typer.echo(f"raw_pair_count={result.report.raw_pair_count}")
+    typer.echo(f"excluded_pair_count={result.report.excluded_pair_count}")
+    typer.echo(f"surviving_pair_count={result.report.surviving_pair_count}")
+    typer.echo(f"llm_ranked_pair_count={result.report.llm_ranked_pair_count}")
+    typer.echo(f"selected_pair_count={result.report.selected_pair_count}")
+    typer.echo(f"domain_family_coverage={result.report.domain_family_coverage}")
+    typer.echo(f"method_family_coverage={result.report.method_family_coverage}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-atlas-scan")
+def inspect_atlas_scan_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest atlas build or LLM pair scan without mutation."""
+    try:
+        report = inspect_atlas_scan(run_id=run_id, root=root)
+    except AtlasScanError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_atlas_scan_text(report))
 
 
 @app.command("discover-opportunities")

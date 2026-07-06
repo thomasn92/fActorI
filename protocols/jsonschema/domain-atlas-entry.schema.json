@@ -1,0 +1,100 @@
+{
+  "$id": "https://schemas.factori.local/0.63.0/domain-atlas-entry.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One curated domain entry used as atlas search infrastructure.",
+  "properties": {
+    "canonical_objects": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Canonical Objects",
+      "type": "array"
+    },
+    "common_failure_modes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Common Failure Modes",
+      "type": "array"
+    },
+    "data_types": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Data Types",
+      "type": "array"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "domain_family": {
+      "minLength": 1,
+      "title": "Domain Family",
+      "type": "string"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "example_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Example Questions",
+      "type": "array"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "natural_baselines": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Natural Baselines",
+      "type": "array"
+    },
+    "standard_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Standard Metrics",
+      "type": "array"
+    },
+    "verification_modes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Verification Modes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "domain_id",
+    "name",
+    "domain_family",
+    "description",
+    "canonical_objects",
+    "data_types",
+    "natural_baselines",
+    "verification_modes",
+    "standard_metrics",
+    "common_failure_modes"
+  ],
+  "title": "DomainAtlasEntry",
+  "type": "object",
+  "x-factori-protocol-version": "0.63.0",
+  "x-factori-source-model": "factori.schemas.DomainAtlasEntry",
+  "x-factori-verification-evidence": false
+}

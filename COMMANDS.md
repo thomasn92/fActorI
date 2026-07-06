@@ -909,6 +909,11 @@ generation/judgment is fake, fixture, template, heuristic-only, missing, or sile
 The same flag on current M91-M95 generation commands rejects those deterministic scaffold stages
 before they write artifacts.
 
+`build-domain-method-atlas` writes the curated production-eligible atlas. `scan-domain-method-pairs`
+performs exclusion-only compatibility filtering and requires the gated `llm-openai` backend for
+scientific ranking; use `--allow-external-calls` and `--require-non-fake-backends` for a live strict
+scan. `inspect-atlas-scan` reads the latest build or ranked scan without mutation.
+
 ## Tests and Lint
 
 Canonical `uv` commands:

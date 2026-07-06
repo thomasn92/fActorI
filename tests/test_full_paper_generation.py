@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 import factori.autonomous_paper_run as autonomous_paper_module
+from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker, build_pair_ranking_prompt
 from factori.adapters.fake import FakeProseGenerator
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
@@ -71,6 +72,17 @@ from factori.creative_search import (
     _cycle_stop_decision,
     inspect_creative_search,
     run_creative_search,
+)
+from factori.domain_method_atlas import (
+    AtlasScanError,
+    build_compatibility_filter_report,
+    build_domain_method_atlas,
+    domain_atlas,
+    evaluate_pair_compatibility,
+    inspect_atlas_scan,
+    method_atlas,
+    scan_domain_method_pairs,
+    select_diverse_ranked_pairs,
 )
 from factori.evidence_artifact_intake import (
     EvidenceArtifactIntakeError,
@@ -182,6 +194,8 @@ from factori.route_execution import (
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
+    AtlasScanInspectionReport,
+    AtlasScanReport,
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
     AutonomousLoopGapTerminalClassification,
@@ -208,6 +222,8 @@ from factori.schemas import (
     ClaimEvidenceMapLink,
     ClaimSupportAuditReport,
     ClaimSupportItem,
+    CompatibilityExclusion,
+    CompatibilityFilterReport,
     ControllerActionType,
     CreativeMutationCandidate,
     CreativeMutationInspectionReport,
@@ -219,6 +235,8 @@ from factori.schemas import (
     CreativeSearchInspectionReport,
     CreativeSearchLineageEntry,
     CreativeSearchStopReason,
+    DomainAtlasEntry,
+    DomainMethodPair,
     DomainPrimitive,
     EvidenceAwareRefreshReport,
     ExperimentArtifact,
@@ -267,6 +285,10 @@ from factori.schemas import (
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
     LLMOrchestrationConfig,
+    LLMPairRankingPrompt,
+    LLMPairRankingReport,
+    LLMPairRankingResult,
+    MethodAtlasEntry,
     MethodLens,
     MutationTournamentComparison,
     MutationTournamentEntry,
@@ -357,6 +379,55 @@ from factori.variance_augmentation import (
 )
 
 
+class MockAtlasPairRanker:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-atlas-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self) -> None:
+        self.received_pair_ids: list[str] = []
+
+    def rank_batch(self, *, pair_payloads, batch_index, prompt_id):
+        prompt = build_pair_ranking_prompt(
+            pair_payloads=pair_payloads,
+            batch_index=batch_index,
+            prompt_id=prompt_id,
+            backend_name=self.backend_name,
+            model=self.model,
+        )
+        results = []
+        for payload in pair_payloads:
+            pair_id = payload["pair_id"]
+            self.received_pair_ids.append(pair_id)
+            offset = sum(ord(char) for char in pair_id) % 20
+            score = 0.70 + offset / 100.0
+            results.append(
+                LLMPairRankingResult(
+                    pair_id=pair_id,
+                    rank_score=score,
+                    scientific_fit=score,
+                    tractability=0.78,
+                    question_abundance=0.80,
+                    baseline_clarity=0.82,
+                    verification_feasibility=0.84,
+                    paper_shape_clarity=0.76,
+                    false_bridge_risk=0.20,
+                    tautology_risk=0.18,
+                    novelty_hypothesis=(
+                        "Hypothesis: this pair may expose a bounded question worth retrieval."
+                    ),
+                    underuse_hypothesis=(
+                        "Hypothesis: this pairing may be underexplored; retrieval is required."
+                    ),
+                    ranking_explanation="Structured mocked LLM judgment for offline testing.",
+                    recommended_for_deep_discovery=True,
+                )
+            )
+        return prompt, results
+
+
 def test_full_paper_generation_models_are_importable() -> None:
     assert FullPaperGenerationConfig
     assert FullPaperArtifactBundle
@@ -379,6 +450,16 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert ProductionModePolicy
     assert ProductionModeViolation
     assert ProductionModeReport
+    assert DomainAtlasEntry
+    assert MethodAtlasEntry
+    assert DomainMethodPair
+    assert CompatibilityExclusion
+    assert CompatibilityFilterReport
+    assert LLMPairRankingPrompt
+    assert LLMPairRankingResult
+    assert LLMPairRankingReport
+    assert AtlasScanReport
+    assert AtlasScanInspectionReport
     assert QualityRepairReport
     assert ReviewerBundleSummary
     assert HumanReviewArtifact
@@ -1270,6 +1351,237 @@ def test_production_policy_allows_execution_audits_and_blocks_missing_or_fallbac
         expected_stage_kinds=[ScientificStageKind.OPPORTUNITY_DISCOVERY],
     )
     assert any(violation.violation_type == "silent_fallback" for violation in fallback.violations)
+
+
+def test_domain_method_atlas_and_exclusion_only_compatibility_filter() -> None:
+    domains = domain_atlas()
+    methods = method_atlas()
+
+    assert len(domains) >= 40
+    assert len(methods) >= 30
+    assert all(domain.canonical_objects for domain in domains)
+    assert all(method.false_bridge_patterns for method in methods)
+
+    report = build_compatibility_filter_report(
+        run_id="atlas-filter",
+        filter_id="compatibility-filter-test",
+        source_atlas_path="runs/atlas-filter/reports/domain-method-atlas-0001.json",
+        domains=domains,
+        methods=methods,
+    )
+    assert report.raw_pair_count == len(domains) * len(methods)
+    assert report.raw_pair_count > 1000
+    assert report.excluded_pair_count > 0
+    assert report.surviving_pair_count > 0
+    assert report.raw_pair_count == (
+        report.excluded_pair_count + report.surviving_pair_count
+    )
+    assert "rank_score" not in DomainMethodPair.model_fields
+    assert "opportunity_score" not in DomainMethodPair.model_fields
+    assert report.backend_records[0].allowed_in_production is True
+    assert report.backend_records[0].is_scientific_judgment is False
+
+    domain = next(item for item in domains if item.name == "human geography")
+    method = next(item for item in methods if item.name == "spatial statistics")
+    missing_object, object_exclusion = evaluate_pair_compatibility(
+        domain=domain,
+        method=method.model_copy(update={"canonical_objects": ["alien_object"]}),
+    )
+    assert missing_object.compatibility_status == "excluded"
+    assert object_exclusion.missing_object_mapping is True
+    _, baseline_exclusion = evaluate_pair_compatibility(
+        domain=domain,
+        method=method.model_copy(update={"natural_baselines": []}),
+    )
+    assert baseline_exclusion.missing_baseline is True
+    _, verification_exclusion = evaluate_pair_compatibility(
+        domain=domain,
+        method=method.model_copy(update={"verification_modes": ["proof"]}),
+    )
+    assert verification_exclusion.missing_verification_path is True
+    _, data_exclusion = evaluate_pair_compatibility(
+        domain=domain.model_copy(update={"data_types": ["private_data"]}),
+        method=method.model_copy(update={"required_inputs": ["private_data"]}),
+    )
+    assert data_exclusion.missing_data_or_simulation_path is True
+
+
+def test_openai_atlas_ranker_parses_mocked_structured_response_without_network() -> None:
+    class MockTransport:
+        def create_response(self, **kwargs):
+            del kwargs
+            return {
+                "results": [
+                    {
+                        "pair_id": "pair-test",
+                        "rank_score": 0.82,
+                        "scientific_fit": 0.84,
+                        "tractability": 0.80,
+                        "question_abundance": 0.81,
+                        "baseline_clarity": 0.83,
+                        "verification_feasibility": 0.85,
+                        "paper_shape_clarity": 0.79,
+                        "false_bridge_risk": 0.18,
+                        "tautology_risk": 0.16,
+                        "novelty_hypothesis": "Hypothesis: novelty requires retrieval.",
+                        "underuse_hypothesis": "Hypothesis: underuse requires retrieval.",
+                        "ranking_explanation": "Mock transport response.",
+                        "recommended_for_deep_discovery": True,
+                    }
+                ]
+            }
+
+    ranker = OpenAIAtlasPairRanker(
+        api_key="test-key-not-sent",
+        model="mock-model",
+        transport=MockTransport(),
+        allow_external_calls=True,
+    )
+    prompt, results = ranker.rank_batch(
+        pair_payloads=[{"pair_id": "pair-test"}],
+        batch_index=1,
+        prompt_id="prompt-test",
+    )
+
+    assert prompt.pair_ids == ["pair-test"]
+    assert results[0].pair_id == "pair-test"
+    assert results[0].novelty_hypothesis.startswith("Hypothesis:")
+
+
+def test_atlas_scan_uses_only_survivors_and_passes_strict_production(tmp_path) -> None:
+    run_id = "run-atlas-scan"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    built = build_domain_method_atlas(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    ranker = MockAtlasPairRanker()
+    scanned = scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=ranker,
+        top_pairs=30,
+        require_non_fake_backends=True,
+        batch_size=100,
+        max_ranking_calls=10,
+    )
+    inspection = inspect_atlas_scan(run_id=run_id, root=tmp_path)
+
+    assert built.report.domain_count == 42
+    assert built.report.method_count == 32
+    assert built.report.backend_records[0].backend_kind == BackendKind.CURATED_CATALOG
+    assert scanned.compatibility_report.raw_pair_count == 1344
+    survivors = {
+        pair.pair_id
+        for pair in scanned.compatibility_report.pairs
+        if pair.compatibility_status != "excluded"
+    }
+    assert set(ranker.received_pair_ids) == survivors
+    assert scanned.ranking_report.ranked_pair_count == len(survivors)
+    assert scanned.report.selected_pair_count == 30
+    assert scanned.report.domain_family_coverage >= 8
+    assert scanned.report.method_family_coverage >= 8
+    assert scanned.report.production_ready is True
+    assert scanned.report.publication_ready is False
+    assert all(
+        item.novelty_hypothesis.startswith("Hypothesis:")
+        and item.underuse_hypothesis.startswith("Hypothesis:")
+        for item in scanned.ranking_report.results
+    )
+    assert inspection.atlas_scan_present is True
+    assert inspection.llm_ranked_pair_count == len(survivors)
+
+    backend_inventory = inspect_backends(run_id=run_id, root=tmp_path)
+    assert backend_inventory.stage_count == 4
+    assert {record.stage_kind for record in backend_inventory.stage_records} == {
+        ScientificStageKind.ATLAS_CONSTRUCTION,
+        ScientificStageKind.COMPATIBILITY_FILTER,
+        ScientificStageKind.PAIR_RANKING,
+        ScientificStageKind.DIVERSITY_SELECTION,
+    }
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+    assert strict.report.publication_ready is False
+
+
+def test_atlas_strict_mode_rejects_fake_ranking_fallback_and_suppresses_duplicates(
+    tmp_path,
+) -> None:
+    run_id = "run-atlas-strict-rejection"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+
+    fake_ranker = MockAtlasPairRanker()
+    fake_ranker.backend_kind = BackendKind.FAKE
+    with pytest.raises(AtlasScanError, match="requires a non-fake LLM"):
+        scan_domain_method_pairs(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            ranker=fake_ranker,
+            require_non_fake_backends=True,
+        )
+
+    fallback_ranker = MockAtlasPairRanker()
+    fallback_ranker.fallback_used = True
+    with pytest.raises(AtlasScanError, match="forbids fallback"):
+        scan_domain_method_pairs(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            ranker=fallback_ranker,
+            require_non_fake_backends=True,
+        )
+
+    pair, _ = evaluate_pair_compatibility(
+        domain=domain_atlas()[0],
+        method=method_atlas()[2],
+    )
+    ranking = LLMPairRankingResult(
+        pair_id=pair.pair_id,
+        rank_score=0.8,
+        scientific_fit=0.8,
+        tractability=0.8,
+        question_abundance=0.8,
+        baseline_clarity=0.8,
+        verification_feasibility=0.8,
+        paper_shape_clarity=0.8,
+        false_bridge_risk=0.2,
+        tautology_risk=0.2,
+        novelty_hypothesis="Hypothesis: novelty requires retrieval.",
+        underuse_hypothesis="Hypothesis: underuse requires retrieval.",
+        ranking_explanation="Test ranking.",
+        recommended_for_deep_discovery=True,
+    )
+    selected_pairs, _, duplicate_count = select_diverse_ranked_pairs(
+        pairs=[pair],
+        rankings=[ranking, ranking],
+        top_pairs=2,
+        minimum_domain_families=1,
+        minimum_method_families=1,
+    )
+    assert len(selected_pairs) == 1
+    assert duplicate_count == 1
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

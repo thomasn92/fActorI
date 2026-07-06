@@ -927,7 +927,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.62.0/stage-c-selection-result.schema.json",
+  "$id": "https://schemas.factori.local/0.63.0/stage-c-selection-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Typed Stage C candidate-selection result.",
   "properties": {
@@ -1049,7 +1049,7 @@
   ],
   "title": "StageCSelectionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.62.0",
+  "x-factori-protocol-version": "0.63.0",
   "x-factori-source-model": "factori.stage_c_selection.StageCSelectionResult",
   "x-factori-verification-evidence": false
 }

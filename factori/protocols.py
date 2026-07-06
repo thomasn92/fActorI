@@ -14,6 +14,8 @@ from factori.schemas import (
     ArtifactManifest,
     ArtifactRef,
     ArtifactType,
+    AtlasScanInspectionReport,
+    AtlasScanReport,
     AutonomousEvidenceGapPlan,
     AutonomousEvidenceGapPlanItem,
     AutonomousLoopDecision,
@@ -56,6 +58,8 @@ from factori.schemas import (
     ClaimSupportAuditReport,
     ClaimSupportItem,
     ClaimTable,
+    CompatibilityExclusion,
+    CompatibilityFilterReport,
     CompleteMarkdownDraft,
     CreativeMutationCandidate,
     CreativeMutationInspectionReport,
@@ -70,6 +74,8 @@ from factori.schemas import (
     CreativeSearchStopReason,
     DataRequirement,
     DiagnosticReport,
+    DomainAtlasEntry,
+    DomainMethodPair,
     DomainPrimitive,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
@@ -175,6 +181,9 @@ from factori.schemas import (
     LLMOrchestrationStatus,
     LLMOrchestrationStep,
     LLMOrchestrationStepStatus,
+    LLMPairRankingPrompt,
+    LLMPairRankingReport,
+    LLMPairRankingResult,
     LLMPromptContract,
     LLMReviewerParseResult,
     LLMRunSafetyReport,
@@ -185,6 +194,7 @@ from factori.schemas import (
     ManuscriptDraftingReport,
     ManuscriptDraftStatus,
     ManuscriptPlan,
+    MethodAtlasEntry,
     MethodLens,
     ModelNotationAssessment,
     MutationTournamentComparison,
@@ -312,7 +322,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.62.0"
+PROTOCOL_VERSION = "0.63.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -543,6 +553,56 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ProductionModeReport",
         ProductionModeReport,
         "Backend inventory and strict-production policy result for one run.",
+    ),
+    ProtocolDefinition(
+        "DomainAtlasEntry",
+        DomainAtlasEntry,
+        "One curated domain entry used as atlas search infrastructure.",
+    ),
+    ProtocolDefinition(
+        "MethodAtlasEntry",
+        MethodAtlasEntry,
+        "One curated method-lens entry used as atlas search infrastructure.",
+    ),
+    ProtocolDefinition(
+        "DomainMethodPair",
+        DomainMethodPair,
+        "One domain-method pair with exclusion-only compatibility metadata.",
+    ),
+    ProtocolDefinition(
+        "CompatibilityExclusion",
+        CompatibilityExclusion,
+        "One deterministic negative compatibility finding without opportunity authority.",
+    ),
+    ProtocolDefinition(
+        "CompatibilityFilterReport",
+        CompatibilityFilterReport,
+        "Complete exclusion-only compatibility report over an atlas product.",
+    ),
+    ProtocolDefinition(
+        "LLMPairRankingPrompt",
+        LLMPairRankingPrompt,
+        "Secret-free structured prompt contract for one LLM ranking batch.",
+    ),
+    ProtocolDefinition(
+        "LLMPairRankingResult",
+        LLMPairRankingResult,
+        "Non-fake LLM scientific judgment for one compatible atlas pair.",
+    ),
+    ProtocolDefinition(
+        "LLMPairRankingReport",
+        LLMPairRankingReport,
+        "Append-only non-fake LLM ranking report over compatible pairs.",
+    ),
+    ProtocolDefinition(
+        "AtlasScanReport",
+        AtlasScanReport,
+        "Curated atlas build or diversity-constrained LLM pair-scan report.",
+    ),
+    ProtocolDefinition(
+        "AtlasScanInspectionReport",
+        AtlasScanInspectionReport,
+        "Read-only latest atlas build or pair-scan inspection payload.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

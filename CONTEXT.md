@@ -116,6 +116,9 @@ completed run from disk and checks consistency without changing provenance.
 - explicit backend-authority records and strict non-fake production-mode checks that reject
   template-authored scientific generation, heuristic scientific judgment, and fixture metrics
   while allowing deterministic infrastructure and genuine local execution/verification stages.
+- curated production-eligible domain/method atlas scanning with exclusion-only deterministic
+  compatibility checks, explicitly gated non-fake LLM pair ranking, and diversity-constrained
+  selection; novelty and underuse remain hypotheses until retrieval evidence exists.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,
