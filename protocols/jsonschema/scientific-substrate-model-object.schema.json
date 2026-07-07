@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/scientific-substrate-model-object.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/scientific-substrate-model-object.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Concrete model object, equations, and falsification notes for a substrate.",
@@ -57,7 +57,7 @@
   ],
   "title": "ScientificSubstrateModelObject",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrateModelObject",
   "x-factori-verification-evidence": false
 }

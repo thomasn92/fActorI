@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/autonomous-paper-resume-report.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/autonomous-paper-resume-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only report for one verified autonomous paper resume attempt.",
@@ -139,7 +139,7 @@
   ],
   "title": "AutonomousPaperResumeReport",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.AutonomousPaperResumeReport",
   "x-factori-verification-evidence": false
 }

@@ -960,6 +960,30 @@ uv run factori run-generated-experiments --run-id atlas-scan-001 \
 uv run factori inspect-generated-experiment-results --run-id atlas-scan-001 --json
 ```
 
+`plan-hybrid-evidence-packages` reads selected M100 substrates and optional M101 routes, then uses
+the gated `llm-openai` backend to plan one bounded evidence package per substrate. A package can
+combine symbolic drafts, numerical illustrations, executable experiments, benchmarks,
+counterexample searches, retrieval novelty-risk checks, negative controls, and robustness sweeps.
+Strict mode rejects fallback, incompatible labels, proof/novelty/real-world-validation claims, and
+packages without an executable, retrieval, symbolic, or checkable path.
+
+`execute-hybrid-evidence-packages` executes only the package components supported today. Code-backed
+components reuse the M102 safety audit, isolated sandbox execution, and output-JSON-only metric
+extraction path. Symbolic reductions, derivations, and proof plans produce draft artifacts with
+unresolved obligations and no checker authority. Literature novelty checks require real retrieval
+in strict production mode and always report `novelty_proven=false`. `inspect-hybrid-evidence-packages`
+and `inspect-evidence-package-execution` are read-only.
+
+```bash
+uv run factori plan-hybrid-evidence-packages --run-id atlas-scan-001 \
+  --backend llm-openai --allow-external-calls --require-non-fake-backends
+uv run factori inspect-hybrid-evidence-packages --run-id atlas-scan-001 --json
+uv run factori execute-hybrid-evidence-packages --run-id atlas-scan-001 \
+  --backend llm-openai --retrieval-mode real --allow-external-calls \
+  --require-non-fake-backends
+uv run factori inspect-evidence-package-execution --run-id atlas-scan-001 --json
+```
+
 ## Tests and Lint
 
 Canonical `uv` commands:

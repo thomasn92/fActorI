@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/scientific-stage-kind.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/scientific-stage-kind.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Scientific generation, judgment, execution, or verification stage class.",
   "enum": [
@@ -19,6 +19,8 @@
     "code_safety_audit",
     "experiment_execution",
     "metric_computation",
+    "hybrid_evidence_planning",
+    "symbolic_derivation",
     "adjudication",
     "critic_review",
     "literature_retrieval",
@@ -29,7 +31,7 @@
   ],
   "title": "ScientificStageKind",
   "type": "string",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.ScientificStageKind",
   "x-factori-verification-evidence": false
 }

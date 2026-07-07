@@ -543,6 +543,8 @@
         "code_safety_audit",
         "experiment_execution",
         "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
         "adjudication",
         "critic_review",
         "literature_retrieval",
@@ -628,7 +630,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.68.0/llm-variance-generation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/llm-variance-generation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-fake LLM variance generation and selection report.",
@@ -802,7 +804,7 @@
   ],
   "title": "LLMVarianceGenerationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.LLMVarianceGenerationReport",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/proof-verification-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/proof-verification-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider-neutral proof verification request contract.",
@@ -122,7 +122,7 @@
   ],
   "title": "ProofVerificationContract",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.ProofVerificationContract",
   "x-factori-verification-evidence": false
 }

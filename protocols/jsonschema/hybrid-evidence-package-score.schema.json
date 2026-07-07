@@ -1,0 +1,125 @@
+{
+  "$id": "https://schemas.factori.local/0.69.0/hybrid-evidence-package-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-fake LLM score for one hybrid evidence package.",
+  "properties": {
+    "artifact_coherence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Artifact Coherence",
+      "type": "number"
+    },
+    "baseline_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Quality",
+      "type": "number"
+    },
+    "claim_specificity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Claim Specificity",
+      "type": "number"
+    },
+    "control_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Control Quality",
+      "type": "number"
+    },
+    "execution_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Execution Feasibility",
+      "type": "number"
+    },
+    "false_bridge_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "False Bridge Penalty",
+      "type": "number"
+    },
+    "final_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Final Score",
+      "type": "number"
+    },
+    "negative_control_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Negative Control Quality",
+      "type": "number"
+    },
+    "package_id": {
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "paper_shape_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Paper Shape Clarity",
+      "type": "number"
+    },
+    "retrieval_need_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Retrieval Need Clarity",
+      "type": "number"
+    },
+    "scope_risk_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scope Risk Penalty",
+      "type": "number"
+    },
+    "score_explanation": {
+      "minLength": 1,
+      "title": "Score Explanation",
+      "type": "string"
+    },
+    "symbolic_obligation_clarity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Symbolic Obligation Clarity",
+      "type": "number"
+    },
+    "tautology_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tautology Penalty",
+      "type": "number"
+    },
+    "verification_feasibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Verification Feasibility",
+      "type": "number"
+    }
+  },
+  "required": [
+    "package_id",
+    "claim_specificity",
+    "artifact_coherence",
+    "verification_feasibility",
+    "baseline_quality",
+    "control_quality",
+    "negative_control_quality",
+    "symbolic_obligation_clarity",
+    "retrieval_need_clarity",
+    "execution_feasibility",
+    "paper_shape_clarity",
+    "false_bridge_penalty",
+    "tautology_penalty",
+    "scope_risk_penalty",
+    "final_score",
+    "score_explanation"
+  ],
+  "title": "HybridEvidencePackageScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.69.0",
+  "x-factori-source-model": "factori.schemas.HybridEvidencePackageScore",
+  "x-factori-verification-evidence": false
+}

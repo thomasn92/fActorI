@@ -84,7 +84,12 @@ from factori.schemas import (
     DomainPrimitive,
     DraftSkeleton,
     EmpiricalBoundaryAssessment,
+    EvidenceArtifactPlan,
+    EvidenceArtifactType,
     EvidenceAwareRefreshReport,
+    EvidencePackageExecutionInspectionReport,
+    EvidencePackageExecutionReport,
+    EvidencePackageExecutionResult,
     ExperimentArtifact,
     ExperimentCodeSafetyAudit,
     ExperimentGapRoutingIndex,
@@ -150,6 +155,12 @@ from factori.schemas import (
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationItem,
     HumanReviewReconciliationReport,
+    HybridEvidencePackageCandidate,
+    HybridEvidencePackageConfig,
+    HybridEvidencePackageInspectionReport,
+    HybridEvidencePackageRawArtifact,
+    HybridEvidencePackageReport,
+    HybridEvidencePackageScore,
     HygieneRemediationPlan,
     IdeaClusterDiagnostic,
     IdeaEdge,
@@ -364,7 +375,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.68.0"
+PROTOCOL_VERSION = "0.69.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -857,6 +868,56 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "Read-only inspection of generated experiment code and execution results.",
     ),
     ProtocolDefinition(
+        "HybridEvidencePackageConfig",
+        HybridEvidencePackageConfig,
+        "Bounded configuration for non-fake hybrid evidence-package planning.",
+    ),
+    ProtocolDefinition(
+        "EvidenceArtifactPlan",
+        EvidenceArtifactPlan,
+        "One planned support artifact inside a hybrid evidence package.",
+    ),
+    ProtocolDefinition(
+        "HybridEvidencePackageCandidate",
+        HybridEvidencePackageCandidate,
+        "LLM-authored hybrid evidence package for one selected scientific substrate.",
+    ),
+    ProtocolDefinition(
+        "HybridEvidencePackageScore",
+        HybridEvidencePackageScore,
+        "Non-fake LLM score for one hybrid evidence package.",
+    ),
+    ProtocolDefinition(
+        "HybridEvidencePackageRawArtifact",
+        HybridEvidencePackageRawArtifact,
+        "Secret-free prompt and response provenance for hybrid package planning.",
+    ),
+    ProtocolDefinition(
+        "HybridEvidencePackageReport",
+        HybridEvidencePackageReport,
+        "Append-only non-fake hybrid evidence-package planning report.",
+    ),
+    ProtocolDefinition(
+        "HybridEvidencePackageInspectionReport",
+        HybridEvidencePackageInspectionReport,
+        "Read-only inspection of the latest hybrid evidence-package plan.",
+    ),
+    ProtocolDefinition(
+        "EvidencePackageExecutionResult",
+        EvidencePackageExecutionResult,
+        "One executed, drafted, or deferred hybrid evidence-package artifact outcome.",
+    ),
+    ProtocolDefinition(
+        "EvidencePackageExecutionReport",
+        EvidencePackageExecutionReport,
+        "Append-only execution report for hybrid evidence-package components.",
+    ),
+    ProtocolDefinition(
+        "EvidencePackageExecutionInspectionReport",
+        EvidencePackageExecutionInspectionReport,
+        "Read-only inspection of latest hybrid evidence-package execution.",
+    ),
+    ProtocolDefinition(
         "DomainPrimitive",
         DomainPrimitive,
         "One deterministic primitive extracted from a broad Stage 0 domain.",
@@ -950,6 +1011,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "BranchRouteType",
         BranchRouteType,
         "Deterministic next-action class assigned to a scientific branch.",
+    ),
+    ProtocolDefinition(
+        "EvidenceArtifactType",
+        EvidenceArtifactType,
+        "Hybrid evidence-package artifact role.",
     ),
     ProtocolDefinition(
         "BranchRouteExecutionHint",

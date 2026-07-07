@@ -103,6 +103,15 @@ and claim boundaries. Local validation enforces route-specific label policy and 
 experiment contracts, proof obligations, or retrieval queries as appropriate. Compatibility route
 and spec artifacts remain non-executing context; M101 computes no metrics and creates no evidence.
 
+Hybrid evidence-package planning lets the recorded non-fake LLM compose several bounded artifact
+plans for one substrate instead of forcing exactly one route. Packages can combine symbolic
+reduction drafts, proof plans, numerical illustrations, synthetic experiments, benchmarks,
+counterexample searches, retrieval novelty-risk checks, negative controls, and robustness sweeps.
+Local validation enforces artifact-type label policy, forbidden claims, baseline/control/metric
+contracts, retrieval requirements, and unresolved obligations. Executable package components reuse
+the M102 audit/sandbox/output-JSON metric path; symbolic and proof components remain draft-labeled
+unless a real checker validates them.
+
 Strict Pydantic schemas are grouped by domain under `factori/schemas/` and re-exported from the
 stable `factori.schemas` namespace. Public callers should continue to import from `factori.schemas`;
 the submodules exist to make schema maintenance safer without changing runtime or protocol
@@ -433,6 +442,13 @@ runs successfully in the bounded local sandbox. Only numeric values parsed from 
 persisted `output.json` are metric sources. LLM responses, route specifications, failed processes,
 and fixture values cannot supply metrics. Successful labels remain synthetic, benchmark, or
 counterexample scope only and never establish real-world validation.
+
+M103 hybrid evidence-package execution preserves the same metric boundary for package components:
+numerical illustrations, benchmarks, synthetic experiments, counterexample searches, negative
+controls, and robustness sweeps can only report metrics parsed from sandbox artifacts. Symbolic
+reductions, derivations, and proof plans are LLM-authored drafts with explicit unresolved
+obligations and `checker_status=not_checked`; retrieval novelty checks report overlap and
+novelty-risk context only, with `novelty_proven=false`.
 
 ## Narrative Paper Shape Boundary
 

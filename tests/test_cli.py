@@ -171,6 +171,18 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     inspect_generated_results = CliRunner().invoke(
         app, ["inspect-generated-experiment-results", "--help"]
     )
+    plan_hybrid_packages = CliRunner().invoke(
+        app, ["plan-hybrid-evidence-packages", "--help"]
+    )
+    inspect_hybrid_packages = CliRunner().invoke(
+        app, ["inspect-hybrid-evidence-packages", "--help"]
+    )
+    execute_hybrid_packages = CliRunner().invoke(
+        app, ["execute-hybrid-evidence-packages", "--help"]
+    )
+    inspect_package_execution = CliRunner().invoke(
+        app, ["inspect-evidence-package-execution", "--help"]
+    )
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -232,6 +244,17 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--require-non-fake" in run_generated_experiments.output
     assert inspect_generated_results.exit_code == 0, inspect_generated_results.output
     assert "--json" in inspect_generated_results.output
+    assert plan_hybrid_packages.exit_code == 0, plan_hybrid_packages.output
+    assert "--require-non-fake" in plan_hybrid_packages.output
+    assert "--allow-external-calls" in plan_hybrid_packages.output
+    assert inspect_hybrid_packages.exit_code == 0, inspect_hybrid_packages.output
+    assert "--json" in inspect_hybrid_packages.output
+    assert execute_hybrid_packages.exit_code == 0, execute_hybrid_packages.output
+    assert "--retrieval-mode" in execute_hybrid_packages.output
+    assert "--require-non-fake" in execute_hybrid_packages.output
+    assert "--allow-external-calls" in execute_hybrid_packages.output
+    assert inspect_package_execution.exit_code == 0, inspect_package_execution.output
+    assert "--json" in inspect_package_execution.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output

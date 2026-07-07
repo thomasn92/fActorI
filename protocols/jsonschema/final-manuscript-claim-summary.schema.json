@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/final-manuscript-claim-summary.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/final-manuscript-claim-summary.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Scoped source-claim disposition during final regeneration.",
@@ -93,7 +93,7 @@
   ],
   "title": "FinalManuscriptClaimSummary",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.FinalManuscriptClaimSummary",
   "x-factori-verification-evidence": false
 }

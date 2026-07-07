@@ -422,6 +422,8 @@
         "code_safety_audit",
         "experiment_execution",
         "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
         "adjudication",
         "critic_review",
         "literature_retrieval",
@@ -507,7 +509,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.68.0/idea-tree-construction-report.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/idea-tree-construction-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic construction context for LLM-authored IdeaTree branches.",
@@ -632,7 +634,7 @@
   ],
   "title": "IdeaTreeConstructionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.IdeaTreeConstructionReport",
   "x-factori-verification-evidence": false
 }

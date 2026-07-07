@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/llm-experiment-code-raw-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/llm-experiment-code-raw-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free prompt and response provenance for experiment-code generation.",
@@ -99,7 +99,7 @@
   ],
   "title": "LLMExperimentCodeRawArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.LLMExperimentCodeRawArtifact",
   "x-factori-verification-evidence": false
 }

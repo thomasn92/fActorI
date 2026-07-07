@@ -321,6 +321,13 @@ All implementation modules are under `factori/`.
 - `generated_experiments.py`: M101 input verification, LLM code persistence, static audits,
   isolated local process execution, output-JSON-only metric extraction, bounded result labels,
   strict production records, and read-only inspection.
+- `adapters/hybrid_evidence.py`: gated OpenAI structured-output adapter for hybrid evidence
+  package planning and symbolic/retrieval draft artifacts, with artifact-type label policy and
+  authority-boundary rejection.
+- `hybrid_evidence_packages.py`: M100/M101 input verification, non-fake hybrid package planning,
+  typed artifact-plan validation, safe execution of code-backed package components through the
+  M102 sandbox path, draft-only symbolic/proof/retrieval outputs, append-only reports, strict
+  production records, and read-only inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

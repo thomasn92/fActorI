@@ -390,6 +390,8 @@ class ControllerActionType(StrEnum):
     LLM_ROUTE_PLANNING_WRITTEN = "LLMRoutePlanningWritten"
     LLM_EXPERIMENT_CODE_WRITTEN = "LLMExperimentCodeWritten"
     GENERATED_EXPERIMENT_EXECUTION_WRITTEN = "GeneratedExperimentExecutionWritten"
+    HYBRID_EVIDENCE_PACKAGES_PLANNED = "HybridEvidencePackagesPlanned"
+    HYBRID_EVIDENCE_PACKAGES_EXECUTED = "HybridEvidencePackagesExecuted"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -413,6 +415,24 @@ class BranchRouteType(StrEnum):
     PROOF_PLAN = "proof_plan"
     LITERATURE_NOVELTY_CHECK = "literature_novelty_check"
     DEFER_INSUFFICIENT_SUBSTRATE = "defer_insufficient_substrate"
+    REJECT_FALSE_BRIDGE = "reject_false_bridge"
+
+
+class EvidenceArtifactType(StrEnum):
+    """Hybrid evidence-package artifact roles."""
+
+    SYMBOLIC_REDUCTION = "symbolic_reduction"
+    SYMBOLIC_DERIVATION = "symbolic_derivation"
+    PROOF_PLAN = "proof_plan"
+    NUMERICAL_ILLUSTRATION = "numerical_illustration"
+    SYNTHETIC_EXPERIMENT = "synthetic_experiment"
+    BENCHMARK_TOURNAMENT = "benchmark_tournament"
+    COUNTEREXAMPLE_SEARCH = "counterexample_search"
+    LITERATURE_NOVELTY_CHECK = "literature_novelty_check"
+    NEGATIVE_CONTROL = "negative_control"
+    ROBUSTNESS_SWEEP = "robustness_sweep"
+    DEFER_UNAVAILABLE_CHECKER = "defer_unavailable_checker"
+    DEFER_INSUFFICIENT_SUPPORT = "defer_insufficient_support"
     REJECT_FALSE_BRIDGE = "reject_false_bridge"
 
 
@@ -462,6 +482,8 @@ class ScientificStageKind(StrEnum):
     CODE_SAFETY_AUDIT = "code_safety_audit"
     EXPERIMENT_EXECUTION = "experiment_execution"
     METRIC_COMPUTATION = "metric_computation"
+    HYBRID_EVIDENCE_PLANNING = "hybrid_evidence_planning"
+    SYMBOLIC_DERIVATION = "symbolic_derivation"
     ADJUDICATION = "adjudication"
     CRITIC_REVIEW = "critic_review"
     LITERATURE_RETRIEVAL = "literature_retrieval"

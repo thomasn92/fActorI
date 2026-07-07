@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/deep-opportunity-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/deep-opportunity-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Concrete non-fake LLM research opportunity with Q/H/T/E/B fields.",
@@ -210,7 +210,7 @@
   ],
   "title": "DeepOpportunityCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.DeepOpportunityCandidate",
   "x-factori-verification-evidence": false
 }

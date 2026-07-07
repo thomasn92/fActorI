@@ -398,3 +398,18 @@ without real-world validation or publication readiness.
 - Metrics are accepted only from successful sandbox `output.json` artifacts. Failed, blocked, or
   negative-control-failing runs produce bounded inconclusive or negative outcomes, never invented
   metrics, real-world validation, or publication readiness.
+
+## M103 Hybrid Evidence-Package Planning and Execution
+
+- Added a gated OpenAI structured-output stage that plans one hybrid evidence package per selected
+  substrate, allowing multiple artifact types for a single bounded claim instead of a rigid
+  one-route branch.
+- Added typed artifact plans, artifact-type evidence-label policy, baseline/control/metric
+  requirements, retrieval requirements, unresolved symbolic/proof obligations, mandatory forbidden
+  claims, and fail-closed validation.
+- Added bounded package execution: code-based artifacts reuse the M102 audit/sandbox/output-JSON
+  metric path, symbolic/proof artifacts remain draft-labeled with `checker_status=not_checked`,
+  and retrieval novelty checks remain novelty-risk assessments with `novelty_proven=false`.
+- Added append-only package planning, raw-call, execution, safety-audit, metric-extraction, result,
+  and inspection reports. Hybrid packages create no real-world validation, verified theorem,
+  novelty proof, evidence upgrade, or publication readiness.

@@ -139,6 +139,12 @@ completed run from disk and checks consistency without changing provenance.
   followed by deterministic AST safety auditing, isolated offline local execution, and metric
   extraction exclusively from successful sandbox `output.json` artifacts. Unsafe, failed, and
   negative-control-failing scripts remain blocked or inconclusive and cannot fabricate evidence.
+- schema-constrained non-fake LLM hybrid evidence-package planning over selected substrates,
+  allowing symbolic drafts, proof plans, numerical illustrations, executable experiments,
+  benchmarks, counterexample searches, retrieval novelty-risk checks, negative controls, and
+  robustness sweeps in one bounded package. Executable components reuse the safe codegen/sandbox
+  path; symbolic/proof components remain draft-labeled unless checked; retrieval novelty remains a
+  risk assessment, not a proof of novelty.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

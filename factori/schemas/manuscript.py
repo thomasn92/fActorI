@@ -16,6 +16,7 @@ from factori.schemas.enums import (
     ChecklistCategory,
     CreativeMutationOperator,
     CreativeSearchStopReason,
+    EvidenceArtifactType,
     FinalNucleusType,
     FullPaperGenerationStatus,
     FullPaperGenerationStepStatus,
@@ -964,6 +965,9 @@ RouteEvidenceLabel = Literal[
     "SymbolicReductionDraft",
     "ProofPlanDraft",
     "RetrievalNoveltyAssessment",
+    "NumericalIllustrationEvidence",
+    "NegativeControlEvidence",
+    "RobustnessSweepEvidence",
     "NegativeResult",
     "InconclusiveResult",
     "UnsupportedRouteDeferred",
@@ -1403,6 +1407,295 @@ class GeneratedExperimentInspectionReport(StrictModel):
     publication_ready: Literal[False] = False
     creates_scientific_validation: Literal[False] = False
     creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+EvidencePackageLabel = RouteEvidenceLabel
+
+
+class HybridEvidencePackageConfig(StrictModel):
+    """Bounded configuration for non-fake hybrid evidence-package planning."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    max_source_substrates: int = Field(default=12, ge=1)
+    max_planning_calls: int = Field(default=12, ge=1)
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class EvidenceArtifactPlan(StrictModel):
+    """One planned support artifact inside a hybrid evidence package."""
+
+    artifact_plan_id: str = Field(min_length=1)
+    artifact_type: EvidenceArtifactType
+    purpose: str = Field(min_length=1)
+    claim_component_supported: str = Field(min_length=1)
+    input_contract: dict[str, Any]
+    output_contract: dict[str, Any]
+    baseline_or_comparator_plan: list[str] = Field(default_factory=list)
+    control_plan_optional: list[str] | None = None
+    negative_control_plan_optional: list[str] | None = None
+    metric_plan_optional: list[str] | None = None
+    symbolic_obligations_optional: list[str] | None = None
+    retrieval_requirements_optional: list[str] | None = None
+    checker_requirements_optional: list[str] | None = None
+    execution_backend_required: str = Field(min_length=1)
+    requires_code_generation: bool
+    requires_local_execution: bool
+    requires_retrieval: bool
+    requires_symbolic_checker: bool
+    requires_llm_drafting: bool
+    allowed_evidence_labels: list[EvidencePackageLabel] = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    success_criteria: list[str] = Field(min_length=1)
+    failure_criteria: list[str] = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class HybridEvidencePackageCandidate(StrictModel):
+    """LLM-authored hybrid evidence package for one selected scientific substrate."""
+
+    package_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    source_idea_node_id: str = Field(min_length=1)
+    source_variant_id: str = Field(min_length=1)
+    source_opportunity_id: str = Field(min_length=1)
+    domain_id: str = Field(min_length=1)
+    method_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    primary_claim_draft: str = Field(min_length=1)
+    allowed_claim_scope: str = Field(min_length=1)
+    package_rationale: str = Field(min_length=1)
+    artifact_plans: list[EvidenceArtifactPlan] = Field(min_length=1)
+    minimum_required_artifacts: list[str] = Field(min_length=1)
+    optional_supporting_artifacts: list[str] = Field(default_factory=list)
+    artifact_dependency_graph: dict[str, list[str]] = Field(default_factory=dict)
+    claim_support_map: dict[str, list[str]] = Field(default_factory=dict)
+    known_gaps: list[str] = Field(min_length=1)
+    unresolved_obligations: list[str] = Field(min_length=1)
+    recommended_next_action: str = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    novelty_proven: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class HybridEvidencePackageScore(StrictModel):
+    """Non-fake LLM score for one hybrid evidence package."""
+
+    package_id: str = Field(min_length=1)
+    claim_specificity: float = Field(ge=0.0, le=1.0)
+    artifact_coherence: float = Field(ge=0.0, le=1.0)
+    verification_feasibility: float = Field(ge=0.0, le=1.0)
+    baseline_quality: float = Field(ge=0.0, le=1.0)
+    control_quality: float = Field(ge=0.0, le=1.0)
+    negative_control_quality: float = Field(ge=0.0, le=1.0)
+    symbolic_obligation_clarity: float = Field(ge=0.0, le=1.0)
+    retrieval_need_clarity: float = Field(ge=0.0, le=1.0)
+    execution_feasibility: float = Field(ge=0.0, le=1.0)
+    paper_shape_clarity: float = Field(ge=0.0, le=1.0)
+    false_bridge_penalty: float = Field(ge=0.0, le=1.0)
+    tautology_penalty: float = Field(ge=0.0, le=1.0)
+    scope_risk_penalty: float = Field(ge=0.0, le=1.0)
+    final_score: float = Field(ge=0.0, le=1.0)
+    score_explanation: str = Field(min_length=1)
+
+
+class HybridEvidencePackageRawArtifact(StrictModel):
+    """Secret-free raw prompt/response provenance for one package-planning call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+    raw_response: dict[str, Any]
+    accepted_package_id_optional: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class HybridEvidencePackageReport(StrictModel):
+    """Append-only non-fake hybrid evidence-package planning report."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    planning_status: Literal["completed", "completed_with_warnings", "failed"]
+    config: HybridEvidencePackageConfig
+    source_substrate_report_path: str = Field(min_length=1)
+    source_route_planning_report_path_optional: str | None = None
+    selected_substrate_count: int = Field(ge=0)
+    package_count: int = Field(ge=0)
+    rejected_package_count: int = Field(ge=0)
+    repaired_package_count: int = Field(ge=0)
+    artifact_plan_count: int = Field(ge=0)
+    artifact_type_coverage: int = Field(ge=0)
+    artifact_type_counts: dict[str, int] = Field(default_factory=dict)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    packages: list[HybridEvidencePackageCandidate] = Field(default_factory=list)
+    scores: list[HybridEvidencePackageScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class HybridEvidencePackageInspectionReport(StrictModel):
+    """Read-only inspection of the latest hybrid evidence-package planning report."""
+
+    run_id: str = Field(min_length=1)
+    hybrid_evidence_package_present: bool
+    latest_report_id_optional: str | None = None
+    planning_status_optional: str | None = None
+    selected_substrate_count: int = Field(default=0, ge=0)
+    package_count: int = Field(default=0, ge=0)
+    rejected_package_count: int = Field(default=0, ge=0)
+    repaired_package_count: int = Field(default=0, ge=0)
+    artifact_plan_count: int = Field(default=0, ge=0)
+    artifact_type_coverage: int = Field(default=0, ge=0)
+    artifact_type_counts: dict[str, int] = Field(default_factory=dict)
+    packages: list[HybridEvidencePackageCandidate] = Field(default_factory=list)
+    scores: list[HybridEvidencePackageScore] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class EvidencePackageExecutionResult(StrictModel):
+    """One executed, drafted, or deferred hybrid evidence-package artifact outcome."""
+
+    result_id: str = Field(min_length=1)
+    package_id: str = Field(min_length=1)
+    artifact_plan_id: str = Field(min_length=1)
+    source_substrate_id: str = Field(min_length=1)
+    artifact_type: EvidenceArtifactType
+    status: Literal[
+        "completed",
+        "draft_created",
+        "negative_result",
+        "inconclusive",
+        "failed",
+        "blocked_safety_audit",
+        "deferred_unavailable_checker",
+        "deferred_insufficient_support",
+        "rejected_false_bridge",
+    ]
+    evidence_label: EvidencePackageLabel
+    scope_label: str = Field(min_length=1)
+    metrics: dict[str, float | int] = Field(default_factory=dict)
+    metric_sources: dict[str, str] = Field(default_factory=dict)
+    baseline_summary: str = Field(min_length=1)
+    control_summary: str = Field(min_length=1)
+    negative_control_summary: str = Field(min_length=1)
+    draft_payload: dict[str, Any] = Field(default_factory=dict)
+    success_criteria_satisfied: bool | None = None
+    failure_criteria_satisfied: bool | None = None
+    unresolved_obligations: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    failure_reason_optional: str | None = None
+    novelty_proven: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class EvidencePackageExecutionReport(StrictModel):
+    """Append-only execution report for hybrid evidence-package components."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    execution_status: Literal["completed", "completed_with_warnings", "failed"]
+    source_package_report_path: str = Field(min_length=1)
+    package_count: int = Field(ge=0)
+    artifact_plan_count: int = Field(ge=0)
+    executable_artifact_count: int = Field(ge=0)
+    symbolic_artifact_count: int = Field(ge=0)
+    retrieval_artifact_count: int = Field(ge=0)
+    deferred_artifact_count: int = Field(ge=0)
+    code_artifact_count: int = Field(ge=0)
+    safety_audit_count: int = Field(ge=0)
+    blocked_code_count: int = Field(ge=0)
+    executed_code_count: int = Field(ge=0)
+    failed_execution_count: int = Field(ge=0)
+    metric_extraction_count: int = Field(ge=0)
+    result_count: int = Field(ge=0)
+    evidence_label_counts: dict[str, int] = Field(default_factory=dict)
+    artifact_type_counts: dict[str, int] = Field(default_factory=dict)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    code_artifact_paths: list[str] = Field(default_factory=list)
+    safety_audit_paths: list[str] = Field(default_factory=list)
+    sandbox_execution_paths: list[str] = Field(default_factory=list)
+    metric_extraction_paths: list[str] = Field(default_factory=list)
+    result_paths: list[str] = Field(default_factory=list)
+    code_artifacts: list[LLMExperimentCodeArtifact] = Field(default_factory=list)
+    safety_audits: list[ExperimentCodeSafetyAudit] = Field(default_factory=list)
+    sandbox_configs: list[SandboxExecutionConfig] = Field(default_factory=list)
+    sandbox_executions: list[SandboxExecutionResult] = Field(default_factory=list)
+    metric_extractions: list[MetricExtractionResult] = Field(default_factory=list)
+    results: list[EvidencePackageExecutionResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    novelty_proven: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class EvidencePackageExecutionInspectionReport(StrictModel):
+    """Read-only inspection of latest hybrid evidence-package execution report."""
+
+    run_id: str = Field(min_length=1)
+    evidence_package_execution_present: bool
+    latest_report_id_optional: str | None = None
+    execution_status_optional: str | None = None
+    package_count: int = Field(default=0, ge=0)
+    artifact_plan_count: int = Field(default=0, ge=0)
+    executable_artifact_count: int = Field(default=0, ge=0)
+    symbolic_artifact_count: int = Field(default=0, ge=0)
+    retrieval_artifact_count: int = Field(default=0, ge=0)
+    deferred_artifact_count: int = Field(default=0, ge=0)
+    code_artifact_count: int = Field(default=0, ge=0)
+    blocked_code_count: int = Field(default=0, ge=0)
+    executed_code_count: int = Field(default=0, ge=0)
+    metric_extraction_count: int = Field(default=0, ge=0)
+    result_count: int = Field(default=0, ge=0)
+    evidence_label_counts: dict[str, int] = Field(default_factory=dict)
+    artifact_type_counts: dict[str, int] = Field(default_factory=dict)
+    results: list[EvidencePackageExecutionResult] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    novelty_proven: Literal[False] = False
     is_verification_evidence: Literal[False] = False
 
 
@@ -6443,6 +6736,17 @@ __all__ = [
     "GeneratedExperimentExecutionReport",
     "GeneratedExperimentInspectionReport",
     "LLMExperimentCodeRawArtifact",
+    "EvidencePackageLabel",
+    "HybridEvidencePackageConfig",
+    "EvidenceArtifactPlan",
+    "HybridEvidencePackageCandidate",
+    "HybridEvidencePackageScore",
+    "HybridEvidencePackageRawArtifact",
+    "HybridEvidencePackageReport",
+    "HybridEvidencePackageInspectionReport",
+    "EvidencePackageExecutionResult",
+    "EvidencePackageExecutionReport",
+    "EvidencePackageExecutionInspectionReport",
     "DomainPrimitive",
     "MethodLens",
     "OpportunityCandidate",

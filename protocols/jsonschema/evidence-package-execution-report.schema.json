@@ -1,0 +1,1203 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "BranchRouteType": {
+      "description": "Deterministic next-action classes for concrete scientific branches.",
+      "enum": [
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge"
+      ],
+      "title": "BranchRouteType",
+      "type": "string"
+    },
+    "EvidenceArtifactType": {
+      "description": "Hybrid evidence-package artifact roles.",
+      "enum": [
+        "symbolic_reduction",
+        "symbolic_derivation",
+        "proof_plan",
+        "numerical_illustration",
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "literature_novelty_check",
+        "negative_control",
+        "robustness_sweep",
+        "defer_unavailable_checker",
+        "defer_insufficient_support",
+        "reject_false_bridge"
+      ],
+      "title": "EvidenceArtifactType",
+      "type": "string"
+    },
+    "EvidencePackageExecutionResult": {
+      "additionalProperties": false,
+      "description": "One executed, drafted, or deferred hybrid evidence-package artifact outcome.",
+      "properties": {
+        "artifact_plan_id": {
+          "minLength": 1,
+          "title": "Artifact Plan Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/EvidenceArtifactType"
+        },
+        "baseline_summary": {
+          "minLength": 1,
+          "title": "Baseline Summary",
+          "type": "string"
+        },
+        "control_summary": {
+          "minLength": 1,
+          "title": "Control Summary",
+          "type": "string"
+        },
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "creates_verified_theorem": {
+          "const": false,
+          "default": false,
+          "title": "Creates Verified Theorem",
+          "type": "boolean"
+        },
+        "draft_payload": {
+          "additionalProperties": true,
+          "title": "Draft Payload",
+          "type": "object"
+        },
+        "evidence_label": {
+          "enum": [
+            "SyntheticExperimentEvidence",
+            "BenchmarkEvidence",
+            "CounterexampleEvidence",
+            "SymbolicDerivationDraft",
+            "SymbolicReductionDraft",
+            "ProofPlanDraft",
+            "RetrievalNoveltyAssessment",
+            "NumericalIllustrationEvidence",
+            "NegativeControlEvidence",
+            "RobustnessSweepEvidence",
+            "NegativeResult",
+            "InconclusiveResult",
+            "UnsupportedRouteDeferred",
+            "RejectedFalseBridge"
+          ],
+          "title": "Evidence Label",
+          "type": "string"
+        },
+        "failure_criteria_satisfied": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Criteria Satisfied"
+        },
+        "failure_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Reason Optional"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "metric_sources": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metric Sources",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Metrics",
+          "type": "object"
+        },
+        "negative_control_summary": {
+          "minLength": 1,
+          "title": "Negative Control Summary",
+          "type": "string"
+        },
+        "novelty_proven": {
+          "const": false,
+          "default": false,
+          "title": "Novelty Proven",
+          "type": "boolean"
+        },
+        "package_id": {
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "result_id": {
+          "minLength": 1,
+          "title": "Result Id",
+          "type": "string"
+        },
+        "scope_label": {
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "source_substrate_id": {
+          "minLength": 1,
+          "title": "Source Substrate Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "draft_created",
+            "negative_result",
+            "inconclusive",
+            "failed",
+            "blocked_safety_audit",
+            "deferred_unavailable_checker",
+            "deferred_insufficient_support",
+            "rejected_false_bridge"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "success_criteria_satisfied": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Success Criteria Satisfied"
+        },
+        "unresolved_obligations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved Obligations",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "result_id",
+        "package_id",
+        "artifact_plan_id",
+        "source_substrate_id",
+        "artifact_type",
+        "status",
+        "evidence_label",
+        "scope_label",
+        "baseline_summary",
+        "control_summary",
+        "negative_control_summary"
+      ],
+      "title": "EvidencePackageExecutionResult",
+      "type": "object"
+    },
+    "ExperimentCodeSafetyAudit": {
+      "additionalProperties": false,
+      "description": "Deterministic AST and policy audit for generated experiment code.",
+      "properties": {
+        "allowed_imports": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Imports",
+          "type": "array"
+        },
+        "blocked": {
+          "title": "Blocked",
+          "type": "boolean"
+        },
+        "code_artifact_id": {
+          "minLength": 1,
+          "title": "Code Artifact Id",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "filesystem_escape_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Filesystem Escape Found",
+          "type": "array"
+        },
+        "forbidden_imports_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Imports Found",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "network_access_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Network Access Found",
+          "type": "array"
+        },
+        "nondeterminism_risk": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nondeterminism Risk",
+          "type": "array"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "resource_risk": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resource Risk",
+          "type": "array"
+        },
+        "subprocess_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subprocess Found",
+          "type": "array"
+        },
+        "unsafe_eval_exec_found": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsafe Eval Exec Found",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code_artifact_id",
+        "passed",
+        "blocked"
+      ],
+      "title": "ExperimentCodeSafetyAudit",
+      "type": "object"
+    },
+    "LLMExperimentCodeArtifact": {
+      "additionalProperties": false,
+      "description": "One LLM-authored Python experiment proposal; not an execution result.",
+      "properties": {
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "code_artifact_id": {
+          "minLength": 1,
+          "title": "Code Artifact Id",
+          "type": "string"
+        },
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "declared_dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Declared Dependencies",
+          "type": "array"
+        },
+        "entrypoint": {
+          "minLength": 1,
+          "title": "Entrypoint",
+          "type": "string"
+        },
+        "expected_output_files": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Expected Output Files",
+          "type": "array"
+        },
+        "filesystem_scope": {
+          "minLength": 1,
+          "title": "Filesystem Scope",
+          "type": "string"
+        },
+        "implies_publication_readiness": {
+          "const": false,
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "language": {
+          "const": "python",
+          "default": "python",
+          "title": "Language",
+          "type": "string"
+        },
+        "network_required": {
+          "const": false,
+          "default": false,
+          "title": "Network Required",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "random_seed": {
+          "minimum": 0,
+          "title": "Random Seed",
+          "type": "integer"
+        },
+        "required_inputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Inputs",
+          "type": "array"
+        },
+        "route_type": {
+          "$ref": "#/$defs/BranchRouteType"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_route_id": {
+          "minLength": 1,
+          "title": "Source Route Id",
+          "type": "string"
+        },
+        "source_spec_id": {
+          "minLength": 1,
+          "title": "Source Spec Id",
+          "type": "string"
+        },
+        "source_substrate_id": {
+          "minLength": 1,
+          "title": "Source Substrate Id",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "code_artifact_id",
+        "run_id",
+        "source_spec_id",
+        "source_route_id",
+        "source_substrate_id",
+        "route_type",
+        "backend_kind",
+        "entrypoint",
+        "code",
+        "expected_output_files",
+        "random_seed",
+        "timeout_seconds",
+        "filesystem_scope"
+      ],
+      "title": "LLMExperimentCodeArtifact",
+      "type": "object"
+    },
+    "MetricExtractionResult": {
+      "additionalProperties": false,
+      "description": "Metrics parsed only from one successful sandbox output JSON.",
+      "properties": {
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "execution_id": {
+          "minLength": 1,
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "extraction_warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Extraction Warnings",
+          "type": "array"
+        },
+        "invalid_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Invalid Metrics",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "metric_sources": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metric Sources",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Metrics",
+          "type": "object"
+        },
+        "metrics_extracted": {
+          "title": "Metrics Extracted",
+          "type": "boolean"
+        },
+        "missing_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Metrics",
+          "type": "array"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "schema_valid": {
+          "title": "Schema Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "execution_id",
+        "metrics_extracted",
+        "schema_valid"
+      ],
+      "title": "MetricExtractionResult",
+      "type": "object"
+    },
+    "SandboxExecutionConfig": {
+      "additionalProperties": false,
+      "description": "Local isolated-process policy for one audited generated script.",
+      "properties": {
+        "allowed_dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Dependencies",
+          "type": "array"
+        },
+        "entrypoint": {
+          "minLength": 1,
+          "title": "Entrypoint",
+          "type": "string"
+        },
+        "execution_backend": {
+          "const": "uv_local",
+          "default": "uv_local",
+          "title": "Execution Backend",
+          "type": "string"
+        },
+        "memory_limit_mb": {
+          "maximum": 4096,
+          "minimum": 64,
+          "title": "Memory Limit Mb",
+          "type": "integer"
+        },
+        "network_disabled": {
+          "const": true,
+          "default": true,
+          "title": "Network Disabled",
+          "type": "boolean"
+        },
+        "output_json_filename": {
+          "minLength": 1,
+          "title": "Output Json Filename",
+          "type": "string"
+        },
+        "output_limit_bytes": {
+          "default": 1048576,
+          "minimum": 1024,
+          "title": "Output Limit Bytes",
+          "type": "integer"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "timeout_seconds": {
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entrypoint",
+        "output_json_filename",
+        "timeout_seconds",
+        "memory_limit_mb",
+        "seed"
+      ],
+      "title": "SandboxExecutionConfig",
+      "type": "object"
+    },
+    "SandboxExecutionResult": {
+      "additionalProperties": false,
+      "description": "Observed process outcome for one generated script.",
+      "properties": {
+        "artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Paths",
+          "type": "array"
+        },
+        "code_artifact_id": {
+          "minLength": 1,
+          "title": "Code Artifact Id",
+          "type": "string"
+        },
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "execution_id": {
+          "minLength": 1,
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Code"
+        },
+        "failure_reason_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Reason Optional"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "memory_limit_mb": {
+          "minimum": 64,
+          "title": "Memory Limit Mb",
+          "type": "integer"
+        },
+        "network_disabled": {
+          "const": true,
+          "default": true,
+          "title": "Network Disabled",
+          "type": "boolean"
+        },
+        "output_json_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Json Path"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "runtime_seconds": {
+          "minimum": 0.0,
+          "title": "Runtime Seconds",
+          "type": "number"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "timed_out",
+            "blocked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "stderr_path": {
+          "minLength": 1,
+          "title": "Stderr Path",
+          "type": "string"
+        },
+        "stdout_path": {
+          "minLength": 1,
+          "title": "Stdout Path",
+          "type": "string"
+        },
+        "timeout": {
+          "title": "Timeout",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "execution_id",
+        "code_artifact_id",
+        "status",
+        "stdout_path",
+        "stderr_path",
+        "runtime_seconds",
+        "timeout",
+        "memory_limit_mb",
+        "seed"
+      ],
+      "title": "SandboxExecutionResult",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "substrate_selection",
+        "branch_routing",
+        "experiment_design",
+        "spec_validation",
+        "experiment_code_generation",
+        "code_safety_audit",
+        "experiment_execution",
+        "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
+        "adjudication",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.69.0/evidence-package-execution-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only execution report for hybrid evidence-package components.",
+  "properties": {
+    "artifact_plan_count": {
+      "minimum": 0,
+      "title": "Artifact Plan Count",
+      "type": "integer"
+    },
+    "artifact_type_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Artifact Type Counts",
+      "type": "object"
+    },
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "blocked_code_count": {
+      "minimum": 0,
+      "title": "Blocked Code Count",
+      "type": "integer"
+    },
+    "code_artifact_count": {
+      "minimum": 0,
+      "title": "Code Artifact Count",
+      "type": "integer"
+    },
+    "code_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Code Artifact Paths",
+      "type": "array"
+    },
+    "code_artifacts": {
+      "items": {
+        "$ref": "#/$defs/LLMExperimentCodeArtifact"
+      },
+      "title": "Code Artifacts",
+      "type": "array"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creates_verified_theorem": {
+      "const": false,
+      "default": false,
+      "title": "Creates Verified Theorem",
+      "type": "boolean"
+    },
+    "deferred_artifact_count": {
+      "minimum": 0,
+      "title": "Deferred Artifact Count",
+      "type": "integer"
+    },
+    "evidence_label_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Evidence Label Counts",
+      "type": "object"
+    },
+    "executable_artifact_count": {
+      "minimum": 0,
+      "title": "Executable Artifact Count",
+      "type": "integer"
+    },
+    "executed_code_count": {
+      "minimum": 0,
+      "title": "Executed Code Count",
+      "type": "integer"
+    },
+    "execution_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "failed"
+      ],
+      "title": "Execution Status",
+      "type": "string"
+    },
+    "failed_execution_count": {
+      "minimum": 0,
+      "title": "Failed Execution Count",
+      "type": "integer"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_extraction_count": {
+      "minimum": 0,
+      "title": "Metric Extraction Count",
+      "type": "integer"
+    },
+    "metric_extraction_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Metric Extraction Paths",
+      "type": "array"
+    },
+    "metric_extractions": {
+      "items": {
+        "$ref": "#/$defs/MetricExtractionResult"
+      },
+      "title": "Metric Extractions",
+      "type": "array"
+    },
+    "novelty_proven": {
+      "const": false,
+      "default": false,
+      "title": "Novelty Proven",
+      "type": "boolean"
+    },
+    "package_count": {
+      "minimum": 0,
+      "title": "Package Count",
+      "type": "integer"
+    },
+    "production_ready": {
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "raw_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Raw Artifact Paths",
+      "type": "array"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "result_count": {
+      "minimum": 0,
+      "title": "Result Count",
+      "type": "integer"
+    },
+    "result_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Result Paths",
+      "type": "array"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/EvidencePackageExecutionResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "retrieval_artifact_count": {
+      "minimum": 0,
+      "title": "Retrieval Artifact Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_audit_count": {
+      "minimum": 0,
+      "title": "Safety Audit Count",
+      "type": "integer"
+    },
+    "safety_audit_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Safety Audit Paths",
+      "type": "array"
+    },
+    "safety_audits": {
+      "items": {
+        "$ref": "#/$defs/ExperimentCodeSafetyAudit"
+      },
+      "title": "Safety Audits",
+      "type": "array"
+    },
+    "sandbox_configs": {
+      "items": {
+        "$ref": "#/$defs/SandboxExecutionConfig"
+      },
+      "title": "Sandbox Configs",
+      "type": "array"
+    },
+    "sandbox_execution_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sandbox Execution Paths",
+      "type": "array"
+    },
+    "sandbox_executions": {
+      "items": {
+        "$ref": "#/$defs/SandboxExecutionResult"
+      },
+      "title": "Sandbox Executions",
+      "type": "array"
+    },
+    "source_package_report_path": {
+      "minLength": 1,
+      "title": "Source Package Report Path",
+      "type": "string"
+    },
+    "symbolic_artifact_count": {
+      "minimum": 0,
+      "title": "Symbolic Artifact Count",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "report_id",
+    "execution_status",
+    "source_package_report_path",
+    "package_count",
+    "artifact_plan_count",
+    "executable_artifact_count",
+    "symbolic_artifact_count",
+    "retrieval_artifact_count",
+    "deferred_artifact_count",
+    "code_artifact_count",
+    "safety_audit_count",
+    "blocked_code_count",
+    "executed_code_count",
+    "failed_execution_count",
+    "metric_extraction_count",
+    "result_count",
+    "production_ready"
+  ],
+  "title": "EvidencePackageExecutionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.69.0",
+  "x-factori-source-model": "factori.schemas.EvidencePackageExecutionReport",
+  "x-factori-verification-evidence": false
+}

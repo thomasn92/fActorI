@@ -14,6 +14,7 @@ from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
 from factori.adapters.deep_opportunity import OpenAIDeepOpportunityGenerator
 from factori.adapters.errors import AdapterError
+from factori.adapters.hybrid_evidence import OpenAIHybridEvidencePlanner
 from factori.adapters.llm_experiment_codegen import OpenAILLMExperimentCodeGenerator
 from factori.adapters.llm_route_planning import OpenAILLMRoutePlanner
 from factori.adapters.llm_substrate import OpenAILLMSubstrateGenerator
@@ -206,6 +207,15 @@ from factori.human_review_reconciliation import (
     inspect_human_review_reconciliation,
     reconcile_human_review,
 )
+from factori.hybrid_evidence_packages import (
+    HybridEvidencePackageError,
+    execute_hybrid_evidence_packages,
+    inspect_evidence_package_execution,
+    inspect_hybrid_evidence_packages,
+    plan_hybrid_evidence_packages,
+    render_evidence_package_execution_text,
+    render_hybrid_evidence_package_text,
+)
 from factori.hygiene_plan import (
     build_hygiene_remediation_plan,
     summarize_hygiene_remediation_plan,
@@ -345,6 +355,7 @@ from factori.schemas import (
     DeepOpportunityDiscoveryConfig,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
+    HybridEvidencePackageConfig,
     LLMBudgetConfig,
     LLMExperimentCodegenConfig,
     LLMOrchestrationConfig,
@@ -4703,6 +4714,183 @@ def inspect_generated_experiment_results_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_generated_experiment_text(report))
+
+
+@app.command("plan-hybrid-evidence-packages")
+def plan_hybrid_evidence_packages_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_source_substrates: Annotated[
+        int,
+        typer.Option("--max-source-substrates"),
+    ] = 12,
+    max_planning_calls: Annotated[
+        int,
+        typer.Option("--max-planning-calls"),
+    ] = 12,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan bounded hybrid evidence packages with a gated non-fake LLM."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai hybrid evidence planning is implemented; no fallback exists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        planner = OpenAIHybridEvidencePlanner(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        result = plan_hybrid_evidence_packages(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            planner=planner,
+            config=HybridEvidencePackageConfig(
+                run_id=run_id,
+                backend="llm-openai",
+                max_source_substrates=max_source_substrates,
+                max_planning_calls=max_planning_calls,
+                require_non_fake_backends=require_non_fake_backends,
+            ),
+        )
+    except (AdapterError, HybridEvidencePackageError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"package_count={result.report.package_count}")
+    typer.echo(f"artifact_plan_count={result.report.artifact_plan_count}")
+    typer.echo(f"artifact_type_coverage={result.report.artifact_type_coverage}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-hybrid-evidence-packages")
+def inspect_hybrid_evidence_packages_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest hybrid evidence-package planning report."""
+    try:
+        report = inspect_hybrid_evidence_packages(run_id=run_id, root=root)
+    except HybridEvidencePackageError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_hybrid_evidence_package_text(report))
+
+
+@app.command("execute-hybrid-evidence-packages")
+def execute_hybrid_evidence_packages_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    retrieval_mode: Annotated[str, typer.Option("--retrieval-mode")] = "mocked",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    timeout_seconds: Annotated[int, typer.Option("--timeout-seconds")] = 30,
+    memory_limit_mb: Annotated[int, typer.Option("--memory-limit-mb")] = 512,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Execute safe hybrid evidence-package components and inspect bounded outputs."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai hybrid evidence execution is implemented; no fallback exists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    normalized_retrieval = retrieval_mode.strip().lower().replace("-", "_")
+    if normalized_retrieval in {"mocked", "mock"}:
+        normalized_retrieval = "mocked_retrieval"
+    elif normalized_retrieval in {"real", "openalex"}:
+        normalized_retrieval = "real_retrieval"
+    if normalized_retrieval not in {"mocked_retrieval", "real_retrieval"}:
+        typer.echo("retrieval-mode must be mocked or real", err=True)
+        raise typer.Exit(code=1)
+    try:
+        planner = OpenAIHybridEvidencePlanner(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        code_generator = OpenAILLMExperimentCodeGenerator(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        result = execute_hybrid_evidence_packages(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            planner=planner,
+            code_generator=code_generator,
+            retrieval_mode=normalized_retrieval,  # type: ignore[arg-type]
+            require_non_fake_backends=require_non_fake_backends,
+            timeout_seconds=timeout_seconds,
+            memory_limit_mb=memory_limit_mb,
+        )
+    except (AdapterError, HybridEvidencePackageError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"result_count={result.report.result_count}")
+    typer.echo(f"metric_extraction_count={result.report.metric_extraction_count}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-evidence-package-execution")
+def inspect_evidence_package_execution_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect latest hybrid evidence-package execution outputs."""
+    try:
+        report = inspect_evidence_package_execution(run_id=run_id, root=root)
+    except HybridEvidencePackageError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_evidence_package_execution_text(report))
 
 
 @app.command("discover-opportunities")

@@ -1,0 +1,25 @@
+{
+  "$id": "https://schemas.factori.local/0.69.0/evidence-artifact-type.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Hybrid evidence-package artifact role.",
+  "enum": [
+    "symbolic_reduction",
+    "symbolic_derivation",
+    "proof_plan",
+    "numerical_illustration",
+    "synthetic_experiment",
+    "benchmark_tournament",
+    "counterexample_search",
+    "literature_novelty_check",
+    "negative_control",
+    "robustness_sweep",
+    "defer_unavailable_checker",
+    "defer_insufficient_support",
+    "reject_false_bridge"
+  ],
+  "title": "EvidenceArtifactType",
+  "type": "string",
+  "x-factori-protocol-version": "0.69.0",
+  "x-factori-source-model": "factori.schemas.EvidenceArtifactType",
+  "x-factori-verification-evidence": false
+}

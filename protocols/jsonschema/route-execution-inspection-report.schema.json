@@ -378,6 +378,9 @@
             "SymbolicReductionDraft",
             "ProofPlanDraft",
             "RetrievalNoveltyAssessment",
+            "NumericalIllustrationEvidence",
+            "NegativeControlEvidence",
+            "RobustnessSweepEvidence",
             "NegativeResult",
             "InconclusiveResult",
             "UnsupportedRouteDeferred",
@@ -506,6 +509,9 @@
               "SymbolicReductionDraft",
               "ProofPlanDraft",
               "RetrievalNoveltyAssessment",
+              "NumericalIllustrationEvidence",
+              "NegativeControlEvidence",
+              "RobustnessSweepEvidence",
               "NegativeResult",
               "InconclusiveResult",
               "UnsupportedRouteDeferred",
@@ -639,6 +645,8 @@
         "code_safety_audit",
         "experiment_execution",
         "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
         "adjudication",
         "critic_review",
         "literature_retrieval",
@@ -724,7 +732,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.68.0/route-execution-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/route-execution-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for latest route execution state.",
@@ -877,7 +885,7 @@
   ],
   "title": "RouteExecutionInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionInspectionReport",
   "x-factori-verification-evidence": false
 }

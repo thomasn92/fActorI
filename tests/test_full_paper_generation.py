@@ -20,6 +20,19 @@ from factori.adapters.deep_opportunity import (
     parse_opportunity_items,
 )
 from factori.adapters.fake import FakeProseGenerator
+from factori.adapters.hybrid_evidence import (
+    PACKAGE_ALLOWED_LABELS,
+    EvidenceArtifactPlanProposal,
+    HybridEvidenceDraftArtifact,
+    HybridEvidenceDraftResponse,
+    HybridEvidencePackageProposal,
+    HybridEvidencePackageProposalItem,
+    HybridEvidencePackageResponse,
+    HybridEvidencePackageScoreProposal,
+    build_hybrid_draft_prompt,
+    build_hybrid_package_prompt,
+    parse_hybrid_package_response,
+)
 from factori.adapters.llm_experiment_codegen import (
     ExperimentCodeGenerationResponse,
     ExperimentCodeProposal,
@@ -205,6 +218,13 @@ from factori.human_review_reconciliation import (
     inspect_human_review_reconciliation,
     reconcile_human_review,
 )
+from factori.hybrid_evidence_packages import (
+    HybridEvidencePackageError,
+    execute_hybrid_evidence_packages,
+    inspect_evidence_package_execution,
+    inspect_hybrid_evidence_packages,
+    plan_hybrid_evidence_packages,
+)
 from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
 from factori.ledger import ResearchLedger
@@ -316,7 +336,12 @@ from factori.schemas import (
     DomainAtlasEntry,
     DomainMethodPair,
     DomainPrimitive,
+    EvidenceArtifactPlan,
+    EvidenceArtifactType,
     EvidenceAwareRefreshReport,
+    EvidencePackageExecutionInspectionReport,
+    EvidencePackageExecutionReport,
+    EvidencePackageExecutionResult,
     ExperimentArtifact,
     ExperimentCodeSafetyAudit,
     ExperimentGapRoutingIndex,
@@ -355,6 +380,12 @@ from factori.schemas import (
     HumanReviewArtifact,
     HumanReviewReconciliationIndex,
     HumanReviewReconciliationReport,
+    HybridEvidencePackageCandidate,
+    HybridEvidencePackageConfig,
+    HybridEvidencePackageInspectionReport,
+    HybridEvidencePackageRawArtifact,
+    HybridEvidencePackageReport,
+    HybridEvidencePackageScore,
     IdeaClusterDiagnostic,
     IdeaEdge,
     IdeaNode,
@@ -1097,6 +1128,237 @@ class MockLLMRoutePlanner:
         )
 
 
+class MockHybridEvidencePlanner:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-hybrid-evidence-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self) -> None:
+        self.received_substrate_ids: list[str] = []
+        self.drafted_artifact_types: list[str] = []
+        self.raw_items: list[dict[str, object]] = []
+
+    def plan_package(
+        self,
+        *,
+        prompt_id,
+        substrate_payload,
+        route_payload,
+        retrieval_context_payload,
+    ):
+        index = len(self.received_substrate_ids)
+        self.received_substrate_ids.append(substrate_payload["substrate_id"])
+        prompt_text, schema = build_hybrid_package_prompt(
+            prompt_id=prompt_id,
+            substrate_payload=substrate_payload,
+            route_payload=route_payload,
+            retrieval_context_payload=retrieval_context_payload,
+        )
+        artifact_sets = [
+            [
+                EvidenceArtifactType.SYMBOLIC_REDUCTION,
+                EvidenceArtifactType.NUMERICAL_ILLUSTRATION,
+                EvidenceArtifactType.LITERATURE_NOVELTY_CHECK,
+                EvidenceArtifactType.PROOF_PLAN,
+            ],
+            [
+                EvidenceArtifactType.BENCHMARK_TOURNAMENT,
+                EvidenceArtifactType.NEGATIVE_CONTROL,
+                EvidenceArtifactType.ROBUSTNESS_SWEEP,
+            ],
+            [
+                EvidenceArtifactType.COUNTEREXAMPLE_SEARCH,
+                EvidenceArtifactType.SYMBOLIC_DERIVATION,
+            ],
+            [EvidenceArtifactType.SYNTHETIC_EXPERIMENT],
+        ]
+        plans = [
+            self._artifact_plan(artifact_type, substrate_payload, plan_index)
+            for plan_index, artifact_type in enumerate(
+                artifact_sets[index % len(artifact_sets)], start=1
+            )
+        ]
+        package = HybridEvidencePackageProposal(
+            title=f"Hybrid package for {substrate_payload['title']}",
+            primary_claim_draft=(
+                "Within the declared synthetic or draft scope, the package can support a "
+                "bounded methodological claim only if required components succeed."
+            ),
+            allowed_claim_scope=(
+                "bounded synthetic, draft-symbolic, or retrieval-risk context only"
+            ),
+            package_rationale=(
+                "The package combines executable and draft artifacts so claims remain scoped "
+                "to observed metrics, unresolved obligations, and retrieval-risk context."
+            ),
+            artifact_plans=plans,
+            minimum_required_artifacts=[plans[0].artifact_type.value],
+            optional_supporting_artifacts=[
+                plan.artifact_type.value for plan in plans[1:]
+            ],
+            artifact_dependency_graph={
+                plan.artifact_type.value: [] for plan in plans
+            },
+            claim_support_map={
+                "bounded_claim": [plan.artifact_type.value for plan in plans]
+            },
+            known_gaps=[
+                "No artifact establishes novelty, theorem verification, or real-world validation."
+            ],
+            unresolved_obligations=[
+                "Formal proof and literature completeness remain unresolved."
+            ],
+            recommended_next_action="Execute code components and retain symbolic obligations.",
+        )
+        item = HybridEvidencePackageProposalItem(
+            package=package,
+            score=HybridEvidencePackageScoreProposal(
+                claim_specificity=0.86,
+                artifact_coherence=0.84,
+                verification_feasibility=0.80,
+                baseline_quality=0.82,
+                control_quality=0.81,
+                negative_control_quality=0.79,
+                symbolic_obligation_clarity=0.78,
+                retrieval_need_clarity=0.77,
+                execution_feasibility=0.76,
+                paper_shape_clarity=0.83,
+                false_bridge_penalty=0.12,
+                tautology_penalty=0.13,
+                scope_risk_penalty=0.14,
+                final_score=0.84 - index * 0.01,
+                score_explanation="Mocked structured LLM hybrid package score.",
+            ),
+        )
+        payload = {"packages": [item.model_dump(mode="json")]}
+        self.raw_items.append(item.model_dump(mode="json"))
+        accepted, reasons, repairs = parse_hybrid_package_response(payload)
+        return HybridEvidencePackageResponse(
+            prompt_text=prompt_text,
+            requested_output_schema=schema,
+            raw_response=payload,
+            accepted=accepted,
+            rejection_reasons=reasons,
+            repair_actions=repairs,
+        )
+
+    def draft_artifact(
+        self,
+        *,
+        prompt_id,
+        package_payload,
+        artifact_plan_payload,
+        retrieval_context_payload,
+    ):
+        artifact_type = EvidenceArtifactType(artifact_plan_payload["artifact_type"])
+        self.drafted_artifact_types.append(artifact_type.value)
+        prompt_text, schema = build_hybrid_draft_prompt(
+            prompt_id=prompt_id,
+            package_payload=package_payload,
+            artifact_plan_payload=artifact_plan_payload,
+            retrieval_context_payload=retrieval_context_payload,
+        )
+        draft = HybridEvidenceDraftArtifact(
+            artifact_type=artifact_type,
+            definitions=[
+                "All objects are bounded to the package's declared synthetic or draft scope."
+            ],
+            assumptions=["The artifact is not checker-verified."],
+            steps_or_plan=[
+                "State definitions.",
+                "List obligations.",
+                "Identify unresolved proof or retrieval risks.",
+            ],
+            unresolved_obligations=[
+                "A future checker or retrieval pass must discharge this obligation."
+            ],
+            novelty_risk_assessment=(
+                "Closest-prior overlap remains a risk assessment, not novelty proof."
+                if artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
+                else None
+            ),
+            overlap_risks=["Similar baselines may exist in adjacent literatures."],
+            closest_prior_work=["retrieval-context source summaries only"],
+            underuse_hypothesis="Hypothesis: the combination may be underused.",
+        )
+        payload = {"artifact": draft.model_dump(mode="json")}
+        return HybridEvidenceDraftResponse(
+            prompt_text=prompt_text,
+            requested_output_schema=schema,
+            raw_response=payload,
+            accepted=draft,
+            rejection_reasons=[],
+        )
+
+    def _artifact_plan(
+        self,
+        artifact_type: EvidenceArtifactType,
+        substrate_payload: dict[str, object],
+        index: int,
+    ) -> EvidenceArtifactPlanProposal:
+        code_type = artifact_type in {
+            EvidenceArtifactType.NUMERICAL_ILLUSTRATION,
+            EvidenceArtifactType.SYNTHETIC_EXPERIMENT,
+            EvidenceArtifactType.BENCHMARK_TOURNAMENT,
+            EvidenceArtifactType.COUNTEREXAMPLE_SEARCH,
+            EvidenceArtifactType.NEGATIVE_CONTROL,
+            EvidenceArtifactType.ROBUSTNESS_SWEEP,
+        }
+        symbolic_type = artifact_type in {
+            EvidenceArtifactType.SYMBOLIC_REDUCTION,
+            EvidenceArtifactType.SYMBOLIC_DERIVATION,
+            EvidenceArtifactType.PROOF_PLAN,
+        }
+        retrieval_type = artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
+        metrics = ["held_out_mae", "held_out_rmse"] if code_type else []
+        return EvidenceArtifactPlanProposal(
+            artifact_type=artifact_type,
+            purpose=f"Support package component {index} via {artifact_type.value}.",
+            claim_component_supported="bounded_claim",
+            input_contract={
+                "substrate_title": substrate_payload["title"],
+                "data_regime": "synthetic or draft only",
+                "seed": 1729,
+            },
+            output_contract={"required_metrics": metrics} if metrics else {"draft_fields": True},
+            baseline_or_comparator_plan=(
+                ["declared bounded baseline or comparator"] if code_type else []
+            ),
+            control_plan_optional=["hold seed and data regime fixed"] if code_type else None,
+            negative_control_plan_optional=(
+                ["disable the proposed mechanism"] if code_type else None
+            ),
+            metric_plan_optional=metrics or None,
+            symbolic_obligations_optional=(
+                ["state assumptions", "mark checker status not_checked"]
+                if symbolic_type
+                else None
+            ),
+            retrieval_requirements_optional=(
+                ["closest prior work query", "overlap-risk summary"] if retrieval_type else None
+            ),
+            checker_requirements_optional=(
+                ["future formal checker"]
+                if artifact_type == EvidenceArtifactType.PROOF_PLAN
+                else None
+            ),
+            execution_backend_required=(
+                "uv_local" if code_type else "retrieval_real" if retrieval_type else "llm_draft"
+            ),
+            requires_code_generation=code_type,
+            requires_local_execution=code_type,
+            requires_retrieval=retrieval_type,
+            requires_symbolic_checker=False,
+            requires_llm_drafting=symbolic_type or retrieval_type,
+            allowed_evidence_labels=list(PACKAGE_ALLOWED_LABELS[artifact_type]),
+            forbidden_claims=["publication ready"],
+            success_criteria=["component succeeds only within declared package scope"],
+            failure_criteria=["component is inconclusive if checks fail"],
+        )
+
+
 class MockLLMExperimentCodeGenerator:
     backend_name = "llm-openai-mocked-transport"
     backend_kind = BackendKind.LLM_OPENAI
@@ -1346,6 +1608,17 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert GeneratedExperimentExecutionReport
     assert GeneratedExperimentInspectionReport
     assert LLMExperimentCodeRawArtifact
+    assert EvidenceArtifactType
+    assert HybridEvidencePackageConfig
+    assert EvidenceArtifactPlan
+    assert HybridEvidencePackageCandidate
+    assert HybridEvidencePackageScore
+    assert HybridEvidencePackageRawArtifact
+    assert HybridEvidencePackageReport
+    assert HybridEvidencePackageInspectionReport
+    assert EvidencePackageExecutionResult
+    assert EvidencePackageExecutionReport
+    assert EvidencePackageExecutionInspectionReport
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -3564,6 +3837,236 @@ def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) ->
             ledger=ledger,
             generator=fallback,
             config=codegen.report.config,
+        )
+
+
+def test_hybrid_evidence_packages_plan_multiple_artifact_types(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-package-planning"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planned = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=4,
+            max_planning_calls=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    inspected = inspect_hybrid_evidence_packages(run_id=run_id, root=tmp_path)
+
+    assert planned.report.package_count == 4
+    assert planned.report.artifact_plan_count >= 8
+    assert planned.report.artifact_type_coverage >= 6
+    assert planned.report.production_ready is True
+    assert planned.report.publication_ready is False
+    assert len(planner.received_substrate_ids) == 4
+    assert any(
+        plan.artifact_type == EvidenceArtifactType.SYMBOLIC_REDUCTION
+        for package in planned.report.packages
+        for plan in package.artifact_plans
+    )
+    assert any(
+        plan.artifact_type == EvidenceArtifactType.NUMERICAL_ILLUSTRATION
+        for package in planned.report.packages
+        for plan in package.artifact_plans
+    )
+    assert any(
+        plan.artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
+        for package in planned.report.packages
+        for plan in package.artifact_plans
+    )
+    assert all(package.novelty_proven is False for package in planned.report.packages)
+    assert all(package.publication_ready is False for package in planned.report.packages)
+    assert inspected.hybrid_evidence_package_present is True
+    assert inspected.package_count == 4
+    assert any(
+        item.stage_kind == ScientificStageKind.HYBRID_EVIDENCE_PLANNING
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in planned.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.SPEC_VALIDATION
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in planned.report.backend_records
+    )
+
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    valid_raw = planner.raw_items[0]
+    proof_claim = json.loads(json.dumps(valid_raw))
+    proof_claim["package"]["primary_claim_draft"] = "This is a verified theorem."
+    accepted, reasons, _ = parse_hybrid_package_response({"packages": [proof_claim]})
+    assert accepted is None
+    assert any("theorem verification" in reason for reason in reasons)
+
+    wrong_label = json.loads(json.dumps(valid_raw))
+    wrong_label["package"]["artifact_plans"][0]["allowed_evidence_labels"] = [
+        "SyntheticExperimentEvidence"
+    ]
+    accepted, reasons, _ = parse_hybrid_package_response({"packages": [wrong_label]})
+    assert accepted is None
+    assert any("incompatible evidence labels" in reason for reason in reasons)
+
+    no_path = json.loads(json.dumps(valid_raw))
+    no_path["package"]["artifact_plans"] = [
+        {
+            **no_path["package"]["artifact_plans"][0],
+            "artifact_type": "defer_insufficient_support",
+            "requires_code_generation": False,
+            "requires_local_execution": False,
+            "requires_retrieval": False,
+            "requires_llm_drafting": False,
+            "allowed_evidence_labels": ["UnsupportedRouteDeferred"],
+            "metric_plan_optional": None,
+            "baseline_or_comparator_plan": [],
+            "symbolic_obligations_optional": None,
+        }
+    ]
+    accepted, reasons, _ = parse_hybrid_package_response({"packages": [no_path]})
+    assert accepted is None
+    assert any("no executable" in reason for reason in reasons)
+
+
+def test_hybrid_evidence_package_execution_uses_sandbox_metrics_and_draft_boundaries(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-evidence-package-execution"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=4,
+            max_planning_calls=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    code_generator = MockLLMExperimentCodeGenerator()
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=code_generator,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+    )
+    inspected = inspect_evidence_package_execution(run_id=run_id, root=tmp_path)
+
+    assert executed.report.package_count == 4
+    assert executed.report.executable_artifact_count >= 5
+    assert executed.report.symbolic_artifact_count >= 2
+    assert executed.report.retrieval_artifact_count >= 1
+    assert executed.report.code_artifact_count == executed.report.executable_artifact_count
+    assert executed.report.safety_audit_count == executed.report.code_artifact_count
+    assert executed.report.blocked_code_count >= 1
+    assert executed.report.executed_code_count >= 1
+    assert executed.report.metric_extraction_count >= 1
+    assert executed.report.production_ready is True
+    assert executed.report.publication_ready is False
+    assert executed.report.novelty_proven is False
+    assert all((tmp_path / path).is_file() for path in executed.report.code_artifact_paths)
+    assert all((tmp_path / path).is_file() for path in executed.report.sandbox_execution_paths)
+    assert all((tmp_path / path).is_file() for path in executed.report.metric_extraction_paths)
+    completed = [item for item in executed.report.results if item.status == "completed"]
+    assert completed
+    assert all(item.metrics for item in completed)
+    assert all(
+        "#metrics." in source
+        for item in completed
+        for source in item.metric_sources.values()
+    )
+    drafts = [item for item in executed.report.results if item.status == "draft_created"]
+    assert drafts
+    assert any(item.evidence_label == "SymbolicReductionDraft" for item in drafts)
+    assert any(item.evidence_label == "ProofPlanDraft" for item in drafts)
+    retrieval = next(
+        item
+        for item in drafts
+        if item.artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
+    )
+    assert retrieval.evidence_label == "RetrievalNoveltyAssessment"
+    assert retrieval.novelty_proven is False
+    assert retrieval.draft_payload["novelty_proven"] is False
+    assert retrieval.creates_real_world_validation is False
+    blocked_or_failed = [
+        item
+        for item in executed.report.results
+        if item.status in {"blocked_safety_audit", "failed", "inconclusive"}
+    ]
+    assert blocked_or_failed
+    assert all(item.metrics == {} for item in blocked_or_failed if item.status != "inconclusive")
+    assert inspected.evidence_package_execution_present is True
+    assert inspected.result_count == executed.report.result_count
+    assert any(
+        item.stage_kind == ScientificStageKind.EXPERIMENT_CODE_GENERATION
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in executed.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.SYMBOLIC_DERIVATION
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in executed.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.LITERATURE_RETRIEVAL
+        and item.backend_kind == BackendKind.RETRIEVAL_REAL
+        for item in executed.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.METRIC_COMPUTATION
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in executed.report.backend_records
+    )
+
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+    fallback = MockHybridEvidencePlanner()
+    fallback.fallback_used = True
+    with pytest.raises(HybridEvidencePackageError, match="forbids deterministic fallback"):
+        plan_hybrid_evidence_packages(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            planner=fallback,
+            config=HybridEvidencePackageConfig(
+                run_id=run_id,
+                backend="llm-openai",
+                require_non_fake_backends=True,
+            ),
         )
 
 

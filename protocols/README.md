@@ -7,6 +7,13 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.69.0` adds hybrid evidence-package planning and execution contracts, including typed
+artifact plans for symbolic drafts, numerical illustrations, executable experiments, benchmarks,
+counterexample searches, retrieval novelty-risk checks, negative controls, and robustness sweeps.
+Hybrid packages preserve claim boundaries, require compatible evidence labels, source metrics only
+from sandbox artifacts, keep symbolic/proof artifacts draft-labeled unless checked, and create no
+real-world validation or publication readiness.
+
 Protocol `0.68.0` adds non-fake LLM experiment-code contracts, deterministic static safety audits,
 offline sandbox execution records, output-JSON-only metric extraction, bounded result labels, and
 read-only inspection. Generated code and failed executions cannot invent metrics, and these

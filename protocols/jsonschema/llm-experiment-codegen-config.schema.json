@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.68.0/llm-experiment-codegen-config.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/llm-experiment-codegen-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded strict configuration for non-fake LLM experiment-code generation.",
@@ -64,7 +64,7 @@
   ],
   "title": "LLMExperimentCodegenConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.LLMExperimentCodegenConfig",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "EvidenceArtifactType": {
+      "description": "Hybrid evidence-package artifact roles.",
+      "enum": [
+        "symbolic_reduction",
+        "symbolic_derivation",
+        "proof_plan",
+        "numerical_illustration",
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "literature_novelty_check",
+        "negative_control",
+        "robustness_sweep",
+        "defer_unavailable_checker",
+        "defer_insufficient_support",
+        "reject_false_bridge"
+      ],
+      "title": "EvidenceArtifactType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.69.0/evidence-artifact-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One planned support artifact inside a hybrid evidence package.",
+  "properties": {
+    "allowed_evidence_labels": {
+      "items": {
+        "enum": [
+          "SyntheticExperimentEvidence",
+          "BenchmarkEvidence",
+          "CounterexampleEvidence",
+          "SymbolicDerivationDraft",
+          "SymbolicReductionDraft",
+          "ProofPlanDraft",
+          "RetrievalNoveltyAssessment",
+          "NumericalIllustrationEvidence",
+          "NegativeControlEvidence",
+          "RobustnessSweepEvidence",
+          "NegativeResult",
+          "InconclusiveResult",
+          "UnsupportedRouteDeferred",
+          "RejectedFalseBridge"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Evidence Labels",
+      "type": "array"
+    },
+    "artifact_plan_id": {
+      "minLength": 1,
+      "title": "Artifact Plan Id",
+      "type": "string"
+    },
+    "artifact_type": {
+      "$ref": "#/$defs/EvidenceArtifactType"
+    },
+    "baseline_or_comparator_plan": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Baseline Or Comparator Plan",
+      "type": "array"
+    },
+    "checker_requirements_optional": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Checker Requirements Optional"
+    },
+    "claim_component_supported": {
+      "minLength": 1,
+      "title": "Claim Component Supported",
+      "type": "string"
+    },
+    "control_plan_optional": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Control Plan Optional"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "execution_backend_required": {
+      "minLength": 1,
+      "title": "Execution Backend Required",
+      "type": "string"
+    },
+    "failure_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Failure Criteria",
+      "type": "array"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "input_contract": {
+      "additionalProperties": true,
+      "title": "Input Contract",
+      "type": "object"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "metric_plan_optional": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Metric Plan Optional"
+    },
+    "negative_control_plan_optional": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Negative Control Plan Optional"
+    },
+    "output_contract": {
+      "additionalProperties": true,
+      "title": "Output Contract",
+      "type": "object"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "purpose": {
+      "minLength": 1,
+      "title": "Purpose",
+      "type": "string"
+    },
+    "requires_code_generation": {
+      "title": "Requires Code Generation",
+      "type": "boolean"
+    },
+    "requires_llm_drafting": {
+      "title": "Requires Llm Drafting",
+      "type": "boolean"
+    },
+    "requires_local_execution": {
+      "title": "Requires Local Execution",
+      "type": "boolean"
+    },
+    "requires_retrieval": {
+      "title": "Requires Retrieval",
+      "type": "boolean"
+    },
+    "requires_symbolic_checker": {
+      "title": "Requires Symbolic Checker",
+      "type": "boolean"
+    },
+    "retrieval_requirements_optional": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Requirements Optional"
+    },
+    "success_criteria": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Success Criteria",
+      "type": "array"
+    },
+    "symbolic_obligations_optional": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Symbolic Obligations Optional"
+    }
+  },
+  "required": [
+    "artifact_plan_id",
+    "artifact_type",
+    "purpose",
+    "claim_component_supported",
+    "input_contract",
+    "output_contract",
+    "execution_backend_required",
+    "requires_code_generation",
+    "requires_local_execution",
+    "requires_retrieval",
+    "requires_symbolic_checker",
+    "requires_llm_drafting",
+    "allowed_evidence_labels",
+    "forbidden_claims",
+    "success_criteria",
+    "failure_criteria"
+  ],
+  "title": "EvidenceArtifactPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.69.0",
+  "x-factori-source-model": "factori.schemas.EvidenceArtifactPlan",
+  "x-factori-verification-evidence": false
+}

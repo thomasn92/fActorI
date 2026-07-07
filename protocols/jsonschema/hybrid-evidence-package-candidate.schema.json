@@ -1,0 +1,468 @@
+{
+  "$defs": {
+    "EvidenceArtifactPlan": {
+      "additionalProperties": false,
+      "description": "One planned support artifact inside a hybrid evidence package.",
+      "properties": {
+        "allowed_evidence_labels": {
+          "items": {
+            "enum": [
+              "SyntheticExperimentEvidence",
+              "BenchmarkEvidence",
+              "CounterexampleEvidence",
+              "SymbolicDerivationDraft",
+              "SymbolicReductionDraft",
+              "ProofPlanDraft",
+              "RetrievalNoveltyAssessment",
+              "NumericalIllustrationEvidence",
+              "NegativeControlEvidence",
+              "RobustnessSweepEvidence",
+              "NegativeResult",
+              "InconclusiveResult",
+              "UnsupportedRouteDeferred",
+              "RejectedFalseBridge"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Evidence Labels",
+          "type": "array"
+        },
+        "artifact_plan_id": {
+          "minLength": 1,
+          "title": "Artifact Plan Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/EvidenceArtifactType"
+        },
+        "baseline_or_comparator_plan": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Baseline Or Comparator Plan",
+          "type": "array"
+        },
+        "checker_requirements_optional": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checker Requirements Optional"
+        },
+        "claim_component_supported": {
+          "minLength": 1,
+          "title": "Claim Component Supported",
+          "type": "string"
+        },
+        "control_plan_optional": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Control Plan Optional"
+        },
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "execution_backend_required": {
+          "minLength": 1,
+          "title": "Execution Backend Required",
+          "type": "string"
+        },
+        "failure_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Failure Criteria",
+          "type": "array"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "input_contract": {
+          "additionalProperties": true,
+          "title": "Input Contract",
+          "type": "object"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "metric_plan_optional": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metric Plan Optional"
+        },
+        "negative_control_plan_optional": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Negative Control Plan Optional"
+        },
+        "output_contract": {
+          "additionalProperties": true,
+          "title": "Output Contract",
+          "type": "object"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "purpose": {
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "requires_code_generation": {
+          "title": "Requires Code Generation",
+          "type": "boolean"
+        },
+        "requires_llm_drafting": {
+          "title": "Requires Llm Drafting",
+          "type": "boolean"
+        },
+        "requires_local_execution": {
+          "title": "Requires Local Execution",
+          "type": "boolean"
+        },
+        "requires_retrieval": {
+          "title": "Requires Retrieval",
+          "type": "boolean"
+        },
+        "requires_symbolic_checker": {
+          "title": "Requires Symbolic Checker",
+          "type": "boolean"
+        },
+        "retrieval_requirements_optional": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieval Requirements Optional"
+        },
+        "success_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Success Criteria",
+          "type": "array"
+        },
+        "symbolic_obligations_optional": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbolic Obligations Optional"
+        }
+      },
+      "required": [
+        "artifact_plan_id",
+        "artifact_type",
+        "purpose",
+        "claim_component_supported",
+        "input_contract",
+        "output_contract",
+        "execution_backend_required",
+        "requires_code_generation",
+        "requires_local_execution",
+        "requires_retrieval",
+        "requires_symbolic_checker",
+        "requires_llm_drafting",
+        "allowed_evidence_labels",
+        "forbidden_claims",
+        "success_criteria",
+        "failure_criteria"
+      ],
+      "title": "EvidenceArtifactPlan",
+      "type": "object"
+    },
+    "EvidenceArtifactType": {
+      "description": "Hybrid evidence-package artifact roles.",
+      "enum": [
+        "symbolic_reduction",
+        "symbolic_derivation",
+        "proof_plan",
+        "numerical_illustration",
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "literature_novelty_check",
+        "negative_control",
+        "robustness_sweep",
+        "defer_unavailable_checker",
+        "defer_insufficient_support",
+        "reject_false_bridge"
+      ],
+      "title": "EvidenceArtifactType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.69.0/hybrid-evidence-package-candidate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "LLM-authored hybrid evidence package for one selected scientific substrate.",
+  "properties": {
+    "allowed_claim_scope": {
+      "minLength": 1,
+      "title": "Allowed Claim Scope",
+      "type": "string"
+    },
+    "artifact_dependency_graph": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Artifact Dependency Graph",
+      "type": "object"
+    },
+    "artifact_plans": {
+      "items": {
+        "$ref": "#/$defs/EvidenceArtifactPlan"
+      },
+      "minItems": 1,
+      "title": "Artifact Plans",
+      "type": "array"
+    },
+    "claim_support_map": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Claim Support Map",
+      "type": "object"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creates_verified_theorem": {
+      "const": false,
+      "default": false,
+      "title": "Creates Verified Theorem",
+      "type": "boolean"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "known_gaps": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Known Gaps",
+      "type": "array"
+    },
+    "method_id": {
+      "minLength": 1,
+      "title": "Method Id",
+      "type": "string"
+    },
+    "minimum_required_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Minimum Required Artifacts",
+      "type": "array"
+    },
+    "novelty_proven": {
+      "const": false,
+      "default": false,
+      "title": "Novelty Proven",
+      "type": "boolean"
+    },
+    "optional_supporting_artifacts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Optional Supporting Artifacts",
+      "type": "array"
+    },
+    "package_id": {
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "package_rationale": {
+      "minLength": 1,
+      "title": "Package Rationale",
+      "type": "string"
+    },
+    "primary_claim_draft": {
+      "minLength": 1,
+      "title": "Primary Claim Draft",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_next_action": {
+      "minLength": 1,
+      "title": "Recommended Next Action",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_idea_node_id": {
+      "minLength": 1,
+      "title": "Source Idea Node Id",
+      "type": "string"
+    },
+    "source_opportunity_id": {
+      "minLength": 1,
+      "title": "Source Opportunity Id",
+      "type": "string"
+    },
+    "source_substrate_id": {
+      "minLength": 1,
+      "title": "Source Substrate Id",
+      "type": "string"
+    },
+    "source_variant_id": {
+      "minLength": 1,
+      "title": "Source Variant Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "unresolved_obligations": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Unresolved Obligations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "package_id",
+    "run_id",
+    "source_substrate_id",
+    "source_idea_node_id",
+    "source_variant_id",
+    "source_opportunity_id",
+    "domain_id",
+    "method_id",
+    "title",
+    "primary_claim_draft",
+    "allowed_claim_scope",
+    "package_rationale",
+    "artifact_plans",
+    "minimum_required_artifacts",
+    "known_gaps",
+    "unresolved_obligations",
+    "recommended_next_action"
+  ],
+  "title": "HybridEvidencePackageCandidate",
+  "type": "object",
+  "x-factori-protocol-version": "0.69.0",
+  "x-factori-source-model": "factori.schemas.HybridEvidencePackageCandidate",
+  "x-factori-verification-evidence": false
+}

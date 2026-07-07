@@ -191,6 +191,8 @@
         "code_safety_audit",
         "experiment_execution",
         "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
         "adjudication",
         "critic_review",
         "literature_retrieval",
@@ -276,7 +278,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.68.0/route-execution-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.69.0/route-execution-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Immutable deterministic execution specification for one branch route.",
@@ -291,6 +293,9 @@
           "SymbolicReductionDraft",
           "ProofPlanDraft",
           "RetrievalNoveltyAssessment",
+          "NumericalIllustrationEvidence",
+          "NegativeControlEvidence",
+          "RobustnessSweepEvidence",
           "NegativeResult",
           "InconclusiveResult",
           "UnsupportedRouteDeferred",
@@ -391,7 +396,7 @@
   ],
   "title": "RouteExecutionSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.68.0",
+  "x-factori-protocol-version": "0.69.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionSpec",
   "x-factori-verification-evidence": false
 }

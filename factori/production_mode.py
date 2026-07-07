@@ -67,6 +67,14 @@ _STAGE_FILES: tuple[tuple[re.Pattern[str], ScientificStageKind], ...] = (
         re.compile(r"^generated-experiment-execution-report-\d{4}\.json$"),
         ScientificStageKind.EXPERIMENT_EXECUTION,
     ),
+    (
+        re.compile(r"^hybrid-evidence-package-report-\d{4}\.json$"),
+        ScientificStageKind.HYBRID_EVIDENCE_PLANNING,
+    ),
+    (
+        re.compile(r"^evidence-package-execution-report-\d{4}\.json$"),
+        ScientificStageKind.EXPERIMENT_EXECUTION,
+    ),
     (re.compile(r"^route-execution-report-\d{4}\.json$"), ScientificStageKind.EXPERIMENT_EXECUTION),
 )
 
