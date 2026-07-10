@@ -1,0 +1,884 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "EvidencePackageAdjudicationDecision": {
+      "additionalProperties": false,
+      "description": "LLM adjudication disposition for one package after critic review.",
+      "properties": {
+        "allowed_claim_scope": {
+          "minLength": 1,
+          "title": "Allowed Claim Scope",
+          "type": "string"
+        },
+        "blocking_findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking Findings",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "decision": {
+          "$ref": "#/$defs/EvidencePackageDecision"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "package_id": {
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "rank": {
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "recommended_next_action": {
+          "minLength": 1,
+          "title": "Recommended Next Action",
+          "type": "string"
+        },
+        "required_repairs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Repairs",
+          "type": "array"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "supporting_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Artifact Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "package_id",
+        "decision",
+        "rank",
+        "role",
+        "reason",
+        "allowed_claim_scope",
+        "forbidden_claims",
+        "recommended_next_action"
+      ],
+      "title": "EvidencePackageAdjudicationDecision",
+      "type": "object"
+    },
+    "EvidencePackageAdjudicationScore": {
+      "additionalProperties": false,
+      "description": "Auditable score aggregation over critic judgments and execution metadata.",
+      "properties": {
+        "baseline_strength": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Baseline Strength",
+          "type": "number"
+        },
+        "complexity_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Complexity Penalty",
+          "type": "number"
+        },
+        "control_quality": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Control Quality",
+          "type": "number"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "effect_strength": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Effect Strength",
+          "type": "number"
+        },
+        "evidence_maturity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Evidence Maturity",
+          "type": "number"
+        },
+        "failure_mode_value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Failure Mode Value",
+          "type": "number"
+        },
+        "false_bridge_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "False Bridge Penalty",
+          "type": "number"
+        },
+        "final_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Final Score",
+          "type": "number"
+        },
+        "interpretability": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Interpretability",
+          "type": "number"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "novelty_potential": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Novelty Potential",
+          "type": "number"
+        },
+        "overclaim_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Overclaim Penalty",
+          "type": "number"
+        },
+        "package_id": {
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "paper_coherence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Paper Coherence",
+          "type": "number"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "retrieval_quality": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Retrieval Quality",
+          "type": "number"
+        },
+        "robustness_quality": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Robustness Quality",
+          "type": "number"
+        },
+        "scope_safety": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Scope Safety",
+          "type": "number"
+        },
+        "score_explanation": {
+          "minLength": 1,
+          "title": "Score Explanation",
+          "type": "string"
+        },
+        "symbolic_quality": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Symbolic Quality",
+          "type": "number"
+        },
+        "tautology_penalty": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tautology Penalty",
+          "type": "number"
+        },
+        "technical_plausibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Technical Plausibility",
+          "type": "number"
+        }
+      },
+      "required": [
+        "package_id",
+        "effect_strength",
+        "evidence_maturity",
+        "baseline_strength",
+        "control_quality",
+        "robustness_quality",
+        "symbolic_quality",
+        "retrieval_quality",
+        "failure_mode_value",
+        "novelty_potential",
+        "paper_coherence",
+        "technical_plausibility",
+        "interpretability",
+        "scope_safety",
+        "complexity_penalty",
+        "tautology_penalty",
+        "false_bridge_penalty",
+        "overclaim_penalty",
+        "final_score",
+        "score_explanation"
+      ],
+      "title": "EvidencePackageAdjudicationScore",
+      "type": "object"
+    },
+    "EvidencePackageDecision": {
+      "description": "Adjudication disposition for a hybrid evidence package.",
+      "enum": [
+        "primary_nucleus",
+        "supporting_package",
+        "appendix_package",
+        "negative_result_package",
+        "needs_repair",
+        "reject_weak_package",
+        "reject_false_bridge"
+      ],
+      "title": "EvidencePackageDecision",
+      "type": "string"
+    },
+    "PaperNucleusSelection": {
+      "additionalProperties": false,
+      "description": "Bounded primary-paper selection derived from package adjudication.",
+      "properties": {
+        "allowed_claim_scope": {
+          "minLength": 1,
+          "title": "Allowed Claim Scope",
+          "type": "string"
+        },
+        "appendix_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Appendix Package Ids",
+          "type": "array"
+        },
+        "central_claim_draft": {
+          "minLength": 1,
+          "title": "Central Claim Draft",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "implies_publication_readiness": {
+          "const": false,
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "negative_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Negative Package Ids",
+          "type": "array"
+        },
+        "primary_package_id": {
+          "minLength": 1,
+          "title": "Primary Package Id",
+          "type": "string"
+        },
+        "primary_substrate_id": {
+          "minLength": 1,
+          "title": "Primary Substrate Id",
+          "type": "string"
+        },
+        "primary_title": {
+          "minLength": 1,
+          "title": "Primary Title",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "rejected_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rejected Package Ids",
+          "type": "array"
+        },
+        "required_additional_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Additional Checks",
+          "type": "array"
+        },
+        "required_repairs_before_manuscript": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Repairs Before Manuscript",
+          "type": "array"
+        },
+        "supporting_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Package Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "primary_package_id",
+        "primary_substrate_id",
+        "primary_title",
+        "central_claim_draft",
+        "allowed_claim_scope",
+        "forbidden_claims"
+      ],
+      "title": "PaperNucleusSelection",
+      "type": "object"
+    },
+    "ScientificCriticFinding": {
+      "additionalProperties": false,
+      "description": "One bounded scientific-criticism observation about an evidence package.",
+      "properties": {
+        "affected_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Claims",
+          "type": "array"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "critic_role": {
+          "$ref": "#/$defs/ScientificCriticRole"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "finding_type": {
+          "$ref": "#/$defs/ScientificCriticFindingType"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "package_id": {
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "recommended_fix": {
+          "minLength": 1,
+          "title": "Recommended Fix",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/ScientificCriticFindingSeverity"
+        }
+      },
+      "required": [
+        "finding_id",
+        "critic_role",
+        "package_id",
+        "severity",
+        "finding_type",
+        "description",
+        "recommended_fix",
+        "blocking"
+      ],
+      "title": "ScientificCriticFinding",
+      "type": "object"
+    },
+    "ScientificCriticFindingSeverity": {
+      "description": "Severity for critic findings that constrain paper-nucleus selection.",
+      "enum": [
+        "info",
+        "warning",
+        "major",
+        "blocking"
+      ],
+      "title": "ScientificCriticFindingSeverity",
+      "type": "string"
+    },
+    "ScientificCriticFindingType": {
+      "description": "Bounded failure modes and positive observations for package criticism.",
+      "enum": [
+        "weak_baseline",
+        "missing_baseline",
+        "tautological_result",
+        "rigged_dgp",
+        "negative_control_failed",
+        "robustness_missing",
+        "false_bridge",
+        "decorative_method_usage",
+        "overclaim",
+        "novelty_overstated",
+        "proof_overstated",
+        "real_world_validation_overstated",
+        "incoherent_package",
+        "insufficient_evidence",
+        "strong_package",
+        "interesting_failure_mode"
+      ],
+      "title": "ScientificCriticFindingType",
+      "type": "string"
+    },
+    "ScientificCriticReview": {
+      "additionalProperties": false,
+      "description": "One LLM critic-role review; context and judgment only, never evidence.",
+      "properties": {
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "critic_role": {
+          "$ref": "#/$defs/ScientificCriticRole"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ScientificCriticFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "package_id": {
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "recommended_decision": {
+          "$ref": "#/$defs/EvidencePackageDecision"
+        },
+        "review_id": {
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "score_delta": {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Score Delta",
+          "type": "number"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "review_id",
+        "run_id",
+        "package_id",
+        "critic_role",
+        "backend_kind",
+        "summary",
+        "score_delta",
+        "recommended_decision"
+      ],
+      "title": "ScientificCriticReview",
+      "type": "object"
+    },
+    "ScientificCriticRole": {
+      "description": "Independent scientific-criticism perspectives for hybrid evidence packages.",
+      "enum": [
+        "baseline_adversary",
+        "tautology_adversary",
+        "dgp_rigging_adversary",
+        "false_bridge_adversary",
+        "claim_scope_adversary",
+        "novelty_risk_adversary",
+        "paper_coherence_reviewer",
+        "technical_soundness_reviewer"
+      ],
+      "title": "ScientificCriticRole",
+      "type": "string"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "substrate_selection",
+        "branch_routing",
+        "experiment_design",
+        "spec_validation",
+        "experiment_code_generation",
+        "code_safety_audit",
+        "experiment_execution",
+        "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
+        "adjudication",
+        "adjudication_score_aggregation",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_synthesis",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.70.0/cross-package-adjudication-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only scientific critic ensemble and cross-package adjudication report.",
+  "properties": {
+    "adjudicated_package_count": {
+      "minimum": 0,
+      "title": "Adjudicated Package Count",
+      "type": "integer"
+    },
+    "adjudication_status": {
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "blocked",
+        "failed"
+      ],
+      "title": "Adjudication Status",
+      "type": "string"
+    },
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "blocking_finding_count": {
+      "minimum": 0,
+      "title": "Blocking Finding Count",
+      "type": "integer"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_review_count": {
+      "minimum": 0,
+      "title": "Critic Review Count",
+      "type": "integer"
+    },
+    "decisions": {
+      "items": {
+        "$ref": "#/$defs/EvidencePackageAdjudicationDecision"
+      },
+      "title": "Decisions",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "package_rankings": {
+      "items": {
+        "$ref": "#/$defs/EvidencePackageAdjudicationScore"
+      },
+      "title": "Package Rankings",
+      "type": "array"
+    },
+    "paper_nucleus_selection_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PaperNucleusSelection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "production_ready": {
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "raw_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Raw Artifact Paths",
+      "type": "array"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "reviews": {
+      "items": {
+        "$ref": "#/$defs/ScientificCriticReview"
+      },
+      "title": "Reviews",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_execution_report_path": {
+      "minLength": 1,
+      "title": "Source Execution Report Path",
+      "type": "string"
+    },
+    "source_package_report_path": {
+      "minLength": 1,
+      "title": "Source Package Report Path",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "report_id",
+    "adjudication_status",
+    "source_package_report_path",
+    "source_execution_report_path",
+    "critic_review_count",
+    "adjudicated_package_count",
+    "blocking_finding_count",
+    "production_ready"
+  ],
+  "title": "CrossPackageAdjudicationReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.CrossPackageAdjudicationReport",
+  "x-factori-verification-evidence": false
+}

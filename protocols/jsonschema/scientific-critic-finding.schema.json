@@ -1,0 +1,132 @@
+{
+  "$defs": {
+    "ScientificCriticFindingSeverity": {
+      "description": "Severity for critic findings that constrain paper-nucleus selection.",
+      "enum": [
+        "info",
+        "warning",
+        "major",
+        "blocking"
+      ],
+      "title": "ScientificCriticFindingSeverity",
+      "type": "string"
+    },
+    "ScientificCriticFindingType": {
+      "description": "Bounded failure modes and positive observations for package criticism.",
+      "enum": [
+        "weak_baseline",
+        "missing_baseline",
+        "tautological_result",
+        "rigged_dgp",
+        "negative_control_failed",
+        "robustness_missing",
+        "false_bridge",
+        "decorative_method_usage",
+        "overclaim",
+        "novelty_overstated",
+        "proof_overstated",
+        "real_world_validation_overstated",
+        "incoherent_package",
+        "insufficient_evidence",
+        "strong_package",
+        "interesting_failure_mode"
+      ],
+      "title": "ScientificCriticFindingType",
+      "type": "string"
+    },
+    "ScientificCriticRole": {
+      "description": "Independent scientific-criticism perspectives for hybrid evidence packages.",
+      "enum": [
+        "baseline_adversary",
+        "tautology_adversary",
+        "dgp_rigging_adversary",
+        "false_bridge_adversary",
+        "claim_scope_adversary",
+        "novelty_risk_adversary",
+        "paper_coherence_reviewer",
+        "technical_soundness_reviewer"
+      ],
+      "title": "ScientificCriticRole",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.70.0/scientific-critic-finding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One bounded LLM critic observation about an evidence package.",
+  "properties": {
+    "affected_claims": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Affected Claims",
+      "type": "array"
+    },
+    "blocking": {
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_role": {
+      "$ref": "#/$defs/ScientificCriticRole"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "finding_id": {
+      "minLength": 1,
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "finding_type": {
+      "$ref": "#/$defs/ScientificCriticFindingType"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "package_id": {
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_fix": {
+      "minLength": 1,
+      "title": "Recommended Fix",
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/ScientificCriticFindingSeverity"
+    }
+  },
+  "required": [
+    "finding_id",
+    "critic_role",
+    "package_id",
+    "severity",
+    "finding_type",
+    "description",
+    "recommended_fix",
+    "blocking"
+  ],
+  "title": "ScientificCriticFinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.ScientificCriticFinding",
+  "x-factori-verification-evidence": false
+}

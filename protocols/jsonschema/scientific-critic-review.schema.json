@@ -1,0 +1,248 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "EvidencePackageDecision": {
+      "description": "Adjudication disposition for a hybrid evidence package.",
+      "enum": [
+        "primary_nucleus",
+        "supporting_package",
+        "appendix_package",
+        "negative_result_package",
+        "needs_repair",
+        "reject_weak_package",
+        "reject_false_bridge"
+      ],
+      "title": "EvidencePackageDecision",
+      "type": "string"
+    },
+    "ScientificCriticFinding": {
+      "additionalProperties": false,
+      "description": "One bounded scientific-criticism observation about an evidence package.",
+      "properties": {
+        "affected_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Claims",
+          "type": "array"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "critic_role": {
+          "$ref": "#/$defs/ScientificCriticRole"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "finding_type": {
+          "$ref": "#/$defs/ScientificCriticFindingType"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "package_id": {
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "recommended_fix": {
+          "minLength": 1,
+          "title": "Recommended Fix",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/ScientificCriticFindingSeverity"
+        }
+      },
+      "required": [
+        "finding_id",
+        "critic_role",
+        "package_id",
+        "severity",
+        "finding_type",
+        "description",
+        "recommended_fix",
+        "blocking"
+      ],
+      "title": "ScientificCriticFinding",
+      "type": "object"
+    },
+    "ScientificCriticFindingSeverity": {
+      "description": "Severity for critic findings that constrain paper-nucleus selection.",
+      "enum": [
+        "info",
+        "warning",
+        "major",
+        "blocking"
+      ],
+      "title": "ScientificCriticFindingSeverity",
+      "type": "string"
+    },
+    "ScientificCriticFindingType": {
+      "description": "Bounded failure modes and positive observations for package criticism.",
+      "enum": [
+        "weak_baseline",
+        "missing_baseline",
+        "tautological_result",
+        "rigged_dgp",
+        "negative_control_failed",
+        "robustness_missing",
+        "false_bridge",
+        "decorative_method_usage",
+        "overclaim",
+        "novelty_overstated",
+        "proof_overstated",
+        "real_world_validation_overstated",
+        "incoherent_package",
+        "insufficient_evidence",
+        "strong_package",
+        "interesting_failure_mode"
+      ],
+      "title": "ScientificCriticFindingType",
+      "type": "string"
+    },
+    "ScientificCriticRole": {
+      "description": "Independent scientific-criticism perspectives for hybrid evidence packages.",
+      "enum": [
+        "baseline_adversary",
+        "tautology_adversary",
+        "dgp_rigging_adversary",
+        "false_bridge_adversary",
+        "claim_scope_adversary",
+        "novelty_risk_adversary",
+        "paper_coherence_reviewer",
+        "technical_soundness_reviewer"
+      ],
+      "title": "ScientificCriticRole",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.70.0/scientific-critic-review.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One scientific-critic role review; judgment context only.",
+  "properties": {
+    "backend_kind": {
+      "$ref": "#/$defs/BackendKind"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_role": {
+      "$ref": "#/$defs/ScientificCriticRole"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/ScientificCriticFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "package_id": {
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_decision": {
+      "$ref": "#/$defs/EvidencePackageDecision"
+    },
+    "review_id": {
+      "minLength": 1,
+      "title": "Review Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "score_delta": {
+      "maximum": 1.0,
+      "minimum": -1.0,
+      "title": "Score Delta",
+      "type": "number"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "review_id",
+    "run_id",
+    "package_id",
+    "critic_role",
+    "backend_kind",
+    "summary",
+    "score_delta",
+    "recommended_decision"
+  ],
+  "title": "ScientificCriticReview",
+  "type": "object",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.ScientificCriticReview",
+  "x-factori-verification-evidence": false
+}

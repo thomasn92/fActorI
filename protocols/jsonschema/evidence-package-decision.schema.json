@@ -1,0 +1,19 @@
+{
+  "$id": "https://schemas.factori.local/0.70.0/evidence-package-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Cross-package adjudication disposition for one hybrid evidence package.",
+  "enum": [
+    "primary_nucleus",
+    "supporting_package",
+    "appendix_package",
+    "negative_result_package",
+    "needs_repair",
+    "reject_weak_package",
+    "reject_false_bridge"
+  ],
+  "title": "EvidencePackageDecision",
+  "type": "string",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.EvidencePackageDecision",
+  "x-factori-verification-evidence": false
+}

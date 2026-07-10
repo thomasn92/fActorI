@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "EvidencePackageDecision": {
+      "description": "Adjudication disposition for a hybrid evidence package.",
+      "enum": [
+        "primary_nucleus",
+        "supporting_package",
+        "appendix_package",
+        "negative_result_package",
+        "needs_repair",
+        "reject_weak_package",
+        "reject_false_bridge"
+      ],
+      "title": "EvidencePackageDecision",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.70.0/evidence-package-adjudication-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "LLM adjudication disposition for one hybrid evidence package.",
+  "properties": {
+    "allowed_claim_scope": {
+      "minLength": 1,
+      "title": "Allowed Claim Scope",
+      "type": "string"
+    },
+    "blocking_findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Findings",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "decision": {
+      "$ref": "#/$defs/EvidencePackageDecision"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "package_id": {
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rank": {
+      "minimum": 1,
+      "title": "Rank",
+      "type": "integer"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "recommended_next_action": {
+      "minLength": 1,
+      "title": "Recommended Next Action",
+      "type": "string"
+    },
+    "required_repairs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Repairs",
+      "type": "array"
+    },
+    "role": {
+      "minLength": 1,
+      "title": "Role",
+      "type": "string"
+    },
+    "supporting_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Artifact Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "package_id",
+    "decision",
+    "rank",
+    "role",
+    "reason",
+    "allowed_claim_scope",
+    "forbidden_claims",
+    "recommended_next_action"
+  ],
+  "title": "EvidencePackageAdjudicationDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.EvidencePackageAdjudicationDecision",
+  "x-factori-verification-evidence": false
+}

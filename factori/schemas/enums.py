@@ -392,6 +392,8 @@ class ControllerActionType(StrEnum):
     GENERATED_EXPERIMENT_EXECUTION_WRITTEN = "GeneratedExperimentExecutionWritten"
     HYBRID_EVIDENCE_PACKAGES_PLANNED = "HybridEvidencePackagesPlanned"
     HYBRID_EVIDENCE_PACKAGES_EXECUTED = "HybridEvidencePackagesExecuted"
+    SCIENTIFIC_CRITIC_REVIEWS_WRITTEN = "ScientificCriticReviewsWritten"
+    CROSS_PACKAGE_ADJUDICATION_WRITTEN = "CrossPackageAdjudicationWritten"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -485,12 +487,68 @@ class ScientificStageKind(StrEnum):
     HYBRID_EVIDENCE_PLANNING = "hybrid_evidence_planning"
     SYMBOLIC_DERIVATION = "symbolic_derivation"
     ADJUDICATION = "adjudication"
+    ADJUDICATION_SCORE_AGGREGATION = "adjudication_score_aggregation"
     CRITIC_REVIEW = "critic_review"
     LITERATURE_RETRIEVAL = "literature_retrieval"
     NOVELTY_ASSESSMENT = "novelty_assessment"
     MANUSCRIPT_SYNTHESIS = "manuscript_synthesis"
     CLAIM_AUDIT = "claim_audit"
     BUNDLE_VERIFICATION = "bundle_verification"
+
+
+class ScientificCriticRole(StrEnum):
+    """Independent scientific-criticism perspectives for hybrid evidence packages."""
+
+    BASELINE_ADVERSARY = "baseline_adversary"
+    TAUTOLOGY_ADVERSARY = "tautology_adversary"
+    DGP_RIGGING_ADVERSARY = "dgp_rigging_adversary"
+    FALSE_BRIDGE_ADVERSARY = "false_bridge_adversary"
+    CLAIM_SCOPE_ADVERSARY = "claim_scope_adversary"
+    NOVELTY_RISK_ADVERSARY = "novelty_risk_adversary"
+    PAPER_COHERENCE_REVIEWER = "paper_coherence_reviewer"
+    TECHNICAL_SOUNDNESS_REVIEWER = "technical_soundness_reviewer"
+
+
+class ScientificCriticFindingSeverity(StrEnum):
+    """Severity for critic findings that constrain paper-nucleus selection."""
+
+    INFO = "info"
+    WARNING = "warning"
+    MAJOR = "major"
+    BLOCKING = "blocking"
+
+
+class ScientificCriticFindingType(StrEnum):
+    """Bounded failure modes and positive observations for package criticism."""
+
+    WEAK_BASELINE = "weak_baseline"
+    MISSING_BASELINE = "missing_baseline"
+    TAUTOLOGICAL_RESULT = "tautological_result"
+    RIGGED_DGP = "rigged_dgp"
+    NEGATIVE_CONTROL_FAILED = "negative_control_failed"
+    ROBUSTNESS_MISSING = "robustness_missing"
+    FALSE_BRIDGE = "false_bridge"
+    DECORATIVE_METHOD_USAGE = "decorative_method_usage"
+    OVERCLAIM = "overclaim"
+    NOVELTY_OVERSTATED = "novelty_overstated"
+    PROOF_OVERSTATED = "proof_overstated"
+    REAL_WORLD_VALIDATION_OVERSTATED = "real_world_validation_overstated"
+    INCOHERENT_PACKAGE = "incoherent_package"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    STRONG_PACKAGE = "strong_package"
+    INTERESTING_FAILURE_MODE = "interesting_failure_mode"
+
+
+class EvidencePackageDecision(StrEnum):
+    """Adjudication disposition for a hybrid evidence package."""
+
+    PRIMARY_NUCLEUS = "primary_nucleus"
+    SUPPORTING_PACKAGE = "supporting_package"
+    APPENDIX_PACKAGE = "appendix_package"
+    NEGATIVE_RESULT_PACKAGE = "negative_result_package"
+    NEEDS_REPAIR = "needs_repair"
+    REJECT_WEAK_PACKAGE = "reject_weak_package"
+    REJECT_FALSE_BRIDGE = "reject_false_bridge"
 
 
 class CreativeMutationOperator(StrEnum):

@@ -450,6 +450,14 @@ reductions, derivations, and proof plans are LLM-authored drafts with explicit u
 obligations and `checker_status=not_checked`; retrieval novelty checks report overlap and
 novelty-risk context only, with `novelty_proven=false`.
 
+M104 applies an independent LLM scientific-critic ensemble to complete hybrid evidence packages,
+then asks a separately recorded LLM adjudicator to select at most one bounded paper nucleus. Local
+code aggregates only persisted execution status and critic deltas, while blocking baseline,
+false-bridge, overclaim, negative-control, symbolic-only, and missing-execution conditions are
+enforced before selection. These reports are judgment and manuscript-planning context only: they
+cannot create evidence, proof verification, novelty proof, real-world validation, or publication
+readiness.
+
 ## Narrative Paper Shape Boundary
 
 The manuscript-quality layer checks whether the planned paper has a central message, problem

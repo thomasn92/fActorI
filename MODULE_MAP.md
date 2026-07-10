@@ -328,6 +328,11 @@ All implementation modules are under `factori/`.
   typed artifact-plan validation, safe execution of code-backed package components through the
   M102 sandbox path, draft-only symbolic/proof/retrieval outputs, append-only reports, strict
   production records, and read-only inspection.
+- `adapters/scientific_critic.py`: gated OpenAI structured-output adapter for role-scoped package
+  criticism and cross-package paper-nucleus adjudication, with no deterministic fallback.
+- `evidence_package_adjudication.py`: append-only M104 critic reports, blocking-finding gates,
+  local metadata/critic-delta score aggregation, bounded primary/supporting/appendix/reject
+  decisions, production records, and read-only inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

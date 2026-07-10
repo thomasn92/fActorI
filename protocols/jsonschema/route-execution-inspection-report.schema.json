@@ -648,6 +648,7 @@
         "hybrid_evidence_planning",
         "symbolic_derivation",
         "adjudication",
+        "adjudication_score_aggregation",
         "critic_review",
         "literature_retrieval",
         "novelty_assessment",
@@ -732,7 +733,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.69.0/route-execution-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/route-execution-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for latest route execution state.",
@@ -885,7 +886,7 @@
   ],
   "title": "RouteExecutionInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionInspectionReport",
   "x-factori-verification-evidence": false
 }

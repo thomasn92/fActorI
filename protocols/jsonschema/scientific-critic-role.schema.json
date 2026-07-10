@@ -1,0 +1,20 @@
+{
+  "$id": "https://schemas.factori.local/0.70.0/scientific-critic-role.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Independent scientific-criticism perspective for one evidence package.",
+  "enum": [
+    "baseline_adversary",
+    "tautology_adversary",
+    "dgp_rigging_adversary",
+    "false_bridge_adversary",
+    "claim_scope_adversary",
+    "novelty_risk_adversary",
+    "paper_coherence_reviewer",
+    "technical_soundness_reviewer"
+  ],
+  "title": "ScientificCriticRole",
+  "type": "string",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.ScientificCriticRole",
+  "x-factori-verification-evidence": false
+}

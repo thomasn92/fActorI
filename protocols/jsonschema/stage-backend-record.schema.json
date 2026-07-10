@@ -40,6 +40,7 @@
         "hybrid_evidence_planning",
         "symbolic_derivation",
         "adjudication",
+        "adjudication_score_aggregation",
         "critic_review",
         "literature_retrieval",
         "novelty_assessment",
@@ -51,7 +52,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.69.0/stage-backend-record.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/stage-backend-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Explicit backend authority record for one pipeline stage.",
@@ -124,7 +125,7 @@
   ],
   "title": "StageBackendRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.StageBackendRecord",
   "x-factori-verification-evidence": false
 }

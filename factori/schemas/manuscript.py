@@ -17,6 +17,7 @@ from factori.schemas.enums import (
     CreativeMutationOperator,
     CreativeSearchStopReason,
     EvidenceArtifactType,
+    EvidencePackageDecision,
     FinalNucleusType,
     FullPaperGenerationStatus,
     FullPaperGenerationStepStatus,
@@ -30,6 +31,9 @@ from factori.schemas.enums import (
     PaperShapeStatus,
     RerunPolicy,
     RouteExecutionStatus,
+    ScientificCriticFindingSeverity,
+    ScientificCriticFindingType,
+    ScientificCriticRole,
     ScientificStageKind,
     VerificationLabel,
 )
@@ -1696,6 +1700,179 @@ class EvidencePackageExecutionInspectionReport(StrictModel):
     creates_scientific_validation: Literal[False] = False
     creates_real_world_validation: Literal[False] = False
     novelty_proven: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ScientificCriticFinding(StrictModel):
+    """One bounded scientific-criticism observation about an evidence package."""
+
+    finding_id: str = Field(min_length=1)
+    critic_role: ScientificCriticRole
+    package_id: str = Field(min_length=1)
+    severity: ScientificCriticFindingSeverity
+    finding_type: ScientificCriticFindingType
+    description: str = Field(min_length=1)
+    affected_claims: list[str] = Field(default_factory=list)
+    recommended_fix: str = Field(min_length=1)
+    blocking: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ScientificCriticReview(StrictModel):
+    """One LLM critic-role review; context and judgment only, never evidence."""
+
+    review_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    package_id: str = Field(min_length=1)
+    critic_role: ScientificCriticRole
+    backend_kind: BackendKind
+    summary: str = Field(min_length=1)
+    findings: list[ScientificCriticFinding] = Field(default_factory=list)
+    score_delta: float = Field(ge=-1.0, le=1.0)
+    recommended_decision: EvidencePackageDecision
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class EvidencePackageAdjudicationScore(StrictModel):
+    """Auditable score aggregation over critic judgments and execution metadata."""
+
+    package_id: str = Field(min_length=1)
+    effect_strength: float = Field(ge=0.0, le=1.0)
+    evidence_maturity: float = Field(ge=0.0, le=1.0)
+    baseline_strength: float = Field(ge=0.0, le=1.0)
+    control_quality: float = Field(ge=0.0, le=1.0)
+    robustness_quality: float = Field(ge=0.0, le=1.0)
+    symbolic_quality: float = Field(ge=0.0, le=1.0)
+    retrieval_quality: float = Field(ge=0.0, le=1.0)
+    failure_mode_value: float = Field(ge=0.0, le=1.0)
+    novelty_potential: float = Field(ge=0.0, le=1.0)
+    paper_coherence: float = Field(ge=0.0, le=1.0)
+    technical_plausibility: float = Field(ge=0.0, le=1.0)
+    interpretability: float = Field(ge=0.0, le=1.0)
+    scope_safety: float = Field(ge=0.0, le=1.0)
+    complexity_penalty: float = Field(ge=0.0, le=1.0)
+    tautology_penalty: float = Field(ge=0.0, le=1.0)
+    false_bridge_penalty: float = Field(ge=0.0, le=1.0)
+    overclaim_penalty: float = Field(ge=0.0, le=1.0)
+    final_score: float = Field(ge=0.0, le=1.0)
+    score_explanation: str = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class EvidencePackageAdjudicationDecision(StrictModel):
+    """LLM adjudication disposition for one package after critic review."""
+
+    package_id: str = Field(min_length=1)
+    decision: EvidencePackageDecision
+    rank: int = Field(ge=1)
+    role: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    required_repairs: list[str] = Field(default_factory=list)
+    allowed_claim_scope: str = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    supporting_artifact_ids: list[str] = Field(default_factory=list)
+    blocking_findings: list[str] = Field(default_factory=list)
+    recommended_next_action: str = Field(min_length=1)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class PaperNucleusSelection(StrictModel):
+    """Bounded primary-paper selection derived from package adjudication."""
+
+    primary_package_id: str = Field(min_length=1)
+    primary_substrate_id: str = Field(min_length=1)
+    primary_title: str = Field(min_length=1)
+    central_claim_draft: str = Field(min_length=1)
+    allowed_claim_scope: str = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    supporting_package_ids: list[str] = Field(default_factory=list)
+    appendix_package_ids: list[str] = Field(default_factory=list)
+    negative_package_ids: list[str] = Field(default_factory=list)
+    rejected_package_ids: list[str] = Field(default_factory=list)
+    required_repairs_before_manuscript: list[str] = Field(default_factory=list)
+    required_additional_checks: list[str] = Field(default_factory=list)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ScientificCriticRawArtifact(StrictModel):
+    """Secret-free prompt/response provenance for one critic or adjudicator LLM call."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    operation: Literal["critic_review", "cross_package_adjudication"]
+    package_id_optional: str | None = None
+    critic_role_optional: ScientificCriticRole | None = None
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+    raw_response: dict[str, Any]
+    accepted_id_optional: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class CrossPackageAdjudicationReport(StrictModel):
+    """Append-only critic-ensemble and paper-nucleus adjudication report."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    adjudication_status: Literal["completed", "completed_with_warnings", "blocked", "failed"]
+    source_package_report_path: str = Field(min_length=1)
+    source_execution_report_path: str = Field(min_length=1)
+    critic_review_count: int = Field(ge=0)
+    adjudicated_package_count: int = Field(ge=0)
+    blocking_finding_count: int = Field(ge=0)
+    reviews: list[ScientificCriticReview] = Field(default_factory=list)
+    package_rankings: list[EvidencePackageAdjudicationScore] = Field(default_factory=list)
+    decisions: list[EvidencePackageAdjudicationDecision] = Field(default_factory=list)
+    paper_nucleus_selection_optional: PaperNucleusSelection | None = None
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class CrossPackageAdjudicationInspectionReport(StrictModel):
+    """Read-only view of the latest cross-package critic/adjudication report."""
+
+    run_id: str = Field(min_length=1)
+    package_adjudication_present: bool
+    latest_report_id_optional: str | None = None
+    adjudication_status_optional: str | None = None
+    critic_review_count: int = Field(default=0, ge=0)
+    adjudicated_package_count: int = Field(default=0, ge=0)
+    blocking_finding_count: int = Field(default=0, ge=0)
+    primary_nucleus_selected: bool = False
+    paper_nucleus_selection_optional: PaperNucleusSelection | None = None
+    reviews: list[ScientificCriticReview] = Field(default_factory=list)
+    package_rankings: list[EvidencePackageAdjudicationScore] = Field(default_factory=list)
+    decisions: list[EvidencePackageAdjudicationDecision] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
     is_verification_evidence: Literal[False] = False
 
 

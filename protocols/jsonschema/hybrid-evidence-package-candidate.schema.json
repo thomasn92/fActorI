@@ -269,7 +269,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.69.0/hybrid-evidence-package-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/hybrid-evidence-package-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "LLM-authored hybrid evidence package for one selected scientific substrate.",
@@ -462,7 +462,7 @@
   ],
   "title": "HybridEvidencePackageCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.HybridEvidencePackageCandidate",
   "x-factori-verification-evidence": false
 }

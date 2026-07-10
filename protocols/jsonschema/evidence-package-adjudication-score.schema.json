@@ -1,0 +1,171 @@
+{
+  "$id": "https://schemas.factori.local/0.70.0/evidence-package-adjudication-score.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Auditable local aggregation over execution metadata and critic reviews.",
+  "properties": {
+    "baseline_strength": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Baseline Strength",
+      "type": "number"
+    },
+    "complexity_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Complexity Penalty",
+      "type": "number"
+    },
+    "control_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Control Quality",
+      "type": "number"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "effect_strength": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Effect Strength",
+      "type": "number"
+    },
+    "evidence_maturity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Evidence Maturity",
+      "type": "number"
+    },
+    "failure_mode_value": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Failure Mode Value",
+      "type": "number"
+    },
+    "false_bridge_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "False Bridge Penalty",
+      "type": "number"
+    },
+    "final_score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Final Score",
+      "type": "number"
+    },
+    "interpretability": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Interpretability",
+      "type": "number"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "novelty_potential": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Novelty Potential",
+      "type": "number"
+    },
+    "overclaim_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Overclaim Penalty",
+      "type": "number"
+    },
+    "package_id": {
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "paper_coherence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Paper Coherence",
+      "type": "number"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "retrieval_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Retrieval Quality",
+      "type": "number"
+    },
+    "robustness_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Robustness Quality",
+      "type": "number"
+    },
+    "scope_safety": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Scope Safety",
+      "type": "number"
+    },
+    "score_explanation": {
+      "minLength": 1,
+      "title": "Score Explanation",
+      "type": "string"
+    },
+    "symbolic_quality": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Symbolic Quality",
+      "type": "number"
+    },
+    "tautology_penalty": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Tautology Penalty",
+      "type": "number"
+    },
+    "technical_plausibility": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Technical Plausibility",
+      "type": "number"
+    }
+  },
+  "required": [
+    "package_id",
+    "effect_strength",
+    "evidence_maturity",
+    "baseline_strength",
+    "control_quality",
+    "robustness_quality",
+    "symbolic_quality",
+    "retrieval_quality",
+    "failure_mode_value",
+    "novelty_potential",
+    "paper_coherence",
+    "technical_plausibility",
+    "interpretability",
+    "scope_safety",
+    "complexity_penalty",
+    "tautology_penalty",
+    "false_bridge_penalty",
+    "overclaim_penalty",
+    "final_score",
+    "score_explanation"
+  ],
+  "title": "EvidencePackageAdjudicationScore",
+  "type": "object",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.EvidencePackageAdjudicationScore",
+  "x-factori-verification-evidence": false
+}

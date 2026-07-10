@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.69.0/experiment-code-safety-audit.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/experiment-code-safety-audit.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic static safety audit for one generated experiment script.",
@@ -106,7 +106,7 @@
   ],
   "title": "ExperimentCodeSafetyAudit",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.ExperimentCodeSafetyAudit",
   "x-factori-verification-evidence": false
 }

@@ -145,6 +145,11 @@ completed run from disk and checks consistency without changing provenance.
   robustness sweeps in one bounded package. Executable components reuse the safe codegen/sandbox
   path; symbolic/proof components remain draft-labeled unless checked; retrieval novelty remains a
   risk assessment, not a proof of novelty.
+- schema-constrained non-fake scientific criticism and cross-package adjudication over complete
+  hybrid evidence packages, with independent baseline, tautology, DGP-rigging, false-bridge,
+  claim-scope, novelty-risk, coherence, and technical-soundness roles; local score aggregation and
+  fail-closed primary-nucleus gates preserve all evidence boundaries and never create metrics,
+  proof verification, novelty proof, real-world validation, or publication readiness.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

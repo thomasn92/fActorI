@@ -66,6 +66,15 @@ from factori.adapters.llm_variance import (
     build_llm_variance_prompt,
     parse_variance_items,
 )
+from factori.adapters.scientific_critic import (
+    AdjudicationDecisionProposal,
+    CriticFindingProposal,
+    CriticReviewProposal,
+    CrossPackageAdjudicationProposal,
+    CrossPackageAdjudicationResponse,
+    PaperNucleusProposal,
+    ScientificCriticResponse,
+)
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
     build_autonomous_evidence_gap_plan,
@@ -154,6 +163,12 @@ from factori.evidence_artifact_intake import (
 from factori.evidence_aware_refresh import (
     EvidenceAwareRefreshError,
     refresh_evidence_aware_manuscript,
+)
+from factori.evidence_package_adjudication import (
+    EvidencePackageAdjudicationError,
+    adjudicate_evidence_packages,
+    critique_evidence_packages,
+    inspect_package_adjudication,
 )
 from factori.experiment_template_routing import (
     build_default_experiment_template_registry,
@@ -328,6 +343,8 @@ from factori.schemas import (
     CreativeSearchInspectionReport,
     CreativeSearchLineageEntry,
     CreativeSearchStopReason,
+    CrossPackageAdjudicationInspectionReport,
+    CrossPackageAdjudicationReport,
     DeepOpportunityCandidate,
     DeepOpportunityDiscoveryConfig,
     DeepOpportunityDiscoveryInspectionReport,
@@ -339,6 +356,9 @@ from factori.schemas import (
     EvidenceArtifactPlan,
     EvidenceArtifactType,
     EvidenceAwareRefreshReport,
+    EvidencePackageAdjudicationDecision,
+    EvidencePackageAdjudicationScore,
+    EvidencePackageDecision,
     EvidencePackageExecutionInspectionReport,
     EvidencePackageExecutionReport,
     EvidencePackageExecutionResult,
@@ -442,6 +462,7 @@ from factori.schemas import (
     OpportunityDiscoveryReport,
     OpportunityScoreBreakdown,
     OpportunitySeedConstraint,
+    PaperNucleusSelection,
     PipelineRunConfig,
     PipelineStage,
     PlannedExperimentSpec,
@@ -470,6 +491,12 @@ from factori.schemas import (
     SandboxBudgetReport,
     SandboxExecutionConfig,
     SandboxExecutionResult,
+    ScientificCriticFinding,
+    ScientificCriticFindingSeverity,
+    ScientificCriticFindingType,
+    ScientificCriticRawArtifact,
+    ScientificCriticReview,
+    ScientificCriticRole,
     ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
@@ -1359,6 +1386,184 @@ class MockHybridEvidencePlanner:
         )
 
 
+class MockScientificCritic:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-scientific-critic-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self, *, block_primary: bool = False) -> None:
+        self.block_primary = block_primary
+        self.review_calls: list[tuple[str, ScientificCriticRole]] = []
+        self.package_ids: list[str] = []
+        self.adjudication_calls = 0
+
+    def critique_package(
+        self,
+        *,
+        prompt_id,
+        critic_role,
+        package_payload,
+        execution_payload,
+    ):
+        package_id = package_payload["package_id"]
+        self.review_calls.append((package_id, critic_role))
+        if package_id not in self.package_ids:
+            self.package_ids.append(package_id)
+        package_index = self.package_ids.index(package_id)
+        findings = []
+        if critic_role == ScientificCriticRole.BASELINE_ADVERSARY and (
+            package_index == 1 or (self.block_primary and package_index == 0)
+        ):
+            findings.append(
+                CriticFindingProposal(
+                    severity=ScientificCriticFindingSeverity.BLOCKING,
+                    finding_type=ScientificCriticFindingType.WEAK_BASELINE,
+                    description="The declared comparator is too weak for a primary claim.",
+                    affected_claims=["bounded_claim"],
+                    recommended_fix="Add a stronger comparator before synthesis.",
+                    blocking=True,
+                )
+            )
+        if critic_role == ScientificCriticRole.FALSE_BRIDGE_ADVERSARY and package_index == 2:
+            findings.append(
+                CriticFindingProposal(
+                    severity=ScientificCriticFindingSeverity.BLOCKING,
+                    finding_type=ScientificCriticFindingType.FALSE_BRIDGE,
+                    description="The method does not survive the declared object mapping.",
+                    affected_claims=["bounded_claim"],
+                    recommended_fix="Reject the decorative bridge or rebuild the substrate.",
+                    blocking=True,
+                )
+            )
+        if critic_role == ScientificCriticRole.CLAIM_SCOPE_ADVERSARY and package_index == 3:
+            findings.append(
+                CriticFindingProposal(
+                    severity=ScientificCriticFindingSeverity.BLOCKING,
+                    finding_type=ScientificCriticFindingType.OVERCLAIM,
+                    description="The claim scope exceeds the synthetic execution boundary.",
+                    affected_claims=["bounded_claim"],
+                    recommended_fix="Keep the claim within the executed synthetic setting.",
+                    blocking=True,
+                )
+            )
+        proposal = CriticReviewProposal(
+            summary="Mocked role-specific scientific critique over persisted package artifacts.",
+            findings=findings,
+            score_delta=(
+                0.12 if package_index == 0 and not findings else -0.35 if findings else -0.05
+            ),
+            recommended_decision=(
+                EvidencePackageDecision.NEEDS_REPAIR
+                if findings
+                else EvidencePackageDecision.SUPPORTING_PACKAGE
+            ),
+        )
+        payload = {"reviews": [proposal.model_dump(mode="json")]}
+        return ScientificCriticResponse(
+            prompt_text=f"mock critic prompt {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response=payload,
+            accepted=proposal,
+            rejection_reasons=[],
+        )
+
+    def adjudicate_packages(
+        self,
+        *,
+        prompt_id,
+        packages_payload,
+        execution_payload,
+        critic_reviews_payload,
+        score_payload,
+    ):
+        self.adjudication_calls += 1
+        results_by_package = {}
+        for result in execution_payload:
+            results_by_package.setdefault(result["package_id"], []).append(result)
+        has_blocking_finding = {
+            review["package_id"]
+            for review in critic_reviews_payload
+            if any(finding["blocking"] for finding in review["findings"])
+        }
+        eligible_package_ids = [
+            package["package_id"]
+            for package in packages_payload
+            if any(
+                result["status"] in {"completed", "negative_result"}
+                for result in results_by_package[package["package_id"]]
+            )
+            and not any(
+                result["artifact_type"] == EvidenceArtifactType.NEGATIVE_CONTROL.value
+                and result["status"] != "completed"
+                for result in results_by_package[package["package_id"]]
+            )
+            and package["package_id"] not in has_blocking_finding
+        ]
+        primary_id = (
+            packages_payload[0]["package_id"]
+            if self.block_primary
+            else eligible_package_ids[0]
+        )
+        decisions = []
+        for index, package in enumerate(packages_payload):
+            if package["package_id"] == primary_id:
+                decision = EvidencePackageDecision.PRIMARY_NUCLEUS
+            elif index == 1:
+                decision = EvidencePackageDecision.NEEDS_REPAIR
+            elif index == 2:
+                decision = EvidencePackageDecision.REJECT_FALSE_BRIDGE
+            else:
+                decision = EvidencePackageDecision.APPENDIX_PACKAGE
+            decisions.append(
+                AdjudicationDecisionProposal(
+                    package_id=package["package_id"],
+                    decision=decision,
+                    rank=index + 1,
+                    role=decision.value,
+                    reason="Mocked bounded cross-package adjudication.",
+                    required_repairs=(
+                        ["Strengthen baseline"]
+                        if decision == EvidencePackageDecision.NEEDS_REPAIR
+                        else []
+                    ),
+                    allowed_claim_scope="bounded synthetic or draft scope only",
+                    forbidden_claims=["publication ready"],
+                    supporting_artifact_ids=[],
+                    blocking_findings=[],
+                    recommended_next_action="Retain bounded evidence boundaries.",
+                )
+            )
+        nucleus = PaperNucleusProposal(
+            primary_package_id=primary_id,
+            central_claim_draft=(
+                "In the executed synthetic setting, the selected method is compared with its "
+                "declared baseline; the claim remains bounded to the observed artifacts."
+            ),
+            allowed_claim_scope="controlled synthetic execution only",
+            forbidden_claims=["publication ready"],
+            supporting_package_ids=[],
+            appendix_package_ids=[packages_payload[3]["package_id"]],
+            negative_package_ids=[],
+            rejected_package_ids=[packages_payload[2]["package_id"]],
+            required_repairs_before_manuscript=[],
+            required_additional_checks=["Retain negative-control boundaries."],
+        )
+        proposal = CrossPackageAdjudicationProposal(
+            decisions=decisions,
+            paper_nucleus_selection_optional=nucleus,
+        )
+        payload = {"adjudications": [proposal.model_dump(mode="json")]}
+        return CrossPackageAdjudicationResponse(
+            prompt_text=f"mock adjudication prompt {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response=payload,
+            accepted=proposal,
+            rejection_reasons=[],
+        )
+
+
 class MockLLMExperimentCodeGenerator:
     backend_name = "llm-openai-mocked-transport"
     backend_kind = BackendKind.LLM_OPENAI
@@ -1366,8 +1571,17 @@ class MockLLMExperimentCodeGenerator:
     fallback_used = False
     fallback_disclosed = True
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        unsafe_index: int = 2,
+        negative_control_failure_index: int = 3,
+        runtime_failure_index: int = 4,
+    ) -> None:
         self.received_spec_ids: list[str] = []
+        self.unsafe_index = unsafe_index
+        self.negative_control_failure_index = negative_control_failure_index
+        self.runtime_failure_index = runtime_failure_index
 
     def generate_code(self, *, spec_payload, substrate_payload, allowed_dependencies):
         index = len(self.received_spec_ids)
@@ -1386,9 +1600,9 @@ class MockLLMExperimentCodeGenerator:
             f"{metric!r}: metric_{metric_index}"
             for metric_index, metric in enumerate(required_metrics)
         )
-        negative_controls_passed = index != 3
-        runtime_failure = index == 4
-        unsafe_import = "import subprocess\n" if index == 2 else ""
+        negative_controls_passed = index != self.negative_control_failure_index
+        runtime_failure = index == self.runtime_failure_index
+        unsafe_import = "import subprocess\n" if index == self.unsafe_index else ""
         failure_line = (
             "raise RuntimeError('intentional execution failure')\n"
             if runtime_failure
@@ -1619,6 +1833,18 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert EvidencePackageExecutionResult
     assert EvidencePackageExecutionReport
     assert EvidencePackageExecutionInspectionReport
+    assert ScientificCriticRole
+    assert ScientificCriticFindingSeverity
+    assert ScientificCriticFindingType
+    assert EvidencePackageDecision
+    assert ScientificCriticFinding
+    assert ScientificCriticReview
+    assert EvidencePackageAdjudicationScore
+    assert EvidencePackageAdjudicationDecision
+    assert PaperNucleusSelection
+    assert CrossPackageAdjudicationReport
+    assert CrossPackageAdjudicationInspectionReport
+    assert ScientificCriticRawArtifact
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -4067,6 +4293,167 @@ def test_hybrid_evidence_package_execution_uses_sandbox_metrics_and_draft_bounda
                 backend="llm-openai",
                 require_non_fake_backends=True,
             ),
+        )
+
+
+def test_scientific_critic_ensemble_and_cross_package_adjudication(tmp_path) -> None:
+    run_id = "run-scientific-critic-adjudication"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    package_planner = MockHybridEvidencePlanner()
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=package_planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=4,
+            max_planning_calls=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=package_planner,
+        code_generator=MockLLMExperimentCodeGenerator(
+            unsafe_index=-1,
+            negative_control_failure_index=-1,
+            runtime_failure_index=-1,
+        ),
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+    )
+    critic = MockScientificCritic()
+    reviews = critique_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        critic=critic,
+        require_non_fake_backends=True,
+    )
+    adjudicated = adjudicate_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        critic=critic,
+        require_non_fake_backends=True,
+    )
+    inspected = inspect_package_adjudication(run_id=run_id, root=tmp_path)
+
+    assert reviews.report.critic_review_count == 4 * len(ScientificCriticRole)
+    assert reviews.report.blocking_finding_count >= 3
+    finding_types = {
+        finding.finding_type
+        for review in reviews.report.reviews
+        for finding in review.findings
+    }
+    assert ScientificCriticFindingType.WEAK_BASELINE in finding_types
+    assert ScientificCriticFindingType.FALSE_BRIDGE in finding_types
+    assert ScientificCriticFindingType.OVERCLAIM in finding_types
+    assert any(
+        item.stage_kind == ScientificStageKind.CRITIC_REVIEW
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in reviews.report.backend_records
+    )
+    assert adjudicated.report.adjudicated_package_count == 4
+    nucleus = adjudicated.report.paper_nucleus_selection_optional
+    assert nucleus is not None
+    assert nucleus.primary_package_id == adjudicated.report.decisions[0].package_id
+    assert {
+        "real-world validation",
+        "verified theorem",
+        "novelty proven",
+        "publication ready",
+    } <= set(nucleus.forbidden_claims)
+    assert all(item.publication_ready is False for item in adjudicated.report.decisions)
+    assert any(
+        item.stage_kind == ScientificStageKind.ADJUDICATION
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in adjudicated.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.ADJUDICATION_SCORE_AGGREGATION
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in adjudicated.report.backend_records
+    )
+    assert inspected.package_adjudication_present is True
+    assert inspected.primary_nucleus_selected is True
+    assert inspected.publication_ready is False
+
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+    assert strict.report.production_ready is True
+
+
+def test_blocking_critic_finding_prevents_primary_nucleus_selection(tmp_path) -> None:
+    run_id = "run-scientific-critic-blocked-primary"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    package_planner = MockHybridEvidencePlanner()
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=package_planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=4,
+            max_planning_calls=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=package_planner,
+        code_generator=MockLLMExperimentCodeGenerator(
+            unsafe_index=-1,
+            negative_control_failure_index=-1,
+            runtime_failure_index=-1,
+        ),
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+    )
+    critic = MockScientificCritic(block_primary=True)
+    critique_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        critic=critic,
+        require_non_fake_backends=True,
+    )
+
+    with pytest.raises(EvidencePackageAdjudicationError, match="ineligible for primary nucleus"):
+        adjudicate_evidence_packages(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            critic=critic,
+            require_non_fake_backends=True,
         )
 
 

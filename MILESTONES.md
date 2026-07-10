@@ -413,3 +413,14 @@ without real-world validation or publication readiness.
 - Added append-only package planning, raw-call, execution, safety-audit, metric-extraction, result,
   and inspection reports. Hybrid packages create no real-world validation, verified theorem,
   novelty proof, evidence upgrade, or publication readiness.
+
+## M104 Scientific Critic Ensemble and Cross-Package Adjudication
+
+- Added eight independent non-fake LLM critic roles for baseline quality, tautology and DGP-rigging
+  risk, false bridges, claim scope, novelty risk, paper coherence, and technical soundness.
+- Added fail-closed package adjudication with explicit blocking findings, local metadata/critic-delta
+  score aggregation, primary/supporting/appendix/negative/reject dispositions, and one bounded
+  paper-nucleus selection when eligible.
+- Critics and adjudicators read persisted package and execution artifacts only. They cannot invent
+  metrics, upgrade symbolic drafts to proofs, establish novelty, claim real-world validation, or
+  set publication readiness. Duplicate legacy package IDs are rejected rather than merged.

@@ -183,6 +183,13 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     inspect_package_execution = CliRunner().invoke(
         app, ["inspect-evidence-package-execution", "--help"]
     )
+    critique_packages = CliRunner().invoke(app, ["critique-evidence-packages", "--help"])
+    adjudicate_packages = CliRunner().invoke(
+        app, ["adjudicate-evidence-packages", "--help"]
+    )
+    inspect_adjudication = CliRunner().invoke(
+        app, ["inspect-package-adjudication", "--help"]
+    )
     discover = CliRunner().invoke(app, ["discover-opportunities", "--help"])
     inspect_opps = CliRunner().invoke(app, ["inspect-opportunities", "--help"])
     augment = CliRunner().invoke(app, ["augment-variance", "--help"])
@@ -255,6 +262,14 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--allow-external-calls" in execute_hybrid_packages.output
     assert inspect_package_execution.exit_code == 0, inspect_package_execution.output
     assert "--json" in inspect_package_execution.output
+    assert critique_packages.exit_code == 0, critique_packages.output
+    assert "--require-non-fake" in critique_packages.output
+    assert "--allow-external-calls" in critique_packages.output
+    assert adjudicate_packages.exit_code == 0, adjudicate_packages.output
+    assert "--allow-symbolic-primary" in adjudicate_packages.output
+    assert "--require-non-fake" in adjudicate_packages.output
+    assert inspect_adjudication.exit_code == 0, inspect_adjudication.output
+    assert "--json" in inspect_adjudication.output
     assert "--domain" in discover.output
     assert "--max-methods" in discover.output
     assert inspect_opps.exit_code == 0, inspect_opps.output

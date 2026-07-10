@@ -21,6 +21,7 @@ from factori.adapters.llm_substrate import OpenAILLMSubstrateGenerator
 from factori.adapters.llm_variance import OpenAILLMVarianceGenerator
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.adapters.retrieval_real import OpenAlexRetrievalClient
+from factori.adapters.scientific_critic import OpenAIScientificCritic
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
     AutonomousEvidencePlanError,
@@ -137,6 +138,13 @@ from factori.evidence_artifact_intake import (
 from factori.evidence_aware_refresh import (
     EvidenceAwareRefreshError,
     refresh_evidence_aware_manuscript,
+)
+from factori.evidence_package_adjudication import (
+    EvidencePackageAdjudicationError,
+    adjudicate_evidence_packages,
+    critique_evidence_packages,
+    inspect_package_adjudication,
+    render_package_adjudication_text,
 )
 from factori.experiment_template_routing import (
     ExperimentGapRoutingError,
@@ -4891,6 +4899,137 @@ def inspect_evidence_package_execution_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_evidence_package_execution_text(report))
+
+
+@app.command("critique-evidence-packages")
+def critique_evidence_packages_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the non-fake scientific critic ensemble over hybrid evidence packages."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai scientific criticism is implemented; no fallback exists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        critic = OpenAIScientificCritic(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        result = critique_evidence_packages(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            critic=critic,
+            require_non_fake_backends=require_non_fake_backends,
+        )
+    except (AdapterError, EvidencePackageAdjudicationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"critic_review_count={result.report.critic_review_count}")
+    typer.echo(f"blocking_finding_count={result.report.blocking_finding_count}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("adjudicate-evidence-packages")
+def adjudicate_evidence_packages_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    allow_symbolic_primary: Annotated[
+        bool,
+        typer.Option("--allow-symbolic-primary"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Adjudicate hybrid packages into one bounded paper nucleus when eligible."""
+    normalized_backend = backend.strip().lower().replace("_", "-")
+    if normalized_backend not in {"llm-openai", "openai"}:
+        typer.echo(
+            "Only llm-openai package adjudication is implemented; no fallback exists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        critic = OpenAIScientificCritic(
+            api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+            model=model,
+            allow_external_calls=allow_external_calls,
+        )
+        result = adjudicate_evidence_packages(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            critic=critic,
+            require_non_fake_backends=require_non_fake_backends,
+            allow_symbolic_primary=allow_symbolic_primary,
+        )
+    except (AdapterError, EvidencePackageAdjudicationError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    nucleus = result.report.paper_nucleus_selection_optional
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"adjudicated_package_count={result.report.adjudicated_package_count}")
+    typer.echo(f"primary_nucleus_selected={str(nucleus is not None).lower()}")
+    typer.echo(f"primary_title={nucleus.primary_title if nucleus else 'none'}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("inspect-package-adjudication")
+def inspect_package_adjudication_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest scientific critic and cross-package adjudication report."""
+    try:
+        report = inspect_package_adjudication(run_id=run_id, root=root)
+    except EvidencePackageAdjudicationError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_package_adjudication_text(report))
 
 
 @app.command("discover-opportunities")

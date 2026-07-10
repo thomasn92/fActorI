@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.69.0/experiment-backend.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/experiment-backend.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Experiment backend enum.",
   "enum": [
@@ -8,7 +8,7 @@
   ],
   "title": "ExperimentBackend",
   "type": "string",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.protocols.ExperimentBackend",
   "x-factori-verification-evidence": false
 }

@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.70.0` adds scientific-critic ensemble and cross-package adjudication contracts,
+including role-scoped critic findings and reviews, local score aggregation, package decisions,
+bounded paper-nucleus selection, raw-call provenance, and read-only inspection. Critics and
+adjudicators cannot create metrics, proof verification, novelty proof, real-world validation, or
+publication readiness.
+
 Protocol `0.69.0` adds hybrid evidence-package planning and execution contracts, including typed
 artifact plans for symbolic drafts, numerical illustrations, executable experiments, benchmarks,
 counterexample searches, retrieval novelty-risk checks, negative controls, and robustness sweeps.

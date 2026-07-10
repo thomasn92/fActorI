@@ -984,6 +984,21 @@ uv run factori execute-hybrid-evidence-packages --run-id atlas-scan-001 \
 uv run factori inspect-evidence-package-execution --run-id atlas-scan-001 --json
 ```
 
+`critique-evidence-packages` runs the eight-role gated LLM critic ensemble over persisted hybrid
+packages and execution outputs. `adjudicate-evidence-packages` uses those findings plus local
+metadata aggregation to choose at most one bounded paper nucleus; blocking baseline, false-bridge,
+overclaim, missing-execution, and negative-control conditions prevent primary selection.
+`inspect-package-adjudication` is read-only. None of these commands creates evidence, proof
+verification, novelty proof, real-world validation, or publication readiness.
+
+```bash
+uv run factori critique-evidence-packages --run-id atlas-scan-001 \
+  --backend llm-openai --allow-external-calls --require-non-fake-backends
+uv run factori adjudicate-evidence-packages --run-id atlas-scan-001 \
+  --backend llm-openai --allow-external-calls --require-non-fake-backends
+uv run factori inspect-package-adjudication --run-id atlas-scan-001 --json
+```
+
 ## Tests and Lint
 
 Canonical `uv` commands:

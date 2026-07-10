@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.factori.local/0.70.0/scientific-critic-finding-severity.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Severity for a critic finding that constrains package selection.",
+  "enum": [
+    "info",
+    "warning",
+    "major",
+    "blocking"
+  ],
+  "title": "ScientificCriticFindingSeverity",
+  "type": "string",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.ScientificCriticFindingSeverity",
+  "x-factori-verification-evidence": false
+}

@@ -72,6 +72,8 @@ from factori.schemas import (
     CreativeSearchInspectionReport,
     CreativeSearchLineageEntry,
     CreativeSearchStopReason,
+    CrossPackageAdjudicationInspectionReport,
+    CrossPackageAdjudicationReport,
     DataRequirement,
     DeepOpportunityCandidate,
     DeepOpportunityDiscoveryConfig,
@@ -87,6 +89,9 @@ from factori.schemas import (
     EvidenceArtifactPlan,
     EvidenceArtifactType,
     EvidenceAwareRefreshReport,
+    EvidencePackageAdjudicationDecision,
+    EvidencePackageAdjudicationScore,
+    EvidencePackageDecision,
     EvidencePackageExecutionInspectionReport,
     EvidencePackageExecutionReport,
     EvidencePackageExecutionResult,
@@ -261,6 +266,7 @@ from factori.schemas import (
     OutputHygieneReport,
     PaperCriticFinding,
     PaperCriticReport,
+    PaperNucleusSelection,
     PaperReleaseReadinessPreview,
     PaperRevisionPatch,
     PaperRevisionPlan,
@@ -331,6 +337,12 @@ from factori.schemas import (
     SandboxBudgetReport,
     SandboxExecutionConfig,
     SandboxExecutionResult,
+    ScientificCriticFinding,
+    ScientificCriticFindingSeverity,
+    ScientificCriticFindingType,
+    ScientificCriticRawArtifact,
+    ScientificCriticReview,
+    ScientificCriticRole,
     ScientificStageKind,
     ScientificSubstrate,
     ScientificSubstrateAssumption,
@@ -375,7 +387,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.69.0"
+PROTOCOL_VERSION = "0.70.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -586,6 +598,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "ScientificStageKind",
         ScientificStageKind,
         "Scientific generation, judgment, execution, or verification stage class.",
+    ),
+    ProtocolDefinition(
+        "ScientificCriticRole",
+        ScientificCriticRole,
+        "Independent scientific-criticism perspective for one evidence package.",
+    ),
+    ProtocolDefinition(
+        "ScientificCriticFindingSeverity",
+        ScientificCriticFindingSeverity,
+        "Severity for a critic finding that constrains package selection.",
+    ),
+    ProtocolDefinition(
+        "ScientificCriticFindingType",
+        ScientificCriticFindingType,
+        "Bounded category for one scientific-critic package finding.",
+    ),
+    ProtocolDefinition(
+        "EvidencePackageDecision",
+        EvidencePackageDecision,
+        "Cross-package adjudication disposition for one hybrid evidence package.",
     ),
     ProtocolDefinition(
         "StageBackendRecord",
@@ -916,6 +948,46 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "EvidencePackageExecutionInspectionReport",
         EvidencePackageExecutionInspectionReport,
         "Read-only inspection of latest hybrid evidence-package execution.",
+    ),
+    ProtocolDefinition(
+        "ScientificCriticFinding",
+        ScientificCriticFinding,
+        "One bounded LLM critic observation about an evidence package.",
+    ),
+    ProtocolDefinition(
+        "ScientificCriticReview",
+        ScientificCriticReview,
+        "One scientific-critic role review; judgment context only.",
+    ),
+    ProtocolDefinition(
+        "EvidencePackageAdjudicationScore",
+        EvidencePackageAdjudicationScore,
+        "Auditable local aggregation over execution metadata and critic reviews.",
+    ),
+    ProtocolDefinition(
+        "EvidencePackageAdjudicationDecision",
+        EvidencePackageAdjudicationDecision,
+        "LLM adjudication disposition for one hybrid evidence package.",
+    ),
+    ProtocolDefinition(
+        "PaperNucleusSelection",
+        PaperNucleusSelection,
+        "Bounded primary-paper selection derived from package adjudication.",
+    ),
+    ProtocolDefinition(
+        "ScientificCriticRawArtifact",
+        ScientificCriticRawArtifact,
+        "Secret-free raw prompt/response provenance for critic or adjudication calls.",
+    ),
+    ProtocolDefinition(
+        "CrossPackageAdjudicationReport",
+        CrossPackageAdjudicationReport,
+        "Append-only scientific critic ensemble and cross-package adjudication report.",
+    ),
+    ProtocolDefinition(
+        "CrossPackageAdjudicationInspectionReport",
+        CrossPackageAdjudicationInspectionReport,
+        "Read-only inspection of the latest cross-package adjudication.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

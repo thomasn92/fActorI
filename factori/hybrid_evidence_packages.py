@@ -152,7 +152,10 @@ def plan_hybrid_evidence_packages(
     repaired_count = 0
 
     for index, substrate in enumerate(selected, start=1):
-        package_id = f"hybrid-evidence-package-{report_number:04d}-{_slug(substrate.substrate_id)}"
+        package_id = (
+            f"hybrid-evidence-package-{report_number:04d}-{index:03d}-"
+            f"{_slug(substrate.substrate_id)}"
+        )
         retrieval = retrieval_by_pair.get(substrate.source_pair_id)
         route = route_by_substrate.get(substrate.substrate_id)
         try:

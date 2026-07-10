@@ -546,6 +546,7 @@
         "hybrid_evidence_planning",
         "symbolic_derivation",
         "adjudication",
+        "adjudication_score_aggregation",
         "critic_review",
         "literature_retrieval",
         "novelty_assessment",
@@ -630,7 +631,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.69.0/llm-variance-generation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/llm-variance-generation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-fake LLM variance generation and selection report.",
@@ -804,7 +805,7 @@
   ],
   "title": "LLMVarianceGenerationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.LLMVarianceGenerationReport",
   "x-factori-verification-evidence": false
 }

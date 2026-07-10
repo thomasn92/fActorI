@@ -1,0 +1,28 @@
+{
+  "$id": "https://schemas.factori.local/0.70.0/scientific-critic-finding-type.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Bounded category for one scientific-critic package finding.",
+  "enum": [
+    "weak_baseline",
+    "missing_baseline",
+    "tautological_result",
+    "rigged_dgp",
+    "negative_control_failed",
+    "robustness_missing",
+    "false_bridge",
+    "decorative_method_usage",
+    "overclaim",
+    "novelty_overstated",
+    "proof_overstated",
+    "real_world_validation_overstated",
+    "incoherent_package",
+    "insufficient_evidence",
+    "strong_package",
+    "interesting_failure_mode"
+  ],
+  "title": "ScientificCriticFindingType",
+  "type": "string",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.ScientificCriticFindingType",
+  "x-factori-verification-evidence": false
+}

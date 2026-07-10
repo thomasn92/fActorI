@@ -715,6 +715,7 @@
         "hybrid_evidence_planning",
         "symbolic_derivation",
         "adjudication",
+        "adjudication_score_aggregation",
         "critic_review",
         "literature_retrieval",
         "novelty_assessment",
@@ -799,7 +800,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.69.0/llm-route-planning-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/llm-route-planning-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest LLM route-planning report.",
@@ -957,7 +958,7 @@
   ],
   "title": "LLMRoutePlanningInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.LLMRoutePlanningInspectionReport",
   "x-factori-verification-evidence": false
 }

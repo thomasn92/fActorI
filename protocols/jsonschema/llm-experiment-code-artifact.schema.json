@@ -35,7 +35,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.69.0/llm-experiment-code-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.70.0/llm-experiment-code-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One LLM-authored Python experiment proposal before execution.",
@@ -179,7 +179,7 @@
   ],
   "title": "LLMExperimentCodeArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.69.0",
+  "x-factori-protocol-version": "0.70.0",
   "x-factori-source-model": "factori.schemas.LLMExperimentCodeArtifact",
   "x-factori-verification-evidence": false
 }

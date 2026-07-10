@@ -1,0 +1,120 @@
+{
+  "$id": "https://schemas.factori.local/0.70.0/paper-nucleus-selection.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded primary-paper selection derived from package adjudication.",
+  "properties": {
+    "allowed_claim_scope": {
+      "minLength": 1,
+      "title": "Allowed Claim Scope",
+      "type": "string"
+    },
+    "appendix_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Appendix Package Ids",
+      "type": "array"
+    },
+    "central_claim_draft": {
+      "minLength": 1,
+      "title": "Central Claim Draft",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "negative_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Negative Package Ids",
+      "type": "array"
+    },
+    "primary_package_id": {
+      "minLength": 1,
+      "title": "Primary Package Id",
+      "type": "string"
+    },
+    "primary_substrate_id": {
+      "minLength": 1,
+      "title": "Primary Substrate Id",
+      "type": "string"
+    },
+    "primary_title": {
+      "minLength": 1,
+      "title": "Primary Title",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "rejected_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rejected Package Ids",
+      "type": "array"
+    },
+    "required_additional_checks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Additional Checks",
+      "type": "array"
+    },
+    "required_repairs_before_manuscript": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Repairs Before Manuscript",
+      "type": "array"
+    },
+    "supporting_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Package Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "primary_package_id",
+    "primary_substrate_id",
+    "primary_title",
+    "central_claim_draft",
+    "allowed_claim_scope",
+    "forbidden_claims"
+  ],
+  "title": "PaperNucleusSelection",
+  "type": "object",
+  "x-factori-protocol-version": "0.70.0",
+  "x-factori-source-model": "factori.schemas.PaperNucleusSelection",
+  "x-factori-verification-evidence": false
+}
