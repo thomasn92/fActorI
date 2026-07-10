@@ -333,6 +333,11 @@ All implementation modules are under `factori/`.
 - `evidence_package_adjudication.py`: append-only M104 critic reports, blocking-finding gates,
   local metadata/critic-delta score aggregation, bounded primary/supporting/appendix/reject
   decisions, production records, and read-only inspection.
+- `adapters/nucleus_manuscript.py`: gated OpenAI structured-output adapter for M105 manuscript
+  planning, drafting, critic review, and bounded revision without deterministic prose fallback.
+- `nucleus_manuscript.py`: append-only nucleus-centered manuscript plans, deterministic
+  claim/artifact and citation bindings, execution-artifact-only metric tables, eight-role critic
+  review, post-revision validation, strict production records, and read-only inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

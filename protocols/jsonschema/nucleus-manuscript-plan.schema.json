@@ -1,0 +1,265 @@
+{
+  "$defs": {
+    "ManuscriptSectionPlan": {
+      "additionalProperties": false,
+      "description": "Section-level manuscript plan shared by legacy and nucleus-centered drafting.",
+      "properties": {
+        "allowed_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "bullets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "narrative_roles": {
+          "items": {
+            "$ref": "#/$defs/NarrativeSectionRole"
+          },
+          "title": "Narrative Roles",
+          "type": "array"
+        },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "required_citations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Citations",
+          "type": "array"
+        },
+        "scope_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scope Constraints",
+          "type": "array"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "supporting_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Package Ids",
+          "type": "array"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "bullets"
+      ],
+      "title": "ManuscriptSectionPlan",
+      "type": "object"
+    },
+    "NarrativeSectionRole": {
+      "description": "Manuscript section roles used by the narrative-quality critic.",
+      "enum": [
+        "CentralMessage",
+        "ProblemFraming",
+        "BackgroundLiteraturePositioning",
+        "ModelFrame",
+        "MainBodyResult",
+        "DerivativeOrCorollary",
+        "TechnicalLemma",
+        "AppendixOnlyProof",
+        "NumericalValidation",
+        "EmpiricalDiscussion",
+        "SyntheticBoundary",
+        "LimitationsDiscussion"
+      ],
+      "title": "NarrativeSectionRole",
+      "type": "string"
+    },
+    "NucleusPaperType": {
+      "description": "Bounded paper shapes available to the LLM nucleus-manuscript planner.",
+      "enum": [
+        "applied_mathematics",
+        "methodological",
+        "synthetic_benchmark",
+        "counterexample",
+        "computational_study",
+        "theory_with_numerical_illustration",
+        "robustness_study",
+        "negative_result",
+        "hybrid"
+      ],
+      "title": "NucleusPaperType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.71.0/nucleus-manuscript-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "LLM-authored scientific paper shape constrained by an adjudicated nucleus.",
+  "properties": {
+    "allowed_claim_scope": {
+      "minLength": 1,
+      "title": "Allowed Claim Scope",
+      "type": "string"
+    },
+    "appendix_package_roles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Appendix Package Roles",
+      "type": "object"
+    },
+    "central_claim": {
+      "minLength": 1,
+      "title": "Central Claim",
+      "type": "string"
+    },
+    "central_question": {
+      "minLength": 1,
+      "title": "Central Question",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "negative_result_roles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Negative Result Roles",
+      "type": "object"
+    },
+    "paper_nucleus_selection_id": {
+      "minLength": 1,
+      "title": "Paper Nucleus Selection Id",
+      "type": "string"
+    },
+    "paper_type": {
+      "$ref": "#/$defs/NucleusPaperType"
+    },
+    "plan_id": {
+      "minLength": 1,
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "primary_package_id": {
+      "minLength": 1,
+      "title": "Primary Package Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "required_repairs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Repairs",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_plans": {
+      "items": {
+        "$ref": "#/$defs/ManuscriptSectionPlan"
+      },
+      "minItems": 1,
+      "title": "Section Plans",
+      "type": "array"
+    },
+    "supporting_package_roles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Supporting Package Roles",
+      "type": "object"
+    },
+    "unresolved_obligations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Obligations",
+      "type": "array"
+    },
+    "working_title": {
+      "minLength": 1,
+      "title": "Working Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "run_id",
+    "paper_nucleus_selection_id",
+    "primary_package_id",
+    "working_title",
+    "paper_type",
+    "central_question",
+    "central_claim",
+    "allowed_claim_scope",
+    "forbidden_claims",
+    "section_plans"
+  ],
+  "title": "NucleusManuscriptPlan",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.NucleusManuscriptPlan",
+  "x-factori-verification-evidence": false
+}

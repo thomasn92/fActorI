@@ -866,7 +866,9 @@
         "critic_review",
         "literature_retrieval",
         "novelty_assessment",
+        "manuscript_planning",
         "manuscript_synthesis",
+        "manuscript_artifact_assembly",
         "claim_audit",
         "bundle_verification"
       ],
@@ -947,7 +949,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.70.0/generated-experiment-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/generated-experiment-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only code-generation or local execution report over M101 specs.",
@@ -1204,7 +1206,7 @@
   ],
   "title": "GeneratedExperimentExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.GeneratedExperimentExecutionReport",
   "x-factori-verification-evidence": false
 }

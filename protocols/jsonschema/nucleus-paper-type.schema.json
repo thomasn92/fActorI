@@ -1,0 +1,21 @@
+{
+  "$id": "https://schemas.factori.local/0.71.0/nucleus-paper-type.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Flexible bounded paper shape selected for an adjudicated nucleus.",
+  "enum": [
+    "applied_mathematics",
+    "methodological",
+    "synthetic_benchmark",
+    "counterexample",
+    "computational_study",
+    "theory_with_numerical_illustration",
+    "robustness_study",
+    "negative_result",
+    "hybrid"
+  ],
+  "title": "NucleusPaperType",
+  "type": "string",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.NucleusPaperType",
+  "x-factori-verification-evidence": false
+}

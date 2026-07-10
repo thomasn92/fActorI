@@ -11,13 +11,20 @@
     },
     "ManuscriptSectionPlan": {
       "additionalProperties": false,
-      "description": "Section-level manuscript plan.",
+      "description": "Section-level manuscript plan shared by legacy and nucleus-centered drafting.",
       "properties": {
         "allowed_claim_ids": {
           "items": {
             "type": "string"
           },
           "title": "Allowed Claim Ids",
+          "type": "array"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
           "type": "array"
         },
         "bullets": {
@@ -27,6 +34,13 @@
           "title": "Bullets",
           "type": "array"
         },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
         "narrative_roles": {
           "items": {
             "$ref": "#/$defs/NarrativeSectionRole"
@@ -34,10 +48,36 @@
           "title": "Narrative Roles",
           "type": "array"
         },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "required_citations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Citations",
+          "type": "array"
+        },
+        "scope_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scope Constraints",
+          "type": "array"
+        },
         "section_id": {
           "minLength": 1,
           "title": "Section Id",
           "type": "string"
+        },
+        "supporting_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Package Ids",
+          "type": "array"
         },
         "title": {
           "minLength": 1,
@@ -73,7 +113,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.70.0/manuscript-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/manuscript-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Structured manuscript plan.",
@@ -134,7 +174,7 @@
   ],
   "title": "ManuscriptPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.ManuscriptPlan",
   "x-factori-verification-evidence": false
 }

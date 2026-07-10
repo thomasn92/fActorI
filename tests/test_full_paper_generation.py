@@ -66,6 +66,14 @@ from factori.adapters.llm_variance import (
     build_llm_variance_prompt,
     parse_variance_items,
 )
+from factori.adapters.nucleus_manuscript import (
+    ManuscriptCriticProposal,
+    ManuscriptDraftProposal,
+    ManuscriptPlanProposal,
+    ManuscriptRevisionProposal,
+    ManuscriptSectionProposal,
+    NucleusManuscriptResponse,
+)
 from factori.adapters.scientific_critic import (
     AdjudicationDecisionProposal,
     CriticFindingProposal,
@@ -265,6 +273,12 @@ from factori.mutation_tournament import (
     inspect_mutation_tournament,
     run_mutation_tournament,
 )
+from factori.nucleus_manuscript import (
+    inspect_nucleus_manuscript,
+    plan_nucleus_manuscript,
+    revise_nucleus_manuscript,
+    synthesize_nucleus_manuscript,
+)
 from factori.opportunity_discovery import (
     OPPORTUNITY_THRESHOLD,
     build_opportunity_discovery_report,
@@ -302,6 +316,7 @@ from factori.route_execution import (
 from factori.run_all import run_deterministic_pipeline
 from factori.schemas import (
     ArtifactRef,
+    ArtifactType,
     AtlasScanInspectionReport,
     AtlasScanReport,
     AutonomousEvidenceGapPlan,
@@ -326,6 +341,7 @@ from factori.schemas import (
     CapabilityEscalationReport,
     CitationRecord,
     CitationRegistry,
+    ClaimArtifactBinding,
     ClaimEvidenceMap,
     ClaimEvidenceMapLink,
     ClaimSupportAuditReport,
@@ -356,6 +372,7 @@ from factori.schemas import (
     EvidenceArtifactPlan,
     EvidenceArtifactType,
     EvidenceAwareRefreshReport,
+    EvidenceCitationBinding,
     EvidencePackageAdjudicationDecision,
     EvidencePackageAdjudicationScore,
     EvidencePackageDecision,
@@ -449,6 +466,9 @@ from factori.schemas import (
     LLMVariancePrompt,
     LLMVarianceRawArtifact,
     LLMVarianceScore,
+    ManuscriptCriticReview,
+    ManuscriptCriticRole,
+    ManuscriptRevisionReport,
     MethodAtlasEntry,
     MethodLens,
     MetricExtractionResult,
@@ -457,6 +477,14 @@ from factori.schemas import (
     MutationTournamentInspectionReport,
     MutationTournamentResult,
     MutationTournamentSpec,
+    NucleusManuscriptConfig,
+    NucleusManuscriptDraft,
+    NucleusManuscriptInspectionReport,
+    NucleusManuscriptPlan,
+    NucleusManuscriptRawArtifact,
+    NucleusManuscriptStatus,
+    NucleusManuscriptSynthesisReport,
+    NucleusPaperType,
     OpportunityCandidate,
     OpportunityDiscoveryInspectionReport,
     OpportunityDiscoveryReport,
@@ -637,8 +665,7 @@ class MockDeepOpportunityGenerator:
                     "the declared baseline in a bounded synthetic regime."
                 ),
                 theory_or_model_object=(
-                    f"{method['canonical_objects'][0]} object over "
-                    f"{domain['canonical_objects'][0]}"
+                    f"{method['canonical_objects'][0]} object over {domain['canonical_objects'][0]}"
                 ),
                 mathematical_or_computational_form=f"T_{suffix}(x) = x + {suffix}",
                 experiment_or_proof_plan=(
@@ -686,9 +713,7 @@ class MockDeepOpportunityGenerator:
         return OpportunityGenerationResponse(
             prompt_text=f"mock prompt for {pair_id}",
             requested_output_schema=OpportunityProposalEnvelope.model_json_schema(),
-            raw_response={
-                "opportunities": [item.model_dump(mode="json") for item in accepted]
-            },
+            raw_response={"opportunities": [item.model_dump(mode="json") for item in accepted]},
             accepted=accepted,
             rejected=[],
         )
@@ -812,15 +837,11 @@ class MockLLMVarianceGenerator:
                 proposal = proposal.model_copy(
                     update={
                         "research_question": source_payload["research_question"],
-                        "theory_or_model_object": source_payload[
-                            "theory_or_model_object"
-                        ],
+                        "theory_or_model_object": source_payload["theory_or_model_object"],
                         "mathematical_or_computational_form": source_payload[
                             "mathematical_or_computational_form"
                         ],
-                        "experiment_or_proof_plan": source_payload[
-                            "experiment_or_proof_plan"
-                        ],
+                        "experiment_or_proof_plan": source_payload["experiment_or_proof_plan"],
                     }
                 )
             items.append(
@@ -901,9 +922,7 @@ class MockLLMSubstrateGenerator:
                 identifiability_notes="Identify theta only within the declared synthetic regime.",
                 what_would_falsify_it="No held-out improvement over both baselines.",
             ),
-            mathematical_or_computational_form=[
-                f"{method_id}_theta(x) = x + theta_{call_index}"
-            ],
+            mathematical_or_computational_form=[f"{method_id}_theta(x) = x + theta_{call_index}"],
             variables_and_notation=[
                 ScientificSubstrateVariable(
                     symbol="x",
@@ -1105,9 +1124,7 @@ class MockLLMRoutePlanner:
             ),
             expected_artifacts=["execution_manifest", "bounded_result_or_draft"],
             sandbox_requirements=(
-                ["offline local sandbox", "fixed seeds", "resource limits"]
-                if code_route
-                else []
+                ["offline local sandbox", "fixed seeds", "resource limits"] if code_route else []
             ),
             allowed_evidence_labels=labels,
             forbidden_claims=["publication ready"],
@@ -1222,21 +1239,13 @@ class MockHybridEvidencePlanner:
             ),
             artifact_plans=plans,
             minimum_required_artifacts=[plans[0].artifact_type.value],
-            optional_supporting_artifacts=[
-                plan.artifact_type.value for plan in plans[1:]
-            ],
-            artifact_dependency_graph={
-                plan.artifact_type.value: [] for plan in plans
-            },
-            claim_support_map={
-                "bounded_claim": [plan.artifact_type.value for plan in plans]
-            },
+            optional_supporting_artifacts=[plan.artifact_type.value for plan in plans[1:]],
+            artifact_dependency_graph={plan.artifact_type.value: [] for plan in plans},
+            claim_support_map={"bounded_claim": [plan.artifact_type.value for plan in plans]},
             known_gaps=[
                 "No artifact establishes novelty, theorem verification, or real-world validation."
             ],
-            unresolved_obligations=[
-                "Formal proof and literature completeness remain unresolved."
-            ],
+            unresolved_obligations=["Formal proof and literature completeness remain unresolved."],
             recommended_next_action="Execute code components and retain symbolic obligations.",
         )
         item = HybridEvidencePackageProposalItem(
@@ -1359,9 +1368,7 @@ class MockHybridEvidencePlanner:
             ),
             metric_plan_optional=metrics or None,
             symbolic_obligations_optional=(
-                ["state assumptions", "mark checker status not_checked"]
-                if symbolic_type
-                else None
+                ["state assumptions", "mark checker status not_checked"] if symbolic_type else None
             ),
             retrieval_requirements_optional=(
                 ["closest prior work query", "overlap-risk summary"] if retrieval_type else None
@@ -1502,9 +1509,7 @@ class MockScientificCritic:
             and package["package_id"] not in has_blocking_finding
         ]
         primary_id = (
-            packages_payload[0]["package_id"]
-            if self.block_primary
-            else eligible_package_ids[0]
+            packages_payload[0]["package_id"] if self.block_primary else eligible_package_ids[0]
         )
         decisions = []
         for index, package in enumerate(packages_payload):
@@ -1564,6 +1569,166 @@ class MockScientificCritic:
         )
 
 
+class MockNucleusManuscriptPlanner:
+    backend_name = "llm-openai-mocked-transport"
+    backend_kind = BackendKind.LLM_OPENAI
+    model = "mock-nucleus-manuscript-model"
+    fallback_used = False
+    fallback_disclosed = True
+
+    def __init__(self, *, unsafe_draft: bool = False, block_after_revision: bool = False) -> None:
+        self.unsafe_draft = unsafe_draft
+        self.block_after_revision = block_after_revision
+        self.critic_calls: list[tuple[str, ManuscriptCriticRole]] = []
+
+    def plan_manuscript(self, *, prompt_id, nucleus_payload, evidence_payload):
+        claim_id = evidence_payload["claim_artifact_bindings"][0]["claim_id"]
+        citation_ids = [
+            item["binding_id"] for item in evidence_payload["evidence_citation_bindings"]
+        ]
+        sections = [
+            ManuscriptSectionProposal(
+                section_id=f"section-{index:02d}",
+                title=title,
+                purpose=purpose,
+                claim_ids=[claim_id] if include_claim else [],
+                artifact_ids=evidence_payload["claim_artifact_bindings"][0][
+                    "supporting_artifact_ids"
+                ],
+                supporting_package_ids=[],
+                required_citations=citation_ids if include_claim else [],
+                scope_constraints=[
+                    "Keep all claims within the persisted synthetic or draft scope."
+                ],
+                bullets=[purpose],
+            )
+            for index, (title, purpose, include_claim) in enumerate(
+                [
+                    ("Introduction", "State the bounded research question.", False),
+                    ("Problem Definition", "Define the declared synthetic problem.", True),
+                    ("Method and Baseline", "Describe the method and comparator.", True),
+                    ("Results", "Interpret only artifact-bound results.", True),
+                    ("Limitations", "Expose unresolved obligations and scope limits.", False),
+                    ("Conclusion", "Summarize the bounded contribution.", False),
+                    (
+                        "Appendix: Secondary and Negative Packages",
+                        "Separate non-primary branches.",
+                        False,
+                    ),
+                ],
+                start=1,
+            )
+        ]
+        proposal = ManuscriptPlanProposal(
+            working_title="Bounded Synthetic Comparison of a Selected Mechanism",
+            paper_type=NucleusPaperType.SYNTHETIC_BENCHMARK,
+            central_question="How does the selected mechanism compare with its declared baseline?",
+            central_claim=nucleus_payload["central_claim_draft"],
+            section_plans=sections,
+            supporting_package_roles={},
+            appendix_package_roles={},
+            negative_result_roles={},
+        )
+        payload = {"plans": [proposal.model_dump(mode="json")]}
+        return NucleusManuscriptResponse(
+            prompt_text=f"mock nucleus plan {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response=payload,
+            accepted=proposal,
+            rejection_reasons=[],
+        )
+
+    def synthesize_manuscript(self, *, prompt_id, plan_payload, evidence_payload):
+        claim_id = evidence_payload["claim_artifact_bindings"][0]["claim_id"]
+        markdown = """# Bounded Synthetic Comparison
+
+## Introduction
+This draft frames a bounded synthetic comparison rather than a workflow audit.
+
+## Problem Definition
+The question is restricted to the declared synthetic setting.
+
+## Method and Baseline
+The method is compared with the declared baseline and controls.
+
+## Results
+The artifact-bound claim is interpreted only under the declared metrics.
+
+## Limitations
+Unresolved obligations and synthetic-scope boundaries remain explicit.
+
+## Conclusion
+The result is a bounded draft.
+
+## Appendix: Secondary and Negative Packages
+Secondary packages are not used as support for the central claim.
+"""
+        if self.unsafe_draft:
+            markdown += "\nThis establishes real-world validation.\n"
+        proposal = ManuscriptDraftProposal(
+            title=plan_payload["working_title"],
+            abstract="A bounded synthetic manuscript draft with artifact-linked claims.",
+            markdown=markdown,
+            latex="\\section*{Introduction}\nBounded synthetic draft.\n",
+            claim_ids_used=[claim_id],
+            citation_binding_ids=[
+                item["binding_id"] for item in evidence_payload["evidence_citation_bindings"]
+            ],
+        )
+        payload = {"drafts": [proposal.model_dump(mode="json")]}
+        return NucleusManuscriptResponse(
+            prompt_text=f"mock nucleus synthesis {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response=payload,
+            accepted=proposal,
+            rejection_reasons=[],
+        )
+
+    def critique_manuscript(self, *, prompt_id, critic_role, draft_payload, evidence_payload):
+        self.critic_calls.append((draft_payload["draft_id"], critic_role))
+        post_revision = draft_payload.get("source_draft_id_optional") is not None
+        blocking = (
+            ["The revised claim still lacks the required qualification."]
+            if post_revision and self.block_after_revision
+            else []
+        )
+        proposal = ManuscriptCriticProposal(
+            findings=["Keep the synthetic-scope qualification visible."],
+            blocking_findings=blocking,
+            recommended_revisions=["Retain limitations and artifact-bound metric table."],
+            score=0.78,
+        )
+        payload = {"reviews": [proposal.model_dump(mode="json")]}
+        return NucleusManuscriptResponse(
+            prompt_text=f"mock manuscript critic {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response=payload,
+            accepted=proposal,
+            rejection_reasons=[],
+        )
+
+    def revise_manuscript(
+        self, *, prompt_id, draft_payload, critic_reviews_payload, evidence_payload
+    ):
+        proposal = ManuscriptRevisionProposal(
+            title=draft_payload["title"],
+            abstract=draft_payload["abstract"],
+            markdown=draft_payload["markdown"],
+            latex=draft_payload["latex"],
+            claim_ids_used=draft_payload["claim_ids_used"],
+            citation_binding_ids=draft_payload["citation_binding_ids"],
+            applied_recommendations=["Retained explicit synthetic-scope limitation."],
+        )
+        payload = {"revisions": [proposal.model_dump(mode="json")]}
+        return NucleusManuscriptResponse(
+            prompt_text=f"mock manuscript revision {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response=payload,
+            accepted=proposal,
+            rejection_reasons=[],
+        )
+
+
 class MockLLMExperimentCodeGenerator:
     backend_name = "llm-openai-mocked-transport"
     backend_kind = BackendKind.LLM_OPENAI
@@ -1604,9 +1769,7 @@ class MockLLMExperimentCodeGenerator:
         runtime_failure = index == self.runtime_failure_index
         unsafe_import = "import subprocess\n" if index == self.unsafe_index else ""
         failure_line = (
-            "raise RuntimeError('intentional execution failure')\n"
-            if runtime_failure
-            else ""
+            "raise RuntimeError('intentional execution failure')\n" if runtime_failure else ""
         )
         code = f"""import json
 import random
@@ -1845,6 +2008,19 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert CrossPackageAdjudicationReport
     assert CrossPackageAdjudicationInspectionReport
     assert ScientificCriticRawArtifact
+    assert NucleusPaperType
+    assert ManuscriptCriticRole
+    assert NucleusManuscriptStatus
+    assert NucleusManuscriptConfig
+    assert ClaimArtifactBinding
+    assert EvidenceCitationBinding
+    assert NucleusManuscriptPlan
+    assert NucleusManuscriptDraft
+    assert ManuscriptCriticReview
+    assert ManuscriptRevisionReport
+    assert NucleusManuscriptSynthesisReport
+    assert NucleusManuscriptInspectionReport
+    assert NucleusManuscriptRawArtifact
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -2770,9 +2946,7 @@ def test_domain_method_atlas_and_exclusion_only_compatibility_filter() -> None:
     assert report.raw_pair_count > 1000
     assert report.excluded_pair_count > 0
     assert report.surviving_pair_count > 0
-    assert report.raw_pair_count == (
-        report.excluded_pair_count + report.surviving_pair_count
-    )
+    assert report.raw_pair_count == (report.excluded_pair_count + report.surviving_pair_count)
     assert "rank_score" not in DomainMethodPair.model_fields
     assert "opportunity_score" not in DomainMethodPair.model_fields
     assert report.backend_records[0].allowed_in_production is True
@@ -3099,9 +3273,7 @@ def test_deep_opportunity_discovery_with_mocked_retrieval_is_context_only(tmp_pa
     assert len(result.report.raw_artifact_paths) == 12
     assert len(result.report.retrieval_context_paths) == 12
     assert all((tmp_path / path).is_file() for path in result.report.raw_artifact_paths)
-    assert all(
-        (tmp_path / path).is_file() for path in result.report.retrieval_context_paths
-    )
+    assert all((tmp_path / path).is_file() for path in result.report.retrieval_context_paths)
     assert set(generator.received_pair_ids) == {
         item.source_pair_id for item in result.report.candidates
     }
@@ -3719,12 +3891,10 @@ def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
     assert all(item.success_criteria for item in result.report.execution_specs)
     assert all(item.failure_criteria for item in result.report.execution_specs)
     assert all(
-        item.creates_scientific_validation is False
-        for item in result.report.execution_specs
+        item.creates_scientific_validation is False for item in result.report.execution_specs
     )
     assert all(
-        item.creates_real_world_validation is False
-        for item in result.report.execution_specs
+        item.creates_real_world_validation is False for item in result.report.execution_specs
     )
     assert all(
         set(item.allowed_evidence_labels) == set(ROUTE_ALLOWED_LABELS[item.route_type])
@@ -3879,8 +4049,14 @@ with open("output.json", "w", encoding="utf-8") as handle:
             ),
             "filesystem_escape_found",
         ),
-        (safe_code.replace('with open("output.json", "w", encoding="utf-8") as handle:\n'
-                           '    json.dump(payload, handle)\n', ""), "reasons"),
+        (
+            safe_code.replace(
+                'with open("output.json", "w", encoding="utf-8") as handle:\n'
+                "    json.dump(payload, handle)\n",
+                "",
+            ),
+            "reasons",
+        ),
     ]
     for code, field in unsafe_cases:
         audit = audit_generated_experiment_code(
@@ -4003,9 +4179,7 @@ def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) ->
     assert execution.report.publication_ready is False
     assert all((tmp_path / path).is_file() for path in execution.report.sandbox_execution_paths)
     assert all((tmp_path / path).is_file() for path in execution.report.metric_extraction_paths)
-    successful = [
-        item for item in execution.report.generated_results if item.status == "completed"
-    ]
+    successful = [item for item in execution.report.generated_results if item.status == "completed"]
     assert {item.evidence_label for item in successful} >= {
         "SyntheticExperimentEvidence",
         "BenchmarkEvidence",
@@ -4222,9 +4396,7 @@ def test_hybrid_evidence_package_execution_uses_sandbox_metrics_and_draft_bounda
     assert completed
     assert all(item.metrics for item in completed)
     assert all(
-        "#metrics." in source
-        for item in completed
-        for source in item.metric_sources.values()
+        "#metrics." in source for item in completed for source in item.metric_sources.values()
     )
     drafts = [item for item in executed.report.results if item.status == "draft_created"]
     assert drafts
@@ -4353,9 +4525,7 @@ def test_scientific_critic_ensemble_and_cross_package_adjudication(tmp_path) -> 
     assert reviews.report.critic_review_count == 4 * len(ScientificCriticRole)
     assert reviews.report.blocking_finding_count >= 3
     finding_types = {
-        finding.finding_type
-        for review in reviews.report.reviews
-        for finding in review.findings
+        finding.finding_type for review in reviews.report.reviews for finding in review.findings
     }
     assert ScientificCriticFindingType.WEAK_BASELINE in finding_types
     assert ScientificCriticFindingType.FALSE_BRIDGE in finding_types
@@ -4455,6 +4625,259 @@ def test_blocking_critic_finding_prevents_primary_nucleus_selection(tmp_path) ->
             critic=critic,
             require_non_fake_backends=True,
         )
+
+
+def _prepare_m105_nucleus_fixture(tmp_path, run_id: str):
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    package_planner = MockHybridEvidencePlanner()
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=package_planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=4,
+            max_planning_calls=4,
+            require_non_fake_backends=True,
+        ),
+    )
+    execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=package_planner,
+        code_generator=MockLLMExperimentCodeGenerator(
+            unsafe_index=-1,
+            negative_control_failure_index=-1,
+            runtime_failure_index=-1,
+        ),
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+    )
+    store.write_json(
+        run_id=run_id,
+        artifact_id="retrieval-context-9999",
+        artifact_type=ArtifactType.REPORT,
+        data=RetrievalContext(
+            context_id="retrieval-context-9999",
+            run_id=run_id,
+            source_pair_id="mock-primary-pair",
+            retrieval_mode="real_retrieval",
+            backend_name="retrieval-real-mocked-record",
+            query="bounded synthetic comparison",
+            sources=[
+                RetrievedSourceSummary(
+                    source_id="doi:10.1000/mock",
+                    title="Mock prior work for bounded retrieval context",
+                    authors=["Mock Author"],
+                    year=2024,
+                    doi="10.1000/mock",
+                    provider="mocked-production-record",
+                    fake_or_mocked=False,
+                )
+            ],
+            retrieval_confidence=0.70,
+            limitations=["Retrieved context is not novelty proof."],
+        ).model_dump(mode="json"),
+    )
+    critic = MockScientificCritic()
+    critique_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        critic=critic,
+        require_non_fake_backends=True,
+    )
+    adjudicated = adjudicate_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        critic=critic,
+        require_non_fake_backends=True,
+    )
+    assert adjudicated.report.paper_nucleus_selection_optional is not None
+    return store, ledger
+
+
+def test_nucleus_manuscript_synthesis_and_bounded_revision(tmp_path) -> None:
+    run_id = "run-nucleus-manuscript"
+    store, ledger = _prepare_m105_nucleus_fixture(tmp_path, run_id)
+    planner = MockNucleusManuscriptPlanner()
+    config = NucleusManuscriptConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        require_non_fake_backends=True,
+    )
+
+    planned = plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    drafted = synthesize_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    revised = revise_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    inspection = inspect_nucleus_manuscript(run_id=run_id, root=tmp_path)
+
+    assert planned.report.manuscript_plan_optional is not None
+    assert (
+        planned.report.manuscript_plan_optional.paper_type == NucleusPaperType.SYNTHETIC_BENCHMARK
+    )
+    assert drafted.report.draft_optional is not None
+    assert "Artifact-Bound Metrics" in drafted.report.draft_optional.markdown
+    assert drafted.report.claim_artifact_bindings
+    assert all(item.supporting_artifact_ids for item in drafted.report.claim_artifact_bindings)
+    assert revised.report.revised_draft_optional is not None
+    assert revised.report.revision_report_optional is not None
+    assert revised.report.revision_report_optional.claim_artifact_validation_passed is True
+    assert len(planner.critic_calls) == 2 * len(ManuscriptCriticRole)
+    assert inspection.revised_draft_present is True
+    assert inspection.publication_ready is False
+    assert any(
+        item.stage_kind == ScientificStageKind.MANUSCRIPT_SYNTHESIS
+        and item.backend_kind == BackendKind.LLM_OPENAI
+        for item in revised.report.backend_records
+    )
+    assert any(
+        item.stage_kind == ScientificStageKind.CLAIM_AUDIT
+        and item.backend_kind == BackendKind.LOCAL_EXECUTION
+        for item in revised.report.backend_records
+    )
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+
+
+def test_nucleus_manuscript_defers_without_primary_nucleus(tmp_path) -> None:
+    run_id = "run-nucleus-manuscript-no-nucleus"
+    store = ArtifactStore(tmp_path)
+    store.init_run(run_id)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    store.write_json(
+        run_id=run_id,
+        artifact_id="cross-package-adjudication-report-0001",
+        artifact_type=ArtifactType.REPORT,
+        data=CrossPackageAdjudicationReport(
+            run_id=run_id,
+            report_id="cross-package-adjudication-report-0001",
+            adjudication_status="completed_with_warnings",
+            source_package_report_path="runs/missing/reports/packages.json",
+            source_execution_report_path="runs/missing/reports/execution.json",
+            critic_review_count=0,
+            adjudicated_package_count=0,
+            blocking_finding_count=0,
+            production_ready=False,
+        ).model_dump(mode="json"),
+    )
+
+    result = plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=MockNucleusManuscriptPlanner(),
+        config=NucleusManuscriptConfig(run_id=run_id, backend="llm-openai"),
+    )
+
+    assert result.report.manuscript_status == NucleusManuscriptStatus.MANUSCRIPT_DEFERRED
+    assert "No primary paper nucleus" in result.report.blocking_reasons[0]
+    assert result.report.publication_ready is False
+
+
+def test_nucleus_manuscript_rejects_unsafe_draft_and_blocks_after_revision(tmp_path) -> None:
+    run_id = "run-nucleus-manuscript-unsafe"
+    store, ledger = _prepare_m105_nucleus_fixture(tmp_path, run_id)
+    unsafe = MockNucleusManuscriptPlanner(unsafe_draft=True)
+    config = NucleusManuscriptConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        require_non_fake_backends=True,
+    )
+    plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=unsafe,
+        config=config,
+    )
+    deferred = synthesize_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=unsafe,
+        config=config,
+    )
+    assert deferred.report.manuscript_status == NucleusManuscriptStatus.MANUSCRIPT_DEFERRED
+    assert any("real-world validation" in item for item in deferred.report.blocking_reasons)
+
+    run_id = "run-nucleus-manuscript-block-after-revision"
+    store, ledger = _prepare_m105_nucleus_fixture(tmp_path, run_id)
+    blocking = MockNucleusManuscriptPlanner(block_after_revision=True)
+    config = NucleusManuscriptConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        require_non_fake_backends=True,
+    )
+    plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=blocking,
+        config=config,
+    )
+    synthesize_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=blocking,
+        config=config,
+    )
+    result = revise_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=blocking,
+        config=config,
+    )
+    assert result.report.manuscript_status == NucleusManuscriptStatus.MANUSCRIPT_DEFERRED
+    assert result.report.revised_draft_optional is None
+    assert result.report.revision_report_optional is not None
+    assert result.report.revision_report_optional.remaining_blocking_findings
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.70.0/autonomous-evidence-gap-plan-item.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/autonomous-evidence-gap-plan-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic autonomous evidence-gap planning item.",
@@ -216,7 +216,7 @@
   ],
   "title": "AutonomousEvidenceGapPlanItem",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.AutonomousEvidenceGapPlanItem",
   "x-factori-verification-evidence": false
 }

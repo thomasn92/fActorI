@@ -53,6 +53,7 @@ from factori.schemas import (
     CitationUsage,
     Claim,
     ClaimAdjudication,
+    ClaimArtifactBinding,
     ClaimEvidenceMap,
     ClaimEvidenceMapLink,
     ClaimSupportAuditReport,
@@ -89,6 +90,7 @@ from factori.schemas import (
     EvidenceArtifactPlan,
     EvidenceArtifactType,
     EvidenceAwareRefreshReport,
+    EvidenceCitationBinding,
     EvidencePackageAdjudicationDecision,
     EvidencePackageAdjudicationScore,
     EvidencePackageDecision,
@@ -243,10 +245,13 @@ from factori.schemas import (
     MainMessageAssessment,
     MainResultAssessment,
     ManuscriptAssemblyReport,
+    ManuscriptCriticReview,
+    ManuscriptCriticRole,
     ManuscriptDraftingPlan,
     ManuscriptDraftingReport,
     ManuscriptDraftStatus,
     ManuscriptPlan,
+    ManuscriptRevisionReport,
     MethodAtlasEntry,
     MethodLens,
     MetricExtractionResult,
@@ -257,6 +262,14 @@ from factori.schemas import (
     MutationTournamentResult,
     MutationTournamentSpec,
     NarrativeManuscriptContract,
+    NucleusManuscriptConfig,
+    NucleusManuscriptDraft,
+    NucleusManuscriptInspectionReport,
+    NucleusManuscriptPlan,
+    NucleusManuscriptRawArtifact,
+    NucleusManuscriptStatus,
+    NucleusManuscriptSynthesisReport,
+    NucleusPaperType,
     NumericalStudyAssessment,
     OpportunityCandidate,
     OpportunityDiscoveryInspectionReport,
@@ -387,7 +400,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.70.0"
+PROTOCOL_VERSION = "0.71.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -618,6 +631,21 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "EvidencePackageDecision",
         EvidencePackageDecision,
         "Cross-package adjudication disposition for one hybrid evidence package.",
+    ),
+    ProtocolDefinition(
+        "NucleusPaperType",
+        NucleusPaperType,
+        "Flexible bounded paper shape selected for an adjudicated nucleus.",
+    ),
+    ProtocolDefinition(
+        "ManuscriptCriticRole",
+        ManuscriptCriticRole,
+        "Independent bounded critic perspective for a nucleus-centered manuscript.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptStatus",
+        NucleusManuscriptStatus,
+        "Lifecycle status for bounded M105 manuscript synthesis.",
     ),
     ProtocolDefinition(
         "StageBackendRecord",
@@ -988,6 +1016,56 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "CrossPackageAdjudicationInspectionReport",
         CrossPackageAdjudicationInspectionReport,
         "Read-only inspection of the latest cross-package adjudication.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptConfig",
+        NucleusManuscriptConfig,
+        "Bounded configuration for non-fake nucleus-centered manuscript synthesis.",
+    ),
+    ProtocolDefinition(
+        "EvidenceCitationBinding",
+        EvidenceCitationBinding,
+        "Deterministic manuscript location binding to an artifact or retrieval source.",
+    ),
+    ProtocolDefinition(
+        "ClaimArtifactBinding",
+        ClaimArtifactBinding,
+        "Bounded substantive manuscript claim and its persisted supporting artifacts.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptPlan",
+        NucleusManuscriptPlan,
+        "LLM-authored scientific paper shape constrained by an adjudicated nucleus.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptDraft",
+        NucleusManuscriptDraft,
+        "Artifact-bound Markdown and LaTeX manuscript presentation draft.",
+    ),
+    ProtocolDefinition(
+        "ManuscriptCriticReview",
+        ManuscriptCriticReview,
+        "One bounded LLM review of a nucleus-centered manuscript draft.",
+    ),
+    ProtocolDefinition(
+        "ManuscriptRevisionReport",
+        ManuscriptRevisionReport,
+        "Append-only critic-guided M105 manuscript revision outcome.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptRawArtifact",
+        NucleusManuscriptRawArtifact,
+        "Secret-free raw LLM provenance for M105 narrative operations.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptSynthesisReport",
+        NucleusManuscriptSynthesisReport,
+        "Append-only plan, draft, critic, revision, and compliance report for M105.",
+    ),
+    ProtocolDefinition(
+        "NucleusManuscriptInspectionReport",
+        NucleusManuscriptInspectionReport,
+        "Read-only inspection of the latest M105 nucleus manuscript state.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

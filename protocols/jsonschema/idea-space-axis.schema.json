@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.70.0/idea-space-axis.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/idea-space-axis.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic PCA-like axis over idea-node features.",
@@ -49,7 +49,7 @@
   ],
   "title": "IdeaSpaceAxis",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.IdeaSpaceAxis",
   "x-factori-verification-evidence": false
 }

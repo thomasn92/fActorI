@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.70.0/planned-spec-duplicate-record.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/planned-spec-duplicate-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One planned-spec duplicate record keyed by stable fingerprint.",
@@ -67,7 +67,7 @@
   ],
   "title": "PlannedSpecDuplicateRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecDuplicateRecord",
   "x-factori-verification-evidence": false
 }

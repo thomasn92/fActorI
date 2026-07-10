@@ -275,7 +275,9 @@
         "critic_review",
         "literature_retrieval",
         "novelty_assessment",
+        "manuscript_planning",
         "manuscript_synthesis",
+        "manuscript_artifact_assembly",
         "claim_audit",
         "bundle_verification"
       ],
@@ -356,7 +358,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.70.0/evidence-package-execution-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/evidence-package-execution-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of latest hybrid evidence-package execution.",
@@ -537,7 +539,7 @@
   ],
   "title": "EvidencePackageExecutionInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.EvidencePackageExecutionInspectionReport",
   "x-factori-verification-evidence": false
 }

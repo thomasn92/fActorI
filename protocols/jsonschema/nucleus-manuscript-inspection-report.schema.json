@@ -1,0 +1,410 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "ManuscriptCriticReview": {
+      "additionalProperties": false,
+      "description": "One LLM manuscript review; context only and never evidence authority.",
+      "properties": {
+        "blocking_findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking Findings",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "critic_role": {
+          "$ref": "#/$defs/ManuscriptCriticRole"
+        },
+        "draft_id": {
+          "minLength": 1,
+          "title": "Draft Id",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "recommended_revisions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recommended Revisions",
+          "type": "array"
+        },
+        "review_id": {
+          "minLength": 1,
+          "title": "Review Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "review_id",
+        "run_id",
+        "draft_id",
+        "critic_role",
+        "score"
+      ],
+      "title": "ManuscriptCriticReview",
+      "type": "object"
+    },
+    "ManuscriptCriticRole": {
+      "description": "Independent bounded reviewers for an LLM-authored nucleus manuscript.",
+      "enum": [
+        "claim_evidence_alignment",
+        "scientific_coherence",
+        "overclaim_detection",
+        "technical_consistency",
+        "baseline_and_control_reporting",
+        "negative_result_reporting",
+        "citation_alignment",
+        "readability_and_structure"
+      ],
+      "title": "ManuscriptCriticRole",
+      "type": "string"
+    },
+    "NucleusManuscriptStatus": {
+      "description": "Bounded lifecycle status for M105 manuscript synthesis.",
+      "enum": [
+        "bounded_draft",
+        "scientific_draft_with_open_obligations",
+        "manuscript_deferred",
+        "failed"
+      ],
+      "title": "NucleusManuscriptStatus",
+      "type": "string"
+    },
+    "NucleusPaperType": {
+      "description": "Bounded paper shapes available to the LLM nucleus-manuscript planner.",
+      "enum": [
+        "applied_mathematics",
+        "methodological",
+        "synthetic_benchmark",
+        "counterexample",
+        "computational_study",
+        "theory_with_numerical_illustration",
+        "robustness_study",
+        "negative_result",
+        "hybrid"
+      ],
+      "title": "NucleusPaperType",
+      "type": "string"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "substrate_selection",
+        "branch_routing",
+        "experiment_design",
+        "spec_validation",
+        "experiment_code_generation",
+        "code_safety_audit",
+        "experiment_execution",
+        "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
+        "adjudication",
+        "adjudication_score_aggregation",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_planning",
+        "manuscript_synthesis",
+        "manuscript_artifact_assembly",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.71.0/nucleus-manuscript-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only inspection of the latest M105 nucleus manuscript state.",
+  "properties": {
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "blocking_manuscript_findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Manuscript Findings",
+      "type": "array"
+    },
+    "claim_artifact_binding_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Claim Artifact Binding Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_reviews": {
+      "items": {
+        "$ref": "#/$defs/ManuscriptCriticReview"
+      },
+      "title": "Critic Reviews",
+      "type": "array"
+    },
+    "draft_present": {
+      "default": false,
+      "title": "Draft Present",
+      "type": "boolean"
+    },
+    "evidence_citation_binding_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Evidence Citation Binding Count",
+      "type": "integer"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_report_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Report Id Optional"
+    },
+    "manuscript_plan_present": {
+      "default": false,
+      "title": "Manuscript Plan Present",
+      "type": "boolean"
+    },
+    "manuscript_status_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NucleusManuscriptStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "nucleus_manuscript_present": {
+      "title": "Nucleus Manuscript Present",
+      "type": "boolean"
+    },
+    "paper_nucleus_present": {
+      "default": false,
+      "title": "Paper Nucleus Present",
+      "type": "boolean"
+    },
+    "paper_type_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NucleusPaperType"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "primary_package_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Primary Package Id Optional"
+    },
+    "production_ready": {
+      "default": false,
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "revised_draft_present": {
+      "default": false,
+      "title": "Revised Draft Present",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "unresolved_obligations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Obligations",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "nucleus_manuscript_present"
+  ],
+  "title": "NucleusManuscriptInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.NucleusManuscriptInspectionReport",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,98 @@
+{
+  "$id": "https://schemas.factori.local/0.71.0/manuscript-revision-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only critic-guided M105 manuscript revision outcome.",
+  "properties": {
+    "applied_recommendations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Applied Recommendations",
+      "type": "array"
+    },
+    "claim_artifact_validation_passed": {
+      "title": "Claim Artifact Validation Passed",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "remaining_blocking_findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Remaining Blocking Findings",
+      "type": "array"
+    },
+    "revised_draft_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Revised Draft Id Optional"
+    },
+    "revision_attempt": {
+      "minimum": 1,
+      "title": "Revision Attempt",
+      "type": "integer"
+    },
+    "revision_id": {
+      "minLength": 1,
+      "title": "Revision Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_draft_id": {
+      "minLength": 1,
+      "title": "Source Draft Id",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "revised",
+        "manuscript_deferred",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "revision_id",
+    "run_id",
+    "source_draft_id",
+    "revision_attempt",
+    "status",
+    "claim_artifact_validation_passed"
+  ],
+  "title": "ManuscriptRevisionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.ManuscriptRevisionReport",
+  "x-factori-verification-evidence": false
+}

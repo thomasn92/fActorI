@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "ManuscriptCriticRole": {
+      "description": "Independent bounded reviewers for an LLM-authored nucleus manuscript.",
+      "enum": [
+        "claim_evidence_alignment",
+        "scientific_coherence",
+        "overclaim_detection",
+        "technical_consistency",
+        "baseline_and_control_reporting",
+        "negative_result_reporting",
+        "citation_alignment",
+        "readability_and_structure"
+      ],
+      "title": "ManuscriptCriticRole",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.71.0/manuscript-critic-review.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One bounded LLM review of a nucleus-centered manuscript draft.",
+  "properties": {
+    "blocking_findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Findings",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "critic_role": {
+      "$ref": "#/$defs/ManuscriptCriticRole"
+    },
+    "draft_id": {
+      "minLength": 1,
+      "title": "Draft Id",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "recommended_revisions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Recommended Revisions",
+      "type": "array"
+    },
+    "review_id": {
+      "minLength": 1,
+      "title": "Review Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "score": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Score",
+      "type": "number"
+    }
+  },
+  "required": [
+    "review_id",
+    "run_id",
+    "draft_id",
+    "critic_role",
+    "score"
+  ],
+  "title": "ManuscriptCriticReview",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.ManuscriptCriticReview",
+  "x-factori-verification-evidence": false
+}

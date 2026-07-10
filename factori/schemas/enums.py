@@ -394,6 +394,9 @@ class ControllerActionType(StrEnum):
     HYBRID_EVIDENCE_PACKAGES_EXECUTED = "HybridEvidencePackagesExecuted"
     SCIENTIFIC_CRITIC_REVIEWS_WRITTEN = "ScientificCriticReviewsWritten"
     CROSS_PACKAGE_ADJUDICATION_WRITTEN = "CrossPackageAdjudicationWritten"
+    NUCLEUS_MANUSCRIPT_PLANNED = "NucleusManuscriptPlanned"
+    NUCLEUS_MANUSCRIPT_SYNTHESIZED = "NucleusManuscriptSynthesized"
+    NUCLEUS_MANUSCRIPT_REVISED = "NucleusManuscriptRevised"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"
 
@@ -491,7 +494,9 @@ class ScientificStageKind(StrEnum):
     CRITIC_REVIEW = "critic_review"
     LITERATURE_RETRIEVAL = "literature_retrieval"
     NOVELTY_ASSESSMENT = "novelty_assessment"
+    MANUSCRIPT_PLANNING = "manuscript_planning"
     MANUSCRIPT_SYNTHESIS = "manuscript_synthesis"
+    MANUSCRIPT_ARTIFACT_ASSEMBLY = "manuscript_artifact_assembly"
     CLAIM_AUDIT = "claim_audit"
     BUNDLE_VERIFICATION = "bundle_verification"
 
@@ -537,6 +542,42 @@ class ScientificCriticFindingType(StrEnum):
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
     STRONG_PACKAGE = "strong_package"
     INTERESTING_FAILURE_MODE = "interesting_failure_mode"
+
+
+class NucleusPaperType(StrEnum):
+    """Bounded paper shapes available to the LLM nucleus-manuscript planner."""
+
+    APPLIED_MATHEMATICS = "applied_mathematics"
+    METHODOLOGICAL = "methodological"
+    SYNTHETIC_BENCHMARK = "synthetic_benchmark"
+    COUNTEREXAMPLE = "counterexample"
+    COMPUTATIONAL_STUDY = "computational_study"
+    THEORY_WITH_NUMERICAL_ILLUSTRATION = "theory_with_numerical_illustration"
+    ROBUSTNESS_STUDY = "robustness_study"
+    NEGATIVE_RESULT = "negative_result"
+    HYBRID = "hybrid"
+
+
+class ManuscriptCriticRole(StrEnum):
+    """Independent bounded reviewers for an LLM-authored nucleus manuscript."""
+
+    CLAIM_EVIDENCE_ALIGNMENT = "claim_evidence_alignment"
+    SCIENTIFIC_COHERENCE = "scientific_coherence"
+    OVERCLAIM_DETECTION = "overclaim_detection"
+    TECHNICAL_CONSISTENCY = "technical_consistency"
+    BASELINE_AND_CONTROL_REPORTING = "baseline_and_control_reporting"
+    NEGATIVE_RESULT_REPORTING = "negative_result_reporting"
+    CITATION_ALIGNMENT = "citation_alignment"
+    READABILITY_AND_STRUCTURE = "readability_and_structure"
+
+
+class NucleusManuscriptStatus(StrEnum):
+    """Bounded lifecycle status for M105 manuscript synthesis."""
+
+    BOUNDED_DRAFT = "bounded_draft"
+    SCIENTIFIC_DRAFT_WITH_OPEN_OBLIGATIONS = "scientific_draft_with_open_obligations"
+    MANUSCRIPT_DEFERRED = "manuscript_deferred"
+    FAILED = "failed"
 
 
 class EvidencePackageDecision(StrEnum):

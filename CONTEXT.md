@@ -150,6 +150,10 @@ completed run from disk and checks consistency without changing provenance.
   claim-scope, novelty-risk, coherence, and technical-soundness roles; local score aggregation and
   fail-closed primary-nucleus gates preserve all evidence boundaries and never create metrics,
   proof verification, novelty proof, real-world validation, or publication readiness.
+- schema-constrained non-fake nucleus-centered manuscript planning, drafting, critic review, and
+  bounded revision over an adjudicated package, with deterministic claim/artifact and citation
+  bindings, execution-artifact-only metric tables, explicit unresolved obligations, and fail-closed
+  rejection of unsupported proof, novelty, real-world-validation, or publication-readiness claims.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

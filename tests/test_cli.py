@@ -95,6 +95,23 @@ def test_final_manuscript_cli_commands_are_registered() -> None:
     assert "--json" in inspect.output
 
 
+def test_nucleus_manuscript_cli_commands_are_registered() -> None:
+    plan = CliRunner().invoke(app, ["plan-nucleus-manuscript", "--help"])
+    synthesize = CliRunner().invoke(app, ["synthesize-nucleus-manuscript", "--help"])
+    revise = CliRunner().invoke(app, ["revise-nucleus-manuscript", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-nucleus-manuscript", "--help"])
+
+    assert plan.exit_code == 0, plan.output
+    assert "--backend" in plan.output
+    assert "--require-non-fake-backends" in plan.output
+    assert synthesize.exit_code == 0, synthesize.output
+    assert "--allow-external-calls" in synthesize.output
+    assert revise.exit_code == 0, revise.output
+    assert "--max-revision-attempts" in revise.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--json" in inspect.output
+
+
 def test_final_release_bundle_cli_commands_are_registered() -> None:
     build = CliRunner().invoke(app, ["build-final-release-bundle", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-final-release-bundle", "--help"])

@@ -424,3 +424,15 @@ without real-world validation or publication readiness.
 - Critics and adjudicators read persisted package and execution artifacts only. They cannot invent
   metrics, upgrade symbolic drafts to proofs, establish novelty, claim real-world validation, or
   set publication readiness. Duplicate legacy package IDs are rejected rather than merged.
+
+## M105 LLM Nucleus-Centered Manuscript Synthesis and Bounded Revision
+
+- Added a gated OpenAI structured-output path that plans a flexible paper shape from the selected
+  M104 nucleus, then drafts bounded Markdown and LaTeX with a scientific narrative rather than a
+  pipeline audit.
+- Added deterministic claim/artifact and citation bindings, exact execution-artifact metric tables,
+  required-section and forbidden-claim enforcement, and explicit placement of supporting, negative,
+  appendix, and rejected package roles.
+- Added eight manuscript critic roles and one bounded revision pass. Local validation re-runs after
+  revision and defers the manuscript if claims, evidence, citations, or blocking scope findings
+  remain unresolved. All M105 artifacts preserve `publication_ready=false`.

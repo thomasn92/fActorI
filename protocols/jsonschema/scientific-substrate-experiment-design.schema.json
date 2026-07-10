@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.70.0/scientific-substrate-experiment-design.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/scientific-substrate-experiment-design.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded experiment design for a scientific substrate.",
@@ -84,7 +84,7 @@
   ],
   "title": "ScientificSubstrateExperimentDesign",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.ScientificSubstrateExperimentDesign",
   "x-factori-verification-evidence": false
 }

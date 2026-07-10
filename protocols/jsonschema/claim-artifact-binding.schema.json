@@ -1,0 +1,82 @@
+{
+  "$id": "https://schemas.factori.local/0.71.0/claim-artifact-binding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded substantive manuscript claim and its persisted supporting artifacts.",
+  "properties": {
+    "allowed_in_main_text": {
+      "title": "Allowed In Main Text",
+      "type": "boolean"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "claim_scope": {
+      "minLength": 1,
+      "title": "Claim Scope",
+      "type": "string"
+    },
+    "claim_text": {
+      "minLength": 1,
+      "title": "Claim Text",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "requires_qualification": {
+      "title": "Requires Qualification",
+      "type": "boolean"
+    },
+    "supporting_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Artifact Ids",
+      "type": "array"
+    },
+    "supporting_evidence_labels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supporting Evidence Labels",
+      "type": "array"
+    },
+    "unsupported_components": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unsupported Components",
+      "type": "array"
+    }
+  },
+  "required": [
+    "claim_id",
+    "claim_text",
+    "claim_scope",
+    "allowed_in_main_text",
+    "requires_qualification"
+  ],
+  "title": "ClaimArtifactBinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.ClaimArtifactBinding",
+  "x-factori-verification-evidence": false
+}

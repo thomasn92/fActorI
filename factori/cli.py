@@ -19,6 +19,7 @@ from factori.adapters.llm_experiment_codegen import OpenAILLMExperimentCodeGener
 from factori.adapters.llm_route_planning import OpenAILLMRoutePlanner
 from factori.adapters.llm_substrate import OpenAILLMSubstrateGenerator
 from factori.adapters.llm_variance import OpenAILLMVarianceGenerator
+from factori.adapters.nucleus_manuscript import OpenAINucleusManuscript
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.adapters.retrieval_real import OpenAlexRetrievalClient
 from factori.adapters.scientific_critic import OpenAIScientificCritic
@@ -288,6 +289,14 @@ from factori.narrative_contract import (
     build_narrative_contract,
     load_narrative_inputs,
 )
+from factori.nucleus_manuscript import (
+    NucleusManuscriptError,
+    inspect_nucleus_manuscript,
+    plan_nucleus_manuscript,
+    render_nucleus_manuscript_text,
+    revise_nucleus_manuscript,
+    synthesize_nucleus_manuscript,
+)
 from factori.opportunity_discovery import (
     OpportunityDiscoveryError,
     discover_opportunities,
@@ -370,6 +379,7 @@ from factori.schemas import (
     LLMRoutePlanningConfig,
     LLMSubstrateConstructionConfig,
     LLMVarianceGenerationConfig,
+    NucleusManuscriptConfig,
     PipelineDryRunPlan,
     PipelineFailurePolicy,
     PipelineRunConfig,
@@ -4241,9 +4251,7 @@ def discover_deep_opportunities_command(
     typer.echo(f"run_id={run_id}")
     typer.echo(f"discovery_id={result.report.discovery_id}")
     typer.echo(f"selected_pair_count={result.report.selected_pair_count}")
-    typer.echo(
-        f"generated_opportunity_count={result.report.generated_opportunity_count}"
-    )
+    typer.echo(f"generated_opportunity_count={result.report.generated_opportunity_count}")
     typer.echo(f"selected_opportunity_count={result.report.selected_opportunity_count}")
     typer.echo(f"retrieval_mode={result.report.config.retrieval_mode}")
     typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
@@ -4473,9 +4481,7 @@ def construct_llm_substrates_command(
     typer.echo(f"run_id={run_id}")
     typer.echo(f"report_id={result.report.report_id}")
     typer.echo(f"source_variant_count={result.report.source_variant_count}")
-    typer.echo(
-        f"constructed_substrate_count={result.report.constructed_substrate_count}"
-    )
+    typer.echo(f"constructed_substrate_count={result.report.constructed_substrate_count}")
     typer.echo(f"selected_substrate_count={result.report.selected_substrate_count}")
     typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
     typer.echo("publication_ready=false")
@@ -4700,10 +4706,14 @@ def run_generated_experiments_command(
     if json_output:
         typer.echo(result.report.model_dump_json(indent=2))
         return
-    typer.echo(render_generated_experiment_text(inspect_generated_experiment_results(
-        run_id=run_id,
-        root=root,
-    )))
+    typer.echo(
+        render_generated_experiment_text(
+            inspect_generated_experiment_results(
+                run_id=run_id,
+                root=root,
+            )
+        )
+    )
 
 
 @app.command("inspect-generated-experiment-results")
@@ -5030,6 +5040,169 @@ def inspect_package_adjudication_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_package_adjudication_text(report))
+
+
+@app.command("plan-nucleus-manuscript")
+def plan_nucleus_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[bool, typer.Option("--allow-external-calls")] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Plan a bounded LLM manuscript around the selected M104 paper nucleus."""
+    planner = _nucleus_manuscript_client(
+        backend=backend,
+        model=model,
+        allow_external_calls=allow_external_calls,
+    )
+    try:
+        result = plan_nucleus_manuscript(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            planner=planner,
+            config=NucleusManuscriptConfig(
+                run_id=run_id,
+                backend=backend,
+                require_non_fake_backends=require_non_fake_backends,
+            ),
+        )
+    except (AdapterError, NucleusManuscriptError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_nucleus_manuscript_result(result, json_output=json_output)
+
+
+@app.command("synthesize-nucleus-manuscript")
+def synthesize_nucleus_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[bool, typer.Option("--allow-external-calls")] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Synthesize a bounded Markdown and LaTeX manuscript from a valid M105 plan."""
+    planner = _nucleus_manuscript_client(
+        backend=backend,
+        model=model,
+        allow_external_calls=allow_external_calls,
+    )
+    try:
+        result = synthesize_nucleus_manuscript(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            planner=planner,
+            config=NucleusManuscriptConfig(
+                run_id=run_id,
+                backend=backend,
+                require_non_fake_backends=require_non_fake_backends,
+            ),
+        )
+    except (AdapterError, NucleusManuscriptError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_nucleus_manuscript_result(result, json_output=json_output)
+
+
+@app.command("revise-nucleus-manuscript")
+def revise_nucleus_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    allow_external_calls: Annotated[bool, typer.Option("--allow-external-calls")] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_revision_attempts: Annotated[int, typer.Option("--max-revision-attempts")] = 1,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Critique and revise a bounded M105 manuscript, failing closed on remaining blocks."""
+    planner = _nucleus_manuscript_client(
+        backend=backend,
+        model=model,
+        allow_external_calls=allow_external_calls,
+    )
+    try:
+        result = revise_nucleus_manuscript(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            planner=planner,
+            config=NucleusManuscriptConfig(
+                run_id=run_id,
+                backend=backend,
+                max_revision_attempts=max_revision_attempts,
+                require_non_fake_backends=require_non_fake_backends,
+            ),
+        )
+    except (AdapterError, NucleusManuscriptError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_nucleus_manuscript_result(result, json_output=json_output)
+
+
+@app.command("inspect-nucleus-manuscript")
+def inspect_nucleus_manuscript_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest bounded nucleus-centered manuscript without modifying a run."""
+    try:
+        report = inspect_nucleus_manuscript(run_id=run_id, root=root)
+    except NucleusManuscriptError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_nucleus_manuscript_text(report))
+
+
+def _nucleus_manuscript_client(
+    *, backend: str, model: str, allow_external_calls: bool
+) -> OpenAINucleusManuscript:
+    normalized = backend.strip().lower().replace("_", "-")
+    if normalized not in {"llm-openai", "openai"}:
+        raise NucleusManuscriptError(
+            "Only llm-openai nucleus manuscript synthesis is implemented; no fallback exists."
+        )
+    return OpenAINucleusManuscript(
+        api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
+        model=model,
+        allow_external_calls=allow_external_calls,
+    )
+
+
+def _echo_nucleus_manuscript_result(result, *, json_output: bool) -> None:
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={result.run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    typer.echo(f"manuscript_status={result.report.manuscript_status.value}")
+    typer.echo(f"claim_artifact_binding_count={len(result.report.claim_artifact_bindings)}")
+    typer.echo(f"blocking_reason_count={len(result.report.blocking_reasons)}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
 
 
 @app.command("discover-opportunities")

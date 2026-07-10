@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.70.0/llm-pair-ranking-result.schema.json",
+  "$id": "https://schemas.factori.local/0.71.0/llm-pair-ranking-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-fake LLM scientific judgment for one compatible atlas pair.",
@@ -101,7 +101,7 @@
   ],
   "title": "LLMPairRankingResult",
   "type": "object",
-  "x-factori-protocol-version": "0.70.0",
+  "x-factori-protocol-version": "0.71.0",
   "x-factori-source-model": "factori.schemas.LLMPairRankingResult",
   "x-factori-verification-evidence": false
 }

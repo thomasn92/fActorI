@@ -999,6 +999,28 @@ uv run factori adjudicate-evidence-packages --run-id atlas-scan-001 \
 uv run factori inspect-package-adjudication --run-id atlas-scan-001 --json
 ```
 
+`plan-nucleus-manuscript` reads the selected M104 nucleus and persisted package execution outputs,
+then uses the gated `llm-openai` backend to propose a flexible paper structure. Local code builds
+claim/artifact and citation bindings first, so a missing primary nucleus, blocking finding,
+required artifact, metric source, or real retrieval citation yields an append-only
+`manuscript_deferred` report rather than fallback prose.
+
+`synthesize-nucleus-manuscript` writes bounded Markdown and LaTeX drafts with deterministic
+execution-artifact metric tables. `revise-nucleus-manuscript` runs the eight-role manuscript critic
+ensemble, requests one bounded revision, and rechecks bindings and claim boundaries. It defers when
+blocking findings remain. `inspect-nucleus-manuscript` is read-only. All M105 artifacts retain
+`publication_ready=false`.
+
+```bash
+uv run factori plan-nucleus-manuscript --run-id atlas-scan-001 \
+  --backend llm-openai --allow-external-calls --require-non-fake-backends
+uv run factori synthesize-nucleus-manuscript --run-id atlas-scan-001 \
+  --backend llm-openai --allow-external-calls --require-non-fake-backends
+uv run factori revise-nucleus-manuscript --run-id atlas-scan-001 \
+  --backend llm-openai --allow-external-calls --require-non-fake-backends
+uv run factori inspect-nucleus-manuscript --run-id atlas-scan-001 --json
+```
+
 ## Tests and Lint
 
 Canonical `uv` commands:

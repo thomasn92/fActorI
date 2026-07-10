@@ -1,0 +1,16 @@
+{
+  "$id": "https://schemas.factori.local/0.71.0/nucleus-manuscript-status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Lifecycle status for bounded M105 manuscript synthesis.",
+  "enum": [
+    "bounded_draft",
+    "scientific_draft_with_open_obligations",
+    "manuscript_deferred",
+    "failed"
+  ],
+  "title": "NucleusManuscriptStatus",
+  "type": "string",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.NucleusManuscriptStatus",
+  "x-factori-verification-evidence": false
+}

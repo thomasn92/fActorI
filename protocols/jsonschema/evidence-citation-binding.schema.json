@@ -1,0 +1,76 @@
+{
+  "$id": "https://schemas.factori.local/0.71.0/evidence-citation-binding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Deterministic manuscript location binding to an artifact or retrieval source.",
+  "properties": {
+    "artifact_id": {
+      "minLength": 1,
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "binding_id": {
+      "minLength": 1,
+      "title": "Binding Id",
+      "type": "string"
+    },
+    "citation_or_reference_id": {
+      "minLength": 1,
+      "title": "Citation Or Reference Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_label": {
+      "minLength": 1,
+      "title": "Evidence Label",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manuscript_location": {
+      "minLength": 1,
+      "title": "Manuscript Location",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "source_type": {
+      "minLength": 1,
+      "title": "Source Type",
+      "type": "string"
+    },
+    "supports_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supports Claim Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "binding_id",
+    "manuscript_location",
+    "artifact_id",
+    "source_type",
+    "evidence_label",
+    "citation_or_reference_id"
+  ],
+  "title": "EvidenceCitationBinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.EvidenceCitationBinding",
+  "x-factori-verification-evidence": false
+}

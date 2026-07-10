@@ -1,0 +1,121 @@
+{
+  "$id": "https://schemas.factori.local/0.71.0/nucleus-manuscript-draft.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Artifact-bound Markdown and LaTeX manuscript presentation draft.",
+  "properties": {
+    "abstract": {
+      "minLength": 1,
+      "title": "Abstract",
+      "type": "string"
+    },
+    "citation_binding_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Citation Binding Ids",
+      "type": "array"
+    },
+    "claim_ids_used": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Claim Ids Used",
+      "type": "array"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creates_verified_theorem": {
+      "const": false,
+      "default": false,
+      "title": "Creates Verified Theorem",
+      "type": "boolean"
+    },
+    "draft_id": {
+      "minLength": 1,
+      "title": "Draft Id",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latex": {
+      "minLength": 1,
+      "title": "Latex",
+      "type": "string"
+    },
+    "markdown": {
+      "minLength": 1,
+      "title": "Markdown",
+      "type": "string"
+    },
+    "novelty_proven": {
+      "const": false,
+      "default": false,
+      "title": "Novelty Proven",
+      "type": "boolean"
+    },
+    "plan_id": {
+      "minLength": 1,
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_draft_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Draft Id Optional"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "draft_id",
+    "run_id",
+    "plan_id",
+    "title",
+    "abstract",
+    "markdown",
+    "latex",
+    "claim_ids_used"
+  ],
+  "title": "NucleusManuscriptDraft",
+  "type": "object",
+  "x-factori-protocol-version": "0.71.0",
+  "x-factori-source-model": "factori.schemas.NucleusManuscriptDraft",
+  "x-factori-verification-evidence": false
+}

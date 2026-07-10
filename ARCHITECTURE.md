@@ -458,6 +458,13 @@ enforced before selection. These reports are judgment and manuscript-planning co
 cannot create evidence, proof verification, novelty proof, real-world validation, or publication
 readiness.
 
+M105 uses the adjudicated nucleus and persisted execution artifacts to let a separately recorded
+non-fake LLM organize a paper-shaped plan, draft bounded Markdown/LaTeX, receive independent
+manuscript critics, and revise once. Local validation constructs every substantive claim/artifact
+binding, copies metric tables only from execution outputs, checks citations and forbidden claims,
+and fails closed when a nucleus, required artifact, source citation, or post-revision scope check is
+missing. The resulting manuscript remains a bounded draft, never publication-ready evidence.
+
 ## Narrative Paper Shape Boundary
 
 The manuscript-quality layer checks whether the planned paper has a central message, problem

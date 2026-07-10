@@ -22,8 +22,11 @@ from factori.schemas.enums import (
     FullPaperGenerationStatus,
     FullPaperGenerationStepStatus,
     GenerationMutationOperator,
+    ManuscriptCriticRole,
     ManuscriptDraftStatus,
     NarrativeSectionRole,
+    NucleusManuscriptStatus,
+    NucleusPaperType,
     PaperCriticFindingSeverity,
     PaperCriticFindingType,
     PaperRevisionActionKind,
@@ -2931,13 +2934,19 @@ class ClaimTable(StrictModel):
 
 
 class ManuscriptSectionPlan(StrictModel):
-    """Section-level manuscript plan."""
+    """Section-level manuscript plan shared by legacy and nucleus-centered drafting."""
 
     section_id: str = Field(min_length=1)
     title: str = Field(min_length=1)
     bullets: list[str]
     allowed_claim_ids: list[str] = Field(default_factory=list)
     narrative_roles: list[NarrativeSectionRole] = Field(default_factory=list)
+    purpose: str = ""
+    claim_ids: list[str] = Field(default_factory=list)
+    artifact_ids: list[str] = Field(default_factory=list)
+    supporting_package_ids: list[str] = Field(default_factory=list)
+    required_citations: list[str] = Field(default_factory=list)
+    scope_constraints: list[str] = Field(default_factory=list)
 
 
 class ManuscriptPlan(StrictModel):
@@ -6852,7 +6861,219 @@ class PaperSkeleton(StrictModel):
     is_verification_evidence: bool = False
 
 
+class NucleusManuscriptConfig(StrictModel):
+    """Bounded configuration for the non-fake M105 manuscript path."""
+
+    run_id: str = Field(min_length=1)
+    backend: str = Field(min_length=1)
+    max_revision_attempts: int = Field(default=1, ge=1, le=3)
+    require_non_fake_backends: bool = False
+    fail_on_silent_fallback: bool = True
+
+
+class EvidenceCitationBinding(StrictModel):
+    """Deterministic connection from manuscript prose to a persisted artifact or source."""
+
+    binding_id: str = Field(min_length=1)
+    manuscript_location: str = Field(min_length=1)
+    artifact_id: str = Field(min_length=1)
+    source_type: str = Field(min_length=1)
+    evidence_label: str = Field(min_length=1)
+    citation_or_reference_id: str = Field(min_length=1)
+    supports_claim_ids: list[str] = Field(default_factory=list)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ClaimArtifactBinding(StrictModel):
+    """A bounded substantive manuscript claim and the artifacts permitted to support it."""
+
+    claim_id: str = Field(min_length=1)
+    claim_text: str = Field(min_length=1)
+    claim_scope: str = Field(min_length=1)
+    supporting_artifact_ids: list[str] = Field(default_factory=list)
+    supporting_evidence_labels: list[str] = Field(default_factory=list)
+    unsupported_components: list[str] = Field(default_factory=list)
+    allowed_in_main_text: bool
+    requires_qualification: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class NucleusManuscriptPlan(StrictModel):
+    """LLM-authored paper shape constrained by an adjudicated paper nucleus."""
+
+    plan_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    paper_nucleus_selection_id: str = Field(min_length=1)
+    primary_package_id: str = Field(min_length=1)
+    working_title: str = Field(min_length=1)
+    paper_type: NucleusPaperType
+    central_question: str = Field(min_length=1)
+    central_claim: str = Field(min_length=1)
+    allowed_claim_scope: str = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    section_plans: list[ManuscriptSectionPlan] = Field(min_length=1)
+    supporting_package_roles: dict[str, str] = Field(default_factory=dict)
+    appendix_package_roles: dict[str, str] = Field(default_factory=dict)
+    negative_result_roles: dict[str, str] = Field(default_factory=dict)
+    required_repairs: list[str] = Field(default_factory=list)
+    unresolved_obligations: list[str] = Field(default_factory=list)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class NucleusManuscriptDraft(StrictModel):
+    """One LLM-authored, locally bound nucleus-centered manuscript presentation artifact."""
+
+    draft_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    plan_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    abstract: str = Field(min_length=1)
+    markdown: str = Field(min_length=1)
+    latex: str = Field(min_length=1)
+    claim_ids_used: list[str] = Field(min_length=1)
+    citation_binding_ids: list[str] = Field(default_factory=list)
+    source_draft_id_optional: str | None = None
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    novelty_proven: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ManuscriptCriticReview(StrictModel):
+    """One LLM manuscript review; context only and never evidence authority."""
+
+    review_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    draft_id: str = Field(min_length=1)
+    critic_role: ManuscriptCriticRole
+    findings: list[str] = Field(default_factory=list)
+    blocking_findings: list[str] = Field(default_factory=list)
+    recommended_revisions: list[str] = Field(default_factory=list)
+    score: float = Field(ge=0.0, le=1.0)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class ManuscriptRevisionReport(StrictModel):
+    """Append-only critic-guided revision result with fail-closed validation status."""
+
+    revision_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_draft_id: str = Field(min_length=1)
+    revised_draft_id_optional: str | None = None
+    revision_attempt: int = Field(ge=1)
+    status: Literal["revised", "manuscript_deferred", "failed"]
+    applied_recommendations: list[str] = Field(default_factory=list)
+    remaining_blocking_findings: list[str] = Field(default_factory=list)
+    claim_artifact_validation_passed: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class NucleusManuscriptRawArtifact(StrictModel):
+    """Secret-free raw LLM prompt/response provenance for M105 operations."""
+
+    raw_artifact_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    operation: Literal["planning", "synthesis", "critic", "revision"]
+    backend_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    prompt_text: str = Field(min_length=1)
+    requested_output_schema: dict[str, Any]
+    raw_response: dict[str, Any]
+    accepted_id_optional: str | None = None
+    rejection_reasons: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class NucleusManuscriptSynthesisReport(StrictModel):
+    """Append-only M105 plan, draft, review, revision, and compliance summary."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    phase: Literal["planning", "synthesis", "revision"]
+    manuscript_status: NucleusManuscriptStatus
+    source_adjudication_report_path: str = Field(min_length=1)
+    paper_nucleus_selection_id_optional: str | None = None
+    plan_path_optional: str | None = None
+    draft_markdown_path_optional: str | None = None
+    draft_latex_path_optional: str | None = None
+    revised_markdown_path_optional: str | None = None
+    revised_latex_path_optional: str | None = None
+    claim_artifact_map_path_optional: str | None = None
+    evidence_citation_bindings_path_optional: str | None = None
+    manuscript_plan_optional: NucleusManuscriptPlan | None = None
+    draft_optional: NucleusManuscriptDraft | None = None
+    revised_draft_optional: NucleusManuscriptDraft | None = None
+    claim_artifact_bindings: list[ClaimArtifactBinding] = Field(default_factory=list)
+    evidence_citation_bindings: list[EvidenceCitationBinding] = Field(default_factory=list)
+    critic_reviews: list[ManuscriptCriticReview] = Field(default_factory=list)
+    revision_report_optional: ManuscriptRevisionReport | None = None
+    blocking_reasons: list[str] = Field(default_factory=list)
+    unresolved_obligations: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    raw_artifact_paths: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    novelty_proven: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class NucleusManuscriptInspectionReport(StrictModel):
+    """Read-only inspection of the latest M105 manuscript synthesis result."""
+
+    run_id: str = Field(min_length=1)
+    nucleus_manuscript_present: bool
+    latest_report_id_optional: str | None = None
+    manuscript_status_optional: NucleusManuscriptStatus | None = None
+    paper_nucleus_present: bool = False
+    manuscript_plan_present: bool = False
+    draft_present: bool = False
+    revised_draft_present: bool = False
+    paper_type_optional: NucleusPaperType | None = None
+    primary_package_id_optional: str | None = None
+    claim_artifact_binding_count: int = Field(default=0, ge=0)
+    evidence_citation_binding_count: int = Field(default=0, ge=0)
+    blocking_manuscript_findings: list[str] = Field(default_factory=list)
+    unresolved_obligations: list[str] = Field(default_factory=list)
+    critic_reviews: list[ManuscriptCriticReview] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 __all__ = [
+    "NucleusManuscriptConfig",
+    "NucleusManuscriptPlan",
+    "EvidenceCitationBinding",
+    "ClaimArtifactBinding",
+    "NucleusManuscriptDraft",
+    "ManuscriptCriticReview",
+    "ManuscriptRevisionReport",
+    "NucleusManuscriptSynthesisReport",
+    "NucleusManuscriptInspectionReport",
+    "NucleusManuscriptRawArtifact",
     "InstantiationMap",
     "AbstractModel",
     "AbstractionReport",
