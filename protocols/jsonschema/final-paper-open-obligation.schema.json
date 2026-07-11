@@ -1,0 +1,88 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-open-obligation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One unresolved proof, retrieval, robustness, or validation obligation.",
+  "properties": {
+    "affected_claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Affected Claim Ids",
+      "type": "array"
+    },
+    "blocking_for_publication": {
+      "title": "Blocking For Publication",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "obligation_id": {
+      "minLength": 1,
+      "title": "Obligation Id",
+      "type": "string"
+    },
+    "obligation_type": {
+      "enum": [
+        "unresolved_proof",
+        "unresolved_symbolic_step",
+        "retrieval_gap",
+        "novelty_gap",
+        "missing_robustness",
+        "missing_real_data",
+        "missing_external_validation",
+        "failed_negative_control",
+        "critic_required_repair",
+        "missing_figure",
+        "missing_citation",
+        "other"
+      ],
+      "title": "Obligation Type",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "resolved": {
+      "const": false,
+      "default": false,
+      "title": "Resolved",
+      "type": "boolean"
+    },
+    "source_artifact_id": {
+      "minLength": 1,
+      "title": "Source Artifact Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "obligation_id",
+    "obligation_type",
+    "description",
+    "source_artifact_id",
+    "blocking_for_publication"
+  ],
+  "title": "FinalPaperOpenObligation",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperOpenObligation",
+  "x-factori-verification-evidence": false
+}

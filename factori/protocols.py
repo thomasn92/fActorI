@@ -119,6 +119,18 @@ from factori.schemas import (
     FinalManuscriptSection,
     FinalManuscriptStructuredDocument,
     FinalNucleus,
+    FinalPaperAppendixRecord,
+    FinalPaperArtifactBinding,
+    FinalPaperAssemblyConfig,
+    FinalPaperAssemblyReport,
+    FinalPaperFigureRecord,
+    FinalPaperInspectionReport,
+    FinalPaperManifest,
+    FinalPaperOpenObligation,
+    FinalPaperSectionRecord,
+    FinalPaperTableRecord,
+    FinalPaperVerificationFinding,
+    FinalPaperVerificationReport,
     FinalReleaseBundle,
     FinalReleaseBundleArtifact,
     FinalReleaseBundleIndex,
@@ -400,7 +412,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.71.0"
+PROTOCOL_VERSION = "0.72.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -1066,6 +1078,66 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "NucleusManuscriptInspectionReport",
         NucleusManuscriptInspectionReport,
         "Read-only inspection of the latest M105 nucleus manuscript state.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperAssemblyConfig",
+        FinalPaperAssemblyConfig,
+        "Local-only configuration for bounded final-paper assembly.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperManifest",
+        FinalPaperManifest,
+        "Machine-readable final-paper asset and open-obligation manifest.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperSectionRecord",
+        FinalPaperSectionRecord,
+        "One retained final-paper section and its source-artifact links.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperArtifactBinding",
+        FinalPaperArtifactBinding,
+        "Resolved final-paper link to one immutable source artifact.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperFigureRecord",
+        FinalPaperFigureRecord,
+        "One actual hash-verified generated figure included by the final paper.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperTableRecord",
+        FinalPaperTableRecord,
+        "One deterministic table reconstructed from metric artifacts.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperAppendixRecord",
+        FinalPaperAppendixRecord,
+        "One flexible appendix role and its supporting context artifacts.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperOpenObligation",
+        FinalPaperOpenObligation,
+        "One unresolved proof, retrieval, robustness, or validation obligation.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperAssemblyReport",
+        FinalPaperAssemblyReport,
+        "Append-only assembly or bundle report for a bounded final paper.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperVerificationFinding",
+        FinalPaperVerificationFinding,
+        "One local final-paper structural, claim, citation, or integrity finding.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperVerificationReport",
+        FinalPaperVerificationReport,
+        "Append-only local final-paper verification report.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperInspectionReport",
+        FinalPaperInspectionReport,
+        "Read-only latest final-paper assembly, verification, and bundle inspection.",
     ),
     ProtocolDefinition(
         "DomainPrimitive",

@@ -1,0 +1,82 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-verification-finding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One local final-paper structural, claim, citation, or integrity finding.",
+  "properties": {
+    "artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "blocking": {
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claim Ids",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "description": {
+      "minLength": 1,
+      "title": "Description",
+      "type": "string"
+    },
+    "finding_id": {
+      "minLength": 1,
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "finding_type": {
+      "enum": [
+        "missing_artifact",
+        "hash_mismatch",
+        "unsupported_claim",
+        "metric_mismatch",
+        "missing_scope_qualification",
+        "forbidden_claim",
+        "missing_citation",
+        "unresolved_figure",
+        "unresolved_table",
+        "backend_provenance_gap",
+        "unresolved_blocking_obligation"
+      ],
+      "title": "Finding Type",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "finding_id",
+    "finding_type",
+    "description",
+    "blocking"
+  ],
+  "title": "FinalPaperVerificationFinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperVerificationFinding",
+  "x-factori-verification-evidence": false
+}

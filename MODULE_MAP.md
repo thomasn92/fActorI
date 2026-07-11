@@ -338,6 +338,10 @@ All implementation modules are under `factori/`.
 - `nucleus_manuscript.py`: append-only nucleus-centered manuscript plans, deterministic
   claim/artifact and citation bindings, execution-artifact-only metric tables, eight-role critic
   review, post-revision validation, strict production records, and read-only inspection.
+- `final_paper.py`: legacy deterministic paper-skeleton compatibility plus M106 append-only final
+  Markdown/LaTeX assembly, sandbox-output-bound metric table reconstruction, figure/citation/
+  artifact resolution, open-obligation appendices, structural verification, hash-locked release
+  packaging, strict backend provenance checks, and read-only inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

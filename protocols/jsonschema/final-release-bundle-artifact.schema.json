@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/final-release-bundle-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/final-release-bundle-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One file included in an immutable final release bundle.",
@@ -70,7 +70,7 @@
   ],
   "title": "FinalReleaseBundleArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.FinalReleaseBundleArtifact",
   "x-factori-verification-evidence": false
 }

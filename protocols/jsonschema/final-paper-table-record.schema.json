@@ -1,0 +1,102 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-table-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One deterministic table reconstructed from metric artifacts.",
+  "properties": {
+    "claim_ids_supported": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claim Ids Supported",
+      "type": "array"
+    },
+    "columns": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Columns",
+      "type": "array"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "deterministically_assembled": {
+      "const": true,
+      "default": true,
+      "title": "Deterministically Assembled",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "referenced_in_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Referenced In Sections",
+      "type": "array"
+    },
+    "resolved": {
+      "title": "Resolved",
+      "type": "boolean"
+    },
+    "rows": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "source_metric_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Source Metric Artifact Ids",
+      "type": "array"
+    },
+    "table_id": {
+      "minLength": 1,
+      "title": "Table Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "table_id",
+    "source_metric_artifact_ids",
+    "title",
+    "columns",
+    "content_hash",
+    "resolved"
+  ],
+  "title": "FinalPaperTableRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperTableRecord",
+  "x-factori-verification-evidence": false
+}

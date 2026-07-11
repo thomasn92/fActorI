@@ -436,3 +436,17 @@ without real-world validation or publication readiness.
 - Added eight manuscript critic roles and one bounded revision pass. Local validation re-runs after
   revision and defers the manuscript if claims, evidence, citations, or blocking scope findings
   remain unresolved. All M105 artifacts preserve `publication_ready=false`.
+
+## M106 Final Paper Assembly and Release Integration
+
+- Added deterministic assembly from the latest valid revised M105 manuscript into final Markdown,
+  LaTeX, manifest, claim/artifact map, citation bindings, provenance manifest, reconstructed tables,
+  flexible appendix records, and open-obligation records.
+- Added fail-closed source resolution: metric values must map through a schema-valid M103 extraction
+  record to a completed sandbox `output.json`; figures must be declared local execution artifacts;
+  retrieval-backed citations must resolve to real retrieval contexts; claim, hash, scope, and
+  forbidden-claim checks are rerun before release.
+- Added local final-paper verification and a self-contained hash-locked release directory containing
+  presentation files, tables, figures, bindings, evidence outputs, provenance, open obligations,
+  backend records, and bounded reproduction context. `verified` remains structural consistency only;
+  every M106 artifact preserves `publication_ready=false`.

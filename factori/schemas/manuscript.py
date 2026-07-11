@@ -7063,6 +7063,304 @@ class NucleusManuscriptInspectionReport(StrictModel):
     is_verification_evidence: Literal[False] = False
 
 
+FinalPaperAssemblyStatus = Literal["assembled", "deferred", "failed"]
+FinalPaperStatus = Literal[
+    "bounded_draft",
+    "scientific_draft_with_open_obligations",
+    "verified_bounded_draft",
+    "deferred",
+]
+FinalPaperVerificationStatus = Literal["verified", "verified_with_warnings", "deferred", "failed"]
+FinalPaperVerificationFindingType = Literal[
+    "missing_artifact",
+    "hash_mismatch",
+    "unsupported_claim",
+    "metric_mismatch",
+    "missing_scope_qualification",
+    "forbidden_claim",
+    "missing_citation",
+    "unresolved_figure",
+    "unresolved_table",
+    "backend_provenance_gap",
+    "unresolved_blocking_obligation",
+]
+FinalPaperOpenObligationType = Literal[
+    "unresolved_proof",
+    "unresolved_symbolic_step",
+    "retrieval_gap",
+    "novelty_gap",
+    "missing_robustness",
+    "missing_real_data",
+    "missing_external_validation",
+    "failed_negative_control",
+    "critic_required_repair",
+    "missing_figure",
+    "missing_citation",
+    "other",
+]
+
+
+class FinalPaperAssemblyConfig(StrictModel):
+    """Local-only configuration for final assembly of a revised nucleus manuscript."""
+
+    run_id: str = Field(min_length=1)
+    require_non_fake_backends: bool = False
+    include_negative_results_appendix: bool = True
+    include_provenance_appendix: bool = True
+    include_raw_llm_provenance: bool = False
+
+
+class FinalPaperSectionRecord(StrictModel):
+    """One final-paper section retained from the revised nucleus manuscript."""
+
+    section_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    manuscript_location: str = Field(min_length=1)
+    claim_ids: list[str] = Field(default_factory=list)
+    source_artifact_ids: list[str] = Field(default_factory=list)
+    content_hash: str = Field(pattern=HASH_RE.pattern)
+    included: bool = True
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperArtifactBinding(StrictModel):
+    """Resolved final-paper link from presentation locations to immutable source artifacts."""
+
+    binding_id: str = Field(min_length=1)
+    artifact_id: str = Field(min_length=1)
+    artifact_type: str = Field(min_length=1)
+    source_stage: str = Field(min_length=1)
+    source_backend: str = Field(min_length=1)
+    content_hash: str = Field(pattern=HASH_RE.pattern)
+    manuscript_locations: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_label: str = Field(min_length=1)
+    required: bool
+    resolved: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperFigureRecord(StrictModel):
+    """One actual, hash-verified generated figure eligible for final-paper inclusion."""
+
+    figure_id: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    file_path: str = Field(min_length=1)
+    caption: str = Field(min_length=1)
+    referenced_in_sections: list[str] = Field(default_factory=list)
+    claim_ids_supported: list[str] = Field(default_factory=list)
+    generation_backend: str = Field(min_length=1)
+    content_hash: str = Field(pattern=HASH_RE.pattern)
+    resolved: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperTableRecord(StrictModel):
+    """One deterministic table reconstructed only from validated metric artifacts."""
+
+    table_id: str = Field(min_length=1)
+    source_metric_artifact_ids: list[str] = Field(min_length=1)
+    title: str = Field(min_length=1)
+    columns: list[str] = Field(min_length=1)
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    referenced_in_sections: list[str] = Field(default_factory=list)
+    claim_ids_supported: list[str] = Field(default_factory=list)
+    deterministically_assembled: Literal[True] = True
+    content_hash: str = Field(pattern=HASH_RE.pattern)
+    resolved: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperAppendixRecord(StrictModel):
+    """One flexible appendix role and its source packages or artifacts."""
+
+    appendix_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    role: str = Field(min_length=1)
+    source_package_ids: list[str] = Field(default_factory=list)
+    source_artifact_ids: list[str] = Field(default_factory=list)
+    contains_negative_results: bool = False
+    contains_failed_branches: bool = False
+    contains_provenance: bool = False
+    contains_open_obligations: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperOpenObligation(StrictModel):
+    """An unresolved issue carried visibly into final paper assembly and release context."""
+
+    obligation_id: str = Field(min_length=1)
+    obligation_type: FinalPaperOpenObligationType
+    description: str = Field(min_length=1)
+    source_artifact_id: str = Field(min_length=1)
+    affected_claim_ids: list[str] = Field(default_factory=list)
+    blocking_for_publication: bool
+    resolved: Literal[False] = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperManifest(StrictModel):
+    """Machine-readable manifest for one bounded final paper assembled from M105 artifacts."""
+
+    manifest_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    source_manuscript_revision_id: str = Field(min_length=1)
+    paper_nucleus_selection_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    paper_type: NucleusPaperType
+    manuscript_status: NucleusManuscriptStatus
+    main_markdown_path: str = Field(min_length=1)
+    main_latex_path: str = Field(min_length=1)
+    bibliography_path_optional: str | None = None
+    section_records: list[FinalPaperSectionRecord] = Field(default_factory=list)
+    artifact_bindings: list[FinalPaperArtifactBinding] = Field(default_factory=list)
+    figure_records: list[FinalPaperFigureRecord] = Field(default_factory=list)
+    table_records: list[FinalPaperTableRecord] = Field(default_factory=list)
+    appendix_records: list[FinalPaperAppendixRecord] = Field(default_factory=list)
+    claim_artifact_map_path: str = Field(min_length=1)
+    evidence_citation_bindings_path: str = Field(min_length=1)
+    provenance_manifest_path: str = Field(min_length=1)
+    open_obligations: list[FinalPaperOpenObligation] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperAssemblyReport(StrictModel):
+    """Append-only local assembly or bundle report for a bounded final paper."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    operation: Literal["assembly", "bundle"] = "assembly"
+    assembly_status: FinalPaperAssemblyStatus
+    final_paper_status: FinalPaperStatus
+    source_manuscript_synthesis_report_path_optional: str | None = None
+    source_manuscript_revision_id_optional: str | None = None
+    paper_nucleus_selection_id_optional: str | None = None
+    manifest_path_optional: str | None = None
+    final_markdown_path_optional: str | None = None
+    final_latex_path_optional: str | None = None
+    bibliography_path_optional: str | None = None
+    provenance_manifest_path_optional: str | None = None
+    bundle_path_optional: str | None = None
+    bundle_hashes_path_optional: str | None = None
+    section_count: int = Field(default=0, ge=0)
+    figure_count: int = Field(default=0, ge=0)
+    table_count: int = Field(default=0, ge=0)
+    appendix_count: int = Field(default=0, ge=0)
+    claim_artifact_binding_count: int = Field(default=0, ge=0)
+    resolved_claim_artifact_binding_count: int = Field(default=0, ge=0)
+    evidence_citation_binding_count: int = Field(default=0, ge=0)
+    resolved_evidence_citation_binding_count: int = Field(default=0, ge=0)
+    open_obligations: list[FinalPaperOpenObligation] = Field(default_factory=list)
+    blocking_findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    novelty_proven: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperVerificationFinding(StrictModel):
+    """One local structural, claim, citation, or integrity finding for a final paper."""
+
+    finding_id: str = Field(min_length=1)
+    finding_type: FinalPaperVerificationFindingType
+    description: str = Field(min_length=1)
+    artifact_ids: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    blocking: bool
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperVerificationReport(StrictModel):
+    """Append-only local verification report for assembled final-paper artifacts."""
+
+    run_id: str = Field(min_length=1)
+    report_id: str = Field(min_length=1)
+    source_assembly_report_path: str = Field(min_length=1)
+    source_manifest_path_optional: str | None = None
+    verification_status: FinalPaperVerificationStatus
+    final_paper_status: FinalPaperStatus
+    checks_run: int = Field(ge=0)
+    checks_passed: int = Field(ge=0)
+    checks_failed: int = Field(ge=0)
+    checks_warned: int = Field(ge=0)
+    claim_artifact_binding_count: int = Field(ge=0)
+    resolved_claim_artifact_binding_count: int = Field(ge=0)
+    evidence_citation_binding_count: int = Field(ge=0)
+    resolved_evidence_citation_binding_count: int = Field(ge=0)
+    figure_count: int = Field(ge=0)
+    table_count: int = Field(ge=0)
+    hash_mismatch_count: int = Field(ge=0)
+    missing_required_artifact_count: int = Field(ge=0)
+    findings: list[FinalPaperVerificationFinding] = Field(default_factory=list)
+    open_obligations: list[FinalPaperOpenObligation] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    novelty_proven: Literal[False] = False
+    creates_verified_theorem: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
+class FinalPaperInspectionReport(StrictModel):
+    """Read-only latest M106 assembly, verification, and bundle summary."""
+
+    run_id: str = Field(min_length=1)
+    final_paper_present: bool
+    latest_assembly_report_id_optional: str | None = None
+    assembly_status_optional: FinalPaperAssemblyStatus | None = None
+    final_paper_status_optional: FinalPaperStatus | None = None
+    final_markdown_path_optional: str | None = None
+    final_latex_path_optional: str | None = None
+    manifest_path_optional: str | None = None
+    verification_present: bool = False
+    verification_status_optional: FinalPaperVerificationStatus | None = None
+    bundle_present: bool = False
+    bundle_path_optional: str | None = None
+    section_count: int = Field(default=0, ge=0)
+    figure_count: int = Field(default=0, ge=0)
+    table_count: int = Field(default=0, ge=0)
+    appendix_count: int = Field(default=0, ge=0)
+    claim_artifact_binding_count: int = Field(default=0, ge=0)
+    resolved_claim_artifact_binding_count: int = Field(default=0, ge=0)
+    evidence_citation_binding_count: int = Field(default=0, ge=0)
+    resolved_evidence_citation_binding_count: int = Field(default=0, ge=0)
+    open_obligations: list[FinalPaperOpenObligation] = Field(default_factory=list)
+    verification_findings: list[FinalPaperVerificationFinding] = Field(default_factory=list)
+    backend_records: list[StageBackendRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 __all__ = [
     "NucleusManuscriptConfig",
     "NucleusManuscriptPlan",
@@ -7074,6 +7372,18 @@ __all__ = [
     "NucleusManuscriptSynthesisReport",
     "NucleusManuscriptInspectionReport",
     "NucleusManuscriptRawArtifact",
+    "FinalPaperAssemblyConfig",
+    "FinalPaperManifest",
+    "FinalPaperSectionRecord",
+    "FinalPaperArtifactBinding",
+    "FinalPaperFigureRecord",
+    "FinalPaperTableRecord",
+    "FinalPaperAppendixRecord",
+    "FinalPaperOpenObligation",
+    "FinalPaperAssemblyReport",
+    "FinalPaperVerificationFinding",
+    "FinalPaperVerificationReport",
+    "FinalPaperInspectionReport",
     "InstantiationMap",
     "AbstractModel",
     "AbstractionReport",

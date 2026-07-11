@@ -1,0 +1,41 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-assembly-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Local-only configuration for bounded final-paper assembly.",
+  "properties": {
+    "include_negative_results_appendix": {
+      "default": true,
+      "title": "Include Negative Results Appendix",
+      "type": "boolean"
+    },
+    "include_provenance_appendix": {
+      "default": true,
+      "title": "Include Provenance Appendix",
+      "type": "boolean"
+    },
+    "include_raw_llm_provenance": {
+      "default": false,
+      "title": "Include Raw Llm Provenance",
+      "type": "boolean"
+    },
+    "require_non_fake_backends": {
+      "default": false,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id"
+  ],
+  "title": "FinalPaperAssemblyConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperAssemblyConfig",
+  "x-factori-verification-evidence": false
+}

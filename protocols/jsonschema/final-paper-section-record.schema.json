@@ -1,0 +1,76 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-section-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One retained final-paper section and its source-artifact links.",
+  "properties": {
+    "claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claim Ids",
+      "type": "array"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "included": {
+      "default": true,
+      "title": "Included",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manuscript_location": {
+      "minLength": 1,
+      "title": "Manuscript Location",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "section_id": {
+      "minLength": 1,
+      "title": "Section Id",
+      "type": "string"
+    },
+    "source_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Artifact Ids",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "section_id",
+    "title",
+    "manuscript_location",
+    "content_hash"
+  ],
+  "title": "FinalPaperSectionRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperSectionRecord",
+  "x-factori-verification-evidence": false
+}

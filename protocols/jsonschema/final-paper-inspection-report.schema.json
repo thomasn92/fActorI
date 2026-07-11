@@ -1,0 +1,536 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "FinalPaperOpenObligation": {
+      "additionalProperties": false,
+      "description": "An unresolved issue carried visibly into final paper assembly and release context.",
+      "properties": {
+        "affected_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Claim Ids",
+          "type": "array"
+        },
+        "blocking_for_publication": {
+          "title": "Blocking For Publication",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "obligation_id": {
+          "minLength": 1,
+          "title": "Obligation Id",
+          "type": "string"
+        },
+        "obligation_type": {
+          "enum": [
+            "unresolved_proof",
+            "unresolved_symbolic_step",
+            "retrieval_gap",
+            "novelty_gap",
+            "missing_robustness",
+            "missing_real_data",
+            "missing_external_validation",
+            "failed_negative_control",
+            "critic_required_repair",
+            "missing_figure",
+            "missing_citation",
+            "other"
+          ],
+          "title": "Obligation Type",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "resolved": {
+          "const": false,
+          "default": false,
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "source_artifact_id": {
+          "minLength": 1,
+          "title": "Source Artifact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "obligation_id",
+        "obligation_type",
+        "description",
+        "source_artifact_id",
+        "blocking_for_publication"
+      ],
+      "title": "FinalPaperOpenObligation",
+      "type": "object"
+    },
+    "FinalPaperVerificationFinding": {
+      "additionalProperties": false,
+      "description": "One local structural, claim, citation, or integrity finding for a final paper.",
+      "properties": {
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "finding_id": {
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "finding_type": {
+          "enum": [
+            "missing_artifact",
+            "hash_mismatch",
+            "unsupported_claim",
+            "metric_mismatch",
+            "missing_scope_qualification",
+            "forbidden_claim",
+            "missing_citation",
+            "unresolved_figure",
+            "unresolved_table",
+            "backend_provenance_gap",
+            "unresolved_blocking_obligation"
+          ],
+          "title": "Finding Type",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "finding_id",
+        "finding_type",
+        "description",
+        "blocking"
+      ],
+      "title": "FinalPaperVerificationFinding",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "substrate_selection",
+        "branch_routing",
+        "experiment_design",
+        "spec_validation",
+        "experiment_code_generation",
+        "code_safety_audit",
+        "experiment_execution",
+        "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
+        "adjudication",
+        "adjudication_score_aggregation",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_planning",
+        "manuscript_synthesis",
+        "manuscript_artifact_assembly",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only latest final-paper assembly, verification, and bundle inspection.",
+  "properties": {
+    "appendix_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Appendix Count",
+      "type": "integer"
+    },
+    "assembly_status_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "assembled",
+            "deferred",
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assembly Status Optional"
+    },
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "bundle_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bundle Path Optional"
+    },
+    "bundle_present": {
+      "default": false,
+      "title": "Bundle Present",
+      "type": "boolean"
+    },
+    "claim_artifact_binding_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Claim Artifact Binding Count",
+      "type": "integer"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_citation_binding_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Evidence Citation Binding Count",
+      "type": "integer"
+    },
+    "figure_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Figure Count",
+      "type": "integer"
+    },
+    "final_latex_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Latex Path Optional"
+    },
+    "final_markdown_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Markdown Path Optional"
+    },
+    "final_paper_present": {
+      "title": "Final Paper Present",
+      "type": "boolean"
+    },
+    "final_paper_status_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "bounded_draft",
+            "scientific_draft_with_open_obligations",
+            "verified_bounded_draft",
+            "deferred"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Final Paper Status Optional"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_assembly_report_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Assembly Report Id Optional"
+    },
+    "manifest_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Manifest Path Optional"
+    },
+    "open_obligations": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperOpenObligation"
+      },
+      "title": "Open Obligations",
+      "type": "array"
+    },
+    "production_ready": {
+      "default": false,
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "resolved_claim_artifact_binding_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Resolved Claim Artifact Binding Count",
+      "type": "integer"
+    },
+    "resolved_evidence_citation_binding_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Resolved Evidence Citation Binding Count",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Section Count",
+      "type": "integer"
+    },
+    "table_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Table Count",
+      "type": "integer"
+    },
+    "verification_findings": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperVerificationFinding"
+      },
+      "title": "Verification Findings",
+      "type": "array"
+    },
+    "verification_present": {
+      "default": false,
+      "title": "Verification Present",
+      "type": "boolean"
+    },
+    "verification_status_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "verified",
+            "verified_with_warnings",
+            "deferred",
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verification Status Optional"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "final_paper_present"
+  ],
+  "title": "FinalPaperInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperInspectionReport",
+  "x-factori-verification-evidence": false
+}

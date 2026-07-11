@@ -1,0 +1,99 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-artifact-binding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Resolved final-paper link to one immutable source artifact.",
+  "properties": {
+    "artifact_id": {
+      "minLength": 1,
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "artifact_type": {
+      "minLength": 1,
+      "title": "Artifact Type",
+      "type": "string"
+    },
+    "binding_id": {
+      "minLength": 1,
+      "title": "Binding Id",
+      "type": "string"
+    },
+    "claim_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claim Ids",
+      "type": "array"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_label": {
+      "minLength": 1,
+      "title": "Evidence Label",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "manuscript_locations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Manuscript Locations",
+      "type": "array"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "required": {
+      "title": "Required",
+      "type": "boolean"
+    },
+    "resolved": {
+      "title": "Resolved",
+      "type": "boolean"
+    },
+    "source_backend": {
+      "minLength": 1,
+      "title": "Source Backend",
+      "type": "string"
+    },
+    "source_stage": {
+      "minLength": 1,
+      "title": "Source Stage",
+      "type": "string"
+    }
+  },
+  "required": [
+    "binding_id",
+    "artifact_id",
+    "artifact_type",
+    "source_stage",
+    "source_backend",
+    "content_hash",
+    "evidence_label",
+    "required",
+    "resolved"
+  ],
+  "title": "FinalPaperArtifactBinding",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperArtifactBinding",
+  "x-factori-verification-evidence": false
+}

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/paper-nucleus-selection.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/paper-nucleus-selection.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded primary-paper selection derived from package adjudication.",
@@ -114,7 +114,7 @@
   ],
   "title": "PaperNucleusSelection",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.PaperNucleusSelection",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,85 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-appendix-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One flexible appendix role and its supporting context artifacts.",
+  "properties": {
+    "appendix_id": {
+      "minLength": 1,
+      "title": "Appendix Id",
+      "type": "string"
+    },
+    "contains_failed_branches": {
+      "default": false,
+      "title": "Contains Failed Branches",
+      "type": "boolean"
+    },
+    "contains_negative_results": {
+      "default": false,
+      "title": "Contains Negative Results",
+      "type": "boolean"
+    },
+    "contains_open_obligations": {
+      "default": false,
+      "title": "Contains Open Obligations",
+      "type": "boolean"
+    },
+    "contains_provenance": {
+      "default": false,
+      "title": "Contains Provenance",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "role": {
+      "minLength": 1,
+      "title": "Role",
+      "type": "string"
+    },
+    "source_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Artifact Ids",
+      "type": "array"
+    },
+    "source_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Package Ids",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "appendix_id",
+    "title",
+    "role"
+  ],
+  "title": "FinalPaperAppendixRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperAppendixRecord",
+  "x-factori-verification-evidence": false
+}

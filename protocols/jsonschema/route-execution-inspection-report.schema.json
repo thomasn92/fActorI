@@ -735,7 +735,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.71.0/route-execution-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/route-execution-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for latest route execution state.",
@@ -888,7 +888,7 @@
   ],
   "title": "RouteExecutionInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionInspectionReport",
   "x-factori-verification-evidence": false
 }

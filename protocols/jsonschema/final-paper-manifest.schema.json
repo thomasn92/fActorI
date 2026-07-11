@@ -1,0 +1,705 @@
+{
+  "$defs": {
+    "FinalPaperAppendixRecord": {
+      "additionalProperties": false,
+      "description": "One flexible appendix role and its source packages or artifacts.",
+      "properties": {
+        "appendix_id": {
+          "minLength": 1,
+          "title": "Appendix Id",
+          "type": "string"
+        },
+        "contains_failed_branches": {
+          "default": false,
+          "title": "Contains Failed Branches",
+          "type": "boolean"
+        },
+        "contains_negative_results": {
+          "default": false,
+          "title": "Contains Negative Results",
+          "type": "boolean"
+        },
+        "contains_open_obligations": {
+          "default": false,
+          "title": "Contains Open Obligations",
+          "type": "boolean"
+        },
+        "contains_provenance": {
+          "default": false,
+          "title": "Contains Provenance",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "role": {
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "source_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Artifact Ids",
+          "type": "array"
+        },
+        "source_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Package Ids",
+          "type": "array"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "appendix_id",
+        "title",
+        "role"
+      ],
+      "title": "FinalPaperAppendixRecord",
+      "type": "object"
+    },
+    "FinalPaperArtifactBinding": {
+      "additionalProperties": false,
+      "description": "Resolved final-paper link from presentation locations to immutable source artifacts.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "minLength": 1,
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "binding_id": {
+          "minLength": 1,
+          "title": "Binding Id",
+          "type": "string"
+        },
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_label": {
+          "minLength": 1,
+          "title": "Evidence Label",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "manuscript_locations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manuscript Locations",
+          "type": "array"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "source_backend": {
+          "minLength": 1,
+          "title": "Source Backend",
+          "type": "string"
+        },
+        "source_stage": {
+          "minLength": 1,
+          "title": "Source Stage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding_id",
+        "artifact_id",
+        "artifact_type",
+        "source_stage",
+        "source_backend",
+        "content_hash",
+        "evidence_label",
+        "required",
+        "resolved"
+      ],
+      "title": "FinalPaperArtifactBinding",
+      "type": "object"
+    },
+    "FinalPaperFigureRecord": {
+      "additionalProperties": false,
+      "description": "One actual, hash-verified generated figure eligible for final-paper inclusion.",
+      "properties": {
+        "caption": {
+          "minLength": 1,
+          "title": "Caption",
+          "type": "string"
+        },
+        "claim_ids_supported": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids Supported",
+          "type": "array"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "figure_id": {
+          "minLength": 1,
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "file_path": {
+          "minLength": 1,
+          "title": "File Path",
+          "type": "string"
+        },
+        "generation_backend": {
+          "minLength": 1,
+          "title": "Generation Backend",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "referenced_in_sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Referenced In Sections",
+          "type": "array"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "source_artifact_id": {
+          "minLength": 1,
+          "title": "Source Artifact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "figure_id",
+        "source_artifact_id",
+        "file_path",
+        "caption",
+        "generation_backend",
+        "content_hash",
+        "resolved"
+      ],
+      "title": "FinalPaperFigureRecord",
+      "type": "object"
+    },
+    "FinalPaperOpenObligation": {
+      "additionalProperties": false,
+      "description": "An unresolved issue carried visibly into final paper assembly and release context.",
+      "properties": {
+        "affected_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Claim Ids",
+          "type": "array"
+        },
+        "blocking_for_publication": {
+          "title": "Blocking For Publication",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "obligation_id": {
+          "minLength": 1,
+          "title": "Obligation Id",
+          "type": "string"
+        },
+        "obligation_type": {
+          "enum": [
+            "unresolved_proof",
+            "unresolved_symbolic_step",
+            "retrieval_gap",
+            "novelty_gap",
+            "missing_robustness",
+            "missing_real_data",
+            "missing_external_validation",
+            "failed_negative_control",
+            "critic_required_repair",
+            "missing_figure",
+            "missing_citation",
+            "other"
+          ],
+          "title": "Obligation Type",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "resolved": {
+          "const": false,
+          "default": false,
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "source_artifact_id": {
+          "minLength": 1,
+          "title": "Source Artifact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "obligation_id",
+        "obligation_type",
+        "description",
+        "source_artifact_id",
+        "blocking_for_publication"
+      ],
+      "title": "FinalPaperOpenObligation",
+      "type": "object"
+    },
+    "FinalPaperSectionRecord": {
+      "additionalProperties": false,
+      "description": "One final-paper section retained from the revised nucleus manuscript.",
+      "properties": {
+        "claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "included": {
+          "default": true,
+          "title": "Included",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "manuscript_location": {
+          "minLength": 1,
+          "title": "Manuscript Location",
+          "type": "string"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "source_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Artifact Ids",
+          "type": "array"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "manuscript_location",
+        "content_hash"
+      ],
+      "title": "FinalPaperSectionRecord",
+      "type": "object"
+    },
+    "FinalPaperTableRecord": {
+      "additionalProperties": false,
+      "description": "One deterministic table reconstructed only from validated metric artifacts.",
+      "properties": {
+        "claim_ids_supported": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Ids Supported",
+          "type": "array"
+        },
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "deterministically_assembled": {
+          "const": true,
+          "default": true,
+          "title": "Deterministically Assembled",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "referenced_in_sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Referenced In Sections",
+          "type": "array"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "boolean"
+        },
+        "rows": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "source_metric_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Metric Artifact Ids",
+          "type": "array"
+        },
+        "table_id": {
+          "minLength": 1,
+          "title": "Table Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_id",
+        "source_metric_artifact_ids",
+        "title",
+        "columns",
+        "content_hash",
+        "resolved"
+      ],
+      "title": "FinalPaperTableRecord",
+      "type": "object"
+    },
+    "NucleusManuscriptStatus": {
+      "description": "Bounded lifecycle status for M105 manuscript synthesis.",
+      "enum": [
+        "bounded_draft",
+        "scientific_draft_with_open_obligations",
+        "manuscript_deferred",
+        "failed"
+      ],
+      "title": "NucleusManuscriptStatus",
+      "type": "string"
+    },
+    "NucleusPaperType": {
+      "description": "Bounded paper shapes available to the LLM nucleus-manuscript planner.",
+      "enum": [
+        "applied_mathematics",
+        "methodological",
+        "synthetic_benchmark",
+        "counterexample",
+        "computational_study",
+        "theory_with_numerical_illustration",
+        "robustness_study",
+        "negative_result",
+        "hybrid"
+      ],
+      "title": "NucleusPaperType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Machine-readable final-paper asset and open-obligation manifest.",
+  "properties": {
+    "appendix_records": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperAppendixRecord"
+      },
+      "title": "Appendix Records",
+      "type": "array"
+    },
+    "artifact_bindings": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperArtifactBinding"
+      },
+      "title": "Artifact Bindings",
+      "type": "array"
+    },
+    "bibliography_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bibliography Path Optional"
+    },
+    "claim_artifact_map_path": {
+      "minLength": 1,
+      "title": "Claim Artifact Map Path",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_citation_bindings_path": {
+      "minLength": 1,
+      "title": "Evidence Citation Bindings Path",
+      "type": "string"
+    },
+    "figure_records": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperFigureRecord"
+      },
+      "title": "Figure Records",
+      "type": "array"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "main_latex_path": {
+      "minLength": 1,
+      "title": "Main Latex Path",
+      "type": "string"
+    },
+    "main_markdown_path": {
+      "minLength": 1,
+      "title": "Main Markdown Path",
+      "type": "string"
+    },
+    "manifest_id": {
+      "minLength": 1,
+      "title": "Manifest Id",
+      "type": "string"
+    },
+    "manuscript_status": {
+      "$ref": "#/$defs/NucleusManuscriptStatus"
+    },
+    "open_obligations": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperOpenObligation"
+      },
+      "title": "Open Obligations",
+      "type": "array"
+    },
+    "paper_nucleus_selection_id": {
+      "minLength": 1,
+      "title": "Paper Nucleus Selection Id",
+      "type": "string"
+    },
+    "paper_type": {
+      "$ref": "#/$defs/NucleusPaperType"
+    },
+    "provenance_manifest_path": {
+      "minLength": 1,
+      "title": "Provenance Manifest Path",
+      "type": "string"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "section_records": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperSectionRecord"
+      },
+      "title": "Section Records",
+      "type": "array"
+    },
+    "source_manuscript_revision_id": {
+      "minLength": 1,
+      "title": "Source Manuscript Revision Id",
+      "type": "string"
+    },
+    "table_records": {
+      "items": {
+        "$ref": "#/$defs/FinalPaperTableRecord"
+      },
+      "title": "Table Records",
+      "type": "array"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "manifest_id",
+    "run_id",
+    "source_manuscript_revision_id",
+    "paper_nucleus_selection_id",
+    "title",
+    "paper_type",
+    "manuscript_status",
+    "main_markdown_path",
+    "main_latex_path",
+    "claim_artifact_map_path",
+    "evidence_citation_bindings_path",
+    "provenance_manifest_path"
+  ],
+  "title": "FinalPaperManifest",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperManifest",
+  "x-factori-verification-evidence": false
+}

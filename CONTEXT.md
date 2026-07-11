@@ -154,6 +154,11 @@ completed run from disk and checks consistency without changing provenance.
   bounded revision over an adjudicated package, with deterministic claim/artifact and citation
   bindings, execution-artifact-only metric tables, explicit unresolved obligations, and fail-closed
   rejection of unsupported proof, novelty, real-world-validation, or publication-readiness claims.
+- deterministic M106 final-paper assembly and release packaging around the latest valid revised
+  nucleus manuscript, with sandbox-output-only metric-table reconstruction, real-retrieval citation
+  resolution, hash-checked figures and evidence artifacts, flexible appendix/open-obligation
+  records, structural verification, and a self-contained hash-locked bundle. Assembly and
+  verification remain local presentation/integrity work and always preserve `publication_ready=false`.
 
 These mechanisms guarantee only deterministic internal consistency, provenance, and label
 discipline. They do not establish novelty, correctness, scientific value, literature completeness,

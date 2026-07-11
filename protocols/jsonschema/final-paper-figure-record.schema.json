@@ -1,0 +1,88 @@
+{
+  "$id": "https://schemas.factori.local/0.72.0/final-paper-figure-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One actual hash-verified generated figure included by the final paper.",
+  "properties": {
+    "caption": {
+      "minLength": 1,
+      "title": "Caption",
+      "type": "string"
+    },
+    "claim_ids_supported": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claim Ids Supported",
+      "type": "array"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "figure_id": {
+      "minLength": 1,
+      "title": "Figure Id",
+      "type": "string"
+    },
+    "file_path": {
+      "minLength": 1,
+      "title": "File Path",
+      "type": "string"
+    },
+    "generation_backend": {
+      "minLength": 1,
+      "title": "Generation Backend",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "referenced_in_sections": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Referenced In Sections",
+      "type": "array"
+    },
+    "resolved": {
+      "title": "Resolved",
+      "type": "boolean"
+    },
+    "source_artifact_id": {
+      "minLength": 1,
+      "title": "Source Artifact Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "figure_id",
+    "source_artifact_id",
+    "file_path",
+    "caption",
+    "generation_backend",
+    "content_hash",
+    "resolved"
+  ],
+  "title": "FinalPaperFigureRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.72.0",
+  "x-factori-source-model": "factori.schemas.FinalPaperFigureRecord",
+  "x-factori-verification-evidence": false
+}

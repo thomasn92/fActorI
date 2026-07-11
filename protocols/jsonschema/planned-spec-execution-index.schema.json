@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/planned-spec-execution-index.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/planned-spec-execution-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable planned-spec executions.",
@@ -82,7 +82,7 @@
   ],
   "title": "PlannedSpecExecutionIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.PlannedSpecExecutionIndex",
   "x-factori-verification-evidence": false
 }

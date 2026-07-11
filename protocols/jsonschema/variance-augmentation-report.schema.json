@@ -494,7 +494,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.71.0/variance-augmentation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/variance-augmentation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only opportunity-seeded variance generation or application report.",
@@ -639,7 +639,7 @@
   ],
   "title": "VarianceAugmentationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.VarianceAugmentationReport",
   "x-factori-verification-evidence": false
 }

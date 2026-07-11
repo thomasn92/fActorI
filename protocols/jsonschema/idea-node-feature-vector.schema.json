@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/idea-node-feature-vector.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/idea-node-feature-vector.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic lexical and domain feature vector for an idea-tree node.",
@@ -255,7 +255,7 @@
   ],
   "title": "IdeaNodeFeatureVector",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.IdeaNodeFeatureVector",
   "x-factori-verification-evidence": false
 }

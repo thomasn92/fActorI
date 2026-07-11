@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/full-paper-release-gate-config.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/full-paper-release-gate-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Policy for generated-paper human-review readiness.",
@@ -46,7 +46,7 @@
   ],
   "title": "FullPaperReleaseGateConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.FullPaperReleaseGateConfig",
   "x-factori-verification-evidence": false
 }

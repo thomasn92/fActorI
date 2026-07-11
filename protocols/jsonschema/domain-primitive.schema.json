@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/domain-primitive.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/domain-primitive.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic primitive extracted from a broad Stage 0 domain.",
@@ -53,7 +53,7 @@
   ],
   "title": "DomainPrimitive",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.DomainPrimitive",
   "x-factori-verification-evidence": false
 }

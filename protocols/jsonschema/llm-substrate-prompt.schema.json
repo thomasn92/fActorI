@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/llm-substrate-prompt.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/llm-substrate-prompt.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free prompt contract for one selected LLM variance node.",
@@ -63,7 +63,7 @@
   ],
   "title": "LLMSubstratePrompt",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.LLMSubstratePrompt",
   "x-factori-verification-evidence": false
 }

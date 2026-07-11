@@ -334,7 +334,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.71.0/substrate-tournament-result.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/substrate-tournament-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only bounded result of a multi-substrate experiment tournament.",
@@ -515,7 +515,7 @@
   ],
   "title": "SubstrateTournamentResult",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.SubstrateTournamentResult",
   "x-factori-verification-evidence": false
 }

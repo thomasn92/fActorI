@@ -163,7 +163,16 @@ from factori.final_manuscript_regeneration import (
     inspect_final_manuscript,
     regenerate_final_manuscript,
 )
-from factori.final_paper import PaperAssemblyError, run_paper_assembly
+from factori.final_paper import (
+    FinalPaperError,
+    PaperAssemblyError,
+    assemble_final_paper,
+    build_final_paper_bundle,
+    inspect_final_paper,
+    render_final_paper_text,
+    run_paper_assembly,
+    verify_final_paper,
+)
 from factori.final_release_bundle import (
     FinalReleaseBundleError,
     build_final_release_bundle,
@@ -370,6 +379,7 @@ from factori.schemas import (
     ControllerActionType,
     DataRequirement,
     DeepOpportunityDiscoveryConfig,
+    FinalPaperAssemblyConfig,
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
     HybridEvidencePackageConfig,
@@ -5174,6 +5184,117 @@ def inspect_nucleus_manuscript_command(
         typer.echo(report.model_dump_json(indent=2))
         return
     typer.echo(render_nucleus_manuscript_text(report))
+
+
+@app.command("assemble-final-paper")
+def assemble_final_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Assemble a local final-paper package from the latest valid M105 revision."""
+    try:
+        result = assemble_final_paper(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            config=FinalPaperAssemblyConfig(
+                run_id=run_id,
+                require_non_fake_backends=require_non_fake_backends,
+            ),
+        )
+    except (FinalPaperError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_final_paper_result(result, json_output=json_output)
+
+
+@app.command("verify-final-paper")
+def verify_final_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Verify final-paper artifact paths, bindings, metrics, citations, and provenance."""
+    try:
+        result = verify_final_paper(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            require_non_fake_backends=require_non_fake_backends,
+        )
+    except (FinalPaperError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_final_paper_result(result, json_output=json_output)
+
+
+@app.command("inspect-final-paper")
+def inspect_final_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest M106 final-paper assembly, verification, and release bundle."""
+    try:
+        report = inspect_final_paper(run_id=run_id, root=root)
+    except FinalPaperError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(render_final_paper_text(report))
+
+
+@app.command("build-final-paper-bundle")
+def build_final_paper_bundle_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Build a self-contained hash-locked final-paper bundle after successful verification."""
+    try:
+        result = build_final_paper_bundle(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+        )
+    except (FinalPaperError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_final_paper_result(result, json_output=json_output)
+
+
+def _echo_final_paper_result(result, *, json_output: bool) -> None:
+    if json_output:
+        typer.echo(result.report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={result.run_id}")
+    typer.echo(f"report_id={result.report.report_id}")
+    if hasattr(result.report, "verification_status"):
+        typer.echo(f"verification_status={result.report.verification_status}")
+        typer.echo(f"finding_count={len(result.report.findings)}")
+    else:
+        typer.echo(f"assembly_status={result.report.assembly_status}")
+        typer.echo(f"final_paper_status={result.report.final_paper_status}")
+        typer.echo(f"section_count={result.report.section_count}")
+        typer.echo(f"table_count={result.report.table_count}")
+        typer.echo(f"bundle_path={result.report.bundle_path_optional or 'none'}")
+    typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    typer.echo(f"artifact={result.report_artifact.path}")
 
 
 def _nucleus_manuscript_client(

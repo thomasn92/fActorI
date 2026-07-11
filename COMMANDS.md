@@ -1021,6 +1021,23 @@ uv run factori revise-nucleus-manuscript --run-id atlas-scan-001 \
 uv run factori inspect-nucleus-manuscript --run-id atlas-scan-001 --json
 ```
 
+`assemble-final-paper` performs no LLM drafting. It takes the latest valid revised M105 manuscript,
+resolves its claim/artifact and real-retrieval citation bindings, reconstructs metric tables only
+from completed sandbox `output.json` artifacts with matching schema-valid extraction records, and
+writes final Markdown, LaTeX, manifest, provenance, appendix, and open-obligation context. Missing
+sources, figures, citations, scope qualifications, forbidden claims, or strict backend provenance
+defer assembly. `verify-final-paper` reruns local structural, hash, metric, citation, and claim
+checks. `build-final-paper-bundle` requires a verified assembly and writes a hash-locked,
+self-contained release directory without raw LLM responses, credentials, or executable code.
+All M106 outputs retain `publication_ready=false`.
+
+```bash
+uv run factori assemble-final-paper --run-id atlas-scan-001 --require-non-fake-backends
+uv run factori verify-final-paper --run-id atlas-scan-001 --require-non-fake-backends
+uv run factori inspect-final-paper --run-id atlas-scan-001 --json
+uv run factori build-final-paper-bundle --run-id atlas-scan-001
+```
+
 ## Tests and Lint
 
 Canonical `uv` commands:

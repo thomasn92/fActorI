@@ -465,6 +465,16 @@ binding, copies metric tables only from execution outputs, checks citations and 
 and fails closed when a nucleus, required artifact, source citation, or post-revision scope check is
 missing. The resulting manuscript remains a bounded draft, never publication-ready evidence.
 
+M106 is a deterministic final-paper presentation and integrity layer over the latest valid M105
+revision. It does not author or repair science. It resolves evidence and real-retrieval citation
+bindings, reconstructs tables only when each metric pointer maps to a completed sandbox output and
+its schema-valid extractor record, includes only declared generated figures, carries open proof,
+novelty, robustness, and validation obligations into flexible appendices, and writes a
+hash-locked bundle after local verification. Missing assets, hash/metric mismatches, unsupported
+claims, absent scope qualifications, citations, or strict backend provenance fail closed. A
+`verified` final-paper status confirms only bounded structural consistency; it never sets
+`publication_ready=true`.
+
 ## Narrative Paper Shape Boundary
 
 The manuscript-quality layer checks whether the planned paper has a central message, problem

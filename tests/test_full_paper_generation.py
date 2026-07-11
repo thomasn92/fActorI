@@ -192,6 +192,12 @@ from factori.final_manuscript_regeneration import (
     latest_final_manuscript_regeneration,
     regenerate_final_manuscript,
 )
+from factori.final_paper import (
+    assemble_final_paper,
+    build_final_paper_bundle,
+    inspect_final_paper,
+    verify_final_paper,
+)
 from factori.final_release_bundle import (
     build_final_release_bundle,
     build_references_bib,
@@ -390,6 +396,10 @@ from factori.schemas import (
     FinalManuscriptRegenerationReport,
     FinalManuscriptSection,
     FinalManuscriptStructuredDocument,
+    FinalPaperAssemblyConfig,
+    FinalPaperAssemblyReport,
+    FinalPaperManifest,
+    FinalPaperVerificationReport,
     FinalReleaseBundle,
     FinalReleaseBundleArtifact,
     FinalReleaseBundleIndex,
@@ -2021,6 +2031,10 @@ def test_full_paper_generation_models_are_importable() -> None:
     assert NucleusManuscriptSynthesisReport
     assert NucleusManuscriptInspectionReport
     assert NucleusManuscriptRawArtifact
+    assert FinalPaperAssemblyConfig
+    assert FinalPaperManifest
+    assert FinalPaperAssemblyReport
+    assert FinalPaperVerificationReport
     assert DeepOpportunityDiscoveryReport
     assert DeepOpportunityDiscoveryInspectionReport
     assert LLMVarianceGenerationConfig
@@ -4878,6 +4892,327 @@ def test_nucleus_manuscript_rejects_unsafe_draft_and_blocks_after_revision(tmp_p
     assert result.report.revised_draft_optional is None
     assert result.report.revision_report_optional is not None
     assert result.report.revision_report_optional.remaining_blocking_findings
+
+
+def _prepare_m106_final_paper_fixture(tmp_path, run_id: str):
+    store, ledger = _prepare_m105_nucleus_fixture(tmp_path, run_id)
+    planner = MockNucleusManuscriptPlanner()
+    config = NucleusManuscriptConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        require_non_fake_backends=True,
+    )
+    plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    synthesize_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    revise_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    return store, ledger
+
+
+def test_final_paper_assembly_verification_and_bundle(tmp_path) -> None:
+    run_id = "run-final-paper-m106"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    assembled = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+
+    assert isinstance(assembled.report, FinalPaperAssemblyReport)
+    assert assembled.report.assembly_status == "assembled"
+    assert assembled.manifest_optional is not None
+    manifest = FinalPaperManifest.model_validate(assembled.manifest_optional)
+    assert manifest.table_records
+    assert all(item.resolved for item in manifest.artifact_bindings)
+    assert all(item.deterministically_assembled for item in manifest.table_records)
+    assert (tmp_path / manifest.main_markdown_path).is_file()
+    assert (tmp_path / manifest.main_latex_path).is_file()
+    assert (tmp_path / manifest.claim_artifact_map_path).is_file()
+    assert (tmp_path / manifest.evidence_citation_bindings_path).is_file()
+    assert (tmp_path / manifest.provenance_manifest_path).is_file()
+    assert assembled.report.publication_ready is False
+
+    verified = verify_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert isinstance(verified.report, FinalPaperVerificationReport)
+    assert verified.report.verification_status in {"verified", "verified_with_warnings"}
+    assert verified.report.publication_ready is False
+
+    bundle = build_final_paper_bundle(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+    )
+    assert isinstance(bundle.report, FinalPaperAssemblyReport)
+    assert bundle.report.assembly_status == "assembled"
+    bundle_dir = tmp_path / bundle.report.bundle_path_optional
+    assert (bundle_dir / "paper" / "final-paper.md").is_file()
+    assert (bundle_dir / "paper" / "final-paper.tex").is_file()
+    assert (bundle_dir / "reports" / "final-paper-manifest.json").is_file()
+    assert (bundle_dir / "reports" / "verification-report.json").is_file()
+    assert (bundle_dir / "reproducibility" / "hashes.sha256").is_file()
+    assert (bundle_dir / "provenance" / "open-obligations.json").is_file()
+    assert not list(bundle_dir.rglob("*raw*llm*"))
+
+    inspected = inspect_final_paper(run_id=run_id, root=tmp_path)
+    assert inspected.final_paper_present is True
+    assert inspected.verification_present is True
+    assert inspected.bundle_present is True
+    assert inspected.table_count >= 1
+    assert inspected.publication_ready is False
+    strict = check_production_mode(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert strict.report.blocking_violation_count == 0
+
+
+def test_final_paper_defers_for_missing_revision_artifact_or_figure(tmp_path) -> None:
+    run_id = "run-final-paper-m106-missing"
+    store = ArtifactStore(tmp_path)
+    store.init_run(run_id)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    deferred = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id),
+    )
+    assert deferred.report.assembly_status == "deferred"
+    assert "No valid revised nucleus manuscript" in deferred.report.blocking_findings[0]
+
+    run_id = "run-final-paper-m106-missing-figure"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    revision_path = sorted(
+        path
+        for path in reports.glob("nucleus-manuscript-synthesis-report-*.json")
+        if re.fullmatch(r"nucleus-manuscript-synthesis-report-\d{4}\.json", path.name)
+    )[-1]
+    payload = json.loads(revision_path.read_text(encoding="utf-8"))
+    payload["revised_draft_optional"]["markdown"] += (
+        "\n![Missing result figure](runs/" + run_id + "/experiments/missing-result.png)\n"
+    )
+    revision_path.write_text(json.dumps(payload), encoding="utf-8")
+    deferred = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+    assert deferred.report.assembly_status == "deferred"
+    assert any("Referenced figure" in item for item in deferred.report.blocking_findings)
+
+
+def test_final_paper_verifier_detects_metric_hash_scope_and_citation_tampering(tmp_path) -> None:
+    run_id = "run-final-paper-m106-tampering"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    assembled = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+    manifest = assembled.manifest_optional
+    assert manifest is not None
+    source = Path(manifest.table_records[0].rows[0]["metric_source"].split("#", 1)[0])
+    source_path = tmp_path / source
+    source_payload = json.loads(source_path.read_text(encoding="utf-8"))
+    metric_name = manifest.table_records[0].rows[0]["metric"]
+    source_payload["metrics"][metric_name] += 0.01
+    source_path.write_text(json.dumps(source_payload), encoding="utf-8")
+    result = verify_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert result.report.verification_status == "failed"
+    assert any(item.finding_type == "metric_mismatch" for item in result.report.findings)
+
+    final_markdown = tmp_path / manifest.main_markdown_path
+    final_markdown.write_text("This establishes real-world validation.\n", encoding="utf-8")
+    result = verify_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert any(item.finding_type == "forbidden_claim" for item in result.report.findings)
+    assert any(
+        item.finding_type == "missing_scope_qualification" for item in result.report.findings
+    )
+
+
+def test_final_paper_requires_validated_sandbox_metric_sources_and_matching_manuscript_values(
+    tmp_path,
+) -> None:
+    run_id = "run-final-paper-m106-metric-contract"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    execution_path = sorted(
+        path
+        for path in reports.glob("evidence-package-execution-report-*.json")
+        if re.fullmatch(r"evidence-package-execution-report-\d{4}\.json", path.name)
+    )[-1]
+    execution_payload = json.loads(execution_path.read_text(encoding="utf-8"))
+    result = next(item for item in execution_payload["results"] if item["metrics"])
+    metric = next(iter(result["metrics"]))
+    result["metric_sources"][metric] = (
+        f"runs/{run_id}/reports/{result['result_id']}.json#metrics.{metric}"
+    )
+    execution_path.write_text(json.dumps(execution_payload), encoding="utf-8")
+
+    deferred = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+    assert deferred.report.assembly_status == "deferred"
+    assert any(
+        "validated execution output source" in item
+        for item in deferred.report.blocking_findings
+    )
+
+    run_id = "run-final-paper-m106-manuscript-metric-mismatch"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    revision_path = sorted(
+        path
+        for path in reports.glob("nucleus-manuscript-synthesis-report-*.json")
+        if re.fullmatch(r"nucleus-manuscript-synthesis-report-\d{4}\.json", path.name)
+    )[-1]
+    revision_payload = json.loads(revision_path.read_text(encoding="utf-8"))
+    revision_payload["revised_draft_optional"]["markdown"] = revision_payload[
+        "revised_draft_optional"
+    ]["markdown"].replace("0.100114450153294", "0.999", 1)
+    revision_path.write_text(json.dumps(revision_payload), encoding="utf-8")
+
+    deferred = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+    assert deferred.report.assembly_status == "deferred"
+    assert any(
+        "Manuscript metric value differs" in item for item in deferred.report.blocking_findings
+    )
+
+
+def test_final_paper_verifier_handles_missing_bibliography_and_bound_artifact_hashes(
+    tmp_path,
+) -> None:
+    run_id = "run-final-paper-m106-missing-citation"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    assembled = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+    manifest = assembled.manifest_optional
+    assert manifest is not None
+    assert manifest.bibliography_path_optional is not None
+
+    bound_artifact = next(
+        item for item in manifest.artifact_bindings if item.artifact_type != "retrieval_context"
+    )
+    artifact_path = tmp_path / "runs" / run_id / "reports" / f"{bound_artifact.artifact_id}.json"
+    artifact_path.write_text(artifact_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    (tmp_path / manifest.bibliography_path_optional).unlink()
+
+    verified = verify_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert verified.report.verification_status == "failed"
+    assert any(item.finding_type == "hash_mismatch" for item in verified.report.findings)
+    assert any(item.finding_type == "missing_citation" for item in verified.report.findings)
+
+
+def test_final_paper_inserts_assembled_latex_assets_before_document_terminator(tmp_path) -> None:
+    run_id = "run-final-paper-m106-latex-terminator"
+    store, ledger = _prepare_m106_final_paper_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    revision_path = sorted(
+        path
+        for path in reports.glob("nucleus-manuscript-synthesis-report-*.json")
+        if re.fullmatch(r"nucleus-manuscript-synthesis-report-\d{4}\.json", path.name)
+    )[-1]
+    revision_payload = json.loads(revision_path.read_text(encoding="utf-8"))
+    revision_payload["revised_draft_optional"]["latex"] += "\n\\end{document}\n"
+    revision_path.write_text(json.dumps(revision_payload), encoding="utf-8")
+
+    assembled = assemble_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=FinalPaperAssemblyConfig(run_id=run_id, require_non_fake_backends=True),
+    )
+    manifest = assembled.manifest_optional
+    assert manifest is not None
+    latex = (tmp_path / manifest.main_latex_path).read_text(encoding="utf-8")
+    assert latex.index(r"\section*{Reconstructed Result Tables}") < latex.rindex(
+        r"\end{document}"
+    )
+
+    result_artifact = tmp_path / "runs" / run_id / "reports" / (
+        manifest.artifact_bindings[0].artifact_id + ".json"
+    )
+    result_artifact.write_text("{}\n", encoding="utf-8")
+    result = verify_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert any(item.finding_type == "hash_mismatch" for item in result.report.findings)
 
 
 def test_deterministic_run_exposes_context_only_idea_tree(tmp_path) -> None:

@@ -7,6 +7,12 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.72.0` adds deterministic final-paper assembly, manifest, artifact/table/figure/
+appendix/open-obligation records, local final-paper verification findings, and read-only inspection.
+Assembly rebuilds tables only from completed sandbox output JSON through validated metric extraction
+provenance, resolves real-retrieval citations, produces a hash-locked release directory, and never
+creates evidence, proof verification, novelty proof, real-world validation, or publication readiness.
+
 Protocol `0.71.0` adds nucleus-centered manuscript planning, artifact-bound claim and citation
 bindings, bounded Markdown/LaTeX drafts, manuscript critic reviews, critic-guided revision reports,
 raw-call provenance, and read-only inspection. Local validation copies metrics only from persisted

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.71.0/compatibility-exclusion.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/compatibility-exclusion.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic negative compatibility finding without opportunity authority.",
@@ -52,7 +52,7 @@
   ],
   "title": "CompatibilityExclusion",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.CompatibilityExclusion",
   "x-factori-verification-evidence": false
 }

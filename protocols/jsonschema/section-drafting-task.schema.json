@@ -204,7 +204,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.71.0/section-drafting-task.schema.json",
+  "$id": "https://schemas.factori.local/0.72.0/section-drafting-task.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One planned section drafting task.",
@@ -293,7 +293,7 @@
   ],
   "title": "SectionDraftingTask",
   "type": "object",
-  "x-factori-protocol-version": "0.71.0",
+  "x-factori-protocol-version": "0.72.0",
   "x-factori-source-model": "factori.schemas.SectionDraftingTask",
   "x-factori-verification-evidence": false
 }

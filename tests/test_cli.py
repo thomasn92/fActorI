@@ -112,6 +112,22 @@ def test_nucleus_manuscript_cli_commands_are_registered() -> None:
     assert "--json" in inspect.output
 
 
+def test_final_paper_cli_commands_are_registered() -> None:
+    assemble = CliRunner().invoke(app, ["assemble-final-paper", "--help"])
+    verify = CliRunner().invoke(app, ["verify-final-paper", "--help"])
+    inspect = CliRunner().invoke(app, ["inspect-final-paper", "--help"])
+    bundle = CliRunner().invoke(app, ["build-final-paper-bundle", "--help"])
+
+    assert assemble.exit_code == 0, assemble.output
+    assert "--require-non-fake-backends" in assemble.output
+    assert verify.exit_code == 0, verify.output
+    assert "--require-non-fake-backends" in verify.output
+    assert inspect.exit_code == 0, inspect.output
+    assert "--json" in inspect.output
+    assert bundle.exit_code == 0, bundle.output
+    assert "--run-id" in bundle.output
+
+
 def test_final_release_bundle_cli_commands_are_registered() -> None:
     build = CliRunner().invoke(app, ["build-final-release-bundle", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-final-release-bundle", "--help"])
