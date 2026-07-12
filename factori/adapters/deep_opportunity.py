@@ -109,7 +109,12 @@ class OpenAIDeepOpportunityGenerator:
 
     api_key: str = field(repr=False)
     model: str
-    transport: LLMTransport = field(default_factory=OpenAIResponsesTransport)
+    transport: LLMTransport = field(
+        default_factory=lambda: OpenAIResponsesTransport(
+            schema_name="factori_deep_opportunities",
+            nullable_optional_fields=False,
+        )
+    )
     allow_external_calls: bool = False
     backend_name: str = field(default="llm-openai", init=False)
     backend_kind: BackendKind = field(default=BackendKind.LLM_OPENAI, init=False)

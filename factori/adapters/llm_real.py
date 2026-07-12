@@ -52,6 +52,8 @@ class OpenAIResponsesTransport:
     endpoint: str = OPENAI_RESPONSES_URL
     timeout_seconds: float = 60.0
     opener: URLOpener | None = None
+    schema_name: str = "factori_stage_a_candidates"
+    nullable_optional_fields: bool = True
 
     def create_response(
         self,
@@ -61,8 +63,14 @@ class OpenAIResponsesTransport:
         prompt: str,
         response_schema: dict[str, Any],
     ) -> Any:
-        schema_name = "factori_stage_a_candidates"
-        payload = _responses_payload(model, prompt, response_schema, schema_name)
+        schema_name = self.schema_name
+        payload = _responses_payload(
+            model,
+            prompt,
+            response_schema,
+            schema_name,
+            nullable_optional_fields=self.nullable_optional_fields,
+        )
         try:
             body = request_json(
                 self.endpoint,
@@ -88,6 +96,7 @@ class OpenAIResponsesTransport:
                     response_schema=response_schema,
                     endpoint=self.endpoint,
                     schema_name=schema_name,
+                    nullable_optional_fields=self.nullable_optional_fields,
                 ),
             )
             raise
@@ -232,8 +241,13 @@ def _responses_payload(
     prompt: str,
     response_schema: dict[str, Any],
     schema_name: str,
+    *,
+    nullable_optional_fields: bool = True,
 ) -> dict[str, Any]:
-    strict_schema = make_openai_strict_json_schema(response_schema)
+    strict_schema = make_openai_strict_json_schema(
+        response_schema,
+        nullable_optional_fields=nullable_optional_fields,
+    )
     return {
         "model": model,
         "input": prompt,
@@ -255,6 +269,7 @@ def build_openai_request_diagnostics(
     response_schema: dict[str, Any],
     endpoint: str = OPENAI_RESPONSES_URL,
     schema_name: str = "factori_stage_a_candidates",
+    nullable_optional_fields: bool = True,
 ) -> dict[str, Any]:
     """Return secret-free metadata for diagnosing Responses request failures."""
     return {
@@ -268,7 +283,13 @@ def build_openai_request_diagnostics(
         },
         "prompt_hash": sha256_json({"prompt": prompt}),
         "request_payload_hash": sha256_json(
-            _responses_payload(model, prompt, response_schema, schema_name)
+            _responses_payload(
+                model,
+                prompt,
+                response_schema,
+                schema_name,
+                nullable_optional_fields=nullable_optional_fields,
+            )
         ),
     }
 

@@ -5,11 +5,16 @@ from copy import deepcopy
 from typing import Any
 from urllib.request import Request
 
+from factori.adapters.deep_opportunity import OpportunityProposalEnvelope
 from factori.adapters.llm_prompts import build_stage_a_candidate_prompt
-from factori.adapters.llm_real import OpenAIResponsesTransport
+from factori.adapters.llm_real import (
+    OpenAIResponsesTransport,
+    build_openai_request_diagnostics,
+)
 from factori.adapters.openai_schema import make_openai_strict_json_schema
 from factori.adapters.prose_prompts import PROSE_OUTPUT_SCHEMA
 from factori.adapters.reviewer_prompts import REVIEWER_OUTPUT_SCHEMA
+from factori.hashing import sha256_json
 from factori.schemas import ConstraintSet
 
 
@@ -45,7 +50,10 @@ def test_optional_string_property_becomes_nullable_and_required() -> None:
     strict = make_openai_strict_json_schema(_basic_schema())
 
     assert "age" in strict["required"]
-    assert strict["properties"]["age"]["type"] == ["string", "null"]
+    assert strict["properties"]["age"]["anyOf"] == [
+        {"type": "string"},
+        {"type": "null"},
+    ]
 
 
 def test_originally_required_property_remains_required_without_nullable_change() -> None:
@@ -73,7 +81,10 @@ def test_nested_object_properties_are_strict() -> None:
     inner = strict["properties"]["outer"]
     assert inner["required"] == ["inner"]
     assert inner["additionalProperties"] is False
-    assert inner["properties"]["inner"]["type"] == ["string", "null"]
+    assert inner["properties"]["inner"]["anyOf"] == [
+        {"type": "string"},
+        {"type": "null"},
+    ]
     assert_openai_strict_schema(strict)
 
 
@@ -93,7 +104,7 @@ def test_array_item_object_properties_are_strict() -> None:
         }
     )
 
-    item_schema = strict["properties"]["items"]["items"]
+    item_schema = strict["properties"]["items"]["anyOf"][0]["items"]
     assert item_schema["required"] == ["label"]
     assert item_schema["additionalProperties"] is False
     assert_openai_strict_schema(strict)
@@ -160,7 +171,8 @@ def test_enum_constraints_and_descriptions_are_preserved() -> None:
     assert strict["title"] == "Example"
     assert strict["description"] == "Example schema"
     assert strict["properties"]["kind"]["description"] == "Kind value"
-    assert strict["properties"]["kind"]["enum"] == ["A", "B", None]
+    kind_schema = strict["properties"]["kind"]["anyOf"][0]
+    assert kind_schema["enum"] == ["A", "B", None]
     assert strict["properties"]["required_kind"]["enum"] == ["C"]
 
 
@@ -176,7 +188,10 @@ def test_stage_a_candidate_response_schema_is_openai_strict() -> None:
     item_schema = strict["properties"]["candidates"]["items"]
     assert "question" in item_schema["properties"]
     assert "question" in item_schema["required"]
-    assert item_schema["properties"]["question"]["type"] == ["string", "null"]
+    assert item_schema["properties"]["question"]["anyOf"] == [
+        {"type": "string"},
+        {"type": "null"},
+    ]
     assert_openai_strict_schema(strict)
 
 
@@ -220,6 +235,100 @@ def test_openai_transport_payload_uses_strict_schema_without_network() -> None:
     item_schema = schema["properties"]["candidates"]["items"]
     assert "question" in item_schema["required"]
     assert_openai_strict_schema(schema)
+
+
+def test_deep_opportunity_transport_uses_portable_schema_and_name() -> None:
+    observed_payloads: list[dict[str, Any]] = []
+
+    def opener(request: Request, timeout: float) -> CapturingResponse:
+        del timeout
+        assert request.data is not None
+        observed_payloads.append(json.loads(request.data.decode("utf-8")))
+        return CapturingResponse()
+
+    transport = OpenAIResponsesTransport(
+        opener=opener,
+        schema_name="factori_deep_opportunities",
+        nullable_optional_fields=False,
+    )
+    transport.create_response(
+        api_key="test-key",
+        model="test-model",
+        prompt="deep opportunity prompt",
+        response_schema=OpportunityProposalEnvelope.model_json_schema(),
+    )
+
+    format_payload = observed_payloads[0]["text"]["format"]
+    schema = format_payload["schema"]
+    assert format_payload["name"] == "factori_deep_opportunities"
+    assert_openai_strict_schema(schema)
+    opportunity_schema = schema["$defs"]["OpportunityProposal"]
+    for field_name in (
+        "retrieval_contradictions",
+        "false_bridge_risks",
+        "tautology_risks",
+    ):
+        field_schema = opportunity_schema["properties"][field_name]
+        assert field_schema["type"] == "array"
+        assert "anyOf" not in field_schema
+    assert_no_portable_schema_omissions(schema)
+
+
+def test_deep_request_diagnostics_match_transport_schema_mode() -> None:
+    schema = OpportunityProposalEnvelope.model_json_schema()
+    diagnostics = build_openai_request_diagnostics(
+        model="test-model",
+        prompt="deep opportunity prompt",
+        response_schema=schema,
+        schema_name="factori_deep_opportunities",
+        nullable_optional_fields=False,
+    )
+    payload = {
+        "model": "test-model",
+        "input": "deep opportunity prompt",
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "factori_deep_opportunities",
+                "strict": True,
+                "schema": make_openai_strict_json_schema(
+                    schema, nullable_optional_fields=False
+                ),
+            }
+        },
+    }
+    assert diagnostics["request_payload_hash"] == sha256_json(payload)
+
+
+def assert_no_portable_schema_omissions(schema: Any) -> None:
+    if isinstance(schema, list):
+        for item in schema:
+            assert_no_portable_schema_omissions(item)
+        return
+    if not isinstance(schema, dict):
+        return
+    for key in {
+        "contentEncoding",
+        "contentMediaType",
+        "exclusiveMaximum",
+        "exclusiveMinimum",
+        "format",
+        "maxItems",
+        "maxLength",
+        "maxProperties",
+        "minItems",
+        "minLength",
+        "minProperties",
+        "maximum",
+        "minimum",
+        "multipleOf",
+        "pattern",
+        "patternProperties",
+        "uniqueItems",
+    }:
+        assert key not in schema
+    for value in schema.values():
+        assert_no_portable_schema_omissions(value)
 
 
 def assert_openai_strict_schema(schema: Any) -> None:
