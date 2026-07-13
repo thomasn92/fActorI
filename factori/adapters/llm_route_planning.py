@@ -493,8 +493,11 @@ def _contains_affirmative_forbidden_claim(text: str, phrase: str) -> bool:
             continue
         after = sentence[position + len(phrase) :]
         if re.match(
-            r"\s*(?:is|are|was|were|has been|have been|remains?)\s+"
-            r"(?:not|never|unverified|unproven|unresolved|unsupported|forbidden|absent)\b",
+            r"\s*(?:(?:claims?|evidence|support|results?|route|study|analysis|"
+            r"use|assessment|path)\s+)?(?:is|are|was|were|has been|have been|"
+            r"remains?)?\s*(?:not|never|unverified|unproven|unresolved|unsupported|"
+            r"forbidden|disallowed|absent|outside|out of scope|should not|must not|"
+            r"cannot)\b",
             after,
         ):
             continue

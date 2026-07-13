@@ -4183,6 +4183,22 @@ def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
     assert accepted is not None
     assert reasons == []
 
+    policy_caveat = json.loads(json.dumps(valid_raw))
+    policy_caveat["execution_spec"]["objective"] = (
+        "Real-world validation claims are forbidden for this bounded synthetic plan."
+    )
+    accepted, reasons, _ = parse_route_planning_response({"plans": [policy_caveat]})
+    assert accepted is not None
+    assert reasons == []
+
+    scope_caveat = json.loads(json.dumps(valid_raw))
+    scope_caveat["execution_spec"]["objective"] = (
+        "Real-world validation is out of scope for this execution specification."
+    )
+    accepted, reasons, _ = parse_route_planning_response({"plans": [scope_caveat]})
+    assert accepted is not None
+    assert reasons == []
+
     unsafe_cases = []
     real_world = json.loads(json.dumps(valid_raw))
     real_world["execution_spec"]["objective"] = "This establishes real-world validation."
