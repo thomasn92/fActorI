@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 
 from factori.adapters.errors import (
     AdapterExternalCallsDisabled,
@@ -89,11 +89,24 @@ class RouteDecisionProposal(StrictModel):
     creates_scientific_validation: Literal[False] = False
 
 
+class RoutePlanningInputContract(RouteExecutionInputContract):
+    """LLM-facing input contract with required executable route parameters."""
+
+    route_parameters: dict[str, Any] = Field(min_length=1)
+
+    @field_validator("route_parameters", mode="before")
+    @classmethod
+    def _require_route_parameters(cls, value: Any) -> Any:
+        if not value:
+            raise ValueError("route parameters must be non-empty")
+        return value
+
+
 class ExecutionSpecProposal(StrictModel):
     route_type: BranchRouteType
     title: str = Field(min_length=1)
     objective: str = Field(min_length=1)
-    input_contract: RouteExecutionInputContract
+    input_contract: RoutePlanningInputContract
     output_contract: RouteExecutionOutputContract
     baseline_plan: list[str] = Field(min_length=1)
     control_plan: list[str] = Field(min_length=1)
@@ -117,6 +130,13 @@ class ExecutionSpecProposal(StrictModel):
     publication_ready: Literal[False] = False
     creates_scientific_validation: Literal[False] = False
     creates_real_world_validation: Literal[False] = False
+
+    @field_validator("input_contract", mode="before")
+    @classmethod
+    def _coerce_public_input_contract(cls, value: Any) -> Any:
+        if isinstance(value, RouteExecutionInputContract):
+            return value.model_dump(mode="python")
+        return value
 
 
 class RoutePlanningScoreProposal(StrictModel):
@@ -438,6 +458,13 @@ def _contains_affirmative_forbidden_claim(text: str, phrase: str) -> bool:
             before,
         ):
             continue
+        after = sentence[position + len(phrase) :]
+        if re.match(
+            r"\s*(?:is|are|was|were|has been|have been|remains?)\s+"
+            r"(?:not|never|unverified|unproven|unresolved|unsupported|forbidden|absent)\b",
+            after,
+        ):
+            continue
         return True
     return False
 
@@ -499,6 +526,7 @@ __all__ = [
     "OpenAILLMRoutePlanner",
     "ROUTE_ALLOWED_LABELS",
     "RouteDecisionProposal",
+    "RoutePlanningInputContract",
     "RoutePlanningClient",
     "RoutePlanningProposalEnvelope",
     "RoutePlanningProposalItem",
