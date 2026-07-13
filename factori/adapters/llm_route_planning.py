@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
+import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
@@ -12,6 +15,7 @@ from factori.adapters.errors import (
     AdapterExternalCallsDisabled,
     AdapterMissingCredentials,
     AdapterResponseParseError,
+    AdapterTransportError,
 )
 from factori.adapters.llm_real import LLMTransport, OpenAIResponsesTransport
 from factori.schemas import (
@@ -175,6 +179,8 @@ class OpenAILLMRoutePlanner:
     model: str
     transport: LLMTransport = field(default_factory=OpenAIResponsesTransport)
     allow_external_calls: bool = False
+    max_transport_retries: int = 1
+    retry_backoff_seconds: float = 0.5
     backend_name: str = field(default="llm-openai", init=False)
     backend_kind: BackendKind = field(default=BackendKind.LLM_OPENAI, init=False)
     fallback_used: bool = field(default=False, init=False)
@@ -191,6 +197,10 @@ class OpenAILLMRoutePlanner:
             )
         if not self.model.strip():
             raise ValueError("OpenAI LLM route planning requires a model name.")
+        if self.max_transport_retries < 0:
+            raise ValueError("max_transport_retries must be non-negative.")
+        if self.retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds must be non-negative.")
 
     def plan_route(
         self,
@@ -208,12 +218,7 @@ class OpenAILLMRoutePlanner:
             source_metadata_payload=source_metadata_payload,
             retrieval_context_payload=retrieval_context_payload,
         )
-        raw = self.transport.create_response(
-            api_key=self.api_key,
-            model=self.model,
-            prompt=prompt.prompt_text,
-            response_schema=prompt.requested_output_schema,
-        )
+        raw = self._create_response_with_retries(prompt)
         payload = _json_object(raw)
         accepted, reasons, repairs = parse_route_planning_response(payload)
         return RoutePlanningResponse(
@@ -223,6 +228,23 @@ class OpenAILLMRoutePlanner:
             rejection_reasons=reasons,
             repair_actions=repairs,
         )
+
+    def _create_response_with_retries(self, prompt: LLMRoutePlanningPrompt) -> Any:
+        for attempt in range(self.max_transport_retries + 1):
+            try:
+                return self.transport.create_response(
+                    api_key=self.api_key,
+                    model=self.model,
+                    prompt=prompt.prompt_text,
+                    response_schema=prompt.requested_output_schema,
+                )
+            except AdapterTransportError as exc:
+                if attempt >= self.max_transport_retries or not _is_retryable_transport_error(exc):
+                    raise
+                delay = self.retry_backoff_seconds * (2**attempt)
+                if delay:
+                    time.sleep(delay)
+        raise AssertionError("unreachable")
 
 
 def build_llm_route_planning_prompt(
@@ -245,10 +267,17 @@ def build_llm_route_planning_prompt(
         "failure criteria, required artifacts, execution backend, and claim boundaries. Proof-plan "
         "routes require explicit proof obligations and a formalization target. Literature routes "
         "require retrieval queries and requires_literature_retrieval=true. Experiment, benchmark, "
-        "and counterexample routes require code generation and sandbox requirements. Use exactly "
+        "and counterexample routes require code generation, sandbox requirements, and a non-empty "
+        "input_contract.route_parameters object containing concrete named parameters such as "
+        "sample_size, time_horizon, noise_level, regime_settings, train_test_split, and seed. "
+        "For example, use {\"sample_size\": 1000, \"time_horizon\": 20, "
+        "\"noise_level\": 0.1, \"regime_settings\": [\"null\", \"alternative\"], "
+        "\"train_test_split\": 0.8, \"seed\": 17}; adapt the values to the substrate. "
+        "Do not return null or {} for route_parameters on executable routes. Use exactly "
         "the route-specific allowed evidence labels in this policy; these are future permissions, "
         "not evidence created by this plan. Do not claim proof, novelty, real-world validation, "
-        "publication readiness, or computed results. Return only the structured response.\n\n"
+        "publication readiness, or computed results. All score fields must be decimals from 0.0 "
+        "to 1.0 inclusive; never use a 0-10 score scale. Return only the structured response.\n\n"
         f"Allowed-label policy:\n{json.dumps(label_policy, indent=2, sort_keys=True)}\n\n"
         f"Scientific substrate:\n{json.dumps(substrate_payload, indent=2, sort_keys=True)}\n\n"
         f"Source metadata:\n{json.dumps(source_metadata_payload, indent=2, sort_keys=True)}\n\n"
@@ -271,6 +300,14 @@ def build_llm_route_planning_prompt(
 def parse_route_planning_response(
     payload: dict[str, Any],
 ) -> tuple[RoutePlanningProposalItem | None, list[str], list[str]]:
+    prepared_payload, repairs = _prepare_route_planning_payload(payload)
+    item, reasons, parser_repairs = _parse_prepared_route_planning_response(prepared_payload)
+    return item, reasons, [*repairs, *parser_repairs]
+
+
+def _parse_prepared_route_planning_response(
+    payload: dict[str, Any],
+) -> tuple[RoutePlanningProposalItem | None, list[str], list[str]]:
     raw_items = payload.get("plans")
     if not isinstance(raw_items, list) or len(raw_items) != 1:
         raise AdapterResponseParseError(
@@ -288,6 +325,42 @@ def parse_route_planning_response(
     if reasons:
         return None, reasons, repairs
     return repaired, [], repairs
+
+
+def _prepare_route_planning_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Normalize JSON nulls for fields whose schema defaults are collections."""
+    prepared = deepcopy(payload)
+    repairs: list[str] = []
+    raw_plans = prepared.get("plans")
+    if not isinstance(raw_plans, list) or len(raw_plans) != 1:
+        return prepared, repairs
+    raw_item = raw_plans[0]
+    if not isinstance(raw_item, dict):
+        return prepared, repairs
+    spec = raw_item.get("execution_spec")
+    if isinstance(spec, dict):
+        for field_name in ("proof_obligations", "retrieval_queries", "sandbox_requirements"):
+            if spec.get(field_name) is None:
+                spec[field_name] = []
+                repairs.append(f"normalized null execution_spec.{field_name} to []")
+        input_contract = spec.get("input_contract")
+        if isinstance(input_contract, dict):
+            for field_name in ("variables_and_notation", "assumptions", "metrics"):
+                if input_contract.get(field_name) is None:
+                    input_contract[field_name] = []
+                    repairs.append(f"normalized null input_contract.{field_name} to []")
+            if input_contract.get("route_parameters") is None:
+                input_contract["route_parameters"] = {}
+                repairs.append("normalized null input_contract.route_parameters to {}")
+        output_contract = spec.get("output_contract")
+        if isinstance(output_contract, dict):
+            for field_name in ("required_metrics", "required_payload_fields"):
+                if output_contract.get(field_name) is None:
+                    output_contract[field_name] = []
+                    repairs.append(f"normalized null output_contract.{field_name} to []")
+    return prepared, repairs
 
 
 def validate_route_planning_proposal(item: RoutePlanningProposalItem) -> list[str]:
@@ -345,9 +418,35 @@ def validate_route_planning_proposal(item: RoutePlanningProposalItem) -> list[st
         "establishes novelty": "route plan asserts novelty as fact",
     }
     reasons.extend(
-        message for phrase, message in forbidden_assertions.items() if phrase in combined
+        message
+        for phrase, message in forbidden_assertions.items()
+        if _contains_affirmative_forbidden_claim(combined, phrase)
     )
     return reasons
+
+
+def _contains_affirmative_forbidden_claim(text: str, phrase: str) -> bool:
+    """Reject authority claims while allowing explicit caveats and limitations."""
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.lower()):
+        position = sentence.find(phrase)
+        if position < 0:
+            continue
+        before = sentence[:position]
+        if re.search(
+            r"\b(?:not|no|never|without|cannot|can't|doesn't|does not|do not|don't|"
+            r"isn't|is not|unverified|unproven|unresolved|remains open)\b",
+            before,
+        ):
+            continue
+        return True
+    return False
+
+
+def _is_retryable_transport_error(error: AdapterTransportError) -> bool:
+    """Retry transient transport failures, never rejected requests or bad schemas."""
+    if error.status_code is None:
+        return True
+    return error.status_code in {408, 409, 429} or error.status_code >= 500
 
 
 def _repair_forbidden_claim_boundaries(

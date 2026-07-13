@@ -6,12 +6,16 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from pydantic import ValidationError
 
 from factori.adapters.errors import AdapterError
-from factori.adapters.llm_variance import VarianceGenerationClient
+from factori.adapters.llm_variance import (
+    VarianceGenerationClient,
+    VarianceGenerationResponse,
+    parse_variance_items,
+)
 from factori.artifacts import ArtifactStore
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
@@ -121,6 +125,7 @@ def generate_llm_variance(
     scores: list[LLMVarianceScore] = []
     batches: list[LLMVarianceBatch] = []
     raw_artifacts: list[LLMVarianceRawArtifact] = []
+    next_raw_number = raw_number
     warnings: list[str] = []
 
     for source_index, source in enumerate(source_candidates):
@@ -130,31 +135,51 @@ def generate_llm_variance(
                 f"Retrieval context is missing for source pair {source.source_pair_id}."
             )
         prompt_id = f"{report_id}-prompt-{source_index + 1:03d}"
-        try:
-            response = generator.generate_variants(
-                prompt_id=prompt_id,
-                source_payload=source.model_dump(mode="json"),
-                retrieval_context_payload=context.model_dump(mode="json"),
-                variants_per_opportunity=config.variants_per_opportunity,
+        reusable = _load_reusable_variance_response(
+            reports=reports,
+            source_opportunity_id=source.opportunity_id,
+            model=generator.model,
+            variants_per_opportunity=config.variants_per_opportunity,
+        )
+        raw_artifact: LLMVarianceRawArtifact | None = None
+        if reusable is not None:
+            raw_artifact, response = reusable
+            raw_artifacts.append(raw_artifact)
+            warnings.append(
+                f"Reused validated variance batch {raw_artifact.raw_artifact_id} for "
+                f"{source.opportunity_id}."
             )
-        except (AdapterError, ValueError) as exc:
-            raise LLMVarianceError(
-                f"LLM variance failed for {source.opportunity_id}: {exc}"
-            ) from exc
-        if not response.accepted:
-            raise LLMVarianceError(
-                f"LLM produced no valid variants for {source.opportunity_id}."
-            )
+        else:
+            try:
+                response = generator.generate_variants(
+                    prompt_id=prompt_id,
+                    source_payload=source.model_dump(mode="json"),
+                    retrieval_context_payload=context.model_dump(mode="json"),
+                    variants_per_opportunity=config.variants_per_opportunity,
+                )
+            except (AdapterError, ValueError) as exc:
+                _persist_failed_variance_attempt(
+                    run_id=run_id,
+                    root_path=root_path,
+                    deep_path=deep_path,
+                    source_candidates=source_candidates,
+                    report_id=report_id,
+                    config=config,
+                    generator=generator,
+                    candidates=candidates,
+                    scores=scores,
+                    batches=batches,
+                    raw_artifacts=raw_artifacts,
+                    warnings=[f"{source.opportunity_id}: {exc}"],
+                    failure_reason=f"LLM variance failed for {source.opportunity_id}: {exc}",
+                    store=store,
+                    ledger=ledger,
+                )
         family_counts = Counter(item.candidate.variant_family for item in response.accepted)
         family_contract = bool(
             {"benchmark", "baseline_strengthening"}.intersection(family_counts)
             and {"robustness", "negative_control"}.intersection(family_counts)
         )
-        if not family_contract:
-            raise LLMVarianceError(
-                f"LLM variants for {source.opportunity_id} do not satisfy required benchmark/"
-                "baseline and robustness/negative-control family coverage."
-            )
         accepted_ids: list[str] = []
         for item_index, item in enumerate(response.accepted, start=1):
             variant_id = (
@@ -183,14 +208,11 @@ def generate_llm_variance(
             candidates.append(candidate)
             scores.append(score)
             accepted_ids.append(variant_id)
-        if not accepted_ids:
-            raise LLMVarianceError(
-                f"No schema-valid variants remained for {source.opportunity_id}."
-            )
-        raw_id = f"llm-variance-raw-{raw_number + source_index:04d}"
-        raw_artifacts.append(
-            LLMVarianceRawArtifact(
-                raw_artifact_id=raw_id,
+        if raw_artifact is None:
+            while (reports / f"llm-variance-raw-{next_raw_number:04d}.json").exists():
+                next_raw_number += 1
+            raw_artifact = LLMVarianceRawArtifact(
+                raw_artifact_id=f"llm-variance-raw-{next_raw_number:04d}",
                 run_id=run_id,
                 source_opportunity_id=source.opportunity_id,
                 backend_name=generator.backend_name,
@@ -201,7 +223,15 @@ def generate_llm_variance(
                 rejected_outputs=response.rejected,
                 fallback_used=generator.fallback_used,
             )
-        )
+            next_raw_number += 1
+            raw_artifacts.append(raw_artifact)
+            _persist_variance_raw_artifact(
+                run_id=run_id,
+                raw_artifact=raw_artifact,
+                store=store,
+                ledger=ledger,
+            )
+
         batches.append(
             LLMVarianceBatch(
                 batch_id=f"{report_id}-batch-{source_index + 1:03d}",
@@ -210,9 +240,59 @@ def generate_llm_variance(
                 generated_variant_ids=accepted_ids,
                 rejected_outputs=response.rejected,
                 family_counts=dict(sorted(family_counts.items())),
-                required_family_contract_passed=True,
+                required_family_contract_passed=family_contract,
             )
         )
+        if not accepted_ids:
+            _persist_failed_variance_attempt(
+                run_id=run_id,
+                root_path=root_path,
+                deep_path=deep_path,
+                source_candidates=source_candidates,
+                report_id=report_id,
+                config=config,
+                generator=generator,
+                candidates=candidates,
+                scores=scores,
+                batches=batches,
+                raw_artifacts=raw_artifacts,
+                warnings=[
+                    *warnings,
+                    f"{source.opportunity_id}: all returned variants were rejected.",
+                    _format_rejection_diagnostics(response.rejected),
+                ],
+                failure_reason=(
+                    f"LLM produced no valid variants for {source.opportunity_id}. "
+                    f"rejected_count={len(response.rejected)}"
+                ),
+                store=store,
+                ledger=ledger,
+            )
+        if not family_contract:
+            _persist_failed_variance_attempt(
+                run_id=run_id,
+                root_path=root_path,
+                deep_path=deep_path,
+                source_candidates=source_candidates,
+                report_id=report_id,
+                config=config,
+                generator=generator,
+                candidates=candidates,
+                scores=scores,
+                batches=batches,
+                raw_artifacts=raw_artifacts,
+                warnings=[
+                    *warnings,
+                    f"{source.opportunity_id}: required benchmark/baseline and "
+                    "robustness/negative-control family coverage was not returned.",
+                ],
+                failure_reason=(
+                    f"LLM variants for {source.opportunity_id} do not satisfy required "
+                    "benchmark/baseline and robustness/negative-control family coverage."
+                ),
+                store=store,
+                ledger=ledger,
+            )
         if response.rejected:
             warnings.append(
                 f"Rejected {len(response.rejected)} malformed or unsafe variants for "
@@ -304,6 +384,7 @@ def generate_llm_variance(
     persistence = _persist_variance_report(
         report=report,
         raw_artifacts=raw_artifacts,
+        raw_artifacts_to_write=[],
         store=store,
         ledger=ledger,
     )
@@ -399,6 +480,153 @@ def select_llm_variants(
         duplicate_count,
         source_repeat_count,
     )
+
+
+def _load_reusable_variance_response(
+    *,
+    reports: Path,
+    source_opportunity_id: str,
+    model: str,
+    variants_per_opportunity: int,
+) -> tuple[LLMVarianceRawArtifact, VarianceGenerationResponse] | None:
+    """Reuse a complete, previously persisted source batch after an interrupted run."""
+    if not reports.is_dir():
+        return None
+    paths = sorted(
+        (item for item in reports.iterdir() if _RAW_RE.match(item.name)),
+        key=lambda item: item.name,
+        reverse=True,
+    )
+    for path in paths:
+        try:
+            raw = LLMVarianceRawArtifact.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValidationError):
+            continue
+        if (
+            raw.source_opportunity_id != source_opportunity_id
+            or raw.model != model
+            or len(raw.accepted_variant_ids) < variants_per_opportunity
+        ):
+            continue
+        try:
+            accepted, rejected = parse_variance_items(raw.raw_response)
+        except AdapterError:
+            continue
+        family_counts = Counter(item.candidate.variant_family for item in accepted)
+        family_contract = bool(
+            {"benchmark", "baseline_strengthening"}.intersection(family_counts)
+            and {"robustness", "negative_control"}.intersection(family_counts)
+        )
+        if not accepted or not family_contract:
+            continue
+        return raw, VarianceGenerationResponse(
+            prompt=raw.prompt,
+            raw_response=raw.raw_response,
+            accepted=accepted,
+            rejected=rejected,
+        )
+    return None
+
+
+def _format_rejection_diagnostics(rejected: list[dict[str, Any]]) -> str:
+    details: list[str] = []
+    for item in rejected:
+        index = item.get("index", "?")
+        reasons = item.get("reasons", [])
+        if isinstance(reasons, list):
+            details.extend(f"item {index}: {reason}" for reason in reasons)
+    return "Variance rejection diagnostics: " + (" | ".join(details) or "no reason recorded")
+
+
+def _persist_variance_raw_artifact(
+    *,
+    run_id: str,
+    raw_artifact: LLMVarianceRawArtifact,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> None:
+    persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                raw_artifact.raw_artifact_id,
+                ArtifactType.REPORT,
+                raw_artifact,
+                "json",
+                _metadata("llm_variance_raw"),
+            )
+        ],
+        action_type=ControllerActionType.LLM_VARIANCE_GENERATION_WRITTEN,
+        commit_payload={
+            "run_id": run_id,
+            "raw_artifact_id": raw_artifact.raw_artifact_id,
+            "source_opportunity_id": raw_artifact.source_opportunity_id,
+            "publication_ready": False,
+        },
+    )
+
+
+def _persist_failed_variance_attempt(
+    *,
+    run_id: str,
+    root_path: Path,
+    deep_path: Path,
+    source_candidates: list[DeepOpportunityCandidate],
+    report_id: str,
+    config: LLMVarianceGenerationConfig,
+    generator: VarianceGenerationClient,
+    candidates: list[LLMVarianceCandidate],
+    scores: list[LLMVarianceScore],
+    batches: list[LLMVarianceBatch],
+    raw_artifacts: list[LLMVarianceRawArtifact],
+    warnings: list[str],
+    failure_reason: str,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> NoReturn:
+    """Persist a failed aggregate attempt before returning the user-facing error."""
+    report = LLMVarianceGenerationReport(
+        run_id=run_id,
+        report_id=report_id,
+        generation_status="failed",
+        config=config,
+        source_deep_opportunity_report_path=_relative(root_path, deep_path),
+        source_opportunity_count=len(source_candidates),
+        generated_variant_count=len(candidates),
+        rejected_variant_count=sum(len(item.rejected_outputs) for item in raw_artifacts),
+        selected_variant_count=0,
+        variant_family_coverage=len({item.variant_family for item in candidates}),
+        domain_family_coverage=0,
+        method_family_coverage=0,
+        near_duplicate_suppressed_count=0,
+        source_repeat_suppressed_count=0,
+        raw_artifact_paths=[
+            f"runs/{run_id}/reports/{item.raw_artifact_id}.json" for item in raw_artifacts
+        ],
+        batches=batches,
+        candidates=candidates,
+        scores=scores,
+        selected_variant_ids=[],
+        backend_records=[
+            _generation_backend_record(
+                report_id=report_id,
+                generator=generator,
+                raw_ids=[item.raw_artifact_id for item in raw_artifacts],
+            )
+        ],
+        warnings=[*warnings, failure_reason],
+        production_ready=False,
+    )
+    _persist_variance_report(
+        report=report,
+        raw_artifacts=raw_artifacts,
+        raw_artifacts_to_write=[],
+        store=store,
+        ledger=ledger,
+    )
+    raise LLMVarianceError(failure_reason)
 
 
 def inspect_llm_variance(
@@ -719,10 +947,12 @@ def _persist_variance_report(
     *,
     report: LLMVarianceGenerationReport,
     raw_artifacts: list[LLMVarianceRawArtifact],
+    raw_artifacts_to_write: list[LLMVarianceRawArtifact] | None = None,
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> PersistenceResult:
     metadata = _metadata("llm_variance_generation")
+    raw_to_write = raw_artifacts if raw_artifacts_to_write is None else raw_artifacts_to_write
     specs = [
         ArtifactWriteSpec(
             item.raw_artifact_id,
@@ -731,7 +961,7 @@ def _persist_variance_report(
             "json",
             _metadata("llm_variance_raw"),
         )
-        for item in raw_artifacts
+        for item in raw_to_write
     ]
     specs.extend(
         [

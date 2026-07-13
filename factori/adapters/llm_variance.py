@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import Field, ValidationError
 
@@ -20,7 +21,15 @@ from factori.schemas import BackendKind, LLMVariancePrompt, StrictModel
 class VarianceCandidateProposal(StrictModel):
     """Adapter-local scientific variant before stage-owned IDs and selection."""
 
-    variant_family: str = Field(min_length=1)
+    variant_family: Literal[
+        "mechanism",
+        "robustness",
+        "counterexample",
+        "benchmark",
+        "representation",
+        "baseline_strengthening",
+        "negative_control",
+    ]
     title: str = Field(min_length=1)
     research_question: str = Field(min_length=1)
     hypothesis: str = Field(min_length=1)
@@ -172,7 +181,8 @@ def build_llm_variance_prompt(
         "paper role, and scientific rationale. It must change scientific substance rather than "
         "repeat the source. Prefix novelty_risk with 'Hypothesis:'. Do not assert novelty, proof, "
         "verification, real-world validation, complete literature coverage, or publication "
-        "readiness as established. Return only the structured response.\n\n"
+        "readiness as established. All score fields must be decimal numbers from 0 to 1 "
+        "inclusive. Return only the structured response.\n\n"
         f"Source opportunity:\n{json.dumps(source_payload, indent=2, sort_keys=True)}\n\n"
         "Retrieval context:\n"
         f"{json.dumps(retrieval_context_payload, indent=2, sort_keys=True)}"
@@ -226,18 +236,7 @@ def parse_variance_items(
 
 
 def _boundary_reasons(candidate: VarianceCandidateProposal) -> list[str]:
-    allowed_families = {
-        "mechanism",
-        "robustness",
-        "counterexample",
-        "benchmark",
-        "representation",
-        "baseline_strengthening",
-        "negative_control",
-    }
     reasons = []
-    if candidate.variant_family not in allowed_families:
-        reasons.append(f"unsupported variant family: {candidate.variant_family}")
     combined = " ".join(
         [
             candidate.title,
@@ -258,8 +257,44 @@ def _boundary_reasons(candidate: VarianceCandidateProposal) -> list[str]:
         "establishes novelty": "variant asserts novelty as fact",
         " is novel": "variant asserts novelty as fact",
     }
-    reasons.extend(message for phrase, message in forbidden.items() if phrase in combined)
+    reasons.extend(
+        message
+        for phrase, message in forbidden.items()
+        if _contains_unsafe_assertion(combined, phrase)
+    )
     return reasons
+
+
+def _contains_unsafe_assertion(text: str, phrase: str) -> bool:
+    """Reject affirmative authority claims while allowing explicit caveats."""
+    normalized = " ".join(text.casefold().split())
+    phrase_start = 0
+    negation = re.compile(
+        r"\b(?:not|no|never|without|cannot|can't|doesn't|does not|do not|"
+        r"avoid|avoids|unverified|unproven|unsupported|remains unestablished|"
+        r"not established)\b"
+    )
+    while (match := re.search(re.escape(phrase), normalized[phrase_start:])) is not None:
+        start = phrase_start + match.start()
+        end = phrase_start + match.end()
+        sentence_start = max(
+            normalized.rfind(".", 0, start),
+            normalized.rfind(";", 0, start),
+            normalized.rfind("\n", 0, start),
+        ) + 1
+        sentence_end_candidates = [
+            index for index in (
+                normalized.find(".", end),
+                normalized.find(";", end),
+                normalized.find("\n", end),
+            ) if index >= 0
+        ]
+        sentence_end = min(sentence_end_candidates, default=len(normalized))
+        sentence = normalized[sentence_start:sentence_end]
+        if not negation.search(sentence):
+            return True
+        phrase_start = end
+    return False
 
 
 def _json_object(raw: Any) -> dict[str, Any]:

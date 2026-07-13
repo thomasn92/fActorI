@@ -52,6 +52,75 @@ _RAW_RE = re.compile(r"^llm-substrate-raw-(\d{4})\.json$")
 _BUILD_RE = re.compile(r"^scientific-substrate-build-(\d{4})\.json$")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+# Method IDs are catalog identifiers, not necessarily words that belong in an
+# equation.  These anchors keep the bridge check strict while accepting the
+# standard object vocabulary for a method family.
+_METHOD_OBJECT_ANCHORS: dict[str, tuple[str, ...]] = {
+    "causal_inference": (
+        "causal",
+        "treatment",
+        "counterfactual",
+        "potential outcome",
+        "propensity",
+        "confounding",
+        "interference",
+        "spillover",
+        "doubly robust",
+        "policy effect",
+        "identified set",
+    ),
+    "optimal_transport": (
+        "transport",
+        "wasserstein",
+        "coupling",
+        "barycenter",
+        "sinkhorn",
+        "earth mover",
+    ),
+    "wasserstein_robustness": (
+        "wasserstein",
+        "transport cost",
+        "ambiguity set",
+        "distributionally robust",
+        "perturbation budget",
+    ),
+    "matrix_factorization": (
+        "matrix",
+        "factor",
+        "low-rank",
+        "low rank",
+        "singular value",
+        "svd",
+        "rank-k",
+    ),
+    "graph_curvature": ("curvature", "graph", "edge", "bottleneck"),
+    "topological_data_analysis": (
+        "topolog",
+        "persistent",
+        "homology",
+        "filtration",
+        "simplicial",
+    ),
+    "agent_based_modeling": (
+        "agent",
+        "individual",
+        "agent-based",
+        "emergent",
+        "micro-rule",
+    ),
+    "spatial_statistics": (
+        "spatial",
+        "autocorrelation",
+        "moran",
+        "variogram",
+        "point pattern",
+    ),
+    "network_science": ("network", "graph", "community", "centrality", "edge"),
+    "kernel_methods": ("kernel", "rkhs", "similarity", "feature map"),
+    "spectral_graph_theory": ("spectral", "eigenvalue", "graph laplacian", "graph"),
+    "pde_diffusion_models": ("pde", "diffusion", "partial differential", "laplacian"),
+}
+
 
 class LLMSubstrateError(RuntimeError):
     """Raised when production-safe LLM substrate construction cannot proceed."""
@@ -157,6 +226,12 @@ def construct_llm_substrates(
             ) from exc
         substrate_id = f"llm-substrate-{report_number:04d}-{_slug(variant.variant_id)}"
         rejection_reasons = list(response.rejection_reasons)
+        if response.repair_reasons:
+            repaired_count += 1
+            warnings.append(
+                f"Repaired substrate format for {variant.variant_id}: "
+                + "; ".join(response.repair_reasons)
+            )
         candidate: LLMScientificSubstrateCandidate | None = None
         score: LLMSubstrateConstructionScore | None = None
         if response.accepted is not None:
@@ -210,7 +285,51 @@ def construct_llm_substrates(
             )
         )
     if not candidates:
-        raise LLMSubstrateError("No valid substrates remained after schema and bridge validation.")
+        failure_warnings = [
+            "No valid substrates remained after schema and bridge validation.",
+            *warnings,
+        ]
+        failure_record = _generation_backend_record(
+            report_id=report_id,
+            generator=generator,
+            raw_ids=[item.raw_artifact_id for item in raw_artifacts],
+        )
+        failed_report = LLMSubstrateConstructionReport(
+            run_id=run_id,
+            report_id=report_id,
+            construction_status="failed",
+            config=config,
+            source_variance_report_path=_relative(root_path, variance_path),
+            source_idea_tree_construction_report_path=_relative(root_path, tree_path),
+            source_deep_opportunity_report_path=_relative(root_path, deep_path),
+            source_variant_count=len(selected_variants),
+            constructed_substrate_count=0,
+            rejected_substrate_count=len(raw_artifacts),
+            repaired_substrate_count=0,
+            selected_substrate_count=0,
+            domain_family_coverage=0,
+            method_family_coverage=0,
+            route_hint_coverage=0,
+            near_duplicate_suppressed_count=0,
+            raw_artifact_paths=[
+                f"runs/{run_id}/reports/{item.raw_artifact_id}.json"
+                for item in raw_artifacts
+            ],
+            scientific_substrate_paths=[],
+            candidates=[],
+            scores=[],
+            selected_substrate_ids=[],
+            backend_records=[failure_record],
+            warnings=failure_warnings,
+            production_ready=False,
+        )
+        _persist_failed(
+            report=failed_report,
+            raw_artifacts=raw_artifacts,
+            store=store,
+            ledger=ledger,
+        )
+        raise LLMSubstrateError("; ".join(failure_warnings))
 
     selected, _, duplicate_count = select_llm_substrates(
         candidates=candidates,
@@ -606,6 +725,55 @@ def _persist(
     )
 
 
+def _persist_failed(
+    *,
+    report: LLMSubstrateConstructionReport,
+    raw_artifacts: list[LLMSubstrateRawArtifact],
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> PersistenceResult:
+    """Persist rejection diagnostics without creating substrate artifacts."""
+    metadata = _metadata("llm_substrate_construction")
+    specs = [
+        ArtifactWriteSpec(
+            item.raw_artifact_id,
+            ArtifactType.REPORT,
+            item,
+            "json",
+            _metadata("llm_substrate_raw"),
+        )
+        for item in raw_artifacts
+    ]
+    specs.extend(
+        [
+            ArtifactWriteSpec(report.report_id, ArtifactType.REPORT, report, "json", metadata),
+            ArtifactWriteSpec(
+                f"{report.report_id}-markdown",
+                ArtifactType.REPORT,
+                render_llm_substrate_markdown(report),
+                "markdown",
+                metadata,
+                filename_stem=report.report_id,
+            ),
+        ]
+    )
+    return persist_artifacts_with_commit(
+        run_id=report.run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=specs,
+        action_type=ControllerActionType.LLM_SUBSTRATE_CONSTRUCTION_WRITTEN,
+        commit_payload={
+            "run_id": report.run_id,
+            "report_id": report.report_id,
+            "construction_status": "failed",
+            "rejected_substrate_count": report.rejected_substrate_count,
+            "production_ready": False,
+            "publication_ready": False,
+        },
+    )
+
+
 def _generation_backend_record(
     *, report_id: str, generator: SubstrateGenerationClient, raw_ids: list[str]
 ) -> StageBackendRecord:
@@ -661,9 +829,16 @@ def _decorative_method_reasons(
         ]
     ).lower()
     model_tokens = set(_TOKEN_RE.findall(model_text))
-    if method_tokens and not method_tokens.intersection(model_tokens):
+    method_id = variant.method_id.lower().replace("-", "_").replace(" ", "_")
+    anchors = _METHOD_OBJECT_ANCHORS.get(method_id)
+    if anchors:
+        has_anchor = any(anchor in model_text for anchor in anchors)
+    else:
+        has_anchor = bool(method_tokens.intersection(model_tokens))
+    if method_tokens and not has_anchor:
         return [
-            "method vocabulary is decorative: no method token appears in the concrete model"
+            "method vocabulary is decorative: no recognized method-object anchor appears in "
+            "the concrete model"
         ]
     return []
 

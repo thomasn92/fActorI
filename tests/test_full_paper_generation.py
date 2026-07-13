@@ -265,6 +265,7 @@ from factori.llm_route_planning import (
 )
 from factori.llm_substrate import (
     LLMSubstrateError,
+    _decorative_method_reasons,
     construct_llm_substrates,
     inspect_llm_substrates,
     select_llm_substrates,
@@ -3452,6 +3453,141 @@ def test_llm_variance_parser_rejects_missing_contract_fields_and_scopes_novelty(
     assert "verification_path" in rejected[1]["reasons"][0]
 
 
+def test_llm_variance_parser_allows_bounded_safety_caveats() -> None:
+    generator = MockLLMVarianceGenerator()
+    response = generator.generate_variants(
+        prompt_id="variance-safety-caveat",
+        source_payload={"opportunity_id": "deep-safety-source"},
+        retrieval_context_payload={"retrieval_mode": "real_retrieval"},
+        variants_per_opportunity=3,
+    )
+    payload = response.accepted[0].model_dump(mode="json")
+    payload["candidate"]["scientific_rationale"] = (
+        "This bounded variant does not establish real-world validation; it remains "
+        "a synthetic planning proposal."
+    )
+    accepted, rejected = parse_variance_items({"variants": [payload]})
+    assert len(accepted) == 1
+    assert rejected == []
+
+    unsafe = json.loads(json.dumps(payload))
+    unsafe["candidate"]["scientific_rationale"] = (
+        "This variant establishes real-world validation."
+    )
+    accepted, rejected = parse_variance_items({"variants": [unsafe]})
+    assert accepted == []
+    assert any("real-world validation" in reason for reason in rejected[0]["reasons"])
+
+
+def test_llm_variance_persists_failed_batches_and_reuses_valid_batches(tmp_path) -> None:
+    run_id = "run-llm-variance-resume"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    build_domain_method_atlas(run_id=run_id, root=tmp_path, store=store, ledger=ledger)
+    scan_domain_method_pairs(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        ranker=MockAtlasPairRanker(),
+        top_pairs=1,
+        require_non_fake_backends=True,
+        batch_size=1000,
+        max_ranking_calls=1,
+    )
+    discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=MockDeepOpportunityGenerator(),
+        retriever=MockRealOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="real_retrieval",
+            max_pairs=1,
+            max_generation_calls=1,
+            opportunities_per_pair=3,
+            max_selected_opportunities=3,
+            require_non_fake_backends=True,
+        ),
+    )
+
+    class FailingVarianceGenerator(MockLLMVarianceGenerator):
+        def generate_variants(self, *, source_payload, **kwargs):
+            if source_payload["opportunity_id"].endswith("-02"):
+                prompt = build_llm_variance_prompt(
+                    prompt_id=kwargs["prompt_id"],
+                    backend_name=self.backend_name,
+                    model=self.model,
+                    source_payload=source_payload,
+                    retrieval_context_payload=kwargs["retrieval_context_payload"],
+                    variants_per_opportunity=kwargs["variants_per_opportunity"],
+                )
+                return VarianceGenerationResponse(
+                    prompt=prompt,
+                    raw_response={"variants": []},
+                    accepted=[],
+                    rejected=[
+                        {"index": 0, "reasons": ["affirmative safety claim"]}
+                    ],
+                )
+            return super().generate_variants(source_payload=source_payload, **kwargs)
+
+    config = LLMVarianceGenerationConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        max_source_opportunities=3,
+        variants_per_opportunity=3,
+        max_variants_total=9,
+        max_selected_variants=9,
+        max_generation_calls=3,
+        min_variant_family_coverage=3,
+        min_domain_family_coverage=1,
+        min_method_family_coverage=1,
+        require_non_fake_backends=True,
+    )
+    with pytest.raises(LLMVarianceError, match="no valid variants"):
+        generate_llm_variance(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            generator=FailingVarianceGenerator(),
+            config=config,
+        )
+
+    failed = inspect_llm_variance(run_id=run_id, root=tmp_path)
+    assert failed.llm_variance_present is True
+    assert failed.generation_status_optional == "failed"
+    assert failed.generated_variant_count == 3
+    assert failed.rejected_variant_count == 1
+    assert any("affirmative safety claim" in warning for warning in failed.warnings)
+    raw_paths = sorted(
+        path
+        for path in (tmp_path / "runs" / run_id / "reports").glob("llm-variance-raw-*.json")
+        if not path.name.endswith(".meta.json")
+    )
+    assert len(raw_paths) == 2
+
+    retry_generator = MockLLMVarianceGenerator()
+    result = generate_llm_variance(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=retry_generator,
+        config=config,
+    )
+    assert result.report.generation_status in {"completed", "completed_with_warnings"}
+    assert result.report.selected_variant_count > 0
+    assert retry_generator.received_source_ids == [
+        "deep-opportunity-0001-agriculture_systems-convex_duality-02",
+        "deep-opportunity-0001-agriculture_systems-convex_duality-03",
+    ]
+
+
 def test_llm_variance_constructs_production_safe_idea_tree(tmp_path) -> None:
     run_id = "run-llm-variance-strict"
     store = ArtifactStore(tmp_path)
@@ -3604,6 +3740,22 @@ def test_llm_substrate_parser_rejects_incomplete_and_authority_claims() -> None:
     assert accepted is not None
     assert accepted.candidate.novelty_risk.startswith("Hypothesis:")
 
+    repaired = json.loads(json.dumps(valid))
+    repaired["candidate"]["route_hint"] = (
+        "Advisory route: run a simulation benchmark before any empirical application."
+    )
+    for field_name, value in repaired["score"].items():
+        if field_name != "score_explanation":
+            repaired["score"][field_name] = value * 10
+    repaired["candidate"]["scope_boundary"] = (
+        "This proposed synthetic study does not establish real-world validation."
+    )
+    accepted, reasons = parse_substrate_response({"substrates": [repaired]})
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.candidate.route_hint == "benchmark_tournament"
+    assert accepted.score.final_score == pytest.approx(0.88)
+
     for field_name in ["baseline_candidates", "verification_path", "result_schema"]:
         invalid = json.loads(json.dumps(valid))
         invalid["candidate"].pop(field_name)
@@ -3620,6 +3772,68 @@ def test_llm_substrate_parser_rejects_incomplete_and_authority_claims() -> None:
         parsed, rejected = parse_substrate_response({"substrates": [invalid]})
         assert parsed is None
         assert any(expected in item for item in rejected)
+
+
+def test_llm_substrate_bridge_accepts_causal_object_vocabulary() -> None:
+    generator = MockLLMSubstrateGenerator()
+    response = generator.construct_substrate(
+        prompt_id="substrate-bridge-prompt",
+        source_payload={
+            "variant_id": "variant-source",
+            "method_id": "causal_inference",
+            "research_question": "How stable is the policy effect under confounding?",
+        },
+        opportunity_payload={"opportunity_id": "opportunity-source"},
+        retrieval_context_payload={"retrieval_mode": "real_retrieval"},
+    )
+    assert response.accepted is not None
+    candidate = response.accepted.candidate.model_copy(
+        update={
+            "concrete_model_object": response.accepted.candidate.concrete_model_object.model_copy(
+                update={
+                    "model_type": "partially identified treatment-effect set",
+                    "equations": ["tau in I(Gamma, epsilon)"],
+                    "algorithm_optional": "Optimize sensitivity weights under propensity bounds.",
+                }
+            ),
+            "mathematical_or_computational_form": [
+                "q_a(x) is bounded by the confounding sensitivity parameter Gamma",
+                "the propensity score remains in [epsilon, 1-epsilon]",
+            ],
+        }
+    )
+    reasons = _decorative_method_reasons(
+        candidate=candidate,
+        variant=LLMVarianceCandidate(
+            variant_id="variant-source",
+            run_id="run-source",
+            source_opportunity_id="opportunity-source",
+            source_pair_id="pair-source",
+            domain_id="causal_policy_evaluation",
+            method_id="causal_inference",
+            variant_family="mechanism",
+            title="Bounded treatment effects",
+            research_question="How stable is the policy effect under confounding?",
+            hypothesis="The sensitivity set contains the true effect.",
+            theory_or_model_object="A partially identified treatment effect.",
+            mathematical_or_computational_form="tau in I(Gamma, epsilon)",
+            experiment_or_proof_plan="Run a fixed-seed synthetic experiment.",
+            benchmark_plan="Compare against a point estimator.",
+            baseline_candidates=["point estimator"],
+            negative_controls=["randomized treatment"],
+            failure_modes=["vacuous bounds"],
+            verification_path="Check coverage in simulation.",
+            expected_metrics=["coverage"],
+            data_regime="synthetic only",
+            paper_role="method paper",
+            scientific_rationale="The object exposes sensitivity to confounding.",
+            novelty_risk="Hypothesis: related work may exist.",
+            false_bridge_risk="The mapping could fail.",
+            tautology_risk="The DGP could favor the method.",
+            selected_for_tree=False,
+        ),
+    )
+    assert reasons == []
 
 
 def test_llm_substrates_construct_production_safe_scientific_objects(tmp_path) -> None:
@@ -3950,6 +4164,25 @@ def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
     assert strict.report.production_ready is True
 
     valid_raw = planner.raw_items[0]
+    nullable_collections = json.loads(json.dumps(valid_raw))
+    nullable_collections["execution_spec"]["proof_obligations"] = None
+    nullable_collections["execution_spec"]["retrieval_queries"] = None
+    accepted, reasons, repairs = parse_route_planning_response(
+        {"plans": [nullable_collections]}
+    )
+    assert accepted is not None
+    assert reasons == []
+    assert "normalized null execution_spec.proof_obligations to []" in repairs
+    assert "normalized null execution_spec.retrieval_queries to []" in repairs
+
+    caveat = json.loads(json.dumps(valid_raw))
+    caveat["execution_spec"]["objective"] = (
+        "This bounded synthetic plan does not establish real-world validation."
+    )
+    accepted, reasons, _ = parse_route_planning_response({"plans": [caveat]})
+    assert accepted is not None
+    assert reasons == []
+
     unsafe_cases = []
     real_world = json.loads(json.dumps(valid_raw))
     real_world["execution_spec"]["objective"] = "This establishes real-world validation."

@@ -7,7 +7,9 @@ import pytest
 from typer.testing import CliRunner
 
 from factori.adapters.config import AdapterConfig
+from factori.adapters.errors import AdapterTransportError
 from factori.adapters.llm_real import OpenAILLMClient
+from factori.adapters.llm_route_planning import _is_retryable_transport_error
 from factori.adapters.registry import AdapterConfigurationError, get_adapter_registry
 from factori.artifacts import ArtifactStore
 from factori.cli import app
@@ -47,6 +49,35 @@ def test_real_backend_fails_before_transport_when_external_calls_disabled() -> N
         )
 
     assert transport.calls == []
+
+
+def test_route_planning_retries_only_transient_transport_errors() -> None:
+    assert _is_retryable_transport_error(
+        AdapterTransportError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            message="request failed before a valid response was received",
+        )
+    )
+    assert _is_retryable_transport_error(
+        AdapterTransportError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            message="rate limited",
+            status_code=429,
+        )
+    )
+    assert not _is_retryable_transport_error(
+        AdapterTransportError(
+            backend="openai",
+            provider="openai",
+            operation="responses.create",
+            message="invalid request",
+            status_code=400,
+        )
+    )
 
 
 def test_real_backend_fails_clearly_without_api_key() -> None:

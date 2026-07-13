@@ -4538,6 +4538,10 @@ def plan_llm_routes_command(
         int,
         typer.Option("--max-planning-calls"),
     ] = 12,
+    max_transport_retries: Annotated[
+        int,
+        typer.Option("--max-transport-retries"),
+    ] = 1,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Plan scientific routes and non-executing specs with a gated LLM."""
@@ -4553,6 +4557,7 @@ def plan_llm_routes_command(
             api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
             model=model,
             allow_external_calls=allow_external_calls,
+            max_transport_retries=max_transport_retries,
         )
         config = LLMRoutePlanningConfig(
             run_id=run_id,

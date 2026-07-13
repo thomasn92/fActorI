@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -84,6 +86,7 @@ class SubstrateGenerationResponse:
     raw_response: dict[str, Any]
     accepted: SubstrateProposalItem | None
     rejection_reasons: list[str]
+    repair_reasons: list[str] = field(default_factory=list)
 
 
 class SubstrateGenerationClient(Protocol):
@@ -151,12 +154,14 @@ class OpenAILLMSubstrateGenerator:
             response_schema=prompt.requested_output_schema,
         )
         payload = _json_object(raw)
-        accepted, reasons = parse_substrate_response(payload)
+        prepared_payload, repair_reasons = _prepare_substrate_payload(payload)
+        accepted, reasons = _parse_prepared_substrate_response(prepared_payload)
         return SubstrateGenerationResponse(
             prompt=prompt,
             raw_response=payload,
             accepted=accepted,
             rejection_reasons=reasons,
+            repair_reasons=repair_reasons,
         )
 
 
@@ -175,10 +180,14 @@ def build_llm_substrate_prompt(
         "branch. Supply a model object with equations or algorithm, defined variables, explicit "
         "assumptions, falsifiable hypothesis, baselines, experiment/proof design, benchmark, "
         "negative controls, result schema, metrics, failure modes, limitations, scope boundary, "
-        "verification path, and advisory route hint. Method vocabulary must map to the concrete "
-        "object rather than decorate the topic. Prefix novelty_risk with 'Hypothesis:'. Do not "
+        "verification path, and one advisory route hint chosen exactly from: synthetic_experiment, "
+        "benchmark_tournament, counterexample_search, symbolic_derivation, applied_math_reduction, "
+        "proof_plan, literature_novelty_check, defer_insufficient_substrate, reject_false_bridge. "
+        "Method vocabulary must map to the concrete object rather than decorate the topic. "
+        "Prefix novelty_risk with 'Hypothesis:'. Do not "
         "claim proof, verification, novelty, real-world validation, complete literature coverage, "
-        "or publication readiness as established. Return only the structured response.\n\n"
+        "or publication readiness as established. All score fields must be decimals from 0.0 to "
+        "1.0 inclusive; never use a 0-10 score scale. Return only the structured response.\n\n"
         f"Selected variant:\n{json.dumps(source_payload, indent=2, sort_keys=True)}\n\n"
         f"Source opportunity:\n{json.dumps(opportunity_payload, indent=2, sort_keys=True)}\n\n"
         "Retrieval context:\n"
@@ -198,6 +207,13 @@ def build_llm_substrate_prompt(
 
 
 def parse_substrate_response(
+    payload: dict[str, Any],
+) -> tuple[SubstrateProposalItem | None, list[str]]:
+    prepared_payload, _ = _prepare_substrate_payload(payload)
+    return _parse_prepared_substrate_response(prepared_payload)
+
+
+def _parse_prepared_substrate_response(
     payload: dict[str, Any],
 ) -> tuple[SubstrateProposalItem | None, list[str]]:
     raw_items = payload.get("substrates")
@@ -225,6 +241,91 @@ def parse_substrate_response(
         ),
         [],
     )
+
+
+def _prepare_substrate_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Apply format-only repairs without changing scientific content."""
+    prepared = deepcopy(payload)
+    repairs: list[str] = []
+    raw_items = prepared.get("substrates")
+    if not isinstance(raw_items, list) or len(raw_items) != 1:
+        return prepared, repairs
+    raw_item = raw_items[0]
+    if not isinstance(raw_item, dict):
+        return prepared, repairs
+
+    candidate = raw_item.get("candidate")
+    if isinstance(candidate, dict):
+        raw_route = candidate.get("route_hint")
+        normalized_route = _normalize_route_hint(raw_route)
+        if normalized_route is not None and normalized_route != raw_route:
+            candidate["route_hint"] = normalized_route
+            repairs.append(f"normalized advisory route hint to {normalized_route}")
+
+    score = raw_item.get("score")
+    if isinstance(score, dict):
+        score_fields = (
+            "model_concreteness",
+            "baseline_quality",
+            "verification_feasibility",
+            "assumption_clarity",
+            "metric_clarity",
+            "negative_control_quality",
+            "failure_mode_quality",
+            "paper_coherence",
+            "false_bridge_penalty",
+            "tautology_penalty",
+            "scope_risk_penalty",
+            "final_score",
+        )
+        score_values = [score.get(field_name) for field_name in score_fields]
+        numeric_values = [value for value in score_values if isinstance(value, (int, float))]
+        if (
+            len(numeric_values) == len(score_values)
+            and any(value > 1.0 for value in numeric_values)
+            and all(0.0 <= value <= 10.0 for value in numeric_values)
+        ):
+            for field_name in score_fields:
+                score[field_name] = float(score[field_name]) / 10.0
+            repairs.append("normalized substrate scores from the LLM 0-10 scale to 0-1")
+    return prepared, repairs
+
+
+def _normalize_route_hint(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    allowed = {
+        "synthetic_experiment",
+        "benchmark_tournament",
+        "counterexample_search",
+        "symbolic_derivation",
+        "applied_math_reduction",
+        "proof_plan",
+        "literature_novelty_check",
+        "defer_insufficient_substrate",
+        "reject_false_bridge",
+    }
+    if normalized in allowed:
+        return normalized
+    if "counterexample" in normalized:
+        return "counterexample_search"
+    if "proof" in normalized or "theorem" in normalized:
+        return "proof_plan"
+    if "symbolic" in normalized or "reduction" in normalized:
+        return "applied_math_reduction"
+    if "literature" in normalized or "novelty" in normalized or "retrieval" in normalized:
+        return "literature_novelty_check"
+    if "benchmark" in normalized:
+        return "benchmark_tournament"
+    if any(
+        token in normalized
+        for token in ("synthetic", "simulation", "numerical", "experiment", "empirical")
+    ):
+        return "synthetic_experiment"
+    return None
 
 
 def _boundary_reasons(candidate: SubstrateCandidateProposal) -> list[str]:
@@ -264,8 +365,29 @@ def _boundary_reasons(candidate: SubstrateCandidateProposal) -> list[str]:
         "establishes novelty": "substrate asserts novelty as fact",
         " is novel": "substrate asserts novelty as fact",
     }
-    reasons.extend(message for phrase, message in forbidden.items() if phrase in combined)
+    reasons.extend(
+        message
+        for phrase, message in forbidden.items()
+        if _contains_affirmative_forbidden_claim(combined, phrase)
+    )
     return reasons
+
+
+def _contains_affirmative_forbidden_claim(text: str, phrase: str) -> bool:
+    """Reject authority claims while allowing explicit limitations and caveats."""
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.lower()):
+        position = sentence.find(phrase)
+        if position < 0:
+            continue
+        before = sentence[:position]
+        if re.search(
+            r"\b(?:not|no|never|without|cannot|can't|doesn't|does not|do not|don't|"
+            r"isn't|is not|unverified|unproven|unresolved|remains open)\b",
+            before,
+        ):
+            continue
+        return True
+    return False
 
 
 def _json_object(raw: Any) -> dict[str, Any]:
