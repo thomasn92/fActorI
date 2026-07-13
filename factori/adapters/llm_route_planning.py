@@ -481,28 +481,54 @@ def validate_route_planning_proposal(item: RoutePlanningProposalItem) -> list[st
 def _contains_affirmative_forbidden_claim(text: str, phrase: str) -> bool:
     """Reject authority claims while allowing explicit caveats and limitations."""
     for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.lower()):
-        position = sentence.find(phrase)
-        if position < 0:
-            continue
-        before = sentence[:position]
-        if re.search(
-            r"\b(?:not|no|never|without|cannot|can't|doesn't|does not|do not|don't|"
-            r"isn't|is not|unverified|unproven|unresolved|remains open)\b",
-            before,
-        ):
-            continue
-        after = sentence[position + len(phrase) :]
-        if re.match(
+        for match in re.finditer(re.escape(phrase), sentence):
+            before = sentence[: match.start()]
+            after = sentence[match.end() :]
+            if _has_forbidden_claim_negation(before, after):
+                continue
+            if phrase in {
+                "real-world validation",
+                "real world validation",
+            } and not _has_affirmative_validation_context(before, after):
+                continue
+            return True
+    return False
+
+
+def _has_forbidden_claim_negation(before: str, after: str) -> bool:
+    if re.search(
+        r"\b(?:not|no|never|without|avoid|avoids|excluding|exclude|cannot|can't|"
+        r"doesn't|does not|do not|don't|isn't|is not|unverified|unproven|"
+        r"unresolved|remains open)\b",
+        before,
+    ):
+        return True
+    return bool(
+        re.match(
             r"\s*(?:(?:claims?|evidence|support|results?|route|study|analysis|"
-            r"use|assessment|path)\s+)?(?:is|are|was|were|has been|have been|"
+            r"use|assessment|path)s+)?(?:is|are|was|were|has been|have been|"
             r"remains?)?\s*(?:not|never|unverified|unproven|unresolved|unsupported|"
             r"forbidden|disallowed|absent|outside|out of scope|should not|must not|"
             r"cannot)\b",
             after,
-        ):
-            continue
-        return True
-    return False
+        )
+    )
+
+
+def _has_affirmative_validation_context(before: str, after: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:achieves?|confirms?|constitutes?|creates?|demonstrates?|establishes?|"
+            r"provides?|proves?|represents?|supports?|validates?|verifies?)\s+$",
+            before,
+        )
+        or re.search(r"\b(?:is|was|becomes?)\s+$", before)
+        or re.match(
+            r"\s+(?:is|was|has been|can be)\s+(?:achieved|confirmed|demonstrated|"
+            r"established|provided|proven|supported|validated|verified)\b",
+            after,
+        )
+    )
 
 
 def _is_retryable_transport_error(error: AdapterTransportError) -> bool:

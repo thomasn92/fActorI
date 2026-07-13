@@ -4199,10 +4199,31 @@ def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
     assert accepted is not None
     assert reasons == []
 
+    future_work = json.loads(json.dumps(valid_raw))
+    future_work["execution_spec"]["objective"] = (
+        "Real-world validation requires future external data and remains outside this plan."
+    )
+    accepted, reasons, _ = parse_route_planning_response({"plans": [future_work]})
+    assert accepted is not None
+    assert reasons == []
+
+    prerequisites = json.loads(json.dumps(valid_raw))
+    prerequisites["execution_spec"]["objective"] = (
+        "This route records prerequisites for real-world validation without claiming it."
+    )
+    accepted, reasons, _ = parse_route_planning_response({"plans": [prerequisites]})
+    assert accepted is not None
+    assert reasons == []
+
     unsafe_cases = []
     real_world = json.loads(json.dumps(valid_raw))
     real_world["execution_spec"]["objective"] = "This establishes real-world validation."
     unsafe_cases.append((real_world, "real-world validation"))
+    real_world_constitutes = json.loads(json.dumps(valid_raw))
+    real_world_constitutes["execution_spec"]["objective"] = (
+        "The completed benchmark constitutes real-world validation."
+    )
+    unsafe_cases.append((real_world_constitutes, "real-world validation"))
     publication = json.loads(json.dumps(valid_raw))
     publication["decision"]["scientific_reason"] = "The paper is publication ready."
     unsafe_cases.append((publication, "publication readiness"))
