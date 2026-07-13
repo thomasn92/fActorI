@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from factori.adapters.errors import (
     AdapterExternalCallsDisabled,
@@ -89,10 +89,39 @@ class RouteDecisionProposal(StrictModel):
     creates_scientific_validation: Literal[False] = False
 
 
+class RouteParameterValues(StrictModel):
+    """Closed OpenAI-compatible parameter vocabulary for executable routes."""
+
+    sample_size: int | None = Field(default=None, ge=1)
+    n_units: int | None = Field(default=None, ge=1)
+    n_timepoints: int | None = Field(default=None, ge=1)
+    time_horizon: int | None = Field(default=None, ge=1)
+    noise_level: float | None = Field(default=None, ge=0.0)
+    confounding_strength: float | None = Field(default=None, ge=0.0)
+    overlap_floor: float | None = Field(default=None, ge=0.0, le=1.0)
+    train_test_split: float | None = Field(default=None, ge=0.0, le=1.0)
+    validation_split: float | None = Field(default=None, ge=0.0, le=1.0)
+    regime: str | None = None
+    regime_settings: list[str] | None = None
+    perturbation_levels: list[float] | None = None
+    window_size: int | None = Field(default=None, ge=1)
+    bootstrap_replicates: int | None = Field(default=None, ge=1)
+    rank_k: int | None = Field(default=None, ge=1)
+    seed: int | None = Field(default=None, ge=0)
+    route_family: str | None = None
+    bounded: bool | None = None
+
+    @model_validator(mode="after")
+    def _require_one_parameter(self) -> RouteParameterValues:
+        if not self.model_dump(exclude_none=True):
+            raise ValueError("route parameters must contain at least one concrete value")
+        return self
+
+
 class RoutePlanningInputContract(RouteExecutionInputContract):
     """LLM-facing input contract with required executable route parameters."""
 
-    route_parameters: dict[str, Any] = Field(min_length=1)
+    route_parameters: RouteParameterValues
 
     @field_validator("route_parameters", mode="before")
     @classmethod
@@ -197,7 +226,11 @@ class OpenAILLMRoutePlanner:
 
     api_key: str = field(repr=False)
     model: str
-    transport: LLMTransport = field(default_factory=OpenAIResponsesTransport)
+    transport: LLMTransport = field(
+        default_factory=lambda: OpenAIResponsesTransport(
+            schema_name="factori_llm_routes",
+        )
+    )
     allow_external_calls: bool = False
     max_transport_retries: int = 1
     retry_backoff_seconds: float = 0.5
@@ -526,6 +559,7 @@ __all__ = [
     "OpenAILLMRoutePlanner",
     "ROUTE_ALLOWED_LABELS",
     "RouteDecisionProposal",
+    "RouteParameterValues",
     "RoutePlanningInputContract",
     "RoutePlanningClient",
     "RoutePlanningProposalEnvelope",

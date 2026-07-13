@@ -11,6 +11,10 @@ from factori.adapters.llm_real import (
     OpenAIResponsesTransport,
     build_openai_request_diagnostics,
 )
+from factori.adapters.llm_route_planning import (
+    OpenAILLMRoutePlanner,
+    build_llm_route_planning_prompt,
+)
 from factori.adapters.openai_schema import make_openai_strict_json_schema
 from factori.adapters.prose_prompts import PROSE_OUTPUT_SCHEMA
 from factori.adapters.reviewer_prompts import REVIEWER_OUTPUT_SCHEMA
@@ -298,6 +302,31 @@ def test_deep_request_diagnostics_match_transport_schema_mode() -> None:
         },
     }
     assert diagnostics["request_payload_hash"] == sha256_json(payload)
+
+
+def test_route_planning_transport_schema_closes_parameter_vocabulary() -> None:
+    contract = build_llm_route_planning_prompt(
+        prompt_id="route-prompt",
+        backend_name="llm-openai",
+        model="test-model",
+        substrate_payload={"substrate_id": "substrate-1"},
+        source_metadata_payload={},
+        retrieval_context_payload={},
+    )
+    strict = make_openai_strict_json_schema(contract.requested_output_schema)
+    parameters = strict["$defs"]["RouteParameterValues"]
+
+    assert parameters["additionalProperties"] is False
+    assert set(parameters["required"]) == set(parameters["properties"])
+    assert "sample_size" in parameters["properties"]
+    assert "seed" in parameters["properties"]
+
+    planner = OpenAILLMRoutePlanner(
+        api_key="test-key",
+        model="test-model",
+        allow_external_calls=True,
+    )
+    assert planner.transport.schema_name == "factori_llm_routes"
 
 
 def assert_no_portable_schema_omissions(schema: Any) -> None:
