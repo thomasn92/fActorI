@@ -1826,7 +1826,7 @@ def _assemble_markdown(
                 )
             lines.append("")
     references = _reference_lines(citation_bindings, retrieval_contexts)
-    if references:
+    if references and not re.search(r"(?mi)^#{1,6}\s+references\b", draft.markdown):
         lines.extend(["## References", "", *references])
     return "\n".join(lines).rstrip() + "\n"
 
@@ -1867,7 +1867,7 @@ def _assemble_latex(
         base_latex = base_latex.rstrip()
     lines = [base_latex]
     reference_lines = _latex_reference_lines(citation_bindings, retrieval_contexts)
-    if reference_lines:
+    if reference_lines and r"\begin{thebibliography}" not in base_latex:
         lines.extend(
             [
                 "",
@@ -1931,6 +1931,13 @@ def _standalone_final_latex(source: str) -> str:
     """Turn an M106 fragment into a deterministic, compile-ready paper document."""
     normalized = source.replace("\r\n", "\n").replace("\r", "\n").strip()
     if r"\documentclass" in normalized:
+        normalized = _ensure_latex_package(normalized, "adjustbox")
+        normalized = _fit_simple_longtables(normalized)
+        normalized = re.sub(
+            r"(?<!\\protect)\\url\{",
+            r"\\protect\\url{",
+            normalized,
+        )
         return normalized + "\n"
     normalized = re.sub(r"(?<!\\)#", r"\\#", normalized)
     normalized = re.sub(
@@ -1973,6 +1980,54 @@ def _standalone_final_latex(source: str) -> str:
             "",
         ]
     )
+
+
+def _ensure_latex_package(source: str, package: str) -> str:
+    if re.search(rf"\\usepackage(?:\[[^]]*\])?\{{[^}}]*\b{re.escape(package)}\b[^}}]*\}}", source):
+        return source
+    return source.replace(
+        r"\begin{document}",
+        rf"\usepackage{{{package}}}" + "\n" + r"\begin{document}",
+        1,
+    )
+
+
+def _fit_simple_longtables(source: str) -> str:
+    pattern = re.compile(
+        r"\\begin\{longtable\}\{(?P<spec>[^{}\n]+)\}\s*"
+        r"(?P<body>.*?)\\end\{longtable\}",
+        re.DOTALL,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        spec = match.group("spec")
+        body = match.group("body").strip()
+        if any(token in spec for token in ("p{", "m{", "b{", "X")):
+            return match.group(0)
+        if body.count(r"\\") > 30:
+            return match.group(0)
+        lines = body.splitlines()
+        caption = ""
+        if lines and lines[0].lstrip().startswith(r"\caption{"):
+            caption = lines.pop(0).rstrip()
+            if caption.endswith(r"\\"):
+                caption = caption[:-2].rstrip()
+        tabular = "\n".join(
+            [
+                r"\begin{adjustbox}{max width=\textwidth}",
+                rf"\begin{{tabular}}{{{spec}}}",
+                *lines,
+                r"\end{tabular}",
+                r"\end{adjustbox}",
+            ]
+        )
+        if caption:
+            return "\n".join(
+                [r"\begin{table}[H]", r"\centering", caption, tabular, r"\end{table}"]
+            )
+        return "\n".join([r"\begin{center}", tabular, r"\end{center}"])
+
+    return pattern.sub(replace, source)
 
 
 def _paperize_final_fragment(source: str) -> tuple[str, str]:

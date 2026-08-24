@@ -7166,6 +7166,28 @@ def test_nucleus_manuscript_does_not_treat_dois_as_metrics() -> None:
     ]
 
 
+def test_standalone_final_latex_protects_caption_urls_and_fits_short_tables() -> None:
+    source = r"""\documentclass{article}
+\usepackage{longtable,url,float}
+\begin{document}
+\begin{longtable}{lrr}
+\caption{Source \url{runs/example.json}.}\label{tab:example}\\
+A & B & C\\
+1 & 2 & 3\\
+\end{longtable}
+\end{document}
+"""
+
+    rendered = _standalone_final_latex(source)
+
+    assert r"\usepackage{adjustbox}" in rendered
+    assert r"\begin{table}[H]" in rendered
+    assert r"\begin{adjustbox}{max width=\textwidth}" in rendered
+    assert r"\begin{tabular}{lrr}" in rendered
+    assert r"\protect\url{runs/example.json}" in rendered
+    assert r"\begin{longtable}{lrr}" not in rendered
+
+
 def test_nucleus_manuscript_accepts_motivation_as_introduction_content() -> None:
     markdown = """# Study
 
