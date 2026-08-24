@@ -59,6 +59,7 @@ _DECIMAL_LITERAL_RE = re.compile(
     r"(?<![A-Za-z0-9_])[-+]?(?:\d+\.\d+|\.\d+)(?:[eE][-+]?\d+)?"
     r"(?![A-Za-z0-9_]|\.\d)"
 )
+_DOI_RE = re.compile(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
 
 _REVIEW_ROLES = tuple(ManuscriptCriticRole)
 _MAIN_RESULT_STATUSES = {"completed", "negative_result", "draft_created"}
@@ -1887,10 +1888,12 @@ def _metric_literal_reasons(
         "",
         latex,
     )
+    validation_corpus = _DOI_RE.sub(
+        "",
+        f"{markdown_without_heading_ordinals}\n{latex_without_layout_dimensions}",
+    )
     observed = set(
-        _DECIMAL_LITERAL_RE.findall(
-            f"{markdown_without_heading_ordinals}\n{latex_without_layout_dimensions}"
-        )
+        _DECIMAL_LITERAL_RE.findall(validation_corpus)
     )
     unexpected = sorted(
         value for value in observed if not _decimal_literal_matches(value, allowed)

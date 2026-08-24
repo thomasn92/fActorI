@@ -7148,6 +7148,24 @@ def test_nucleus_manuscript_accepts_precision_consistent_rounding() -> None:
     ]
 
 
+def test_nucleus_manuscript_does_not_treat_dois_as_metrics() -> None:
+    result = SimpleNamespace(
+        metrics={},
+        baseline_summary="{}",
+        control_summary="{}",
+        negative_control_summary="{}",
+    )
+    markdown = (
+        "Related work: https://doi.org/10.48550/arxiv.2505.20761 and "
+        "doi:10.3390/wevj17040219."
+    )
+
+    assert _metric_literal_reasons(markdown, "", [result]) == []
+    assert _metric_literal_reasons("Invented result 2505.20761.", "", [result]) == [
+        "Draft contains decimal metric literals not present in execution artifacts: 2505.20761"
+    ]
+
+
 def test_nucleus_manuscript_accepts_motivation_as_introduction_content() -> None:
     markdown = """# Study
 
