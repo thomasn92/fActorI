@@ -1,0 +1,256 @@
+{
+  "$defs": {
+    "AdaptiveEvidenceLoopConfig": {
+      "additionalProperties": false,
+      "description": "Bounded controls for post-M103 question, repair, and stopping behavior.",
+      "properties": {
+        "max_code_repair_calls": {
+          "default": 2,
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Max Code Repair Calls",
+          "type": "integer"
+        },
+        "max_plan_repair_calls": {
+          "default": 1,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Max Plan Repair Calls",
+          "type": "integer"
+        },
+        "max_questioner_iterations": {
+          "default": 3,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Max Questioner Iterations",
+          "type": "integer"
+        },
+        "no_progress_limit": {
+          "default": 1,
+          "maximum": 8,
+          "minimum": 1,
+          "title": "No Progress Limit",
+          "type": "integer"
+        }
+      },
+      "title": "AdaptiveEvidenceLoopConfig",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.78.0/targeted-study-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Fail-closed preflight, smoke, or full targeted-study configuration.",
+  "properties": {
+    "adaptive_evidence": {
+      "$ref": "#/$defs/AdaptiveEvidenceLoopConfig"
+    },
+    "allow_external_calls": {
+      "default": false,
+      "title": "Allow External Calls",
+      "type": "boolean"
+    },
+    "backend": {
+      "default": "llm-openai",
+      "title": "Backend",
+      "type": "string"
+    },
+    "brief_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Brief Path Optional"
+    },
+    "candidate_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Id Optional"
+    },
+    "estimated_input_tokens_per_call": {
+      "default": 12000,
+      "minimum": 1,
+      "title": "Estimated Input Tokens Per Call",
+      "type": "integer"
+    },
+    "estimated_output_tokens_per_call": {
+      "default": 4000,
+      "minimum": 1,
+      "title": "Estimated Output Tokens Per Call",
+      "type": "integer"
+    },
+    "experiment_memory_limit_mb": {
+      "default": 1024,
+      "maximum": 4096,
+      "minimum": 64,
+      "title": "Experiment Memory Limit Mb",
+      "type": "integer"
+    },
+    "experiment_timeout_seconds": {
+      "default": 300,
+      "maximum": 3600,
+      "minimum": 1,
+      "title": "Experiment Timeout Seconds",
+      "type": "integer"
+    },
+    "input_cost_per_million_usd": {
+      "default": 1.0,
+      "minimum": 0.0,
+      "title": "Input Cost Per Million Usd",
+      "type": "number"
+    },
+    "latex_executable": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latex Executable"
+    },
+    "latex_timeout_seconds": {
+      "default": 300,
+      "maximum": 600,
+      "minimum": 1,
+      "title": "Latex Timeout Seconds",
+      "type": "integer"
+    },
+    "llm_timeout_seconds": {
+      "default": 60.0,
+      "maximum": 600.0,
+      "minimum": 1.0,
+      "title": "Llm Timeout Seconds",
+      "type": "number"
+    },
+    "max_cost_usd": {
+      "minimum": 0.0,
+      "title": "Max Cost Usd",
+      "type": "number"
+    },
+    "max_grid_cells": {
+      "default": 12,
+      "maximum": 1024,
+      "minimum": 1,
+      "title": "Max Grid Cells",
+      "type": "integer"
+    },
+    "max_replications": {
+      "default": 100,
+      "maximum": 10000,
+      "minimum": 1,
+      "title": "Max Replications",
+      "type": "integer"
+    },
+    "max_resamples": {
+      "default": 200,
+      "maximum": 20000,
+      "minimum": 1,
+      "title": "Max Resamples",
+      "type": "integer"
+    },
+    "max_total_calls": {
+      "minimum": 0,
+      "title": "Max Total Calls",
+      "type": "integer"
+    },
+    "mode": {
+      "default": "preflight",
+      "enum": [
+        "preflight",
+        "smoke",
+        "full"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "output_cost_per_million_usd": {
+      "default": 6.0,
+      "minimum": 0.0,
+      "title": "Output Cost Per Million Usd",
+      "type": "number"
+    },
+    "reasoning_effort": {
+      "default": "default",
+      "enum": [
+        "default",
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Reasoning Effort",
+      "type": "string"
+    },
+    "render_final_pdf": {
+      "default": false,
+      "title": "Render Final Pdf",
+      "type": "boolean"
+    },
+    "require_non_fake_backends": {
+      "default": true,
+      "title": "Require Non Fake Backends",
+      "type": "boolean"
+    },
+    "resume": {
+      "default": false,
+      "title": "Resume",
+      "type": "boolean"
+    },
+    "retrieval_mode": {
+      "default": "real_retrieval",
+      "enum": [
+        "mocked_retrieval",
+        "real_retrieval"
+      ],
+      "title": "Retrieval Mode",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_run_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Run Id Optional"
+    }
+  },
+  "required": [
+    "run_id",
+    "model",
+    "max_total_calls",
+    "max_cost_usd"
+  ],
+  "title": "TargetedStudyConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.TargetedStudyConfig",
+  "x-factori-verification-evidence": false
+}

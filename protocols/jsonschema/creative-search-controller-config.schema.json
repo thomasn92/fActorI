@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/creative-search-controller-config.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/creative-search-controller-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded deterministic recursive creative-search policy.",
@@ -70,7 +70,7 @@
   ],
   "title": "CreativeSearchControllerConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.CreativeSearchControllerConfig",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/generation-mutation-diversity-check.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/generation-mutation-diversity-check.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Semantic diversity and duplicate check for generation mutations.",
@@ -87,7 +87,7 @@
   ],
   "title": "GenerationMutationDiversityCheck",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.GenerationMutationDiversityCheck",
   "x-factori-verification-evidence": false
 }

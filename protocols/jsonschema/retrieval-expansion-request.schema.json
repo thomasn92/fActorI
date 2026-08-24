@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/retrieval-expansion-request.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/retrieval-expansion-request.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Planned bounded retrieval expansion request without source authority.",
@@ -87,7 +87,7 @@
   ],
   "title": "RetrievalExpansionRequest",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.RetrievalExpansionRequest",
   "x-factori-verification-evidence": false
 }

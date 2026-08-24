@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import tempfile
@@ -29,6 +30,18 @@ class LatexRunnerOutput:
 
 
 LatexRunner = Callable[[str, LatexRenderConfig], LatexRunnerOutput]
+_OVERFULL_BOX_RE = re.compile(
+    r"Overfull \\[hv]box \((?P<points>\d+(?:\.\d+)?)pt too (?:wide|high)\)"
+)
+_MAX_ACCEPTABLE_OVERFULL_POINTS = 2.0
+
+
+@dataclass(frozen=True)
+class LatexRenderedDocument:
+    """Render metadata together with the PDF bytes needed for persistence."""
+
+    result: LatexRenderResult
+    pdf_bytes: bytes | None = None
 
 
 class LatexRenderer:
@@ -39,18 +52,26 @@ class LatexRenderer:
 
     def render(self, paper_tex: str, config: LatexRenderConfig) -> LatexRenderResult:
         """Run a gated render/check and return deterministic hashes."""
+        return self.render_document(paper_tex, config).result
+
+    def render_document(
+        self, paper_tex: str, config: LatexRenderConfig
+    ) -> LatexRenderedDocument:
+        """Run a gated render/check and retain PDF bytes for an artifact stage."""
         if not config.render_check_enabled:
-            return LatexRenderResult(
-                run_id=config.run_id,
-                backend=config.backend,
-                tool_name=config.latex_executable or "not_configured",
-                exit_code=0,
-                stdout_hash=sha256_text(""),
-                stderr_hash=sha256_text(""),
-                tex_hash=sha256_text(paper_tex),
-                passed=True,
-                warnings=["LaTeX render check was not requested."],
-                reason="Render check skipped.",
+            return LatexRenderedDocument(
+                result=LatexRenderResult(
+                    run_id=config.run_id,
+                    backend=config.backend,
+                    tool_name=config.latex_executable or "not_configured",
+                    exit_code=0,
+                    stdout_hash=sha256_text(""),
+                    stderr_hash=sha256_text(""),
+                    tex_hash=sha256_text(paper_tex),
+                    passed=True,
+                    warnings=["LaTeX render check was not requested."],
+                    reason="Render check skipped.",
+                )
             )
         if not config.allow_external_tools:
             raise LatexRenderError(
@@ -71,26 +92,46 @@ class LatexRenderer:
             if self.runner is not None
             else _subprocess_latex_runner(paper_tex, config)
         )
-        return LatexRenderResult(
-            run_id=config.run_id,
-            backend=config.backend,
-            tool_name=config.latex_executable,
-            tool_version=output.tool_version,
-            exit_code=output.exit_code,
-            stdout_hash=sha256_text(output.stdout),
-            stderr_hash=sha256_text(output.stderr),
-            tex_hash=sha256_text(paper_tex),
-            pdf_hash=(
-                sha256_bytes(output.pdf_bytes) if output.pdf_bytes is not None else None
+        overfull_points = [
+            float(match.group("points"))
+            for match in _OVERFULL_BOX_RE.finditer(output.stdout + "\n" + output.stderr)
+            if float(match.group("points")) > _MAX_ACCEPTABLE_OVERFULL_POINTS
+        ]
+        layout_passed = not overfull_points
+        passed = output.exit_code == 0 and layout_passed
+        warnings: list[str] = []
+        if output.exit_code != 0:
+            warnings.append("LaTeX render check failed.")
+        if overfull_points:
+            warnings.append(
+                "LaTeX layout check failed: "
+                f"{len(overfull_points)} overfull boxes exceed "
+                f"{_MAX_ACCEPTABLE_OVERFULL_POINTS:g}pt; "
+                f"maximum={max(overfull_points):.2f}pt."
+            )
+        return LatexRenderedDocument(
+            result=LatexRenderResult(
+                run_id=config.run_id,
+                backend=config.backend,
+                tool_name=config.latex_executable,
+                tool_version=output.tool_version,
+                exit_code=output.exit_code,
+                stdout_hash=sha256_text(output.stdout),
+                stderr_hash=sha256_text(output.stderr),
+                tex_hash=sha256_text(paper_tex),
+                pdf_hash=(
+                    sha256_bytes(output.pdf_bytes) if output.pdf_bytes is not None else None
+                ),
+                rendered_pdf_artifact_id=None,
+                passed=passed,
+                warnings=warnings,
+                reason=(
+                    "LaTeX render and layout checks passed."
+                    if passed
+                    else warnings[0]
+                ),
             ),
-            rendered_pdf_artifact_id=None,
-            passed=output.exit_code == 0,
-            warnings=[] if output.exit_code == 0 else ["LaTeX render check failed."],
-            reason=(
-                "LaTeX render check passed."
-                if output.exit_code == 0
-                else "LaTeX render check failed."
-            ),
+            pdf_bytes=output.pdf_bytes,
         )
 
 
@@ -147,6 +188,7 @@ def _subprocess_latex_runner(
 __all__ = [
     "LatexRenderError",
     "LatexRenderer",
+    "LatexRenderedDocument",
     "LatexRunnerOutput",
     "build_latex_compile_check_report",
 ]

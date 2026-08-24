@@ -5,7 +5,18 @@ from copy import deepcopy
 from typing import Any
 from urllib.request import Request
 
+import pytest
+
+from factori.adapters.adaptive_questioner import (
+    AdaptiveQuestionerEnvelope,
+    OpenAIAdaptiveQuestioner,
+)
 from factori.adapters.deep_opportunity import OpportunityProposalEnvelope
+from factori.adapters.hybrid_evidence import (
+    HybridEvidencePackageEnvelope,
+    OpenAIHybridEvidencePlanner,
+)
+from factori.adapters.llm_experiment_codegen import ExperimentCodePatchEnvelope
 from factori.adapters.llm_prompts import build_stage_a_candidate_prompt
 from factori.adapters.llm_real import (
     OpenAIResponsesTransport,
@@ -15,11 +26,28 @@ from factori.adapters.llm_route_planning import (
     OpenAILLMRoutePlanner,
     build_llm_route_planning_prompt,
 )
+from factori.adapters.nucleus_manuscript import (
+    ManuscriptCriticEnvelope,
+    ManuscriptCriticProposal,
+    ManuscriptDraftEnvelope,
+    ManuscriptPlanTransportEnvelope,
+    ManuscriptRevisionEnvelope,
+    OpenAINucleusManuscript,
+    _boundary_reasons,
+    _critic_prompt,
+    _parse_one,
+    _revision_prompt,
+)
 from factori.adapters.openai_schema import make_openai_strict_json_schema
 from factori.adapters.prose_prompts import PROSE_OUTPUT_SCHEMA
 from factori.adapters.reviewer_prompts import REVIEWER_OUTPUT_SCHEMA
+from factori.adapters.scientific_critic import (
+    CriticReviewEnvelope,
+    CrossPackageAdjudicationEnvelope,
+    OpenAIScientificCritic,
+)
 from factori.hashing import sha256_json
-from factori.schemas import ConstraintSet
+from factori.schemas import ConstraintSet, ManuscriptCriticRole
 
 
 class CapturingResponse:
@@ -211,6 +239,14 @@ def test_prose_response_schema_is_openai_strict() -> None:
     assert_openai_strict_schema(strict)
 
 
+def test_experiment_code_patch_schema_is_openai_strict() -> None:
+    strict = make_openai_strict_json_schema(
+        ExperimentCodePatchEnvelope.model_json_schema()
+    )
+
+    assert_openai_strict_schema(strict)
+
+
 def test_openai_transport_payload_uses_strict_schema_without_network() -> None:
     observed_payloads: list[dict[str, Any]] = []
 
@@ -239,6 +275,60 @@ def test_openai_transport_payload_uses_strict_schema_without_network() -> None:
     item_schema = schema["properties"]["candidates"]["items"]
     assert "question" in item_schema["required"]
     assert_openai_strict_schema(schema)
+    assert "reasoning" not in observed_payloads[0]
+
+
+def test_openai_transport_payload_includes_explicit_reasoning_effort() -> None:
+    observed_payloads: list[dict[str, Any]] = []
+
+    def opener(request: Request, timeout: float) -> CapturingResponse:
+        del timeout
+        assert request.data is not None
+        observed_payloads.append(json.loads(request.data.decode("utf-8")))
+        return CapturingResponse()
+
+    transport = OpenAIResponsesTransport(opener=opener, reasoning_effort="high")
+    transport.create_response(
+        api_key="test-key",
+        model="test-model",
+        prompt="reason carefully",
+        response_schema=_basic_schema(),
+    )
+
+    assert observed_payloads[0]["reasoning"] == {"effort": "high"}
+    diagnostics = build_openai_request_diagnostics(
+        model="test-model",
+        prompt="reason carefully",
+        response_schema=_basic_schema(),
+        reasoning_effort="high",
+    )
+    assert diagnostics["reasoning_effort"] == "high"
+    assert diagnostics["request_payload_hash"] == sha256_json(observed_payloads[0])
+
+
+def test_openai_transport_payload_includes_explicit_output_token_limit() -> None:
+    observed_payloads: list[dict[str, Any]] = []
+
+    def opener(request: Request, timeout: float) -> CapturingResponse:
+        del timeout
+        assert request.data is not None
+        observed_payloads.append(json.loads(request.data.decode("utf-8")))
+        return CapturingResponse()
+
+    transport = OpenAIResponsesTransport(opener=opener, max_output_tokens=12_000)
+    transport.create_response(
+        api_key="test-key",
+        model="test-model",
+        prompt="bounded response",
+        response_schema=_basic_schema(),
+    )
+
+    assert observed_payloads[0]["max_output_tokens"] == 12_000
+
+
+def test_openai_transport_rejects_unknown_reasoning_effort() -> None:
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        OpenAIResponsesTransport(reasoning_effort="extreme")
 
 
 def test_deep_opportunity_transport_uses_portable_schema_and_name() -> None:
@@ -327,6 +417,203 @@ def test_route_planning_transport_schema_closes_parameter_vocabulary() -> None:
         allow_external_calls=True,
     )
     assert planner.transport.schema_name == "factori_llm_routes"
+
+
+def test_hybrid_evidence_transport_schema_has_no_open_mapping_fields() -> None:
+    strict = make_openai_strict_json_schema(
+        HybridEvidencePackageEnvelope.model_json_schema()
+    )
+
+    assert_openai_strict_schema(strict)
+    for definition_name in (
+        "EvidenceArtifactInputContractProposal",
+        "EvidenceArtifactOutputContractProposal",
+        "ArtifactDependencyProposal",
+        "ClaimSupportProposal",
+    ):
+        definition = strict["$defs"][definition_name]
+        assert definition["additionalProperties"] is False
+        assert definition["properties"]
+        assert set(definition["required"]) == set(definition["properties"])
+
+    planner = OpenAIHybridEvidencePlanner(
+        api_key="test-key",
+        model="test-model",
+        allow_external_calls=True,
+    )
+    assert planner.transport.schema_name == "factori_hybrid_evidence"
+
+
+def test_adaptive_questioner_transport_schema_is_openai_strict() -> None:
+    strict = make_openai_strict_json_schema(
+        AdaptiveQuestionerEnvelope.model_json_schema()
+    )
+
+    assert_openai_strict_schema(strict)
+    questioner = OpenAIAdaptiveQuestioner(
+        api_key="test-key",
+        model="test-model",
+        allow_external_calls=True,
+    )
+    assert questioner.transport.schema_name == "factori_adaptive_questioner"
+    assert questioner.transport.nullable_optional_fields is False
+    assert questioner.transport.max_output_tokens == 24_000
+
+
+def test_scientific_critic_transport_schemas_are_openai_strict() -> None:
+    for envelope in (CriticReviewEnvelope, CrossPackageAdjudicationEnvelope):
+        strict = make_openai_strict_json_schema(envelope.model_json_schema())
+        assert_openai_strict_schema(strict)
+
+    critic = OpenAIScientificCritic(
+        api_key="test-key",
+        model="test-model",
+        allow_external_calls=True,
+    )
+    assert critic.transport.schema_name == "factori_scientific_critic"
+    assert critic.transport.nullable_optional_fields is False
+
+
+def test_nucleus_manuscript_transport_schemas_are_openai_strict() -> None:
+    for envelope in (
+        ManuscriptPlanTransportEnvelope,
+        ManuscriptDraftEnvelope,
+        ManuscriptCriticEnvelope,
+        ManuscriptRevisionEnvelope,
+    ):
+        strict = make_openai_strict_json_schema(envelope.model_json_schema())
+        assert_openai_strict_schema(strict)
+
+    manuscript = OpenAINucleusManuscript(
+        api_key="test-key",
+        model="test-model",
+        allow_external_calls=True,
+    )
+    assert manuscript.transport.schema_name == "factori_nucleus_manuscript"
+    assert manuscript.transport.nullable_optional_fields is False
+
+
+def test_nucleus_manuscript_normalizes_transport_role_entries() -> None:
+    class StaticTransport:
+        def create_response(self, **_kwargs: Any) -> str:
+            return json.dumps(
+                {
+                    "plans": [
+                        {
+                            "working_title": "Bounded synthetic study",
+                            "paper_type": "synthetic_benchmark",
+                            "central_question": "What happens in the bounded benchmark?",
+                            "central_claim": (
+                                "The bounded benchmark reports a conditional result and does not "
+                                "establish real-world validation."
+                            ),
+                            "section_plans": [
+                                {
+                                    "section_id": "results",
+                                    "title": "Results",
+                                    "purpose": "Report bounded results.",
+                                    "claim_ids": [],
+                                    "artifact_ids": [],
+                                    "supporting_package_ids": [],
+                                    "required_citations": [],
+                                    "scope_constraints": ["Synthetic evidence only."],
+                                    "bullets": [],
+                                }
+                            ],
+                            "supporting_package_roles": [
+                                {"package_id": "package-2", "role": "robustness"}
+                            ],
+                            "appendix_package_roles": [],
+                            "negative_result_roles": [],
+                        }
+                    ]
+                }
+            )
+
+    manuscript = OpenAINucleusManuscript(
+        api_key="test-key",
+        model="test-model",
+        transport=StaticTransport(),
+        allow_external_calls=True,
+    )
+
+    response = manuscript.plan_manuscript(
+        prompt_id="prompt-1",
+        nucleus_payload={"primary_package_id": "package-1"},
+        evidence_payload={},
+    )
+
+    assert response.accepted is not None
+    assert response.accepted.supporting_package_roles == {"package-2": "robustness"}
+    assert response.rejection_reasons == []
+    unsafe = response.accepted.model_copy(
+        update={"central_claim": "This establishes real-world validation."}
+    )
+    assert _boundary_reasons(unsafe) == [
+        "manuscript output asserts real-world validation"
+    ]
+    bounded = response.accepted.model_copy(
+        update={
+            "central_claim": (
+                "This bounded plan does not claim publication readiness and must not be "
+                "described as publication ready."
+            )
+        }
+    )
+    assert _boundary_reasons(bounded) == []
+    publication = response.accepted.model_copy(
+        update={"central_claim": "This manuscript is publication ready."}
+    )
+    assert _boundary_reasons(publication) == [
+        "manuscript output asserts publication readiness"
+    ]
+    role_schema = response.requested_output_schema["$defs"][
+        "ManuscriptPlanTransportProposal"
+    ]["properties"]["supporting_package_roles"]
+    assert role_schema["type"] == "array"
+
+
+def test_nucleus_manuscript_normalizes_five_point_critic_score() -> None:
+    payload = {
+        "reviews": [
+            {
+                "findings": ["The bounded claim needs a clearer qualifier."],
+                "blocking_findings": [],
+                "recommended_revisions": ["Add the qualifier."],
+                "score": 3.5,
+                "publication_ready": False,
+                "creates_scientific_validation": False,
+            }
+        ]
+    }
+
+    accepted, reasons = _parse_one(
+        payload,
+        envelope_key="reviews",
+        model_type=ManuscriptCriticProposal,
+    )
+
+    assert isinstance(accepted, ManuscriptCriticProposal)
+    assert accepted.score == pytest.approx(0.7)
+    assert reasons == []
+
+
+def test_nucleus_manuscript_prompts_distinguish_limitations_from_blockers() -> None:
+    critic = _critic_prompt(
+        ManuscriptCriticRole.CLAIM_EVIDENCE_ALIGNMENT,
+        {"draft_id": "draft-1"},
+        {"evidence_citation_bindings": []},
+    )
+    revision = _revision_prompt(
+        {"draft_id": "draft-1"},
+        [{"blocking_findings": ["Remove an unsupported comparison."]}],
+        {"evidence_citation_bindings": []},
+    )
+
+    assert "unresolved limitation, not by itself a blocking manuscript defect" in critic
+    assert "complete persisted execution artifact" in critic
+    assert "remove it from the claim-bearing manuscript" in revision
+    assert "artifact-summary report" in revision
 
 
 def assert_no_portable_schema_omissions(schema: Any) -> None:

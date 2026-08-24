@@ -197,7 +197,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/variance-augmentation-batch.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/variance-augmentation-batch.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Candidate branches generated from one promoted opportunity seed.",
@@ -257,7 +257,7 @@
   ],
   "title": "VarianceAugmentationBatch",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.VarianceAugmentationBatch",
   "x-factori-verification-evidence": false
 }

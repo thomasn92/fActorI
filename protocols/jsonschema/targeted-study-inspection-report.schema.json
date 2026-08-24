@@ -1,0 +1,994 @@
+{
+  "$defs": {
+    "AdaptiveEvidenceLoopConfig": {
+      "additionalProperties": false,
+      "description": "Bounded controls for post-M103 question, repair, and stopping behavior.",
+      "properties": {
+        "max_code_repair_calls": {
+          "default": 2,
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Max Code Repair Calls",
+          "type": "integer"
+        },
+        "max_plan_repair_calls": {
+          "default": 1,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Max Plan Repair Calls",
+          "type": "integer"
+        },
+        "max_questioner_iterations": {
+          "default": 3,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Max Questioner Iterations",
+          "type": "integer"
+        },
+        "no_progress_limit": {
+          "default": 1,
+          "maximum": 8,
+          "minimum": 1,
+          "title": "No Progress Limit",
+          "type": "integer"
+        }
+      },
+      "title": "AdaptiveEvidenceLoopConfig",
+      "type": "object"
+    },
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "LLMBudgetUsage": {
+      "additionalProperties": false,
+      "description": "Deterministic planned or observed LLM usage accounting.",
+      "properties": {
+        "candidate_generation_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Candidate Generation Calls",
+          "type": "integer"
+        },
+        "claim_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Claim Adjudication Calls",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Cost Usd"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "prose_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Prose Calls",
+          "type": "integer"
+        },
+        "quality_repair_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Quality Repair Calls",
+          "type": "integer"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        },
+        "review_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Review Calls",
+          "type": "integer"
+        },
+        "source_relevance_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Relevance Adjudication Calls",
+          "type": "integer"
+        },
+        "total_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Calls",
+          "type": "integer"
+        },
+        "total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Input Tokens"
+        },
+        "total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Output Tokens"
+        },
+        "unknown_cost": {
+          "default": false,
+          "title": "Unknown Cost",
+          "type": "boolean"
+        },
+        "unknown_token_usage": {
+          "default": false,
+          "title": "Unknown Token Usage",
+          "type": "boolean"
+        }
+      },
+      "title": "LLMBudgetUsage",
+      "type": "object"
+    },
+    "TargetedResearchBrief": {
+      "additionalProperties": false,
+      "description": "User-selected scientific direction supplied to the autonomous LLM stages.",
+      "properties": {
+        "allowed_claim_scope": {
+          "minLength": 1,
+          "title": "Allowed Claim Scope",
+          "type": "string"
+        },
+        "authoring_backend_kind": {
+          "$ref": "#/$defs/BackendKind",
+          "default": "human"
+        },
+        "baseline_candidates": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Baseline Candidates",
+          "type": "array"
+        },
+        "brief_id": {
+          "minLength": 1,
+          "title": "Brief Id",
+          "type": "string"
+        },
+        "central_question": {
+          "minLength": 1,
+          "title": "Central Question",
+          "type": "string"
+        },
+        "controls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Controls",
+          "type": "array"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "data_regime": {
+          "minLength": 1,
+          "title": "Data Regime",
+          "type": "string"
+        },
+        "domain": {
+          "minLength": 1,
+          "title": "Domain",
+          "type": "string"
+        },
+        "expected_metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expected Metrics",
+          "type": "array"
+        },
+        "experiment_or_proof_direction_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experiment Or Proof Direction Optional"
+        },
+        "forbidden_claims": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbidden Claims",
+          "type": "array"
+        },
+        "hypothesis_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hypothesis Optional"
+        },
+        "implies_publication_readiness": {
+          "const": false,
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "known_risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Known Risks",
+          "type": "array"
+        },
+        "method": {
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "negative_controls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Negative Controls",
+          "type": "array"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "selection_backend_kind": {
+          "$ref": "#/$defs/BackendKind",
+          "default": "human"
+        },
+        "source_artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Artifact Paths",
+          "type": "array"
+        },
+        "source_candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Candidate Ids",
+          "type": "array"
+        },
+        "source_content_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Source Content Hashes",
+          "type": "object"
+        },
+        "source_run_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Run Id Optional"
+        },
+        "theory_or_model_object_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Theory Or Model Object Optional"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "brief_id",
+        "title",
+        "domain",
+        "method",
+        "central_question",
+        "data_regime",
+        "allowed_claim_scope",
+        "forbidden_claims"
+      ],
+      "title": "TargetedResearchBrief",
+      "type": "object"
+    },
+    "TargetedStudyConfig": {
+      "additionalProperties": false,
+      "description": "Fail-closed execution configuration for one targeted study.",
+      "properties": {
+        "adaptive_evidence": {
+          "$ref": "#/$defs/AdaptiveEvidenceLoopConfig"
+        },
+        "allow_external_calls": {
+          "default": false,
+          "title": "Allow External Calls",
+          "type": "boolean"
+        },
+        "backend": {
+          "default": "llm-openai",
+          "title": "Backend",
+          "type": "string"
+        },
+        "brief_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brief Path Optional"
+        },
+        "candidate_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Id Optional"
+        },
+        "estimated_input_tokens_per_call": {
+          "default": 12000,
+          "minimum": 1,
+          "title": "Estimated Input Tokens Per Call",
+          "type": "integer"
+        },
+        "estimated_output_tokens_per_call": {
+          "default": 4000,
+          "minimum": 1,
+          "title": "Estimated Output Tokens Per Call",
+          "type": "integer"
+        },
+        "experiment_memory_limit_mb": {
+          "default": 1024,
+          "maximum": 4096,
+          "minimum": 64,
+          "title": "Experiment Memory Limit Mb",
+          "type": "integer"
+        },
+        "experiment_timeout_seconds": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Experiment Timeout Seconds",
+          "type": "integer"
+        },
+        "input_cost_per_million_usd": {
+          "default": 1.0,
+          "minimum": 0.0,
+          "title": "Input Cost Per Million Usd",
+          "type": "number"
+        },
+        "latex_executable": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latex Executable"
+        },
+        "latex_timeout_seconds": {
+          "default": 300,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Latex Timeout Seconds",
+          "type": "integer"
+        },
+        "llm_timeout_seconds": {
+          "default": 60.0,
+          "maximum": 600.0,
+          "minimum": 1.0,
+          "title": "Llm Timeout Seconds",
+          "type": "number"
+        },
+        "max_cost_usd": {
+          "minimum": 0.0,
+          "title": "Max Cost Usd",
+          "type": "number"
+        },
+        "max_grid_cells": {
+          "default": 12,
+          "maximum": 1024,
+          "minimum": 1,
+          "title": "Max Grid Cells",
+          "type": "integer"
+        },
+        "max_replications": {
+          "default": 100,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Replications",
+          "type": "integer"
+        },
+        "max_resamples": {
+          "default": 200,
+          "maximum": 20000,
+          "minimum": 1,
+          "title": "Max Resamples",
+          "type": "integer"
+        },
+        "max_total_calls": {
+          "minimum": 0,
+          "title": "Max Total Calls",
+          "type": "integer"
+        },
+        "mode": {
+          "default": "preflight",
+          "enum": [
+            "preflight",
+            "smoke",
+            "full"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "output_cost_per_million_usd": {
+          "default": 6.0,
+          "minimum": 0.0,
+          "title": "Output Cost Per Million Usd",
+          "type": "number"
+        },
+        "reasoning_effort": {
+          "default": "default",
+          "enum": [
+            "default",
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "Reasoning Effort",
+          "type": "string"
+        },
+        "render_final_pdf": {
+          "default": false,
+          "title": "Render Final Pdf",
+          "type": "boolean"
+        },
+        "require_non_fake_backends": {
+          "default": true,
+          "title": "Require Non Fake Backends",
+          "type": "boolean"
+        },
+        "resume": {
+          "default": false,
+          "title": "Resume",
+          "type": "boolean"
+        },
+        "retrieval_mode": {
+          "default": "real_retrieval",
+          "enum": [
+            "mocked_retrieval",
+            "real_retrieval"
+          ],
+          "title": "Retrieval Mode",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_run_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Run Id Optional"
+        }
+      },
+      "required": [
+        "run_id",
+        "model",
+        "max_total_calls",
+        "max_cost_usd"
+      ],
+      "title": "TargetedStudyConfig",
+      "type": "object"
+    },
+    "TargetedStudyRunReport": {
+      "additionalProperties": false,
+      "description": "Top-level report for preflight, smoke, or full targeted orchestration.",
+      "properties": {
+        "adaptive_evidence_report_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptive Evidence Report Path Optional"
+        },
+        "adaptive_evidence_status_optional": {
+          "anyOf": [
+            {
+              "enum": [
+                "in_progress",
+                "satisfied_supported",
+                "satisfied_negative",
+                "stopped_weak_branch",
+                "stopped_no_progress",
+                "budget_exhausted",
+                "blocked"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptive Evidence Status Optional"
+        },
+        "blocking_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocking Reasons",
+          "type": "array"
+        },
+        "brief": {
+          "$ref": "#/$defs/TargetedResearchBrief"
+        },
+        "budget_usage": {
+          "$ref": "#/$defs/LLMBudgetUsage"
+        },
+        "call_accounting_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Call Accounting Paths",
+          "type": "array"
+        },
+        "checkpoint_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Checkpoint Paths",
+          "type": "array"
+        },
+        "completed_external_call_count_upper_bound": {
+          "minimum": 0,
+          "title": "Completed External Call Count Upper Bound",
+          "type": "integer"
+        },
+        "config": {
+          "$ref": "#/$defs/TargetedStudyConfig"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "estimated_cost_usd": {
+          "minimum": 0.0,
+          "title": "Estimated Cost Usd",
+          "type": "number"
+        },
+        "implies_publication_readiness": {
+          "const": false,
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "minimum_estimated_cost_usd": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Minimum Estimated Cost Usd",
+          "type": "number"
+        },
+        "minimum_required_external_call_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Minimum Required External Call Count",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "preflight",
+            "smoke",
+            "full"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "planned_external_call_count": {
+          "minimum": 0,
+          "title": "Planned External Call Count",
+          "type": "integer"
+        },
+        "production_ready": {
+          "default": false,
+          "title": "Production Ready",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "report_id": {
+          "minLength": 1,
+          "title": "Report Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "stage_records": {
+          "items": {
+            "$ref": "#/$defs/TargetedStudyStageRecord"
+          },
+          "title": "Stage Records",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "preflight_ready",
+            "completed",
+            "completed_with_warnings",
+            "deferred",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "terminal_artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Terminal Artifact Paths",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "report_id",
+        "run_id",
+        "status",
+        "mode",
+        "brief",
+        "config",
+        "planned_external_call_count",
+        "completed_external_call_count_upper_bound",
+        "estimated_cost_usd"
+      ],
+      "title": "TargetedStudyRunReport",
+      "type": "object"
+    },
+    "TargetedStudyStageRecord": {
+      "additionalProperties": false,
+      "description": "One planned, completed, reused, or blocked targeted-study stage.",
+      "properties": {
+        "artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Paths",
+          "type": "array"
+        },
+        "error_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Optional"
+        },
+        "external_call_budget": {
+          "default": 0,
+          "minimum": 0,
+          "title": "External Call Budget",
+          "type": "integer"
+        },
+        "reused": {
+          "default": false,
+          "title": "Reused",
+          "type": "boolean"
+        },
+        "stage_name": {
+          "minLength": 1,
+          "title": "Stage Name",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "completed",
+            "reused",
+            "deferred",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stage_name",
+        "status"
+      ],
+      "title": "TargetedStudyStageRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.78.0/targeted-study-inspection-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Read-only targeted-study and checkpoint inspection payload.",
+  "properties": {
+    "adaptive_code_repair_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Adaptive Code Repair Count",
+      "type": "integer"
+    },
+    "adaptive_evidence_status_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "in_progress",
+            "satisfied_supported",
+            "satisfied_negative",
+            "stopped_weak_branch",
+            "stopped_no_progress",
+            "budget_exhausted",
+            "blocked"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adaptive Evidence Status Optional"
+    },
+    "adaptive_iteration_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Adaptive Iteration Count",
+      "type": "integer"
+    },
+    "adaptive_last_action_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "accept_supported_result",
+            "accept_negative_result",
+            "repair_code",
+            "repair_evidence_plan",
+            "downgrade_claim",
+            "stop_weak_branch",
+            "stop_no_progress",
+            "stop_budget_exhausted",
+            "blocked"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adaptive Last Action Optional"
+    },
+    "adaptive_plan_repair_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Adaptive Plan Repair Count",
+      "type": "integer"
+    },
+    "adaptive_unresolved_blocking_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Adaptive Unresolved Blocking Questions",
+      "type": "array"
+    },
+    "budget_usage": {
+      "$ref": "#/$defs/LLMBudgetUsage"
+    },
+    "checkpoint_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Checkpoint Count",
+      "type": "integer"
+    },
+    "completed_stage_names": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Completed Stage Names",
+      "type": "array"
+    },
+    "latest_report_optional": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TargetedStudyRunReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "next_stage_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Stage Optional"
+    },
+    "production_ready": {
+      "default": false,
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "targeted_study_present": {
+      "title": "Targeted Study Present",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "targeted_study_present"
+  ],
+  "title": "TargetedStudyInspectionReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.TargetedStudyInspectionReport",
+  "x-factori-verification-evidence": false
+}

@@ -62,6 +62,23 @@ def test_render_success_with_injected_runner_is_deterministic() -> None:
     assert first.implies_publication_readiness is False
 
 
+def test_render_document_retains_pdf_bytes_for_persistence() -> None:
+    renderer = LatexRenderer(runner=_successful_runner)
+    rendered = renderer.render_document(
+        _tex(),
+        LatexRenderConfig(
+            run_id="run-1",
+            render_check_enabled=True,
+            allow_external_tools=True,
+            latex_executable="pdflatex",
+        ),
+    )
+
+    assert rendered.result.passed
+    assert rendered.pdf_bytes == b"%PDF fake"
+    assert rendered.result.pdf_hash is not None
+
+
 def test_render_failure_is_captured_deterministically() -> None:
     renderer = LatexRenderer(runner=_failing_runner)
     config = LatexRenderConfig(
@@ -78,6 +95,30 @@ def test_render_failure_is_captured_deterministically() -> None:
     assert result.pdf_hash is None
     assert result.reason == "LaTeX render check failed."
     assert result.warnings == ["LaTeX render check failed."]
+
+
+def test_render_fails_layout_check_for_material_overfull_box() -> None:
+    renderer = LatexRenderer(
+        runner=lambda _tex, _config: LatexRunnerOutput(
+            exit_code=0,
+            stdout=r"Overfull \hbox (12.5pt too wide) in paragraph at lines 2--3",
+            pdf_bytes=b"%PDF fake",
+        )
+    )
+
+    result = renderer.render(
+        _tex(),
+        LatexRenderConfig(
+            run_id="run-1",
+            render_check_enabled=True,
+            allow_external_tools=True,
+            latex_executable="pdflatex",
+        ),
+    )
+
+    assert result.passed is False
+    assert result.reason.startswith("LaTeX layout check failed")
+    assert "maximum=12.50pt" in result.warnings[0]
 
 
 def test_compile_check_report_does_not_imply_scientific_validation() -> None:

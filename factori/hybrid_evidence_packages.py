@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -17,7 +18,12 @@ from factori.adapters.hybrid_evidence import (
 )
 from factori.adapters.llm_experiment_codegen import ExperimentCodeGenerationClient
 from factori.artifacts import ArtifactStore
-from factori.generated_experiment_safety import audit_generated_experiment_code
+from factori.generated_experiment_safety import (
+    audit_generated_experiment_code,
+    audit_generated_experiment_contract,
+    audit_generated_experiment_semantics,
+    audit_generated_experiment_workload,
+)
 from factori.generated_experiments import (
     _blocked_observation,
     _execute_in_sandbox,
@@ -30,6 +36,7 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     BackendKind,
+    BranchRouteType,
     ControllerActionType,
     DeepOpportunityDiscoveryReport,
     EvidenceArtifactPlan,
@@ -38,6 +45,8 @@ from factori.schemas import (
     EvidencePackageExecutionReport,
     EvidencePackageExecutionResult,
     ExperimentCodeSafetyAudit,
+    GeneratedExperimentExecutionReport,
+    GeneratedExperimentResult,
     HybridEvidencePackageCandidate,
     HybridEvidencePackageConfig,
     HybridEvidencePackageInspectionReport,
@@ -62,6 +71,7 @@ _ROUTE_RE = re.compile(r"^llm-route-planning-report-(\d{4})\.json$")
 _PACKAGE_RE = re.compile(r"^hybrid-evidence-package-report-(\d{4})\.json$")
 _PACKAGE_RAW_RE = re.compile(r"^hybrid-evidence-package-raw-(\d{4})\.json$")
 _EXECUTION_RE = re.compile(r"^evidence-package-execution-report-(\d{4})\.json$")
+_M102_EXECUTION_RE = re.compile(r"^generated-experiment-execution-report-(\d{4})\.json$")
 _CODE_RE = re.compile(r"^evidence-package-code-artifact-(\d{4})\.py$")
 _CODE_RAW_RE = re.compile(r"^hybrid-evidence-code-raw-(\d{4})\.json$")
 _DRAFT_RAW_RE = re.compile(r"^hybrid-evidence-draft-raw-(\d{4})\.json$")
@@ -88,6 +98,11 @@ _SYMBOLIC_TYPES = {
     EvidenceArtifactType.SYMBOLIC_DERIVATION,
     EvidenceArtifactType.PROOF_PLAN,
 }
+_EXECUTION_PROFILE_LIMITS = {
+    "smoke": {"replications": 8, "resamples": 16, "grid_cells": 8},
+    "full": {"replications": 1000, "resamples": 2000, "grid_cells": 256},
+}
+_OUTPUT_LIMIT_BYTES = 1_048_576
 
 
 class HybridEvidencePackageError(RuntimeError):
@@ -193,6 +208,10 @@ def plan_hybrid_evidence_packages(
                     source_opportunity_id=substrate.source_opportunity_id,
                     domain_id=substrate.domain_id,
                     method_id=substrate.method_id,
+                    repair_of_package_id_optional=config.repair_of_package_id_optional,
+                    adaptive_repair_decision_id_optional=(
+                        config.adaptive_repair_decision_id_optional
+                    ),
                     title=proposal.title,
                     primary_claim_draft=proposal.primary_claim_draft,
                     allowed_claim_scope=proposal.allowed_claim_scope,
@@ -200,8 +219,14 @@ def plan_hybrid_evidence_packages(
                     artifact_plans=artifact_plans,
                     minimum_required_artifacts=proposal.minimum_required_artifacts,
                     optional_supporting_artifacts=proposal.optional_supporting_artifacts,
-                    artifact_dependency_graph=proposal.artifact_dependency_graph,
-                    claim_support_map=proposal.claim_support_map,
+                    artifact_dependency_graph={
+                        item.artifact_ref: item.depends_on
+                        for item in proposal.artifact_dependency_graph
+                    },
+                    claim_support_map={
+                        item.claim_component: item.artifact_refs
+                        for item in proposal.claim_support_map
+                    },
                     known_gaps=proposal.known_gaps,
                     unresolved_obligations=proposal.unresolved_obligations,
                     recommended_next_action=proposal.recommended_next_action,
@@ -329,6 +354,19 @@ def execute_hybrid_evidence_packages(
     timeout_seconds: int = 30,
     memory_limit_mb: int = 512,
     allowed_dependencies: list[str] | None = None,
+    max_artifact_plans: int = 12,
+    max_codegen_calls: int = 12,
+    max_safety_repair_calls: int = 0,
+    max_runtime_repair_calls: int = 0,
+    max_scientific_repair_calls: int = 0,
+    scientific_repair_requests: dict[str, dict[str, Any]] | None = None,
+    reuse_compatible_m102_results: bool = True,
+    execution_profile: Literal["smoke", "full"] = "full",
+    max_replications: int | None = None,
+    max_resamples: int | None = None,
+    max_grid_cells: int | None = None,
+    resume_previous_execution: bool = False,
+    allow_repaired_package_revision: bool = False,
 ) -> HybridEvidencePackageStageResult:
     """Execute executable package components and draft/check bounded non-code artifacts."""
     if planner.backend_kind not in {BackendKind.LLM_OPENAI, BackendKind.LLM_OTHER}:
@@ -339,6 +377,24 @@ def execute_hybrid_evidence_packages(
         raise HybridEvidencePackageError(
             "Hybrid evidence execution forbids deterministic fallback."
         )
+    if max_artifact_plans < 1:
+        raise HybridEvidencePackageError("max_artifact_plans must be at least 1.")
+    if max_codegen_calls < 0:
+        raise HybridEvidencePackageError("max_codegen_calls must be non-negative.")
+    if max_safety_repair_calls < 0:
+        raise HybridEvidencePackageError("max_safety_repair_calls must be non-negative.")
+    if max_runtime_repair_calls < 0:
+        raise HybridEvidencePackageError("max_runtime_repair_calls must be non-negative.")
+    if max_scientific_repair_calls < 0:
+        raise HybridEvidencePackageError("max_scientific_repair_calls must be non-negative.")
+    if execution_profile not in _EXECUTION_PROFILE_LIMITS:
+        raise HybridEvidencePackageError("execution_profile must be smoke or full.")
+    profile_limits = _EXECUTION_PROFILE_LIMITS[execution_profile]
+    replication_limit = max_replications or profile_limits["replications"]
+    resample_limit = max_resamples or profile_limits["resamples"]
+    grid_cell_limit = max_grid_cells or profile_limits["grid_cells"]
+    if min(replication_limit, resample_limit, grid_cell_limit) < 1:
+        raise HybridEvidencePackageError("Execution workload limits must be positive.")
     dependencies = allowed_dependencies or ["numpy"]
     root_path = Path(root)
     reports = root_path / "runs" / run_id / "reports"
@@ -353,6 +409,84 @@ def execute_hybrid_evidence_packages(
     deep = _load_deep_from_substrate(root_path, substrate_report)
     retrieval_by_pair = _load_retrieval_contexts(root_path, deep)
     substrate_by_id = {item.substrate_id: item for item in substrate_report.candidates}
+    execution_packages = _packages_in_dependency_order(package_report.packages)
+    ordered_plan_ids = [
+        plan.artifact_plan_id
+        for package in execution_packages
+        for plan in package.artifact_plans
+    ]
+    _, previous_execution = _load_optional_m103_execution(reports)
+    current_package_path = _relative(root_path, package_path)
+    package_revision = bool(
+        package_report.config.repair_of_package_id_optional
+        and package_report.config.adaptive_repair_decision_id_optional
+    )
+    source_package_matches = previous_execution is None or (
+        previous_execution.source_package_report_path == current_package_path
+    )
+    if (
+        previous_execution is not None
+        and not source_package_matches
+        and allow_repaired_package_revision
+        and package_revision
+    ):
+        previous_execution = None
+    elif previous_execution is not None and not resume_previous_execution:
+        raise HybridEvidencePackageError(
+            "An M103 execution report already exists. Use --resume to append a bounded "
+            "execution attempt without rewriting prior results."
+        )
+    if previous_execution is not None and (
+        previous_execution.source_package_report_path != current_package_path
+    ):
+        raise HybridEvidencePackageError(
+            "The latest M103 execution references a different package report; plan a new run "
+            "instead of resuming incompatible package history."
+        )
+    repair_requests = scientific_repair_requests or {}
+    known_plan_ids = set(ordered_plan_ids)
+    unknown_repair_plan_ids = sorted(set(repair_requests) - known_plan_ids)
+    if unknown_repair_plan_ids:
+        raise HybridEvidencePackageError(
+            "Scientific repair requests reference unknown artifact plans: "
+            + ", ".join(unknown_repair_plan_ids)
+        )
+    resumable_by_plan = (
+        _resumable_m103_results(previous_execution, execution_profile)
+        if previous_execution is not None
+        else {}
+    )
+    if resume_previous_execution:
+        for historical in _load_m103_execution_history(reports):
+            if historical.source_package_report_path != current_package_path:
+                continue
+            for plan_id, result in _resumable_m103_results(
+                historical, execution_profile
+            ).items():
+                resumable_by_plan.setdefault(plan_id, result)
+    if previous_execution is not None:
+        resumable_by_plan.update(
+            _recover_completed_m103_results(
+                report=previous_execution,
+                packages=execution_packages,
+                root_path=root_path,
+                execution_profile=execution_profile,
+            )
+        )
+    for plan_id in repair_requests:
+        resumable_by_plan.pop(plan_id, None)
+    pending_plan_ids = [
+        plan_id for plan_id in ordered_plan_ids if plan_id not in resumable_by_plan
+    ]
+    selected_plan_ids = set(pending_plan_ids[:max_artifact_plans])
+    prior_execution = _load_optional_m102_execution(run_id, reports)
+    prior_results = list(prior_execution.generated_results) if prior_execution else []
+    package_substrate_ids = {item.source_substrate_id for item in execution_packages}
+    prior_context_ids = [
+        item.result_id
+        for item in prior_results
+        if item.source_substrate_id in package_substrate_ids
+    ]
 
     report_number = _next_number(reports, _EXECUTION_RE)
     report_id = f"evidence-package-execution-report-{report_number:04d}"
@@ -375,9 +509,200 @@ def execute_hybrid_evidence_packages(
     draft_raws: list[dict[str, Any]] = []
     warnings: list[str] = []
     code_index = 0
+    raw_index = 0
     draft_index = 0
+    codegen_call_count = 0
+    safety_repair_attempt_count = 0
+    safety_repair_success_count = 0
+    runtime_repair_attempt_count = 0
+    runtime_repair_success_count = 0
+    scientific_repair_attempt_count = 0
+    scientific_repair_success_count = 0
+    reused_prior_result_count = 0
+    resumed_result_count = 0
+    budget_deferred_artifact_count = 0
 
-    for package in package_report.packages:
+    def record_code_execution(
+        *,
+        package: HybridEvidencePackageCandidate,
+        plan: EvidenceArtifactPlan,
+        result_id: str,
+        artifact: LLMExperimentCodeArtifact,
+        audit: ExperimentCodeSafetyAudit,
+        metrics: list[str],
+        spec_payload: dict[str, Any],
+    ) -> tuple[Any, EvidencePackageExecutionResult]:
+        execution_id = (
+            "evidence-package-sandbox-execution-"
+            f"{sandbox_number + len(sandbox_executions):04d}"
+        )
+        config, observation, extraction, result = _execute_hybrid_code_artifact(
+            run_id=run_id,
+            package=package,
+            plan=plan,
+            result_id=result_id,
+            artifact=artifact,
+            audit=audit,
+            execution_id=execution_id,
+            memory_limit_mb=memory_limit_mb,
+            metrics=metrics,
+            required_payload_fields=spec_payload["output_contract"][
+                "required_payload_fields"
+            ],
+            required_logical_artifacts=spec_payload["output_contract"][
+                "required_logical_artifacts"
+            ],
+            execution_profile=execution_profile,
+        )
+        sandbox_configs.append(config)
+        observations.append(observation)
+        sandbox_executions.append(observation.result)
+        if not audit.blocked:
+            metric_results.append(extraction)
+        return observation, result
+
+    def attempt_runtime_repair(
+        *,
+        package: HybridEvidencePackageCandidate,
+        plan: EvidenceArtifactPlan,
+        result_id: str,
+        substrate: Any,
+        artifact: LLMExperimentCodeArtifact,
+        observation: Any,
+        result: EvidencePackageExecutionResult,
+        metrics: list[str],
+        required_role_functions: list[str],
+        spec_payload: dict[str, Any],
+    ) -> EvidencePackageExecutionResult:
+        nonlocal code_index
+        nonlocal raw_index
+        nonlocal runtime_repair_attempt_count
+        nonlocal runtime_repair_success_count
+        if result.execution_completed or not _repairable_runtime_failure(observation):
+            return result
+        if runtime_repair_attempt_count >= max_runtime_repair_calls:
+            return result
+        runtime_repair_attempt_count += 1
+        runtime_payload = _runtime_repair_payload(
+            observation=observation,
+            output_limit_bytes=_OUTPUT_LIMIT_BYTES,
+        )
+        try:
+            repair = code_generator.repair_code(
+                spec_payload=spec_payload,
+                substrate_payload=substrate.model_dump(mode="json"),
+                blocked_code=artifact.code,
+                audit_payload=runtime_payload,
+                allowed_dependencies=dependencies,
+            )
+        except (AdapterError, ValueError) as exc:
+            warnings.append(
+                f"Runtime repair call failed for {artifact.code_artifact_id}: {exc}"
+            )
+            return result
+        repair_reasons = list(repair.rejection_reasons)
+        repaired_code_id: str | None = None
+        repaired_result = result
+        if repair.accepted is not None and not repair_reasons:
+            repaired_code_id = (
+                "evidence-package-code-artifact-"
+                f"{code_number + code_index:04d}"
+            )
+            code_index += 1
+            repaired_artifact = _hybrid_code_artifact(
+                code_artifact_id=repaired_code_id,
+                generation_attempt=artifact.generation_attempt + 1,
+                repair_of_code_artifact_id_optional=artifact.code_artifact_id,
+                run_id=run_id,
+                package=package,
+                plan=plan,
+                proposal=repair.accepted,
+                backend_kind=code_generator.backend_kind,
+                timeout_seconds=timeout_seconds,
+            )
+            repaired_audit = _audit_hybrid_code_artifact(
+                artifact=repaired_artifact,
+                plan=plan,
+                metrics=metrics,
+                required_payload_fields=spec_payload["output_contract"][
+                    "required_payload_fields"
+                ],
+                required_role_functions=required_role_functions,
+                allowed_dependencies=dependencies,
+                execution_profile=execution_profile,
+                replication_limit=replication_limit,
+                resample_limit=resample_limit,
+                grid_cell_limit=grid_cell_limit,
+            )
+            code_artifacts.append(repaired_artifact)
+            audits.append(repaired_audit)
+            if repaired_audit.blocked:
+                warnings.append(
+                    f"Safety audit blocked runtime repair {repaired_code_id}: "
+                    + "; ".join(repaired_audit.reasons)
+                )
+            else:
+                repaired_observation, repaired_result = record_code_execution(
+                    package=package,
+                    plan=plan,
+                    result_id=result_id,
+                    artifact=repaired_artifact,
+                    audit=repaired_audit,
+                    metrics=metrics,
+                    spec_payload=spec_payload,
+                )
+                if repaired_result.execution_completed:
+                    runtime_repair_success_count += 1
+                    repaired_result = repaired_result.model_copy(
+                        update={
+                            "warnings": [
+                                *repaired_result.warnings,
+                                f"Runtime repair {repaired_code_id} recovered failed execution "
+                                f"{observation.result.execution_id}.",
+                            ]
+                        }
+                    )
+                    warnings.append(
+                        f"Runtime repair {repaired_code_id} recovered failed execution "
+                        f"{observation.result.execution_id}."
+                    )
+                else:
+                    repair_failure = (
+                        repaired_observation.result.failure_reason_optional
+                        or repaired_result.status
+                    )
+                    warnings.append(
+                        f"Runtime repair {repaired_code_id} remained unsuccessful: "
+                        f"{repair_failure}"
+                    )
+        else:
+            warnings.append(
+                f"Rejected runtime repair for {artifact.code_artifact_id}: "
+                + "; ".join(repair_reasons)
+            )
+        repair_raw_id = f"hybrid-evidence-code-raw-{raw_number + raw_index:04d}"
+        raw_index += 1
+        code_raws.append(
+            LLMExperimentCodeRawArtifact(
+                raw_artifact_id=repair_raw_id,
+                repair_of_code_artifact_id_optional=artifact.code_artifact_id,
+                generation_attempt=artifact.generation_attempt + 1,
+                run_id=run_id,
+                source_spec_id=plan.artifact_plan_id,
+                backend_name=code_generator.backend_name,
+                model=code_generator.model,
+                prompt_text=repair.prompt_text,
+                requested_output_schema=repair.requested_output_schema,
+                raw_response=repair.raw_response,
+                accepted_code_artifact_id_optional=repaired_code_id,
+                rejection_reasons=repair_reasons,
+                fallback_used=code_generator.fallback_used,
+            )
+        )
+        return repaired_result
+
+    for package in execution_packages:
+        available_refs: set[str] = set()
         substrate = substrate_by_id.get(package.source_substrate_id)
         retrieval = retrieval_by_pair.get(substrate.source_pair_id) if substrate else None
         if substrate is None:
@@ -386,12 +711,367 @@ def execute_hybrid_evidence_packages(
             )
         for plan in package.artifact_plans:
             result_id = f"evidence-package-result-{result_number + len(results):04d}"
+            plan_refs = {plan.artifact_plan_id, plan.artifact_type.value}
+            prior_m103_result = resumable_by_plan.get(plan.artifact_plan_id)
+            if prior_m103_result is not None:
+                resumed = _resumed_m103_result(
+                    package=package,
+                    plan=plan,
+                    result_id=result_id,
+                    prior=prior_m103_result,
+                )
+                results.append(resumed)
+                resumed_result_count += 1
+                available_refs.update(plan_refs)
+                continue
+            if plan.artifact_plan_id not in selected_plan_ids:
+                reason = "Artifact plan deferred by max_artifact_plans execution budget."
+                results.append(
+                    _budget_deferred_result(
+                        package, plan, result_id, reason, execution_profile
+                    )
+                )
+                budget_deferred_artifact_count += 1
+                warnings.append(f"{plan.artifact_plan_id}: {reason}")
+                continue
+            unavailable_dependencies = sorted(
+                set(
+                    package.artifact_dependency_graph.get(
+                        plan.artifact_plan_id,
+                        package.artifact_dependency_graph.get(plan.artifact_type.value, []),
+                    )
+                )
+                - available_refs
+            )
+            if unavailable_dependencies:
+                reason = (
+                    "Artifact plan deferred because completed dependencies are unavailable: "
+                    + ", ".join(unavailable_dependencies)
+                )
+                results.append(
+                    _budget_deferred_result(
+                        package, plan, result_id, reason, execution_profile
+                    )
+                )
+                budget_deferred_artifact_count += 1
+                warnings.append(f"{plan.artifact_plan_id}: {reason}")
+                continue
             if plan.artifact_type in _CODE_ARTIFACT_TYPES:
+                metrics = _required_metrics(plan)
+                required_role_functions = _required_role_functions(plan)
+                spec_payload = _code_spec_payload(
+                    package=package,
+                    plan=plan,
+                    metrics=metrics,
+                    execution_profile=execution_profile,
+                    max_replications=replication_limit,
+                    max_resamples=resample_limit,
+                    max_grid_cells=grid_cell_limit,
+                    required_role_functions=required_role_functions,
+                )
+                scientific_repair = repair_requests.get(plan.artifact_plan_id)
+                if scientific_repair is not None:
+                    prior_artifact = next(
+                        (
+                            item
+                            for item in reversed(
+                                previous_execution.code_artifacts
+                                if previous_execution is not None
+                                else []
+                            )
+                            if item.source_spec_id == plan.artifact_plan_id
+                        ),
+                        None,
+                    )
+                    if prior_artifact is None:
+                        prior_artifact = _latest_m103_code_artifact_from_history(
+                            reports=reports,
+                            source_package_report_path=current_package_path,
+                            execution_profile=execution_profile,
+                            source_spec_id=plan.artifact_plan_id,
+                        )
+                    if prior_artifact is None:
+                        reason = (
+                            "Scientific code repair requires a prior generated code artifact for "
+                            f"{plan.artifact_plan_id}."
+                        )
+                        results.append(
+                            _failed_result(
+                                package=package,
+                                plan=plan,
+                                result_id=result_id,
+                                reason=reason,
+                            ).model_copy(update={"execution_profile": execution_profile})
+                        )
+                        warnings.append(reason)
+                        continue
+                    if scientific_repair_attempt_count >= max_scientific_repair_calls:
+                        reason = "Artifact plan deferred by scientific-repair call budget."
+                        results.append(
+                            _budget_deferred_result(
+                                package, plan, result_id, reason, execution_profile
+                            )
+                        )
+                        budget_deferred_artifact_count += 1
+                        warnings.append(f"{plan.artifact_plan_id}: {reason}")
+                        continue
+
+                    scientific_repair_attempt_count += 1
+                    repair_payload = {
+                        "repair_kind": "scientific_quality_repair",
+                        "decision_id": scientific_repair.get("decision_id"),
+                        "deterministic_findings": scientific_repair.get(
+                            "deterministic_findings", []
+                        ),
+                        "questioner_findings": scientific_repair.get(
+                            "questioner_findings", []
+                        ),
+                        "runtime_diagnostics": scientific_repair.get(
+                            "runtime_diagnostics"
+                        ),
+                        "repair_requirements": [
+                            *scientific_repair.get("repair_instructions", []),
+                            "Preserve the central question, DGP, primary metrics, success and "
+                            "failure criteria, baselines, controls, negative controls, workload "
+                            "limits, and deterministic seeds.",
+                            "Fix implementation fidelity, formulas, numerical behavior, or "
+                            "diagnostics only; do not change the experiment to obtain a favorable "
+                            "result.",
+                        ],
+                    }
+                    try:
+                        response = code_generator.repair_code(
+                            spec_payload=spec_payload,
+                            substrate_payload=substrate.model_dump(mode="json"),
+                            blocked_code=prior_artifact.code,
+                            audit_payload=repair_payload,
+                            allowed_dependencies=dependencies,
+                        )
+                    except (AdapterError, ValueError) as exc:
+                        raise HybridEvidencePackageError(
+                            "Scientific code repair failed for "
+                            f"{plan.artifact_plan_id}: {exc}"
+                        ) from exc
+                    repair_reasons = list(response.rejection_reasons)
+                    repaired_code_id: str | None = None
+                    repair_raw_id = (
+                        f"hybrid-evidence-code-raw-{raw_number + raw_index:04d}"
+                    )
+                    raw_index += 1
+                    if response.accepted is None or repair_reasons:
+                        reason = "Scientific code repair was rejected: " + "; ".join(
+                            repair_reasons
+                        )
+                        results.append(
+                            _failed_result(
+                                package=package,
+                                plan=plan,
+                                result_id=result_id,
+                                reason=reason,
+                            ).model_copy(update={"execution_profile": execution_profile})
+                        )
+                        warnings.append(reason)
+                    else:
+                        repaired_code_id = (
+                            "evidence-package-code-artifact-"
+                            f"{code_number + code_index:04d}"
+                        )
+                        code_index += 1
+                        repaired_artifact = _hybrid_code_artifact(
+                            code_artifact_id=repaired_code_id,
+                            generation_attempt=prior_artifact.generation_attempt + 1,
+                            repair_of_code_artifact_id_optional=(
+                                prior_artifact.code_artifact_id
+                            ),
+                            run_id=run_id,
+                            package=package,
+                            plan=plan,
+                            proposal=response.accepted,
+                            backend_kind=code_generator.backend_kind,
+                            timeout_seconds=timeout_seconds,
+                        )
+                        repaired_audit = _audit_hybrid_code_artifact(
+                            artifact=repaired_artifact,
+                            plan=plan,
+                            metrics=metrics,
+                            required_payload_fields=spec_payload["output_contract"][
+                                "required_payload_fields"
+                            ],
+                            required_role_functions=required_role_functions,
+                            allowed_dependencies=dependencies,
+                            execution_profile=execution_profile,
+                            replication_limit=replication_limit,
+                            resample_limit=resample_limit,
+                            grid_cell_limit=grid_cell_limit,
+                        )
+                        code_artifacts.append(repaired_artifact)
+                        audits.append(repaired_audit)
+                        observation, repaired_result = record_code_execution(
+                            package=package,
+                            plan=plan,
+                            result_id=result_id,
+                            artifact=repaired_artifact,
+                            audit=repaired_audit,
+                            metrics=metrics,
+                            spec_payload=spec_payload,
+                        )
+                        results.append(repaired_result)
+                        if repaired_result.execution_completed:
+                            scientific_repair_success_count += 1
+                            available_refs.update(plan_refs)
+                        if repaired_result.status in {
+                            "failed",
+                            "inconclusive",
+                            "blocked_safety_audit",
+                        }:
+                            repair_detail = repaired_result.failure_reason_optional or "; ".join(
+                                repaired_result.warnings
+                            )
+                            warnings.append(
+                                f"{plan.artifact_plan_id} scientific repair produced "
+                                f"{repaired_result.status}: {repair_detail}"
+                            )
+                    code_raws.append(
+                        LLMExperimentCodeRawArtifact(
+                            raw_artifact_id=repair_raw_id,
+                            repair_of_code_artifact_id_optional=(
+                                prior_artifact.code_artifact_id
+                            ),
+                            generation_attempt=prior_artifact.generation_attempt + 1,
+                            run_id=run_id,
+                            source_spec_id=plan.artifact_plan_id,
+                            backend_name=code_generator.backend_name,
+                            model=code_generator.model,
+                            prompt_text=response.prompt_text,
+                            requested_output_schema=response.requested_output_schema,
+                            raw_response=response.raw_response,
+                            accepted_code_artifact_id_optional=repaired_code_id,
+                            rejection_reasons=repair_reasons,
+                            fallback_used=code_generator.fallback_used,
+                        )
+                    )
+                    continue
+                prior_code_artifact = (
+                    _revalidatable_m103_code_artifact(
+                        report=previous_execution,
+                        plan=plan,
+                        execution_profile=execution_profile,
+                    )
+                    if resume_previous_execution and previous_execution is not None
+                    else None
+                )
+                if prior_code_artifact is not None:
+                    revalidated_code_id = (
+                        "evidence-package-code-artifact-"
+                        f"{code_number + code_index:04d}"
+                    )
+                    code_index += 1
+                    revalidated_artifact = prior_code_artifact.model_copy(
+                        update={
+                            "code_artifact_id": revalidated_code_id,
+                            "repair_of_code_artifact_id_optional": (
+                                prior_code_artifact.code_artifact_id
+                            ),
+                            "generation_attempt": prior_code_artifact.generation_attempt + 1,
+                            "timeout_seconds": timeout_seconds,
+                        }
+                    )
+                    revalidated_audit = _audit_hybrid_code_artifact(
+                        artifact=revalidated_artifact,
+                        plan=plan,
+                        metrics=metrics,
+                        required_payload_fields=spec_payload["output_contract"][
+                            "required_payload_fields"
+                        ],
+                        required_role_functions=required_role_functions,
+                        allowed_dependencies=dependencies,
+                        execution_profile=execution_profile,
+                        replication_limit=replication_limit,
+                        resample_limit=resample_limit,
+                        grid_cell_limit=grid_cell_limit,
+                    )
+                    if not revalidated_audit.blocked:
+                        code_artifacts.append(revalidated_artifact)
+                        audits.append(revalidated_audit)
+                        observation, result = record_code_execution(
+                            package=package,
+                            plan=plan,
+                            result_id=result_id,
+                            artifact=revalidated_artifact,
+                            audit=revalidated_audit,
+                            metrics=metrics,
+                            spec_payload=spec_payload,
+                        )
+                        result = attempt_runtime_repair(
+                            package=package,
+                            plan=plan,
+                            result_id=result_id,
+                            substrate=substrate,
+                            artifact=revalidated_artifact,
+                            observation=observation,
+                            result=result,
+                            metrics=metrics,
+                            required_role_functions=required_role_functions,
+                            spec_payload=spec_payload,
+                        )
+                        results.append(result)
+                        if result.execution_completed:
+                            available_refs.update(plan_refs)
+                        warnings.append(
+                            f"Re-audited prior LLM artifact "
+                            f"{prior_code_artifact.code_artifact_id} under the current local "
+                            "safety policy and executed a byte-identical append-only copy; no "
+                            "code-generation or repair call was made."
+                        )
+                        if result.status in {"failed", "inconclusive", "blocked_safety_audit"}:
+                            warnings.append(
+                                f"{plan.artifact_plan_id} produced {result.status}: "
+                                f"{result.failure_reason_optional or '; '.join(result.warnings)}"
+                            )
+                        continue
+                    code_index -= 1
+                    warnings.append(
+                        f"Prior LLM artifact {prior_code_artifact.code_artifact_id} remains "
+                        "blocked under the current local safety policy; no copy was persisted."
+                    )
+                prior_result = (
+                    _compatible_prior_result(plan, package, prior_execution, prior_results)
+                    if reuse_compatible_m102_results
+                    else None
+                )
+                if prior_result is not None:
+                    results.append(
+                        _reused_prior_result(
+                            package,
+                            plan,
+                            result_id,
+                            prior_result,
+                            execution_profile,
+                        )
+                    )
+                    reused_prior_result_count += 1
+                    if results[-1].execution_completed:
+                        available_refs.update(plan_refs)
+                    warnings.append(
+                        f"{plan.artifact_plan_id} reused compatible M102 result "
+                        f"{prior_result.result_id}; no code-generation call was made."
+                    )
+                    continue
+                if codegen_call_count >= max_codegen_calls:
+                    reason = "Artifact plan deferred by max_codegen_calls execution budget."
+                    results.append(
+                        _budget_deferred_result(
+                            package, plan, result_id, reason, execution_profile
+                        )
+                    )
+                    budget_deferred_artifact_count += 1
+                    warnings.append(f"{plan.artifact_plan_id}: {reason}")
+                    continue
+                codegen_call_count += 1
                 code_id = f"evidence-package-code-artifact-{code_number + code_index:04d}"
                 code_index += 1
-                code_raw_id = f"hybrid-evidence-code-raw-{raw_number + len(code_raws):04d}"
-                metrics = _required_metrics(plan)
-                spec_payload = _code_spec_payload(package=package, plan=plan, metrics=metrics)
+                code_raw_id = f"hybrid-evidence-code-raw-{raw_number + raw_index:04d}"
+                raw_index += 1
                 try:
                     response = code_generator.generate_code(
                         spec_payload=spec_payload,
@@ -416,93 +1096,161 @@ def execute_hybrid_evidence_packages(
                         result_id=result_id,
                         reason="Generated code proposal was rejected: "
                         + "; ".join(rejection_reasons),
-                    )
+                    ).model_copy(update={"execution_profile": execution_profile})
                     results.append(result)
                 else:
                     proposal = response.accepted
-                    artifact = LLMExperimentCodeArtifact(
+                    artifact = _hybrid_code_artifact(
                         code_artifact_id=code_id,
+                        generation_attempt=1,
+                        repair_of_code_artifact_id_optional=None,
                         run_id=run_id,
-                        source_spec_id=plan.artifact_plan_id,
-                        source_route_id=plan.artifact_plan_id,
-                        source_substrate_id=package.source_substrate_id,
-                        route_type=_branch_route_type(plan.artifact_type),
+                        package=package,
+                        plan=plan,
+                        proposal=proposal,
                         backend_kind=code_generator.backend_kind,
-                        language=proposal.language,
-                        entrypoint=proposal.entrypoint,
-                        code=proposal.code,
-                        expected_output_files=proposal.expected_output_files,
-                        required_inputs=proposal.required_inputs,
-                        declared_dependencies=proposal.declared_dependencies,
-                        random_seed=proposal.random_seed,
-                        timeout_seconds=min(proposal.timeout_seconds, timeout_seconds),
-                        network_required=False,
-                        filesystem_scope=proposal.filesystem_scope,
+                        timeout_seconds=timeout_seconds,
                     )
                     accepted_code_id = code_id
-                    audit = audit_generated_experiment_code(
+                    required_payload_fields = spec_payload["output_contract"][
+                        "required_payload_fields"
+                    ]
+                    audit = _audit_hybrid_code_artifact(
                         artifact=artifact,
-                        required_metrics=metrics,
-                        negative_controls_required=bool(plan.negative_control_plan_optional)
-                        or plan.artifact_type == EvidenceArtifactType.NEGATIVE_CONTROL,
+                        plan=plan,
+                        metrics=metrics,
+                        required_payload_fields=required_payload_fields,
+                        required_role_functions=required_role_functions,
                         allowed_dependencies=dependencies,
+                        execution_profile=execution_profile,
+                        replication_limit=replication_limit,
+                        resample_limit=resample_limit,
+                        grid_cell_limit=grid_cell_limit,
                     )
                     code_artifacts.append(artifact)
                     audits.append(audit)
-                    config = SandboxExecutionConfig(
-                        entrypoint=artifact.entrypoint,
-                        output_json_filename="output.json",
-                        timeout_seconds=artifact.timeout_seconds,
-                        memory_limit_mb=memory_limit_mb,
-                        network_disabled=True,
-                        seed=artifact.random_seed,
-                        allowed_dependencies=artifact.declared_dependencies,
-                    )
-                    sandbox_configs.append(config)
-                    execution_id = (
-                        f"evidence-package-sandbox-execution-"
-                        f"{sandbox_number + len(sandbox_executions):04d}"
-                    )
-                    observation = (
-                        _blocked_observation(
-                            run_id=run_id,
-                            execution_id=execution_id,
-                            artifact=artifact,
-                            config=config,
-                            reasons=audit.reasons,
-                        )
-                        if audit.blocked
-                        else _execute_in_sandbox(
-                            run_id=run_id,
-                            artifact=artifact,
-                            execution_id=execution_id,
-                            config=config,
-                        )
-                    )
-                    observations.append(observation)
-                    sandbox_executions.append(observation.result)
-                    extraction = extract_metrics_from_output(
-                        execution=observation.result,
-                        output_payload=observation.output_payload,
-                        required_metrics=metrics,
-                        output_json_path=observation.result.output_json_path,
-                    ).model_copy(update={"execution_id": execution_id})
-                    if not audit.blocked:
-                        metric_results.append(extraction)
-                    result = _code_result(
+                    execution_artifact = artifact
+                    execution_audit = audit
+                    repair_raw: LLMExperimentCodeRawArtifact | None = None
+                    if (
+                        audit.blocked
+                        and safety_repair_attempt_count < max_safety_repair_calls
+                    ):
+                        safety_repair_attempt_count += 1
+                        try:
+                            repair = code_generator.repair_code(
+                                spec_payload=spec_payload,
+                                substrate_payload=substrate.model_dump(mode="json"),
+                                blocked_code=artifact.code,
+                                audit_payload=audit.model_dump(mode="json"),
+                                allowed_dependencies=dependencies,
+                            )
+                        except (AdapterError, ValueError) as exc:
+                            warnings.append(
+                                f"Safety repair call failed for {code_id}: {exc}"
+                            )
+                        else:
+                            repair_reasons = list(repair.rejection_reasons)
+                            repaired_code_id: str | None = None
+                            if repair.accepted is not None and not repair_reasons:
+                                repaired_code_id = (
+                                    "evidence-package-code-artifact-"
+                                    f"{code_number + code_index:04d}"
+                                )
+                                code_index += 1
+                                repaired_artifact = _hybrid_code_artifact(
+                                    code_artifact_id=repaired_code_id,
+                                    generation_attempt=2,
+                                    repair_of_code_artifact_id_optional=code_id,
+                                    run_id=run_id,
+                                    package=package,
+                                    plan=plan,
+                                    proposal=repair.accepted,
+                                    backend_kind=code_generator.backend_kind,
+                                    timeout_seconds=timeout_seconds,
+                                )
+                                repaired_audit = _audit_hybrid_code_artifact(
+                                    artifact=repaired_artifact,
+                                    plan=plan,
+                                    metrics=metrics,
+                                    required_payload_fields=required_payload_fields,
+                                    required_role_functions=required_role_functions,
+                                    allowed_dependencies=dependencies,
+                                    execution_profile=execution_profile,
+                                    replication_limit=replication_limit,
+                                    resample_limit=resample_limit,
+                                    grid_cell_limit=grid_cell_limit,
+                                )
+                                code_artifacts.append(repaired_artifact)
+                                audits.append(repaired_audit)
+                                if repaired_audit.blocked:
+                                    warnings.append(
+                                        f"Safety audit blocked repair {repaired_code_id}: "
+                                        + "; ".join(repaired_audit.reasons)
+                                    )
+                                else:
+                                    safety_repair_success_count += 1
+                                    execution_artifact = repaired_artifact
+                                    execution_audit = repaired_audit
+                                    warnings.append(
+                                        f"Safety repair {repaired_code_id} supersedes blocked "
+                                        f"artifact {code_id}."
+                                    )
+                            else:
+                                warnings.append(
+                                    f"Rejected safety repair for {code_id}: "
+                                    + "; ".join(repair_reasons)
+                                )
+                            repair_raw_id = (
+                                f"hybrid-evidence-code-raw-{raw_number + raw_index:04d}"
+                            )
+                            raw_index += 1
+                            repair_raw = LLMExperimentCodeRawArtifact(
+                                raw_artifact_id=repair_raw_id,
+                                repair_of_code_artifact_id_optional=code_id,
+                                generation_attempt=2,
+                                run_id=run_id,
+                                source_spec_id=plan.artifact_plan_id,
+                                backend_name=code_generator.backend_name,
+                                model=code_generator.model,
+                                prompt_text=repair.prompt_text,
+                                requested_output_schema=repair.requested_output_schema,
+                                raw_response=repair.raw_response,
+                                accepted_code_artifact_id_optional=repaired_code_id,
+                                rejection_reasons=repair_reasons,
+                                fallback_used=code_generator.fallback_used,
+                            )
+                    observation, result = record_code_execution(
                         package=package,
                         plan=plan,
                         result_id=result_id,
-                        execution=observation.result,
-                        extraction=extraction,
-                        output_payload=observation.output_payload,
+                        artifact=execution_artifact,
+                        audit=execution_audit,
+                        metrics=metrics,
+                        spec_payload=spec_payload,
+                    )
+                    result = attempt_runtime_repair(
+                        package=package,
+                        plan=plan,
+                        result_id=result_id,
+                        substrate=substrate,
+                        artifact=execution_artifact,
+                        observation=observation,
+                        result=result,
+                        metrics=metrics,
+                        required_role_functions=required_role_functions,
+                        spec_payload=spec_payload,
                     )
                     results.append(result)
+                    if result.execution_completed:
+                        available_refs.update(plan_refs)
                     if result.status in {"failed", "inconclusive", "blocked_safety_audit"}:
                         warnings.append(
                             f"{plan.artifact_plan_id} produced {result.status}: "
                             f"{result.failure_reason_optional or '; '.join(result.warnings)}"
                         )
+                    if repair_raw is not None:
+                        code_raws.append(repair_raw)
                 code_raws.append(
                     LLMExperimentCodeRawArtifact(
                         raw_artifact_id=code_raw_id,
@@ -561,7 +1309,7 @@ def execute_hybrid_evidence_packages(
                         result_id=result_id,
                         reason="Draft artifact was rejected: "
                         + "; ".join(response.rejection_reasons),
-                    )
+                    ).model_copy(update={"execution_profile": execution_profile})
                     warnings.append(result.failure_reason_optional or "Draft artifact rejected.")
                 else:
                     result = _draft_result(
@@ -570,10 +1318,22 @@ def execute_hybrid_evidence_packages(
                         result_id=result_id,
                         draft=response.accepted.model_dump(mode="json"),
                         retrieval=retrieval,
+                    ).model_copy(
+                        update={
+                            "execution_profile": execution_profile,
+                            "execution_completed": True,
+                            "supports_adjudication": execution_profile == "full",
+                        }
                     )
                 results.append(result)
+                if result.execution_completed:
+                    available_refs.update(plan_refs)
             else:
-                results.append(_deferred_or_rejected_result(package, plan, result_id))
+                results.append(
+                    _deferred_or_rejected_result(package, plan, result_id).model_copy(
+                        update={"execution_profile": execution_profile}
+                    )
+                )
 
     artifact_counter = Counter(
         plan.artifact_type.value
@@ -592,9 +1352,9 @@ def execute_hybrid_evidence_packages(
         draft_ids=[item["raw_artifact_id"] for item in draft_raws],
         retrieval_mode=retrieval_mode,
         has_retrieval=any(
-            plan.artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
-            for pkg in package_report.packages
-            for plan in pkg.artifact_plans
+            item.artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
+            and item.status == "draft_created"
+            for item in results
         ),
     )
     expected = [
@@ -613,9 +1373,9 @@ def execute_hybrid_evidence_packages(
     if draft_raws:
         expected.append(ScientificStageKind.SYMBOLIC_DERIVATION)
     if any(
-        plan.artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
-        for pkg in package_report.packages
-        for plan in pkg.artifact_plans
+        item.artifact_type == EvidenceArtifactType.LITERATURE_NOVELTY_CHECK
+        and item.status == "draft_created"
+        for item in results
     ):
         expected.extend(
             [ScientificStageKind.LITERATURE_RETRIEVAL, ScientificStageKind.NOVELTY_ASSESSMENT]
@@ -633,13 +1393,57 @@ def execute_hybrid_evidence_packages(
             + "; ".join(item.message for item in production.violations)
         )
     execution_status = "completed_with_warnings" if warnings else "completed"
+    required_plan_ids = {
+        plan_id
+        for package in execution_packages
+        for plan_id in _required_plan_ids(package)
+    }
+    completed_required_ids = {
+        item.artifact_plan_id
+        for item in results
+        if item.supports_adjudication and item.artifact_plan_id in required_plan_ids
+    }
+    incomplete_required_ids = sorted(required_plan_ids - completed_required_ids)
+    ready_package_ids = [
+        package.package_id
+        for package in execution_packages
+        if execution_profile == "full"
+        and set(_required_plan_ids(package)).issubset(completed_required_ids)
+    ]
     report = EvidencePackageExecutionReport(
         run_id=run_id,
         report_id=report_id,
         execution_status=execution_status,
         source_package_report_path=_relative(root_path, package_path),
+        execution_profile=execution_profile,
+        max_replications=replication_limit,
+        max_resamples=resample_limit,
+        max_grid_cells=grid_cell_limit,
+        max_artifact_plans=max_artifact_plans,
+        max_codegen_calls=max_codegen_calls,
+        max_safety_repair_calls=max_safety_repair_calls,
+        safety_repair_attempt_count=safety_repair_attempt_count,
+        safety_repair_success_count=safety_repair_success_count,
+        max_runtime_repair_calls=max_runtime_repair_calls,
+        runtime_repair_attempt_count=runtime_repair_attempt_count,
+        runtime_repair_success_count=runtime_repair_success_count,
+        max_scientific_repair_calls=max_scientific_repair_calls,
+        scientific_repair_attempt_count=scientific_repair_attempt_count,
+        scientific_repair_success_count=scientific_repair_success_count,
+        resumed_from_report_id_optional=(
+            previous_execution.report_id if previous_execution is not None else None
+        ),
+        resumed_result_count=resumed_result_count,
         package_count=package_report.package_count,
         artifact_plan_count=package_report.artifact_plan_count,
+        selected_artifact_plan_count=len(selected_plan_ids),
+        budget_deferred_artifact_count=budget_deferred_artifact_count,
+        selected_artifact_plan_ids=[
+            item for item in ordered_plan_ids if item in selected_plan_ids
+        ],
+        prior_execution_context_count=len(prior_context_ids),
+        reused_prior_result_count=reused_prior_result_count,
+        prior_execution_result_ids=prior_context_ids,
         executable_artifact_count=sum(
             count for artifact_type, count in artifact_counter.items()
             if EvidenceArtifactType(artifact_type) in _CODE_ARTIFACT_TYPES
@@ -653,6 +1457,7 @@ def execute_hybrid_evidence_packages(
             artifact_counter[EvidenceArtifactType.DEFER_UNAVAILABLE_CHECKER.value]
             + artifact_counter[EvidenceArtifactType.DEFER_INSUFFICIENT_SUPPORT.value]
             + artifact_counter[EvidenceArtifactType.REJECT_FALSE_BRIDGE.value]
+            + budget_deferred_artifact_count
         ),
         code_artifact_count=len(code_artifacts),
         safety_audit_count=len(audits),
@@ -663,6 +1468,11 @@ def execute_hybrid_evidence_packages(
         ),
         metric_extraction_count=len(metric_results),
         result_count=len(results),
+        required_artifact_plan_count=len(required_plan_ids),
+        completed_required_artifact_count=len(completed_required_ids),
+        incomplete_required_artifact_plan_ids=incomplete_required_ids,
+        adjudication_ready_package_ids=ready_package_ids,
+        adjudication_ready=bool(ready_package_ids),
         evidence_label_counts=dict(sorted(label_counter.items())),
         artifact_type_counts=dict(sorted(artifact_counter.items())),
         raw_artifact_paths=[
@@ -755,8 +1565,31 @@ def inspect_evidence_package_execution(
         evidence_package_execution_present=True,
         latest_report_id_optional=report.report_id,
         execution_status_optional=report.execution_status,
+        execution_profile=report.execution_profile,
+        max_replications=report.max_replications,
+        max_resamples=report.max_resamples,
+        max_grid_cells=report.max_grid_cells,
+        max_artifact_plans=report.max_artifact_plans,
+        max_codegen_calls=report.max_codegen_calls,
+        max_safety_repair_calls=report.max_safety_repair_calls,
+        safety_repair_attempt_count=report.safety_repair_attempt_count,
+        safety_repair_success_count=report.safety_repair_success_count,
+        max_runtime_repair_calls=report.max_runtime_repair_calls,
+        runtime_repair_attempt_count=report.runtime_repair_attempt_count,
+        runtime_repair_success_count=report.runtime_repair_success_count,
+        max_scientific_repair_calls=report.max_scientific_repair_calls,
+        scientific_repair_attempt_count=report.scientific_repair_attempt_count,
+        scientific_repair_success_count=report.scientific_repair_success_count,
+        resumed_from_report_id_optional=report.resumed_from_report_id_optional,
+        resumed_result_count=report.resumed_result_count,
         package_count=report.package_count,
         artifact_plan_count=report.artifact_plan_count,
+        selected_artifact_plan_count=report.selected_artifact_plan_count,
+        budget_deferred_artifact_count=report.budget_deferred_artifact_count,
+        selected_artifact_plan_ids=report.selected_artifact_plan_ids,
+        prior_execution_context_count=report.prior_execution_context_count,
+        reused_prior_result_count=report.reused_prior_result_count,
+        prior_execution_result_ids=report.prior_execution_result_ids,
         executable_artifact_count=report.executable_artifact_count,
         symbolic_artifact_count=report.symbolic_artifact_count,
         retrieval_artifact_count=report.retrieval_artifact_count,
@@ -766,6 +1599,11 @@ def inspect_evidence_package_execution(
         executed_code_count=report.executed_code_count,
         metric_extraction_count=report.metric_extraction_count,
         result_count=report.result_count,
+        required_artifact_plan_count=report.required_artifact_plan_count,
+        completed_required_artifact_count=report.completed_required_artifact_count,
+        incomplete_required_artifact_plan_ids=report.incomplete_required_artifact_plan_ids,
+        adjudication_ready_package_ids=report.adjudication_ready_package_ids,
+        adjudication_ready=report.adjudication_ready,
         evidence_label_counts=report.evidence_label_counts,
         artifact_type_counts=report.artifact_type_counts,
         results=report.results,
@@ -797,12 +1635,24 @@ def render_evidence_package_execution_text(
             "Evidence package execution: "
             f"{'present' if report.evidence_package_execution_present else 'absent'}",
             f"Status: {report.execution_status_optional or 'not available'}",
+            f"Execution profile: {report.execution_profile}",
             f"Results: {report.result_count}",
+            f"Selected/deferred by budget: {report.selected_artifact_plan_count}/"
+            f"{report.budget_deferred_artifact_count}",
+            f"Prior M102 context/reused: {report.prior_execution_context_count}/"
+            f"{report.reused_prior_result_count}",
             f"Executable/symbolic/retrieval/deferred: {report.executable_artifact_count}/"
             f"{report.symbolic_artifact_count}/{report.retrieval_artifact_count}/"
             f"{report.deferred_artifact_count}",
             f"Code blocked/executed: {report.blocked_code_count}/{report.executed_code_count}",
+            f"Safety repairs attempted/succeeded: {report.safety_repair_attempt_count}/"
+            f"{report.safety_repair_success_count}",
+            f"Runtime repairs attempted/succeeded: {report.runtime_repair_attempt_count}/"
+            f"{report.runtime_repair_success_count}",
             f"Metric extractions: {report.metric_extraction_count}",
+            f"Required components complete: {report.completed_required_artifact_count}/"
+            f"{report.required_artifact_plan_count}",
+            f"Adjudication ready: {str(report.adjudication_ready).lower()}",
             f"Production ready: {str(report.production_ready).lower()}",
             "publication_ready=false",
         ]
@@ -1002,8 +1852,12 @@ def render_evidence_package_execution_markdown(report: EvidencePackageExecutionR
         "# Hybrid Evidence Package Execution",
         "",
         f"Status: `{report.execution_status}`",
+        f"Execution profile: `{report.execution_profile}`",
         f"Results: `{report.result_count}`",
         f"Metric extractions: `{report.metric_extraction_count}`",
+        f"Runtime repairs attempted/succeeded: `{report.runtime_repair_attempt_count}/"
+        f"{report.runtime_repair_success_count}`",
+        f"Adjudication ready: `{str(report.adjudication_ready).lower()}`",
         "",
         "| Artifact type | Evidence label | Status |",
         "|---|---|---|",
@@ -1038,6 +1892,202 @@ def _stage_result(
     )
 
 
+def _hybrid_code_artifact(
+    *,
+    code_artifact_id: str,
+    generation_attempt: int,
+    repair_of_code_artifact_id_optional: str | None,
+    run_id: str,
+    package: HybridEvidencePackageCandidate,
+    plan: EvidenceArtifactPlan,
+    proposal: Any,
+    backend_kind: BackendKind,
+    timeout_seconds: int,
+) -> LLMExperimentCodeArtifact:
+    return LLMExperimentCodeArtifact(
+        code_artifact_id=code_artifact_id,
+        repair_of_code_artifact_id_optional=repair_of_code_artifact_id_optional,
+        generation_attempt=generation_attempt,
+        run_id=run_id,
+        source_spec_id=plan.artifact_plan_id,
+        source_route_id=plan.artifact_plan_id,
+        source_substrate_id=package.source_substrate_id,
+        route_type=_branch_route_type(plan.artifact_type),
+        backend_kind=backend_kind,
+        language=proposal.language,
+        entrypoint=proposal.entrypoint,
+        code=proposal.code,
+        expected_output_files=proposal.expected_output_files,
+        required_inputs=proposal.required_inputs,
+        declared_dependencies=proposal.declared_dependencies,
+        random_seed=proposal.random_seed,
+        timeout_seconds=min(proposal.timeout_seconds, timeout_seconds),
+        network_required=False,
+        filesystem_scope=proposal.filesystem_scope,
+    )
+
+
+def _audit_hybrid_code_artifact(
+    *,
+    artifact: LLMExperimentCodeArtifact,
+    plan: EvidenceArtifactPlan,
+    metrics: list[str],
+    required_payload_fields: list[str],
+    required_role_functions: list[str],
+    allowed_dependencies: list[str],
+    execution_profile: Literal["smoke", "full"],
+    replication_limit: int,
+    resample_limit: int,
+    grid_cell_limit: int,
+) -> ExperimentCodeSafetyAudit:
+    audit = audit_generated_experiment_code(
+        artifact=artifact,
+        required_metrics=metrics,
+        negative_controls_required=bool(plan.negative_control_plan_optional)
+        or plan.artifact_type == EvidenceArtifactType.NEGATIVE_CONTROL,
+        allowed_dependencies=allowed_dependencies,
+    )
+    contract_violations = audit_generated_experiment_contract(
+        artifact=artifact,
+        required_payload_fields=required_payload_fields,
+    )
+    semantic_violations = audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=required_role_functions,
+    )
+    workload_violations = audit_generated_experiment_workload(
+        artifact=artifact,
+        execution_profile=execution_profile,
+        max_replications=replication_limit,
+        max_resamples=resample_limit,
+        max_grid_cells=grid_cell_limit,
+    )
+    violations = [*contract_violations, *semantic_violations, *workload_violations]
+    if not violations:
+        return audit
+    return audit.model_copy(
+        update={
+            "passed": False,
+            "blocked": True,
+            "reasons": [*audit.reasons, *violations],
+            "contract_violations": contract_violations,
+            "semantic_contract_violations": semantic_violations,
+            "workload_limit_violations": workload_violations,
+        }
+    )
+
+
+def _execute_hybrid_code_artifact(
+    *,
+    run_id: str,
+    package: HybridEvidencePackageCandidate,
+    plan: EvidenceArtifactPlan,
+    result_id: str,
+    artifact: LLMExperimentCodeArtifact,
+    audit: ExperimentCodeSafetyAudit,
+    execution_id: str,
+    memory_limit_mb: int,
+    metrics: list[str],
+    required_payload_fields: list[str],
+    required_logical_artifacts: list[str],
+    execution_profile: Literal["smoke", "full"],
+) -> tuple[
+    SandboxExecutionConfig,
+    Any,
+    MetricExtractionResult,
+    EvidencePackageExecutionResult,
+]:
+    config = SandboxExecutionConfig(
+        entrypoint=artifact.entrypoint,
+        output_json_filename="output.json",
+        timeout_seconds=artifact.timeout_seconds,
+        memory_limit_mb=memory_limit_mb,
+        output_limit_bytes=_OUTPUT_LIMIT_BYTES,
+        network_disabled=True,
+        seed=artifact.random_seed,
+        allowed_dependencies=artifact.declared_dependencies,
+    )
+    observation = (
+        _blocked_observation(
+            run_id=run_id,
+            execution_id=execution_id,
+            artifact=artifact,
+            config=config,
+            reasons=audit.reasons,
+        )
+        if audit.blocked
+        else _execute_in_sandbox(
+            run_id=run_id,
+            artifact=artifact,
+            execution_id=execution_id,
+            config=config,
+        )
+    )
+    extraction = extract_metrics_from_output(
+        execution=observation.result,
+        output_payload=observation.output_payload,
+        required_metrics=metrics,
+        output_json_path=observation.result.output_json_path,
+        allow_nested_numeric_metrics=True,
+    ).model_copy(update={"execution_id": execution_id})
+    extraction = _validate_package_output_contract(
+        extraction=extraction,
+        output_payload=observation.output_payload,
+        required_fields=required_payload_fields,
+        required_logical_artifacts=required_logical_artifacts,
+    )
+    result = _code_result(
+        package=package,
+        plan=plan,
+        result_id=result_id,
+        execution=observation.result,
+        extraction=extraction,
+        output_payload=observation.output_payload,
+        unresolved_expected_files=_unresolved_expected_files(
+            plan, observation.output_payload
+        ),
+        execution_profile=execution_profile,
+    )
+    return config, observation, extraction, result
+
+
+def _repairable_runtime_failure(observation: Any) -> bool:
+    return observation.result.status in {"completed", "failed", "timed_out"}
+
+
+def _runtime_repair_payload(
+    *,
+    observation: Any,
+    output_limit_bytes: int,
+) -> dict[str, Any]:
+    output_payload = observation.output_payload
+    return {
+        "repair_kind": "runtime_failure",
+        "sandbox_execution": {
+            "status": observation.result.status,
+            "exit_code": observation.result.exit_code,
+            "failure_reason": observation.result.failure_reason_optional,
+            "timeout": observation.result.timeout,
+            "stdout_tail": observation.stdout[-12_000:],
+            "stderr_tail": observation.stderr[-12_000:],
+            "output_payload_keys": (
+                sorted(output_payload) if isinstance(output_payload, dict) else []
+            ),
+        },
+        "output_limit_bytes": output_limit_bytes,
+        "repair_requirements": [
+            "Return a complete replacement script that fixes the observed runtime or output "
+            "contract failure without changing the scientific specification.",
+            "Keep output.json below the byte limit with compact aggregate summaries.",
+            "Do not duplicate row-level records across summaries or logical artifacts.",
+            "Represent required logical artifacts with compact metadata, counts, bounded samples, "
+            "or deterministic digests rather than repeated raw datasets.",
+            "Preserve computed metrics, baselines, controls, negative controls, seeds, workload "
+            "limits, and failure behavior.",
+        ],
+    }
+
+
 def _code_result(
     *,
     package: HybridEvidencePackageCandidate,
@@ -1046,6 +2096,8 @@ def _code_result(
     execution: SandboxExecutionResult,
     extraction: MetricExtractionResult,
     output_payload: dict[str, Any] | None,
+    unresolved_expected_files: list[str],
+    execution_profile: Literal["smoke", "full"],
 ) -> EvidencePackageExecutionResult:
     success = _output_bool(output_payload, "success_criteria_satisfied")
     failure = _output_bool(output_payload, "failure_criteria_satisfied")
@@ -1057,6 +2109,19 @@ def _code_result(
     elif execution.status != "completed" or not extraction.schema_valid:
         status = "failed" if execution.status in {"failed", "timed_out"} else "inconclusive"
         label = "InconclusiveResult"
+    elif unresolved_expected_files:
+        status = "inconclusive"
+        label = "InconclusiveResult"
+        warnings.append(
+            "The M103 output.json contract did not contain required logical artifacts: "
+            + ", ".join(unresolved_expected_files)
+        )
+    elif execution_profile == "smoke":
+        status = "inconclusive"
+        label = "InconclusiveResult"
+        warnings.append(
+            "Smoke-profile execution validates architecture only and cannot support adjudication."
+        )
     elif negative_passed is not True:
         status = "inconclusive"
         label = "InconclusiveResult"
@@ -1071,15 +2136,37 @@ def _code_result(
         status = "inconclusive"
         label = "InconclusiveResult"
         warnings.append("Output did not resolve success and failure criteria consistently.")
+    logical_artifacts = (
+        output_payload.get("logical_artifacts", {}) if output_payload is not None else {}
+    )
+    logical_artifact_ids = (
+        sorted(logical_artifacts) if isinstance(logical_artifacts, dict) else []
+    )
+    supports_adjudication = execution_profile == "full" and status in {
+        "completed",
+        "negative_result",
+    }
+    execution_completed = (
+        execution.status == "completed"
+        and extraction.schema_valid
+        and not unresolved_expected_files
+    )
     return EvidencePackageExecutionResult(
         result_id=result_id,
         package_id=package.package_id,
         artifact_plan_id=plan.artifact_plan_id,
         source_substrate_id=package.source_substrate_id,
         artifact_type=plan.artifact_type,
+        execution_profile=execution_profile,
+        logical_artifact_ids=logical_artifact_ids,
+        execution_completed=execution_completed,
+        supports_adjudication=supports_adjudication,
         status=status,
         evidence_label=label,
-        scope_label="bounded local package execution only; no real-world validation",
+        scope_label=(
+            f"{execution_profile}-profile bounded local package execution only; "
+            "no real-world validation"
+        ),
         metrics=extraction.metrics if extraction.schema_valid else {},
         metric_sources=extraction.metric_sources if extraction.schema_valid else {},
         baseline_summary=_output_string(output_payload, "baseline_summary", "Unavailable."),
@@ -1212,12 +2299,445 @@ def _required_metrics(plan: EvidenceArtifactPlan) -> list[str]:
     return result or ["primary_metric"]
 
 
+def _packages_in_dependency_order(
+    packages: list[HybridEvidencePackageCandidate],
+) -> list[HybridEvidencePackageCandidate]:
+    return [
+        package.model_copy(
+            update={"artifact_plans": _package_plans_in_dependency_order(package)}
+        )
+        for package in packages
+    ]
+
+
+def _required_plan_ids(package: HybridEvidencePackageCandidate) -> list[str]:
+    declared = {
+        str(item).strip().lower().replace("-", "_").replace(" ", "_")
+        for item in package.minimum_required_artifacts
+    }
+    always_required_types = {
+        EvidenceArtifactType.NEGATIVE_CONTROL,
+        EvidenceArtifactType.ROBUSTNESS_SWEEP,
+    }
+    matched = [
+        plan.artifact_plan_id
+        for plan in package.artifact_plans
+        if plan.artifact_type.value in declared
+        or plan.artifact_plan_id in declared
+        or plan.artifact_type in always_required_types
+    ]
+    return matched or [plan.artifact_plan_id for plan in package.artifact_plans]
+
+
+def _package_plans_in_dependency_order(
+    package: HybridEvidencePackageCandidate,
+) -> list[EvidenceArtifactPlan]:
+    by_ref: dict[str, EvidenceArtifactPlan] = {}
+    for plan in package.artifact_plans:
+        by_ref[plan.artifact_plan_id] = plan
+        by_ref.setdefault(plan.artifact_type.value, plan)
+    ordered: list[EvidenceArtifactPlan] = []
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(plan: EvidenceArtifactPlan) -> None:
+        if plan.artifact_plan_id in visited:
+            return
+        if plan.artifact_plan_id in visiting:
+            raise HybridEvidencePackageError(
+                f"Artifact dependency cycle includes {plan.artifact_plan_id}."
+            )
+        visiting.add(plan.artifact_plan_id)
+        dependencies = package.artifact_dependency_graph.get(
+            plan.artifact_plan_id,
+            package.artifact_dependency_graph.get(plan.artifact_type.value, []),
+        )
+        for dependency in dependencies:
+            dependency_plan = by_ref.get(dependency)
+            if dependency_plan is None:
+                raise HybridEvidencePackageError(
+                    f"Artifact dependency {dependency!r} is unresolved in {package.package_id}."
+                )
+            visit(dependency_plan)
+        visiting.remove(plan.artifact_plan_id)
+        visited.add(plan.artifact_plan_id)
+        ordered.append(plan)
+
+    for plan in package.artifact_plans:
+        visit(plan)
+    return ordered
+
+
+def _compatible_prior_result(
+    plan: EvidenceArtifactPlan,
+    package: HybridEvidencePackageCandidate,
+    prior_report: GeneratedExperimentExecutionReport | None,
+    prior_results: list[GeneratedExperimentResult],
+) -> GeneratedExperimentResult | None:
+    route_by_type = {
+        EvidenceArtifactType.SYNTHETIC_EXPERIMENT: BranchRouteType.SYNTHETIC_EXPERIMENT,
+        EvidenceArtifactType.BENCHMARK_TOURNAMENT: BranchRouteType.BENCHMARK_TOURNAMENT,
+        EvidenceArtifactType.COUNTEREXAMPLE_SEARCH: BranchRouteType.COUNTEREXAMPLE_SEARCH,
+    }
+    required_route = route_by_type.get(plan.artifact_type)
+    if prior_report is None or not prior_report.production_ready or required_route is None:
+        return None
+    required_metrics = set(_required_metrics(plan))
+    for result in reversed(prior_results):
+        if (
+            result.source_substrate_id != package.source_substrate_id
+            or result.route_type != required_route
+            or result.status not in {"completed", "negative_result", "inconclusive"}
+        ):
+            continue
+        available_metrics = {_metric_slug(name) for name in result.metrics}
+        if not required_metrics.issubset(available_metrics):
+            continue
+        if not result.metric_sources or any(
+            "output.json#metrics." not in source for source in result.metric_sources.values()
+        ):
+            continue
+        if result.evidence_label not in plan.allowed_evidence_labels:
+            continue
+        return result
+    return None
+
+
+def _metric_slug(value: str) -> str:
+    return "_".join(_TOKEN_RE.findall(value.lower()))
+
+
+def _resumable_m103_results(
+    report: EvidencePackageExecutionReport,
+    execution_profile: Literal["smoke", "full"],
+) -> dict[str, EvidencePackageExecutionResult]:
+    if report.execution_profile != execution_profile:
+        return {}
+    return {
+        item.artifact_plan_id: item
+        for item in report.results
+        if item.execution_completed
+        and (
+            execution_profile == "smoke"
+            or item.supports_adjudication
+        )
+    }
+
+
+def _revalidatable_m103_code_artifact(
+    *,
+    report: EvidencePackageExecutionReport,
+    plan: EvidenceArtifactPlan,
+    execution_profile: Literal["smoke", "full"],
+) -> LLMExperimentCodeArtifact | None:
+    """Return the latest incomplete LLM artifact for deterministic policy re-audit."""
+    if report.execution_profile != execution_profile:
+        return None
+    prior_result = next(
+        (
+            item
+            for item in reversed(report.results)
+            if item.artifact_plan_id == plan.artifact_plan_id
+        ),
+        None,
+    )
+    if prior_result is None or prior_result.execution_completed:
+        return None
+    candidates = [
+        item
+        for item in report.code_artifacts
+        if item.source_spec_id == plan.artifact_plan_id
+        and item.backend_kind in {BackendKind.LLM_OPENAI, BackendKind.LLM_OTHER}
+    ]
+    if not candidates:
+        return None
+    return max(
+        enumerate(candidates),
+        key=lambda pair: (pair[1].generation_attempt, pair[0]),
+    )[1]
+
+
+def _recover_completed_m103_results(
+    *,
+    report: EvidencePackageExecutionReport,
+    packages: list[HybridEvidencePackageCandidate],
+    root_path: Path,
+    execution_profile: Literal["smoke", "full"],
+) -> dict[str, EvidencePackageExecutionResult]:
+    """Revalidate persisted successful output JSON after deterministic extractor upgrades."""
+    if report.execution_profile != execution_profile:
+        return {}
+    package_by_id = {item.package_id: item for item in packages}
+    plan_by_id = {
+        plan.artifact_plan_id: (package, plan)
+        for package in packages
+        for plan in package.artifact_plans
+    }
+    artifact_by_plan = {
+        item.source_spec_id: item for item in report.code_artifacts
+    }
+    execution_by_code = {
+        item.code_artifact_id: item for item in report.sandbox_executions
+    }
+    recovered: dict[str, EvidencePackageExecutionResult] = {}
+    for prior in report.results:
+        if prior.execution_completed or prior.artifact_plan_id not in plan_by_id:
+            continue
+        package, plan = plan_by_id[prior.artifact_plan_id]
+        if package_by_id.get(prior.package_id) is None:
+            continue
+        artifact = artifact_by_plan.get(plan.artifact_plan_id)
+        execution = execution_by_code.get(artifact.code_artifact_id) if artifact else None
+        if (
+            execution is None
+            or execution.status != "completed"
+            or execution.output_json_path is None
+        ):
+            continue
+        output_path = root_path / execution.output_json_path
+        try:
+            output_payload = json.loads(output_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(output_payload, dict):
+            continue
+        metrics = _required_metrics(plan)
+        spec_payload = _code_spec_payload(
+            package=package,
+            plan=plan,
+            metrics=metrics,
+            execution_profile=execution_profile,
+            max_replications=report.max_replications,
+            max_resamples=report.max_resamples,
+            max_grid_cells=report.max_grid_cells,
+            required_role_functions=_required_role_functions(plan),
+        )
+        extraction = extract_metrics_from_output(
+            execution=execution,
+            output_payload=output_payload,
+            required_metrics=metrics,
+            output_json_path=execution.output_json_path,
+            allow_nested_numeric_metrics=True,
+        )
+        extraction = _validate_package_output_contract(
+            extraction=extraction,
+            output_payload=output_payload,
+            required_fields=spec_payload["output_contract"]["required_payload_fields"],
+            required_logical_artifacts=spec_payload["output_contract"][
+                "required_logical_artifacts"
+            ],
+        )
+        result = _code_result(
+            package=package,
+            plan=plan,
+            result_id=prior.result_id,
+            execution=execution,
+            extraction=extraction,
+            output_payload=output_payload,
+            unresolved_expected_files=_unresolved_expected_files(plan, output_payload),
+            execution_profile=execution_profile,
+        )
+        if result.execution_completed:
+            recovered[plan.artifact_plan_id] = result.model_copy(
+                update={
+                    "warnings": [
+                        *result.warnings,
+                        "Recovered persisted execution through deterministic nested-metric "
+                        "re-extraction; no code or metrics were regenerated.",
+                    ]
+                }
+            )
+    return recovered
+
+
+def _resumed_m103_result(
+    *,
+    package: HybridEvidencePackageCandidate,
+    plan: EvidenceArtifactPlan,
+    result_id: str,
+    prior: EvidencePackageExecutionResult,
+) -> EvidencePackageExecutionResult:
+    return prior.model_copy(
+        update={
+            "result_id": result_id,
+            "package_id": package.package_id,
+            "artifact_plan_id": plan.artifact_plan_id,
+            "source_prior_result_id_optional": prior.result_id,
+            "reused_prior_execution": True,
+            "warnings": [
+                *prior.warnings,
+                f"Resumed completed M103 result {prior.result_id}; no new execution occurred.",
+            ],
+        }
+    )
+
+
+def _reused_prior_result(
+    package: HybridEvidencePackageCandidate,
+    plan: EvidenceArtifactPlan,
+    result_id: str,
+    prior: GeneratedExperimentResult,
+    execution_profile: Literal["smoke", "full"],
+) -> EvidencePackageExecutionResult:
+    supports_adjudication = execution_profile == "full" and prior.status in {
+        "completed",
+        "negative_result",
+    }
+    return EvidencePackageExecutionResult(
+        result_id=result_id,
+        package_id=package.package_id,
+        artifact_plan_id=plan.artifact_plan_id,
+        source_substrate_id=package.source_substrate_id,
+        artifact_type=plan.artifact_type,
+        source_prior_result_id_optional=prior.result_id,
+        reused_prior_execution=True,
+        execution_profile=execution_profile,
+        execution_completed=prior.status in {
+            "completed",
+            "negative_result",
+            "inconclusive",
+        }
+        and bool(prior.metric_sources),
+        supports_adjudication=supports_adjudication,
+        status=prior.status,
+        evidence_label=prior.evidence_label,
+        scope_label=(
+            "reused compatible M102 bounded local execution; no real-world validation"
+        ),
+        metrics=prior.metrics,
+        metric_sources=prior.metric_sources,
+        baseline_summary=prior.baseline_summary,
+        control_summary=prior.control_summary,
+        negative_control_summary=prior.negative_control_summary,
+        success_criteria_satisfied=prior.success_criteria_satisfied,
+        failure_criteria_satisfied=prior.failure_criteria_satisfied,
+        warnings=[
+            f"Reused prior execution {prior.result_id}; no new metrics were computed."
+        ],
+        failure_reason_optional=prior.failure_reason_optional,
+    )
+
+
+def _budget_deferred_result(
+    package: HybridEvidencePackageCandidate,
+    plan: EvidenceArtifactPlan,
+    result_id: str,
+    reason: str,
+    execution_profile: Literal["smoke", "full"],
+) -> EvidencePackageExecutionResult:
+    return EvidencePackageExecutionResult(
+        result_id=result_id,
+        package_id=package.package_id,
+        artifact_plan_id=plan.artifact_plan_id,
+        source_substrate_id=package.source_substrate_id,
+        artifact_type=plan.artifact_type,
+        execution_profile=execution_profile,
+        status="deferred_insufficient_support",
+        evidence_label="UnsupportedRouteDeferred",
+        scope_label="execution-budget deferral; no support created",
+        metrics={},
+        metric_sources={},
+        baseline_summary="Not executed because the bounded execution budget deferred this plan.",
+        control_summary="Not executed because the bounded execution budget deferred this plan.",
+        negative_control_summary=(
+            "Not executed because the bounded execution budget deferred this plan."
+        ),
+        unresolved_obligations=[reason],
+        warnings=[reason],
+        failure_reason_optional=reason,
+    )
+
+
+def _validate_package_output_contract(
+    *,
+    extraction: MetricExtractionResult,
+    output_payload: dict[str, Any] | None,
+    required_fields: list[str],
+    required_logical_artifacts: list[str],
+) -> MetricExtractionResult:
+    observed_fields = _nested_mapping_keys(output_payload)
+    missing_fields = sorted(set(required_fields) - observed_fields)
+    logical_artifacts = (
+        output_payload.get("logical_artifacts") if isinstance(output_payload, dict) else None
+    )
+    missing_logical_artifacts = [
+        item
+        for item in required_logical_artifacts
+        if not isinstance(logical_artifacts, dict) or not logical_artifacts.get(item)
+    ]
+    if not missing_fields and not missing_logical_artifacts:
+        return extraction
+    warnings = list(extraction.extraction_warnings)
+    if missing_fields:
+        warnings.append(
+            "Required package output fields are missing: " + ", ".join(missing_fields)
+        )
+    if missing_logical_artifacts:
+        warnings.append(
+            "Required logical artifacts are missing from output.json: "
+            + ", ".join(missing_logical_artifacts)
+        )
+    return extraction.model_copy(
+        update={
+            "metrics_extracted": False,
+            "metrics": {},
+            "metric_sources": {},
+            "schema_valid": False,
+            "extraction_warnings": warnings,
+        }
+    )
+
+
+def _unresolved_expected_files(
+    plan: EvidenceArtifactPlan,
+    output_payload: dict[str, Any] | None,
+) -> list[str]:
+    logical_artifacts = (
+        output_payload.get("logical_artifacts") if isinstance(output_payload, dict) else None
+    )
+    return [
+        item
+        for item in _required_logical_artifacts(plan)
+        if not isinstance(logical_artifacts, dict) or not logical_artifacts.get(item)
+    ]
+
+
+def _nested_mapping_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        return set(value) | {
+            key
+            for item in value.values()
+            for key in _nested_mapping_keys(item)
+        }
+    if isinstance(value, list):
+        return {key for item in value for key in _nested_mapping_keys(item)}
+    return set()
+
+
 def _code_spec_payload(
     *,
     package: HybridEvidencePackageCandidate,
     plan: EvidenceArtifactPlan,
     metrics: list[str],
+    execution_profile: Literal["smoke", "full"],
+    max_replications: int,
+    max_resamples: int,
+    max_grid_cells: int,
+    required_role_functions: list[str],
 ) -> dict[str, Any]:
+    standard_output_fields = [
+        "metrics",
+        "baseline_summary",
+        "control_summary",
+        "negative_control_summary",
+        "negative_controls_passed",
+        "success_criteria_satisfied",
+        "failure_criteria_satisfied",
+    ]
+    planned_output_fields = [
+        str(item) for item in plan.output_contract.get("required_fields", [])
+    ]
+    required_logical_artifacts = _required_logical_artifacts(plan)
     return {
         "spec_id": plan.artifact_plan_id,
         "route_id": plan.artifact_plan_id,
@@ -1228,15 +2748,12 @@ def _code_spec_payload(
         "input_contract": plan.input_contract,
         "output_contract": {
             "required_metrics": metrics,
-            "required_payload_fields": [
-                "metrics",
-                "baseline_summary",
-                "control_summary",
-                "negative_control_summary",
-                "negative_controls_passed",
-                "success_criteria_satisfied",
-                "failure_criteria_satisfied",
-            ],
+            "required_payload_fields": list(
+                dict.fromkeys(
+                    [*standard_output_fields, *planned_output_fields, "logical_artifacts"]
+                )
+            ),
+            "required_logical_artifacts": required_logical_artifacts,
             "scope_label": package.allowed_claim_scope,
             "success_criterion": "; ".join(plan.success_criteria),
             "failure_criterion": "; ".join(plan.failure_criteria),
@@ -1249,10 +2766,41 @@ def _code_spec_payload(
         "success_criteria": plan.success_criteria,
         "failure_criteria": plan.failure_criteria,
         "expected_artifacts": ["output.json"],
+        "required_role_functions": required_role_functions,
+        "workload_contract": {
+            "execution_profile": execution_profile,
+            "max_replications": max_replications,
+            "max_resamples": max_resamples,
+            "max_grid_cells": max_grid_cells,
+            "output_limit_bytes": _OUTPUT_LIMIT_BYTES,
+        },
         "allowed_evidence_labels": plan.allowed_evidence_labels,
         "forbidden_claims": plan.forbidden_claims,
         "execution_backend_required": plan.execution_backend_required,
     }
+
+
+def _required_logical_artifacts(plan: EvidenceArtifactPlan) -> list[str]:
+    return list(
+        dict.fromkeys(
+            str(item)
+            for item in plan.output_contract.get("expected_files", [])
+            if str(item) != "output.json"
+        )
+    )
+
+
+def _required_role_functions(plan: EvidenceArtifactPlan) -> list[str]:
+    functions = [
+        "run_baseline",
+        "run_proposed_method",
+        "run_controls",
+        "compute_metrics",
+    ]
+    functions.append("run_negative_controls")
+    if plan.artifact_type == EvidenceArtifactType.ROBUSTNESS_SWEEP:
+        functions.append("run_robustness_sweep")
+    return functions
 
 
 def _branch_route_type(artifact_type: EvidenceArtifactType):
@@ -1543,6 +3091,74 @@ def _load_execution_report(path: Path) -> EvidencePackageExecutionReport:
         raise HybridEvidencePackageError(f"Could not load package execution report: {exc}") from exc
 
 
+def _load_optional_m103_execution(
+    reports: Path,
+) -> tuple[Path | None, EvidencePackageExecutionReport | None]:
+    path = _latest_matching(reports, _EXECUTION_RE)
+    if path is None:
+        return None, None
+    return path, _load_execution_report(path)
+
+
+def _load_m103_execution_history(
+    reports: Path,
+) -> list[EvidencePackageExecutionReport]:
+    if not reports.is_dir():
+        return []
+    paths = sorted(
+        (item for item in reports.iterdir() if _EXECUTION_RE.match(item.name)),
+        key=lambda item: item.name,
+        reverse=True,
+    )
+    return [_load_execution_report(path) for path in paths]
+
+
+def _latest_m103_code_artifact_from_history(
+    *,
+    reports: Path,
+    source_package_report_path: str,
+    execution_profile: Literal["smoke", "full"],
+    source_spec_id: str,
+) -> LLMExperimentCodeArtifact | None:
+    for report in _load_m103_execution_history(reports):
+        if (
+            report.source_package_report_path != source_package_report_path
+            or report.execution_profile != execution_profile
+        ):
+            continue
+        candidates = [
+            item
+            for item in report.code_artifacts
+            if item.source_spec_id == source_spec_id
+            and item.backend_kind in {BackendKind.LLM_OPENAI, BackendKind.LLM_OTHER}
+        ]
+        if candidates:
+            return max(
+                enumerate(candidates),
+                key=lambda pair: (pair[1].generation_attempt, pair[0]),
+            )[1]
+    return None
+
+
+def _load_optional_m102_execution(
+    run_id: str, reports: Path
+) -> GeneratedExperimentExecutionReport | None:
+    path = _latest_matching(reports, _M102_EXECUTION_RE)
+    if path is None:
+        return None
+    try:
+        report = GeneratedExperimentExecutionReport.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValidationError) as exc:
+        raise HybridEvidencePackageError(
+            f"Could not load M102 generated-experiment report: {exc}"
+        ) from exc
+    if report.run_id != run_id or report.phase != "execution":
+        raise HybridEvidencePackageError("M102 execution report is inconsistent.")
+    return report
+
+
 def _latest_matching(directory: Path, pattern: re.Pattern[str]) -> Path | None:
     if not directory.is_dir():
         return None
@@ -1573,9 +3189,14 @@ def _slug(value: str) -> str:
 
 
 def _output_string(payload: dict[str, Any] | None, key: str, fallback: str) -> str:
-    if payload is None or not isinstance(payload.get(key), str) or not payload[key].strip():
+    if payload is None:
         return fallback
-    return str(payload[key]).strip()
+    value = payload.get(key)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if isinstance(value, (dict, list)) and value:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return fallback
 
 
 def _output_bool(payload: dict[str, Any] | None, key: str) -> bool | None:

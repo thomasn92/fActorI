@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/sandbox-execution-config.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/sandbox-execution-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Offline local sandbox limits for one audited generated script.",
@@ -51,7 +51,7 @@
       "type": "integer"
     },
     "timeout_seconds": {
-      "maximum": 300,
+      "maximum": 3600,
       "minimum": 1,
       "title": "Timeout Seconds",
       "type": "integer"
@@ -66,7 +66,7 @@
   ],
   "title": "SandboxExecutionConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.SandboxExecutionConfig",
   "x-factori-verification-evidence": false
 }

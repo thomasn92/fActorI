@@ -9,7 +9,7 @@ from typing import Any, Literal
 from factori.schemas import ArtifactRef, ArtifactType, ControllerActionType, LedgerCommit
 from factori.storage_protocols import ArtifactStoreProtocol, Clock, LedgerProtocol
 
-ArtifactFormat = Literal["json", "markdown", "latex", "bib", "text"]
+ArtifactFormat = Literal["json", "markdown", "latex", "bib", "text", "binary"]
 
 
 @dataclass(frozen=True)
@@ -180,8 +180,21 @@ def _write_artifact(
             metadata=metadata,
             filename_stem=spec.filename_stem,
         )
+    if spec.artifact_format == "binary":
+        if not isinstance(spec.payload, bytes):
+            raise TypeError("binary artifact payload must be bytes")
+        return store.write_bytes(
+            run_id=run_id,
+            artifact_id=spec.artifact_id,
+            artifact_type=spec.artifact_type,
+            content=spec.payload,
+            extension=spec.extension or "bin",
+            format_label=spec.format_label or "binary",
+            metadata=metadata,
+            filename_stem=spec.filename_stem,
+        )
     if not isinstance(spec.payload, str):
-        raise TypeError("markdown artifact payload must be a string")
+        raise TypeError("text artifact payload must be a string")
     if spec.artifact_format == "markdown":
         return store.write_markdown(
             run_id=run_id,

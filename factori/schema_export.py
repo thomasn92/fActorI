@@ -129,6 +129,7 @@ from factori.schemas import (
     SourceProvenance,
     StageCheckpoint,
     StagePrerequisite,
+    TargetedResearchBrief,
     VerificationLabel,
 )
 
@@ -188,6 +189,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "retrieval-result.example.json": "RetrievalResult",
     "run-status-report.example.json": "RunStatusReport",
     "stage-result.example.json": "StageResult",
+    "targeted-research-brief.example.json": "TargetedResearchBrief",
 }
 
 
@@ -1258,6 +1260,22 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         reproducibility_manifest=artifact,
     )
     adapter_config = AdapterConfig()
+    targeted_brief = TargetedResearchBrief(
+        brief_id="targeted-brief-example",
+        title="Calibration under controlled label corruption",
+        domain="probabilistic binary classification",
+        method="calibration and label-noise robustness",
+        central_question=(
+            "When does label corruption damage probability calibration more than discrimination?"
+        ),
+        baseline_candidates=["uncalibrated logistic regression"],
+        expected_metrics=["clean-posterior Brier score", "AUROC"],
+        negative_controls=["zero label corruption"],
+        data_regime="Synthetic data with known clean posterior probabilities.",
+        known_risks=["Instance-dependent corruption is not identified without assumptions."],
+        allowed_claim_scope="Controlled synthetic settings under declared corruption mechanisms.",
+        forbidden_claims=["real-world validation", "novelty proven", "publication ready"],
+    )
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
@@ -1269,6 +1287,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "artifact.example.json": artifact.model_dump(mode="json"),
         "artifact-manifest.example.json": artifact_manifest.model_dump(mode="json"),
         "stage-result.example.json": stage_result.model_dump(mode="json"),
+        "targeted-research-brief.example.json": targeted_brief.model_dump(mode="json"),
         "run-status-report.example.json": run_status.model_dump(mode="json"),
         "resume-validation-report.example.json": resume_validation.model_dump(mode="json"),
         "ledger-tip-validation-report.example.json": ledger_tip.model_dump(mode="json"),

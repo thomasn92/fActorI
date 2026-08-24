@@ -7,6 +7,38 @@ and coding agents that need a stable boundary without importing the Python runti
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 
+Protocol `0.78.0` adds explicitly gated final-paper PDF rendering from verified M106 LaTeX,
+append-only compile reports, persisted standalone source and PDF hashes, optional targeted-study
+tail integration, and inclusion of successful renders in hash-locked bundles. Rendered PDFs remain
+presentation context only and create no evidence, validation, approval, or publication readiness.
+
+Protocol `0.77.0` enlarges opt-in adaptive-study ceilings while preserving conservative defaults:
+up to 64 questioner iterations, 32 code repairs, 8 plan repairs, and an 8-attempt no-progress
+window. Explicit total-call and dollar budgets remain mandatory and authoritative; larger ceilings
+do not grant evidence, validation, or publication authority.
+
+Protocol `0.76.0` raises the bounded adaptive-questioner iteration ceiling from 20 to 24 so a
+resumed repair at the former ceiling can still receive a post-repair reassessment. External-call
+and cost budgets remain mandatory runtime limits, and the loop creates no evidence or publication
+authority.
+
+Protocol `0.75.0` adds explicit targeted-study OpenAI reasoning-effort and request-timeout settings.
+The default effort preserves provider behavior, while low, medium, and high are persisted in run
+configuration. Effort and timeout may only increase across resume. These transport settings remain
+generation context and create no evidence, validation, or publication authority.
+
+Protocol `0.74.0` adds a bounded adaptive evidence loop for full targeted studies. A non-fake LLM
+questioner checks implementation fidelity, numerical validity, controls, evidence sufficiency,
+claim scope, and stopping after M103; deterministic policy may route one append-only code or
+evidence-plan repair, accept an honest supported or negative result, or stop on weak evidence,
+no progress, or budget exhaustion. Metrics remain sandbox-output-only, the M104-M106 call tail is
+reserved, and the loop creates no proof, novelty, real-world validation, or publication readiness.
+
+Protocol `0.73.0` adds generic targeted research briefs and preflight, smoke, full-run, checkpoint,
+resume, and inspection contracts for a human-selected one-branch study. Targeted orchestration
+reuses the production M98-M106 stages without hardcoding a scientific domain and preserves all
+existing evidence and publication-readiness boundaries.
+
 Protocol `0.72.0` adds deterministic final-paper assembly, manifest, artifact/table/figure/
 appendix/open-obligation records, local final-paper verification findings, and read-only inspection.
 Assembly rebuilds tables only from completed sandbox output JSON through validated metric extraction

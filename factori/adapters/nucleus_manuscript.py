@@ -50,6 +50,34 @@ class ManuscriptPlanEnvelope(StrictModel):
     plans: list[ManuscriptPlanProposal] = Field(min_length=1, max_length=1)
 
 
+class ManuscriptPackageRoleProposal(StrictModel):
+    package_id: str = Field(min_length=1)
+    role: str = Field(min_length=1)
+
+
+class ManuscriptPlanTransportProposal(StrictModel):
+    """OpenAI-safe transport copy of the public plan proposal."""
+
+    working_title: str = Field(min_length=1)
+    paper_type: NucleusPaperType
+    central_question: str = Field(min_length=1)
+    central_claim: str = Field(min_length=1)
+    section_plans: list[ManuscriptSectionProposal] = Field(min_length=1)
+    supporting_package_roles: list[ManuscriptPackageRoleProposal] = Field(
+        default_factory=list
+    )
+    appendix_package_roles: list[ManuscriptPackageRoleProposal] = Field(
+        default_factory=list
+    )
+    negative_result_roles: list[ManuscriptPackageRoleProposal] = Field(
+        default_factory=list
+    )
+
+
+class ManuscriptPlanTransportEnvelope(StrictModel):
+    plans: list[ManuscriptPlanTransportProposal] = Field(min_length=1, max_length=1)
+
+
 class ManuscriptDraftProposal(StrictModel):
     title: str = Field(min_length=1)
     abstract: str = Field(min_length=1)
@@ -141,7 +169,12 @@ class OpenAINucleusManuscript:
 
     api_key: str = field(repr=False)
     model: str
-    transport: LLMTransport = field(default_factory=OpenAIResponsesTransport)
+    transport: LLMTransport = field(
+        default_factory=lambda: OpenAIResponsesTransport(
+            schema_name="factori_nucleus_manuscript",
+            nullable_optional_fields=False,
+        )
+    )
     allow_external_calls: bool = False
     backend_name: str = field(default="llm-openai", init=False)
     backend_kind: BackendKind = field(default=BackendKind.LLM_OPENAI, init=False)
@@ -167,7 +200,7 @@ class OpenAINucleusManuscript:
         return self._request(
             operation="planning",
             prompt_text=_planning_prompt(nucleus_payload, evidence_payload),
-            schema=ManuscriptPlanEnvelope.model_json_schema(),
+            schema=ManuscriptPlanTransportEnvelope.model_json_schema(),
             envelope_key="plans",
             model_type=ManuscriptPlanProposal,
         )
@@ -247,6 +280,9 @@ def _planning_prompt(nucleus: dict[str, Any], evidence: dict[str, Any]) -> str:
         "coherent paper type from the evidence package rather than describing the pipeline. Define "
         "a title, central question, central claim, flexible sections, and appropriate roles for "
         "supporting, appendix, and negative packages. Every section needs scope constraints. "
+        "When retrieved_literature_context is nonempty, include a Related Work or Literature "
+        "section that uses every retrieval_source binding in required_citations. Describe only "
+        "what the supplied metadata or abstract supports and preserve its retrieval limitations. "
         "Do not "
         "claim proof, novelty, underuse, real-world validation, publication readiness, or general "
         "domain truth. Return exactly one structured plan.\n\n"
@@ -261,10 +297,16 @@ def _synthesis_prompt(plan: dict[str, Any], evidence: dict[str, Any]) -> str:
         "bindings. Center the scientific nucleus, not the pipeline. Use only claim IDs and "
         "citation "
         "binding IDs supplied in the evidence. Numerical values must be copied exactly from the "
-        "artifact table supplied by the system; do not calculate or invent numbers. State symbolic "
-        "material as a draft with unresolved obligations. Place negative and secondary packages in "
+        "artifact-bound evidence payload, including its execution summaries; do not calculate, "
+        "round, approximate, or invent numbers. If an exact value cannot be located, omit the "
+        "numeric statement and record the limitation without a numeric placeholder or question "
+        "mark. State symbolic material as a draft with unresolved obligations. Place negative and "
+        "secondary packages in "
         "appendices. Do not claim proof, novelty, underuse, real-world validation, publication "
         "readiness, or general domain truth. Return exactly one structured draft.\n\n"
+        "When retrieval_source bindings are supplied, write a source-grounded Related Work or "
+        "Literature section, include every such binding in citation_binding_ids, and do not infer "
+        "beyond the supplied titles, metadata, abstracts, or snippets. "
         f"Plan:\n{json.dumps(plan, indent=2, sort_keys=True)}\n\n"
         f"Artifact-bound evidence:\n{json.dumps(evidence, indent=2, sort_keys=True)}"
     )
@@ -278,6 +320,17 @@ def _critic_prompt(
         "only against the attached claim/artifact bindings and citations. Identify claim-evidence "
         "misalignment, incoherence, unsafe scope, missing baselines or controls, negative-result "
         "omissions, citation problems, or readability defects. Do not invent metrics or evidence. "
+        "Reserve blocking_findings for unsupported assertions, unsafe scope, internally "
+        "incoherent claims, or missing claim-local provenance that must be repaired before this "
+        "bounded draft can be released. A design detail, manifest, decision rule, or validation "
+        "artifact that is unavailable in the supplied evidence is an unresolved limitation, not "
+        "by itself a blocking manuscript defect, when the draft clearly discloses its absence, "
+        "does not infer from it, and narrows the claim accordingly. Likewise, neutrally "
+        "transcribed status fields and an explicitly inconclusive control are not "
+        "successful-validation claims. "
+        "Treat a formal binding to a complete persisted execution artifact as reader-resolvable "
+        "artifact provenance when it is placed next to the supported claim or table. "
+        "Set score on a 0.0-to-1.0 scale, where 1.0 is strongest. "
         "Do not grant proof, novelty, real-world validation, scientific validation, or publication "
         "readiness. Return exactly one structured review.\n\n"
         f"Draft:\n{json.dumps(draft, indent=2, sort_keys=True)}\n\n"
@@ -295,6 +348,17 @@ def _revision_prompt(
         "unresolved obligations. If a blocking issue cannot be repaired from the supplied "
         "evidence, "
         "return a draft that makes the limitation explicit rather than inventing support. Do not "
+        "leave an unsupported comparative display in place merely by adding a disclaimer: remove "
+        "it from the claim-bearing manuscript or replace it with a nonnumeric limitation. Phrase "
+        "comparisons only at the contrast level directly represented in the evidence. Describe "
+        "ambiguous status fields neutrally rather than calling them contradictory or successful. "
+        "An unresolved control must be called inconclusive and must not support the abstract, "
+        "conclusion, robustness, or validation language. Put the supplied formal artifact binding "
+        "next to each retained primary claim or table it supports. If implementation details or "
+        "audit manifests are unavailable, consistently frame the document as an artifact-summary "
+        "report and keep those absences as unresolved limitations rather than implying independent "
+        "auditability. "
+        "Do not "
         "claim proof, novelty, underuse, real-world validation, publication readiness, or general "
         "domain truth. Return exactly one structured revision.\n\n"
         f"Draft:\n{json.dumps(draft, indent=2, sort_keys=True)}\n\n"
@@ -318,27 +382,124 @@ def _parse_one(
             message=f"response must contain exactly one {envelope_key} item",
         )
     try:
-        item = model_type.model_validate(items[0])
+        candidate = items[0]
+        if model_type is ManuscriptPlanProposal:
+            candidate = _normalize_plan_transport(candidate)
+        elif model_type is ManuscriptCriticProposal:
+            candidate = _normalize_critic_transport(candidate)
+        item = model_type.model_validate(candidate)
     except ValidationError as exc:
         return None, [str(exc)]
     return item, _boundary_reasons(item)
+
+
+def _normalize_plan_transport(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    normalized = dict(value)
+    for field_name in (
+        "supporting_package_roles",
+        "appendix_package_roles",
+        "negative_result_roles",
+    ):
+        roles = normalized.get(field_name)
+        if not isinstance(roles, list):
+            continue
+        role_map: dict[str, str] = {}
+        for item in roles:
+            if not isinstance(item, dict):
+                continue
+            package_id = item.get("package_id")
+            role = item.get("role")
+            if isinstance(package_id, str) and isinstance(role, str):
+                role_map[package_id] = role
+        normalized[field_name] = role_map
+    return normalized
+
+
+def _normalize_critic_transport(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    normalized = dict(value)
+    score = normalized.get("score")
+    if isinstance(score, (int, float)) and not isinstance(score, bool) and 1.0 < score <= 5.0:
+        normalized["score"] = float(score) / 5.0
+    return normalized
 
 
 def _boundary_reasons(item: StrictModel) -> list[str]:
     text = json.dumps(item.model_dump(mode="json"), sort_keys=True).lower()
     forbidden = {
         r"publication_ready=true": "manuscript output asserts publication readiness",
-        r"\bpublication[- ]ready\b": "manuscript output asserts publication readiness",
         r"\bnovelty (?:is )?(?:proven|established)\b": "manuscript output asserts novelty",
         r"\bunderuse (?:is )?(?:proven|established)\b": "manuscript output asserts underuse",
         r"\bwe prove\b": "manuscript output claims proof without checker evidence",
         r"\btheorem (?:is )?proved\b": "manuscript output claims proof without checker evidence",
-        r"\breal[- ]world validation\b": "manuscript output asserts real-world validation",
         r"\bgeneral(?:ly)? (?:shows|establishes|proves)\b": (
             "manuscript output overgeneralizes evidence"
         ),
     }
-    return [message for pattern, message in forbidden.items() if re.search(pattern, text)]
+    reasons = [
+        message for pattern, message in forbidden.items() if re.search(pattern, text)
+    ]
+    if _contains_affirmative_publication_readiness(text):
+        reasons.append("manuscript output asserts publication readiness")
+    if _contains_affirmative_real_world_validation(text):
+        reasons.append("manuscript output asserts real-world validation")
+    return reasons
+
+
+def _contains_affirmative_publication_readiness(text: str) -> bool:
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.casefold()):
+        for match in re.finditer(r"\bpublication[- ]read(?:y|iness)\b", sentence):
+            before = sentence[: match.start()]
+            after = sentence[match.end() :]
+            if re.search(
+                r"\b(?:not|no|never|without|avoid|avoids|cannot|can't|doesn't|"
+                r"does not|do not|don't|isn't|is not|unverified|unproven|"
+                r"unsupported|unresolved|forbid|forbids|must not|should not)\b",
+                before,
+            ):
+                continue
+            if re.match(
+                r"\s*(?:is|are|was|were|has been|have been|remains?)?\s*"
+                r"(?:not|never|unverified|unproven|unsupported|unresolved|forbidden|"
+                r"disallowed|absent|outside|out of scope|must not|should not|cannot)\b",
+                after,
+            ):
+                continue
+            return True
+    return False
+
+
+def _contains_affirmative_real_world_validation(text: str) -> bool:
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.casefold()):
+        for match in re.finditer(r"\breal[- ]world validation\b", sentence):
+            before = sentence[: match.start()]
+            after = sentence[match.end() :]
+            if re.search(
+                r"\b(?:not|no|never|without|avoid|avoids|cannot|can't|doesn't|"
+                r"does not|do not|don't|isn't|is not|unverified|unproven|"
+                r"unsupported|unresolved|forbid|forbids|must not|should not)\b",
+                before,
+            ):
+                continue
+            if re.match(
+                r"\s*(?:is|are|was|were|has been|have been|remains?)?\s*"
+                r"(?:not|never|unverified|unproven|unsupported|unresolved|forbidden|"
+                r"disallowed|absent|outside|out of scope|must not|should not|cannot)\b",
+                after,
+            ):
+                continue
+            if not re.search(
+                r"\b(?:achieves?|claims?|confirms?|constitutes?|creates?|demonstrates?|"
+                r"establishes?|provides?|proves?|represents?|supports?|validates?|verifies?|"
+                r"is|was|becomes?)\s+$",
+                before,
+            ):
+                continue
+            return True
+    return False
 
 
 def _json_object(raw: Any, *, operation: str) -> dict[str, Any]:
@@ -366,6 +527,7 @@ __all__ = [
     "ManuscriptCriticProposal",
     "ManuscriptDraftProposal",
     "ManuscriptPlanProposal",
+    "ManuscriptPlanTransportEnvelope",
     "ManuscriptRevisionProposal",
     "NucleusManuscriptClient",
     "NucleusManuscriptResponse",

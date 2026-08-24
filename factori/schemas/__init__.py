@@ -51,6 +51,7 @@ from factori.schemas.audit import (
     ExportReadinessReport,
     ExportSectionMap,
     FinalAuditReport,
+    FinalPaperRenderReport,
     FullPaperBundleCompletenessReport,
     FullPaperEvidenceBoundaryReport,
     FullPaperReadinessDecision,
@@ -542,6 +543,20 @@ from factori.schemas.stages import (
     StageCRedTeamSelectionReport,
     UncertaintyEstimate,
 )
+from factori.schemas.targeted import (
+    AdaptiveEvidenceDecision,
+    AdaptiveEvidenceIteration,
+    AdaptiveEvidenceLoopConfig,
+    AdaptiveEvidenceLoopReport,
+    AdaptiveQuestionerAnswer,
+    AdaptiveQuestionerRawArtifact,
+    TargetedResearchBrief,
+    TargetedStudyCheckpoint,
+    TargetedStudyConfig,
+    TargetedStudyInspectionReport,
+    TargetedStudyRunReport,
+    TargetedStudyStageRecord,
+)
 from factori.schemas.verification import (
     ExperimentRunContract,
     ExperimentRunResult,
@@ -554,6 +569,18 @@ from factori.schemas.verification import (
 )
 
 __all__ = [
+    "AdaptiveEvidenceDecision",
+    "AdaptiveEvidenceIteration",
+    "AdaptiveEvidenceLoopConfig",
+    "AdaptiveEvidenceLoopReport",
+    "AdaptiveQuestionerAnswer",
+    "AdaptiveQuestionerRawArtifact",
+    "TargetedResearchBrief",
+    "TargetedStudyCheckpoint",
+    "TargetedStudyConfig",
+    "TargetedStudyInspectionReport",
+    "TargetedStudyRunReport",
+    "TargetedStudyStageRecord",
     "HASH_RE",
     "SchemaError",
     "StrictModel",
@@ -791,6 +818,7 @@ __all__ = [
     "FinalPaperAssemblyReport",
     "FinalPaperVerificationFinding",
     "FinalPaperVerificationReport",
+    "FinalPaperRenderReport",
     "FinalPaperInspectionReport",
     "DomainPrimitive",
     "MethodLens",

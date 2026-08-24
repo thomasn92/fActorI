@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -206,8 +208,9 @@ def parse_opportunity_items(
     accepted: list[OpportunityProposalItem] = []
     rejected: list[dict[str, Any]] = []
     for index, raw_item in enumerate(raw_items):
+        prepared_item = _prepare_opportunity_item(raw_item)
         try:
-            item = OpportunityProposalItem.model_validate(raw_item)
+            item = OpportunityProposalItem.model_validate(prepared_item)
         except ValidationError as exc:
             rejected.append({"index": index, "reasons": [str(exc)]})
             continue
@@ -232,6 +235,38 @@ def parse_opportunity_items(
             )
         )
     return accepted, rejected
+
+
+def _prepare_opportunity_item(raw_item: Any) -> Any:
+    """Apply format-only compatibility repairs without creating scientific content."""
+    if not isinstance(raw_item, dict):
+        return raw_item
+    prepared = deepcopy(raw_item)
+    candidate = prepared.get("candidate")
+    if isinstance(candidate, dict):
+        for field_name in (
+            "retrieval_contradictions",
+            "false_bridge_risks",
+            "tautology_risks",
+        ):
+            if candidate.get(field_name) is None:
+                candidate[field_name] = []
+
+    score = prepared.get("score")
+    if isinstance(score, dict):
+        score_fields = tuple(OpportunityScoreProposal.model_fields)
+        numeric_fields = tuple(
+            field_name for field_name in score_fields if field_name != "score_explanation"
+        )
+        values = [score.get(field_name) for field_name in numeric_fields]
+        if (
+            all(isinstance(value, (int, float)) for value in values)
+            and any(value > 1.0 for value in values)
+            and all(0.0 <= value <= 10.0 for value in values)
+        ):
+            for field_name in numeric_fields:
+                score[field_name] = float(score[field_name]) / 10.0
+    return prepared
 
 
 def _json_object(raw: Any) -> dict[str, Any]:
@@ -286,7 +321,50 @@ def _scientific_boundary_reasons(candidate: OpportunityProposal) -> list[str]:
         " is underexplored": "opportunity asserts underuse as fact",
         "complete literature coverage": "opportunity asserts complete literature coverage",
     }
-    return [message for phrase, message in forbidden.items() if phrase in combined]
+    return [
+        message
+        for phrase, message in forbidden.items()
+        if _contains_unsafe_assertion(combined, phrase)
+    ]
+
+
+def _contains_unsafe_assertion(text: str, phrase: str) -> bool:
+    """Reject affirmative authority claims while allowing explicit limitations."""
+    normalized = " ".join(text.casefold().split())
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", normalized):
+        for match in re.finditer(re.escape(phrase), sentence):
+            before = sentence[: match.start()]
+            after = sentence[match.end() :]
+            if _has_boundary_negation(before, after):
+                continue
+            if phrase in {"real-world validation", "real world validation"} and not re.search(
+                r"\b(?:achieves?|claims?|confirms?|constitutes?|creates?|demonstrates?|"
+                r"establishes?|provides?|proves?|represents?|supports?|validates?|verifies?|"
+                r"is|was|becomes?)\s+$",
+                before,
+            ):
+                continue
+            return True
+    return False
+
+
+def _has_boundary_negation(before: str, after: str) -> bool:
+    if re.search(
+        r"\b(?:not|no|never|without|avoid|avoids|excluding|exclude|cannot|can't|"
+        r"doesn't|does not|do not|don't|isn't|is not|unverified|unproven|"
+        r"unsupported|unresolved|remains open|must not|should not)\b",
+        before,
+    ):
+        return True
+    return bool(
+        re.match(
+            r"\s*(?:(?:claims?|evidence|support|results?|study|analysis)s+)?"
+            r"(?:is|are|was|were|has been|have been|remains?)?\s*"
+            r"(?:not|never|unverified|unproven|unsupported|unresolved|forbidden|"
+            r"disallowed|absent|outside|out of scope|must not|should not|cannot)\b",
+            after,
+        )
+    )
 
 
 __all__ = [

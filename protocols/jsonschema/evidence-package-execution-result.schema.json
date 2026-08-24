@@ -21,7 +21,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/evidence-package-execution-result.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/evidence-package-execution-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One executed, drafted, or deferred hybrid evidence-package artifact outcome.",
@@ -87,6 +87,20 @@
       "title": "Evidence Label",
       "type": "string"
     },
+    "execution_completed": {
+      "default": false,
+      "title": "Execution Completed",
+      "type": "boolean"
+    },
+    "execution_profile": {
+      "default": "full",
+      "enum": [
+        "smoke",
+        "full"
+      ],
+      "title": "Execution Profile",
+      "type": "string"
+    },
     "failure_criteria_satisfied": {
       "anyOf": [
         {
@@ -116,6 +130,13 @@
       "default": false,
       "title": "Is Verification Evidence",
       "type": "boolean"
+    },
+    "logical_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Logical Artifact Ids",
+      "type": "array"
     },
     "metric_sources": {
       "additionalProperties": {
@@ -165,10 +186,27 @@
       "title": "Result Id",
       "type": "string"
     },
+    "reused_prior_execution": {
+      "default": false,
+      "title": "Reused Prior Execution",
+      "type": "boolean"
+    },
     "scope_label": {
       "minLength": 1,
       "title": "Scope Label",
       "type": "string"
+    },
+    "source_prior_result_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Prior Result Id Optional"
     },
     "source_substrate_id": {
       "minLength": 1,
@@ -202,6 +240,11 @@
       "default": null,
       "title": "Success Criteria Satisfied"
     },
+    "supports_adjudication": {
+      "default": false,
+      "title": "Supports Adjudication",
+      "type": "boolean"
+    },
     "unresolved_obligations": {
       "items": {
         "type": "string"
@@ -232,7 +275,7 @@
   ],
   "title": "EvidencePackageExecutionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.EvidencePackageExecutionResult",
   "x-factori-verification-evidence": false
 }

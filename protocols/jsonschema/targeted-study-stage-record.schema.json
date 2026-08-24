@@ -1,0 +1,70 @@
+{
+  "$id": "https://schemas.factori.local/0.78.0/targeted-study-stage-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One planned or completed stage in a targeted study.",
+  "properties": {
+    "artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Paths",
+      "type": "array"
+    },
+    "error_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error Optional"
+    },
+    "external_call_budget": {
+      "default": 0,
+      "minimum": 0,
+      "title": "External Call Budget",
+      "type": "integer"
+    },
+    "reused": {
+      "default": false,
+      "title": "Reused",
+      "type": "boolean"
+    },
+    "stage_name": {
+      "minLength": 1,
+      "title": "Stage Name",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "completed",
+        "reused",
+        "deferred",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "stage_name",
+    "status"
+  ],
+  "title": "TargetedStudyStageRecord",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.TargetedStudyStageRecord",
+  "x-factori-verification-evidence": false
+}

@@ -115,6 +115,7 @@ def test_nucleus_manuscript_cli_commands_are_registered() -> None:
 def test_final_paper_cli_commands_are_registered() -> None:
     assemble = CliRunner().invoke(app, ["assemble-final-paper", "--help"])
     verify = CliRunner().invoke(app, ["verify-final-paper", "--help"])
+    render = CliRunner().invoke(app, ["render-final-paper", "--help"])
     inspect = CliRunner().invoke(app, ["inspect-final-paper", "--help"])
     bundle = CliRunner().invoke(app, ["build-final-paper-bundle", "--help"])
 
@@ -122,6 +123,9 @@ def test_final_paper_cli_commands_are_registered() -> None:
     assert "--require-non-fake-backends" in assemble.output
     assert verify.exit_code == 0, verify.output
     assert "--require-non-fake-backends" in verify.output
+    assert render.exit_code == 0, render.output
+    assert "--allow-external-tools" in render.output
+    assert "--latex-executable" in render.output
     assert inspect.exit_code == 0, inspect.output
     assert "--json" in inspect.output
     assert bundle.exit_code == 0, bundle.output
@@ -293,6 +297,7 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--retrieval-mode" in execute_hybrid_packages.output
     assert "--require-non-fake" in execute_hybrid_packages.output
     assert "--allow-external-calls" in execute_hybrid_packages.output
+    assert "--llm-timeout-sec" in execute_hybrid_packages.output
     assert inspect_package_execution.exit_code == 0, inspect_package_execution.output
     assert "--json" in inspect_package_execution.output
     assert critique_packages.exit_code == 0, critique_packages.output

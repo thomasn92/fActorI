@@ -388,7 +388,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/generation-mutation-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/generation-mutation-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Context-only plan for current-winner-conditioned mutations.",
@@ -488,7 +488,7 @@
   ],
   "title": "GenerationMutationPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.GenerationMutationPlan",
   "x-factori-verification-evidence": false
 }

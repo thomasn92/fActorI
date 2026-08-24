@@ -943,7 +943,9 @@ experiments, compute metrics, or create evidence.
 `generate-experiment-code` reads executable M101 specs and uses the gated `llm-openai` backend to
 author one self-contained Python script per spec. `inspect-experiment-code` shows code and static
 audit counts. Live generation requires `--allow-external-calls`; strict mode also uses
-`--require-non-fake-backends` and forbids fallback.
+`--require-non-fake-backends` and forbids fallback. If the static audit blocks a script, the
+command makes at most one audit-directed LLM repair call by default, preserves both attempts, and
+executes only the newest passing artifact. Set `--max-safety-repair-calls 0` to disable repair.
 
 `run-generated-experiments` executes only scripts that passed the local AST audit, in isolated
 fixed-seed working directories with network imports, subprocesses, path escape, dynamic execution,
@@ -974,13 +976,48 @@ unresolved obligations and no checker authority. Literature novelty checks requi
 in strict production mode and always report `novelty_proven=false`. `inspect-hybrid-evidence-packages`
 and `inspect-evidence-package-execution` are read-only.
 
+OpenAI planning and code-generation requests use `--llm-timeout-seconds` independently of the
+generated-code sandbox `--timeout-seconds`. The LLM timeout defaults to 300 seconds for this command
+because full-profile structured code responses can take longer than the shared transport default.
+
+Execution is dependency ordered and explicitly budgeted. Use `--max-artifact-plans` to cap selected
+package components and `--max-codegen-calls` to cap new LLM code-generation calls; every omitted or
+dependency-blocked plan receives an append-only deferred result. Compatible production-eligible
+M102 results are reused by default only when substrate, route, required metrics, evidence label, and
+execution-output metric provenance all match. Disable that behavior with
+`--no-reuse-compatible-m102-results`. Generated code is blocked when required package output fields
+are absent from its output construction, and runtime output is checked again before metrics are
+accepted.
+
+Use `--execution-profile smoke` for low-cost architecture checks. Smoke code is bounded to 8
+replications, 16 resamples, and 8 grid cells by default, and can never support M104 adjudication.
+The `full` profile defaults to upper bounds of 1000 replications, 2000 resamples, and 256 grid
+cells; all limits can be lowered explicitly. Generated scripts must declare their profile and
+workload constants, implement and call baseline/method/control/negative-control/metric role
+functions, and bind output summaries to computed results. Planned tables, records, plots, and audit
+outputs are represented as non-empty logical artifacts inside `output.json`; plot entries are
+plot-ready data, not generated figures. Structured numeric metrics are flattened deterministically
+to leaf metric names with exact `output.json` source pointers. A resume may re-extract a previously
+successful persisted sandbox output after an extractor upgrade without regenerating code or data.
+
+After the first append-only execution report, use `--resume` to execute the next pending component.
+Completed compatible results are linked rather than recomputed. This supports separate bounded
+execution of the primary experiment, negative control, and robustness sweep. M104 adjudication is
+blocked until at least one package has completed every declared minimum component, plus every
+planned negative-control and robustness component, under the full profile.
+
 ```bash
 uv run factori plan-hybrid-evidence-packages --run-id atlas-scan-001 \
   --backend llm-openai --allow-external-calls --require-non-fake-backends
 uv run factori inspect-hybrid-evidence-packages --run-id atlas-scan-001 --json
 uv run factori execute-hybrid-evidence-packages --run-id atlas-scan-001 \
   --backend llm-openai --retrieval-mode real --allow-external-calls \
-  --require-non-fake-backends
+  --require-non-fake-backends --execution-profile smoke \
+  --max-artifact-plans 1 --max-codegen-calls 1 --llm-timeout-seconds 300
+uv run factori execute-hybrid-evidence-packages --run-id atlas-scan-001 \
+  --backend llm-openai --retrieval-mode real --allow-external-calls \
+  --require-non-fake-backends --execution-profile smoke --resume \
+  --max-artifact-plans 1 --max-codegen-calls 1
 uv run factori inspect-evidence-package-execution --run-id atlas-scan-001 --json
 ```
 
@@ -1027,13 +1064,18 @@ from completed sandbox `output.json` artifacts with matching schema-valid extrac
 writes final Markdown, LaTeX, manifest, provenance, appendix, and open-obligation context. Missing
 sources, figures, citations, scope qualifications, forbidden claims, or strict backend provenance
 defer assembly. `verify-final-paper` reruns local structural, hash, metric, citation, and claim
-checks. `build-final-paper-bundle` requires a verified assembly and writes a hash-locked,
-self-contained release directory without raw LLM responses, credentials, or executable code.
+checks. `render-final-paper` explicitly gates local LaTeX execution, writes standalone source plus
+a PDF and compile report, and gives those artifacts no evidence authority.
+`build-final-paper-bundle` requires a verified assembly and writes a hash-locked, self-contained
+release directory without raw LLM responses, credentials, or executable code. When a successful
+render exists, the bundle includes the standalone source, source fragment, PDF, and render report.
 All M106 outputs retain `publication_ready=false`.
 
 ```bash
 uv run factori assemble-final-paper --run-id atlas-scan-001 --require-non-fake-backends
 uv run factori verify-final-paper --run-id atlas-scan-001 --require-non-fake-backends
+uv run factori render-final-paper --run-id atlas-scan-001 \
+  --allow-external-tools --latex-executable pdflatex --timeout-seconds 300
 uv run factori inspect-final-paper --run-id atlas-scan-001 --json
 uv run factori build-final-paper-bundle --run-id atlas-scan-001
 ```
@@ -1069,3 +1111,75 @@ timeouts, resource limits, stdout/stderr, `metrics.json`, and hashed inputs/outp
 network requests, shell commands, path escapes, and dependencies outside the allowlist. Planned
 specs and sandbox reports remain workflow context; only a successful result that passes existing
 experiment-artifact intake can support its mapped bounded claim.
+# Targeted Study (M107)
+
+Use a human-selected Stage A candidate as the source for a generic one-branch study. Preflight is
+read-only and makes no external calls:
+
+```bash
+uv run factori run-targeted-study \
+  --run-id label-noise-targeted-001 \
+  --source-run-id label-noise-calibration-001 \
+  --candidate-id <CANDIDATE_ID> \
+  --mode preflight \
+  --model gpt-5.6-luna
+```
+
+Run the bounded smoke path through M103 with real retrieval and strict backend enforcement:
+
+```bash
+uv run factori run-targeted-study \
+  --run-id label-noise-targeted-001 \
+  --source-run-id label-noise-calibration-001 \
+  --candidate-id <CANDIDATE_ID> \
+  --mode smoke \
+  --backend llm-openai \
+  --model gpt-5.6-luna \
+  --retrieval-mode real \
+  --allow-external-calls \
+  --require-non-fake-backends \
+  --max-total-calls 6 \
+  --max-cost-usd 1.00
+```
+
+`--mode full` inserts a bounded adaptive questioner after M103. The questioner can accept a
+trustworthy supported or negative result, request an append-only implementation repair, request one
+evidence-plan repair, or stop on weak evidence, no progress, or budget exhaustion. Calls needed for
+M104-M106 are reserved before optional repairs. The default adaptive limits are three questioner
+passes, two code repairs, and one plan repair; override them with
+`--max-questioner-iterations`, `--max-code-repair-calls`, and `--max-plan-repair-calls`.
+When unreserved budget permits, initial code and freshly generated code from a repaired evidence
+plan receive one stderr-driven runtime-repair attempt. Expected method- or cell-level numerical
+failures must remain explicit failed observations with complete denominators; they must not crash
+the whole experiment or become fallback metrics. A plan-repair budget check reserves calls for
+planning, fresh code generation, and this bounded runtime repair. Failed transports remain in call
+and cost accounting but do not consume the scientific repair-attempt allowance on resume.
+Full execution defaults to a 300-second sandbox timeout, 1024 MB, 100 replications, 200 resamples,
+and 12 grid cells. These remain hard upper bounds and can be changed with
+`--experiment-timeout-seconds`, `--experiment-memory-limit-mb`, `--max-replications`,
+`--max-resamples`, and `--max-grid-cells`.
+
+For an explicitly gated PDF in the full targeted-study tail, add
+`--render-final-pdf --latex-executable pdflatex`. The local renderer consumes no LLM call budget;
+`--latex-timeout-seconds` controls its compile timeout.
+
+The same generic research-brief schema is used for every domain; label noise is an acceptance
+example, not a built-in study profile. Full mode requires at least 27 conservatively estimated LLM
+calls with the default manuscript tail, while `planned_external_calls` reports the upper bound.
+Use `--resume` after an interrupted stage or to increase a prior call/cost budget. A
+`stopped_no_progress` adaptive stage reopens only when both the questioner ceiling and the exhausted
+code-repair, plan-repair, or no-progress ceiling are explicitly increased. Accepted, weak, and
+blocked terminal decisions remain closed. Inspect state with:
+
+```bash
+uv run factori inspect-targeted-study --run-id label-noise-targeted-001 --json
+```
+
+For a deferred terminal adaptive decision, inspection reports `next_stage_optional=null`; M104-M106
+remain unreachable until an accepted adjudication-ready evidence result exists.
+
+Direct briefs are supported with `--brief <PATH>` and can be checked without mutation:
+
+```bash
+uv run factori validate-targeted-research-brief --path <PATH> --json
+```

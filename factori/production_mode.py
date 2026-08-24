@@ -76,6 +76,10 @@ _STAGE_FILES: tuple[tuple[re.Pattern[str], ScientificStageKind], ...] = (
         ScientificStageKind.EXPERIMENT_EXECUTION,
     ),
     (
+        re.compile(r"^adaptive-evidence-loop-report-\d{4}\.json$"),
+        ScientificStageKind.CRITIC_REVIEW,
+    ),
+    (
         re.compile(r"^scientific-critic-review-report-\d{4}\.json$"),
         ScientificStageKind.CRITIC_REVIEW,
     ),

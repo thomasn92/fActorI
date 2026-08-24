@@ -473,7 +473,18 @@ novelty, robustness, and validation obligations into flexible appendices, and wr
 hash-locked bundle after local verification. Missing assets, hash/metric mismatches, unsupported
 claims, absent scope qualifications, citations, or strict backend provenance fail closed. A
 `verified` final-paper status confirms only bounded structural consistency; it never sets
-`publication_ready=true`.
+`publication_ready=true`. An optional explicitly gated local render stage wraps fragment LaTeX in
+a deterministic standalone document, persists compile diagnostics and PDF bytes, and includes a
+successful render in the hash-locked bundle. Rendering remains presentation context only.
+
+M107 adds a generic human-targeted orchestration path and a bounded evidence-development controller
+between M103 and M104. One non-fake LLM questioner reviews the actual package, code, safety audit,
+sandbox observations, controls, and output-backed metrics. Deterministic policy may accept a
+trustworthy supported or negative result, route a same-question code or evidence-plan repair, or
+stop on weak evidence, repeated diagnostics, or exhausted budget. Every repair is append-only and
+must pass the existing M103 audit/execution/extraction path again. A fixed M104-M106 call tail is
+reserved before optional repair calls, and no questioner or orchestration artifact gains evidence,
+proof, novelty, real-world-validation, or publication-readiness authority.
 
 ## Narrative Paper Shape Boundary
 

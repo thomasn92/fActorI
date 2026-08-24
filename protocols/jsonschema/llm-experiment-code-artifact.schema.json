@@ -35,7 +35,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/llm-experiment-code-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/llm-experiment-code-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One LLM-authored Python experiment proposal before execution.",
@@ -90,6 +90,12 @@
       "title": "Filesystem Scope",
       "type": "string"
     },
+    "generation_attempt": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Generation Attempt",
+      "type": "integer"
+    },
     "implies_publication_readiness": {
       "const": false,
       "default": false,
@@ -125,6 +131,18 @@
       "title": "Random Seed",
       "type": "integer"
     },
+    "repair_of_code_artifact_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Of Code Artifact Id Optional"
+    },
     "required_inputs": {
       "items": {
         "type": "string"
@@ -156,7 +174,7 @@
       "type": "string"
     },
     "timeout_seconds": {
-      "maximum": 300,
+      "maximum": 3600,
       "minimum": 1,
       "title": "Timeout Seconds",
       "type": "integer"
@@ -179,7 +197,7 @@
   ],
   "title": "LLMExperimentCodeArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.LLMExperimentCodeArtifact",
   "x-factori-verification-evidence": false
 }

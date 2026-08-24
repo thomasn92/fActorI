@@ -1,0 +1,857 @@
+{
+  "$defs": {
+    "AdaptiveEvidenceDecision": {
+      "additionalProperties": false,
+      "description": "One normalized questioner decision subject to deterministic policy validation.",
+      "properties": {
+        "action": {
+          "enum": [
+            "accept_supported_result",
+            "accept_negative_result",
+            "repair_code",
+            "repair_evidence_plan",
+            "downgrade_claim",
+            "stop_weak_branch",
+            "stop_no_progress",
+            "stop_budget_exhausted",
+            "blocked"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "claim_disposition": {
+          "enum": [
+            "supported",
+            "negative_result",
+            "inconclusive",
+            "deferred",
+            "rejected"
+          ],
+          "title": "Claim Disposition",
+          "type": "string"
+        },
+        "creates_real_world_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Real World Validation",
+          "type": "boolean"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "creates_verified_theorem": {
+          "const": false,
+          "default": false,
+          "title": "Creates Verified Theorem",
+          "type": "boolean"
+        },
+        "decision_id": {
+          "minLength": 1,
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "deterministic_findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Deterministic Findings",
+          "type": "array"
+        },
+        "diagnostic_fingerprint": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Diagnostic Fingerprint",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "iteration": {
+          "minimum": 1,
+          "title": "Iteration",
+          "type": "integer"
+        },
+        "novelty_proven": {
+          "const": false,
+          "default": false,
+          "title": "Novelty Proven",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/AdaptiveQuestionerAnswer"
+          },
+          "minItems": 1,
+          "title": "Questions",
+          "type": "array"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "repair_instructions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repair Instructions",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_code_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Code Artifact Ids",
+          "type": "array"
+        },
+        "source_execution_report_id": {
+          "minLength": 1,
+          "title": "Source Execution Report Id",
+          "type": "string"
+        },
+        "source_package_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Package Ids",
+          "type": "array"
+        },
+        "source_package_report_id": {
+          "minLength": 1,
+          "title": "Source Package Report Id",
+          "type": "string"
+        },
+        "source_result_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Result Ids",
+          "type": "array"
+        },
+        "unresolved_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "decision_id",
+        "run_id",
+        "iteration",
+        "source_package_report_id",
+        "source_execution_report_id",
+        "source_package_ids",
+        "questions",
+        "action",
+        "rationale",
+        "claim_disposition",
+        "diagnostic_fingerprint",
+        "backend_kind"
+      ],
+      "title": "AdaptiveEvidenceDecision",
+      "type": "object"
+    },
+    "AdaptiveEvidenceIteration": {
+      "additionalProperties": false,
+      "description": "One append-only adaptive question-and-repair iteration.",
+      "properties": {
+        "after_fingerprint_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Fingerprint Optional"
+        },
+        "before_fingerprint": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Before Fingerprint",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "decision": {
+          "$ref": "#/$defs/AdaptiveEvidenceDecision"
+        },
+        "estimated_cost_usd": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Estimated Cost Usd",
+          "type": "number"
+        },
+        "external_calls_used": {
+          "default": 1,
+          "minimum": 0,
+          "title": "External Calls Used",
+          "type": "integer"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "iteration_id": {
+          "minLength": 1,
+          "title": "Iteration Id",
+          "type": "string"
+        },
+        "produced_execution_report_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Produced Execution Report Path Optional"
+        },
+        "produced_package_report_path_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Produced Package Report Path Optional"
+        },
+        "progress_made": {
+          "title": "Progress Made",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "source_execution_report_path": {
+          "minLength": 1,
+          "title": "Source Execution Report Path",
+          "type": "string"
+        },
+        "source_package_report_path": {
+          "minLength": 1,
+          "title": "Source Package Report Path",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "iteration_id",
+        "run_id",
+        "decision",
+        "source_package_report_path",
+        "source_execution_report_path",
+        "before_fingerprint",
+        "progress_made"
+      ],
+      "title": "AdaptiveEvidenceIteration",
+      "type": "object"
+    },
+    "AdaptiveEvidenceLoopConfig": {
+      "additionalProperties": false,
+      "description": "Bounded controls for post-M103 question, repair, and stopping behavior.",
+      "properties": {
+        "max_code_repair_calls": {
+          "default": 2,
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Max Code Repair Calls",
+          "type": "integer"
+        },
+        "max_plan_repair_calls": {
+          "default": 1,
+          "maximum": 8,
+          "minimum": 0,
+          "title": "Max Plan Repair Calls",
+          "type": "integer"
+        },
+        "max_questioner_iterations": {
+          "default": 3,
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Max Questioner Iterations",
+          "type": "integer"
+        },
+        "no_progress_limit": {
+          "default": 1,
+          "maximum": 8,
+          "minimum": 1,
+          "title": "No Progress Limit",
+          "type": "integer"
+        }
+      },
+      "title": "AdaptiveEvidenceLoopConfig",
+      "type": "object"
+    },
+    "AdaptiveQuestionerAnswer": {
+      "additionalProperties": false,
+      "description": "One artifact-grounded answer to a context-selected scientific question.",
+      "properties": {
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "category": {
+          "enum": [
+            "implementation_fidelity",
+            "numerical_validity",
+            "baseline_control_adequacy",
+            "evidence_sufficiency",
+            "claim_scope",
+            "repair_sufficiency",
+            "stopping"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "explanation": {
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "question_id": {
+          "minLength": 1,
+          "title": "Question Id",
+          "type": "string"
+        },
+        "recommended_fix_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Fix Optional"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown",
+            "not_applicable"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question_id",
+        "category",
+        "question",
+        "status",
+        "explanation",
+        "blocking"
+      ],
+      "title": "AdaptiveQuestionerAnswer",
+      "type": "object"
+    },
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    },
+    "LLMBudgetUsage": {
+      "additionalProperties": false,
+      "description": "Deterministic planned or observed LLM usage accounting.",
+      "properties": {
+        "candidate_generation_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Candidate Generation Calls",
+          "type": "integer"
+        },
+        "claim_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Claim Adjudication Calls",
+          "type": "integer"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "estimated_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Estimated Cost Usd"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "prose_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Prose Calls",
+          "type": "integer"
+        },
+        "quality_repair_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Quality Repair Calls",
+          "type": "integer"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        },
+        "review_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Review Calls",
+          "type": "integer"
+        },
+        "source_relevance_adjudication_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Source Relevance Adjudication Calls",
+          "type": "integer"
+        },
+        "total_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Calls",
+          "type": "integer"
+        },
+        "total_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Input Tokens"
+        },
+        "total_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Output Tokens"
+        },
+        "unknown_cost": {
+          "default": false,
+          "title": "Unknown Cost",
+          "type": "boolean"
+        },
+        "unknown_token_usage": {
+          "default": false,
+          "title": "Unknown Token Usage",
+          "type": "boolean"
+        }
+      },
+      "title": "LLMBudgetUsage",
+      "type": "object"
+    },
+    "ScientificStageKind": {
+      "description": "Scientific-generation, judgment, execution, and validation stage classes.",
+      "enum": [
+        "opportunity_discovery",
+        "atlas_construction",
+        "compatibility_filter",
+        "pair_ranking",
+        "diversity_selection",
+        "idea_tree_construction",
+        "variance_generation",
+        "substrate_construction",
+        "substrate_selection",
+        "branch_routing",
+        "experiment_design",
+        "spec_validation",
+        "experiment_code_generation",
+        "code_safety_audit",
+        "experiment_execution",
+        "metric_computation",
+        "hybrid_evidence_planning",
+        "symbolic_derivation",
+        "adjudication",
+        "adjudication_score_aggregation",
+        "critic_review",
+        "literature_retrieval",
+        "novelty_assessment",
+        "manuscript_planning",
+        "manuscript_synthesis",
+        "manuscript_artifact_assembly",
+        "claim_audit",
+        "bundle_verification"
+      ],
+      "title": "ScientificStageKind",
+      "type": "string"
+    },
+    "StageBackendRecord": {
+      "additionalProperties": false,
+      "description": "Explicit authority classification for one pipeline stage backend.",
+      "properties": {
+        "allowed_in_production": {
+          "title": "Allowed In Production",
+          "type": "boolean"
+        },
+        "artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Ids",
+          "type": "array"
+        },
+        "backend_kind": {
+          "$ref": "#/$defs/BackendKind"
+        },
+        "backend_name": {
+          "minLength": 1,
+          "title": "Backend Name",
+          "type": "string"
+        },
+        "fallback_disclosed": {
+          "default": true,
+          "title": "Fallback Disclosed",
+          "type": "boolean"
+        },
+        "fallback_used": {
+          "default": false,
+          "title": "Fallback Used",
+          "type": "boolean"
+        },
+        "is_execution_or_verification": {
+          "title": "Is Execution Or Verification",
+          "type": "boolean"
+        },
+        "is_scientific_generation": {
+          "title": "Is Scientific Generation",
+          "type": "boolean"
+        },
+        "is_scientific_judgment": {
+          "title": "Is Scientific Judgment",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "stage_id": {
+          "minLength": 1,
+          "title": "Stage Id",
+          "type": "string"
+        },
+        "stage_kind": {
+          "$ref": "#/$defs/ScientificStageKind"
+        }
+      },
+      "required": [
+        "stage_id",
+        "stage_kind",
+        "backend_kind",
+        "backend_name",
+        "is_scientific_generation",
+        "is_scientific_judgment",
+        "is_execution_or_verification",
+        "allowed_in_production",
+        "reason"
+      ],
+      "title": "StageBackendRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.78.0/adaptive-evidence-loop-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Terminal or resumable report for bounded question-driven evidence development.",
+  "properties": {
+    "accepted_result_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Accepted Result Ids",
+      "type": "array"
+    },
+    "backend_records": {
+      "items": {
+        "$ref": "#/$defs/StageBackendRecord"
+      },
+      "title": "Backend Records",
+      "type": "array"
+    },
+    "budget_usage": {
+      "$ref": "#/$defs/LLMBudgetUsage"
+    },
+    "call_accounting_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Call Accounting Paths",
+      "type": "array"
+    },
+    "code_repair_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Code Repair Attempt Count",
+      "type": "integer"
+    },
+    "code_repair_success_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Code Repair Success Count",
+      "type": "integer"
+    },
+    "config": {
+      "$ref": "#/$defs/AdaptiveEvidenceLoopConfig"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creates_verified_theorem": {
+      "const": false,
+      "default": false,
+      "title": "Creates Verified Theorem",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "iterations": {
+      "items": {
+        "$ref": "#/$defs/AdaptiveEvidenceIteration"
+      },
+      "title": "Iterations",
+      "type": "array"
+    },
+    "latest_execution_report_path": {
+      "minLength": 1,
+      "title": "Latest Execution Report Path",
+      "type": "string"
+    },
+    "latest_package_report_path": {
+      "minLength": 1,
+      "title": "Latest Package Report Path",
+      "type": "string"
+    },
+    "novelty_proven": {
+      "const": false,
+      "default": false,
+      "title": "Novelty Proven",
+      "type": "boolean"
+    },
+    "plan_repair_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Plan Repair Attempt Count",
+      "type": "integer"
+    },
+    "plan_repair_success_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Plan Repair Success Count",
+      "type": "integer"
+    },
+    "production_ready": {
+      "default": false,
+      "title": "Production Ready",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "report_id": {
+      "minLength": 1,
+      "title": "Report Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "in_progress",
+        "satisfied_supported",
+        "satisfied_negative",
+        "stopped_weak_branch",
+        "stopped_no_progress",
+        "budget_exhausted",
+        "blocked"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "terminal_reason": {
+      "minLength": 1,
+      "title": "Terminal Reason",
+      "type": "string"
+    },
+    "unresolved_blocking_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Blocking Questions",
+      "type": "array"
+    },
+    "unresolved_obligations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Obligations",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "report_id",
+    "run_id",
+    "config",
+    "status",
+    "terminal_reason",
+    "latest_package_report_path",
+    "latest_execution_report_path"
+  ],
+  "title": "AdaptiveEvidenceLoopReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.AdaptiveEvidenceLoopReport",
+  "x-factori-verification-evidence": false
+}

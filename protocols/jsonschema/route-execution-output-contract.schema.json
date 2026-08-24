@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/route-execution-output-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/route-execution-output-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Required bounded outputs and support boundary for route execution.",
@@ -41,7 +41,7 @@
   ],
   "title": "RouteExecutionOutputContract",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionOutputContract",
   "x-factori-verification-evidence": false
 }

@@ -204,7 +204,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/autonomous-paper-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/autonomous-paper-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only orchestration report for one autonomous paper run.",
@@ -570,7 +570,7 @@
   ],
   "title": "AutonomousPaperRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.AutonomousPaperRunReport",
   "x-factori-verification-evidence": false
 }

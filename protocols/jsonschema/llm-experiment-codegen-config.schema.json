@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/llm-experiment-codegen-config.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/llm-experiment-codegen-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded strict configuration for non-fake LLM experiment-code generation.",
@@ -40,6 +40,13 @@
       "title": "Max Executable Specs",
       "type": "integer"
     },
+    "max_safety_repair_calls": {
+      "default": 1,
+      "maximum": 12,
+      "minimum": 0,
+      "title": "Max Safety Repair Calls",
+      "type": "integer"
+    },
     "memory_limit_mb": {
       "default": 512,
       "maximum": 4096,
@@ -64,7 +71,7 @@
   ],
   "title": "LLMExperimentCodegenConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.LLMExperimentCodegenConfig",
   "x-factori-verification-evidence": false
 }

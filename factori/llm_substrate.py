@@ -164,8 +164,11 @@ def construct_llm_substrates(
         )
     tree_path, tree_report = _load_latest_tree_construction(run_id=run_id, reports=reports)
     deep_path, deep = _load_deep_from_variance(root_path=root_path, variance=variance)
-    _, atlas = _load_latest_atlas_scan(run_id=run_id, reports=reports)
-    pair_by_id = {item.pair_id: item for item in atlas.selected_pairs}
+    source_pairs = deep.source_pairs
+    if not source_pairs:
+        _, atlas = _load_latest_atlas_scan(run_id=run_id, reports=reports)
+        source_pairs = atlas.selected_pairs
+    pair_by_id = {item.pair_id: item for item in source_pairs}
     opportunity_by_id = {item.opportunity_id: item for item in deep.candidates}
     retrieval_by_pair = _load_retrieval_contexts(root_path=root_path, deep=deep)
     try:

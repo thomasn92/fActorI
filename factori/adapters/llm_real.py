@@ -30,6 +30,7 @@ from factori.schemas import (
 )
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+OPENAI_REASONING_EFFORTS = frozenset({"low", "medium", "high"})
 
 
 class LLMTransport(Protocol):
@@ -54,6 +55,17 @@ class OpenAIResponsesTransport:
     opener: URLOpener | None = None
     schema_name: str = "factori_stage_a_candidates"
     nullable_optional_fields: bool = True
+    reasoning_effort: str | None = None
+    max_output_tokens: int | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            self.reasoning_effort is not None
+            and self.reasoning_effort not in OPENAI_REASONING_EFFORTS
+        ):
+            raise ValueError("reasoning_effort must be low, medium, high, or None")
+        if self.max_output_tokens is not None and self.max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be positive or None")
 
     def create_response(
         self,
@@ -70,6 +82,8 @@ class OpenAIResponsesTransport:
             response_schema,
             schema_name,
             nullable_optional_fields=self.nullable_optional_fields,
+            reasoning_effort=self.reasoning_effort,
+            max_output_tokens=self.max_output_tokens,
         )
         try:
             body = request_json(
@@ -97,6 +111,8 @@ class OpenAIResponsesTransport:
                     endpoint=self.endpoint,
                     schema_name=schema_name,
                     nullable_optional_fields=self.nullable_optional_fields,
+                    reasoning_effort=self.reasoning_effort,
+                    max_output_tokens=self.max_output_tokens,
                 ),
             )
             raise
@@ -243,12 +259,14 @@ def _responses_payload(
     schema_name: str,
     *,
     nullable_optional_fields: bool = True,
+    reasoning_effort: str | None = None,
+    max_output_tokens: int | None = None,
 ) -> dict[str, Any]:
     strict_schema = make_openai_strict_json_schema(
         response_schema,
         nullable_optional_fields=nullable_optional_fields,
     )
-    return {
+    payload: dict[str, Any] = {
         "model": model,
         "input": prompt,
         "text": {
@@ -260,6 +278,11 @@ def _responses_payload(
             }
         },
     }
+    if reasoning_effort is not None:
+        payload["reasoning"] = {"effort": reasoning_effort}
+    if max_output_tokens is not None:
+        payload["max_output_tokens"] = max_output_tokens
+    return payload
 
 
 def build_openai_request_diagnostics(
@@ -270,12 +293,16 @@ def build_openai_request_diagnostics(
     endpoint: str = OPENAI_RESPONSES_URL,
     schema_name: str = "factori_stage_a_candidates",
     nullable_optional_fields: bool = True,
+    reasoning_effort: str | None = None,
+    max_output_tokens: int | None = None,
 ) -> dict[str, Any]:
     """Return secret-free metadata for diagnosing Responses request failures."""
     return {
         "endpoint": endpoint,
         "operation": "responses.create",
         "model": model,
+        "reasoning_effort": reasoning_effort or "default",
+        "max_output_tokens": max_output_tokens,
         "response_format": {
             "type": "json_schema",
             "name": schema_name,
@@ -289,6 +316,8 @@ def build_openai_request_diagnostics(
                 response_schema,
                 schema_name,
                 nullable_optional_fields=nullable_optional_fields,
+                reasoning_effort=reasoning_effort,
+                max_output_tokens=max_output_tokens,
             )
         ),
     }
@@ -300,6 +329,7 @@ def _annotate_openai_transport_error(
 ) -> None:
     error.message = (
         f"{error.message}; model={diagnostics['model']}; "
+        f"reasoning_effort={diagnostics['reasoning_effort']}; "
         f"response_format={diagnostics['response_format']['type']}; "
         f"prompt_hash={diagnostics['prompt_hash']}; "
         f"request_payload_hash={diagnostics['request_payload_hash']}"

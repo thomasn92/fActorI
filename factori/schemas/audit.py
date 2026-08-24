@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -447,6 +447,28 @@ class LatexCompileCheckReport(StrictModel):
     implies_publication_readiness: bool = False
 
 
+class FinalPaperRenderReport(StrictModel):
+    """Append-only local PDF rendering report for one verified final paper."""
+
+    report_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    render_status: Literal["rendered", "failed", "deferred"]
+    source_assembly_report_path_optional: str | None = None
+    source_verification_report_path_optional: str | None = None
+    source_latex_path_optional: str | None = None
+    standalone_latex_path_optional: str | None = None
+    rendered_pdf_path_optional: str | None = None
+    compile_check_report: LatexCompileCheckReport | None = None
+    blocking_findings: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    production_ready: bool = False
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    creates_real_world_validation: Literal[False] = False
+    implies_publication_readiness: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class LatexExportResult(StrictModel):
     """Complete deterministic LaTeX export payload; presentation context only."""
 
@@ -729,6 +751,7 @@ __all__ = [
     "LatexRenderConfig",
     "LatexRenderResult",
     "LatexCompileCheckReport",
+    "FinalPaperRenderReport",
     "LatexExportResult",
     "ExportReadinessReport",
     "ExportBundleManifest",

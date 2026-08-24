@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/deep-opportunity-score.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/deep-opportunity-score.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-fake LLM scientific score for one concrete opportunity.",
@@ -112,7 +112,7 @@
   ],
   "title": "DeepOpportunityScore",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.DeepOpportunityScore",
   "x-factori-verification-evidence": false
 }

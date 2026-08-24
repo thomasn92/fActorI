@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/experiment-code-safety-audit.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/experiment-code-safety-audit.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic static safety audit for one generated experiment script.",
@@ -19,6 +19,13 @@
       "minLength": 1,
       "title": "Code Artifact Id",
       "type": "string"
+    },
+    "contract_violations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contract Violations",
+      "type": "array"
     },
     "creates_scientific_validation": {
       "const": false,
@@ -84,6 +91,13 @@
       "title": "Resource Risk",
       "type": "array"
     },
+    "semantic_contract_violations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Semantic Contract Violations",
+      "type": "array"
+    },
     "subprocess_found": {
       "items": {
         "type": "string"
@@ -97,6 +111,13 @@
       },
       "title": "Unsafe Eval Exec Found",
       "type": "array"
+    },
+    "workload_limit_violations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Workload Limit Violations",
+      "type": "array"
     }
   },
   "required": [
@@ -106,7 +127,7 @@
   ],
   "title": "ExperimentCodeSafetyAudit",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.ExperimentCodeSafetyAudit",
   "x-factori-verification-evidence": false
 }

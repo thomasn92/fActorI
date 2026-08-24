@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "TargetedStudyStageRecord": {
+      "additionalProperties": false,
+      "description": "One planned, completed, reused, or blocked targeted-study stage.",
+      "properties": {
+        "artifact_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Artifact Paths",
+          "type": "array"
+        },
+        "error_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Optional"
+        },
+        "external_call_budget": {
+          "default": 0,
+          "minimum": 0,
+          "title": "External Call Budget",
+          "type": "integer"
+        },
+        "reused": {
+          "default": false,
+          "title": "Reused",
+          "type": "boolean"
+        },
+        "stage_name": {
+          "minLength": 1,
+          "title": "Stage Name",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "completed",
+            "reused",
+            "deferred",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stage_name",
+        "status"
+      ],
+      "title": "TargetedStudyStageRecord",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.78.0/targeted-study-checkpoint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Append-only stage-level targeted-study resume checkpoint.",
+  "properties": {
+    "brief_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Brief Hash",
+      "type": "string"
+    },
+    "call_accounting_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Call Accounting Paths",
+      "type": "array"
+    },
+    "checkpoint_id": {
+      "minLength": 1,
+      "title": "Checkpoint Id",
+      "type": "string"
+    },
+    "completed_stage_names": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Completed Stage Names",
+      "type": "array"
+    },
+    "config_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Hash",
+      "type": "string"
+    },
+    "latest_stage_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Stage Optional"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "stage_records": {
+      "items": {
+        "$ref": "#/$defs/TargetedStudyStageRecord"
+      },
+      "title": "Stage Records",
+      "type": "array"
+    }
+  },
+  "required": [
+    "checkpoint_id",
+    "run_id",
+    "config_hash",
+    "brief_hash"
+  ],
+  "title": "TargetedStudyCheckpoint",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.TargetedStudyCheckpoint",
+  "x-factori-verification-evidence": false
+}

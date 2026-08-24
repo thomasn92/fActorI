@@ -47,15 +47,6 @@ _ADJUDICATION_RE = re.compile(r"^cross-package-adjudication-report-(\d{4})\.json
 _RAW_RE = re.compile(r"^scientific-critic-raw-(\d{4})\.json$")
 
 _DEFAULT_ROLES = tuple(ScientificCriticRole)
-_BLOCKING_TYPES = {
-    ScientificCriticFindingType.WEAK_BASELINE,
-    ScientificCriticFindingType.MISSING_BASELINE,
-    ScientificCriticFindingType.FALSE_BRIDGE,
-    ScientificCriticFindingType.DECORATIVE_METHOD_USAGE,
-    ScientificCriticFindingType.OVERCLAIM,
-    ScientificCriticFindingType.PROOF_OVERSTATED,
-    ScientificCriticFindingType.REAL_WORLD_VALIDATION_OVERSTATED,
-}
 _MANDATORY_FORBIDDEN_CLAIMS = [
     "real-world validation",
     "verified theorem",
@@ -274,6 +265,11 @@ def adjudicate_evidence_packages(
         raise EvidencePackageAdjudicationError(
             "Strict adjudication requires production-eligible package, execution, and critic "
             "reports."
+        )
+    if not execution_report.adjudication_ready:
+        raise EvidencePackageAdjudicationError(
+            "Evidence packages are not ready for adjudication; execute all minimum required "
+            "components with the full profile and resolve blocking or inconclusive results."
         )
     if not critic_report.reviews:
         raise EvidencePackageAdjudicationError(
@@ -678,7 +674,8 @@ def _primary_blockers(
         finding.finding_id
         for review in reviews
         for finding in review.findings
-        if finding.blocking or finding.finding_type in _BLOCKING_TYPES
+        if finding.blocking
+        or finding.severity == ScientificCriticFindingSeverity.BLOCKING
     ]
     completed_or_negative = [
         item for item in results if item.status in {"completed", "negative_result"}

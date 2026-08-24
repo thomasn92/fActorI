@@ -1,0 +1,41 @@
+{
+  "$id": "https://schemas.factori.local/0.78.0/adaptive-evidence-loop-config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded iteration and scientific-repair controls for targeted evidence loops.",
+  "properties": {
+    "max_code_repair_calls": {
+      "default": 2,
+      "maximum": 32,
+      "minimum": 0,
+      "title": "Max Code Repair Calls",
+      "type": "integer"
+    },
+    "max_plan_repair_calls": {
+      "default": 1,
+      "maximum": 8,
+      "minimum": 0,
+      "title": "Max Plan Repair Calls",
+      "type": "integer"
+    },
+    "max_questioner_iterations": {
+      "default": 3,
+      "maximum": 64,
+      "minimum": 1,
+      "title": "Max Questioner Iterations",
+      "type": "integer"
+    },
+    "no_progress_limit": {
+      "default": 1,
+      "maximum": 8,
+      "minimum": 1,
+      "title": "No Progress Limit",
+      "type": "integer"
+    }
+  },
+  "title": "AdaptiveEvidenceLoopConfig",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.AdaptiveEvidenceLoopConfig",
+  "x-factori-verification-evidence": false
+}

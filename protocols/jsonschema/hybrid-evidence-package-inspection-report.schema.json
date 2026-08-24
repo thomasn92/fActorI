@@ -290,6 +290,18 @@
       "additionalProperties": false,
       "description": "LLM-authored hybrid evidence package for one selected scientific substrate.",
       "properties": {
+        "adaptive_repair_decision_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptive Repair Decision Id Optional"
+        },
         "allowed_claim_scope": {
           "minLength": 1,
           "title": "Allowed Claim Scope",
@@ -417,6 +429,18 @@
           "minLength": 1,
           "title": "Recommended Next Action",
           "type": "string"
+        },
+        "repair_of_package_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Of Package Id Optional"
         },
         "run_id": {
           "minLength": 1,
@@ -708,7 +732,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/hybrid-evidence-package-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/hybrid-evidence-package-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest hybrid evidence-package plan.",
@@ -853,7 +877,7 @@
   ],
   "title": "HybridEvidencePackageInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.HybridEvidencePackageInspectionReport",
   "x-factori-verification-evidence": false
 }

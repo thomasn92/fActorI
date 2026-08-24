@@ -6,6 +6,7 @@ import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,7 @@ from factori.schemas import (
     PaperNucleusSelection,
     ProductionModePolicy,
     RetrievalContext,
+    RetrievedSourceSummary,
     ScientificStageKind,
     StageBackendRecord,
 )
@@ -52,6 +54,11 @@ _EXECUTION_RE = re.compile(r"^evidence-package-execution-report-(\d{4})\.json$")
 _REPORT_RE = re.compile(r"^nucleus-manuscript-synthesis-report-(\d{4})\.json$")
 _RAW_RE = re.compile(r"^nucleus-manuscript-raw-(\d{4})\.json$")
 _RETRIEVAL_RE = re.compile(r"^retrieval-context-(\d{4})\.json$")
+_ARTIFACT_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_DECIMAL_LITERAL_RE = re.compile(
+    r"(?<![A-Za-z0-9_])[-+]?(?:\d+\.\d+|\.\d+)(?:[eE][-+]?\d+)?"
+    r"(?![A-Za-z0-9_]|\.\d)"
+)
 
 _REVIEW_ROLES = tuple(ManuscriptCriticRole)
 _MAIN_RESULT_STATUSES = {"completed", "negative_result", "draft_created"}
@@ -109,7 +116,10 @@ def plan_nucleus_manuscript(
     report_id = f"nucleus-manuscript-synthesis-report-{report_number:04d}"
     try:
         inputs = _load_inputs(root_path, run_id)
-        blockers = _prerequisite_blockers(inputs)
+        blockers = _prerequisite_blockers(
+            inputs,
+            require_literature_context=config.require_non_fake_backends,
+        )
         if blockers:
             return _persist_deferred(
                 run_id=run_id,
@@ -267,7 +277,10 @@ def synthesize_nucleus_manuscript(
             unresolved=_unresolved_obligations(inputs),
             backend_records=[],
         )
-    blockers = _prerequisite_blockers(inputs) + _validate_plan(
+    blockers = _prerequisite_blockers(
+        inputs,
+        require_literature_context=config.require_non_fake_backends,
+    ) + _validate_plan(
         planning.manuscript_plan_optional, inputs
     )
     if blockers:
@@ -740,7 +753,11 @@ def _load_inputs(root: Path, run_id: str) -> _Inputs:
     )
 
 
-def _prerequisite_blockers(inputs: _Inputs) -> list[str]:
+def _prerequisite_blockers(
+    inputs: _Inputs,
+    *,
+    require_literature_context: bool = False,
+) -> list[str]:
     blockers: list[str] = []
     if inputs.nucleus is None:
         blockers.append("No primary paper nucleus was selected by cross-package adjudication.")
@@ -768,16 +785,19 @@ def _prerequisite_blockers(inputs: _Inputs) -> list[str]:
             blockers.append("Primary nucleus has unresolved blocking scientific critic findings.")
             break
     if inputs.primary_package is not None:
-        completed_types = {
-            item.artifact_type.value
+        completed_plan_ids = {
+            item.artifact_plan_id
             for item in inputs.primary_results
             if item.status in _MAIN_RESULT_STATUSES
         }
-        required = set(inputs.primary_package.minimum_required_artifacts)
-        missing = sorted(required - completed_types)
-        if missing:
+        required_plan_ids = _required_artifact_plan_ids(inputs.primary_package)
+        missing_plan_ids = [
+            plan_id for plan_id in required_plan_ids if plan_id not in completed_plan_ids
+        ]
+        if missing_plan_ids:
             blockers.append(
-                "Primary package is missing required evidence artifact types: " + ", ".join(missing)
+                "Primary package is missing required evidence artifact plans: "
+                + ", ".join(missing_plan_ids)
             )
         if not inputs.claim_bindings:
             blockers.append(
@@ -801,7 +821,37 @@ def _prerequisite_blockers(inputs: _Inputs) -> list[str]:
             blockers.append(
                 "Primary package contains metrics without persisted execution metric sources."
             )
+    if require_literature_context and not any(
+        context.retrieval_mode == "real_retrieval"
+        and any(not source.fake_or_mocked for source in context.sources)
+        for context in inputs.retrieval_contexts
+    ):
+        blockers.append(
+            "A strict manuscript requires accepted real-retrieval sources for a bounded "
+            "literature section and bibliography."
+        )
     return _unique(blockers)
+
+
+def _required_artifact_plan_ids(package: HybridEvidencePackageCandidate) -> list[str]:
+    """Resolve free-form minimum labels to the package's executable plan IDs."""
+    declared = {_artifact_token(item) for item in package.minimum_required_artifacts}
+    always_required_types = {
+        EvidenceArtifactType.NEGATIVE_CONTROL,
+        EvidenceArtifactType.ROBUSTNESS_SWEEP,
+    }
+    matched = [
+        plan.artifact_plan_id
+        for plan in package.artifact_plans
+        if _artifact_token(plan.artifact_type.value) in declared
+        or _artifact_token(plan.artifact_plan_id) in declared
+        or plan.artifact_type in always_required_types
+    ]
+    return matched or [plan.artifact_plan_id for plan in package.artifact_plans]
+
+
+def _artifact_token(value: str) -> str:
+    return "_".join(_ARTIFACT_TOKEN_RE.findall(value.casefold()))
 
 
 def _build_bindings(
@@ -834,38 +884,60 @@ def _build_bindings(
         requires_qualification=True,
     )
     citations: list[EvidenceCitationBinding] = []
-    for index, result in enumerate(valid, start=1):
-        source = next(iter(result.metric_sources.values()), result.result_id)
-        citations.append(
-            EvidenceCitationBinding(
-                binding_id=f"evidence-citation-{_slug(primary.package_id)}-{index:03d}",
-                manuscript_location="results_or_appendix",
-                artifact_id=result.result_id,
-                source_type="execution_artifact",
-                evidence_label=result.evidence_label,
-                citation_or_reference_id=source,
-                supports_claim_ids=[claim_id],
-            )
-        )
-    if _requires_retrieval(primary):
-        for context in retrieval:
-            if context.retrieval_mode != "real_retrieval":
-                continue
-            for source_index, source in enumerate(context.sources, start=1):
-                citations.append(
-                    EvidenceCitationBinding(
-                        binding_id=(
-                            f"retrieval-citation-{_slug(primary.package_id)}-"
-                            f"{_slug(source.source_id)}-{source_index:03d}"
-                        ),
-                        manuscript_location="related_work_or_limitations",
-                        artifact_id=context.context_id,
-                        source_type="retrieval_source",
-                        evidence_label="RetrievalNoveltyAssessment",
-                        citation_or_reference_id=source.doi or source.source_id,
-                        supports_claim_ids=[claim_id],
-                    )
+    citation_index = 0
+    for result in valid:
+        sources = _unique(
+            source.split("#", 1)[0]
+            for source in result.metric_sources.values()
+            if source
+        ) or [result.result_id]
+        for source in sources:
+            citation_index += 1
+            citations.append(
+                EvidenceCitationBinding(
+                    binding_id=(
+                        f"evidence-citation-{_slug(primary.package_id)}-"
+                        f"{citation_index:03d}"
+                    ),
+                    manuscript_location="results_or_appendix",
+                    artifact_id=result.result_id,
+                    source_type="execution_artifact",
+                    evidence_label=result.evidence_label,
+                    citation_or_reference_id=source,
+                    supports_claim_ids=[claim_id],
                 )
+            )
+    seen_retrieval_sources: set[str] = set()
+    retrieval_supports_claim = _requires_retrieval(primary)
+    for context in retrieval:
+        if context.retrieval_mode != "real_retrieval":
+            continue
+        for source in context.sources:
+            if source.fake_or_mocked:
+                continue
+            source_identity = (source.doi or source.source_id).casefold()
+            if source_identity in seen_retrieval_sources:
+                continue
+            seen_retrieval_sources.add(source_identity)
+            citation_index += 1
+            citations.append(
+                EvidenceCitationBinding(
+                    binding_id=(
+                        f"retrieval-citation-{_slug(primary.package_id)}-"
+                        f"{citation_index:03d}"
+                    ),
+                    manuscript_location="related_work_or_limitations",
+                    artifact_id=context.context_id,
+                    source_type="retrieval_source",
+                    evidence_label=(
+                        "RetrievalNoveltyAssessment"
+                        if retrieval_supports_claim
+                        else "BoundedLiteratureContext"
+                    ),
+                    citation_or_reference_id=source.doi or source.source_id,
+                    supports_claim_ids=[claim_id] if retrieval_supports_claim else [],
+                )
+            )
     return [binding], citations
 
 
@@ -874,6 +946,21 @@ def _build_evidence_context(inputs: _Inputs) -> dict[str, Any]:
         "claim_artifact_bindings": [item.model_dump(mode="json") for item in inputs.claim_bindings],
         "evidence_citation_bindings": [
             item.model_dump(mode="json") for item in inputs.citation_bindings
+        ],
+        "retrieved_literature_context": [
+            {
+                "context_id": context.context_id,
+                "query": context.query,
+                "retrieval_confidence": context.retrieval_confidence,
+                "limitations": context.limitations,
+                "sources": [
+                    source.model_dump(mode="json")
+                    for source in context.sources
+                    if not source.fake_or_mocked
+                ],
+            }
+            for context in inputs.retrieval_contexts
+            if context.retrieval_mode == "real_retrieval"
         ],
         "primary_execution_results": [
             item.model_dump(mode="json") for item in inputs.primary_results
@@ -898,6 +985,12 @@ def _materialize_plan(
     citations: list[EvidenceCitationBinding],
 ) -> NucleusManuscriptPlan:
     allowed_claim_ids = {item.claim_id for item in bindings}
+    allowed_package_ids = {
+        nucleus.primary_package_id,
+        *nucleus.supporting_package_ids,
+        *nucleus.appendix_package_ids,
+        *nucleus.negative_package_ids,
+    }
     sections = [
         ManuscriptSectionPlan(
             section_id=item.section_id,
@@ -906,13 +999,56 @@ def _materialize_plan(
             purpose=item.purpose,
             claim_ids=item.claim_ids,
             artifact_ids=item.artifact_ids,
-            supporting_package_ids=item.supporting_package_ids,
-            required_citations=item.required_citations,
+            supporting_package_ids=[
+                value
+                for value in item.supporting_package_ids
+                if value in allowed_package_ids
+            ],
+            required_citations=_normalize_citation_references(
+                item.required_citations, citations
+            ),
             scope_constraints=item.scope_constraints,
             allowed_claim_ids=[value for value in item.claim_ids if value in allowed_claim_ids],
         )
         for item in proposal.section_plans
     ]
+    retrieval_citations = _retrieval_citation_ids(citations)
+    if retrieval_citations:
+        literature_sections = [
+            section
+            for section in sections
+            if any(
+                marker in f"{section.title} {section.purpose}".casefold()
+                for marker in ("related work", "literature", "prior work")
+            )
+        ]
+        if literature_sections:
+            literature_section = literature_sections[0]
+            sections[sections.index(literature_section)] = literature_section.model_copy(
+                update={
+                    "required_citations": _unique(
+                        [*literature_section.required_citations, *sorted(retrieval_citations)]
+                    )
+                }
+            )
+        else:
+            sections.insert(
+                min(1, len(sections)),
+                ManuscriptSectionPlan(
+                    section_id="section-related-work",
+                    title="Related Work and Literature Boundaries",
+                    bullets=[
+                        "Position the bounded question using only accepted retrieval metadata "
+                        "and abstracts."
+                    ],
+                    purpose="Summarize related literature and delimit unsupported novelty claims.",
+                    required_citations=sorted(retrieval_citations),
+                    scope_constraints=[
+                        "Do not claim exhaustive coverage, novelty, underuse, or scientific "
+                        "validation from retrieval context."
+                    ],
+                ),
+            )
     return NucleusManuscriptPlan(
         plan_id=plan_id,
         run_id=run_id,
@@ -965,7 +1101,8 @@ def _validate_plan(plan: NucleusManuscriptPlan, inputs: _Inputs) -> list[str]:
     known_claims = {item.claim_id for item in inputs.claim_bindings}
     known_citations = {item.binding_id for item in inputs.citation_bindings}
     known_packages = set(
-        (inputs.nucleus.supporting_package_ids if inputs.nucleus else [])
+        ([inputs.nucleus.primary_package_id] if inputs.nucleus else [])
+        + (inputs.nucleus.supporting_package_ids if inputs.nucleus else [])
         + (inputs.nucleus.appendix_package_ids if inputs.nucleus else [])
         + (inputs.nucleus.negative_package_ids if inputs.nucleus else [])
     )
@@ -982,19 +1119,75 @@ def _validate_plan(plan: NucleusManuscriptPlan, inputs: _Inputs) -> list[str]:
             blockers.append(
                 f"Section {section.section_id} references package IDs outside adjudication roles."
             )
-    corpus = " ".join(f"{item.title} {item.purpose}" for item in plan.section_plans).lower()
-    for required in (
-        "introduction",
-        "problem",
-        "method",
-        "result",
-        "limitation",
-        "conclusion",
-        "append",
-    ):
-        if required not in corpus:
-            blockers.append(f"Manuscript plan lacks required {required}-oriented section.")
+    corpus = " ".join(f"{item.title} {item.purpose}" for item in plan.section_plans).casefold()
+    required_roles = {
+        "question or introduction": ("question", "introduction", "motivation", "problem", "scope"),
+        "methods or design": ("method", "design", "data-generating", "estimand", "procedure"),
+        "results": ("result", "performance", "finding", "contrast", "outcome"),
+        "interpretation or limitations": (
+            "interpretation",
+            "limitation",
+            "conclusion",
+            "discussion",
+        ),
+    }
+    for role, markers in required_roles.items():
+        if not any(marker in corpus for marker in markers):
+            blockers.append(f"Manuscript plan lacks a {role}-oriented section.")
+    if inputs.nucleus and (
+        inputs.nucleus.appendix_package_ids or inputs.nucleus.negative_package_ids
+    ) and "append" not in corpus:
+        blockers.append("Manuscript plan lacks an appendix-oriented section.")
+    retrieval_citations = _retrieval_citation_ids(inputs.citation_bindings)
+    if retrieval_citations:
+        literature_sections = [
+            section
+            for section in plan.section_plans
+            if any(
+                marker in f"{section.title} {section.purpose}".casefold()
+                for marker in ("related work", "literature", "prior work")
+            )
+        ]
+        if not literature_sections:
+            blockers.append("Manuscript plan lacks a source-grounded literature section.")
+        elif not retrieval_citations.issubset(
+            {
+                citation
+                for section in literature_sections
+                for citation in section.required_citations
+            }
+        ):
+            blockers.append(
+                "The literature section does not bind every accepted retrieval source."
+            )
     return _unique(blockers)
+
+
+def _normalize_citation_references(
+    values: list[str], citations: list[EvidenceCitationBinding]
+) -> list[str]:
+    aliases: dict[str, str] = {}
+    source_prefixes: dict[str, str] = {}
+    for citation in citations:
+        aliases[citation.binding_id] = citation.binding_id
+        aliases[citation.artifact_id] = citation.binding_id
+        aliases[citation.citation_or_reference_id] = citation.binding_id
+        source_prefixes[citation.citation_or_reference_id.split("#", 1)[0]] = (
+            citation.binding_id
+        )
+    normalized: list[str] = []
+    for value in values:
+        resolved = aliases.get(value) or source_prefixes.get(value.split("#", 1)[0])
+        if resolved is None:
+            for alias in sorted(aliases, key=len, reverse=True):
+                suffix = value.removeprefix(alias)
+                if suffix != value and suffix.lstrip().startswith((";", ":", "-", "(")):
+                    resolved = aliases[alias]
+                    break
+        candidate = resolved or value
+        if candidate not in normalized:
+            normalized.append(candidate)
+    return normalized
 
 
 def _materialize_draft(
@@ -1008,8 +1201,18 @@ def _materialize_draft(
 ) -> tuple[NucleusManuscriptDraft, list[str]]:
     known_claims = {item.claim_id for item in inputs.claim_bindings}
     known_citations = {item.binding_id for item in inputs.citation_bindings}
-    markdown = _append_metric_table(proposal.markdown, inputs.primary_results)
-    latex = _append_latex_metric_table(proposal.latex, inputs.primary_results)
+    if source_draft_id is None:
+        markdown = _append_metric_table(proposal.markdown, inputs.primary_results)
+        latex = _append_latex_metric_table(proposal.latex, inputs.primary_results)
+    else:
+        markdown = proposal.markdown
+        latex = proposal.latex
+    retrieval_citations = _retrieval_citation_ids(inputs.citation_bindings)
+    markdown, latex = _ensure_literature_content(
+        markdown=markdown,
+        latex=latex,
+        inputs=inputs,
+    )
     draft = NucleusManuscriptDraft(
         draft_id=draft_id,
         run_id=run_id,
@@ -1019,7 +1222,9 @@ def _materialize_draft(
         markdown=markdown,
         latex=latex,
         claim_ids_used=proposal.claim_ids_used,
-        citation_binding_ids=proposal.citation_binding_ids,
+        citation_binding_ids=_unique(
+            [*proposal.citation_binding_ids, *sorted(retrieval_citations)]
+        ),
         source_draft_id_optional=source_draft_id,
     )
     blockers = _forbidden_reasons(
@@ -1036,12 +1241,31 @@ def _materialize_draft(
         blockers.append("Draft references unknown evidence citation binding IDs.")
     if not draft.claim_ids_used:
         blockers.append("Draft does not identify any artifact-bound substantive claims.")
+    retrieval_citations = _retrieval_citation_ids(inputs.citation_bindings)
+    if retrieval_citations:
+        if not retrieval_citations.issubset(set(draft.citation_binding_ids)):
+            blockers.append("Draft omits accepted retrieval-source citation bindings.")
+        if not any(
+            marker in draft.markdown.casefold()
+            for marker in ("related work", "literature", "prior work")
+        ):
+            blockers.append("Draft lacks source-grounded literature content.")
     blockers.extend(
         _metric_literal_reasons(proposal.markdown, proposal.latex, inputs.primary_results)
     )
-    for required in ("introduction", "limitation", "conclusion", "appendix"):
-        if required not in draft.markdown.lower():
-            blockers.append(f"Draft lacks required {required} content.")
+    requires_appendix = bool(
+        inputs.nucleus
+        and (
+            inputs.nucleus.appendix_package_ids
+            or inputs.nucleus.negative_package_ids
+        )
+    )
+    blockers.extend(
+        _required_draft_content_reasons(
+            draft.markdown,
+            require_appendix=requires_appendix,
+        )
+    )
     if inputs.nucleus and inputs.nucleus.rejected_package_ids:
         # Rejected packages cannot be cited as claim support even if their identifiers appear.
         rejected = set(inputs.nucleus.rejected_package_ids)
@@ -1051,6 +1275,82 @@ def _materialize_draft(
                 "provenance."
             )
     return draft, _unique(blockers)
+
+
+def _retrieval_citation_ids(
+    citations: Iterable[EvidenceCitationBinding],
+) -> set[str]:
+    return {
+        item.binding_id for item in citations if item.source_type == "retrieval_source"
+    }
+
+
+def _ensure_literature_content(
+    *,
+    markdown: str,
+    latex: str,
+    inputs: _Inputs,
+) -> tuple[str, str]:
+    citations = [
+        item for item in inputs.citation_bindings if item.source_type == "retrieval_source"
+    ]
+    if not citations or any(
+        marker in markdown.casefold()
+        for marker in ("related work", "literature", "prior work")
+    ):
+        return markdown, latex
+    markdown_lines = [
+        markdown.rstrip(),
+        "",
+        "## Related Work and Literature Boundaries",
+        "",
+        (
+            "The following accepted retrieval records provide bounded background context only; "
+            "they do not establish novelty, completeness, or scientific validation."
+        ),
+        "",
+    ]
+    latex_lines = [
+        latex.rstrip(),
+        "",
+        r"\section{Related Work and Literature Boundaries}",
+        (
+            "The accepted retrieval records provide bounded background context only; they do "
+            "not establish novelty, completeness, or scientific validation."
+        ),
+        r"\begin{itemize}",
+    ]
+    for citation in citations:
+        source = _retrieval_source_for_citation(citation, inputs.retrieval_contexts)
+        if source is None:
+            continue
+        authors = ", ".join(source.authors) if source.authors else "Unknown author"
+        year = str(source.year) if source.year is not None else "n.d."
+        markdown_lines.append(
+            f"- {authors} ({year}), *{source.title}* "
+            f"[`{citation.binding_id}`]."
+        )
+        latex_lines.append(
+            rf"\item {_latex_escape(authors)} ({_latex_escape(year)}), "
+            rf"\emph{{{_latex_escape(source.title)}}}."
+        )
+    latex_lines.append(r"\end{itemize}")
+    return "\n".join(markdown_lines).rstrip() + "\n", "\n".join(latex_lines).rstrip() + "\n"
+
+
+def _retrieval_source_for_citation(
+    citation: EvidenceCitationBinding,
+    contexts: Iterable[RetrievalContext],
+) -> RetrievedSourceSummary | None:
+    for context in contexts:
+        if context.context_id != citation.artifact_id:
+            continue
+        for source in context.sources:
+            if source.fake_or_mocked:
+                continue
+            if citation.citation_or_reference_id in {source.source_id, source.doi}:
+                return source
+    return None
 
 
 def _run_critics(
@@ -1568,9 +1868,31 @@ def _append_latex_metric_table(latex: str, results: list[EvidencePackageExecutio
 def _metric_literal_reasons(
     markdown: str, latex: str, results: list[EvidencePackageExecutionResult]
 ) -> list[str]:
-    allowed = {str(value) for result in results for value in result.metrics.values()}
-    observed = set(re.findall(r"(?<![A-Za-z_])\d+\.\d+(?![A-Za-z_])", f"{markdown}\n{latex}"))
-    unexpected = sorted(value for value in observed if value not in allowed)
+    allowed = {
+        Decimal(str(value)) for result in results for value in result.metrics.values()
+    }
+    for result in results:
+        for summary in (
+            result.baseline_summary,
+            result.control_summary,
+            result.negative_control_summary,
+        ):
+            allowed.update(Decimal(value) for value in _DECIMAL_LITERAL_RE.findall(summary))
+    markdown_without_heading_ordinals = re.sub(
+        r"(?m)^(#{1,6}\s+)\d+(?:\.\d+)+(?=\s)", r"\1", markdown
+    )
+    latex_without_layout_dimensions = re.sub(
+        r"(?<![\w.])[+-]?(?:\d+(?:\.\d*)?|\.\d+)"
+        r"(?=\\(?:line|text|column|paper)width\b)",
+        "",
+        latex,
+    )
+    observed = set(
+        _DECIMAL_LITERAL_RE.findall(
+            f"{markdown_without_heading_ordinals}\n{latex_without_layout_dimensions}"
+        )
+    )
+    unexpected = sorted(value for value in observed if Decimal(value) not in allowed)
     return (
         [
             "Draft contains decimal metric literals not present in execution artifacts: "
@@ -1581,13 +1903,89 @@ def _metric_literal_reasons(
     )
 
 
+def _required_draft_content_reasons(
+    markdown: str,
+    *,
+    require_appendix: bool = True,
+) -> list[str]:
+    corpus = markdown.casefold()
+    required_content = {
+        "introduction": (
+            "introduction",
+            "motivation",
+            "background",
+            "question",
+            "problem",
+            "study scope",
+        ),
+        "limitation": ("limitation", "bounded scope", "scope limit"),
+        "conclusion": ("conclusion", "summary"),
+    }
+    if require_appendix:
+        required_content["appendix"] = ("appendix",)
+    return [
+        f"Draft lacks required {label} content."
+        for label, markers in required_content.items()
+        if not any(marker in corpus for marker in markers)
+    ]
+
+
 def _forbidden_reasons(payload: Any) -> list[str]:
     text = (
         json.dumps(payload, sort_keys=True).lower()
         if not isinstance(payload, str)
         else payload.lower()
     )
-    return [message for phrase, message in _FORBIDDEN_PHRASES.items() if phrase in text]
+    reasons = [
+        message
+        for phrase, message in _FORBIDDEN_PHRASES.items()
+        if phrase not in {"real-world validation", "real world validation"}
+        and phrase in text
+    ]
+    fragments = [payload] if isinstance(payload, str) else list(_text_fragments(payload))
+    if any(_contains_affirmative_real_world_validation(item) for item in fragments):
+        reasons.append("real-world validation assertion")
+    return reasons
+
+
+def _text_fragments(payload: Any) -> Iterable[str]:
+    if isinstance(payload, str):
+        yield payload
+    elif isinstance(payload, dict):
+        for value in payload.values():
+            yield from _text_fragments(value)
+    elif isinstance(payload, (list, tuple, set)):
+        for value in payload:
+            yield from _text_fragments(value)
+
+
+def _contains_affirmative_real_world_validation(text: str) -> bool:
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.casefold()):
+        for match in re.finditer(r"\breal[- ]world validation\b", sentence):
+            before = sentence[: match.start()]
+            after = sentence[match.end() :]
+            if re.search(
+                r"\b(?:not|no|never|without|avoid|avoids|cannot|can't|doesn't|"
+                r"does not|do not|don't|isn't|is not|unverified|unproven|"
+                r"unsupported|unresolved|forbid|forbids|must not|should not)\b",
+                before,
+            ):
+                continue
+            if re.match(
+                r"\s*(?:is|are|was|were|has been|have been|remains?)?\s*"
+                r"(?:not|never|unverified|unproven|unsupported|unresolved|forbidden|"
+                r"disallowed|absent|outside|out of scope|must not|should not|cannot)\b",
+                after,
+            ):
+                continue
+            if re.search(
+                r"\b(?:achieves?|claims?|confirms?|constitutes?|creates?|demonstrates?|"
+                r"establishes?|provides?|proves?|represents?|supports?|validates?|verifies?|"
+                r"is|was|becomes?)\s+$",
+                before,
+            ):
+                return True
+    return False
 
 
 def _merge_forbidden(values: list[str]) -> list[str]:

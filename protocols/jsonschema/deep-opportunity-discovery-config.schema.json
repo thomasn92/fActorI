@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/deep-opportunity-discovery-config.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/deep-opportunity-discovery-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded configuration for retrieval-contextualized LLM opportunity discovery.",
@@ -92,6 +92,27 @@
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
+    },
+    "source_mode": {
+      "default": "atlas_scan",
+      "enum": [
+        "atlas_scan",
+        "targeted_brief"
+      ],
+      "title": "Source Mode",
+      "type": "string"
+    },
+    "targeted_brief_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Targeted Brief Path Optional"
     }
   },
   "required": [
@@ -101,7 +122,7 @@
   ],
   "title": "DeepOpportunityDiscoveryConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.DeepOpportunityDiscoveryConfig",
   "x-factori-verification-evidence": false
 }

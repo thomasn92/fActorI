@@ -392,6 +392,8 @@ class DeepOpportunityDiscoveryConfig(StrictModel):
     run_id: str = Field(min_length=1)
     backend: str = Field(min_length=1)
     retrieval_mode: Literal["mocked_retrieval", "real_retrieval"]
+    source_mode: Literal["atlas_scan", "targeted_brief"] = "atlas_scan"
+    targeted_brief_path_optional: str | None = None
     max_pairs: int = Field(default=30, ge=1)
     max_generation_calls: int = Field(default=30, ge=1)
     opportunities_per_pair: int = Field(default=3, ge=2, le=4)
@@ -535,7 +537,12 @@ class DeepOpportunityDiscoveryReport(StrictModel):
     discovery_id: str = Field(min_length=1)
     discovery_status: Literal["completed", "completed_with_warnings", "failed"]
     config: DeepOpportunityDiscoveryConfig
-    source_atlas_scan_path: str = Field(min_length=1)
+    source_context_kind: Literal["atlas_scan", "targeted_brief"] = "atlas_scan"
+    source_atlas_scan_path: str | None = None
+    source_targeted_brief_path_optional: str | None = None
+    source_pairs: list[DomainMethodPair] = Field(default_factory=list)
+    source_domains: list[DomainAtlasEntry] = Field(default_factory=list)
+    source_methods: list[MethodAtlasEntry] = Field(default_factory=list)
     selected_pair_count: int = Field(ge=0)
     attempted_pair_count: int = Field(ge=0)
     generated_opportunity_count: int = Field(ge=0)
@@ -1176,6 +1183,7 @@ class LLMExperimentCodegenConfig(StrictModel):
     backend: str = Field(min_length=1)
     max_executable_specs: int = Field(default=12, ge=1)
     max_codegen_calls: int = Field(default=12, ge=1)
+    max_safety_repair_calls: int = Field(default=1, ge=0, le=12)
     default_timeout_seconds: int = Field(default=30, ge=1, le=300)
     memory_limit_mb: int = Field(default=512, ge=64, le=4096)
     allowed_dependencies: list[str] = Field(default_factory=lambda: ["numpy"])
@@ -1187,6 +1195,8 @@ class LLMExperimentCodeArtifact(StrictModel):
     """One LLM-authored Python experiment proposal; not an execution result."""
 
     code_artifact_id: str = Field(min_length=1)
+    repair_of_code_artifact_id_optional: str | None = None
+    generation_attempt: int = Field(default=1, ge=1)
     run_id: str = Field(min_length=1)
     source_spec_id: str = Field(min_length=1)
     source_route_id: str = Field(min_length=1)
@@ -1200,7 +1210,7 @@ class LLMExperimentCodeArtifact(StrictModel):
     required_inputs: list[str] = Field(default_factory=list)
     declared_dependencies: list[str] = Field(default_factory=list)
     random_seed: int = Field(ge=0)
-    timeout_seconds: int = Field(ge=1, le=300)
+    timeout_seconds: int = Field(ge=1, le=3600)
     network_required: Literal[False] = False
     filesystem_scope: str = Field(min_length=1)
     publication_ready: Literal[False] = False
@@ -1224,6 +1234,9 @@ class ExperimentCodeSafetyAudit(StrictModel):
     unsafe_eval_exec_found: list[str] = Field(default_factory=list)
     nondeterminism_risk: list[str] = Field(default_factory=list)
     resource_risk: list[str] = Field(default_factory=list)
+    contract_violations: list[str] = Field(default_factory=list)
+    semantic_contract_violations: list[str] = Field(default_factory=list)
+    workload_limit_violations: list[str] = Field(default_factory=list)
     allowed_imports: list[str] = Field(default_factory=list)
     publication_ready: Literal[False] = False
     creates_scientific_validation: Literal[False] = False
@@ -1236,7 +1249,7 @@ class SandboxExecutionConfig(StrictModel):
     execution_backend: Literal["uv_local"] = "uv_local"
     entrypoint: str = Field(min_length=1)
     output_json_filename: str = Field(min_length=1)
-    timeout_seconds: int = Field(ge=1, le=300)
+    timeout_seconds: int = Field(ge=1, le=3600)
     memory_limit_mb: int = Field(ge=64, le=4096)
     output_limit_bytes: int = Field(default=1_048_576, ge=1024)
     network_disabled: Literal[True] = True
@@ -1322,6 +1335,8 @@ class LLMExperimentCodeRawArtifact(StrictModel):
     """Secret-free prompt/response provenance for one experiment-code call."""
 
     raw_artifact_id: str = Field(min_length=1)
+    repair_of_code_artifact_id_optional: str | None = None
+    generation_attempt: int = Field(default=1, ge=1)
     run_id: str = Field(min_length=1)
     source_spec_id: str = Field(min_length=1)
     backend_name: str = Field(min_length=1)
@@ -1357,6 +1372,8 @@ class GeneratedExperimentExecutionReport(StrictModel):
     code_artifact_count: int = Field(ge=0)
     safety_audit_count: int = Field(ge=0)
     blocked_code_count: int = Field(ge=0)
+    safety_repair_attempt_count: int = Field(default=0, ge=0)
+    safety_repair_success_count: int = Field(default=0, ge=0)
     executed_code_count: int = Field(ge=0)
     failed_execution_count: int = Field(ge=0)
     metric_extraction_count: int = Field(ge=0)
@@ -1397,6 +1414,8 @@ class GeneratedExperimentInspectionReport(StrictModel):
     code_artifact_count: int = Field(default=0, ge=0)
     safety_audit_count: int = Field(default=0, ge=0)
     blocked_code_count: int = Field(default=0, ge=0)
+    safety_repair_attempt_count: int = Field(default=0, ge=0)
+    safety_repair_success_count: int = Field(default=0, ge=0)
     executed_code_count: int = Field(default=0, ge=0)
     failed_execution_count: int = Field(default=0, ge=0)
     metric_extraction_count: int = Field(default=0, ge=0)
@@ -1429,6 +1448,8 @@ class HybridEvidencePackageConfig(StrictModel):
     max_planning_calls: int = Field(default=12, ge=1)
     require_non_fake_backends: bool = False
     fail_on_silent_fallback: bool = True
+    repair_of_package_id_optional: str | None = None
+    adaptive_repair_decision_id_optional: str | None = None
 
 
 class EvidenceArtifactPlan(StrictModel):
@@ -1474,6 +1495,8 @@ class HybridEvidencePackageCandidate(StrictModel):
     source_opportunity_id: str = Field(min_length=1)
     domain_id: str = Field(min_length=1)
     method_id: str = Field(min_length=1)
+    repair_of_package_id_optional: str | None = None
+    adaptive_repair_decision_id_optional: str | None = None
     title: str = Field(min_length=1)
     primary_claim_draft: str = Field(min_length=1)
     allowed_claim_scope: str = Field(min_length=1)
@@ -1597,6 +1620,12 @@ class EvidencePackageExecutionResult(StrictModel):
     artifact_plan_id: str = Field(min_length=1)
     source_substrate_id: str = Field(min_length=1)
     artifact_type: EvidenceArtifactType
+    source_prior_result_id_optional: str | None = None
+    reused_prior_execution: bool = False
+    execution_profile: Literal["smoke", "full"] = "full"
+    logical_artifact_ids: list[str] = Field(default_factory=list)
+    execution_completed: bool = False
+    supports_adjudication: bool = False
     status: Literal[
         "completed",
         "draft_created",
@@ -1636,8 +1665,31 @@ class EvidencePackageExecutionReport(StrictModel):
     report_id: str = Field(min_length=1)
     execution_status: Literal["completed", "completed_with_warnings", "failed"]
     source_package_report_path: str = Field(min_length=1)
+    execution_profile: Literal["smoke", "full"] = "full"
+    max_replications: int = Field(default=1000, ge=1)
+    max_resamples: int = Field(default=2000, ge=1)
+    max_grid_cells: int = Field(default=256, ge=1)
+    max_artifact_plans: int = Field(default=12, ge=1)
+    max_codegen_calls: int = Field(default=12, ge=0)
+    max_safety_repair_calls: int = Field(default=0, ge=0)
+    safety_repair_attempt_count: int = Field(default=0, ge=0)
+    safety_repair_success_count: int = Field(default=0, ge=0)
+    max_runtime_repair_calls: int = Field(default=0, ge=0)
+    runtime_repair_attempt_count: int = Field(default=0, ge=0)
+    runtime_repair_success_count: int = Field(default=0, ge=0)
+    max_scientific_repair_calls: int = Field(default=0, ge=0)
+    scientific_repair_attempt_count: int = Field(default=0, ge=0)
+    scientific_repair_success_count: int = Field(default=0, ge=0)
+    resumed_from_report_id_optional: str | None = None
+    resumed_result_count: int = Field(default=0, ge=0)
     package_count: int = Field(ge=0)
     artifact_plan_count: int = Field(ge=0)
+    selected_artifact_plan_count: int = Field(default=0, ge=0)
+    budget_deferred_artifact_count: int = Field(default=0, ge=0)
+    selected_artifact_plan_ids: list[str] = Field(default_factory=list)
+    prior_execution_context_count: int = Field(default=0, ge=0)
+    reused_prior_result_count: int = Field(default=0, ge=0)
+    prior_execution_result_ids: list[str] = Field(default_factory=list)
     executable_artifact_count: int = Field(ge=0)
     symbolic_artifact_count: int = Field(ge=0)
     retrieval_artifact_count: int = Field(ge=0)
@@ -1649,6 +1701,11 @@ class EvidencePackageExecutionReport(StrictModel):
     failed_execution_count: int = Field(ge=0)
     metric_extraction_count: int = Field(ge=0)
     result_count: int = Field(ge=0)
+    required_artifact_plan_count: int = Field(default=0, ge=0)
+    completed_required_artifact_count: int = Field(default=0, ge=0)
+    incomplete_required_artifact_plan_ids: list[str] = Field(default_factory=list)
+    adjudication_ready_package_ids: list[str] = Field(default_factory=list)
+    adjudication_ready: bool = False
     evidence_label_counts: dict[str, int] = Field(default_factory=dict)
     artifact_type_counts: dict[str, int] = Field(default_factory=dict)
     raw_artifact_paths: list[str] = Field(default_factory=list)
@@ -1682,8 +1739,31 @@ class EvidencePackageExecutionInspectionReport(StrictModel):
     evidence_package_execution_present: bool
     latest_report_id_optional: str | None = None
     execution_status_optional: str | None = None
+    execution_profile: Literal["smoke", "full"] = "full"
+    max_replications: int = Field(default=1000, ge=1)
+    max_resamples: int = Field(default=2000, ge=1)
+    max_grid_cells: int = Field(default=256, ge=1)
+    max_artifact_plans: int = Field(default=12, ge=1)
+    max_codegen_calls: int = Field(default=12, ge=0)
+    max_safety_repair_calls: int = Field(default=0, ge=0)
+    safety_repair_attempt_count: int = Field(default=0, ge=0)
+    safety_repair_success_count: int = Field(default=0, ge=0)
+    max_runtime_repair_calls: int = Field(default=0, ge=0)
+    runtime_repair_attempt_count: int = Field(default=0, ge=0)
+    runtime_repair_success_count: int = Field(default=0, ge=0)
+    max_scientific_repair_calls: int = Field(default=0, ge=0)
+    scientific_repair_attempt_count: int = Field(default=0, ge=0)
+    scientific_repair_success_count: int = Field(default=0, ge=0)
+    resumed_from_report_id_optional: str | None = None
+    resumed_result_count: int = Field(default=0, ge=0)
     package_count: int = Field(default=0, ge=0)
     artifact_plan_count: int = Field(default=0, ge=0)
+    selected_artifact_plan_count: int = Field(default=0, ge=0)
+    budget_deferred_artifact_count: int = Field(default=0, ge=0)
+    selected_artifact_plan_ids: list[str] = Field(default_factory=list)
+    prior_execution_context_count: int = Field(default=0, ge=0)
+    reused_prior_result_count: int = Field(default=0, ge=0)
+    prior_execution_result_ids: list[str] = Field(default_factory=list)
     executable_artifact_count: int = Field(default=0, ge=0)
     symbolic_artifact_count: int = Field(default=0, ge=0)
     retrieval_artifact_count: int = Field(default=0, ge=0)
@@ -1693,6 +1773,11 @@ class EvidencePackageExecutionInspectionReport(StrictModel):
     executed_code_count: int = Field(default=0, ge=0)
     metric_extraction_count: int = Field(default=0, ge=0)
     result_count: int = Field(default=0, ge=0)
+    required_artifact_plan_count: int = Field(default=0, ge=0)
+    completed_required_artifact_count: int = Field(default=0, ge=0)
+    incomplete_required_artifact_plan_ids: list[str] = Field(default_factory=list)
+    adjudication_ready_package_ids: list[str] = Field(default_factory=list)
+    adjudication_ready: bool = False
     evidence_label_counts: dict[str, int] = Field(default_factory=dict)
     artifact_type_counts: dict[str, int] = Field(default_factory=dict)
     results: list[EvidencePackageExecutionResult] = Field(default_factory=list)
@@ -7341,6 +7426,10 @@ class FinalPaperInspectionReport(StrictModel):
     manifest_path_optional: str | None = None
     verification_present: bool = False
     verification_status_optional: FinalPaperVerificationStatus | None = None
+    render_present: bool = False
+    render_status_optional: Literal["rendered", "failed", "deferred"] | None = None
+    standalone_latex_path_optional: str | None = None
+    rendered_pdf_path_optional: str | None = None
     bundle_present: bool = False
     bundle_path_optional: str | None = None
     section_count: int = Field(default=0, ge=0)

@@ -54,6 +54,13 @@
           "title": "Code Artifact Id",
           "type": "string"
         },
+        "contract_violations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contract Violations",
+          "type": "array"
+        },
         "creates_scientific_validation": {
           "const": false,
           "default": false,
@@ -118,6 +125,13 @@
           "title": "Resource Risk",
           "type": "array"
         },
+        "semantic_contract_violations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Semantic Contract Violations",
+          "type": "array"
+        },
         "subprocess_found": {
           "items": {
             "type": "string"
@@ -130,6 +144,13 @@
             "type": "string"
           },
           "title": "Unsafe Eval Exec Found",
+          "type": "array"
+        },
+        "workload_limit_violations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Workload Limit Violations",
           "type": "array"
         }
       },
@@ -385,6 +406,12 @@
           "title": "Filesystem Scope",
           "type": "string"
         },
+        "generation_attempt": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Generation Attempt",
+          "type": "integer"
+        },
         "implies_publication_readiness": {
           "const": false,
           "default": false,
@@ -420,6 +447,18 @@
           "title": "Random Seed",
           "type": "integer"
         },
+        "repair_of_code_artifact_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Of Code Artifact Id Optional"
+        },
         "required_inputs": {
           "items": {
             "type": "string"
@@ -451,7 +490,7 @@
           "type": "string"
         },
         "timeout_seconds": {
-          "maximum": 300,
+          "maximum": 3600,
           "minimum": 1,
           "title": "Timeout Seconds",
           "type": "integer"
@@ -513,6 +552,13 @@
           "default": 12,
           "minimum": 1,
           "title": "Max Executable Specs",
+          "type": "integer"
+        },
+        "max_safety_repair_calls": {
+          "default": 1,
+          "maximum": 12,
+          "minimum": 0,
+          "title": "Max Safety Repair Calls",
           "type": "integer"
         },
         "memory_limit_mb": {
@@ -683,7 +729,7 @@
           "type": "integer"
         },
         "timeout_seconds": {
-          "maximum": 300,
+          "maximum": 3600,
           "minimum": 1,
           "title": "Timeout Seconds",
           "type": "integer"
@@ -949,7 +995,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/generated-experiment-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/generated-experiment-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only code-generation or local execution report over M101 specs.",
@@ -1140,6 +1186,18 @@
       "title": "Safety Audits",
       "type": "array"
     },
+    "safety_repair_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Safety Repair Attempt Count",
+      "type": "integer"
+    },
+    "safety_repair_success_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Safety Repair Success Count",
+      "type": "integer"
+    },
     "sandbox_configs": {
       "items": {
         "$ref": "#/$defs/SandboxExecutionConfig"
@@ -1206,7 +1264,7 @@
   ],
   "title": "GeneratedExperimentExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.GeneratedExperimentExecutionReport",
   "x-factori-verification-evidence": false
 }

@@ -152,7 +152,12 @@ class OpenAIScientificCritic:
 
     api_key: str = field(repr=False)
     model: str
-    transport: LLMTransport = field(default_factory=OpenAIResponsesTransport)
+    transport: LLMTransport = field(
+        default_factory=lambda: OpenAIResponsesTransport(
+            schema_name="factori_scientific_critic",
+            nullable_optional_fields=False,
+        )
+    )
     allow_external_calls: bool = False
     backend_name: str = field(default="llm-openai", init=False)
     backend_kind: BackendKind = field(default=BackendKind.LLM_OPENAI, init=False)
@@ -242,6 +247,7 @@ def build_scientific_critic_prompt(
         "tautological or rigged synthetic settings, negative-control or robustness weaknesses, "
         "false bridges, overclaims, draft/proof inflation, novelty overstatement, technical "
         "incoherence, or interesting bounded failures. Do not invent metrics or artifacts. "
+        "Every finding with blocking=true must use severity=blocking. "
         "Do not claim novelty, proof, real-world validation, publication readiness, or scientific "
         "validation. Return exactly one structured review.\n\n"
         f"Package:\n{json.dumps(package_payload, indent=2, sort_keys=True)}\n\n"
@@ -268,7 +274,9 @@ def build_cross_package_adjudication_prompt(
         "bounded claim with an explicit baseline, controls, support artifacts, interpretable "
         "mechanism, and low false-bridge risk. The primary claim must remain synthetic, bounded, "
         "or draft-scoped as appropriate. Do not assert real-world validation, theorem proof, "
-        "novelty proven, underuse proven, publication readiness, or general domain truth.\n\n"
+        "novelty proven, underuse proven, publication readiness, or general domain truth. Any "
+        "paper nucleus must include every mandatory forbidden claim exactly as listed here: "
+        f"{json.dumps(list(MANDATORY_FORBIDDEN_CLAIMS))}.\n\n"
         f"Packages:\n{json.dumps(packages_payload, indent=2, sort_keys=True)}\n\n"
         f"Execution results:\n{json.dumps(execution_payload, indent=2, sort_keys=True)}\n\n"
         f"Critic reviews:\n{json.dumps(critic_reviews_payload, indent=2, sort_keys=True)}\n\n"
@@ -292,6 +300,25 @@ def parse_scientific_critic_response(
         item = CriticReviewProposal.model_validate(raw_items[0])
     except ValidationError as exc:
         return None, [str(exc)]
+    normalized_findings = []
+    for finding in item.findings:
+        blocking = (
+            finding.blocking
+            or finding.severity == ScientificCriticFindingSeverity.BLOCKING
+        )
+        normalized_findings.append(
+            finding.model_copy(
+                update={
+                    "blocking": blocking,
+                    "severity": (
+                        ScientificCriticFindingSeverity.BLOCKING
+                        if blocking
+                        else finding.severity
+                    ),
+                }
+            )
+        )
+    item = item.model_copy(update={"findings": normalized_findings})
     return item, validate_scientific_critic_proposal(item)
 
 
@@ -310,6 +337,20 @@ def parse_cross_package_adjudication_response(
         item = CrossPackageAdjudicationProposal.model_validate(raw_items[0])
     except ValidationError as exc:
         return None, [str(exc)]
+    nucleus = item.paper_nucleus_selection_optional
+    if nucleus is not None:
+        normalized = {claim.strip().lower() for claim in nucleus.forbidden_claims}
+        missing = [
+            claim for claim in MANDATORY_FORBIDDEN_CLAIMS if claim not in normalized
+        ]
+        if missing:
+            item = item.model_copy(
+                update={
+                    "paper_nucleus_selection_optional": nucleus.model_copy(
+                        update={"forbidden_claims": [*nucleus.forbidden_claims, *missing]}
+                    )
+                }
+            )
     return item, validate_cross_package_adjudication_proposal(item)
 
 

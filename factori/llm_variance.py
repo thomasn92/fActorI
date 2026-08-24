@@ -115,8 +115,11 @@ def generate_llm_variance(
             f"max_generation_calls={config.max_generation_calls}."
         )
 
-    _, atlas_scan = _load_latest_atlas_scan(run_id=run_id, reports=reports)
-    pair_by_id = {item.pair_id: item for item in atlas_scan.selected_pairs}
+    source_pairs = deep.source_pairs
+    if not source_pairs:
+        _, atlas_scan = _load_latest_atlas_scan(run_id=run_id, reports=reports)
+        source_pairs = atlas_scan.selected_pairs
+    pair_by_id = {item.pair_id: item for item in source_pairs}
     retrieval_by_pair = _load_retrieval_contexts(root_path=root_path, deep=deep)
     report_number = _next_number(reports, _VARIANCE_RE)
     report_id = f"llm-variance-generation-report-{report_number:04d}"
@@ -126,6 +129,7 @@ def generate_llm_variance(
     batches: list[LLMVarianceBatch] = []
     raw_artifacts: list[LLMVarianceRawArtifact] = []
     next_raw_number = raw_number
+    generation_calls_used = 0
     warnings: list[str] = []
 
     for source_index, source in enumerate(source_candidates):
@@ -157,6 +161,7 @@ def generate_llm_variance(
                     retrieval_context_payload=context.model_dump(mode="json"),
                     variants_per_opportunity=config.variants_per_opportunity,
                 )
+                generation_calls_used += 1
             except (AdapterError, ValueError) as exc:
                 _persist_failed_variance_attempt(
                     run_id=run_id,
@@ -175,11 +180,94 @@ def generate_llm_variance(
                     store=store,
                     ledger=ledger,
                 )
+            family_counts = Counter(
+                item.candidate.variant_family for item in response.accepted
+            )
+            family_contract = _required_family_contract(family_counts)
+            remaining_source_calls = len(source_candidates) - source_index - 1
+            repair_call_available = (
+                generation_calls_used + remaining_source_calls
+                < config.max_generation_calls
+            )
+            if not family_contract and repair_call_available:
+                while (reports / f"llm-variance-raw-{next_raw_number:04d}.json").exists():
+                    next_raw_number += 1
+                discarded_raw = LLMVarianceRawArtifact(
+                    raw_artifact_id=f"llm-variance-raw-{next_raw_number:04d}",
+                    run_id=run_id,
+                    source_opportunity_id=source.opportunity_id,
+                    backend_name=generator.backend_name,
+                    model=generator.model,
+                    prompt=response.prompt,
+                    raw_response=response.raw_response,
+                    accepted_variant_ids=[],
+                    rejected_outputs=[
+                        *response.rejected,
+                        {
+                            "index": "batch",
+                            "reasons": [
+                                "discarded before selection because required family "
+                                "coverage was missing"
+                            ],
+                        },
+                    ],
+                    fallback_used=generator.fallback_used,
+                )
+                next_raw_number += 1
+                raw_artifacts.append(discarded_raw)
+                _persist_variance_raw_artifact(
+                    run_id=run_id,
+                    raw_artifact=discarded_raw,
+                    store=store,
+                    ledger=ledger,
+                )
+                warnings.append(
+                    f"Applied one family-coverage repair generation for "
+                    f"{source.opportunity_id}."
+                )
+                repair_source_payload = source.model_dump(mode="json")
+                repair_source_payload["variance_generation_repair"] = {
+                    "discarded_family_counts": dict(sorted(family_counts.items())),
+                    "mandatory_distinct_slots": [
+                        "one benchmark or baseline_strengthening variant",
+                        "one robustness or negative_control variant",
+                    ],
+                    "instruction": (
+                        "Regenerate the complete batch. The prior batch was discarded because "
+                        "it did not satisfy both mandatory family slots."
+                    ),
+                }
+                try:
+                    response = generator.generate_variants(
+                        prompt_id=f"{prompt_id}-family-coverage-repair",
+                        source_payload=repair_source_payload,
+                        retrieval_context_payload=context.model_dump(mode="json"),
+                        variants_per_opportunity=config.variants_per_opportunity,
+                    )
+                    generation_calls_used += 1
+                except (AdapterError, ValueError) as exc:
+                    _persist_failed_variance_attempt(
+                        run_id=run_id,
+                        root_path=root_path,
+                        deep_path=deep_path,
+                        source_candidates=source_candidates,
+                        report_id=report_id,
+                        config=config,
+                        generator=generator,
+                        candidates=candidates,
+                        scores=scores,
+                        batches=batches,
+                        raw_artifacts=raw_artifacts,
+                        warnings=[*warnings, f"{source.opportunity_id}: {exc}"],
+                        failure_reason=(
+                            f"LLM variance family-coverage repair failed for "
+                            f"{source.opportunity_id}: {exc}"
+                        ),
+                        store=store,
+                        ledger=ledger,
+                    )
         family_counts = Counter(item.candidate.variant_family for item in response.accepted)
-        family_contract = bool(
-            {"benchmark", "baseline_strengthening"}.intersection(family_counts)
-            and {"robustness", "negative_control"}.intersection(family_counts)
-        )
+        family_contract = _required_family_contract(family_counts)
         accepted_ids: list[str] = []
         for item_index, item in enumerate(response.accepted, start=1):
             variant_id = (
@@ -513,10 +601,7 @@ def _load_reusable_variance_response(
         except AdapterError:
             continue
         family_counts = Counter(item.candidate.variant_family for item in accepted)
-        family_contract = bool(
-            {"benchmark", "baseline_strengthening"}.intersection(family_counts)
-            and {"robustness", "negative_control"}.intersection(family_counts)
-        )
+        family_contract = _required_family_contract(family_counts)
         if not accepted or not family_contract:
             continue
         return raw, VarianceGenerationResponse(
@@ -526,6 +611,13 @@ def _load_reusable_variance_response(
             rejected=rejected,
         )
     return None
+
+
+def _required_family_contract(family_counts: Counter[str]) -> bool:
+    return bool(
+        {"benchmark", "baseline_strengthening"}.intersection(family_counts)
+        and {"robustness", "negative_control"}.intersection(family_counts)
+    )
 
 
 def _format_rejection_diagnostics(rejected: list[dict[str, Any]]) -> str:

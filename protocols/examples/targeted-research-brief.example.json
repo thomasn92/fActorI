@@ -1,0 +1,41 @@
+{
+  "allowed_claim_scope": "Controlled synthetic settings under declared corruption mechanisms.",
+  "authoring_backend_kind": "human",
+  "baseline_candidates": [
+    "uncalibrated logistic regression"
+  ],
+  "brief_id": "targeted-brief-example",
+  "central_question": "When does label corruption damage probability calibration more than discrimination?",
+  "controls": [],
+  "creates_scientific_validation": false,
+  "data_regime": "Synthetic data with known clean posterior probabilities.",
+  "domain": "probabilistic binary classification",
+  "expected_metrics": [
+    "clean-posterior Brier score",
+    "AUROC"
+  ],
+  "experiment_or_proof_direction_optional": null,
+  "forbidden_claims": [
+    "real-world validation",
+    "novelty proven",
+    "publication ready"
+  ],
+  "hypothesis_optional": null,
+  "implies_publication_readiness": false,
+  "is_verification_evidence": false,
+  "known_risks": [
+    "Instance-dependent corruption is not identified without assumptions."
+  ],
+  "method": "calibration and label-noise robustness",
+  "negative_controls": [
+    "zero label corruption"
+  ],
+  "publication_ready": false,
+  "selection_backend_kind": "human",
+  "source_artifact_paths": [],
+  "source_candidate_ids": [],
+  "source_content_hashes": {},
+  "source_run_id_optional": null,
+  "theory_or_model_object_optional": null,
+  "title": "Calibration under controlled label corruption"
+}

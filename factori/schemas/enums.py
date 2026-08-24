@@ -399,6 +399,7 @@ class ControllerActionType(StrEnum):
     NUCLEUS_MANUSCRIPT_REVISED = "NucleusManuscriptRevised"
     FINAL_PAPER_ASSEMBLED = "FinalPaperAssembled"
     FINAL_PAPER_VERIFIED = "FinalPaperVerified"
+    FINAL_PAPER_RENDERED = "FinalPaperRendered"
     FINAL_PAPER_BUNDLE_BUILT = "FinalPaperBundleBuilt"
     LLM_ORCHESTRATION_WRITTEN = "LLMOrchestrationWritten"
     PIPELINE_RUN_REPORT_WRITTEN = "PipelineRunReportWritten"

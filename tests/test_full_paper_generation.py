@@ -10,6 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 import factori.autonomous_paper_run as autonomous_paper_module
+import factori.hybrid_evidence_packages as hybrid_evidence_module
 from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker, build_pair_ranking_prompt
 from factori.adapters.deep_opportunity import (
     OpportunityGenerationResponse,
@@ -38,6 +39,7 @@ from factori.adapters.llm_experiment_codegen import (
     ExperimentCodeProposal,
     ExperimentCodeProposalEnvelope,
     build_experiment_codegen_prompt,
+    build_experiment_codegen_repair_prompt,
     parse_experiment_codegen_response,
 )
 from factori.adapters.llm_route_planning import (
@@ -75,6 +77,7 @@ from factori.adapters.nucleus_manuscript import (
     NucleusManuscriptResponse,
 )
 from factori.adapters.scientific_critic import (
+    MANDATORY_FORBIDDEN_CLAIMS,
     AdjudicationDecisionProposal,
     CriticFindingProposal,
     CriticReviewProposal,
@@ -82,6 +85,8 @@ from factori.adapters.scientific_critic import (
     CrossPackageAdjudicationResponse,
     PaperNucleusProposal,
     ScientificCriticResponse,
+    parse_cross_package_adjudication_response,
+    parse_scientific_critic_response,
 )
 from factori.artifacts import ArtifactStore
 from factori.autonomous_evidence_plan import (
@@ -174,6 +179,7 @@ from factori.evidence_aware_refresh import (
 )
 from factori.evidence_package_adjudication import (
     EvidencePackageAdjudicationError,
+    _primary_blockers,
     adjudicate_evidence_packages,
     critique_evidence_packages,
     inspect_package_adjudication,
@@ -193,9 +199,13 @@ from factori.final_manuscript_regeneration import (
     regenerate_final_manuscript,
 )
 from factori.final_paper import (
+    _forbidden_claim_reasons,
+    _metrics_from_output,
+    _standalone_final_latex,
     assemble_final_paper,
     build_final_paper_bundle,
     inspect_final_paper,
+    render_final_paper,
     verify_final_paper,
 )
 from factori.final_release_bundle import (
@@ -224,9 +234,15 @@ from factori.gap_strategy_diversification import (
     strategy_fingerprint,
     strategy_is_automation_ready,
 )
-from factori.generated_experiment_safety import audit_generated_experiment_code
+from factori.generated_experiment_safety import (
+    audit_generated_experiment_code,
+    audit_generated_experiment_contract,
+    audit_generated_experiment_semantics,
+    audit_generated_experiment_workload,
+)
 from factori.generated_experiments import (
     GeneratedExperimentError,
+    _sandbox_env,
     extract_metrics_from_output,
     generate_experiment_code,
     inspect_experiment_code,
@@ -256,6 +272,7 @@ from factori.hybrid_evidence_packages import (
 )
 from factori.idea_space import export_idea_space_report, inspect_idea_space
 from factori.idea_tree import export_idea_tree, inspect_idea_tree
+from factori.latex_render import LatexRenderer, LatexRunnerOutput
 from factori.ledger import ResearchLedger
 from factori.llm_orchestration import LLMOrchestrationError
 from factori.llm_route_planning import (
@@ -281,6 +298,12 @@ from factori.mutation_tournament import (
     run_mutation_tournament,
 )
 from factori.nucleus_manuscript import (
+    _forbidden_reasons,
+    _metric_literal_reasons,
+    _normalize_citation_references,
+    _required_artifact_plan_ids,
+    _required_draft_content_reasons,
+    _validate_plan,
     inspect_nucleus_manuscript,
     plan_nucleus_manuscript,
     revise_nucleus_manuscript,
@@ -446,6 +469,7 @@ from factori.schemas import (
     IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    LatexRenderConfig,
     LLMExecutionSpecCandidate,
     LLMExperimentCodeArtifact,
     LLMExperimentCodegenConfig,
@@ -1183,6 +1207,18 @@ class MockLLMRoutePlanner:
         )
 
 
+def test_hybrid_package_prompt_requires_self_contained_executable_artifacts() -> None:
+    prompt, _ = build_hybrid_package_prompt(
+        prompt_id="self-contained-artifacts",
+        substrate_payload={"substrate_id": "substrate-1"},
+        route_payload={},
+        retrieval_context_payload={},
+    )
+
+    assert "Executable generated-code artifacts must be self-contained" in prompt
+    assert "Do not require cross-artifact input files" in prompt
+
+
 class MockHybridEvidencePlanner:
     backend_name = "llm-openai-mocked-transport"
     backend_kind = BackendKind.LLM_OPENAI
@@ -1249,8 +1285,8 @@ class MockHybridEvidencePlanner:
                 "to observed metrics, unresolved obligations, and retrieval-risk context."
             ),
             artifact_plans=plans,
-            minimum_required_artifacts=[plans[0].artifact_type.value],
-            optional_supporting_artifacts=[plan.artifact_type.value for plan in plans[1:]],
+            minimum_required_artifacts=[plan.artifact_type.value for plan in plans],
+            optional_supporting_artifacts=[],
             artifact_dependency_graph={plan.artifact_type.value: [] for plan in plans},
             claim_support_map={"bounded_claim": [plan.artifact_type.value for plan in plans]},
             known_gaps=[
@@ -1369,7 +1405,17 @@ class MockHybridEvidencePlanner:
                 "data_regime": "synthetic or draft only",
                 "seed": 1729,
             },
-            output_contract={"required_metrics": metrics} if metrics else {"draft_fields": True},
+            output_contract=(
+                {
+                    "required_metrics": metrics,
+                    "expected_files": [
+                        f"{artifact_type.value}-records.json",
+                        f"{artifact_type.value}-plot-data.json",
+                    ],
+                }
+                if metrics
+                else {"draft_fields": True}
+            ),
             baseline_or_comparator_plan=(
                 ["declared bounded baseline or comparator"] if code_type else []
             ),
@@ -1402,6 +1448,125 @@ class MockHybridEvidencePlanner:
             success_criteria=["component succeeds only within declared package scope"],
             failure_criteria=["component is inconclusive if checks fail"],
         )
+
+
+def test_scientific_critic_normalizes_blocking_finding_severity() -> None:
+    accepted, reasons = parse_scientific_critic_response(
+        {
+            "reviews": [
+                {
+                    "summary": "A bounded blocking finding.",
+                    "findings": [
+                        {
+                            "severity": "major",
+                            "finding_type": "weak_baseline",
+                            "description": "The primary comparator is insufficient.",
+                            "affected_claims": ["bounded claim"],
+                            "recommended_fix": "Add the declared stronger comparator.",
+                            "blocking": True,
+                        },
+                        {
+                            "severity": "blocking",
+                            "finding_type": "false_bridge",
+                            "description": "The bridge is not defensible.",
+                            "affected_claims": ["bounded claim"],
+                            "recommended_fix": "Remove the bridge.",
+                            "blocking": False,
+                        },
+                    ],
+                    "score_delta": -0.2,
+                    "recommended_decision": "needs_repair",
+                    "publication_ready": False,
+                    "creates_scientific_validation": False,
+                    "creates_real_world_validation": False,
+                }
+            ]
+        }
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.findings[0].severity == ScientificCriticFindingSeverity.BLOCKING
+    assert accepted.findings[0].blocking is True
+    assert accepted.findings[1].blocking is True
+
+
+def test_nonblocking_critic_finding_type_does_not_preclude_primary() -> None:
+    blockers = _primary_blockers(
+        package=SimpleNamespace(artifact_plans=[], primary_claim_draft="bounded claim"),
+        results=[
+            SimpleNamespace(
+                status="completed",
+                artifact_type=EvidenceArtifactType.SYNTHETIC_EXPERIMENT,
+            )
+        ],
+        reviews=[
+            SimpleNamespace(
+                findings=[
+                    SimpleNamespace(
+                        finding_id="weak-baseline-warning",
+                        finding_type=ScientificCriticFindingType.WEAK_BASELINE,
+                        severity=ScientificCriticFindingSeverity.MAJOR,
+                        blocking=False,
+                    )
+                ]
+            )
+        ],
+        allow_symbolic_primary=False,
+    )
+
+    assert blockers == []
+
+
+def test_adjudication_adds_mandatory_forbidden_claims_to_nucleus() -> None:
+    accepted, reasons = parse_cross_package_adjudication_response(
+        {
+            "adjudications": [
+                {
+                    "decisions": [
+                        {
+                            "package_id": "package-1",
+                            "decision": "primary_nucleus",
+                            "rank": 1,
+                            "role": "primary bounded synthetic package",
+                            "reason": "The executed package supports the bounded claim.",
+                            "required_repairs": [],
+                            "allowed_claim_scope": "Synthetic benchmark only.",
+                            "forbidden_claims": ["real-world validation"],
+                            "supporting_artifact_ids": ["result-1"],
+                            "blocking_findings": [],
+                            "recommended_next_action": "Draft the bounded manuscript.",
+                            "publication_ready": False,
+                            "creates_scientific_validation": False,
+                        }
+                    ],
+                    "paper_nucleus_selection_optional": {
+                        "primary_package_id": "package-1",
+                        "central_claim_draft": "A bounded synthetic result.",
+                        "allowed_claim_scope": "Synthetic benchmark only.",
+                        "forbidden_claims": ["real-world validation"],
+                        "supporting_package_ids": [],
+                        "appendix_package_ids": [],
+                        "negative_package_ids": [],
+                        "rejected_package_ids": [],
+                        "required_repairs_before_manuscript": [],
+                        "required_additional_checks": [],
+                        "publication_ready": False,
+                        "creates_scientific_validation": False,
+                    },
+                    "publication_ready": False,
+                    "creates_scientific_validation": False,
+                    "creates_real_world_validation": False,
+                }
+            ]
+        }
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    nucleus = accepted.paper_nucleus_selection_optional
+    assert nucleus is not None
+    assert set(MANDATORY_FORBIDDEN_CLAIMS).issubset(nucleus.forbidden_claims)
 
 
 class MockScientificCritic:
@@ -1721,11 +1886,15 @@ Secondary packages are not used as support for the central claim.
     def revise_manuscript(
         self, *, prompt_id, draft_payload, critic_reviews_payload, evidence_payload
     ):
+        markdown = draft_payload["markdown"].split("\n## Artifact-Bound Metrics", 1)[0]
+        latex = draft_payload["latex"].split(
+            r"\section*{Artifact-Bound Metrics}", 1
+        )[0]
         proposal = ManuscriptRevisionProposal(
             title=draft_payload["title"],
             abstract=draft_payload["abstract"],
-            markdown=draft_payload["markdown"],
-            latex=draft_payload["latex"],
+            markdown=markdown,
+            latex=latex,
             claim_ids_used=draft_payload["claim_ids_used"],
             citation_binding_ids=draft_payload["citation_binding_ids"],
             applied_recommendations=["Retained explicit synthetic-scope limitation."],
@@ -1753,11 +1922,16 @@ class MockLLMExperimentCodeGenerator:
         unsafe_index: int = 2,
         negative_control_failure_index: int = 3,
         runtime_failure_index: int = 4,
+        oversized_output_index: int = -1,
+        runtime_repair_succeeds: bool = True,
     ) -> None:
         self.received_spec_ids: list[str] = []
+        self.received_repair_audits: list[dict] = []
         self.unsafe_index = unsafe_index
         self.negative_control_failure_index = negative_control_failure_index
         self.runtime_failure_index = runtime_failure_index
+        self.oversized_output_index = oversized_output_index
+        self.runtime_repair_succeeds = runtime_repair_succeeds
 
     def generate_code(self, *, spec_payload, substrate_payload, allowed_dependencies):
         index = len(self.received_spec_ids)
@@ -1768,6 +1942,31 @@ class MockLLMExperimentCodeGenerator:
             allowed_dependencies=allowed_dependencies,
         )
         required_metrics = spec_payload["output_contract"]["required_metrics"]
+        workload = spec_payload.get("workload_contract", {})
+        execution_profile = workload.get("execution_profile", "full")
+        if execution_profile == "full":
+            replications = workload.get("max_replications", 4)
+            resamples = workload.get("max_resamples", 4)
+            grid_cells = workload.get("max_grid_cells", 2)
+        else:
+            replications = min(4, workload.get("max_replications", 4))
+            resamples = min(4, workload.get("max_resamples", 4))
+            grid_cells = min(2, workload.get("max_grid_cells", 2))
+        grid_configs = [{"cell_id": value} for value in range(grid_cells)]
+        required_roles = spec_payload.get("required_role_functions", [])
+        logical_artifact_items = ",\n        ".join(
+            f"{item!r}: {{'status': 'embedded', 'record_count': len(observations)}}"
+            for item in spec_payload["output_contract"].get(
+                "required_logical_artifacts", []
+            )
+        )
+        robustness_function = (
+            "def run_robustness_sweep():\n"
+            "    return {'grid_cells': GRID_CELLS, 'completed': True}\n\n"
+            "robustness_summary = run_robustness_sweep()\n"
+            if "run_robustness_sweep" in required_roles
+            else ""
+        )
         metric_assignments = "\n".join(
             f"metric_{metric_index} = held_out_mae + ({metric_index} * 0.0)"
             for metric_index, _ in enumerate(required_metrics)
@@ -1778,15 +1977,27 @@ class MockLLMExperimentCodeGenerator:
         )
         negative_controls_passed = index != self.negative_control_failure_index
         runtime_failure = index == self.runtime_failure_index
+        oversized_output = index == self.oversized_output_index
         unsafe_import = "import subprocess\n" if index == self.unsafe_index else ""
         failure_line = (
             "raise RuntimeError('intentional execution failure')\n" if runtime_failure else ""
+        )
+        oversized_payload_line = (
+            '    "oversized_blob": "x" * 2_000_000,\n' if oversized_output else ""
         )
         code = f"""import json
 import random
 {unsafe_import}
 SEED = 1729
+EXECUTION_PROFILE = {execution_profile!r}
+REPLICATIONS = {replications}
+RESAMPLES = {resamples}
+GRID_CELLS = {grid_cells}
+GRID_CONFIGS = {grid_configs!r}
 rng = random.Random(SEED)
+grid_records = []
+for grid_config in GRID_CONFIGS:
+    grid_records.append({{"cell_id": grid_config["cell_id"]}})
 observations = [rng.random() for _ in range(24)]
 baseline_predictions = [0.0 for _ in observations]
 method_predictions = [value * 0.8 for value in observations]
@@ -1801,17 +2012,44 @@ method_errors = [
 baseline_mae = sum(baseline_errors) / len(baseline_errors)
 held_out_mae = sum(method_errors) / len(method_errors)
 negative_control_values = list(baseline_errors)
-{metric_assignments}
-{failure_line}payload = {{
-    "metrics": {{
+def run_baseline():
+    return {{"mae": baseline_mae, "record_count": len(baseline_errors)}}
+
+def run_proposed_method():
+    return {{"mae": held_out_mae, "record_count": len(method_errors)}}
+
+def run_controls():
+    return {{"seed": SEED, "record_count": len(observations)}}
+
+def run_negative_controls():
+    return {{"mae": sum(negative_control_values) / len(negative_control_values),
+             "record_count": len(negative_control_values)}}
+
+def compute_metrics():
+    {metric_assignments.replace(chr(10), chr(10) + '    ')}
+    return {{
         {metric_items}
-    }},
-    "baseline_summary": "Computed null baseline on generated observations.",
-    "control_summary": "Seed and sample count were held fixed.",
-    "negative_control_summary": "Computed mechanism-disabled negative control.",
+    }}
+
+baseline_summary = run_baseline()
+proposed_summary = run_proposed_method()
+control_summary = run_controls()
+negative_control_summary = run_negative_controls()
+metrics = compute_metrics()
+{robustness_function}
+success_criteria_satisfied = proposed_summary["mae"] <= baseline_summary["mae"]
+failure_criteria_satisfied = not success_criteria_satisfied
+{failure_line}payload = {{
+{oversized_payload_line}    "metrics": metrics,
+    "baseline_summary": baseline_summary,
+    "control_summary": control_summary,
+    "negative_control_summary": negative_control_summary,
     "negative_controls_passed": {negative_controls_passed!r},
-    "success_criteria_satisfied": True,
-    "failure_criteria_satisfied": False,
+    "success_criteria_satisfied": success_criteria_satisfied,
+    "failure_criteria_satisfied": failure_criteria_satisfied,
+    "logical_artifacts": {{
+        {logical_artifact_items}
+    }},
 }}
 with open("output.json", "w", encoding="utf-8") as handle:
     json.dump(payload, handle)
@@ -1837,6 +2075,116 @@ print("completed bounded experiment")
             accepted=accepted,
             rejection_reasons=reasons,
         )
+
+    def repair_code(
+        self,
+        *,
+        spec_payload,
+        substrate_payload,
+        blocked_code,
+        audit_payload,
+        allowed_dependencies,
+    ):
+        self.received_repair_audits.append(audit_payload)
+        prompt, schema = build_experiment_codegen_repair_prompt(
+            spec_payload=spec_payload,
+            substrate_payload=substrate_payload,
+            blocked_code=blocked_code,
+            audit_payload=audit_payload,
+            allowed_dependencies=allowed_dependencies,
+        )
+        repaired_code = blocked_code.replace("import subprocess\n", "")
+        if (
+            audit_payload.get("repair_kind") == "runtime_failure"
+            and self.runtime_repair_succeeds
+        ):
+            repaired_code = repaired_code.replace(
+                "raise RuntimeError('intentional execution failure')\n",
+                "",
+            ).replace(
+                '    "oversized_blob": "x" * 2_000_000,\n',
+                "",
+            )
+        proposal = ExperimentCodeProposal(
+            code=repaired_code,
+            expected_output_files=["output.json"],
+            required_inputs=[],
+            declared_dependencies=[],
+            random_seed=1729,
+            timeout_seconds=10,
+        )
+        payload = ExperimentCodeProposalEnvelope(experiment=proposal).model_dump(mode="json")
+        accepted, reasons = parse_experiment_codegen_response(
+            payload,
+            allowed_dependencies=allowed_dependencies,
+        )
+        return ExperimentCodeGenerationResponse(
+            prompt_text=prompt,
+            requested_output_schema=schema,
+            raw_response=payload,
+            accepted=accepted,
+            rejection_reasons=reasons,
+        )
+
+
+def test_experiment_codegen_normalizes_nullable_empty_metadata_lists() -> None:
+    proposal = ExperimentCodeProposal(
+        code="import json\nwith open('output.json', 'w') as handle: json.dump({}, handle)\n",
+        expected_output_files=["output.json"],
+        required_inputs=[],
+        declared_dependencies=[],
+        random_seed=17,
+        timeout_seconds=10,
+    )
+    payload = ExperimentCodeProposalEnvelope(experiment=proposal).model_dump(mode="json")
+    payload["experiment"]["required_inputs"] = None
+    payload["experiment"]["declared_dependencies"] = None
+
+    accepted, reasons = parse_experiment_codegen_response(
+        payload,
+        allowed_dependencies=[],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.required_inputs == []
+    assert accepted.declared_dependencies == []
+    assert payload["experiment"]["required_inputs"] is None
+    assert payload["experiment"]["declared_dependencies"] is None
+
+
+def test_experiment_codegen_clamps_transport_timeout_to_hard_limit() -> None:
+    proposal = ExperimentCodeProposal(
+        code="import json\nwith open('output.json', 'w') as handle: json.dump({}, handle)\n",
+        expected_output_files=["output.json"],
+        required_inputs=[],
+        declared_dependencies=[],
+        random_seed=17,
+        timeout_seconds=300,
+    )
+    payload = ExperimentCodeProposalEnvelope(experiment=proposal).model_dump(mode="json")
+    payload["experiment"]["timeout_seconds"] = 3600
+
+    accepted, reasons = parse_experiment_codegen_response(
+        payload,
+        allowed_dependencies=[],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.timeout_seconds == 300
+    assert payload["experiment"]["timeout_seconds"] == 3600
+
+    payload["experiment"]["timeout_seconds"] = 0
+    accepted, reasons = parse_experiment_codegen_response(
+        payload,
+        allowed_dependencies=[],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.timeout_seconds == 1
+    assert payload["experiment"]["timeout_seconds"] == 0
 
 
 def _prepare_m102_route_fixture(tmp_path: Path, run_id: str):
@@ -3240,6 +3588,66 @@ def test_deep_opportunity_parser_rejects_missing_contracts_and_scopes_hypotheses
     assert "novelty as fact" in rejected[2]["reasons"][0]
 
 
+def test_deep_opportunity_parser_allows_negated_boundaries_and_normalizes_score_scale() -> None:
+    payload = {
+        "candidate": {
+            "research_question": "Does the bounded method improve calibration?",
+            "hypothesis": "The method improves calibration under declared corruption.",
+            "theory_or_model_object": "A corrupted-label posterior map.",
+            "mathematical_or_computational_form": "q(x)=P(tilde Y=1|X=x)",
+            "experiment_or_proof_plan": "Run fixed-seed synthetic comparisons.",
+            "benchmark_plan": "Compare against an uncalibrated predictor.",
+            "baseline_candidates": ["uncalibrated predictor"],
+            "expected_metrics": ["Brier score"],
+            "failure_modes": ["no calibration gain"],
+            "negative_controls": ["zero label corruption"],
+            "data_regime": "synthetic_only",
+            "verification_path": "bounded synthetic execution",
+            "paper_shape": "method, experiment, controls, limitations",
+            "novelty_risk": "Close prior work may exist.",
+            "underuse_hypothesis": "Use may be limited but is unverified.",
+            "retrieval_support_summary": (
+                "The retrieved context does not establish real-world validation or novelty."
+            ),
+            "retrieval_contradictions": None,
+            "false_bridge_risks": None,
+            "tautology_risks": None,
+            "recommended_next_stage": "variance_generation",
+        },
+        "score": {
+            "scientific_fit": 8.0,
+            "tractability": 8.0,
+            "question_specificity": 8.0,
+            "baseline_strength": 8.0,
+            "verification_feasibility": 8.0,
+            "expected_signal": 7.0,
+            "failure_mode_value": 8.0,
+            "paper_coherence": 8.0,
+            "novelty_risk_penalty": 2.0,
+            "false_bridge_penalty": 1.0,
+            "tautology_penalty": 1.0,
+            "retrieval_confidence": 3.0,
+            "final_score": 8.0,
+            "score_explanation": "Scores use a consistent zero-to-ten scale.",
+        },
+    }
+
+    accepted, rejected = parse_opportunity_items({"opportunities": [payload]})
+
+    assert rejected == []
+    assert len(accepted) == 1
+    assert accepted[0].score.final_score == 0.8
+    assert accepted[0].candidate.retrieval_contradictions == []
+
+    affirmative = json.loads(json.dumps(payload))
+    affirmative["candidate"]["retrieval_support_summary"] = (
+        "The experiment provides real-world validation."
+    )
+    accepted, rejected = parse_opportunity_items({"opportunities": [affirmative]})
+    assert accepted == []
+    assert "real-world validation" in rejected[0]["reasons"][0]
+
+
 def test_deep_opportunity_discovery_with_mocked_retrieval_is_context_only(tmp_path) -> None:
     run_id = "run-deep-opportunity-mocked"
     store = ArtifactStore(tmp_path)
@@ -4284,7 +4692,8 @@ def test_llm_routes_plan_production_safe_execution_contracts(tmp_path) -> None:
 
 
 def test_generated_experiment_safety_audit_blocks_unsafe_code() -> None:
-    safe_code = """import json
+    safe_code = """import hashlib
+import json
 baseline_values = [1.0, 2.0]
 method_values = [0.5, 1.0]
 negative_control_values = list(baseline_values)
@@ -4321,9 +4730,30 @@ with open("output.json", "w", encoding="utf-8") as handle:
     )
     assert safe.passed is True
     assert safe.blocked is False
+    assert "hashlib" in safe.allowed_imports
+    assert audit_generated_experiment_contract(
+        artifact=artifact(safe_code),
+        required_payload_fields=["metrics", "baseline_summary"],
+    ) == ["required output fields are not constructed: baseline_summary"]
+
+    metadata_code = safe_code + """
+import platform
+runtime_metadata = {
+    "exception_type": ValueError.__name__,
+    "system": platform.system(),
+}
+"""
+    metadata_audit = audit_generated_experiment_code(
+        artifact=artifact(metadata_code),
+        required_metrics=["held_out_mae"],
+        negative_controls_required=True,
+        allowed_dependencies=[],
+    )
+    assert metadata_audit.blocked is False
 
     unsafe_cases = [
         ("import subprocess\n" + safe_code, "subprocess_found"),
+        ("import os\nos.system('echo unsafe')\n" + safe_code, "subprocess_found"),
         ("import requests\n" + safe_code, "network_access_found"),
         (safe_code + "\neval('1 + 1')\n", "unsafe_eval_exec_found"),
         (
@@ -4351,6 +4781,636 @@ with open("output.json", "w", encoding="utf-8") as handle:
         )
         assert audit.blocked is True
         assert getattr(audit, field)
+
+
+def test_generated_experiment_workload_and_semantic_contracts_are_enforced() -> None:
+    code = """import json
+EXECUTION_PROFILE = "smoke"
+REPLICATIONS = 9
+RESAMPLES = 8
+GRID_CELLS = 2
+def run_baseline(): return {"value": 1.0}
+def run_proposed_method(): return {"value": 0.5}
+def run_controls(): return {"count": 1}
+def run_negative_controls(): return {"count": 1}
+def compute_metrics(): return {"held_out_mae": 0.5}
+baseline_summary = run_baseline()
+proposed_summary = run_proposed_method()
+control_summary = run_controls()
+negative_control_summary = run_negative_controls()
+metrics = compute_metrics()
+payload = {"metrics": metrics, "baseline_summary": "hardcoded",
+           "control_summary": control_summary,
+           "negative_control_summary": negative_control_summary}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+"""
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-contract-test",
+        run_id="run-contract",
+        source_spec_id="spec-contract",
+        source_route_id="route-contract",
+        source_substrate_id="substrate-contract",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    workload = audit_generated_experiment_workload(
+        artifact=artifact,
+        execution_profile="smoke",
+        max_replications=8,
+        max_resamples=16,
+        max_grid_cells=8,
+    )
+    semantics = audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=[
+            "run_baseline",
+            "run_proposed_method",
+            "run_controls",
+            "run_negative_controls",
+            "compute_metrics",
+        ],
+    )
+
+    assert workload == ["REPLICATIONS=9 exceeds configured limit 8"]
+    assert any(
+        item.startswith("output field baseline_summary must come from run_baseline")
+        for item in semantics
+    )
+
+
+def test_experiment_codegen_prompt_reserves_integer_workload_constants() -> None:
+    prompt, _ = build_experiment_codegen_prompt(
+        spec_payload={
+            "output_contract": {
+                "required_metrics": ["coverage"],
+                "required_payload_fields": ["metrics"],
+                "required_logical_artifacts": [],
+            },
+            "workload_contract": {
+                "execution_profile": "smoke",
+                "max_replications": 8,
+                "max_resamples": 16,
+                "max_grid_cells": 8,
+            },
+            "required_role_functions": [],
+        },
+        substrate_payload={"substrate_id": "substrate-prompt-test"},
+        allowed_dependencies=[],
+    )
+
+    assert "GRID_CELLS must each be positive integer literals" in prompt
+    assert "GRID_CONFIGS" in prompt
+    assert "len(GRID_CONFIGS) <= GRID_CELLS" in prompt
+
+
+def test_full_experiment_workload_requires_exact_values_and_grid_iteration() -> None:
+    def artifact(code: str) -> LLMExperimentCodeArtifact:
+        return LLMExperimentCodeArtifact(
+            code_artifact_id="code-full-workload-test",
+            run_id="run-full-workload",
+            source_spec_id="spec-full-workload",
+            source_route_id="route-full-workload",
+            source_substrate_id="substrate-full-workload",
+            route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+            backend_kind=BackendKind.LLM_OPENAI,
+            entrypoint="experiment.py",
+            code=code,
+            expected_output_files=["output.json"],
+            random_seed=17,
+            timeout_seconds=10,
+            filesystem_scope="sandbox_workdir_only",
+        )
+
+    undersized = '''EXECUTION_PROFILE = "full"
+REPLICATIONS = 12
+RESAMPLES = 100
+GRID_CELLS = 12
+GRID_CONFIGS = [{"cell": 0}]
+config = GRID_CONFIGS[0]
+'''
+    exact = '''EXECUTION_PROFILE = "full"
+REPLICATIONS = 100
+RESAMPLES = 200
+GRID_CELLS = 2
+GRID_CONFIGS = [{"cell": 0}, {"cell": 1}]
+for config in GRID_CONFIGS:
+    value = config["cell"]
+'''
+
+    assert audit_generated_experiment_workload(
+        artifact=artifact(undersized),
+        execution_profile="full",
+        max_replications=100,
+        max_resamples=200,
+        max_grid_cells=12,
+    ) == [
+        "REPLICATIONS=12 must equal configured full-profile value 100",
+        "RESAMPLES=100 must equal configured full-profile value 200",
+        "GRID_CONFIGS must contain exactly GRID_CELLS full-profile configurations",
+        "full-profile execution must iterate over GRID_CONFIGS",
+    ]
+    assert audit_generated_experiment_workload(
+        artifact=artifact(exact),
+        execution_profile="full",
+        max_replications=100,
+        max_resamples=200,
+        max_grid_cells=2,
+    ) == []
+
+
+def test_full_experiment_workload_rejects_hidden_caps_and_decorative_models() -> None:
+    def artifact(code: str) -> LLMExperimentCodeArtifact:
+        return LLMExperimentCodeArtifact(
+            code_artifact_id="code-full-grid-semantics-test",
+            run_id="run-full-grid-semantics",
+            source_spec_id="spec-full-grid-semantics",
+            source_route_id="route-full-grid-semantics",
+            source_substrate_id="substrate-full-grid-semantics",
+            route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+            backend_kind=BackendKind.LLM_OPENAI,
+            entrypoint="experiment.py",
+            code=code,
+            expected_output_files=["output.json"],
+            random_seed=17,
+            timeout_seconds=10,
+            filesystem_scope="sandbox_workdir_only",
+        )
+
+    decorative = '''EXECUTION_PROFILE = "full"
+REPLICATIONS = 2
+RESAMPLES = 2
+GRID_CELLS = 2
+GRID_CONFIGS = [
+    {"model_class": "linear", "sample_size": 100},
+    {"model_class": "nonlinear", "sample_size": 200},
+]
+records = []
+for config in GRID_CONFIGS:
+    sample_size = min(20, config["sample_size"])
+    records.append({"model_class": config["model_class"], "n": sample_size})
+'''
+    dispatched = '''EXECUTION_PROFILE = "full"
+REPLICATIONS = 2
+RESAMPLES = 2
+GRID_CELLS = 2
+GRID_CONFIGS = [
+    {"model_class": "linear", "sample_size": 100},
+    {"model_class": "nonlinear", "sample_size": 200},
+]
+records = []
+for config in GRID_CONFIGS:
+    sample_size = config["sample_size"]
+    if config["model_class"] == "linear":
+        value = sample_size
+    else:
+        value = sample_size * sample_size
+    records.append(value)
+'''
+
+    assert audit_generated_experiment_workload(
+        artifact=artifact(decorative),
+        execution_profile="full",
+        max_replications=2,
+        max_resamples=2,
+        max_grid_cells=2,
+    ) == [
+        "full-profile GRID_CONFIGS values must not be silently capped with min/max: "
+        "sample_size",
+        "varying full-profile model/method grid values require computational dispatch, "
+        "not metadata labels only: model_class",
+    ]
+    assert audit_generated_experiment_workload(
+        artifact=artifact(dispatched),
+        execution_profile="full",
+        max_replications=2,
+        max_resamples=2,
+        max_grid_cells=2,
+    ) == []
+
+
+def test_full_experiment_workload_allows_grid_dependent_aggregations() -> None:
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-full-grid-aggregation-test",
+        run_id="run-full-grid-aggregation",
+        source_spec_id="spec-full-grid-aggregation",
+        source_route_id="route-full-grid-aggregation",
+        source_substrate_id="substrate-full-grid-aggregation",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code='''EXECUTION_PROFILE = "full"
+REPLICATIONS = 2
+RESAMPLES = 2
+GRID_CELLS = 2
+GRID_CONFIGS = [
+    {"posterior_family": "linear"},
+    {"posterior_family": "nonlinear"},
+]
+records = []
+for config in GRID_CONFIGS:
+    family = config["posterior_family"]
+    records.append(max(len(family) for _ in range(2)))
+''',
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    assert audit_generated_experiment_workload(
+        artifact=artifact,
+        execution_profile="full",
+        max_replications=2,
+        max_resamples=2,
+        max_grid_cells=2,
+    ) == []
+
+
+def test_full_experiment_codegen_prompt_requires_exact_workload() -> None:
+    prompt, _ = build_experiment_codegen_prompt(
+        spec_payload={
+            "output_contract": {
+                "required_metrics": ["coverage"],
+                "required_payload_fields": ["metrics"],
+                "required_logical_artifacts": [],
+            },
+            "workload_contract": {
+                "execution_profile": "full",
+                "max_replications": 100,
+                "max_resamples": 200,
+                "max_grid_cells": 12,
+            },
+            "required_role_functions": [],
+        },
+        substrate_payload={"substrate_id": "substrate-full-prompt-test"},
+        allowed_dependencies=[],
+    )
+
+    assert "must exactly equal their configured max_* values" in prompt
+    assert "must iterate over every item in GRID_CONFIGS" in prompt
+    assert "implement genuine computational dispatch" in prompt
+
+
+def test_generated_experiment_semantics_accept_derived_role_summaries() -> None:
+    code = """import json
+def run_baseline(): return {"value": 1.0}
+def run_proposed_method(): return {"value": 0.5}
+def run_controls(): return {"count": 1}
+def run_negative_controls():
+    return {"records": [{"rejected": 0}], "by_regime": {"null": {"rate": 0.0}}}
+def compute_metrics(summary): return {"false_rejection_rate": 0.0}
+baseline_summary = run_baseline()
+proposed_summary = run_proposed_method()
+control_summary = run_controls()
+negative_control_records = run_negative_controls()
+metrics = compute_metrics(negative_control_records)
+per_regime = negative_control_records["by_regime"]
+compact_records = negative_control_records["records"]
+payload = {
+    "metrics": metrics,
+    "baseline_summary": baseline_summary,
+    "control_summary": control_summary,
+    "negative_control_summary": {
+        "by_regime": per_regime,
+        "record_count": len(compact_records),
+    },
+}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+"""
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-derived-summary-test",
+        run_id="run-contract",
+        source_spec_id="spec-contract",
+        source_route_id="route-contract",
+        source_substrate_id="substrate-contract",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    semantics = audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=[
+            "run_baseline",
+            "run_proposed_method",
+            "run_controls",
+            "run_negative_controls",
+            "compute_metrics",
+        ],
+    )
+
+    assert semantics == []
+
+
+def test_generated_experiment_semantics_retains_producers_across_local_name_reuse() -> None:
+    code = """import json
+def run_baseline(): return {"value": 1.0}
+def run_proposed_method(): return {"value": 0.5}
+def run_controls(): return {"count": 1}
+def run_negative_controls(): return {"count": 1}
+def compute_metrics(): return {"score": 0.5}
+def _evaluate(): return {"helper_score": 0.25}
+def main():
+    baseline_summary = run_baseline()
+    run_proposed_method()
+    control_summary = run_controls()
+    negative_control_summary = run_negative_controls()
+    metrics = compute_metrics()
+    payload = {
+        "metrics": metrics,
+        "baseline_summary": baseline_summary,
+        "control_summary": control_summary,
+        "negative_control_summary": negative_control_summary,
+    }
+    with open("output.json", "w", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+def helper():
+    metrics = _evaluate()
+    return metrics
+main()
+"""
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-reused-local-producer-test",
+        run_id="run-contract",
+        source_spec_id="spec-contract",
+        source_route_id="route-contract",
+        source_substrate_id="substrate-contract",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    semantics = audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=[
+            "run_baseline",
+            "run_proposed_method",
+            "run_controls",
+            "run_negative_controls",
+            "compute_metrics",
+        ],
+    )
+
+    assert semantics == []
+
+
+def test_generated_experiment_semantics_tracks_role_outputs_appended_to_summaries() -> None:
+    code = """import json
+def run_baseline(): return {"value": 1.0}
+def run_proposed_method(): return {"value": 0.5}
+def run_controls(): return {"count": 1}
+def run_negative_controls(): return {"count": 1}
+def compute_metrics(): return {"held_out_mae": 0.5}
+baseline_summaries = []
+control_summaries = []
+negative_summaries = []
+for _ in range(2):
+    baseline = run_baseline()
+    proposed = run_proposed_method()
+    controls = run_controls()
+    negative = run_negative_controls()
+    baseline_summaries.append(baseline)
+    control_summaries.append(controls)
+    negative_summaries.append(negative)
+metrics = compute_metrics()
+payload = {
+    "metrics": metrics,
+    "baseline_summary": {"records": baseline_summaries},
+    "control_summary": {"records": control_summaries},
+    "negative_control_summary": {"records": negative_summaries},
+}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+"""
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-appended-summary-test",
+        run_id="run-contract",
+        source_spec_id="spec-contract",
+        source_route_id="route-contract",
+        source_substrate_id="substrate-contract",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    semantics = audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=[
+            "run_baseline",
+            "run_proposed_method",
+            "run_controls",
+            "run_negative_controls",
+            "compute_metrics",
+        ],
+    )
+
+    assert semantics == []
+
+
+def test_generated_experiment_semantics_tracks_comprehension_role_outputs() -> None:
+    code = """import json
+def run_baseline(index): return {"value": index + 1.0}
+def run_proposed_method(index): return {"value": index + 0.5}
+def run_controls(index): return {"count": index + 1}
+def run_negative_controls(index): return {"count": index + 1}
+def compute_metrics(rows): return {"held_out_mae": rows[0]["value"]}
+def aggregate(rows): return {"records": len(rows)}
+baselines = [run_baseline(index) for index in range(2)]
+proposed = [run_proposed_method(index) for index in range(2)]
+controls = [run_controls(index) for index in range(2)]
+negative = [run_negative_controls(index) for index in range(2)]
+metrics = compute_metrics(proposed)
+baseline_summary = aggregate(baselines)
+control_summary = {"records": controls}
+negative_control_summary = {"records": negative}
+payload = {
+    "metrics": metrics,
+    "baseline_summary": baseline_summary,
+    "control_summary": control_summary,
+    "negative_control_summary": negative_control_summary,
+}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+"""
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-comprehension-summary-test",
+        run_id="run-contract",
+        source_spec_id="spec-contract",
+        source_route_id="route-contract",
+        source_substrate_id="substrate-contract",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    semantics = audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=[
+            "run_baseline",
+            "run_proposed_method",
+            "run_controls",
+            "run_negative_controls",
+            "compute_metrics",
+        ],
+    )
+
+    assert semantics == []
+
+
+def test_generated_experiment_semantics_tracks_tuple_unpacked_metrics() -> None:
+    code = '''import json
+def compute_metrics(records):
+    return {"coverage": len(records) / len(records)}, True, False
+metrics, success, failure = compute_metrics([1])
+payload = {
+    "metrics": metrics,
+    "success_criteria_satisfied": success,
+    "failure_criteria_satisfied": failure,
+}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+'''
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-tuple-lineage-test",
+        run_id="run-tuple-lineage",
+        source_spec_id="spec-tuple-lineage",
+        source_route_id="route-tuple-lineage",
+        source_substrate_id="substrate-tuple-lineage",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    assert audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=["compute_metrics"],
+    ) == []
+
+
+def test_generated_experiment_semantics_tracks_metrics_returned_by_wrapper() -> None:
+    code = '''import json
+def compute_metrics(records):
+    return {"coverage": len(records) / len(records)}
+def run_proposed_method(records):
+    return compute_metrics(records)
+records = [1]
+proposed_metrics = run_proposed_method(records)
+payload = {"metrics": proposed_metrics}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+'''
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-wrapper-lineage-test",
+        run_id="run-wrapper-lineage",
+        source_spec_id="spec-wrapper-lineage",
+        source_route_id="route-wrapper-lineage",
+        source_substrate_id="substrate-wrapper-lineage",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    assert audit_generated_experiment_semantics(
+        artifact=artifact,
+        required_role_functions=["run_proposed_method", "compute_metrics"],
+    ) == []
+
+
+def test_generated_experiment_safety_allows_runtime_and_platform_metadata() -> None:
+    code = '''import hashlib
+import json
+import platform
+import time
+started = time.perf_counter()
+records = [1.0]
+metrics = {"runtime": time.perf_counter() - started}
+payload = {
+    "metrics": metrics,
+    "baseline_summary": {"count": len(records)},
+    "negative_control_summary": {"count": len(records)},
+    "negative_controls_passed": True,
+    "platform": platform.platform(),
+    "digest": hashlib.sha256(b"records").hexdigest(),
+}
+with open("output.json", "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
+'''
+    artifact = LLMExperimentCodeArtifact(
+        code_artifact_id="code-metadata-import-test",
+        run_id="run-metadata-import",
+        source_spec_id="spec-metadata-import",
+        source_route_id="route-metadata-import",
+        source_substrate_id="substrate-metadata-import",
+        route_type=BranchRouteType.SYNTHETIC_EXPERIMENT,
+        backend_kind=BackendKind.LLM_OPENAI,
+        entrypoint="experiment.py",
+        code=code,
+        expected_output_files=["output.json"],
+        random_seed=17,
+        timeout_seconds=10,
+        filesystem_scope="sandbox_workdir_only",
+    )
+
+    audit = audit_generated_experiment_code(
+        artifact=artifact,
+        required_metrics=["runtime"],
+        negative_controls_required=True,
+        allowed_dependencies=[],
+    )
+
+    assert audit.forbidden_imports_found == []
+    assert audit.blocked is False
+
+
+def test_generated_experiment_sandbox_limits_numeric_library_threads(tmp_path) -> None:
+    environment = _sandbox_env(tmp_path, 1729)
+
+    assert environment["PYTHONHASHSEED"] == "1729"
+    assert environment["OPENBLAS_NUM_THREADS"] == "1"
+    assert environment["OMP_NUM_THREADS"] == "1"
+    assert environment["MKL_NUM_THREADS"] == "1"
+    assert environment["NUMEXPR_NUM_THREADS"] == "1"
+    assert environment["BLIS_NUM_THREADS"] == "1"
+    assert environment["VECLIB_MAXIMUM_THREADS"] == "1"
 
 
 def test_metric_extraction_accepts_only_successful_output_json() -> None:
@@ -4386,6 +5446,21 @@ def test_metric_extraction_accepts_only_successful_output_json() -> None:
         required_metrics=["held_out_mae"],
         output_json_path=execution.output_json_path,
     )
+    nested = extract_metrics_from_output(
+        execution=execution,
+        output_payload={
+            "metrics": {
+                "conditional_coverage": {
+                    "stationary": 0.94,
+                    "drift": 0.91,
+                    "interval": [0.88, 0.97],
+                }
+            }
+        },
+        required_metrics=["conditional_coverage"],
+        output_json_path=execution.output_json_path,
+        allow_nested_numeric_metrics=True,
+    )
 
     assert extracted.schema_valid is True
     assert extracted.metrics == {"held_out_mae": 0.25}
@@ -4394,6 +5469,16 @@ def test_metric_extraction_accepts_only_successful_output_json() -> None:
     assert missing.metrics == {}
     assert failed.schema_valid is False
     assert failed.metrics == {}
+    assert nested.schema_valid is True
+    assert nested.metrics == {
+        "conditional_coverage.stationary": 0.94,
+        "conditional_coverage.drift": 0.91,
+        "conditional_coverage.interval.0": 0.88,
+        "conditional_coverage.interval.1": 0.97,
+    }
+    assert nested.metric_sources["conditional_coverage.drift"].endswith(
+        "#metrics.conditional_coverage.drift"
+    )
 
 
 def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) -> None:
@@ -4411,6 +5496,7 @@ def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) ->
             backend="llm-openai",
             max_executable_specs=8,
             max_codegen_calls=8,
+            max_safety_repair_calls=0,
             default_timeout_seconds=10,
             memory_limit_mb=256,
             allowed_dependencies=[],
@@ -4524,6 +5610,60 @@ def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) ->
         )
 
 
+def test_experiment_codegen_repairs_one_blocked_artifact_append_only(tmp_path) -> None:
+    run_id = "run-generated-experiment-safety-repair"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    generator = MockLLMExperimentCodeGenerator(unsafe_index=0)
+    generated = generate_experiment_code(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=generator,
+        config=LLMExperimentCodegenConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_executable_specs=1,
+            max_codegen_calls=1,
+            max_safety_repair_calls=1,
+            default_timeout_seconds=10,
+            memory_limit_mb=256,
+            allowed_dependencies=[],
+            require_non_fake_backends=True,
+        ),
+    )
+
+    assert generated.report.code_artifact_count == 2
+    assert generated.report.safety_audit_count == 2
+    assert generated.report.blocked_code_count == 1
+    assert generated.report.safety_repair_attempt_count == 1
+    assert generated.report.safety_repair_success_count == 1
+    original, repaired = generated.report.code_artifacts
+    assert repaired.repair_of_code_artifact_id_optional == original.code_artifact_id
+    assert repaired.generation_attempt == 2
+    assert generated.report.safety_audits[0].blocked is True
+    assert generated.report.safety_audits[1].passed is True
+    assert generator.received_repair_audits[0]["blocked"] is True
+    repair_raw = next(
+        item for item in generated.report.raw_artifact_paths if item.endswith("0002.json")
+    )
+    repair_payload = json.loads((tmp_path / repair_raw).read_text(encoding="utf-8"))
+    assert "process or shell access found" in repair_payload["prompt_text"]
+    assert "raise RuntimeError before constructing metrics" in repair_payload["prompt_text"]
+
+    executed = run_generated_experiments(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert executed.report.executed_code_count == 1
+    assert executed.report.metric_extraction_count == 1
+    assert len(executed.report.sandbox_executions) == 1
+    assert executed.report.sandbox_executions[0].code_artifact_id == repaired.code_artifact_id
+
+
 def test_hybrid_evidence_packages_plan_multiple_artifact_types(tmp_path) -> None:
     run_id = "run-hybrid-evidence-package-planning"
     store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
@@ -4591,6 +5731,34 @@ def test_hybrid_evidence_packages_plan_multiple_artifact_types(tmp_path) -> None
     assert strict.report.production_ready is True
 
     valid_raw = planner.raw_items[0]
+    nullable_optional = json.loads(json.dumps(valid_raw))
+    nullable_optional["package"]["optional_supporting_artifacts"] = None
+    nullable_optional["package"]["allowed_claim_scope"] = (
+        "This bounded package does not establish real-world validation."
+    )
+    for field_name, value in nullable_optional["score"].items():
+        if field_name != "score_explanation":
+            nullable_optional["score"][field_name] = value * 10.0
+    accepted, reasons, repairs = parse_hybrid_package_response(
+        {"packages": [nullable_optional]}
+    )
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.package.optional_supporting_artifacts == []
+    assert accepted.score.final_score <= 1.0
+    assert "normalized null package.optional_supporting_artifacts to []" in repairs
+    assert "normalized hybrid package scores from 0-10 to 0-1" in repairs
+
+    affirmative_validation = json.loads(json.dumps(valid_raw))
+    affirmative_validation["package"]["primary_claim_draft"] = (
+        "The package provides real-world validation."
+    )
+    accepted, reasons, _ = parse_hybrid_package_response(
+        {"packages": [affirmative_validation]}
+    )
+    assert accepted is None
+    assert any("real-world validation" in reason for reason in reasons)
+
     proof_claim = json.loads(json.dumps(valid_raw))
     proof_claim["package"]["primary_claim_draft"] = "This is a verified theorem."
     accepted, reasons, _ = parse_hybrid_package_response({"packages": [proof_claim]})
@@ -4750,6 +5918,754 @@ def test_hybrid_evidence_package_execution_uses_sandbox_metrics_and_draft_bounda
                 require_non_fake_backends=True,
             ),
         )
+
+
+def test_hybrid_evidence_execution_repairs_blocked_code_before_execution(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-safety-repair"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=0,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        max_safety_repair_calls=1,
+    )
+
+    assert executed.report.safety_repair_attempt_count == 1
+    assert executed.report.safety_repair_success_count == 1
+    assert len(executed.report.code_artifacts) == 2
+    original, repaired = executed.report.code_artifacts
+    assert repaired.repair_of_code_artifact_id_optional == original.code_artifact_id
+    assert executed.report.safety_audits[0].blocked is True
+    assert executed.report.safety_audits[1].blocked is False
+    assert executed.report.metric_extraction_count == 1
+    assert generator.received_repair_audits
+
+
+def test_hybrid_evidence_scientific_repair_is_append_only_and_reexecutes(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-evidence-scientific-repair"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    planned = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+    initial = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+    )
+    plan_id = planned.report.packages[0].artifact_plans[0].artifact_plan_id
+    original_code = initial.report.code_artifacts[-1]
+
+    repaired = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+        max_scientific_repair_calls=1,
+        scientific_repair_requests={
+            plan_id: {
+                "decision_id": "adaptive-decision-1",
+                "repair_instructions": ["Correct implementation fidelity only."],
+                "runtime_diagnostics": {
+                    "status": "failed",
+                    "stderr_tail": "MemoryError while retaining all raw cases",
+                },
+            }
+        },
+        resume_previous_execution=True,
+    )
+
+    assert repaired.report.scientific_repair_attempt_count == 1
+    assert repaired.report.scientific_repair_success_count == 1
+    assert repaired.report.metric_extraction_count == 1
+    repaired_code = repaired.report.code_artifacts[-1]
+    assert repaired_code.repair_of_code_artifact_id_optional == original_code.code_artifact_id
+    assert repaired_code.generation_attempt == original_code.generation_attempt + 1
+    assert generator.received_repair_audits[-1]["repair_kind"] == (
+        "scientific_quality_repair"
+    )
+    assert "Preserve the central question" in " ".join(
+        generator.received_repair_audits[-1]["repair_requirements"]
+    )
+    assert generator.received_repair_audits[-1]["runtime_diagnostics"] == {
+        "status": "failed",
+        "stderr_tail": "MemoryError while retaining all raw cases",
+    }
+
+
+def test_hybrid_evidence_plan_repair_records_lineage_and_runs_fresh_attempt(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-evidence-plan-repair"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    initial_plan = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+    initial_execution = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+    )
+    original_package_id = initial_plan.report.packages[0].package_id
+
+    repaired_plan = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+            repair_of_package_id_optional=original_package_id,
+            adaptive_repair_decision_id_optional="adaptive-decision-1",
+        ),
+    )
+    repaired_execution = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        resume_previous_execution=True,
+        allow_repaired_package_revision=True,
+    )
+
+    repaired_package = repaired_plan.report.packages[0]
+    assert repaired_package.package_id != original_package_id
+    assert repaired_package.repair_of_package_id_optional == original_package_id
+    assert repaired_package.adaptive_repair_decision_id_optional == "adaptive-decision-1"
+    assert repaired_execution.report.resumed_from_report_id_optional is None
+    assert repaired_execution.report.source_package_report_path.endswith(
+        f"{repaired_plan.report.report_id}.json"
+    )
+    assert repaired_execution.report.results
+    assert repaired_execution.report.resumed_result_count == 0
+    assert initial_execution.report.code_artifacts
+
+
+def test_hybrid_evidence_runtime_repair_recovers_oversized_output(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-runtime-repair"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+        oversized_output_index=0,
+    )
+
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        max_safety_repair_calls=0,
+        max_runtime_repair_calls=1,
+        execution_profile="smoke",
+    )
+
+    assert executed.report.runtime_repair_attempt_count == 1
+    assert executed.report.runtime_repair_success_count == 1
+    assert executed.report.safety_repair_attempt_count == 0
+    assert len(executed.report.code_artifacts) == 2
+    assert len(executed.report.sandbox_executions) == 2
+    assert executed.report.sandbox_executions[0].status == "failed"
+    assert executed.report.sandbox_executions[1].status == "completed"
+    assert executed.report.metric_extraction_count == 2
+    assert executed.report.results[0].execution_completed is True
+    assert executed.report.results[0].metrics
+    assert generator.received_repair_audits[0]["repair_kind"] == "runtime_failure"
+    assert generator.received_repair_audits[0]["output_limit_bytes"] == 1_048_576
+    assert "File too large" in generator.received_repair_audits[0][
+        "sandbox_execution"
+    ]["stderr_tail"]
+
+
+def test_hybrid_evidence_runtime_repair_fails_closed_after_one_attempt(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-runtime-repair-fails"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+        oversized_output_index=0,
+        runtime_repair_succeeds=False,
+    )
+
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        max_runtime_repair_calls=1,
+        execution_profile="smoke",
+    )
+
+    assert executed.report.runtime_repair_attempt_count == 1
+    assert executed.report.runtime_repair_success_count == 0
+    assert len(executed.report.sandbox_executions) == 2
+    assert all(item.status == "failed" for item in executed.report.sandbox_executions)
+    assert executed.report.results[0].execution_completed is False
+    assert executed.report.results[0].metrics == {}
+    assert executed.report.results[0].evidence_label == "InconclusiveResult"
+
+
+def test_hybrid_resume_reaudits_prior_llm_code_without_new_generation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    run_id = "run-hybrid-evidence-policy-reaudit"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+    original_audit = hybrid_evidence_module._audit_hybrid_code_artifact
+    emulate_legacy_false_positive = True
+
+    def audit_with_legacy_false_positive(**kwargs):
+        audit = original_audit(**kwargs)
+        if emulate_legacy_false_positive:
+            return audit.model_copy(
+                update={
+                    "passed": False,
+                    "blocked": True,
+                    "reasons": [*audit.reasons, "legacy semantic false positive"],
+                }
+            )
+        return audit
+
+    monkeypatch.setattr(
+        hybrid_evidence_module,
+        "_audit_hybrid_code_artifact",
+        audit_with_legacy_false_positive,
+    )
+    first = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        max_safety_repair_calls=0,
+        execution_profile="smoke",
+    )
+    assert first.report.results[0].status == "blocked_safety_audit"
+    assert len(generator.received_spec_ids) == 1
+
+    emulate_legacy_false_positive = False
+    resumed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+        max_safety_repair_calls=0,
+        execution_profile="smoke",
+        resume_previous_execution=True,
+    )
+
+    assert len(generator.received_spec_ids) == 1
+    assert resumed.report.metric_extraction_count == 1
+    assert resumed.report.executed_code_count == 1
+    assert resumed.report.code_artifacts[0].repair_of_code_artifact_id_optional == (
+        first.report.code_artifacts[0].code_artifact_id
+    )
+    assert any("no code-generation or repair call" in item for item in resumed.report.warnings)
+
+
+def test_hybrid_execution_bounds_artifacts_and_codegen_calls(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-bounded-execution"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planned = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(unsafe_index=-1)
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=2,
+        max_codegen_calls=1,
+    )
+
+    assert planned.report.artifact_plan_count == 4
+    assert executed.report.selected_artifact_plan_count == 2
+    assert executed.report.budget_deferred_artifact_count == 2
+    assert executed.report.max_artifact_plans == 2
+    assert executed.report.max_codegen_calls == 1
+    assert len(generator.received_spec_ids) == 1
+    assert executed.report.result_count == 4
+    assert sum(
+        item.status == "deferred_insufficient_support"
+        for item in executed.report.results
+    ) == 2
+
+
+def test_hybrid_smoke_execution_resumes_components_without_adjudication_support(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-evidence-smoke-resume"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.append("select-three-code-component-package")
+    planned = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+
+    latest = None
+    for attempt in range(3):
+        latest = execute_hybrid_evidence_packages(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            planner=planner,
+            code_generator=generator,
+            retrieval_mode="mocked_retrieval",
+            require_non_fake_backends=True,
+            timeout_seconds=10,
+            memory_limit_mb=256,
+            allowed_dependencies=[],
+            max_artifact_plans=1,
+            max_codegen_calls=1,
+            execution_profile="smoke",
+            resume_previous_execution=attempt > 0,
+        )
+
+    assert latest is not None
+    assert planned.report.artifact_plan_count == 3
+    assert len(generator.received_spec_ids) == 3
+    assert latest.report.execution_profile == "smoke"
+    assert latest.report.resumed_result_count == 2
+    assert all(item.execution_completed for item in latest.report.results)
+    assert all(item.supports_adjudication is False for item in latest.report.results)
+    assert latest.report.adjudication_ready is False
+    assert latest.report.completed_required_artifact_count == 0
+    assert latest.report.incomplete_required_artifact_plan_ids
+
+    critic = MockScientificCritic()
+    critique_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        critic=critic,
+        require_non_fake_backends=True,
+    )
+    with pytest.raises(EvidencePackageAdjudicationError, match="not ready for adjudication"):
+        adjudicate_evidence_packages(
+            run_id=run_id,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+            critic=critic,
+            require_non_fake_backends=True,
+        )
+
+
+def test_hybrid_resume_recovers_completed_component_before_missing_codegen(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-evidence-history-resume"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.append("select-code-component-package")
+    planned = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+    first_plan_id = planned.report.packages[0].artifact_plans[0].artifact_plan_id
+    second_plan_id = planned.report.packages[0].artifact_plans[1].artifact_plan_id
+
+    first = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        execution_profile="full",
+    )
+    assert first.report.results[0].execution_completed
+
+    failed_repair = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+        max_scientific_repair_calls=0,
+        scientific_repair_requests={
+            first_plan_id: {
+                "decision_id": "decision-history-resume",
+                "repair_instructions": ["Preserve the completed implementation."],
+            }
+        },
+        execution_profile="full",
+        resume_previous_execution=True,
+    )
+    assert not failed_repair.report.results[0].execution_completed
+
+    resumed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        execution_profile="full",
+        resume_previous_execution=True,
+    )
+
+    assert resumed.report.resumed_result_count == 1
+    assert resumed.report.selected_artifact_plan_ids == [second_plan_id]
+    assert generator.received_spec_ids == [first_plan_id, second_plan_id]
+
+
+def test_hybrid_execution_reuses_compatible_m102_result(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-reuse-m102"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    m102_generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+    codegen = generate_experiment_code(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=m102_generator,
+        config=LLMExperimentCodegenConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_executable_specs=1,
+            max_codegen_calls=1,
+            max_safety_repair_calls=0,
+            default_timeout_seconds=10,
+            memory_limit_mb=256,
+            allowed_dependencies=[],
+            require_non_fake_backends=True,
+        ),
+    )
+    m102_execution = run_generated_experiments(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        require_non_fake_backends=True,
+    )
+    assert codegen.report.executable_spec_count >= 1
+
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    unused_generator = MockLLMExperimentCodeGenerator(unsafe_index=-1)
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=unused_generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+    )
+
+    assert executed.report.prior_execution_context_count == 1
+    assert executed.report.reused_prior_result_count == 1
+    assert unused_generator.received_spec_ids == []
+    reused = executed.report.results[0]
+    prior = next(
+        item
+        for item in m102_execution.report.generated_results
+        if item.result_id == reused.source_prior_result_id_optional
+    )
+    assert reused.reused_prior_execution is True
+    assert reused.metric_sources == prior.metric_sources
 
 
 def test_scientific_critic_ensemble_and_cross_package_adjudication(tmp_path) -> None:
@@ -5036,7 +6952,25 @@ def test_nucleus_manuscript_synthesis_and_bounded_revision(tmp_path) -> None:
     assert "Artifact-Bound Metrics" in drafted.report.draft_optional.markdown
     assert drafted.report.claim_artifact_bindings
     assert all(item.supporting_artifact_ids for item in drafted.report.claim_artifact_bindings)
+    execution_citations = [
+        item
+        for item in drafted.report.evidence_citation_bindings
+        if item.source_type == "execution_artifact"
+    ]
+    assert execution_citations
+    assert all("#" not in item.citation_or_reference_id for item in execution_citations)
+    retrieval_citations = [
+        item
+        for item in drafted.report.evidence_citation_bindings
+        if item.source_type == "retrieval_source"
+    ]
+    assert retrieval_citations
+    assert "Related Work and Literature Boundaries" in drafted.report.draft_optional.markdown
+    assert set(item.binding_id for item in retrieval_citations).issubset(
+        drafted.report.draft_optional.citation_binding_ids
+    )
     assert revised.report.revised_draft_optional is not None
+    assert "Artifact-Bound Metrics" not in revised.report.revised_draft_optional.markdown
     assert revised.report.revision_report_optional is not None
     assert revised.report.revision_report_optional.claim_artifact_validation_passed is True
     assert len(planner.critic_calls) == 2 * len(ManuscriptCriticRole)
@@ -5060,6 +6994,185 @@ def test_nucleus_manuscript_synthesis_and_bounded_revision(tmp_path) -> None:
         require_non_fake_backends=True,
     )
     assert strict.report.blocking_violation_count == 0
+
+
+def test_strict_nucleus_manuscript_defers_without_real_literature_context(
+    tmp_path,
+) -> None:
+    run_id = "run-nucleus-manuscript-no-literature"
+    store, ledger = _prepare_m105_nucleus_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    for path in reports.glob("retrieval-context-*.json"):
+        path.unlink()
+
+    planned = plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=MockNucleusManuscriptPlanner(),
+        config=NucleusManuscriptConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            require_non_fake_backends=True,
+        ),
+    )
+
+    assert planned.report.manuscript_status == NucleusManuscriptStatus.MANUSCRIPT_DEFERRED
+    assert any(
+        "requires accepted real-retrieval sources" in blocker
+        for blocker in planned.report.blocking_reasons
+    )
+
+
+def test_nucleus_manuscript_resolves_free_form_required_artifact_label() -> None:
+    plan = SimpleNamespace(
+        artifact_plan_id="package-artifact-001",
+        artifact_type=EvidenceArtifactType.SYNTHETIC_EXPERIMENT,
+    )
+    package = SimpleNamespace(
+        minimum_required_artifacts=["A1_synthetic_factorial_experiment"],
+        artifact_plans=[plan],
+    )
+
+    assert _required_artifact_plan_ids(package) == [plan.artifact_plan_id]
+
+
+def test_nucleus_manuscript_normalizes_bounded_plan_references_and_sections() -> None:
+    citation = EvidenceCitationBinding(
+        binding_id="citation-1",
+        manuscript_location="results",
+        artifact_id="result-1",
+        source_type="execution_artifact",
+        evidence_label="SyntheticExperimentEvidence",
+        citation_or_reference_id="runs/example/output.json#metrics.primary",
+        supports_claim_ids=["claim-1"],
+    )
+    assert _normalize_citation_references(
+        [
+            "result-1",
+            "result-1; paired uncertainty summaries",
+            "runs/example/output.json#metrics.secondary",
+            "runs/example/output.json",
+        ],
+        [citation],
+    ) == ["citation-1"]
+    assert _forbidden_reasons(
+        "This bounded study does not establish real-world validation."
+    ) == []
+    assert _forbidden_reasons("This establishes real-world validation.") == [
+        "real-world validation assertion"
+    ]
+
+    section = lambda section_id, title: SimpleNamespace(  # noqa: E731
+        section_id=section_id,
+        title=title,
+        purpose=title,
+        scope_constraints=["Synthetic evidence only."],
+        claim_ids=["claim-1"],
+        required_citations=["citation-1"],
+        supporting_package_ids=["primary-package"],
+        bullets=[],
+    )
+    plan = SimpleNamespace(
+        working_title="Bounded benchmark",
+        central_question="What happens in the bounded benchmark?",
+        central_claim="A conditional synthetic result is reported.",
+        section_plans=[
+            section("scope", "Bounded question and study scope"),
+            section("methods", "Data-generating process and methods"),
+            section("results", "Cellwise performance contrasts"),
+            section("limitations", "Bounded interpretation and limitations"),
+        ],
+    )
+    inputs = SimpleNamespace(
+        claim_bindings=[SimpleNamespace(claim_id="claim-1")],
+        citation_bindings=[citation],
+        nucleus=SimpleNamespace(
+            primary_package_id="primary-package",
+            supporting_package_ids=[],
+            appendix_package_ids=[],
+            negative_package_ids=[],
+        ),
+    )
+
+    assert _validate_plan(plan, inputs) == []
+
+
+def test_nucleus_manuscript_accepts_artifact_bound_signed_and_summary_numbers() -> None:
+    result = SimpleNamespace(
+        metrics={
+            "contrast": -0.0005526032587906083,
+            "negative_control_maximum": 0.0382992585859323,
+        },
+        baseline_summary='{"rate": 0.1}',
+        control_summary='{"tolerance": 0.03, "rerun": 8.948475294090485e-11}',
+        negative_control_summary='{"gain_threshold": -0.005}',
+    )
+    markdown = (
+        "### 3.1 Artifact-bound results\n"
+        "Contrast -0.0005526032587906083; rate 0.1; tolerance 0.03; "
+        "rerun 0.00000000008948475294090485; threshold -0.005."
+    )
+
+    assert _metric_literal_reasons(markdown, "", [result]) == []
+    assert _metric_literal_reasons(markdown + " Invented 0.1234.", "", [result]) == [
+        "Draft contains decimal metric literals not present in execution artifacts: 0.1234"
+    ]
+    assert _metric_literal_reasons(
+        markdown + " Incorrect approximation 0.038299258370.", "", [result]
+    ) == [
+        "Draft contains decimal metric literals not present in execution artifacts: 0.038299258370"
+    ]
+    assert _metric_literal_reasons(
+        markdown,
+        r"\begin{tabular}{p{0.31\linewidth}|p{0.60\textwidth}}",
+        [result],
+    ) == []
+    assert _metric_literal_reasons(markdown, "Invented result 0.60.", [result]) == [
+        "Draft contains decimal metric literals not present in execution artifacts: 0.60"
+    ]
+
+
+def test_nucleus_manuscript_accepts_motivation_as_introduction_content() -> None:
+    markdown = """# Study
+
+## Motivation, estimand, and bounded scope
+Question and context.
+
+## Limitations
+Bounded scope and limitations.
+
+## Bounded conclusion
+Summary.
+
+# Appendix
+Audit details.
+"""
+
+    assert _required_draft_content_reasons(markdown) == []
+    assert _required_draft_content_reasons(
+        markdown.replace("Motivation, estimand, and bounded scope", "Question and estimands")
+    ) == []
+
+
+def test_nucleus_manuscript_requires_appendix_only_when_requested() -> None:
+    markdown = """# Study
+
+## Research question
+Question and context.
+
+## Limitations
+Bounded scope and limitations.
+
+## Conclusion
+Summary.
+"""
+
+    assert _required_draft_content_reasons(markdown, require_appendix=False) == []
+    assert _required_draft_content_reasons(markdown, require_appendix=True) == [
+        "Draft lacks required appendix content."
+    ]
 
 
 def test_nucleus_manuscript_defers_without_primary_nucleus(tmp_path) -> None:
@@ -5235,17 +7348,53 @@ def test_final_paper_assembly_verification_and_bundle(tmp_path) -> None:
     assert verified.report.verification_status in {"verified", "verified_with_warnings"}
     assert verified.report.publication_ready is False
 
+    rendered = render_final_paper(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        config=LatexRenderConfig(
+            run_id=run_id,
+            render_check_enabled=True,
+            allow_external_tools=True,
+            latex_executable="pdflatex",
+        ),
+        renderer=LatexRenderer(
+            runner=lambda _tex, _config: LatexRunnerOutput(
+                exit_code=0,
+                stdout="compiled",
+                pdf_bytes=b"%PDF-1.4\n% deterministic test PDF\n",
+                tool_version="fake-pdflatex-1.0",
+            )
+        ),
+    )
+    assert rendered.report.render_status == "rendered"
+    assert rendered.report.rendered_pdf_path_optional is not None
+    standalone = tmp_path / rendered.report.standalone_latex_path_optional
+    standalone_text = standalone.read_text(encoding="utf-8")
+    assert standalone_text.startswith(r"\documentclass")
+    assert r"\title{" in standalone_text
+    assert r"\begin{longtable}" not in standalone_text
+    assert "Reconstructed Result Tables" not in standalone_text
+    assert "Artifacts and exact metrics are available" in standalone_text
+    assert (tmp_path / rendered.report.rendered_pdf_path_optional).read_bytes().startswith(
+        b"%PDF"
+    )
+
     bundle = build_final_paper_bundle(
         run_id=run_id,
         root=tmp_path,
         store=store,
         ledger=ledger,
+        require_rendered_pdf=True,
     )
     assert isinstance(bundle.report, FinalPaperAssemblyReport)
     assert bundle.report.assembly_status == "assembled"
     bundle_dir = tmp_path / bundle.report.bundle_path_optional
     assert (bundle_dir / "paper" / "final-paper.md").is_file()
     assert (bundle_dir / "paper" / "final-paper.tex").is_file()
+    assert (bundle_dir / "paper" / "final-paper-fragment.tex").is_file()
+    assert (bundle_dir / "paper" / "final-paper.pdf").is_file()
     assert (bundle_dir / "reports" / "final-paper-manifest.json").is_file()
     assert (bundle_dir / "reports" / "verification-report.json").is_file()
     assert (bundle_dir / "reproducibility" / "hashes.sha256").is_file()
@@ -5255,6 +7404,7 @@ def test_final_paper_assembly_verification_and_bundle(tmp_path) -> None:
     inspected = inspect_final_paper(run_id=run_id, root=tmp_path)
     assert inspected.final_paper_present is True
     assert inspected.verification_present is True
+    assert inspected.render_present is True
     assert inspected.bundle_present is True
     assert inspected.table_count >= 1
     assert inspected.publication_ready is False
@@ -5266,6 +7416,35 @@ def test_final_paper_assembly_verification_and_bundle(tmp_path) -> None:
         require_non_fake_backends=True,
     )
     assert strict.report.blocking_violation_count == 0
+
+
+def test_standalone_final_latex_uses_paper_layout_and_omits_audit_dump() -> None:
+    source = "\n".join(
+        [
+            r"\section*{A synthetic result: an artifact-summary report}",
+            r"\subsection*{Abstract}",
+            "A bounded abstract.",
+            r"\subsection{Methods}",
+            "Methods text.",
+            r"\begin{center}",
+            r"\begin{tabular}{c|c}",
+            r"Method & Value\\ \hline",
+            r"Baseline & 0.123456789\\",
+            r"\end{tabular}",
+            r"\end{center}",
+            r"\section*{Reconstructed Result Tables}",
+            "Bundle-only metrics.",
+        ]
+    )
+
+    rendered = _standalone_final_latex(source)
+
+    assert r"\title{A synthetic result}" in rendered
+    assert r"\begin{abstract}" in rendered
+    assert r"\section{Methods}" in rendered
+    assert r"\begin{adjustbox}{max width=\linewidth}" in rendered
+    assert "0.1235" in rendered
+    assert "Bundle-only metrics." not in rendered
 
 
 def test_final_paper_defers_for_missing_revision_artifact_or_figure(tmp_path) -> None:
@@ -5350,6 +7529,38 @@ def test_final_paper_verifier_detects_metric_hash_scope_and_citation_tampering(t
     )
 
 
+def test_final_paper_flattens_nested_output_metrics(tmp_path) -> None:
+    output = tmp_path / "output.json"
+    output.write_text(
+        json.dumps(
+            {
+                "metrics": {
+                    "95_interval": {"method": [0.1, 0.2]},
+                    "scalar": 3,
+                    "ignored": True,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert _metrics_from_output(output) == {
+        "95_interval.method.0": 0.1,
+        "95_interval.method.1": 0.2,
+        "scalar": 3,
+    }
+
+
+def test_final_paper_allows_negated_real_world_validation_only() -> None:
+    bounded = "This report does not establish real-world validation."
+    affirmative = "This report establishes real-world validation."
+
+    assert _forbidden_claim_reasons(bounded, "") == []
+    assert _forbidden_claim_reasons(affirmative, "") == [
+        "real-world validation assertion"
+    ]
+
+
 def test_final_paper_requires_validated_sandbox_metric_sources_and_matching_manuscript_values(
     tmp_path,
 ) -> None:
@@ -5390,10 +7601,20 @@ def test_final_paper_requires_validated_sandbox_metric_sources_and_matching_manu
         for path in reports.glob("nucleus-manuscript-synthesis-report-*.json")
         if re.fullmatch(r"nucleus-manuscript-synthesis-report-\d{4}\.json", path.name)
     )[-1]
+    execution_path = sorted(
+        path
+        for path in reports.glob("evidence-package-execution-report-*.json")
+        if re.fullmatch(r"evidence-package-execution-report-\d{4}\.json", path.name)
+    )[-1]
+    execution_payload = json.loads(execution_path.read_text(encoding="utf-8"))
+    result = next(item for item in execution_payload["results"] if item["metrics"])
+    metric = next(iter(result["metrics"]))
     revision_payload = json.loads(revision_path.read_text(encoding="utf-8"))
-    revision_payload["revised_draft_optional"]["markdown"] = revision_payload[
-        "revised_draft_optional"
-    ]["markdown"].replace("0.100114450153294", "0.999", 1)
+    revision_payload["revised_draft_optional"]["markdown"] += (
+        "\n| Artifact | Metric | Value |\n"
+        "|---|---|---:|\n"
+        f"| {result['result_id']} | {metric} | 0.999 |\n"
+    )
     revision_path.write_text(json.dumps(revision_payload), encoding="utf-8")
 
     deferred = assemble_final_paper(
@@ -5467,6 +7688,8 @@ def test_final_paper_inserts_assembled_latex_assets_before_document_terminator(t
     manifest = assembled.manifest_optional
     assert manifest is not None
     latex = (tmp_path / manifest.main_latex_path).read_text(encoding="utf-8")
+    assert r"\section*{References}" in latex
+    assert r"\begin{thebibliography}{99}" in latex
     assert latex.index(r"\section*{Reconstructed Result Tables}") < latex.rindex(
         r"\end{document}"
     )

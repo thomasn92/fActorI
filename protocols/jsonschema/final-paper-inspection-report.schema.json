@@ -287,7 +287,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/final-paper-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/final-paper-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only latest final-paper assembly, verification, and bundle inspection.",
@@ -457,6 +457,40 @@
       "title": "Publication Ready",
       "type": "boolean"
     },
+    "render_present": {
+      "default": false,
+      "title": "Render Present",
+      "type": "boolean"
+    },
+    "render_status_optional": {
+      "anyOf": [
+        {
+          "enum": [
+            "rendered",
+            "failed",
+            "deferred"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Render Status Optional"
+    },
+    "rendered_pdf_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rendered Pdf Path Optional"
+    },
     "resolved_claim_artifact_binding_count": {
       "default": 0,
       "minimum": 0,
@@ -479,6 +513,18 @@
       "minimum": 0,
       "title": "Section Count",
       "type": "integer"
+    },
+    "standalone_latex_path_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Standalone Latex Path Optional"
     },
     "table_count": {
       "default": 0,
@@ -530,7 +576,7 @@
   ],
   "title": "FinalPaperInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.FinalPaperInspectionReport",
   "x-factori-verification-evidence": false
 }

@@ -141,8 +141,10 @@ def generate_experiment_code(
     code_artifacts: list[LLMExperimentCodeArtifact] = []
     audits: list[ExperimentCodeSafetyAudit] = []
     raw_artifacts: list[LLMExperimentCodeRawArtifact] = []
+    safety_repair_attempt_count = 0
+    safety_repair_success_count = 0
 
-    for index, spec in enumerate(selected_specs):
+    for spec in selected_specs:
         substrate = substrate_by_id.get(spec.source_substrate_id)
         if substrate is None:
             raise GeneratedExperimentError(
@@ -158,13 +160,16 @@ def generate_experiment_code(
             raise GeneratedExperimentError(
                 f"LLM experiment-code generation failed for {spec.spec_id}: {exc}"
             ) from exc
-        code_id = f"experiment-code-artifact-{code_number + index:04d}"
+        code_id = f"experiment-code-artifact-{code_number + len(code_artifacts):04d}"
         rejection_reasons = list(response.rejection_reasons)
         accepted_code_id: str | None = None
+        blocked_artifact: LLMExperimentCodeArtifact | None = None
+        blocked_audit: ExperimentCodeSafetyAudit | None = None
         if response.accepted is not None and not rejection_reasons:
             proposal = response.accepted
             artifact = LLMExperimentCodeArtifact(
                 code_artifact_id=code_id,
+                generation_attempt=1,
                 run_id=run_id,
                 source_spec_id=spec.spec_id,
                 source_route_id=spec.route_id,
@@ -192,6 +197,8 @@ def generate_experiment_code(
             audits.append(audit)
             accepted_code_id = code_id
             if audit.blocked:
+                blocked_artifact = artifact
+                blocked_audit = audit
                 warnings.append(f"Safety audit blocked {code_id}: " + "; ".join(audit.reasons))
         elif config.require_non_fake_backends:
             raise GeneratedExperimentError(
@@ -202,10 +209,11 @@ def generate_experiment_code(
             warnings.append(
                 f"Rejected code proposal for {spec.spec_id}: " + "; ".join(rejection_reasons)
             )
-        raw_id = f"llm-experiment-code-raw-{raw_number + index:04d}"
+        raw_id = f"llm-experiment-code-raw-{raw_number + len(raw_artifacts):04d}"
         raw_artifacts.append(
             LLMExperimentCodeRawArtifact(
                 raw_artifact_id=raw_id,
+                generation_attempt=1,
                 run_id=run_id,
                 source_spec_id=spec.spec_id,
                 backend_name=generator.backend_name,
@@ -218,6 +226,97 @@ def generate_experiment_code(
                 fallback_used=generator.fallback_used,
             )
         )
+        if (
+            blocked_artifact is not None
+            and blocked_audit is not None
+            and safety_repair_attempt_count < config.max_safety_repair_calls
+        ):
+            safety_repair_attempt_count += 1
+            try:
+                repair = generator.repair_code(
+                    spec_payload=spec.model_dump(mode="json"),
+                    substrate_payload=substrate.model_dump(mode="json"),
+                    blocked_code=blocked_artifact.code,
+                    audit_payload=blocked_audit.model_dump(mode="json"),
+                    allowed_dependencies=config.allowed_dependencies,
+                )
+            except (AdapterError, ValueError) as exc:
+                warnings.append(
+                    f"Safety repair call failed for {blocked_artifact.code_artifact_id}: {exc}"
+                )
+                continue
+            repair_reasons = list(repair.rejection_reasons)
+            repaired_code_id: str | None = None
+            if repair.accepted is not None and not repair_reasons:
+                proposal = repair.accepted
+                repaired_code_id = (
+                    f"experiment-code-artifact-{code_number + len(code_artifacts):04d}"
+                )
+                repaired_artifact = LLMExperimentCodeArtifact(
+                    code_artifact_id=repaired_code_id,
+                    repair_of_code_artifact_id_optional=blocked_artifact.code_artifact_id,
+                    generation_attempt=2,
+                    run_id=run_id,
+                    source_spec_id=spec.spec_id,
+                    source_route_id=spec.route_id,
+                    source_substrate_id=spec.source_substrate_id,
+                    route_type=spec.route_type,
+                    backend_kind=generator.backend_kind,
+                    language=proposal.language,
+                    entrypoint=proposal.entrypoint,
+                    code=proposal.code,
+                    expected_output_files=proposal.expected_output_files,
+                    required_inputs=proposal.required_inputs,
+                    declared_dependencies=proposal.declared_dependencies,
+                    random_seed=proposal.random_seed,
+                    timeout_seconds=min(
+                        proposal.timeout_seconds, config.default_timeout_seconds
+                    ),
+                    network_required=False,
+                    filesystem_scope=proposal.filesystem_scope,
+                )
+                repaired_audit = audit_generated_experiment_code(
+                    artifact=repaired_artifact,
+                    required_metrics=spec.output_contract.required_metrics,
+                    negative_controls_required=bool(spec.negative_control_plan),
+                    allowed_dependencies=config.allowed_dependencies,
+                )
+                code_artifacts.append(repaired_artifact)
+                audits.append(repaired_audit)
+                if repaired_audit.blocked:
+                    warnings.append(
+                        f"Safety audit blocked repair {repaired_code_id}: "
+                        + "; ".join(repaired_audit.reasons)
+                    )
+                else:
+                    safety_repair_success_count += 1
+                    warnings.append(
+                        f"Safety repair {repaired_code_id} supersedes blocked artifact "
+                        f"{blocked_artifact.code_artifact_id}."
+                    )
+            else:
+                warnings.append(
+                    f"Rejected safety repair for {blocked_artifact.code_artifact_id}: "
+                    + "; ".join(repair_reasons)
+                )
+            repair_raw_id = f"llm-experiment-code-raw-{raw_number + len(raw_artifacts):04d}"
+            raw_artifacts.append(
+                LLMExperimentCodeRawArtifact(
+                    raw_artifact_id=repair_raw_id,
+                    repair_of_code_artifact_id_optional=blocked_artifact.code_artifact_id,
+                    generation_attempt=2,
+                    run_id=run_id,
+                    source_spec_id=spec.spec_id,
+                    backend_name=generator.backend_name,
+                    model=generator.model,
+                    prompt_text=repair.prompt_text,
+                    requested_output_schema=repair.requested_output_schema,
+                    raw_response=repair.raw_response,
+                    accepted_code_artifact_id_optional=repaired_code_id,
+                    rejection_reasons=repair_reasons,
+                    fallback_used=generator.fallback_used,
+                )
+            )
 
     deferred_results = [
         _deferred_result(
@@ -277,6 +376,8 @@ def generate_experiment_code(
         code_artifact_count=len(code_artifacts),
         safety_audit_count=len(audits),
         blocked_code_count=sum(item.blocked for item in audits),
+        safety_repair_attempt_count=safety_repair_attempt_count,
+        safety_repair_success_count=safety_repair_success_count,
         executed_code_count=0,
         failed_execution_count=0,
         metric_extraction_count=0,
@@ -329,6 +430,7 @@ def run_generated_experiments(
     route_report = _load_route_report_path(route_path)
     spec_by_id = {item.spec_id: item for item in route_report.execution_specs}
     audit_by_code = {item.code_artifact_id: item for item in codegen.safety_audits}
+    execution_artifacts = _select_execution_artifacts(codegen, audit_by_code)
     sandbox_number = _next_number(reports, _SANDBOX_RE)
     metric_number = _next_number(reports, _METRIC_RE)
     result_number = _next_number(reports, _RESULT_RE)
@@ -340,7 +442,7 @@ def run_generated_experiments(
     generated_results: list[GeneratedExperimentResult] = list(codegen.generated_results)
     warnings: list[str] = []
 
-    for index, artifact in enumerate(codegen.code_artifacts):
+    for index, artifact in enumerate(execution_artifacts):
         spec = spec_by_id.get(artifact.source_spec_id)
         audit = audit_by_code.get(artifact.code_artifact_id)
         if spec is None or audit is None:
@@ -447,7 +549,12 @@ def run_generated_experiments(
         code_artifact_count=codegen.code_artifact_count,
         safety_audit_count=codegen.safety_audit_count,
         blocked_code_count=codegen.blocked_code_count,
-        executed_code_count=sum(not audit.blocked for audit in codegen.safety_audits),
+        safety_repair_attempt_count=codegen.safety_repair_attempt_count,
+        safety_repair_success_count=codegen.safety_repair_success_count,
+        executed_code_count=sum(
+            not audit_by_code[item.code_artifact_id].blocked
+            for item in execution_artifacts
+        ),
         failed_execution_count=sum(
             item.result.status in {"failed", "timed_out"} for item in observations
         ),
@@ -481,12 +588,38 @@ def run_generated_experiments(
     return _stage_result(report, persistence)
 
 
+def _select_execution_artifacts(
+    codegen: GeneratedExperimentExecutionReport,
+    audit_by_code: dict[str, ExperimentCodeSafetyAudit],
+) -> list[LLMExperimentCodeArtifact]:
+    """Choose one artifact per spec, preferring the newest passing repair."""
+    grouped: dict[str, list[LLMExperimentCodeArtifact]] = {}
+    spec_order: list[str] = []
+    for artifact in codegen.code_artifacts:
+        if artifact.source_spec_id not in grouped:
+            grouped[artifact.source_spec_id] = []
+            spec_order.append(artifact.source_spec_id)
+        grouped[artifact.source_spec_id].append(artifact)
+    selected: list[LLMExperimentCodeArtifact] = []
+    for spec_id in spec_order:
+        attempts = grouped[spec_id]
+        passing = [
+            item
+            for item in attempts
+            if item.code_artifact_id in audit_by_code
+            and not audit_by_code[item.code_artifact_id].blocked
+        ]
+        selected.append(passing[-1] if passing else attempts[-1])
+    return selected
+
+
 def extract_metrics_from_output(
     *,
     execution: SandboxExecutionResult,
     output_payload: dict[str, Any] | None,
     required_metrics: list[str],
     output_json_path: str | None,
+    allow_nested_numeric_metrics: bool = False,
 ) -> MetricExtractionResult:
     """Extract finite numeric metrics only from an observed output JSON payload."""
     metrics: dict[str, float | int] = {}
@@ -506,6 +639,12 @@ def extract_metrics_from_output(
                 value = raw_metrics.get(name)
                 if value is None:
                     missing.append(name)
+                elif allow_nested_numeric_metrics and isinstance(value, dict):
+                    nested = _flatten_numeric_metric(value, prefix=name)
+                    if nested is None:
+                        invalid.append(name)
+                    else:
+                        metrics.update(nested)
                 elif (
                     isinstance(value, bool)
                     or not isinstance(value, (int, float))
@@ -514,7 +653,7 @@ def extract_metrics_from_output(
                     invalid.append(name)
                 else:
                     metrics[name] = value
-    valid = not missing and not invalid and len(metrics) == len(required_metrics)
+    valid = not missing and not invalid and bool(metrics)
     source = output_json_path or "missing:output.json"
     return MetricExtractionResult(
         execution_id=execution.execution_id,
@@ -528,6 +667,29 @@ def extract_metrics_from_output(
         invalid_metrics=invalid,
         extraction_warnings=warnings,
     )
+
+
+def _flatten_numeric_metric(
+    value: dict[str, Any] | list[Any],
+    *,
+    prefix: str,
+) -> dict[str, float | int] | None:
+    flattened: dict[str, float | int] = {}
+    items = value.items() if isinstance(value, dict) else enumerate(value)
+    for key, item in items:
+        metric_name = f"{prefix}.{key}"
+        if isinstance(item, bool):
+            return None
+        if isinstance(item, (int, float)) and math.isfinite(float(item)):
+            flattened[metric_name] = item
+        elif isinstance(item, (dict, list)):
+            nested = _flatten_numeric_metric(item, prefix=metric_name)
+            if nested is None:
+                return None
+            flattened.update(nested)
+        else:
+            return None
+    return flattened or None
 
 
 def inspect_experiment_code(
@@ -553,6 +715,8 @@ def render_generated_experiment_text(report: GeneratedExperimentInspectionReport
             f"{report.code_artifact_count}/{report.safety_audit_count}",
             f"Blocked/executed/failed: {report.blocked_code_count}/"
             f"{report.executed_code_count}/{report.failed_execution_count}",
+            f"Safety repairs attempted/succeeded: {report.safety_repair_attempt_count}/"
+            f"{report.safety_repair_success_count}",
             f"Metric extractions: {report.metric_extraction_count}",
             f"Deferred non-executable routes: {report.deferred_non_executable_route_count}",
             f"Production ready: {str(report.production_ready).lower()}",
@@ -994,6 +1158,8 @@ def _inspect_phase(
         code_artifact_count=report.code_artifact_count,
         safety_audit_count=report.safety_audit_count,
         blocked_code_count=report.blocked_code_count,
+        safety_repair_attempt_count=report.safety_repair_attempt_count,
+        safety_repair_success_count=report.safety_repair_success_count,
         executed_code_count=report.executed_code_count,
         failed_execution_count=report.failed_execution_count,
         metric_extraction_count=report.metric_extraction_count,
@@ -1133,6 +1299,12 @@ def _sandbox_env(workdir: Path, seed: int) -> dict[str, str]:
         "HOME": str(workdir),
         "PYTHONHASHSEED": str(seed),
         "FACTORI_EXPERIMENT_SEED": str(seed),
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "VECLIB_MAXIMUM_THREADS": "1",
         "NO_PROXY": "*",
         "no_proxy": "*",
     }

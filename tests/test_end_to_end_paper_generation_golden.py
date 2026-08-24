@@ -251,11 +251,11 @@ def test_end_to_end_paper_generation_golden(tmp_path) -> None:
 
     protocol_check = require_protocols_current()
     assert protocol_check.up_to_date is True
-    assert PROTOCOL_VERSION == "0.72.0"
-    assert len(protocol_check.schema_files) == 408
+    assert PROTOCOL_VERSION == "0.77.0"
+    assert len(protocol_check.schema_files) == 420
     examples = validate_protocol_examples()
-    assert examples.examples_checked == 43
-    assert examples.examples_valid == 43
+    assert examples.examples_checked == 44
+    assert examples.examples_valid == 44
     assert examples.examples_invalid == 0
 
     golden_example = FullPaperArtifactBundle.model_validate_json(

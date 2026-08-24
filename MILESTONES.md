@@ -450,3 +450,18 @@ without real-world validation or publication readiness.
   presentation files, tables, figures, bindings, evidence outputs, provenance, open obligations,
   backend records, and bounded reproduction context. `verified` remains structural consistency only;
   every M106 artifact preserves `publication_ready=false`.
+- Added explicitly gated local PDF rendering with standalone LaTeX normalization, append-only
+  compile reports, atomic PDF persistence, and optional inclusion in the hash-locked bundle.
+
+## M107 Targeted Study and Adaptive Evidence Development
+
+- Added generic targeted research briefs so a human-selected Stage A candidate or direct brief can
+  run through the production M98-M106 path without a domain-specific workflow or benchmark profile.
+- Added a bounded post-M103 LLM questioner that checks implementation fidelity, numerical validity,
+  baselines and controls, evidence sufficiency, claim scope, repair sufficiency, and scientific
+  stopping. It can accept trustworthy supported or negative results, request append-only code or
+  evidence-plan repair, or stop on weak evidence, no progress, or budget exhaustion.
+- Added persistent per-call accounting, a reserved M104-M106 budget tail, resumable budget stops,
+  immutable repair lineage, fresh safety audit/execution/metric extraction after repair, and local
+  fail-closed acceptance checks. No adaptive artifact creates proof, novelty, real-world validation,
+  scientific validation by itself, or publication readiness.

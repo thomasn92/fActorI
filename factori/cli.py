@@ -10,12 +10,14 @@ from typing import Annotated
 import typer
 
 from factori.abstract_synthesis import AbstractSynthesisError, run_abstract_synthesis
+from factori.adapters.adaptive_questioner import OpenAIAdaptiveQuestioner
 from factori.adapters.atlas_ranking import OpenAIAtlasPairRanker
 from factori.adapters.config import AdapterConfig
 from factori.adapters.deep_opportunity import OpenAIDeepOpportunityGenerator
 from factori.adapters.errors import AdapterError
 from factori.adapters.hybrid_evidence import OpenAIHybridEvidencePlanner
 from factori.adapters.llm_experiment_codegen import OpenAILLMExperimentCodeGenerator
+from factori.adapters.llm_real import OpenAIResponsesTransport
 from factori.adapters.llm_route_planning import OpenAILLMRoutePlanner
 from factori.adapters.llm_substrate import OpenAILLMSubstrateGenerator
 from factori.adapters.llm_variance import OpenAILLMVarianceGenerator
@@ -169,6 +171,7 @@ from factori.final_paper import (
     assemble_final_paper,
     build_final_paper_bundle,
     inspect_final_paper,
+    render_final_paper,
     render_final_paper_text,
     run_paper_assembly,
     verify_final_paper,
@@ -375,6 +378,7 @@ from factori.schema_export import (
     export_protocols,
 )
 from factori.schemas import (
+    AdaptiveEvidenceLoopConfig,
     ArtifactType,
     ControllerActionType,
     DataRequirement,
@@ -383,6 +387,7 @@ from factori.schemas import (
     FullPaperGenerationConfig,
     FullPaperReleaseGateConfig,
     HybridEvidencePackageConfig,
+    LatexRenderConfig,
     LLMBudgetConfig,
     LLMExperimentCodegenConfig,
     LLMOrchestrationConfig,
@@ -399,6 +404,8 @@ from factori.schemas import (
     RerunPolicy,
     StageRerunStatus,
     StagnationEvent,
+    TargetedResearchBrief,
+    TargetedStudyConfig,
     VerificationLabel,
 )
 from factori.scientific_substrate import (
@@ -427,6 +434,13 @@ from factori.substrate_tournament import (
     SubstrateTournamentError,
     inspect_substrate_tournament,
     run_substrate_tournament,
+)
+from factori.targeted_study import (
+    TargetedStudyClients,
+    TargetedStudyError,
+    inspect_targeted_study,
+    preflight_targeted_study,
+    run_targeted_study,
 )
 from factori.variance_augmentation import (
     VarianceAugmentationError,
@@ -4628,6 +4642,10 @@ def generate_experiment_code_command(
         typer.Option("--max-executable-specs"),
     ] = 12,
     max_codegen_calls: Annotated[int, typer.Option("--max-codegen-calls")] = 12,
+    max_safety_repair_calls: Annotated[
+        int,
+        typer.Option("--max-safety-repair-calls"),
+    ] = 1,
     timeout_seconds: Annotated[int, typer.Option("--timeout-seconds")] = 30,
     memory_limit_mb: Annotated[int, typer.Option("--memory-limit-mb")] = 512,
     json_output: Annotated[bool, typer.Option("--json")] = False,
@@ -4657,6 +4675,7 @@ def generate_experiment_code_command(
                 backend="llm-openai",
                 max_executable_specs=max_executable_specs,
                 max_codegen_calls=max_codegen_calls,
+                max_safety_repair_calls=max_safety_repair_calls,
                 default_timeout_seconds=timeout_seconds,
                 memory_limit_mb=memory_limit_mb,
                 require_non_fake_backends=require_non_fake_backends,
@@ -4673,6 +4692,8 @@ def generate_experiment_code_command(
     typer.echo(f"executable_spec_count={result.report.executable_spec_count}")
     typer.echo(f"code_artifact_count={result.report.code_artifact_count}")
     typer.echo(f"blocked_code_count={result.report.blocked_code_count}")
+    typer.echo(f"safety_repair_attempt_count={result.report.safety_repair_attempt_count}")
+    typer.echo(f"safety_repair_success_count={result.report.safety_repair_success_count}")
     typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
     typer.echo("publication_ready=false")
     typer.echo(f"artifact={result.report_artifact.path}")
@@ -4851,10 +4872,40 @@ def execute_hybrid_evidence_packages_command(
         typer.Option("--require-non-fake-backends"),
     ] = False,
     timeout_seconds: Annotated[int, typer.Option("--timeout-seconds")] = 30,
+    llm_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--llm-timeout-seconds",
+            help="Timeout for each OpenAI Responses request.",
+        ),
+    ] = 300.0,
     memory_limit_mb: Annotated[int, typer.Option("--memory-limit-mb")] = 512,
+    max_artifact_plans: Annotated[int, typer.Option("--max-artifact-plans")] = 12,
+    max_codegen_calls: Annotated[int, typer.Option("--max-codegen-calls")] = 12,
+    max_safety_repair_calls: Annotated[
+        int,
+        typer.Option("--max-safety-repair-calls"),
+    ] = 1,
+    max_runtime_repair_calls: Annotated[
+        int,
+        typer.Option("--max-runtime-repair-calls"),
+    ] = 1,
+    execution_profile: Annotated[str, typer.Option("--execution-profile")] = "full",
+    max_replications: Annotated[int | None, typer.Option("--max-replications")] = None,
+    max_resamples: Annotated[int | None, typer.Option("--max-resamples")] = None,
+    max_grid_cells: Annotated[int | None, typer.Option("--max-grid-cells")] = None,
+    resume_previous_execution: Annotated[bool, typer.Option("--resume")] = False,
+    reuse_compatible_m102_results: Annotated[
+        bool,
+        typer.Option("--reuse-compatible-m102-results/--no-reuse-compatible-m102-results"),
+    ] = True,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Execute safe hybrid evidence-package components and inspect bounded outputs."""
+    """Execute safe hybrid evidence components.
+
+    External execution requires --allow-external-calls; strict runs also use
+    --require-non-fake-backends.
+    """
     normalized_backend = backend.strip().lower().replace("_", "-")
     if normalized_backend not in {"llm-openai", "openai"}:
         typer.echo(
@@ -4870,15 +4921,29 @@ def execute_hybrid_evidence_packages_command(
     if normalized_retrieval not in {"mocked_retrieval", "real_retrieval"}:
         typer.echo("retrieval-mode must be mocked or real", err=True)
         raise typer.Exit(code=1)
+    normalized_profile = execution_profile.strip().lower().replace("-", "_")
+    if normalized_profile not in {"smoke", "full"}:
+        typer.echo("execution-profile must be smoke or full", err=True)
+        raise typer.Exit(code=1)
+    if llm_timeout_seconds <= 0:
+        typer.echo("llm-timeout-seconds must be greater than zero", err=True)
+        raise typer.Exit(code=1)
     try:
         planner = OpenAIHybridEvidencePlanner(
             api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
             model=model,
+            transport=OpenAIResponsesTransport(
+                timeout_seconds=llm_timeout_seconds,
+                schema_name="factori_hybrid_evidence",
+            ),
             allow_external_calls=allow_external_calls,
         )
         code_generator = OpenAILLMExperimentCodeGenerator(
             api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
             model=model,
+            transport=OpenAIResponsesTransport(
+                timeout_seconds=llm_timeout_seconds,
+            ),
             allow_external_calls=allow_external_calls,
         )
         result = execute_hybrid_evidence_packages(
@@ -4892,6 +4957,16 @@ def execute_hybrid_evidence_packages_command(
             require_non_fake_backends=require_non_fake_backends,
             timeout_seconds=timeout_seconds,
             memory_limit_mb=memory_limit_mb,
+            max_artifact_plans=max_artifact_plans,
+            max_codegen_calls=max_codegen_calls,
+            max_safety_repair_calls=max_safety_repair_calls,
+            max_runtime_repair_calls=max_runtime_repair_calls,
+            reuse_compatible_m102_results=reuse_compatible_m102_results,
+            execution_profile=normalized_profile,  # type: ignore[arg-type]
+            max_replications=max_replications,
+            max_resamples=max_resamples,
+            max_grid_cells=max_grid_cells,
+            resume_previous_execution=resume_previous_execution,
         )
     except (AdapterError, HybridEvidencePackageError, ValueError) as exc:
         typer.echo(str(exc), err=True)
@@ -4902,7 +4977,19 @@ def execute_hybrid_evidence_packages_command(
     typer.echo(f"run_id={run_id}")
     typer.echo(f"report_id={result.report.report_id}")
     typer.echo(f"result_count={result.report.result_count}")
+    typer.echo(f"execution_profile={result.report.execution_profile}")
+    typer.echo(f"selected_artifact_plan_count={result.report.selected_artifact_plan_count}")
+    typer.echo(
+        f"budget_deferred_artifact_count={result.report.budget_deferred_artifact_count}"
+    )
+    typer.echo(f"reused_prior_result_count={result.report.reused_prior_result_count}")
+    typer.echo(f"resumed_result_count={result.report.resumed_result_count}")
+    typer.echo(f"safety_repair_attempt_count={result.report.safety_repair_attempt_count}")
+    typer.echo(f"safety_repair_success_count={result.report.safety_repair_success_count}")
+    typer.echo(f"runtime_repair_attempt_count={result.report.runtime_repair_attempt_count}")
+    typer.echo(f"runtime_repair_success_count={result.report.runtime_repair_success_count}")
     typer.echo(f"metric_extraction_count={result.report.metric_extraction_count}")
+    typer.echo(f"adjudication_ready={str(result.report.adjudication_ready).lower()}")
     typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
     typer.echo("publication_ready=false")
     typer.echo(f"artifact={result.report_artifact.path}")
@@ -5262,6 +5349,40 @@ def inspect_final_paper_command(
     typer.echo(render_final_paper_text(report))
 
 
+@app.command("render-final-paper")
+def render_final_paper_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    allow_external_tools: Annotated[
+        bool, typer.Option("--allow-external-tools")
+    ] = DEFAULT_ALLOW_EXTERNAL_TOOLS,
+    latex_executable: Annotated[
+        str | None, typer.Option("--latex-executable")
+    ] = None,
+    timeout_seconds: Annotated[int, typer.Option("--timeout-seconds")] = 300,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Compile the latest verified final paper into a ledgered presentation PDF."""
+    try:
+        result = render_final_paper(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            config=LatexRenderConfig(
+                run_id=run_id,
+                render_check_enabled=True,
+                allow_external_tools=allow_external_tools,
+                latex_executable=latex_executable,
+                timeout_seconds=timeout_seconds,
+            ),
+        )
+    except (FinalPaperError, LatexRenderError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_final_paper_result(result, json_output=json_output)
+
+
 @app.command("build-final-paper-bundle")
 def build_final_paper_bundle_command(
     run_id: Annotated[str, typer.Option("--run-id")],
@@ -5291,6 +5412,12 @@ def _echo_final_paper_result(result, *, json_output: bool) -> None:
     if hasattr(result.report, "verification_status"):
         typer.echo(f"verification_status={result.report.verification_status}")
         typer.echo(f"finding_count={len(result.report.findings)}")
+    elif hasattr(result.report, "render_status"):
+        typer.echo(f"render_status={result.report.render_status}")
+        typer.echo(
+            f"standalone_latex={result.report.standalone_latex_path_optional or 'none'}"
+        )
+        typer.echo(f"rendered_pdf={result.report.rendered_pdf_path_optional or 'none'}")
     else:
         typer.echo(f"assembly_status={result.report.assembly_status}")
         typer.echo(f"final_paper_status={result.report.final_paper_status}")
@@ -8525,6 +8652,322 @@ def questioner_check(
     typer.echo(f"questions={len(result.questions)}")
     typer.echo(f"routed_action={result.routed_action.value}")
     typer.echo(f"commit_hash={result.commit.commit_hash}")
+
+
+@app.command("validate-targeted-research-brief")
+def validate_targeted_research_brief_command(
+    path: Annotated[Path, typer.Option("--path")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Validate a generic targeted research brief without mutation or network access."""
+    try:
+        brief = TargetedResearchBrief.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"Invalid targeted research brief: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(brief.model_dump_json(indent=2))
+        return
+    typer.echo(f"brief_id={brief.brief_id}")
+    typer.echo(f"title={brief.title}")
+    typer.echo("valid=true")
+    typer.echo("publication_ready=false")
+
+
+@app.command("run-targeted-study")
+def run_targeted_study_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    brief: Annotated[Path | None, typer.Option("--brief")] = None,
+    source_run_id: Annotated[str | None, typer.Option("--source-run-id")] = None,
+    candidate_id: Annotated[str | None, typer.Option("--candidate-id")] = None,
+    mode: Annotated[str, typer.Option("--mode")] = "preflight",
+    backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
+    model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    reasoning_effort: Annotated[
+        str,
+        typer.Option(
+            "--reasoning-effort",
+            help="OpenAI reasoning effort: default, low, medium, or high.",
+        ),
+    ] = "default",
+    llm_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--llm-timeout-seconds",
+            help="Timeout for each OpenAI Responses request.",
+        ),
+    ] = 60.0,
+    retrieval_mode: Annotated[str, typer.Option("--retrieval-mode")] = "real",
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    allow_external_calls: Annotated[
+        bool, typer.Option("--allow-external-calls")
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool, typer.Option("--require-non-fake-backends")
+    ] = False,
+    resume: Annotated[bool, typer.Option("--resume")] = False,
+    max_total_calls: Annotated[int, typer.Option("--max-total-calls")] = 0,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd")] = 0.0,
+    max_questioner_iterations: Annotated[
+        int, typer.Option("--max-questioner-iterations")
+    ] = 3,
+    max_code_repair_calls: Annotated[
+        int, typer.Option("--max-code-repair-calls")
+    ] = 2,
+    max_plan_repair_calls: Annotated[
+        int, typer.Option("--max-plan-repair-calls")
+    ] = 1,
+    no_progress_limit: Annotated[int, typer.Option("--no-progress-limit")] = 1,
+    input_cost_per_million_usd: Annotated[
+        float, typer.Option("--input-cost-per-million-usd")
+    ] = 1.0,
+    output_cost_per_million_usd: Annotated[
+        float, typer.Option("--output-cost-per-million-usd")
+    ] = 6.0,
+    experiment_timeout_seconds: Annotated[
+        int, typer.Option("--experiment-timeout-seconds")
+    ] = 300,
+    experiment_memory_limit_mb: Annotated[
+        int, typer.Option("--experiment-memory-limit-mb")
+    ] = 1024,
+    max_replications: Annotated[int, typer.Option("--max-replications")] = 100,
+    max_resamples: Annotated[int, typer.Option("--max-resamples")] = 200,
+    max_grid_cells: Annotated[int, typer.Option("--max-grid-cells")] = 12,
+    render_final_pdf: Annotated[
+        bool, typer.Option("--render-final-pdf/--skip-final-pdf")
+    ] = False,
+    latex_executable: Annotated[
+        str | None, typer.Option("--latex-executable")
+    ] = None,
+    latex_timeout_seconds: Annotated[
+        int, typer.Option("--latex-timeout-seconds")
+    ] = 300,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Preflight or run one generic targeted branch through the production LLM pipeline."""
+    normalized_mode = mode.strip().lower()
+    normalized_reasoning_effort = reasoning_effort.strip().lower()
+    normalized_retrieval = retrieval_mode.strip().lower().replace("-", "_")
+    if normalized_retrieval in {"real", "openalex"}:
+        normalized_retrieval = "real_retrieval"
+    elif normalized_retrieval in {"mock", "mocked"}:
+        normalized_retrieval = "mocked_retrieval"
+    try:
+        config = TargetedStudyConfig(
+            run_id=run_id,
+            mode=normalized_mode,
+            brief_path_optional=brief.as_posix() if brief is not None else None,
+            source_run_id_optional=source_run_id,
+            candidate_id_optional=candidate_id,
+            backend=backend,
+            model=model,
+            reasoning_effort=normalized_reasoning_effort,
+            llm_timeout_seconds=llm_timeout_seconds,
+            retrieval_mode=normalized_retrieval,
+            allow_external_calls=allow_external_calls,
+            require_non_fake_backends=require_non_fake_backends,
+            resume=resume,
+            max_total_calls=max_total_calls,
+            max_cost_usd=max_cost_usd,
+            adaptive_evidence=AdaptiveEvidenceLoopConfig(
+                max_questioner_iterations=max_questioner_iterations,
+                max_code_repair_calls=max_code_repair_calls,
+                max_plan_repair_calls=max_plan_repair_calls,
+                no_progress_limit=no_progress_limit,
+            ),
+            input_cost_per_million_usd=input_cost_per_million_usd,
+            output_cost_per_million_usd=output_cost_per_million_usd,
+            experiment_timeout_seconds=experiment_timeout_seconds,
+            experiment_memory_limit_mb=experiment_memory_limit_mb,
+            max_replications=max_replications,
+            max_resamples=max_resamples,
+            max_grid_cells=max_grid_cells,
+            render_final_pdf=render_final_pdf,
+            latex_executable=latex_executable,
+            latex_timeout_seconds=latex_timeout_seconds,
+        )
+        if normalized_mode == "preflight":
+            report = preflight_targeted_study(config=config, root=root)
+            result_artifact = None
+        else:
+            if normalized_retrieval != "real_retrieval":
+                raise TargetedStudyError(
+                    "Strict smoke/full targeted studies require retrieval-mode=real."
+                )
+            api_key = os.environ.get(OPENAI_API_KEY_ENV, "")
+            transport_effort = (
+                None
+                if config.reasoning_effort == "default"
+                else config.reasoning_effort
+            )
+            clients = TargetedStudyClients(
+                opportunity_generator=OpenAIDeepOpportunityGenerator(
+                    api_key=api_key,
+                    model=model,
+                    transport=OpenAIResponsesTransport(
+                        timeout_seconds=config.llm_timeout_seconds,
+                        schema_name="factori_deep_opportunities",
+                        nullable_optional_fields=False,
+                        reasoning_effort=transport_effort,
+                    ),
+                    allow_external_calls=allow_external_calls,
+                ),
+                retriever=OpenAlexOpportunityRetriever(
+                    OpenAlexRetrievalClient(
+                        api_key=os.environ.get(OPENALEX_API_KEY_ENV, ""),
+                        default_limit=3,
+                        allow_external_calls=allow_external_calls,
+                    )
+                ),
+                variance_generator=OpenAILLMVarianceGenerator(
+                    api_key=api_key,
+                    model=model,
+                    transport=OpenAIResponsesTransport(
+                        timeout_seconds=config.llm_timeout_seconds,
+                        reasoning_effort=transport_effort
+                    ),
+                    allow_external_calls=allow_external_calls,
+                ),
+                substrate_generator=OpenAILLMSubstrateGenerator(
+                    api_key=api_key,
+                    model=model,
+                    transport=OpenAIResponsesTransport(
+                        timeout_seconds=config.llm_timeout_seconds,
+                        reasoning_effort=transport_effort
+                    ),
+                    allow_external_calls=allow_external_calls,
+                ),
+                route_planner=OpenAILLMRoutePlanner(
+                    api_key=api_key,
+                    model=model,
+                    transport=OpenAIResponsesTransport(
+                        timeout_seconds=config.llm_timeout_seconds,
+                        schema_name="factori_llm_routes",
+                        reasoning_effort=transport_effort,
+                    ),
+                    allow_external_calls=allow_external_calls,
+                    max_transport_retries=0,
+                ),
+                hybrid_planner=OpenAIHybridEvidencePlanner(
+                    api_key=api_key,
+                    model=model,
+                    transport=OpenAIResponsesTransport(
+                        timeout_seconds=config.llm_timeout_seconds,
+                        schema_name="factori_hybrid_evidence",
+                        reasoning_effort=transport_effort,
+                    ),
+                    allow_external_calls=allow_external_calls,
+                ),
+                code_generator=OpenAILLMExperimentCodeGenerator(
+                    api_key=api_key,
+                    model=model,
+                    transport=OpenAIResponsesTransport(
+                        timeout_seconds=config.llm_timeout_seconds,
+                        reasoning_effort=transport_effort
+                    ),
+                    allow_external_calls=allow_external_calls,
+                ),
+                adaptive_questioner=(
+                    OpenAIAdaptiveQuestioner(
+                        api_key=api_key,
+                        model=model,
+                        transport=OpenAIResponsesTransport(
+                            timeout_seconds=config.llm_timeout_seconds,
+                            schema_name="factori_adaptive_questioner",
+                            nullable_optional_fields=False,
+                            reasoning_effort=transport_effort,
+                            max_output_tokens=24_000,
+                        ),
+                        allow_external_calls=allow_external_calls,
+                    )
+                    if normalized_mode == "full"
+                    else None
+                ),
+                scientific_critic=(
+                    OpenAIScientificCritic(
+                        api_key=api_key,
+                        model=model,
+                        transport=OpenAIResponsesTransport(
+                            timeout_seconds=config.llm_timeout_seconds,
+                            schema_name="factori_scientific_critic",
+                            nullable_optional_fields=False,
+                            reasoning_effort=transport_effort,
+                        ),
+                        allow_external_calls=allow_external_calls,
+                    )
+                    if normalized_mode == "full"
+                    else None
+                ),
+                manuscript_client=(
+                    OpenAINucleusManuscript(
+                        api_key=api_key,
+                        model=model,
+                        transport=OpenAIResponsesTransport(
+                            timeout_seconds=config.llm_timeout_seconds,
+                            schema_name="factori_nucleus_manuscript",
+                            nullable_optional_fields=False,
+                            reasoning_effort=transport_effort,
+                        ),
+                        allow_external_calls=allow_external_calls,
+                    )
+                    if normalized_mode == "full"
+                    else None
+                ),
+            )
+            result = run_targeted_study(config=config, root=root, clients=clients)
+            report = result.report
+            result_artifact = result.report_artifact.path if result.report_artifact else None
+    except (AdapterError, TargetedStudyError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(f"run_id={report.run_id}")
+    typer.echo(f"mode={report.mode}")
+    typer.echo(f"status={report.status}")
+    typer.echo(f"planned_external_calls={report.planned_external_call_count}")
+    typer.echo(
+        f"minimum_required_external_calls={report.minimum_required_external_call_count}"
+    )
+    typer.echo(
+        "completed_external_calls="
+        f"{report.completed_external_call_count_upper_bound}"
+    )
+    typer.echo(f"estimated_cost_usd={report.estimated_cost_usd:.4f}")
+    if report.adaptive_evidence_status_optional is not None:
+        typer.echo(f"adaptive_evidence_status={report.adaptive_evidence_status_optional}")
+    typer.echo(f"production_ready={str(report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
+    if result_artifact:
+        typer.echo(f"artifact={result_artifact}")
+
+
+@app.command("inspect-targeted-study")
+def inspect_targeted_study_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Inspect the latest targeted-study report and resume checkpoint without mutation."""
+    try:
+        report = inspect_targeted_study(run_id=run_id, root=root)
+    except TargetedStudyError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if json_output:
+        typer.echo(report.model_dump_json(indent=2))
+        return
+    typer.echo(f"targeted_study_present={str(report.targeted_study_present).lower()}")
+    typer.echo(f"checkpoint_count={report.checkpoint_count}")
+    typer.echo(f"next_stage={report.next_stage_optional or 'none'}")
+    typer.echo(
+        "adaptive_evidence_status="
+        f"{report.adaptive_evidence_status_optional or 'none'}"
+    )
+    typer.echo(f"adaptive_iterations={report.adaptive_iteration_count}")
+    typer.echo(f"production_ready={str(report.production_ready).lower()}")
+    typer.echo("publication_ready=false")
 
 
 @app.command("retrieval-adequacy-demo")

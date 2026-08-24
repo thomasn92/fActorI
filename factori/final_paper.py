@@ -12,6 +12,7 @@ from typing import Any
 
 from factori.artifacts import ArtifactStore
 from factori.hashing import canonical_json, sha256_file, sha256_text
+from factori.latex_render import LatexRenderer, build_latex_compile_check_report
 from factori.ledger import ResearchLedger
 from factori.persistence import ArtifactWriteSpec, PersistenceResult, persist_artifacts_with_commit
 from factori.production_mode import evaluate_production_mode, stage_backend_record
@@ -41,10 +42,12 @@ from factori.schemas import (
     FinalPaperInspectionReport,
     FinalPaperManifest,
     FinalPaperOpenObligation,
+    FinalPaperRenderReport,
     FinalPaperSectionRecord,
     FinalPaperTableRecord,
     FinalPaperVerificationFinding,
     FinalPaperVerificationReport,
+    LatexRenderConfig,
     LedgerCommit,
     ManuscriptPlan,
     NucleusManuscriptDraft,
@@ -65,8 +68,9 @@ from factori.schemas import (
 _SYNTHESIS_RE = re.compile(r"^nucleus-manuscript-synthesis-report-(\d{4})\.json$")
 _ASSEMBLY_RE = re.compile(r"^final-paper-assembly-report-(\d{4})\.json$")
 _VERIFICATION_RE = re.compile(r"^final-paper-verification-report-(\d{4})\.json$")
+_RENDER_RE = re.compile(r"^final-paper-render-report-(\d{4})\.json$")
 _METRIC_SOURCE_RE = re.compile(
-    r"^runs/[^/]+/experiments/[^/#]+\.json#metrics\.[A-Za-z][A-Za-z0-9_.-]*$"
+    r"^runs/[^/]+/experiments/[^/#]+\.json#metrics\.[A-Za-z0-9][A-Za-z0-9_.-]*$"
 )
 _MARKDOWN_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 _LATEX_IMAGE_RE = re.compile(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}")
@@ -609,7 +613,7 @@ class FinalPaperResult:
     """One persisted M106 assembly, verification, or bundle operation."""
 
     run_id: str
-    report: FinalPaperAssemblyReport | FinalPaperVerificationReport
+    report: FinalPaperAssemblyReport | FinalPaperVerificationReport | FinalPaperRenderReport
     manifest_optional: FinalPaperManifest | None
     persistence: PersistenceResult
     report_artifact: ArtifactRef
@@ -748,6 +752,8 @@ def assemble_final_paper(
         figures=figures,
         appendices=appendices,
         obligations=obligations,
+        citation_bindings=citations,
+        retrieval_contexts=inputs.retrieval_contexts,
     )
     final_blockers = [
         *_forbidden_claim_reasons(markdown, latex),
@@ -990,12 +996,102 @@ def verify_final_paper(
     return _persist_verification_report(report=report, store=store, ledger=ledger)
 
 
+def render_final_paper(
+    *,
+    run_id: str,
+    root: str | Path,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    config: LatexRenderConfig,
+    renderer: LatexRenderer | None = None,
+) -> FinalPaperResult:
+    """Render the latest verified final-paper LaTeX as a persisted presentation PDF."""
+    if config.run_id != run_id:
+        raise FinalPaperError("LatexRenderConfig.run_id must match run_id.")
+    root_path = Path(root)
+    reports = root_path / "runs" / run_id / "reports"
+    number = _next_number(reports, _RENDER_RE)
+    report_id = f"final-paper-render-report-{number:04d}"
+    assembly_path, assembly = _latest_assembly_report(reports, operation="assembly")
+    verification_path, verification = _latest_verification_report(reports)
+    if (
+        assembly_path is None
+        or assembly is None
+        or verification_path is None
+        or verification is None
+        or verification.verification_status not in {"verified", "verified_with_warnings"}
+        or not assembly.final_latex_path_optional
+    ):
+        report = FinalPaperRenderReport(
+            report_id=report_id,
+            run_id=run_id,
+            render_status="deferred",
+            source_assembly_report_path_optional=(
+                _relative(root_path, assembly_path) if assembly_path else None
+            ),
+            source_verification_report_path_optional=(
+                _relative(root_path, verification_path) if verification_path else None
+            ),
+            blocking_findings=[
+                "A verified final-paper assembly is required before rendering a PDF."
+            ],
+        )
+        return _persist_render_report(
+            report=report,
+            standalone_latex=None,
+            pdf_bytes=None,
+            store=store,
+            ledger=ledger,
+        )
+
+    source_path = _path_from_relative(root_path, assembly.final_latex_path_optional)
+    if not source_path.is_file():
+        raise FinalPaperError(f"Final-paper LaTeX source is missing: {source_path}")
+    standalone = _standalone_final_latex(_read_text(source_path))
+    rendered = (renderer or LatexRenderer()).render_document(standalone, config)
+    pdf_id = f"final-paper-render-{number:04d}-pdf"
+    render_result = rendered.result.model_copy(
+        update={
+            "rendered_pdf_artifact_id": pdf_id if rendered.pdf_bytes is not None else None
+        }
+    )
+    compile_check = build_latex_compile_check_report(
+        config=config,
+        render_result=render_result,
+    )
+    standalone_id = f"final-paper-render-{number:04d}"
+    report = FinalPaperRenderReport(
+        report_id=report_id,
+        run_id=run_id,
+        render_status="rendered" if compile_check.passed and rendered.pdf_bytes else "failed",
+        source_assembly_report_path_optional=_relative(root_path, assembly_path),
+        source_verification_report_path_optional=_relative(root_path, verification_path),
+        source_latex_path_optional=assembly.final_latex_path_optional,
+        standalone_latex_path_optional=f"runs/{run_id}/latex/{standalone_id}.tex",
+        rendered_pdf_path_optional=(
+            f"runs/{run_id}/latex/{standalone_id}.pdf" if rendered.pdf_bytes else None
+        ),
+        compile_check_report=compile_check,
+        blocking_findings=[] if compile_check.passed else [render_result.reason],
+        warnings=list(compile_check.warnings),
+        production_ready=bool(compile_check.passed and rendered.pdf_bytes),
+    )
+    return _persist_render_report(
+        report=report,
+        standalone_latex=standalone,
+        pdf_bytes=rendered.pdf_bytes,
+        store=store,
+        ledger=ledger,
+    )
+
+
 def build_final_paper_bundle(
     *,
     run_id: str,
     root: str | Path,
     store: ArtifactStore,
     ledger: ResearchLedger,
+    require_rendered_pdf: bool = False,
 ) -> FinalPaperResult:
     """Build a self-contained, hash-locked directory from a successfully verified final paper."""
     root_path = Path(root)
@@ -1005,6 +1101,7 @@ def build_final_paper_bundle(
     report_id = f"final-paper-assembly-report-{number:04d}"
     assembly_path, assembly = _latest_assembly_report(reports, operation="assembly")
     verification_path, verification = _latest_verification_report(reports)
+    render_path, render = _latest_render_report(reports)
     record = _assembly_backend_record(report_id, [])
     if (
         assembly_path is None
@@ -1012,6 +1109,15 @@ def build_final_paper_bundle(
         or verification_path is None
         or verification is None
         or verification.verification_status not in {"verified", "verified_with_warnings"}
+        or (
+            require_rendered_pdf
+            and (
+                render_path is None
+                or render is None
+                or render.render_status != "rendered"
+                or not render.rendered_pdf_path_optional
+            )
+        )
         or not assembly.manifest_path_optional
     ):
         report = FinalPaperAssemblyReport(
@@ -1021,7 +1127,9 @@ def build_final_paper_bundle(
             assembly_status="deferred",
             final_paper_status="deferred",
             blocking_findings=[
-                "A verified final-paper assembly is required before building a release bundle."
+                "A verified final paper"
+                + (" with a successful PDF render" if require_rendered_pdf else "")
+                + " is required before building a release bundle."
             ],
             backend_records=[record],
         )
@@ -1035,6 +1143,8 @@ def build_final_paper_bundle(
         assembly_path=assembly_path,
         verification_path=verification_path,
         verification=verification,
+        render_path=render_path,
+        render=render,
     )
     if blockers:
         report = FinalPaperAssemblyReport(
@@ -1116,6 +1226,7 @@ def inspect_final_paper(*, run_id: str, root: str | Path = ".") -> FinalPaperIns
     if assembly_path is None or assembly is None:
         return FinalPaperInspectionReport(run_id=run_id, final_paper_present=False)
     _, verification = _latest_verification_report(reports)
+    _, render = _latest_render_report(reports)
     _, bundle = _latest_assembly_report(reports, operation="bundle")
     return FinalPaperInspectionReport(
         run_id=run_id,
@@ -1130,6 +1241,12 @@ def inspect_final_paper(*, run_id: str, root: str | Path = ".") -> FinalPaperIns
         manifest_path_optional=assembly.manifest_path_optional,
         verification_present=verification is not None,
         verification_status_optional=verification.verification_status if verification else None,
+        render_present=render is not None and render.render_status == "rendered",
+        render_status_optional=render.render_status if render else None,
+        standalone_latex_path_optional=(
+            render.standalone_latex_path_optional if render else None
+        ),
+        rendered_pdf_path_optional=render.rendered_pdf_path_optional if render else None,
         bundle_present=bundle is not None and bundle.assembly_status == "assembled",
         bundle_path_optional=bundle.bundle_path_optional if bundle else None,
         section_count=assembly.section_count,
@@ -1165,6 +1282,8 @@ def render_final_paper_text(report: FinalPaperInspectionReport) -> str:
             "Final paper: " + ("present" if report.final_paper_present else "absent"),
             "Assembly status: " + (report.assembly_status_optional or "not available"),
             "Verification status: " + (report.verification_status_optional or "not available"),
+            "Render status: " + (report.render_status_optional or "not available"),
+            "Rendered PDF: " + (report.rendered_pdf_path_optional or "not available"),
             f"Sections/figures/tables/appendices: {report.section_count}/{report.figure_count}/"
             f"{report.table_count}/{report.appendix_count}",
             f"Resolved claim/citation bindings: {report.resolved_claim_artifact_binding_count}/"
@@ -1252,6 +1371,30 @@ def render_final_paper_verification_markdown(report: FinalPaperVerificationRepor
             "",
         ]
     )
+
+
+def render_final_paper_render_markdown(report: FinalPaperRenderReport) -> str:
+    """Render local PDF compilation context without scientific authority."""
+    return "\n".join(
+        [
+            "# Final Paper Render Report",
+            "",
+            f"- Status: `{report.render_status}`",
+            f"- Source LaTeX: `{report.source_latex_path_optional or 'not available'}`",
+            f"- Standalone LaTeX: `{report.standalone_latex_path_optional or 'not written'}`",
+            f"- Rendered PDF: `{report.rendered_pdf_path_optional or 'not written'}`",
+            "",
+            "This PDF is presentation context only. Compilation does not create scientific "
+            "evidence, validation, human approval, or publication readiness.",
+            "",
+            "publication_ready=false",
+            *(
+                ["", "## Blocking Findings", *[f"- {item}" for item in report.blocking_findings]]
+                if report.blocking_findings
+                else []
+            ),
+        ]
+    ) + "\n"
 
 
 def _load_inputs(root: Path, run_id: str) -> _Inputs:
@@ -1694,38 +1837,76 @@ def _assemble_latex(
     figures: list[FinalPaperFigureRecord],
     appendices: list[FinalPaperAppendixRecord],
     obligations: list[FinalPaperOpenObligation],
+    citation_bindings: list[EvidenceCitationBinding],
+    retrieval_contexts: list[RetrievalContext],
 ) -> str:
     base_latex = draft.latex.rstrip()
+    if r"\documentclass" in base_latex:
+        required_packages = (
+            ("longtable", r"\usepackage{longtable}"),
+            ("graphicx", r"\usepackage{graphicx}"),
+            ("float", r"\usepackage{float}"),
+            ("xurl", r"\usepackage{xurl}"),
+        )
+        missing_packages = [
+            declaration
+            for package, declaration in required_packages
+            if rf"\usepackage{{{package}}}" not in base_latex
+        ]
+        if missing_packages:
+            base_latex = base_latex.replace(
+                r"\begin{document}",
+                "\n".join([*missing_packages, r"\begin{document}"]),
+                1,
+            )
     document_suffix = ""
     if r"\end{document}" in base_latex:
         base_latex, _, suffix = base_latex.rpartition(r"\end{document}")
         document_suffix = r"\end{document}" + suffix
         base_latex = base_latex.rstrip()
     lines = [base_latex]
+    reference_lines = _latex_reference_lines(citation_bindings, retrieval_contexts)
+    if reference_lines:
+        lines.extend(
+            [
+                "",
+                r"\section*{References}",
+                r"\begin{thebibliography}{99}",
+                *reference_lines,
+                r"\end{thebibliography}",
+            ]
+        )
     for table in tables:
         lines.extend(
             [
                 "",
                 r"\section*{Reconstructed Result Tables}",
                 rf"\subsection*{{{_latex_escape(table.title)}}}",
-                r"\begin{tabular}{llll}",
-                r"Artifact & Metric & Value & Metric source \\",
+                r"\small",
+                r"\begin{longtable}{p{0.37\textwidth}p{0.14\textwidth}p{0.41\textwidth}}",
+                r"Metric & Value & Provenance \\",
                 r"\hline",
                 *[
                     " & ".join(
-                        _latex_escape(str(row[key]))
-                        for key in ("artifact_id", "metric", "value", "metric_source")
+                        [
+                            _latex_path(str(row["metric"])),
+                            _latex_escape(str(row["value"])),
+                            _metric_provenance_cell(
+                                str(row["artifact_id"]), str(row["metric_source"])
+                            ),
+                        ]
                     )
                     + " \\\\"
                     for row in table.rows
                 ],
-                r"\end{tabular}",
+                r"\end{longtable}",
+                r"\normalsize",
             ]
         )
     for figure in figures:
         lines.extend(
             [
-                r"\begin{figure}[ht]",
+                r"\begin{figure}[H]",
                 r"\centering",
                 rf"\includegraphics[width=0.9\linewidth]{{{_latex_escape(figure.file_path)}}}",
                 rf"\caption{{{_latex_escape(figure.caption)}}}",
@@ -1743,6 +1924,210 @@ def _assemble_latex(
     if document_suffix:
         lines.extend(["", document_suffix])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _standalone_final_latex(source: str) -> str:
+    """Turn an M106 fragment into a deterministic, compile-ready paper document."""
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if r"\documentclass" in normalized:
+        return normalized + "\n"
+    normalized = re.sub(r"(?<!\\)#", r"\\#", normalized)
+    normalized = re.sub(
+        r"\\texttt\{([^{}]*)\}",
+        lambda match: (
+            _latex_path(_latex_unescape_text(match.group(1)))
+            if "/" in match.group(1) or len(match.group(1)) > 40
+            else match.group(0)
+        ),
+        normalized,
+    )
+    title, normalized = _paperize_final_fragment(normalized)
+    return "\n".join(
+        [
+            r"\documentclass[11pt]{article}",
+            r"\usepackage[T1]{fontenc}",
+            r"\usepackage[utf8]{inputenc}",
+            r"\usepackage{lmodern}",
+            r"\usepackage{amsmath,amssymb}",
+            r"\usepackage{graphicx}",
+            r"\usepackage{float}",
+            r"\usepackage{array,longtable}",
+            r"\usepackage{adjustbox}",
+            r"\usepackage{booktabs}",
+            r"\usepackage{microtype}",
+            r"\usepackage{xurl}",
+            r"\usepackage[hidelinks]{hyperref}",
+            r"\usepackage[margin=1in]{geometry}",
+            r"\setlength{\parindent}{1.25em}",
+            r"\setlength{\parskip}{0pt}",
+            rf"\title{{{title}}}",
+            r"\author{}",
+            r"\date{}",
+            r"\setlength{\emergencystretch}{3em}",
+            r"\begin{document}",
+            r"\maketitle",
+            r"\vspace{-3em}",
+            normalized,
+            r"\end{document}",
+            "",
+        ]
+    )
+
+
+def _paperize_final_fragment(source: str) -> tuple[str, str]:
+    """Separate the human-facing paper from bundle-only audit material."""
+    title_match = re.match(r"\\section\*\{([^{}]+)\}\s*", source)
+    title = "Generated Research Paper"
+    if title_match is not None:
+        title = re.sub(
+            r":\s*an artifact-summary report\s*$",
+            "",
+            title_match.group(1),
+            flags=re.IGNORECASE,
+        )
+        source = source[title_match.end() :]
+
+    source = re.split(r"\\section\*\{Reconstructed Result Tables\}", source, maxsplit=1)[0]
+    source = re.split(
+        r"\\subsubsection\*\{Unresolved obligations retained\}", source, maxsplit=1
+    )[0]
+    source = re.sub(
+        r"\\subsection\*\{Abstract\}\s*(.*?)(?=\\subsection\{)",
+        lambda match: "\\begin{abstract}\n"
+        + match.group(1).strip()
+        + "\n\\end{abstract}\n\n",
+        source,
+        count=1,
+        flags=re.DOTALL,
+    )
+    source = source.replace(r"\subsubsection*{", r"\FACTORIESUBSECTIONSTAR{")
+    source = source.replace(r"\subsection{", r"\section{")
+    source = source.replace(r"\FACTORIESUBSECTIONSTAR{", r"\subsection*{")
+    source = source.replace("This artifact-summary report describes", "This study describes")
+    source = source.replace("This is an artifact-summary report of", "This study reports")
+    source = source.replace("This artifact-summary report records", "This study records")
+    source = re.sub(
+        r"\s*\[Artifact citation.*?\]\.?",
+        "",
+        source,
+        flags=re.DOTALL,
+    )
+    source = re.sub(
+        r"The table is supported by .*?under formal binding .*?\.\s*",
+        "",
+        source,
+        count=1,
+    )
+    source = _format_presentation_tables(source)
+    source = (
+        source.rstrip()
+        + "\n\n"
+        + r"\medskip\noindent\textit{Artifacts and exact metrics are available in the "
+        r"accompanying final-paper bundle.}"
+    )
+    return title, source
+
+
+def _format_presentation_tables(source: str) -> str:
+    pattern = re.compile(
+        r"\\begin\{center\}\s*\\begin\{tabular\}\{([^}]*)\}"
+        r"(.*?)\\end\{tabular\}\s*\\end\{center\}",
+        flags=re.DOTALL,
+    )
+
+    def replace_table(match: re.Match[str]) -> str:
+        columns = match.group(1).replace("|", "")
+        body = _format_table_numbers(match.group(2).strip())
+        body = body.replace(r"\\ \hline", "\\\\\n\\midrule")
+        if not body.rstrip().endswith(r"\\"):
+            body = body.rstrip() + r"\\"
+        return "\n".join(
+            [
+                r"\begin{table}[H]",
+                r"\centering",
+                r"\small",
+                r"\begin{adjustbox}{max width=\linewidth}",
+                rf"\begin{{tabular}}{{{columns}}}",
+                r"\toprule",
+                body,
+                r"\bottomrule",
+                r"\end{tabular}",
+                r"\end{adjustbox}",
+                r"\end{table}",
+            ]
+        )
+
+    return pattern.sub(replace_table, source)
+
+
+def _format_table_numbers(body: str) -> str:
+    number_pattern = re.compile(
+        r"(?<![A-Za-z0-9_.])[-+]?(?:\d+\.\d+(?:[eE][-+]?\d+)?|\d+[eE][-+]?\d+)"
+        r"(?![A-Za-z0-9_.])"
+    )
+
+    def compact(match: re.Match[str]) -> str:
+        value = float(match.group(0))
+        return "0" if value == 0 else f"{value:.4g}"
+
+    return number_pattern.sub(compact, body)
+
+
+def _legacy_metric_longtable(match: re.Match[str]) -> str:
+    """Make the prior M106 four-column metric table printable across pages."""
+    rows: list[str] = []
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Artifact &"):
+            rows.append(r"Metric & Value & Provenance \\")
+            continue
+        if " & " not in stripped:
+            rows.append(line)
+            continue
+        suffix = r" \\" if stripped.endswith(r"\\") else ""
+        content = stripped[: -len(r"\\")].rstrip() if suffix else stripped
+        fields = content.split(" & ")
+        if len(fields) != 4:
+            rows.append(line)
+            continue
+        artifact, metric, value, source = fields
+        rows.append(
+            " & ".join(
+                [
+                    _latex_path(_latex_unescape_text(metric)),
+                    value,
+                    _metric_provenance_cell(
+                        _latex_unescape_text(artifact),
+                        _latex_unescape_text(source),
+                    ),
+                ]
+            )
+            + suffix
+        )
+    body = "\n".join(rows)
+    return (
+        r"\scriptsize"
+        "\n"
+        r"\begin{longtable}{>{\raggedright\arraybackslash}p{0.37\textwidth}"
+        r">{\raggedleft\arraybackslash}p{0.14\textwidth}"
+        r">{\raggedright\arraybackslash}p{0.41\textwidth}}"
+        + body
+        + "\n"
+        + r"\end{longtable}"
+        + "\n"
+        + r"\normalsize"
+    )
+
+
+def _metric_provenance_cell(artifact_id: str, metric_source: str) -> str:
+    return " ".join(
+        [
+            r"\textbf{Artifact:}",
+            _latex_path(artifact_id),
+            r"\newline\textbf{Source:}",
+            _latex_path(metric_source),
+        ]
+    )
 
 
 def _build_bibliography(
@@ -1795,6 +2180,33 @@ def _reference_lines(
         year = str(source.year) if source.year is not None else "n.d."
         identifier = source.doi or source.source_id
         lines.append(f"- {authors} ({year}). {source.title}. `{identifier}`")
+    return lines
+
+
+def _latex_reference_lines(
+    citations: list[EvidenceCitationBinding], contexts: list[RetrievalContext]
+) -> list[str]:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for binding in citations:
+        if binding.source_type != "retrieval_source":
+            continue
+        source = _retrieval_source_for_binding(binding, contexts)
+        if source is None or source.source_id in seen:
+            continue
+        seen.add(source.source_id)
+        authors = ", ".join(source.authors) if source.authors else "Unknown author"
+        details = [authors]
+        if source.year is not None:
+            details.append(str(source.year))
+        details.append(rf"\emph{{{_latex_escape(source.title)}}}")
+        if source.venue:
+            details.append(_latex_escape(source.venue))
+        identifier = source.doi or source.source_id
+        details.append(rf"\url{{{_latex_escape(identifier)}}}")
+        lines.append(
+            rf"\bibitem{{{_citation_key(source.source_id)}}} " + ". ".join(details) + "."
+        )
     return lines
 
 
@@ -1987,6 +2399,79 @@ def _persist_verification_report(
             "run_id": report.run_id,
             "report_id": report.report_id,
             "verification_status": report.verification_status,
+            "publication_ready": False,
+            "creates_scientific_validation": False,
+            "is_verification_evidence": False,
+        },
+    )
+    by_id = {item.id: item for item in persistence.artifacts}
+    return FinalPaperResult(
+        run_id=report.run_id,
+        report=report,
+        manifest_optional=None,
+        persistence=persistence,
+        report_artifact=by_id[report.report_id],
+        markdown_artifact=by_id[f"{report.report_id}-markdown"],
+    )
+
+
+def _persist_render_report(
+    *,
+    report: FinalPaperRenderReport,
+    standalone_latex: str | None,
+    pdf_bytes: bytes | None,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> FinalPaperResult:
+    metadata = _metadata("final_paper_render")
+    specs = [
+        ArtifactWriteSpec(report.report_id, ArtifactType.REPORT, report, "json", metadata),
+        ArtifactWriteSpec(
+            f"{report.report_id}-markdown",
+            ArtifactType.REPORT,
+            render_final_paper_render_markdown(report),
+            "markdown",
+            metadata,
+            filename_stem=report.report_id,
+        ),
+    ]
+    render_number = int(report.report_id.rsplit("-", 1)[1])
+    final_id = f"final-paper-render-{render_number:04d}"
+    if standalone_latex is not None:
+        specs.append(
+            ArtifactWriteSpec(
+                f"{final_id}-latex",
+                ArtifactType.LATEX,
+                standalone_latex,
+                "latex",
+                metadata,
+                filename_stem=final_id,
+            )
+        )
+    if pdf_bytes is not None:
+        specs.append(
+            ArtifactWriteSpec(
+                f"{final_id}-pdf",
+                ArtifactType.LATEX,
+                pdf_bytes,
+                "binary",
+                metadata,
+                extension="pdf",
+                format_label="pdf",
+                filename_stem=final_id,
+            )
+        )
+    persistence = persist_artifacts_with_commit(
+        run_id=report.run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=specs,
+        action_type=ControllerActionType.FINAL_PAPER_RENDERED,
+        commit_payload={
+            "run_id": report.run_id,
+            "report_id": report.report_id,
+            "render_status": report.render_status,
+            "rendered_pdf_path": report.rendered_pdf_path_optional,
             "publication_ready": False,
             "creates_scientific_validation": False,
             "is_verification_evidence": False,
@@ -2405,6 +2890,8 @@ def _bundle_sources(
     assembly_path: Path,
     verification_path: Path,
     verification: FinalPaperVerificationReport,
+    render_path: Path | None,
+    render: FinalPaperRenderReport | None,
 ) -> tuple[dict[str, Path | str], list[str]]:
     values: dict[str, Path | str] = {
         "paper_markdown": _path_from_relative(root_path, manifest.main_markdown_path),
@@ -2419,6 +2906,18 @@ def _bundle_sources(
         "provenance": _path_from_relative(root_path, manifest.provenance_manifest_path),
         "verification": verification_path,
     }
+    if render_path is not None and render is not None and render.render_status == "rendered":
+        values.update(
+            {
+                "render_report": render_path,
+                "standalone_latex": _path_from_relative(
+                    root_path, render.standalone_latex_path_optional
+                ),
+                "rendered_pdf": _path_from_relative(
+                    root_path, render.rendered_pdf_path_optional
+                ),
+            }
+        )
     if manifest.bibliography_path_optional:
         values["bibliography"] = _path_from_relative(root_path, manifest.bibliography_path_optional)
     blockers: list[str] = []
@@ -2452,6 +2951,8 @@ def _bundle_sources(
                 values[f"metric:{_slug(source)}"] = path
     if verification.verification_status not in {"verified", "verified_with_warnings"}:
         blockers.append("Final-paper verification is not successful.")
+    if render is not None and render.render_status != "rendered":
+        blockers.append("Final-paper PDF rendering is not successful.")
     return values, _unique(blockers)
 
 
@@ -2466,7 +2967,18 @@ def _write_bundle(
 ) -> None:
     bundle_dir.mkdir(parents=True, exist_ok=False)
     _copy_bundle_file(source_files["paper_markdown"], bundle_dir / "paper" / "final-paper.md")
-    _copy_bundle_file(source_files["paper_latex"], bundle_dir / "paper" / "final-paper.tex")
+    if "standalone_latex" in source_files and "rendered_pdf" in source_files:
+        _copy_bundle_file(
+            source_files["paper_latex"], bundle_dir / "paper" / "final-paper-fragment.tex"
+        )
+        _copy_bundle_file(
+            source_files["standalone_latex"], bundle_dir / "paper" / "final-paper.tex"
+        )
+        _copy_bundle_file(
+            source_files["rendered_pdf"], bundle_dir / "paper" / "final-paper.pdf"
+        )
+    else:
+        _copy_bundle_file(source_files["paper_latex"], bundle_dir / "paper" / "final-paper.tex")
     if "bibliography" in source_files:
         _copy_bundle_file(source_files["bibliography"], bundle_dir / "paper" / "references.bib")
     _copy_bundle_file(
@@ -2480,6 +2992,10 @@ def _write_bundle(
     _copy_bundle_file(
         source_files["verification"], bundle_dir / "reports" / "verification-report.json"
     )
+    if "render_report" in source_files:
+        _copy_bundle_file(
+            source_files["render_report"], bundle_dir / "reports" / "render-report.json"
+        )
     _copy_bundle_file(
         source_files["provenance"], bundle_dir / "provenance" / "provenance-manifest.json"
     )
@@ -2537,6 +3053,8 @@ def _reproduction_instructions(run_id: str, manifest: FinalPaperManifest) -> lis
     return [
         f"uv run factori inspect-final-paper --run-id {run_id} --json",
         f"uv run factori verify-final-paper --run-id {run_id}",
+        f"uv run factori render-final-paper --run-id {run_id} --allow-external-tools "
+        "--latex-executable pdflatex",
         f"uv run factori build-final-paper-bundle --run-id {run_id}",
         f"Inspect metric sources listed in {manifest.provenance_manifest_path}.",
         "The bundle does not guarantee full scientific reproducibility when upstream LLM or "
@@ -2672,6 +3190,15 @@ def _latest_verification_report(
     return paths[0], _read_model(paths[0], FinalPaperVerificationReport)
 
 
+def _latest_render_report(
+    reports: Path,
+) -> tuple[Path | None, FinalPaperRenderReport | None]:
+    paths = _matching_desc(reports, _RENDER_RE)
+    if not paths:
+        return None, None
+    return paths[0], _read_model(paths[0], FinalPaperRenderReport)
+
+
 def _load_claim_bindings(root: Path, manifest: FinalPaperManifest) -> list[ClaimArtifactBinding]:
     path = _path_from_relative(root, manifest.claim_artifact_map_path)
     if not path.is_file():
@@ -2746,11 +3273,25 @@ def _metrics_from_output(path: Path) -> dict[str, float | int]:
     raw = payload.get("metrics", payload)
     if not isinstance(raw, dict):
         return {}
-    return {
-        str(name): value
-        for name, value in raw.items()
-        if isinstance(value, (int, float)) and not isinstance(value, bool)
-    }
+    return _flatten_output_metrics(raw)
+
+
+def _flatten_output_metrics(
+    value: dict[str, Any] | list[Any],
+    *,
+    prefix: str = "",
+) -> dict[str, float | int]:
+    flattened: dict[str, float | int] = {}
+    items = value.items() if isinstance(value, dict) else enumerate(value)
+    for key, item in items:
+        metric_name = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(item, bool):
+            continue
+        if isinstance(item, (int, float)):
+            flattened[metric_name] = item
+        elif isinstance(item, (dict, list)):
+            flattened.update(_flatten_output_metrics(item, prefix=metric_name))
+    return flattened
 
 
 def _latest_execution_report(root: Path, run_id: str) -> EvidencePackageExecutionReport | None:
@@ -2974,7 +3515,38 @@ def _has_scope_qualification(markdown: str) -> bool:
 
 def _forbidden_claim_reasons(markdown: str, latex: str) -> list[str]:
     text = f"{markdown}\n{latex}".lower()
-    return [message for phrase, message in _FORBIDDEN_PATTERNS.items() if phrase in text]
+    reasons = [
+        message
+        for phrase, message in _FORBIDDEN_PATTERNS.items()
+        if phrase not in {"real-world validation", "real world validation"}
+        and phrase in text
+    ]
+    if _contains_affirmative_real_world_validation(text):
+        reasons.append("real-world validation assertion")
+    return _unique(reasons)
+
+
+def _contains_affirmative_real_world_validation(text: str) -> bool:
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text.casefold()):
+        for match in re.finditer(r"\breal[- ]world validation\b", sentence):
+            before = sentence[: match.start()]
+            after = sentence[match.end() :]
+            if re.search(
+                r"\b(?:not|no|never|without|avoid|avoids|cannot|can't|doesn't|"
+                r"does not|do not|don't|isn't|is not|unverified|unproven|"
+                r"unsupported|unresolved|forbid|forbids|must not|should not)\b",
+                before,
+            ):
+                continue
+            if re.match(
+                r"\s*(?:is|are|was|were|has been|have been|remains?)?\s*"
+                r"(?:not|never|unverified|unproven|unsupported|unresolved|forbidden|"
+                r"disallowed|absent|outside|out of scope|must not|should not|cannot)\b",
+                after,
+            ):
+                continue
+            return True
+    return False
 
 
 def _obligation_type(value: str) -> str:
@@ -3161,13 +3733,34 @@ def _bib_escape(value: str) -> str:
 
 
 def _latex_escape(value: str) -> str:
+    replacements = {
+        "\\": r"\textbackslash{}",
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+    }
+    return "".join(replacements.get(character, character) for character in value)
+
+
+def _latex_path(value: str) -> str:
+    delimiter = next((item for item in ("|", "!", "+", ";") if item not in value), None)
+    if delimiter is None:
+        return _latex_escape(value)
+    return rf"\path{delimiter}{value}{delimiter}"
+
+
+def _latex_unescape_text(value: str) -> str:
     return (
-        value.replace("\\", r"\textbackslash{}")
-        .replace("&", r"\&")
-        .replace("%", r"\%")
-        .replace("_", r"\_")
-        .replace("{", r"\{")
-        .replace("}", r"\}")
+        value.replace(r"\_", "_")
+        .replace(r"\#", "#")
+        .replace(r"\%", "%")
+        .replace(r"\&", "&")
     )
 
 

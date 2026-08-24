@@ -1,0 +1,100 @@
+{
+  "$id": "https://schemas.factori.local/0.78.0/adaptive-questioner-answer.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One artifact-grounded answer from the adaptive scientific questioner.",
+  "properties": {
+    "blocking": {
+      "title": "Blocking",
+      "type": "boolean"
+    },
+    "category": {
+      "enum": [
+        "implementation_fidelity",
+        "numerical_validity",
+        "baseline_control_adequacy",
+        "evidence_sufficiency",
+        "claim_scope",
+        "repair_sufficiency",
+        "stopping"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "evidence_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Artifact Ids",
+      "type": "array"
+    },
+    "explanation": {
+      "minLength": 1,
+      "title": "Explanation",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "question": {
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+    },
+    "question_id": {
+      "minLength": 1,
+      "title": "Question Id",
+      "type": "string"
+    },
+    "recommended_fix_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recommended Fix Optional"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "unknown",
+        "not_applicable"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "question_id",
+    "category",
+    "question",
+    "status",
+    "explanation",
+    "blocking"
+  ],
+  "title": "AdaptiveQuestionerAnswer",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.AdaptiveQuestionerAnswer",
+  "x-factori-verification-evidence": false
+}

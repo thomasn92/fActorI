@@ -35,9 +35,11 @@ from factori.schemas import (
     MethodAtlasEntry,
     ProductionModePolicy,
     RetrievalContext,
+    RetrievalResult,
     RetrievedSourceSummary,
     ScientificStageKind,
     StageBackendRecord,
+    TargetedResearchBrief,
 )
 
 _ATLAS_RE = re.compile(r"^domain-method-atlas-(\d{4})\.json$")
@@ -46,6 +48,64 @@ _REPORT_RE = re.compile(r"^deep-opportunity-discovery-report-(\d{4})\.json$")
 _RAW_RE = re.compile(r"^llm-deep-opportunity-raw-(\d{4})\.json$")
 _RETRIEVAL_RE = re.compile(r"^retrieval-context-(\d{4})\.json$")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
+_OPENALEX_SAFE_QUERY_CHARS = 1000
+_RETRIEVAL_TERM_LIMIT = 18
+_RETRIEVAL_QUERY_VARIANT_LIMIT = 4
+_RETRIEVAL_MIN_TOPIC_OVERLAP = 2
+_RETRIEVAL_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "at",
+    "both",
+    "can",
+    "compare",
+    "compared",
+    "comparing",
+    "controlled",
+    "data",
+    "dataset",
+    "datasets",
+    "each",
+    "enforce",
+    "evaluate",
+    "evaluated",
+    "evaluating",
+    "every",
+    "exclude",
+    "for",
+    "from",
+    "in",
+    "include",
+    "including",
+    "into",
+    "known",
+    "levels",
+    "method",
+    "methods",
+    "of",
+    "on",
+    "one",
+    "only",
+    "or",
+    "proposed",
+    "require",
+    "required",
+    "study",
+    "the",
+    "their",
+    "these",
+    "this",
+    "to",
+    "under",
+    "use",
+    "used",
+    "using",
+    "versus",
+    "via",
+    "with",
+    "without",
+}
 
 
 class DeepOpportunityDiscoveryError(RuntimeError):
@@ -152,8 +212,14 @@ class OpenAlexOpportunityRetriever:
         method: MethodAtlasEntry,
         limit: int,
     ) -> RetrievalContext:
-        query = _retrieval_query(domain=domain, method=method)
-        results = self.client.search(query, limit)
+        queries = _retrieval_queries(domain=domain, method=method)
+        results = _retrieve_query_variants(
+            client=self.client,
+            queries=queries,
+            domain=domain,
+            method=method,
+            limit=limit,
+        )
         sources = [
             RetrievedSourceSummary(
                 source_id=result.source_id,
@@ -163,7 +229,10 @@ class OpenAlexOpportunityRetriever:
                 venue=result.venue,
                 abstract_or_snippet=result.abstract or result.snippet,
                 doi=result.doi,
-                relevance_score=result.score,
+                relevance_score=_source_topic_relevance(
+                    result=result,
+                    topic_terms=_retrieval_topic_terms(domain=domain, method=method),
+                ),
                 provider=result.provider,
                 fake_or_mocked=False,
             )
@@ -173,6 +242,7 @@ class OpenAlexOpportunityRetriever:
         limitations = [
             "Retrieved metadata and abstracts are bounded literature context only.",
             "The result set does not establish novelty, underuse, or complete coverage.",
+            f"Executed {len(queries)} bounded query variants and deduplicated accepted sources.",
         ]
         if not sources:
             limitations.append(
@@ -184,7 +254,7 @@ class OpenAlexOpportunityRetriever:
             source_pair_id=pair.pair_id,
             retrieval_mode="real_retrieval",
             backend_name=self.backend_name,
-            query=query,
+            query=" | ".join(queries),
             sources=sources,
             retrieval_confidence=confidence,
             limitations=limitations,
@@ -225,14 +295,30 @@ def discover_deep_opportunities(
 
     root_path = Path(root)
     reports = root_path / "runs" / run_id / "reports"
-    scan_path, scan = _load_latest_ranked_scan(run_id=run_id, reports=reports)
-    _, atlas = _load_latest_atlas(run_id=run_id, reports=reports)
-    if not scan.selected_pairs:
-        raise DeepOpportunityDiscoveryError("Latest atlas scan has no selected pairs.")
-    domain_by_id = {item.domain_id: item for item in atlas.domains}
-    method_by_id = {item.method_id: item for item in atlas.methods}
-    ranking_by_pair = {item.pair_id: item for item in scan.selected_rankings}
-    selected_pairs = scan.selected_pairs[: config.max_pairs]
+    source_brief_path: Path | None = None
+    if config.source_mode == "targeted_brief":
+        if not config.targeted_brief_path_optional:
+            raise DeepOpportunityDiscoveryError(
+                "targeted_brief source mode requires targeted_brief_path_optional."
+            )
+        source_brief_path, brief = _load_targeted_brief(
+            root_path=root_path,
+            configured_path=config.targeted_brief_path_optional,
+        )
+        selected_pairs, domains, methods = _targeted_source_metadata(brief)
+        scan_path = None
+        ranking_by_pair: dict[str, Any] = {}
+    else:
+        scan_path, scan = _load_latest_ranked_scan(run_id=run_id, reports=reports)
+        _, atlas = _load_latest_atlas(run_id=run_id, reports=reports)
+        if not scan.selected_pairs:
+            raise DeepOpportunityDiscoveryError("Latest atlas scan has no selected pairs.")
+        selected_pairs = scan.selected_pairs[: config.max_pairs]
+        domains = atlas.domains
+        methods = atlas.methods
+        ranking_by_pair = {item.pair_id: item for item in scan.selected_rankings}
+    domain_by_id = {item.domain_id: item for item in domains}
+    method_by_id = {item.method_id: item for item in methods}
     if len(selected_pairs) > config.max_generation_calls:
         raise DeepOpportunityDiscoveryError(
             f"Deep discovery requires {len(selected_pairs)} LLM calls, above "
@@ -285,8 +371,89 @@ def discover_deep_opportunities(
                 f"Retrieval context identity mismatch for {pair.pair_id}."
             )
         if not response.accepted:
+            raw_id = f"llm-deep-opportunity-raw-{raw_number + pair_index:04d}"
+            raw_artifacts.append(
+                LLMOpportunityDiscoveryRawArtifact(
+                    raw_artifact_id=raw_id,
+                    run_id=run_id,
+                    source_pair_id=pair.pair_id,
+                    backend_name=generator.backend_name,
+                    model=generator.model,
+                    prompt_text=response.prompt_text,
+                    requested_output_schema=response.requested_output_schema,
+                    raw_response=response.raw_response,
+                    rejected_outputs=response.rejected,
+                    fallback_used=generator.fallback_used,
+                )
+            )
+            retrieval_contexts.append(context)
+            rejection_summary = _rejection_summary(response.rejected)
+            warnings.append(
+                f"All opportunities were rejected for {pair.pair_id}: {rejection_summary}"
+            )
+            failed_report = DeepOpportunityDiscoveryReport(
+                run_id=run_id,
+                discovery_id=discovery_id,
+                discovery_status="failed",
+                config=config,
+                source_context_kind=config.source_mode,
+                source_atlas_scan_path=(
+                    _relative(root_path, scan_path) if scan_path is not None else None
+                ),
+                source_targeted_brief_path_optional=(
+                    _relative(root_path, source_brief_path)
+                    if source_brief_path is not None
+                    else None
+                ),
+                source_pairs=selected_pairs,
+                source_domains=list(domain_by_id.values()),
+                source_methods=list(method_by_id.values()),
+                selected_pair_count=len(selected_pairs),
+                attempted_pair_count=pair_index + 1,
+                generated_opportunity_count=len(candidates),
+                rejected_opportunity_count=sum(
+                    len(item.rejected_outputs) for item in raw_artifacts
+                ),
+                selected_opportunity_count=0,
+                domain_family_coverage=0,
+                method_family_coverage=0,
+                near_duplicate_suppressed_count=0,
+                retrieval_context_paths=[
+                    f"runs/{run_id}/reports/{item.context_id}.json"
+                    for item in retrieval_contexts
+                ],
+                raw_artifact_paths=[
+                    f"runs/{run_id}/reports/{item.raw_artifact_id}.json"
+                    for item in raw_artifacts
+                ],
+                candidates=candidates,
+                scores=scores,
+                backend_records=[
+                    _generation_backend_record(
+                        discovery_id=discovery_id,
+                        generator=generator,
+                        raw_ids=[item.raw_artifact_id for item in raw_artifacts],
+                    ),
+                    _retrieval_backend_record(
+                        discovery_id=discovery_id,
+                        retriever=retriever,
+                        context_ids=[item.context_id for item in retrieval_contexts],
+                    ),
+                ],
+                warnings=warnings,
+                production_ready=False,
+            )
+            _persist_discovery_artifacts(
+                run_id=run_id,
+                store=store,
+                ledger=ledger,
+                report=failed_report,
+                retrieval_contexts=retrieval_contexts,
+                raw_artifacts=raw_artifacts,
+            )
             raise DeepOpportunityDiscoveryError(
-                f"LLM produced no valid opportunities for selected pair {pair.pair_id}."
+                f"LLM produced no valid opportunities for selected pair {pair.pair_id}: "
+                f"{rejection_summary}"
             )
 
         accepted_ids: list[str] = []
@@ -409,7 +576,18 @@ def discover_deep_opportunities(
         discovery_id=discovery_id,
         discovery_status="completed_with_warnings" if warnings else "completed",
         config=config,
-        source_atlas_scan_path=_relative(root_path, scan_path),
+        source_context_kind=config.source_mode,
+        source_atlas_scan_path=(
+            _relative(root_path, scan_path) if scan_path is not None else None
+        ),
+        source_targeted_brief_path_optional=(
+            _relative(root_path, source_brief_path)
+            if source_brief_path is not None
+            else None
+        ),
+        source_pairs=selected_pairs,
+        source_domains=list(domain_by_id.values()),
+        source_methods=list(method_by_id.values()),
         selected_pair_count=len(selected_pairs),
         attempted_pair_count=len(selected_pairs),
         generated_opportunity_count=len(candidates),
@@ -434,6 +612,26 @@ def discover_deep_opportunities(
         ),
     )
 
+    return _persist_discovery_artifacts(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        report=report,
+        retrieval_contexts=retrieval_contexts,
+        raw_artifacts=raw_artifacts,
+    )
+
+
+def _persist_discovery_artifacts(
+    *,
+    run_id: str,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    report: DeepOpportunityDiscoveryReport,
+    retrieval_contexts: list[RetrievalContext],
+    raw_artifacts: list[LLMOpportunityDiscoveryRawArtifact],
+) -> DeepOpportunityDiscoveryResult:
+    discovery_id = report.discovery_id
     metadata = _metadata("deep_opportunity_discovery")
     specs: list[ArtifactWriteSpec] = []
     specs.extend(
@@ -481,7 +679,7 @@ def discover_deep_opportunities(
             "selected_pair_count": report.selected_pair_count,
             "generated_opportunity_count": report.generated_opportunity_count,
             "selected_opportunity_count": report.selected_opportunity_count,
-            "retrieval_mode": config.retrieval_mode,
+            "retrieval_mode": report.config.retrieval_mode,
             "production_ready": report.production_ready,
             "publication_ready": False,
         },
@@ -494,6 +692,21 @@ def discover_deep_opportunities(
         report_artifact=by_id[discovery_id],
         markdown_artifact=by_id[f"{discovery_id}-markdown"],
     )
+
+
+def _rejection_summary(rejected: list[dict[str, Any]]) -> str:
+    if not rejected:
+        return "the adapter returned no accepted candidates and no rejection diagnostics"
+    summaries: list[str] = []
+    for item in rejected[:3]:
+        index = item.get("index", "unknown")
+        raw_reasons = item.get("reasons", [])
+        reasons = raw_reasons if isinstance(raw_reasons, list) else [raw_reasons]
+        detail = "; ".join(" ".join(str(reason).split()) for reason in reasons)
+        summaries.append(f"candidate {index}: {detail[:500]}")
+    if len(rejected) > len(summaries):
+        summaries.append(f"and {len(rejected) - len(summaries)} more rejected candidate(s)")
+    return " | ".join(summaries)
 
 
 def select_diverse_opportunities(
@@ -775,10 +988,170 @@ def _pair_payload(
 
 
 def _retrieval_query(*, domain: DomainAtlasEntry, method: MethodAtlasEntry) -> str:
-    return (
-        f'"{domain.name}" "{method.name}" '
-        f"{domain.canonical_objects[0]} {method.canonical_objects[0]} baseline"
+    return _retrieval_queries(domain=domain, method=method)[0]
+
+
+def _retrieval_queries(
+    *, domain: DomainAtlasEntry, method: MethodAtlasEntry
+) -> list[str]:
+    """Build a small, generic query portfolio from structured scientific metadata."""
+    domain_terms = _compact_retrieval_terms(
+        " ".join([domain.name, domain.description, *domain.example_questions]),
+        limit=12,
     )
+    method_terms = _compact_retrieval_terms(
+        " ".join([method.name, method.description, *method.natural_problem_types]),
+        limit=14,
+    )
+    baseline_terms = _compact_retrieval_terms(
+        " ".join([*domain.natural_baselines, *method.natural_baselines]),
+        limit=10,
+    )
+    frequent_terms = _frequent_retrieval_terms(
+        " ".join(
+            [
+                domain.name,
+                domain.description,
+                method.name,
+                method.description,
+                *domain.natural_baselines,
+                *method.natural_baselines,
+            ]
+        ),
+        limit=12,
+    )
+    candidates = [
+        [*domain_terms[:9], *method_terms[:9]],
+        method_terms,
+        [*frequent_terms, *baseline_terms[:4]],
+        [*domain_terms[:8], *baseline_terms[:8]],
+    ]
+    queries: list[str] = []
+    for index, terms in enumerate(candidates):
+        query_terms = (
+            [*terms[: _RETRIEVAL_TERM_LIMIT - 1], "baseline"]
+            if index == 0
+            else terms
+        )
+        query = _bounded_query(query_terms)
+        if query and query not in queries:
+            queries.append(query)
+        if len(queries) >= _RETRIEVAL_QUERY_VARIANT_LIMIT:
+            break
+    return queries or ["scientific method baseline"]
+
+
+def _retrieve_query_variants(
+    *,
+    client: OpenAlexRetrievalClient,
+    queries: list[str],
+    domain: DomainAtlasEntry,
+    method: MethodAtlasEntry,
+    limit: int,
+) -> list[RetrievalResult]:
+    topic_terms = _retrieval_topic_terms(domain=domain, method=method)
+    merged: dict[str, tuple[float, int, RetrievalResult]] = {}
+    for query_index, query in enumerate(queries):
+        for result in client.search(query, limit):
+            relevance = _source_topic_relevance(result=result, topic_terms=topic_terms)
+            overlap = _source_topic_overlap(result=result, topic_terms=topic_terms)
+            if overlap < _RETRIEVAL_MIN_TOPIC_OVERLAP:
+                continue
+            identity = (result.doi or result.source_id).casefold()
+            candidate = (relevance, -query_index, result)
+            previous = merged.get(identity)
+            if previous is None or candidate[:2] > previous[:2]:
+                merged[identity] = candidate
+    ranked = sorted(
+        merged.values(),
+        key=lambda item: (-item[0], -item[1], item[2].source_id),
+    )
+    return [item[2] for item in ranked[:limit]]
+
+
+def _retrieval_topic_terms(
+    *, domain: DomainAtlasEntry, method: MethodAtlasEntry
+) -> set[str]:
+    return set(
+        _compact_retrieval_terms(
+            " ".join(
+                [
+                    domain.name,
+                    domain.description,
+                    method.name,
+                    method.description,
+                    *domain.natural_baselines,
+                    *method.natural_baselines,
+                ]
+            ),
+            limit=48,
+        )
+    )
+
+
+def _source_topic_overlap(
+    *, result: RetrievalResult, topic_terms: set[str]
+) -> int:
+    source_terms = set(
+        _compact_retrieval_terms(
+            " ".join([result.title, result.abstract or "", result.snippet or ""]),
+            limit=256,
+        )
+    )
+    return len(topic_terms & source_terms)
+
+
+def _source_topic_relevance(
+    *, result: RetrievalResult, topic_terms: set[str]
+) -> float:
+    overlap = _source_topic_overlap(result=result, topic_terms=topic_terms)
+    denominator = max(1, min(12, len(topic_terms)))
+    return round(min(1.0, overlap / denominator), 6)
+
+
+def _compact_retrieval_terms(text: str, *, limit: int) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for term in _TOKEN_RE.findall(text.casefold()):
+        if (
+            term in _RETRIEVAL_STOPWORDS
+            or term in seen
+            or len(term) < 2
+            or term.isdigit()
+        ):
+            continue
+        terms.append(term)
+        seen.add(term)
+        if len(terms) >= limit:
+            break
+    return terms
+
+
+def _frequent_retrieval_terms(text: str, *, limit: int) -> list[str]:
+    ordered = _compact_retrieval_terms(text, limit=256)
+    counts = Counter(
+        term
+        for term in _TOKEN_RE.findall(text.casefold())
+        if term not in _RETRIEVAL_STOPWORDS and len(term) >= 2 and not term.isdigit()
+    )
+    order = {term: index for index, term in enumerate(ordered)}
+    return sorted(ordered, key=lambda term: (-counts[term], order[term]))[:limit]
+
+
+def _bounded_query(terms: list[str]) -> str:
+    values: list[str] = []
+    seen: set[str] = set()
+    for term in terms:
+        if term in seen:
+            continue
+        candidate = " ".join([*values, term])
+        if len(candidate) > _OPENALEX_SAFE_QUERY_CHARS:
+            break
+        values.append(term)
+        seen.add(term)
+        if len(values) >= _RETRIEVAL_TERM_LIMIT:
+            break
+    return " ".join(values)
 
 
 def _retrieval_confidence(sources: list[RetrievedSourceSummary]) -> float:
@@ -835,6 +1208,82 @@ def _load_atlas_report(path: Path) -> AtlasScanReport:
         return AtlasScanReport.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValidationError) as exc:
         raise DeepOpportunityDiscoveryError(f"Could not load atlas report {path}: {exc}") from exc
+
+
+def _load_targeted_brief(
+    *, root_path: Path, configured_path: str
+) -> tuple[Path, TargetedResearchBrief]:
+    path = Path(configured_path)
+    if not path.is_absolute():
+        path = root_path / path
+    try:
+        brief = TargetedResearchBrief.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValidationError) as exc:
+        raise DeepOpportunityDiscoveryError(
+            f"Could not load targeted research brief {path}: {exc}"
+        ) from exc
+    return path, brief
+
+
+def _targeted_source_metadata(
+    brief: TargetedResearchBrief,
+) -> tuple[list[DomainMethodPair], list[DomainAtlasEntry], list[MethodAtlasEntry]]:
+    """Map a user-selected brief to neutral source metadata without opportunity scoring."""
+    domain_id = _slug(brief.domain) or "targeted_domain"
+    method_id = _slug(brief.method) or "targeted_method"
+    object_text = brief.theory_or_model_object_optional or brief.central_question
+    verification_text = (
+        brief.experiment_or_proof_direction_optional
+        or "Construct an explicit verification plan before making scientific claims."
+    )
+    baselines = brief.baseline_candidates or [
+        "A prespecified conventional comparator appropriate to the research question."
+    ]
+    metrics = brief.expected_metrics or [
+        "Prespecified outcome metrics tied to the bounded research question."
+    ]
+    risks = brief.known_risks or [
+        "False bridges and unsupported scope expansion must be checked explicitly."
+    ]
+    domain = DomainAtlasEntry(
+        domain_id=domain_id,
+        name=brief.domain,
+        domain_family=f"targeted:{domain_id}",
+        description=brief.central_question,
+        canonical_objects=[object_text],
+        data_types=[brief.data_regime],
+        natural_baselines=baselines,
+        verification_modes=[verification_text],
+        standard_metrics=metrics,
+        common_failure_modes=risks,
+        example_questions=[brief.central_question],
+    )
+    method = MethodAtlasEntry(
+        method_id=method_id,
+        name=brief.method,
+        method_family=f"targeted:{method_id}",
+        description=brief.method,
+        canonical_objects=[object_text],
+        natural_problem_types=[brief.central_question],
+        required_inputs=[brief.data_regime],
+        typical_outputs=metrics,
+        verification_modes=[verification_text],
+        natural_baselines=baselines,
+        false_bridge_patterns=risks,
+    )
+    pair = DomainMethodPair(
+        pair_id=f"targeted-pair-{domain_id}--{method_id}",
+        domain_id=domain_id,
+        method_id=method_id,
+        domain_family=domain.domain_family,
+        method_family=method.method_family,
+        object_mapping_candidates=[object_text],
+        baseline_candidates=baselines,
+        verification_path_candidates=[verification_text],
+        data_or_simulation_candidates=[brief.data_regime],
+        compatibility_status="compatible",
+    )
+    return [pair], [domain], [method]
 
 
 def _metadata(stage: str) -> dict[str, Any]:

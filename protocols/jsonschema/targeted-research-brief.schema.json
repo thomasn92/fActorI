@@ -1,0 +1,222 @@
+{
+  "$defs": {
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.78.0/targeted-research-brief.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Generic user-selected research direction for targeted autonomous study.",
+  "properties": {
+    "allowed_claim_scope": {
+      "minLength": 1,
+      "title": "Allowed Claim Scope",
+      "type": "string"
+    },
+    "authoring_backend_kind": {
+      "$ref": "#/$defs/BackendKind",
+      "default": "human"
+    },
+    "baseline_candidates": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Baseline Candidates",
+      "type": "array"
+    },
+    "brief_id": {
+      "minLength": 1,
+      "title": "Brief Id",
+      "type": "string"
+    },
+    "central_question": {
+      "minLength": 1,
+      "title": "Central Question",
+      "type": "string"
+    },
+    "controls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Controls",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "data_regime": {
+      "minLength": 1,
+      "title": "Data Regime",
+      "type": "string"
+    },
+    "domain": {
+      "minLength": 1,
+      "title": "Domain",
+      "type": "string"
+    },
+    "expected_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Expected Metrics",
+      "type": "array"
+    },
+    "experiment_or_proof_direction_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Or Proof Direction Optional"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "hypothesis_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hypothesis Optional"
+    },
+    "implies_publication_readiness": {
+      "const": false,
+      "default": false,
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "known_risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Known Risks",
+      "type": "array"
+    },
+    "method": {
+      "minLength": 1,
+      "title": "Method",
+      "type": "string"
+    },
+    "negative_controls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Negative Controls",
+      "type": "array"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "selection_backend_kind": {
+      "$ref": "#/$defs/BackendKind",
+      "default": "human"
+    },
+    "source_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Artifact Paths",
+      "type": "array"
+    },
+    "source_candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Candidate Ids",
+      "type": "array"
+    },
+    "source_content_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Source Content Hashes",
+      "type": "object"
+    },
+    "source_run_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Run Id Optional"
+    },
+    "theory_or_model_object_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Theory Or Model Object Optional"
+    },
+    "title": {
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "brief_id",
+    "title",
+    "domain",
+    "method",
+    "central_question",
+    "data_regime",
+    "allowed_claim_scope",
+    "forbidden_claims"
+  ],
+  "title": "TargetedResearchBrief",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.TargetedResearchBrief",
+  "x-factori-verification-evidence": false
+}

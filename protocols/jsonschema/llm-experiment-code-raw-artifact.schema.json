@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/llm-experiment-code-raw-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/llm-experiment-code-raw-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free prompt and response provenance for experiment-code generation.",
@@ -31,6 +31,12 @@
       "default": false,
       "title": "Fallback Used",
       "type": "boolean"
+    },
+    "generation_attempt": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Generation Attempt",
+      "type": "integer"
     },
     "is_verification_evidence": {
       "const": false,
@@ -71,6 +77,18 @@
       "title": "Rejection Reasons",
       "type": "array"
     },
+    "repair_of_code_artifact_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Repair Of Code Artifact Id Optional"
+    },
     "requested_output_schema": {
       "additionalProperties": true,
       "title": "Requested Output Schema",
@@ -99,7 +117,7 @@
   ],
   "title": "LLMExperimentCodeRawArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.LLMExperimentCodeRawArtifact",
   "x-factori-verification-evidence": false
 }

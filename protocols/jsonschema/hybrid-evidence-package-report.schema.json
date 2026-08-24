@@ -290,6 +290,18 @@
       "additionalProperties": false,
       "description": "LLM-authored hybrid evidence package for one selected scientific substrate.",
       "properties": {
+        "adaptive_repair_decision_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptive Repair Decision Id Optional"
+        },
         "allowed_claim_scope": {
           "minLength": 1,
           "title": "Allowed Claim Scope",
@@ -418,6 +430,18 @@
           "title": "Recommended Next Action",
           "type": "string"
         },
+        "repair_of_package_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Of Package Id Optional"
+        },
         "run_id": {
           "minLength": 1,
           "title": "Run Id",
@@ -483,6 +507,18 @@
       "additionalProperties": false,
       "description": "Bounded configuration for non-fake hybrid evidence-package planning.",
       "properties": {
+        "adaptive_repair_decision_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adaptive Repair Decision Id Optional"
+        },
         "backend": {
           "minLength": 1,
           "title": "Backend",
@@ -504,6 +540,18 @@
           "minimum": 1,
           "title": "Max Source Substrates",
           "type": "integer"
+        },
+        "repair_of_package_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Of Package Id Optional"
         },
         "require_non_fake_backends": {
           "default": false,
@@ -752,7 +800,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/hybrid-evidence-package-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/hybrid-evidence-package-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-fake hybrid evidence-package planning report.",
@@ -919,7 +967,7 @@
   ],
   "title": "HybridEvidencePackageReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.HybridEvidencePackageReport",
   "x-factori-verification-evidence": false
 }

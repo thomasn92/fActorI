@@ -10,6 +10,12 @@ from typing import Any
 from factori.adapters.config import AdapterConfig
 from factori.protocol_compat import ProtocolCompatibilityStatus
 from factori.schemas import (
+    AdaptiveEvidenceDecision,
+    AdaptiveEvidenceIteration,
+    AdaptiveEvidenceLoopConfig,
+    AdaptiveEvidenceLoopReport,
+    AdaptiveQuestionerAnswer,
+    AdaptiveQuestionerRawArtifact,
     AppendixAllocationAssessment,
     ArtifactManifest,
     ArtifactRef,
@@ -127,6 +133,7 @@ from factori.schemas import (
     FinalPaperInspectionReport,
     FinalPaperManifest,
     FinalPaperOpenObligation,
+    FinalPaperRenderReport,
     FinalPaperSectionRecord,
     FinalPaperTableRecord,
     FinalPaperVerificationFinding,
@@ -402,6 +409,12 @@ from factori.schemas import (
     SubstrateTournamentInspectionReport,
     SubstrateTournamentResult,
     SubstrateTournamentSpec,
+    TargetedResearchBrief,
+    TargetedStudyCheckpoint,
+    TargetedStudyConfig,
+    TargetedStudyInspectionReport,
+    TargetedStudyRunReport,
+    TargetedStudyStageRecord,
     VarianceAugmentationBatch,
     VarianceAugmentationConfig,
     VarianceAugmentationInspectionReport,
@@ -412,7 +425,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.72.0"
+PROTOCOL_VERSION = "0.78.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -728,6 +741,66 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "AtlasScanInspectionReport",
         AtlasScanInspectionReport,
         "Read-only latest atlas build or pair-scan inspection payload.",
+    ),
+    ProtocolDefinition(
+        "TargetedResearchBrief",
+        TargetedResearchBrief,
+        "Generic user-selected research direction for targeted autonomous study.",
+    ),
+    ProtocolDefinition(
+        "TargetedStudyConfig",
+        TargetedStudyConfig,
+        "Fail-closed preflight, smoke, or full targeted-study configuration.",
+    ),
+    ProtocolDefinition(
+        "TargetedStudyStageRecord",
+        TargetedStudyStageRecord,
+        "One planned or completed stage in a targeted study.",
+    ),
+    ProtocolDefinition(
+        "TargetedStudyCheckpoint",
+        TargetedStudyCheckpoint,
+        "Append-only stage-level targeted-study resume checkpoint.",
+    ),
+    ProtocolDefinition(
+        "TargetedStudyRunReport",
+        TargetedStudyRunReport,
+        "Top-level targeted-study preflight or execution report.",
+    ),
+    ProtocolDefinition(
+        "TargetedStudyInspectionReport",
+        TargetedStudyInspectionReport,
+        "Read-only targeted-study and checkpoint inspection payload.",
+    ),
+    ProtocolDefinition(
+        "AdaptiveEvidenceLoopConfig",
+        AdaptiveEvidenceLoopConfig,
+        "Bounded iteration and scientific-repair controls for targeted evidence loops.",
+    ),
+    ProtocolDefinition(
+        "AdaptiveQuestionerAnswer",
+        AdaptiveQuestionerAnswer,
+        "One artifact-grounded answer from the adaptive scientific questioner.",
+    ),
+    ProtocolDefinition(
+        "AdaptiveEvidenceDecision",
+        AdaptiveEvidenceDecision,
+        "One policy-normalized adaptive evidence acceptance, repair, or stop decision.",
+    ),
+    ProtocolDefinition(
+        "AdaptiveEvidenceIteration",
+        AdaptiveEvidenceIteration,
+        "Append-only record of one question, optional repair, and progress check.",
+    ),
+    ProtocolDefinition(
+        "AdaptiveQuestionerRawArtifact",
+        AdaptiveQuestionerRawArtifact,
+        "Secret-free raw adaptive-questioner prompt and response provenance.",
+    ),
+    ProtocolDefinition(
+        "AdaptiveEvidenceLoopReport",
+        AdaptiveEvidenceLoopReport,
+        "Terminal or resumable report for bounded question-driven evidence development.",
     ),
     ProtocolDefinition(
         "DeepOpportunityDiscoveryConfig",
@@ -1133,6 +1206,11 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "FinalPaperVerificationReport",
         FinalPaperVerificationReport,
         "Append-only local final-paper verification report.",
+    ),
+    ProtocolDefinition(
+        "FinalPaperRenderReport",
+        FinalPaperRenderReport,
+        "Append-only local PDF rendering report for one verified final paper.",
     ),
     ProtocolDefinition(
         "FinalPaperInspectionReport",

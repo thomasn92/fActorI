@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.72.0/llm-variance-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/llm-variance-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One non-fake LLM scientific variant around a deep opportunity.",
@@ -208,7 +208,7 @@
   ],
   "title": "LLMVarianceCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.LLMVarianceCandidate",
   "x-factori-verification-evidence": false
 }

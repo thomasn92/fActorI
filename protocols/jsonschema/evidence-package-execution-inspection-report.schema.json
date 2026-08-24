@@ -103,6 +103,20 @@
           "title": "Evidence Label",
           "type": "string"
         },
+        "execution_completed": {
+          "default": false,
+          "title": "Execution Completed",
+          "type": "boolean"
+        },
+        "execution_profile": {
+          "default": "full",
+          "enum": [
+            "smoke",
+            "full"
+          ],
+          "title": "Execution Profile",
+          "type": "string"
+        },
         "failure_criteria_satisfied": {
           "anyOf": [
             {
@@ -132,6 +146,13 @@
           "default": false,
           "title": "Is Verification Evidence",
           "type": "boolean"
+        },
+        "logical_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Logical Artifact Ids",
+          "type": "array"
         },
         "metric_sources": {
           "additionalProperties": {
@@ -181,10 +202,27 @@
           "title": "Result Id",
           "type": "string"
         },
+        "reused_prior_execution": {
+          "default": false,
+          "title": "Reused Prior Execution",
+          "type": "boolean"
+        },
         "scope_label": {
           "minLength": 1,
           "title": "Scope Label",
           "type": "string"
+        },
+        "source_prior_result_id_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Prior Result Id Optional"
         },
         "source_substrate_id": {
           "minLength": 1,
@@ -217,6 +255,11 @@
           ],
           "default": null,
           "title": "Success Criteria Satisfied"
+        },
+        "supports_adjudication": {
+          "default": false,
+          "title": "Supports Adjudication",
+          "type": "boolean"
         },
         "unresolved_obligations": {
           "items": {
@@ -358,11 +401,23 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/evidence-package-execution-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/evidence-package-execution-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of latest hybrid evidence-package execution.",
   "properties": {
+    "adjudication_ready": {
+      "default": false,
+      "title": "Adjudication Ready",
+      "type": "boolean"
+    },
+    "adjudication_ready_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Adjudication Ready Package Ids",
+      "type": "array"
+    },
     "artifact_plan_count": {
       "default": 0,
       "minimum": 0,
@@ -389,10 +444,22 @@
       "title": "Blocked Code Count",
       "type": "integer"
     },
+    "budget_deferred_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Budget Deferred Artifact Count",
+      "type": "integer"
+    },
     "code_artifact_count": {
       "default": 0,
       "minimum": 0,
       "title": "Code Artifact Count",
+      "type": "integer"
+    },
+    "completed_required_artifact_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Completed Required Artifact Count",
       "type": "integer"
     },
     "creates_real_world_validation": {
@@ -436,6 +503,15 @@
       "title": "Executed Code Count",
       "type": "integer"
     },
+    "execution_profile": {
+      "default": "full",
+      "enum": [
+        "smoke",
+        "full"
+      ],
+      "title": "Execution Profile",
+      "type": "string"
+    },
     "execution_status_optional": {
       "anyOf": [
         {
@@ -447,6 +523,13 @@
       ],
       "default": null,
       "title": "Execution Status Optional"
+    },
+    "incomplete_required_artifact_plan_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Incomplete Required Artifact Plan Ids",
+      "type": "array"
     },
     "is_verification_evidence": {
       "const": false,
@@ -466,6 +549,54 @@
       "default": null,
       "title": "Latest Report Id Optional"
     },
+    "max_artifact_plans": {
+      "default": 12,
+      "minimum": 1,
+      "title": "Max Artifact Plans",
+      "type": "integer"
+    },
+    "max_codegen_calls": {
+      "default": 12,
+      "minimum": 0,
+      "title": "Max Codegen Calls",
+      "type": "integer"
+    },
+    "max_grid_cells": {
+      "default": 256,
+      "minimum": 1,
+      "title": "Max Grid Cells",
+      "type": "integer"
+    },
+    "max_replications": {
+      "default": 1000,
+      "minimum": 1,
+      "title": "Max Replications",
+      "type": "integer"
+    },
+    "max_resamples": {
+      "default": 2000,
+      "minimum": 1,
+      "title": "Max Resamples",
+      "type": "integer"
+    },
+    "max_runtime_repair_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Max Runtime Repair Calls",
+      "type": "integer"
+    },
+    "max_safety_repair_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Max Safety Repair Calls",
+      "type": "integer"
+    },
+    "max_scientific_repair_calls": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Max Scientific Repair Calls",
+      "type": "integer"
+    },
     "metric_extraction_count": {
       "default": 0,
       "minimum": 0,
@@ -484,6 +615,19 @@
       "title": "Package Count",
       "type": "integer"
     },
+    "prior_execution_context_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Prior Execution Context Count",
+      "type": "integer"
+    },
+    "prior_execution_result_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Prior Execution Result Ids",
+      "type": "array"
+    },
     "production_ready": {
       "default": false,
       "title": "Production Ready",
@@ -494,6 +638,12 @@
       "default": false,
       "title": "Publication Ready",
       "type": "boolean"
+    },
+    "required_artifact_plan_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Required Artifact Plan Count",
+      "type": "integer"
     },
     "result_count": {
       "default": 0,
@@ -508,16 +658,89 @@
       "title": "Results",
       "type": "array"
     },
+    "resumed_from_report_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resumed From Report Id Optional"
+    },
+    "resumed_result_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Resumed Result Count",
+      "type": "integer"
+    },
     "retrieval_artifact_count": {
       "default": 0,
       "minimum": 0,
       "title": "Retrieval Artifact Count",
       "type": "integer"
     },
+    "reused_prior_result_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Reused Prior Result Count",
+      "type": "integer"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
       "type": "string"
+    },
+    "runtime_repair_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Runtime Repair Attempt Count",
+      "type": "integer"
+    },
+    "runtime_repair_success_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Runtime Repair Success Count",
+      "type": "integer"
+    },
+    "safety_repair_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Safety Repair Attempt Count",
+      "type": "integer"
+    },
+    "safety_repair_success_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Safety Repair Success Count",
+      "type": "integer"
+    },
+    "scientific_repair_attempt_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Scientific Repair Attempt Count",
+      "type": "integer"
+    },
+    "scientific_repair_success_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Scientific Repair Success Count",
+      "type": "integer"
+    },
+    "selected_artifact_plan_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Selected Artifact Plan Count",
+      "type": "integer"
+    },
+    "selected_artifact_plan_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Selected Artifact Plan Ids",
+      "type": "array"
     },
     "symbolic_artifact_count": {
       "default": 0,
@@ -539,7 +762,7 @@
   ],
   "title": "EvidencePackageExecutionInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.EvidencePackageExecutionInspectionReport",
   "x-factori-verification-evidence": false
 }

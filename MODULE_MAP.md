@@ -328,6 +328,15 @@ All implementation modules are under `factori/`.
   typed artifact-plan validation, safe execution of code-backed package components through the
   M102 sandbox path, draft-only symbolic/proof/retrieval outputs, append-only reports, strict
   production records, and read-only inspection.
+- `adapters/adaptive_questioner.py`: gated structured OpenAI review of post-M103 implementation,
+  numerical, control, evidence, scope, repair, and stopping questions without evidence authority.
+- `adaptive_evidence.py`: bounded M107 question/repair loop, deterministic acceptance gates,
+  append-only repair lineage, no-progress detection, trustworthy negative-result handling, and
+  budget-aware terminal reports.
+- `targeted_llm_budget.py`: persistent per-call estimated token/cost accounting and reserved
+  M104-M106 call capacity for targeted studies.
+- `targeted_study.py`: generic brief/candidate normalization, read-only preflight, M98-M106
+  one-branch orchestration, stage checkpoints, adaptive M103 development, resume, and inspection.
 - `adapters/scientific_critic.py`: gated OpenAI structured-output adapter for role-scoped package
   criticism and cross-package paper-nucleus adjudication, with no deterministic fallback.
 - `evidence_package_adjudication.py`: append-only M104 critic reports, blocking-finding gates,
@@ -341,7 +350,8 @@ All implementation modules are under `factori/`.
 - `final_paper.py`: legacy deterministic paper-skeleton compatibility plus M106 append-only final
   Markdown/LaTeX assembly, sandbox-output-bound metric table reconstruction, figure/citation/
   artifact resolution, open-obligation appendices, structural verification, hash-locked release
-  packaging, strict backend provenance checks, and read-only inspection.
+  packaging, explicitly gated standalone-PDF rendering, strict backend provenance checks, and
+  read-only inspection.
 - `final_release_bundle.py`: deterministic final bundle assembly from the preferred final
   manuscript, accepted citations, evidence artifacts, audit reports, reproducibility metadata, and
   locked SHA-256 manifests without creating evidence or publication readiness.

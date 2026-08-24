@@ -247,7 +247,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.72.0/nucleus-manuscript-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.78.0/nucleus-manuscript-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest M105 nucleus manuscript state.",
@@ -404,7 +404,7 @@
   ],
   "title": "NucleusManuscriptInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.72.0",
+  "x-factori-protocol-version": "0.78.0",
   "x-factori-source-model": "factori.schemas.NucleusManuscriptInspectionReport",
   "x-factori-verification-evidence": false
 }

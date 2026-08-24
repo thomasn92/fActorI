@@ -1,0 +1,293 @@
+{
+  "$defs": {
+    "AdaptiveQuestionerAnswer": {
+      "additionalProperties": false,
+      "description": "One artifact-grounded answer to a context-selected scientific question.",
+      "properties": {
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "category": {
+          "enum": [
+            "implementation_fidelity",
+            "numerical_validity",
+            "baseline_control_adequacy",
+            "evidence_sufficiency",
+            "claim_scope",
+            "repair_sufficiency",
+            "stopping"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "const": false,
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "evidence_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Artifact Ids",
+          "type": "array"
+        },
+        "explanation": {
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "is_verification_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "publication_ready": {
+          "const": false,
+          "default": false,
+          "title": "Publication Ready",
+          "type": "boolean"
+        },
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "question_id": {
+          "minLength": 1,
+          "title": "Question Id",
+          "type": "string"
+        },
+        "recommended_fix_optional": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Fix Optional"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unknown",
+            "not_applicable"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question_id",
+        "category",
+        "question",
+        "status",
+        "explanation",
+        "blocking"
+      ],
+      "title": "AdaptiveQuestionerAnswer",
+      "type": "object"
+    },
+    "BackendKind": {
+      "description": "Authority classification for scientific and infrastructure backends.",
+      "enum": [
+        "fake",
+        "fixture",
+        "deterministic_template",
+        "curated_catalog",
+        "heuristic",
+        "llm_openai",
+        "llm_other",
+        "retrieval_real",
+        "local_execution",
+        "symbolic_checker",
+        "human"
+      ],
+      "title": "BackendKind",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.78.0/adaptive-evidence-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One policy-normalized adaptive evidence acceptance, repair, or stop decision.",
+  "properties": {
+    "action": {
+      "enum": [
+        "accept_supported_result",
+        "accept_negative_result",
+        "repair_code",
+        "repair_evidence_plan",
+        "downgrade_claim",
+        "stop_weak_branch",
+        "stop_no_progress",
+        "stop_budget_exhausted",
+        "blocked"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "backend_kind": {
+      "$ref": "#/$defs/BackendKind"
+    },
+    "claim_disposition": {
+      "enum": [
+        "supported",
+        "negative_result",
+        "inconclusive",
+        "deferred",
+        "rejected"
+      ],
+      "title": "Claim Disposition",
+      "type": "string"
+    },
+    "creates_real_world_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Real World Validation",
+      "type": "boolean"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "creates_verified_theorem": {
+      "const": false,
+      "default": false,
+      "title": "Creates Verified Theorem",
+      "type": "boolean"
+    },
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "deterministic_findings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Deterministic Findings",
+      "type": "array"
+    },
+    "diagnostic_fingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Diagnostic Fingerprint",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "iteration": {
+      "minimum": 1,
+      "title": "Iteration",
+      "type": "integer"
+    },
+    "novelty_proven": {
+      "const": false,
+      "default": false,
+      "title": "Novelty Proven",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/AdaptiveQuestionerAnswer"
+      },
+      "minItems": 1,
+      "title": "Questions",
+      "type": "array"
+    },
+    "rationale": {
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "repair_instructions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Repair Instructions",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_code_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Code Artifact Ids",
+      "type": "array"
+    },
+    "source_execution_report_id": {
+      "minLength": 1,
+      "title": "Source Execution Report Id",
+      "type": "string"
+    },
+    "source_package_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Source Package Ids",
+      "type": "array"
+    },
+    "source_package_report_id": {
+      "minLength": 1,
+      "title": "Source Package Report Id",
+      "type": "string"
+    },
+    "source_result_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Result Ids",
+      "type": "array"
+    },
+    "unresolved_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unresolved Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "decision_id",
+    "run_id",
+    "iteration",
+    "source_package_report_id",
+    "source_execution_report_id",
+    "source_package_ids",
+    "questions",
+    "action",
+    "rationale",
+    "claim_disposition",
+    "diagnostic_fingerprint",
+    "backend_kind"
+  ],
+  "title": "AdaptiveEvidenceDecision",
+  "type": "object",
+  "x-factori-protocol-version": "0.78.0",
+  "x-factori-source-model": "factori.schemas.AdaptiveEvidenceDecision",
+  "x-factori-verification-evidence": false
+}
