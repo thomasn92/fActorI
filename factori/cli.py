@@ -115,6 +115,7 @@ from factori.deep_opportunity_discovery import (
     OpenAlexOpportunityRetriever,
     discover_deep_opportunities,
     inspect_deep_opportunities,
+    refresh_deep_opportunity_literature,
     render_deep_opportunity_text,
 )
 from factori.diagnostics import (
@@ -4281,6 +4282,73 @@ def discover_deep_opportunities_command(
     typer.echo(f"production_ready={str(result.report.production_ready).lower()}")
     typer.echo("publication_ready=false")
     typer.echo(f"artifact={result.report_artifact.path}")
+
+
+@app.command("refresh-deep-opportunity-literature")
+def refresh_deep_opportunity_literature_command(
+    run_id: Annotated[str, typer.Option("--run-id")],
+    root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
+    allow_external_calls: Annotated[
+        bool,
+        typer.Option("--allow-external-calls"),
+    ] = False,
+    require_non_fake_backends: Annotated[
+        bool,
+        typer.Option("--require-non-fake-backends"),
+    ] = False,
+    max_pairs: Annotated[int, typer.Option("--max-pairs")] = 1,
+    max_retrieval_sources_per_pair: Annotated[
+        int,
+        typer.Option("--max-retrieval-sources-per-pair"),
+    ] = 5,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Append fresh OpenAlex context without regenerating a scientific branch."""
+    try:
+        retriever = OpenAlexOpportunityRetriever(
+            OpenAlexRetrievalClient(
+                api_key=os.environ.get(OPENALEX_API_KEY_ENV, ""),
+                default_limit=max_retrieval_sources_per_pair,
+                allow_external_calls=allow_external_calls,
+            )
+        )
+        result = refresh_deep_opportunity_literature(
+            run_id=run_id,
+            root=root,
+            store=ArtifactStore(root),
+            ledger=_ledger(root, run_id),
+            retriever=retriever,
+            max_pairs=max_pairs,
+            max_sources_per_pair=max_retrieval_sources_per_pair,
+            require_non_fake_backends=require_non_fake_backends,
+        )
+    except (AdapterError, DeepOpportunityDiscoveryError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    payload = {
+        "run_id": run_id,
+        "context_ids": [item.context_id for item in result.contexts],
+        "accepted_source_count": sum(
+            not source.fake_or_mocked
+            for context in result.contexts
+            for source in context.sources
+        ),
+        "artifact_paths": [item.path for item in result.persistence.artifacts],
+        "production_ready": require_non_fake_backends,
+        "publication_ready": False,
+        "creates_scientific_validation": False,
+        "is_verification_evidence": False,
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    typer.echo(f"run_id={run_id}")
+    typer.echo(f"context_count={len(result.contexts)}")
+    typer.echo(f"accepted_source_count={payload['accepted_source_count']}")
+    for path in payload["artifact_paths"]:
+        typer.echo(f"artifact={path}")
+    typer.echo(f"production_ready={str(require_non_fake_backends).lower()}")
+    typer.echo("publication_ready=false")
 
 
 @app.command("inspect-deep-opportunities")

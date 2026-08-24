@@ -50,6 +50,7 @@ from factori.deep_opportunity_discovery import (
     _targeted_source_metadata,
     discover_deep_opportunities,
     inspect_deep_opportunities,
+    refresh_deep_opportunity_literature,
 )
 from factori.ledger import ResearchLedger
 from factori.llm_variance import generate_llm_variance
@@ -73,6 +74,8 @@ from factori.schemas import (
     LLMExperimentCodeArtifact,
     LLMVarianceGenerationConfig,
     MetricExtractionResult,
+    RetrievalContext,
+    RetrievedSourceSummary,
     SandboxExecutionConfig,
     SandboxExecutionResult,
     TargetedResearchBrief,
@@ -977,6 +980,29 @@ def test_targeted_resume_reopens_only_stages_after_valid_synthesis(tmp_path: Pat
     assert "production_mode_check" not in completed
 
 
+def test_targeted_resume_reopens_manuscript_after_literature_refresh(
+    tmp_path: Path,
+) -> None:
+    reports = tmp_path / "runs" / "targeted-literature-tail" / "reports"
+    reports.mkdir(parents=True)
+    (reports / "nucleus-manuscript-synthesis-report-0001.json").write_text(
+        '{"phase":"revision","manuscript_status":"revised",'
+        '"evidence_citation_bindings":[]}',
+        encoding="utf-8",
+    )
+    (reports / "retrieval-context-0002.json").write_text(
+        '{"retrieval_mode":"real_retrieval","sources":['
+        '{"source_id":"W1","fake_or_mocked":false}]}',
+        encoding="utf-8",
+    )
+    completed = set(_PAPER_TAIL_STAGES) | {"production_mode_check"}
+
+    _reopen_deferred_paper_tail(completed, reports)
+
+    assert not completed.intersection(_PAPER_TAIL_STAGES)
+    assert "production_mode_check" not in completed
+
+
 def test_targeted_resume_allows_only_budget_resource_and_adaptive_limit_increases(
     tmp_path: Path,
 ) -> None:
@@ -1549,6 +1575,87 @@ def test_targeted_openalex_retrieval_recovers_with_bounded_query_variants() -> N
     assert "10.1000/marine.1" not in {source.doi for source in context.sources}
     assert " | " in context.query
     assert any("query variants" in item for item in context.limitations)
+
+
+def test_refresh_deep_opportunity_literature_persists_real_context(
+    tmp_path: Path,
+) -> None:
+    run_id = "targeted-literature-refresh"
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    brief_ref = store.write_json(
+        run_id=run_id,
+        artifact_id=_brief().brief_id,
+        artifact_type=ArtifactType.REPORT,
+        data=_brief(),
+    )
+    discover_deep_opportunities(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        generator=_OpportunityGenerator(),
+        retriever=MockedOpportunityRetriever(),
+        config=DeepOpportunityDiscoveryConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            retrieval_mode="mocked_retrieval",
+            source_mode="targeted_brief",
+            targeted_brief_path_optional=brief_ref.path,
+            max_pairs=1,
+            max_generation_calls=1,
+            opportunities_per_pair=2,
+            max_selected_opportunities=1,
+            min_domain_family_coverage=1,
+            min_method_family_coverage=1,
+            max_opportunities_per_domain_family=1,
+            max_opportunities_per_method_family=1,
+        ),
+    )
+
+    class RealRetriever:
+        backend_name = "test-openalex"
+        backend_kind = BackendKind.RETRIEVAL_REAL
+        retrieval_mode = "real_retrieval"
+        fallback_used = False
+        fallback_disclosed = True
+
+        def retrieve(self, *, run_id, context_id, pair, domain, method, limit):
+            del domain, method, limit
+            return RetrievalContext(
+                context_id=context_id,
+                run_id=run_id,
+                source_pair_id=pair.pair_id,
+                retrieval_mode="real_retrieval",
+                backend_name=self.backend_name,
+                query="label noise probability calibration",
+                sources=[
+                    RetrievedSourceSummary(
+                        source_id="W-refresh",
+                        title="Probability calibration under label noise",
+                        authors=["A. Researcher"],
+                        year=2024,
+                        doi="10.1000/refresh",
+                        relevance_score=0.9,
+                        provider="openalex",
+                        fake_or_mocked=False,
+                    )
+                ],
+                retrieval_confidence=0.8,
+                limitations=["Bounded literature context only."],
+            )
+
+    result = refresh_deep_opportunity_literature(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        retriever=RealRetriever(),  # type: ignore[arg-type]
+    )
+
+    assert [item.context_id for item in result.contexts] == ["retrieval-context-0002"]
+    assert result.contexts[0].sources[0].doi == "10.1000/refresh"
+    assert (tmp_path / result.persistence.artifacts[0].path).is_file()
 
 
 def test_targeted_m98_persists_all_rejected_response_before_failing(

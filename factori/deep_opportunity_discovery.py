@@ -121,6 +121,13 @@ class DeepOpportunityDiscoveryResult:
     markdown_artifact: ArtifactRef
 
 
+@dataclass(frozen=True)
+class OpportunityLiteratureRefreshResult:
+    run_id: str
+    contexts: list[RetrievalContext]
+    persistence: PersistenceResult
+
+
 class OpportunityRetrievalProvider(Protocol):
     """Narrow retrieval seam used before scientific generation."""
 
@@ -259,6 +266,132 @@ class OpenAlexOpportunityRetriever:
             retrieval_confidence=confidence,
             limitations=limitations,
         )
+
+
+def refresh_deep_opportunity_literature(
+    *,
+    run_id: str,
+    root: str | Path,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+    retriever: OpportunityRetrievalProvider,
+    max_pairs: int = 1,
+    max_sources_per_pair: int = 5,
+    require_non_fake_backends: bool = True,
+) -> OpportunityLiteratureRefreshResult:
+    """Append fresh literature context without regenerating the scientific branch."""
+    if max_pairs < 1:
+        raise DeepOpportunityDiscoveryError("max_pairs must be at least 1.")
+    if max_sources_per_pair < 1:
+        raise DeepOpportunityDiscoveryError("max_sources_per_pair must be at least 1.")
+    if require_non_fake_backends and retriever.backend_kind != BackendKind.RETRIEVAL_REAL:
+        raise DeepOpportunityDiscoveryError(
+            "Strict literature refresh requires a real retrieval backend."
+        )
+    if require_non_fake_backends and retriever.fallback_used:
+        raise DeepOpportunityDiscoveryError(
+            "Strict literature refresh forbids retrieval fallback."
+        )
+
+    root_path = Path(root)
+    reports = root_path / "runs" / run_id / "reports"
+    report_path = _latest_matching(reports, _REPORT_RE)
+    if report_path is None:
+        raise DeepOpportunityDiscoveryError(
+            f"No deep opportunity discovery report found for {run_id}."
+        )
+    try:
+        report = DeepOpportunityDiscoveryReport.model_validate_json(
+            report_path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValidationError) as exc:
+        raise DeepOpportunityDiscoveryError(
+            f"Could not load deep opportunity discovery context: {exc}"
+        ) from exc
+
+    domain_by_id = {item.domain_id: item for item in report.source_domains}
+    method_by_id = {item.method_id: item for item in report.source_methods}
+    pairs = report.source_pairs[:max_pairs]
+    if not pairs:
+        raise DeepOpportunityDiscoveryError(
+            "Deep opportunity discovery report contains no source pairs."
+        )
+    retrieval_number = _next_number(reports, _RETRIEVAL_RE)
+    contexts: list[RetrievalContext] = []
+    for pair_index, pair in enumerate(pairs):
+        domain = domain_by_id.get(pair.domain_id)
+        method = method_by_id.get(pair.method_id)
+        if domain is None or method is None:
+            raise DeepOpportunityDiscoveryError(
+                f"Source metadata is missing for selected pair {pair.pair_id}."
+            )
+        try:
+            context = retriever.retrieve(
+                run_id=run_id,
+                context_id=f"retrieval-context-{retrieval_number + pair_index:04d}",
+                pair=pair,
+                domain=domain,
+                method=method,
+                limit=max_sources_per_pair,
+            )
+        except (AdapterError, ValueError) as exc:
+            raise DeepOpportunityDiscoveryError(
+                f"Literature refresh failed for {pair.pair_id}: {exc}"
+            ) from exc
+        if context.run_id != run_id or context.source_pair_id != pair.pair_id:
+            raise DeepOpportunityDiscoveryError(
+                f"Retrieval context identity mismatch for {pair.pair_id}."
+            )
+        contexts.append(context)
+
+    accepted_source_count = sum(
+        not source.fake_or_mocked for context in contexts for source in context.sources
+    )
+    metadata = {
+        **_metadata("deep_opportunity_literature_refresh"),
+        "adapter_backend": retriever.backend_name,
+        "artifact_role": "bounded_literature_context",
+    }
+    persistence = persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                item.context_id,
+                ArtifactType.REPORT,
+                item,
+                "json",
+                metadata,
+            )
+            for item in contexts
+        ],
+        action_type=ControllerActionType.RETRIEVAL_RUN_RECORDED,
+        commit_payload={
+            "run_id": run_id,
+            "operation": "deep_opportunity_literature_refresh",
+            "source_report_path": _relative(root_path, report_path),
+            "context_ids": [item.context_id for item in contexts],
+            "source_pair_ids": [item.source_pair_id for item in contexts],
+            "backend_name": retriever.backend_name,
+            "backend_kind": retriever.backend_kind.value,
+            "accepted_source_count": accepted_source_count,
+            "fallback_used": retriever.fallback_used,
+            "publication_ready": False,
+            "creates_scientific_validation": False,
+            "is_verification_evidence": False,
+        },
+    )
+    if require_non_fake_backends and accepted_source_count == 0:
+        raise DeepOpportunityDiscoveryError(
+            "Literature refresh returned no accepted real sources; the empty context was "
+            "recorded for provenance."
+        )
+    return OpportunityLiteratureRefreshResult(
+        run_id=run_id,
+        contexts=contexts,
+        persistence=persistence,
+    )
 
 
 def discover_deep_opportunities(
@@ -1331,9 +1464,11 @@ __all__ = [
     "DeepOpportunityDiscoveryResult",
     "MockedOpportunityRetriever",
     "OpenAlexOpportunityRetriever",
+    "OpportunityLiteratureRefreshResult",
     "OpportunityRetrievalProvider",
     "discover_deep_opportunities",
     "inspect_deep_opportunities",
+    "refresh_deep_opportunity_literature",
     "render_deep_opportunity_markdown",
     "render_deep_opportunity_text",
     "select_diverse_opportunities",

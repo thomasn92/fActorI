@@ -919,6 +919,16 @@ scan. `inspect-atlas-scan` reads the latest build or ranked scan without mutatio
 `--retrieval-mode mocked`; strict production requires `--retrieval-mode real`, OpenAI and OpenAlex
 credentials, `--allow-external-calls`, and `--require-non-fake-backends`. There is no deterministic
 scientific fallback. `inspect-deep-opportunities` reads the latest report without mutation.
+`refresh-deep-opportunity-literature` appends fresh OpenAlex context for an existing discovery
+without regenerating its scientific opportunities or evidence. It is intended for historical runs
+whose original real-retrieval context contains no accepted sources; the refreshed context remains
+bounded literature context only.
+
+```bash
+uv run factori refresh-deep-opportunity-literature --run-id atlas-scan-001 \
+  --allow-external-calls --require-non-fake-backends \
+  --max-retrieval-sources-per-pair 5
+```
 
 `generate-llm-variance` reads selected M98 opportunities and uses the gated `llm-openai` backend
 to generate and score 3-7 scientific variants per source. Live calls require

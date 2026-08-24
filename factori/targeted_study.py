@@ -80,6 +80,7 @@ _ADAPTIVE_RE = re.compile(r"^adaptive-evidence-loop-report-(\d{4})\.json$")
 _NUCLEUS_MANUSCRIPT_RE = re.compile(
     r"^nucleus-manuscript-synthesis-report-(\d{4})\.json$"
 )
+_RETRIEVAL_CONTEXT_RE = re.compile(r"^retrieval-context-(\d{4})\.json$")
 _FINAL_PAPER_ASSEMBLY_RE = re.compile(r"^final-paper-assembly-report-(\d{4})\.json$")
 _FINAL_PAPER_VERIFICATION_RE = re.compile(
     r"^final-paper-verification-report-(\d{4})\.json$"
@@ -1028,6 +1029,23 @@ def _stage_result_deferred_reason(name: str, report: Any) -> str | None:
 def _reopen_deferred_paper_tail(completed: set[str], reports: Path) -> None:
     manuscript = _latest_json(reports, _NUCLEUS_MANUSCRIPT_RE)
     if manuscript:
+        has_retrieval_binding = any(
+            item.get("source_type") == "retrieval_source"
+            for item in manuscript.get("evidence_citation_bindings", [])
+            if isinstance(item, dict)
+        )
+        has_real_literature = any(
+            payload.get("retrieval_mode") == "real_retrieval"
+            and any(
+                isinstance(source, dict) and not source.get("fake_or_mocked", True)
+                for source in payload.get("sources", [])
+            )
+            for payload in _matching_json(reports, _RETRIEVAL_CONTEXT_RE)
+        )
+        if has_real_literature and not has_retrieval_binding:
+            completed.difference_update(_PAPER_TAIL_STAGES)
+            completed.discard("production_mode_check")
+            return
         phase = manuscript.get("phase")
         deferred = manuscript.get("manuscript_status") in {
             "manuscript_deferred",
