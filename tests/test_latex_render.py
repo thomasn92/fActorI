@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
+import factori.latex_render as latex_render_module
 from factori.latex_render import (
     LatexRenderer,
     LatexRenderError,
@@ -119,6 +122,56 @@ def test_render_fails_layout_check_for_material_overfull_box() -> None:
     assert result.passed is False
     assert result.reason.startswith("LaTeX layout check failed")
     assert "maximum=12.50pt" in result.warnings[0]
+
+
+def test_render_fails_for_unresolved_references() -> None:
+    renderer = LatexRenderer(
+        runner=lambda _tex, _config: LatexRunnerOutput(
+            exit_code=0,
+            stdout="LaTeX Warning: Citation `missing' on page 1 undefined.",
+            pdf_bytes=b"%PDF fake",
+        )
+    )
+
+    result = renderer.render(
+        _tex(),
+        LatexRenderConfig(
+            run_id="run-1",
+            render_check_enabled=True,
+            allow_external_tools=True,
+            latex_executable="pdflatex",
+        ),
+    )
+
+    assert result.passed is False
+    assert result.reason.startswith("LaTeX reference check failed")
+
+
+def test_subprocess_renderer_runs_latex_twice(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+
+    def fake_run(*_args: object, **kwargs: object) -> SimpleNamespace:
+        nonlocal calls
+        calls += 1
+        workdir = kwargs["cwd"]
+        (workdir / "paper.pdf").write_bytes(b"%PDF fake")
+        return SimpleNamespace(returncode=0, stdout=f"pass {calls}", stderr="")
+
+    monkeypatch.setattr(latex_render_module.subprocess, "run", fake_run)
+    renderer = LatexRenderer()
+    rendered = renderer.render_document(
+        _tex(),
+        LatexRenderConfig(
+            run_id="run-1",
+            render_check_enabled=True,
+            allow_external_tools=True,
+            latex_executable="pdflatex",
+        ),
+    )
+
+    assert calls == 2
+    assert rendered.result.passed
+    assert rendered.pdf_bytes == b"%PDF fake"
 
 
 def test_compile_check_report_does_not_imply_scientific_validation() -> None:

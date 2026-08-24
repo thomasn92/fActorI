@@ -7173,8 +7173,13 @@ def test_standalone_final_latex_protects_caption_urls_and_fits_short_tables() ->
 \begin{longtable}{lrr}
 \caption{Source \url{runs/example.json}.}\label{tab:example}\\
 A & B & C\\
-1 & 2 & 3\\
+1 & 0.123456789 & 3\\
 \end{longtable}
+\section*{Reconstructed Result Tables}
+Bundle-only exact metrics.
+\appendix
+\section*{Assembly Appendices}
+Retained appendix.
 \end{document}
 """
 
@@ -7185,6 +7190,10 @@ A & B & C\\
     assert r"\begin{adjustbox}{max width=\textwidth}" in rendered
     assert r"\begin{tabular}{lrr}" in rendered
     assert r"\protect\url{runs/example.json}" in rendered
+    assert r"\setlength{\emergencystretch}{4em}" in rendered
+    assert "0.1235" in rendered
+    assert "Bundle-only exact metrics." not in rendered
+    assert "Retained appendix." in rendered
     assert r"\begin{longtable}{lrr}" not in rendered
 
 

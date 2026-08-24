@@ -1932,11 +1932,17 @@ def _standalone_final_latex(source: str) -> str:
     normalized = source.replace("\r\n", "\n").replace("\r", "\n").strip()
     if r"\documentclass" in normalized:
         normalized = _ensure_latex_package(normalized, "adjustbox")
+        normalized = _ensure_latex_package(normalized, "microtype")
+        normalized = _strip_reconstructed_result_tables(normalized)
         normalized = _fit_simple_longtables(normalized)
+        normalized = _format_document_tabular_numbers(normalized)
         normalized = re.sub(
             r"(?<!\\protect)\\url\{",
             r"\\protect\\url{",
             normalized,
+        )
+        normalized = _ensure_latex_preamble_line(
+            normalized, r"\setlength{\emergencystretch}{4em}"
         )
         return normalized + "\n"
     normalized = re.sub(r"(?<!\\)#", r"\\#", normalized)
@@ -1989,6 +1995,48 @@ def _ensure_latex_package(source: str, package: str) -> str:
         r"\begin{document}",
         rf"\usepackage{{{package}}}" + "\n" + r"\begin{document}",
         1,
+    )
+
+
+def _ensure_latex_preamble_line(source: str, line: str) -> str:
+    if line in source:
+        return source
+    return source.replace(r"\begin{document}", line + "\n" + r"\begin{document}", 1)
+
+
+def _strip_reconstructed_result_tables(source: str) -> str:
+    """Keep exact metric dumps in the bundle, not in the presentation PDF."""
+    marker = r"\section*{Reconstructed Result Tables}"
+    start = source.find(marker)
+    if start < 0:
+        return source
+    end_candidates = [
+        position
+        for token in (
+            r"\appendix",
+            r"\section*{Assembly Appendices}",
+            r"\end{document}",
+        )
+        if (position := source.find(token, start + len(marker))) >= 0
+    ]
+    end = min(end_candidates, default=len(source))
+    return source[:start].rstrip() + "\n\n" + source[end:].lstrip()
+
+
+def _format_document_tabular_numbers(source: str) -> str:
+    pattern = re.compile(
+        r"(?P<open>\\begin\{tabular\}\{[^\n]*\}\s*)"
+        r"(?P<body>.*?)"
+        r"(?P<close>\\end\{tabular\})",
+        re.DOTALL,
+    )
+    return pattern.sub(
+        lambda match: (
+            match.group("open")
+            + _format_table_numbers(match.group("body"))
+            + match.group("close")
+        ),
+        source,
     )
 
 

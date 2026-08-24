@@ -33,6 +33,10 @@ LatexRunner = Callable[[str, LatexRenderConfig], LatexRunnerOutput]
 _OVERFULL_BOX_RE = re.compile(
     r"Overfull \\[hv]box \((?P<points>\d+(?:\.\d+)?)pt too (?:wide|high)\)"
 )
+_UNRESOLVED_REFERENCE_RE = re.compile(
+    r"(?:Citation|Reference) `[^']+' .* undefined|There were undefined references",
+    re.IGNORECASE,
+)
 _MAX_ACCEPTABLE_OVERFULL_POINTS = 2.0
 
 
@@ -97,8 +101,11 @@ class LatexRenderer:
             for match in _OVERFULL_BOX_RE.finditer(output.stdout + "\n" + output.stderr)
             if float(match.group("points")) > _MAX_ACCEPTABLE_OVERFULL_POINTS
         ]
+        unresolved_references = bool(
+            _UNRESOLVED_REFERENCE_RE.search(output.stdout + "\n" + output.stderr)
+        )
         layout_passed = not overfull_points
-        passed = output.exit_code == 0 and layout_passed
+        passed = output.exit_code == 0 and layout_passed and not unresolved_references
         warnings: list[str] = []
         if output.exit_code != 0:
             warnings.append("LaTeX render check failed.")
@@ -109,6 +116,8 @@ class LatexRenderer:
                 f"{_MAX_ACCEPTABLE_OVERFULL_POINTS:g}pt; "
                 f"maximum={max(overfull_points):.2f}pt."
             )
+        if unresolved_references:
+            warnings.append("LaTeX reference check failed: unresolved citations or references.")
         return LatexRenderedDocument(
             result=LatexRenderResult(
                 run_id=config.run_id,
@@ -163,19 +172,29 @@ def _subprocess_latex_runner(
         workdir = Path(tmp)
         tex_path = workdir / "paper.tex"
         tex_path.write_text(paper_tex, encoding="utf-8", newline="\n")
+        command = [
+            str(config.latex_executable),
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            tex_path.name,
+        ]
         completed = subprocess.run(
-            [
-                str(config.latex_executable),
-                "-interaction=nonstopmode",
-                "-halt-on-error",
-                tex_path.name,
-            ],
+            command,
             cwd=workdir,
             capture_output=True,
             text=True,
             timeout=config.timeout_seconds,
             check=False,
         )
+        if completed.returncode == 0:
+            completed = subprocess.run(
+                command,
+                cwd=workdir,
+                capture_output=True,
+                text=True,
+                timeout=config.timeout_seconds,
+                check=False,
+            )
         pdf_path = workdir / "paper.pdf"
         return LatexRunnerOutput(
             exit_code=completed.returncode,
