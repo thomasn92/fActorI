@@ -7357,6 +7357,11 @@ def test_final_paper_assembly_verification_and_bundle(tmp_path) -> None:
 
     assert isinstance(assembled.report, FinalPaperAssemblyReport)
     assert assembled.report.assembly_status == "assembled"
+    assert any(
+        item.stage_kind == ScientificStageKind.LITERATURE_RETRIEVAL
+        and "retrieval-context-9999" in item.artifact_ids
+        for item in assembled.report.backend_records
+    )
     assert assembled.manifest_optional is not None
     manifest = FinalPaperManifest.model_validate(assembled.manifest_optional)
     assert manifest.table_records

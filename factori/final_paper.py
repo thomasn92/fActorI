@@ -704,6 +704,7 @@ def assemble_final_paper(
         *inputs.adjudication.backend_records,
         *inputs.synthesis.backend_records,
         *inputs.execution.backend_records,
+        *_retrieval_backend_records(report_id, inputs.retrieval_contexts),
         _assembly_backend_record(report_id, [item.binding_id for item in bindings]),
     ]
     production = _production_report(
@@ -3129,6 +3130,39 @@ def _assembly_backend_record(report_id: str, artifact_ids: list[str]) -> StageBa
         ),
         artifact_ids=artifact_ids,
     )
+
+
+def _retrieval_backend_records(
+    report_id: str,
+    contexts: list[RetrievalContext],
+) -> list[StageBackendRecord]:
+    grouped: dict[str, list[str]] = {}
+    for context in contexts:
+        if context.retrieval_mode != "real_retrieval" or not any(
+            not source.fake_or_mocked for source in context.sources
+        ):
+            continue
+        grouped.setdefault(context.backend_name, []).append(context.context_id)
+    return [
+        stage_backend_record(
+            stage_id=f"{report_id}-literature-retrieval-{index:03d}",
+            stage_kind=ScientificStageKind.LITERATURE_RETRIEVAL,
+            backend_kind=BackendKind.RETRIEVAL_REAL,
+            backend_name=backend_name,
+            is_scientific_generation=False,
+            is_scientific_judgment=False,
+            is_execution_or_verification=True,
+            allowed_in_production=True,
+            reason=(
+                "Persisted real retrieval supplies bounded metadata and abstract context; it "
+                "does not establish novelty or complete literature coverage."
+            ),
+            artifact_ids=sorted(context_ids),
+            fallback_used=False,
+            fallback_disclosed=True,
+        )
+        for index, (backend_name, context_ids) in enumerate(sorted(grouped.items()), start=1)
+    ]
 
 
 def _verification_backend_record(report_id: str, artifact_ids: list[str]) -> StageBackendRecord:
