@@ -7134,6 +7134,20 @@ def test_nucleus_manuscript_accepts_artifact_bound_signed_and_summary_numbers() 
     ]
 
 
+def test_nucleus_manuscript_accepts_precision_consistent_rounding() -> None:
+    result = SimpleNamespace(
+        metrics={"realized_rate": 0.44999999999999996},
+        baseline_summary="{}",
+        control_summary="{}",
+        negative_control_summary="{}",
+    )
+
+    assert _metric_literal_reasons("Realized rate 0.45.", "", [result]) == []
+    assert _metric_literal_reasons("Realized rate 0.44.", "", [result]) == [
+        "Draft contains decimal metric literals not present in execution artifacts: 0.44"
+    ]
+
+
 def test_nucleus_manuscript_accepts_motivation_as_introduction_content() -> None:
     markdown = """# Study
 

@@ -1892,7 +1892,9 @@ def _metric_literal_reasons(
             f"{markdown_without_heading_ordinals}\n{latex_without_layout_dimensions}"
         )
     )
-    unexpected = sorted(value for value in observed if Decimal(value) not in allowed)
+    unexpected = sorted(
+        value for value in observed if not _decimal_literal_matches(value, allowed)
+    )
     return (
         [
             "Draft contains decimal metric literals not present in execution artifacts: "
@@ -1901,6 +1903,15 @@ def _metric_literal_reasons(
         if unexpected
         else []
     )
+
+
+def _decimal_literal_matches(value: str, allowed: set[Decimal]) -> bool:
+    observed = Decimal(value)
+    if observed in allowed:
+        return True
+    displayed_quantum = Decimal(1).scaleb(observed.as_tuple().exponent)
+    rounding_tolerance = abs(displayed_quantum) / 2
+    return any(abs(observed - candidate) <= rounding_tolerance for candidate in allowed)
 
 
 def _required_draft_content_reasons(
