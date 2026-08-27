@@ -76,21 +76,33 @@ The showcased run split model roles:
 Sol improved the final presentation; it did not create metrics or upgrade experimental evidence.
 The full disclosure is retained in the [showcase bundle](showcase/label-noise-calibration/README.md).
 
-## Comparison With AI Scientist-v2
+## When the Plot Says One Thing and the Paper Says Another
 
-The [Sakana AI Scientist-v2 label-noise paper](https://pub.sakana.ai/ai-scientist-v2/paper/paper.pdf)
-is a useful reference point on a closely related subject.
+*fActorI is designed so the manuscript layer cannot outrun the evidence layer.*
 
-| AI Scientist-v2 example | fActorI example |
-|---|---|
-| Broader multi-dataset deep-learning study | Narrow controlled synthetic benchmark |
-| Stronger conventional paper presentation and figures | Weaker presentation but explicit evidence provenance |
-| Annotated evaluation exposes text/figure and claim/evidence inconsistencies | Unsupported generalizations and unresolved uncertainty remain explicit |
-| Optimizes strongly for producing a recognizable paper | Optimizes for a traceable research object with bounded claims |
+The left crop is from page 3 of the
+[annotated AI Scientist-v2 label-noise paper](https://pub.sakana.ai/ai-scientist-v2/paper/paper.pdf).
+The right crop is from page 3 of the
+[fActorI example paper](showcase/label-noise-calibration/bundle/paper/final-paper.pdf).
 
-This is an illustrative artifact comparison, not a controlled head-to-head benchmark. The relevant
-design hypothesis is that evidence authority and provenance constraints can complement raw model
-capability.
+<p align="center">
+  <img src="images/sakana-ai-v2-evidence-mismatch.png" alt="AI Scientist-v2 figure, generated interpretation, and reviewer corrections" width="49%">
+  <img src="images/factori-evidence-boundary.png" alt="fActorI result table and evidence-bounded interpretation" width="49%">
+</p>
+
+**AI Scientist-v2.** The generated text reports approximately 85% accuracy, ECE up to 0.35, and a
+more severe asymmetric effect. The annotations point to roughly 75%, ECE around 0.23 to 0.24, and a
+more nuanced, non-monotonic pattern in the displayed figure.
+
+**fActorI.** The manuscript reports the supported cellwise signs, then explicitly declines to claim
+a method ranking, practical effect magnitude, pooled result, or statistically distinguishable
+effect.
+
+> **The comparison is not about obtaining a better result. It is about controlling what the writer
+> is allowed to conclude from that result.**
+
+<sub>Same broad topic; different experiments and model stacks. This is an illustrative artifact
+comparison, not a controlled performance benchmark.</sub>
 
 ## Direction
 
