@@ -11,29 +11,11 @@ The intended output is a **ledgered research object**: a labeled manuscript toge
 candidate tree, literature context, proof or experiment artifacts, failed branches, criticism, and
 provenance.
 
+<p align="center">
+  <img src="images/Analogy.png" alt="fActorI lifts a compact research prompt into an expanded idea space, then filters and verifies branches into a research object" width="100%">
+</p>
+
 ## Lift, Then Filter
-
-fActorI treats discovery as a lift-then-filter process:
-
-    User constraints
-          |
-          v
-    Diverse questions, hypotheses, models, and methods
-          |
-          v
-    Cheap structural and literature checks
-          |
-          v
-    Adversarial review, repair, and pruning
-          |
-          v
-    Deep experiment or proof verification
-          |
-          v
-    Final branch or shared abstraction
-          |
-          v
-    Labeled manuscript and evidence bundle
 
 The system deliberately preserves variance early. Alternative mechanisms, mathematical lenses,
 baselines, counterexamples, and verification paths are explored before expensive validation.
@@ -43,15 +25,18 @@ Adaptive controllers may refine a question, strengthen a baseline, repair code, 
 downgrade a claim, stop a stagnant branch, or redirect the remaining budget. Human intervention is
 reserved for high-risk, high-cost, ambiguous, or irreversible decisions.
 
+<p align="center">
+  <img src="images/research_tree.png" alt="A research tree showing active, surviving, rejected, and deferred branches across opportunity discovery, structural validation, and deep verification" width="100%">
+</p>
+
 ## Evidence Before Narrative
 
-Exploration, verification, and presentation have different authority:
+Exploration, verification, and presentation have different authority. Proposals, criticism,
+citations, manuscripts, and PDFs do not become evidence merely because they are persuasive.
 
-    Proposal     != evidence
-    Criticism    != evidence
-    Citation     != proof
-    Manuscript   != evidence
-    LaTeX / PDF  != evidence
+<p align="center">
+  <img src="images/Evidence_and_provenance.png" alt="The evidence and provenance chain from research action through artifacts, content hashes, ledger commits, evidence links, and manuscript claims" width="100%">
+</p>
 
 Synthetic experiments support only claims within their declared regime. Mathematical claims are
 intended to become theorem claims only after formal verification. Unresolved work must remain
