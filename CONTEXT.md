@@ -192,6 +192,3 @@ presented as real scientific validation.
 The append-only ledger is the provenance source of truth. Artifact manifests, ledger summaries,
 runtime summaries, audit reports, export plans, replay reports, and future diagnostics are derived
 views. They help inspect a run but cannot replace or rewrite ledger history.
-
-The full design reference remains `fActori_updated_data_regime.tex` at the repository root. Use it
-only when the compressed context and implementation do not answer a specification question.

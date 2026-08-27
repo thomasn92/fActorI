@@ -159,8 +159,7 @@ and experiment runners require explicit gates and budgets.
 [Architecture](ARCHITECTURE.md) |
 [Context](CONTEXT.md) |
 [Commands](COMMANDS.md) |
-[Protocols](protocols/README.md) |
-[Design specification](fActori_updated_data_regime.tex)
+[Protocols](protocols/README.md)
 
 ---
 

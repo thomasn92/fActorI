@@ -3,16 +3,13 @@
 ## Start Here
 
 This repository implements the deterministic MVP scaffold of fActorI. Read these compressed
-project-memory files before opening the large LaTeX specification:
+project-memory files first:
 
 1. `CONTEXT.md`
 2. `ARCHITECTURE.md`
 3. `MILESTONES.md`
 4. `MODULE_MAP.md`
 5. `COMMANDS.md`
-
-`fActori_updated_data_regime.tex` is reference material only. Read it only when a task requires
-details that are not captured by the context files.
 
 Before large schema, storage, API, server, or cross-language refactors, inspect
 `protocols/README.md`, `protocols/version.json`, and the generated JSON Schemas under
