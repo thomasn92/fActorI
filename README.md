@@ -87,7 +87,7 @@ computational research through paper production; and
 parallel discovery, writing, and claim verification.
 
 <p align="center">
-  <img src="images/research-system-positioning.svg" alt="Conceptual positioning of Google AI co-scientist, Sakana AI Scientist-v2, ScientistOne, and fActorI" width="100%">
+  <img src="images/research-system-positioning.png" alt="Conceptual positioning of Google AI co-scientist, Sakana AI Scientist-v2, ScientistOne, and fActorI" width="100%">
 </p>
 
 ScientistOne reports zero hallucinated references (0/337), 12/12 score-verification passes, and
