@@ -15,6 +15,9 @@ provenance.
   <img src="images/Analogy.png" alt="fActorI lifts a compact research prompt into an expanded idea space, then filters and verifies branches into a research object" width="100%">
 </p>
 
+*Target architecture. The complete path is currently demonstrated only for bounded synthetic
+experiments.*
+
 ## Lift, Then Filter
 
 The system deliberately preserves variance early. Alternative mechanisms, mathematical lenses,
@@ -29,6 +32,9 @@ reserved for high-risk, high-cost, ambiguous, or irreversible decisions.
   <img src="images/research_tree.png" alt="A research tree showing active, surviving, rejected, and deferred branches across opportunity discovery, structural validation, and deep verification" width="100%">
 </p>
 
+*Implemented for bounded synthetic workflows. Domain-general multi-branch execution remains under
+development.*
+
 ## Evidence Before Narrative
 
 Exploration, verification, and presentation have different authority. Proposals, criticism,
@@ -37,6 +43,9 @@ citations, manuscripts, and PDFs do not become evidence merely because they are 
 <p align="center">
   <img src="images/Evidence_and_provenance.png" alt="The evidence and provenance chain from research action through artifacts, content hashes, ledger commits, evidence links, and manuscript claims" width="100%">
 </p>
+
+*Implemented: artifact hashing, ledger commits, execution links, and bounded claim bindings.
+Broader Lean verification and real-data evidence routes remain planned.*
 
 Synthetic experiments support only claims within their declared regime. Mathematical claims are
 intended to become theorem claims only after formal verification. Unresolved work must remain
