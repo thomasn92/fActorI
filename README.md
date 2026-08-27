@@ -76,6 +76,27 @@ The showcased run split model roles:
 Sol improved the final presentation; it did not create metrics or upgrade experimental evidence.
 The full disclosure is retained in the [showcase bundle](showcase/label-noise-calibration/README.md).
 
+## Positioning
+
+Four reference systems capture distinct approaches to AI-assisted research:
+[Google AI co-scientist](https://research.google/blog/accelerating-scientific-breakthroughs-with-an-ai-co-scientist/)
+emphasizes collaborative hypothesis generation and refinement;
+[Sakana AI Scientist-v2](https://github.com/SakanaAI/AI-Scientist-v2) targets autonomous
+computational research through paper production; and
+[ScientistOne](https://arxiv.org/abs/2605.26340) builds Chain-of-Evidence into literature review,
+parallel discovery, writing, and claim verification.
+
+<p align="center">
+  <img src="images/research-system-positioning.svg" alt="Conceptual positioning of Google AI co-scientist, Sakana AI Scientist-v2, ScientistOne, and fActorI" width="100%">
+</p>
+
+ScientistOne reports zero hallucinated references (0/337), 12/12 score-verification passes, and
+14/15 method-code alignment in its evaluation. fActorI does not claim superiority over those
+results. It explores a complementary architecture: variance-preserving branch search,
+progressively more expensive verification, explicit evidence authority, and immutable provenance
+for surviving, rejected, deferred, and failed branches. Its final object is the full ledgered
+research history, not only the paper.
+
 ## When the Plot Says One Thing and the Paper Says Another
 
 *fActorI is designed so the manuscript layer cannot outrun the evidence layer.*
