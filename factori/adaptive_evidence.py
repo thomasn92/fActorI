@@ -41,6 +41,7 @@ from factori.schemas import (
     ArtifactType,
     BackendKind,
     ControllerActionType,
+    CrossPackageAdjudicationReport,
     EvidencePackageExecutionReport,
     HybridEvidencePackageConfig,
     HybridEvidencePackageReport,
@@ -55,6 +56,7 @@ _LOOP_RE = re.compile(r"^adaptive-evidence-loop-report-(\d{4})\.json$")
 _RAW_RE = re.compile(r"^adaptive-questioner-raw-(\d{4})\.json$")
 _DECISION_RE = re.compile(r"^adaptive-evidence-decision-(\d{4})\.json$")
 _ITERATION_RE = re.compile(r"^adaptive-evidence-iteration-(\d{4})\.json$")
+_ADJUDICATION_RE = re.compile(r"^cross-package-adjudication-report-(\d{4})\.json$")
 _TERMINAL_STATUSES = {
     "satisfied_supported",
     "satisfied_negative",
@@ -66,6 +68,31 @@ _TERMINAL_STATUSES = {
 
 _QUESTION_LIMIT_REASON = "The maximum adaptive questioner iterations were exhausted."
 _SCIENTIFIC_REPAIR_TRANSPORT_PREFIX = "Scientific code repair failed closed:"
+_MAX_QUESTIONER_CONTEXT_BYTES = 64 * 1024
+_DIAGNOSTIC_PRIORITIES = {
+    "blocked_code": 10,
+    "missing_code_artifact": 20,
+    "missing_code_audit": 20,
+    "missing_successful_execution": 30,
+    "execution_failure": 30,
+    "near_universal_fit_failure": 40,
+    "non_finite_metric": 40,
+    "invalid_required_metric": 50,
+    "missing_required_metric": 50,
+    "invalid_criteria_output": 55,
+    "criteria_inconsistent": 55,
+    "negative_control_implementation_failed": 55,
+    "negative_control_interpretation_inconsistent": 55,
+    "negative_control_provenance_failed": 55,
+    "post_critic_execution_repair": 55,
+    "negative_control_failed": 60,
+    "missing_baseline": 65,
+    "required_artifacts_deferred": 70,
+    "inconclusive_result": 80,
+    "invalid_metric_source": 90,
+    "invalid_result_metric_source": 90,
+    "local_contracts_passed": 999,
+}
 
 
 class AdaptiveEvidenceError(RuntimeError):
@@ -87,6 +114,26 @@ class _Diagnostic:
     category: str
     blocks_acceptance: bool = True
     terminal_block: bool = False
+    target_id: str = "global"
+    repair_target_id: str | None = None
+
+    @property
+    def defect_id(self) -> str:
+        return f"{self.code}:{self.target_id}"
+
+    @property
+    def priority(self) -> int:
+        return _DIAGNOSTIC_PRIORITIES.get(self.code, 500)
+
+    @property
+    def repair_kind(self) -> str:
+        if self.terminal_block:
+            return "blocked"
+        if self.category in {"implementation_fidelity", "numerical_validity"}:
+            return "repair_code"
+        if self.category in {"baseline_control_adequacy", "evidence_sufficiency"}:
+            return "repair_evidence_plan"
+        return "blocked"
 
 
 def adaptive_loop_can_resume(
@@ -95,10 +142,21 @@ def adaptive_loop_can_resume(
     *,
     latest_execution: EvidencePackageExecutionReport | None = None,
     authorized_timeout_seconds: int | None = None,
+    root: Path | None = None,
 ) -> bool:
     """Return whether explicitly expanded bounds permit another adaptive pass."""
     if config.max_questioner_iterations <= len(prior.iterations):
         return False
+    if (
+        latest_execution is not None
+        and root is not None
+        and _post_critic_diagnostics(
+            root / "runs" / prior.run_id / "reports",
+            latest_execution,
+        )
+        and config.max_code_repair_calls > prior.code_repair_attempt_count
+    ):
+        return True
     if (
         latest_execution is not None
         and latest_execution.adjudication_ready
@@ -151,13 +209,20 @@ def adaptive_loop_can_resume(
         return config.max_questioner_iterations > prior.config.max_questioner_iterations
     if not prior.iterations:
         return False
+    last_decision = prior.iterations[-1].decision
+    if (
+        last_decision.source_code_artifact_ids
+        and config.max_code_repair_calls > prior.code_repair_attempt_count
+    ):
+        # A caller may explicitly reopen a generated-code branch after diagnostics or
+        # policy evolve, even when the prior terminal action selected a plan repair.
+        return True
     last_action = prior.iterations[-1].decision.action
     if last_action == "repair_code":
         return config.max_code_repair_calls > prior.code_repair_attempt_count
     if last_action == "repair_evidence_plan":
         return config.max_plan_repair_calls > prior.plan_repair_attempt_count
     if last_action == "stop_no_progress":
-        last_decision = prior.iterations[-1].decision
         blocking_answers = [
             item
             for item in last_decision.questions
@@ -172,6 +237,7 @@ def adaptive_loop_can_resume(
             prior.iterations,
             fingerprint=last_decision.diagnostic_fingerprint,
             action=repair_action,
+            root=root,
         )
         if same_diagnostic_repairs < config.no_progress_limit:
             if (
@@ -207,10 +273,29 @@ def _caused_by_transport_error(error: BaseException) -> bool:
     return False
 
 
-def _iteration_counts_for_no_progress(iteration: AdaptiveEvidenceIteration) -> bool:
-    """Exclude repair requests that never ran because a bound blocked them."""
+def _iteration_counts_for_no_progress(
+    iteration: AdaptiveEvidenceIteration,
+    *,
+    root: Path | None = None,
+) -> bool:
+    """Count only repairs that reached an accepted code artifact or sandbox run."""
     if iteration.decision.action == "repair_code":
-        return iteration.produced_execution_report_path_optional is not None
+        report_path = iteration.produced_execution_report_path_optional
+        if report_path is None:
+            return False
+        if root is None:
+            return True
+        path = Path(report_path)
+        if not path.is_absolute():
+            path = root / path
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return True
+        return bool(
+            payload.get("code_artifact_count", 0)
+            or payload.get("sandbox_executions", [])
+        )
     if iteration.decision.action == "repair_evidence_plan":
         return any(
             (
@@ -226,11 +311,12 @@ def _matching_action_attempts(
     *,
     fingerprint: str,
     action: str,
+    root: Path | None = None,
 ) -> int:
     return sum(
         item.before_fingerprint == fingerprint
         and item.decision.action == action
-        and _iteration_counts_for_no_progress(item)
+        and _iteration_counts_for_no_progress(item, root=root)
         for item in iterations
     )
 
@@ -246,6 +332,7 @@ def _premature_stop_repair_action(
     config: AdaptiveEvidenceLoopConfig,
     code_attempts: int,
     plan_attempts: int,
+    root: Path | None = None,
 ) -> str | None:
     """Route an unsupported no-progress stop to an available bounded repair."""
     if proposed_action not in {"stop_no_progress", "stop_weak_branch", "blocked"}:
@@ -266,6 +353,7 @@ def _premature_stop_repair_action(
             iterations,
             fingerprint=fingerprint,
             action=repair_action,
+            root=root,
         )
         >= config.no_progress_limit
     ):
@@ -443,6 +531,7 @@ def run_adaptive_evidence_loop(
             config,
             latest_execution=latest_execution,
             authorized_timeout_seconds=authorized_timeout_seconds,
+            root=root_path,
         )
         and budget.can_spend_optional(1)
     )
@@ -551,10 +640,15 @@ def run_adaptive_evidence_loop(
                 warnings.append(
                     "Continued one budget-deferred required artifact before adaptive review."
                 )
-        diagnostics = _diagnose(package_report, execution_report)
+        diagnostics = [
+            *_diagnose(package_report, execution_report),
+            *_post_critic_diagnostics(reports, execution_report),
+        ]
+        active_defect = _active_defect(diagnostics)
         questions = _selected_questions(
             iteration=iteration_number,
             diagnostics=diagnostics,
+            active_defect=active_defect,
         )
         context = _questioner_context(
             brief=brief,
@@ -562,8 +656,14 @@ def run_adaptive_evidence_loop(
             execution_report=execution_report,
             diagnostics=diagnostics,
             prior_iterations=iterations,
+            active_defect=active_defect,
         )
-        fingerprint = _diagnostic_fingerprint(package_report, execution_report)
+        fingerprint = _diagnostic_fingerprint(
+            package_report,
+            execution_report,
+            diagnostics=diagnostics,
+        )
+        before_defect_ids = _blocking_defect_ids(diagnostics)
 
         if not budget.can_spend_optional(1):
             return _persist_terminal_without_call(
@@ -630,23 +730,26 @@ def run_adaptive_evidence_loop(
             questions=questions,
             proposal=response.accepted,
             diagnostics=diagnostics,
+            active_defect=active_defect,
             fingerprint=fingerprint,
             questioner=questioner,
         )
         process_repair = _premature_stop_repair_action(
             proposed_action=decision.action,
             answers=decision.questions,
-            diagnostics=diagnostics,
+            diagnostics=[active_defect] if active_defect is not None else diagnostics,
             has_code=bool(_latest_code_by_spec(execution_report)),
             iterations=iterations,
             fingerprint=fingerprint,
             config=config,
             code_attempts=code_attempts,
             plan_attempts=plan_attempts,
+            root=root_path,
         )
         if process_repair is not None:
             repair_instructions = _repair_instructions_for_override(
-                decision.questions, diagnostics
+                decision.questions,
+                [active_defect] if active_defect is not None else diagnostics,
             )
             decision = decision.model_copy(
                 update={
@@ -664,6 +767,7 @@ def run_adaptive_evidence_loop(
             iterations,
             fingerprint=fingerprint,
             action=decision.action,
+            root=root_path,
         )
         if repeated >= config.no_progress_limit:
             decision = decision.model_copy(
@@ -699,6 +803,7 @@ def run_adaptive_evidence_loop(
         produced_package_path: str | None = None
         produced_execution_path: str | None = None
         after_fingerprint: str | None = None
+        after_defect_ids: list[str] = []
         progress = False
         action_warnings: list[str] = []
         terminal_status = _terminal_status(decision.action)
@@ -708,14 +813,22 @@ def run_adaptive_evidence_loop(
             if code_attempts >= config.max_code_repair_calls:
                 terminal_status = "stopped_no_progress"
                 terminal_reason = "The bounded scientific code-repair allowance was exhausted."
-            elif not budget.can_spend_optional(1, quality_repair_calls=1):
+            elif not budget.can_spend_optional(2, quality_repair_calls=2):
                 terminal_status = "budget_exhausted"
-                terminal_reason = "No unreserved budget remained for scientific code repair."
+                terminal_reason = (
+                    "Insufficient unreserved budget remained for scientific code repair "
+                    "and one bounded runtime repair."
+                )
             else:
                 code_attempts += 1
                 target_plan_id = _code_repair_target(
                     execution_report,
                     include_completed=True,
+                    preferred_target_id=(
+                        active_defect.repair_target_id or active_defect.target_id
+                        if active_defect is not None
+                        else None
+                    ),
                 )
                 generate_missing_artifact = bool(
                     target_plan_id is None
@@ -742,7 +855,7 @@ def run_adaptive_evidence_loop(
                             max_artifact_plans=1,
                             max_codegen_calls=1 if generate_missing_artifact else 0,
                             max_safety_repair_calls=0,
-                            max_runtime_repair_calls=0,
+                            max_runtime_repair_calls=1,
                             max_scientific_repair_calls=(
                                 0 if generate_missing_artifact else 1
                             ),
@@ -786,10 +899,20 @@ def run_adaptive_evidence_loop(
                         terminal_reason = f"Scientific code repair failed closed: {exc}"
                     else:
                         produced_execution_path = repaired.report_artifact.path
+                        repaired_diagnostics = [
+                            *_diagnose(package_report, repaired.report),
+                            *_post_critic_diagnostics(reports, repaired.report),
+                        ]
+                        after_defect_ids = _blocking_defect_ids(repaired_diagnostics)
                         after_fingerprint = _diagnostic_fingerprint(
-                            package_report, repaired.report
+                            package_report,
+                            repaired.report,
+                            diagnostics=repaired_diagnostics,
                         )
-                        progress = after_fingerprint != fingerprint
+                        progress = _repair_made_progress(
+                            active_defect,
+                            repaired_diagnostics,
+                        )
                         if generate_missing_artifact:
                             selected_ids = set(repaired.report.selected_artifact_plan_ids)
                             code_successes += int(
@@ -870,10 +993,20 @@ def run_adaptive_evidence_loop(
                     terminal_reason = f"Evidence-plan repair failed closed: {exc}"
                 else:
                     produced_execution_path = execution.report_artifact.path
+                    repaired_diagnostics = [
+                        *_diagnose(replanned.report, execution.report),
+                        *_post_critic_diagnostics(reports, execution.report),
+                    ]
+                    after_defect_ids = _blocking_defect_ids(repaired_diagnostics)
                     after_fingerprint = _diagnostic_fingerprint(
-                        replanned.report, execution.report
+                        replanned.report,
+                        execution.report,
+                        diagnostics=repaired_diagnostics,
                     )
-                    progress = after_fingerprint != fingerprint
+                    progress = _repair_made_progress(
+                        active_defect,
+                        repaired_diagnostics,
+                    )
                     plan_successes += 1
 
         iteration = AdaptiveEvidenceIteration(
@@ -888,6 +1021,14 @@ def run_adaptive_evidence_loop(
             produced_execution_report_path_optional=produced_execution_path,
             before_fingerprint=fingerprint,
             after_fingerprint_optional=after_fingerprint,
+            active_defect_id_optional=(
+                active_defect.defect_id if active_defect is not None else None
+            ),
+            blocking_defect_ids_before=before_defect_ids,
+            blocking_defect_ids_after=after_defect_ids,
+            resolved_defect_ids=sorted(set(before_defect_ids) - set(after_defect_ids))
+            if after_fingerprint is not None
+            else [],
             progress_made=progress,
             external_calls_used=budget.usage.total_calls - calls_before,
             estimated_cost_usd=round(
@@ -972,11 +1113,27 @@ def _diagnose(
     execution: EvidencePackageExecutionReport,
 ) -> list[_Diagnostic]:
     findings: list[_Diagnostic] = []
+    plan_targets = _diagnostic_plan_targets(package)
     latest_code = _latest_code_by_spec(execution)
+    code_by_id = {item.code_artifact_id: item for item in latest_code.values()}
     audits = {item.code_artifact_id: item for item in execution.safety_audits}
     sandbox_by_code = {
         item.code_artifact_id: item for item in execution.sandbox_executions
     }
+    sandbox_by_execution = {
+        item.execution_id: item for item in execution.sandbox_executions
+    }
+
+    def plan_target(plan_id: str) -> tuple[str, str]:
+        return plan_targets.get(plan_id, (plan_id, plan_id))
+
+    def execution_target(execution_id: str) -> tuple[str, str]:
+        sandbox = sandbox_by_execution.get(execution_id)
+        code = code_by_id.get(sandbox.code_artifact_id) if sandbox is not None else None
+        if code is not None:
+            return plan_target(code.source_spec_id)
+        return execution_id, execution_id
+
     code_required_plan_ids = {
         plan.artifact_plan_id
         for candidate in package.packages
@@ -984,14 +1141,18 @@ def _diagnose(
         if plan.requires_code_generation or plan.requires_local_execution
     }
     for plan_id in sorted(code_required_plan_ids - set(latest_code)):
+        stable_target, repair_target = plan_target(plan_id)
         findings.append(
             _Diagnostic(
                 "missing_code_artifact",
                 f"Executable artifact plan {plan_id} has no generated code artifact.",
                 "implementation_fidelity",
+                target_id=stable_target,
+                repair_target_id=repair_target,
             )
         )
     for code in latest_code.values():
+        stable_target, repair_target = plan_target(code.source_spec_id)
         audit = audits.get(code.code_artifact_id)
         if audit is None:
             findings.append(
@@ -1000,6 +1161,8 @@ def _diagnose(
                     f"Latest code artifact {code.code_artifact_id} has no safety audit.",
                     "implementation_fidelity",
                     terminal_block=True,
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
                 )
             )
         elif audit.blocked:
@@ -1009,6 +1172,8 @@ def _diagnose(
                     f"Latest code artifact {code.code_artifact_id} is blocked: "
                     + "; ".join(audit.reasons),
                     "implementation_fidelity",
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
                 )
             )
         observation = sandbox_by_code.get(code.code_artifact_id)
@@ -1019,9 +1184,21 @@ def _diagnose(
                     f"Latest code artifact {code.code_artifact_id} has no successful sandbox "
                     "execution.",
                     "implementation_fidelity",
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
                 )
             )
+    active_code_ids = set(code_by_id)
     for extraction in execution.metric_extractions:
+        extraction_sandbox = sandbox_by_execution.get(extraction.execution_id)
+        if (
+            extraction_sandbox is not None
+            and extraction_sandbox.code_artifact_id not in active_code_ids
+        ):
+            # Runtime and scientific repairs retain failed attempts for provenance. Their
+            # diagnostics must not remain active after a newer artifact for the same plan runs.
+            continue
+        stable_target, repair_target = execution_target(extraction.execution_id)
         for metric in extraction.missing_metrics:
             findings.append(
                 _Diagnostic(
@@ -1029,6 +1206,8 @@ def _diagnose(
                     f"Metric extraction for {extraction.execution_id} is missing required "
                     f"metric {metric}.",
                     "implementation_fidelity",
+                    target_id=f"{stable_target}/{metric}",
+                    repair_target_id=repair_target,
                 )
             )
         for metric in extraction.invalid_metrics:
@@ -1039,6 +1218,8 @@ def _diagnose(
                     f"metric {metric}; required metrics and nested metric leaves must be "
                     "finite numeric values, and booleans are invalid.",
                     "implementation_fidelity",
+                    target_id=f"{stable_target}/{metric}",
+                    repair_target_id=repair_target,
                 )
             )
         for metric, value in extraction.metrics.items():
@@ -1049,6 +1230,8 @@ def _diagnose(
                         f"Metric {metric} is not finite.",
                         "numerical_validity",
                         terminal_block=True,
+                        target_id=f"{stable_target}/{metric}",
+                        repair_target_id=repair_target,
                     )
                 )
             source = extraction.metric_sources.get(metric, "")
@@ -1059,6 +1242,8 @@ def _diagnose(
                         f"Metric {metric} is not sourced from sandbox output.json.",
                         "evidence_sufficiency",
                         terminal_block=True,
+                        target_id=f"{stable_target}/{metric}",
+                        repair_target_id=repair_target,
                     )
                 )
             normalized = metric.casefold()
@@ -1072,9 +1257,53 @@ def _diagnose(
                         "near_universal_fit_failure",
                         f"Metric {metric}={value} indicates near-universal fitting failure.",
                         "numerical_validity",
+                        target_id=f"{stable_target}/{metric}",
+                        repair_target_id=repair_target,
                     )
                 )
     for result in execution.results:
+        stable_target, repair_target = plan_target(result.artifact_plan_id)
+        negative_summary = _summary_mapping(result.negative_control_summary)
+        provenance_checks = negative_summary.get("provenance_checks")
+        failed_provenance = (
+            sorted(key for key, value in provenance_checks.items() if value is False)
+            if isinstance(provenance_checks, dict)
+            else []
+        )
+        if failed_provenance:
+            integrity_claim = negative_summary.get("integrity_passed")
+            contradiction = (
+                " while integrity_passed is true" if integrity_claim is True else ""
+            )
+            findings.append(
+                _Diagnostic(
+                    "negative_control_provenance_failed",
+                    f"Negative-control provenance checks failed for "
+                    f"{result.artifact_plan_id}: {', '.join(failed_provenance)}"
+                    f"{contradiction}.",
+                    "implementation_fidelity",
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
+                )
+            )
+        interpretation_status = negative_summary.get("interpretation_status")
+        if (
+            result.status == "negative_result"
+            and interpretation_status == "InconclusiveResult"
+        ):
+            findings.append(
+                _Diagnostic(
+                    "negative_control_interpretation_inconsistent",
+                    f"{result.artifact_plan_id} is classified as a negative result while its "
+                    "negative-control interpretation remains InconclusiveResult. Verify whether "
+                    "a method that does not consume the perturbed input is being counted as an "
+                    "indistinguishability failure; expected invariance must be audited separately "
+                    "from methods the negative control is designed to perturb.",
+                    "implementation_fidelity",
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
+                )
+            )
         for metric, source in result.metric_sources.items():
             if "output.json#metrics." not in source:
                 findings.append(
@@ -1083,6 +1312,8 @@ def _diagnose(
                         f"Result metric {metric} is not sourced from sandbox output.json.",
                         "evidence_sufficiency",
                         terminal_block=True,
+                        target_id=f"{stable_target}/{metric}",
+                        repair_target_id=repair_target,
                     )
                 )
         if result.status in {"failed", "blocked_safety_audit"}:
@@ -1092,41 +1323,107 @@ def _diagnose(
                     f"{result.artifact_plan_id} ended as {result.status}: "
                     f"{result.failure_reason_optional or '; '.join(result.warnings)}",
                     "implementation_fidelity",
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
                 )
             )
         if result.status == "inconclusive":
-            findings.append(
-                _Diagnostic(
-                    "inconclusive_result",
-                    f"{result.artifact_plan_id} is inconclusive: "
-                    f"{'; '.join(result.warnings) or 'criteria unresolved'}",
-                    "evidence_sufficiency",
-                )
+            criteria_output_invalid = result.execution_completed and any(
+                "Output did not resolve success and failure criteria consistently."
+                in warning
+                for warning in result.warnings
             )
+            if criteria_output_invalid:
+                findings.append(
+                    _Diagnostic(
+                        "invalid_criteria_output",
+                        f"{result.artifact_plan_id} completed execution but did not emit "
+                        "scalar boolean success_criteria_satisfied and "
+                        "failure_criteria_satisfied fields.",
+                        "implementation_fidelity",
+                        target_id=stable_target,
+                        repair_target_id=repair_target,
+                    )
+                )
+            else:
+                findings.append(
+                    _Diagnostic(
+                        "inconclusive_result",
+                        f"{result.artifact_plan_id} is inconclusive: "
+                        f"{'; '.join(result.warnings) or 'criteria unresolved'}",
+                        "evidence_sufficiency",
+                        target_id=stable_target,
+                        repair_target_id=repair_target,
+                    )
+                )
         if any("Negative controls did not pass" in item for item in result.warnings):
-            findings.append(
-                _Diagnostic(
-                    "negative_control_failed",
-                    f"Negative controls failed for {result.artifact_plan_id}.",
-                    "baseline_control_adequacy",
+            control_summary = _summary_mapping(result.negative_control_summary)
+            attempted = control_summary.get("attempted")
+            valid = control_summary.get("valid")
+            complete_cells = control_summary.get("complete_cells")
+            integrity = control_summary.get("permuted_label_integrity")
+            implementation_failure = (
+                isinstance(attempted, int)
+                and not isinstance(attempted, bool)
+                and attempted > 0
+                and isinstance(valid, int)
+                and not isinstance(valid, bool)
+                and valid > 0
+                and (
+                    complete_cells == 0
+                    or integrity == "failed"
                 )
             )
+            completed_control = (
+                isinstance(complete_cells, int)
+                and not isinstance(complete_cells, bool)
+                and complete_cells > 0
+                and integrity == "passed"
+            )
+            if implementation_failure:
+                findings.append(
+                    _Diagnostic(
+                        "negative_control_implementation_failed",
+                        f"Negative-control records for {result.artifact_plan_id} were "
+                        "generated but failed completeness or permutation-integrity "
+                        "bookkeeping.",
+                        "implementation_fidelity",
+                        target_id=stable_target,
+                        repair_target_id=repair_target,
+                    )
+                )
+            else:
+                findings.append(
+                    _Diagnostic(
+                        "negative_control_failed",
+                        f"Negative controls failed for {result.artifact_plan_id}.",
+                        "baseline_control_adequacy",
+                        terminal_block=completed_control,
+                        target_id=stable_target,
+                        repair_target_id=repair_target,
+                    )
+                )
         if result.success_criteria_satisfied is True and result.failure_criteria_satisfied is True:
             findings.append(
                 _Diagnostic(
                     "criteria_inconsistent",
                     f"{result.artifact_plan_id} marks success and failure simultaneously.",
                     "evidence_sufficiency",
+                    target_id=stable_target,
+                    repair_target_id=repair_target,
                 )
             )
     for candidate in package.packages:
         for plan in candidate.artifact_plans:
             if plan.requires_code_generation and not plan.baseline_or_comparator_plan:
+                stable_target, repair_target = plan_target(plan.artifact_plan_id)
                 findings.append(
                     _Diagnostic(
                         "missing_baseline",
                         f"{plan.artifact_plan_id} lacks a baseline or comparator.",
                         "baseline_control_adequacy",
+                        target_id=stable_target,
+                        repair_target_id=repair_target,
                     )
                 )
     if execution.budget_deferred_artifact_count:
@@ -1147,62 +1444,118 @@ def _diagnose(
                 blocks_acceptance=False,
             )
         )
-    return findings
+    return list(
+        {
+            item.defect_id: item
+            for item in sorted(findings, key=lambda value: (value.priority, value.defect_id))
+        }.values()
+    )
+
+
+def _diagnostic_plan_targets(
+    package: HybridEvidencePackageReport,
+) -> dict[str, tuple[str, str]]:
+    """Map regenerated plan IDs onto stable substrate/type identities."""
+    targets: dict[str, tuple[str, str]] = {}
+    for candidate in package.packages:
+        type_counts: Counter[str] = Counter()
+        for plan in candidate.artifact_plans:
+            artifact_type = plan.artifact_type.value
+            ordinal = type_counts[artifact_type]
+            type_counts[artifact_type] += 1
+            stable = f"{candidate.source_substrate_id}/{artifact_type}/{ordinal}"
+            targets[plan.artifact_plan_id] = (stable, plan.artifact_plan_id)
+    return targets
+
+
+def _blocking_defect_ids(diagnostics: list[_Diagnostic]) -> list[str]:
+    return sorted(item.defect_id for item in diagnostics if item.blocks_acceptance)
+
+
+def _summary_mapping(value: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _repair_made_progress(
+    active_defect: _Diagnostic | None,
+    repaired_diagnostics: list[_Diagnostic],
+) -> bool:
+    """Require a repair to remove the defect without introducing a worse blocker."""
+    if active_defect is None:
+        return False
+    blocking = [item for item in repaired_diagnostics if item.blocks_acceptance]
+    if any(item.defect_id == active_defect.defect_id for item in blocking):
+        return False
+    next_defect = _active_defect(repaired_diagnostics)
+    return next_defect is None or next_defect.priority > active_defect.priority
+
+
+def _active_defect(diagnostics: list[_Diagnostic]) -> _Diagnostic | None:
+    blocking = [item for item in diagnostics if item.blocks_acceptance]
+    return min(blocking, key=lambda item: (item.priority, item.defect_id), default=None)
 
 
 def _selected_questions(
-    *, iteration: int, diagnostics: list[_Diagnostic]
+    *,
+    iteration: int,
+    diagnostics: list[_Diagnostic],
+    active_defect: _Diagnostic | None,
 ) -> list[dict[str, Any]]:
-    diagnostic_text = [item.message for item in diagnostics]
+    prompts = {
+        "implementation_fidelity": (
+            "Does the current code and execution resolve the identified implementation defect "
+            "while preserving the declared study contract?"
+        ),
+        "numerical_validity": (
+            "Does the current execution resolve the identified numerical defect sufficiently for "
+            "the bounded result to be interpreted?"
+        ),
+        "baseline_control_adequacy": (
+            "Does the current design resolve the identified baseline or control defect without "
+            "tuning toward a favorable result?"
+        ),
+        "evidence_sufficiency": (
+            "Does the current package resolve the identified evidence defect and answer the "
+            "bounded question, including an honest negative answer when appropriate?"
+        ),
+    }
+    focus_category = (
+        active_defect.category if active_defect is not None else "evidence_sufficiency"
+    )
+    focus_id = active_defect.defect_id if active_defect is not None else "acceptance-readiness"
     questions = [
         (
-            "implementation-fidelity",
-            "implementation_fidelity",
-            "Does the generated code faithfully implement the declared proposed method, models, "
-            "baselines, controls, and negative controls rather than placeholders or malformed "
-            "approximations?",
-        ),
-        (
-            "numerical-validity",
-            "numerical_validity",
-            "Are fitting, convergence, optimization, resampling, and metric calculations "
-            "numerically credible enough to interpret the execution?",
-        ),
-        (
-            "baseline-controls",
-            "baseline_control_adequacy",
-            "Are the baselines, controls, negative controls, and synthetic design fair and "
-            "capable of falsifying the primary claim?",
-        ),
-        (
-            "evidence-sufficiency",
-            "evidence_sufficiency",
-            "Do the executed artifacts and execution-sourced metrics answer the bounded central "
-            "question, including an honest negative answer when appropriate?",
-        ),
-        (
-            "claim-scope",
-            "claim_scope",
-            "Is the proposed claim wording bounded by the actual synthetic or draft evidence and "
-            "free of proof, novelty, real-world, or publication-readiness inflation?",
-        ),
-        (
-            "stopping",
-            "stopping",
-            "Should this branch be accepted, repaired once more, downgraded to a trustworthy "
-            "negative result, or stopped as weak or uninformative?",
-        ),
+            f"defect-{focus_id}",
+            focus_category,
+            prompts.get(focus_category, prompts["evidence_sufficiency"]),
+        )
     ]
-    if iteration > 1:
-        questions.insert(
-            -1,
+    if iteration > 1 and active_defect is not None:
+        questions.append(
             (
                 "repair-sufficiency",
                 "repair_sufficiency",
-                "Did the latest repair address the previously identified defect without changing "
-                "the scientific target or tuning toward a favorable result?",
-            ),
+                "Did the latest repair actually remove or downgrade this same defect without "
+                "changing the scientific target?",
+            )
         )
+    questions.append(
+        (
+            "stopping",
+            "stopping",
+            "Given this focused defect and the remaining bounded budget, should the branch be "
+            "accepted, repaired, honestly downgraded, or stopped?",
+        )
+    )
+    diagnostic_text = [
+        f"{item.defect_id}: {item.message}"
+        for item in diagnostics
+        if active_defect is None or item.defect_id == active_defect.defect_id
+    ]
     return [
         {
             "question_id": question_id,
@@ -1221,13 +1574,53 @@ def _questioner_context(
     execution_report: EvidencePackageExecutionReport,
     diagnostics: list[_Diagnostic],
     prior_iterations: list[AdaptiveEvidenceIteration],
+    active_defect: _Diagnostic | None = None,
 ) -> dict[str, Any]:
     latest_code = _latest_code_by_spec(execution_report)
-    latest_ids = {item.code_artifact_id for item in latest_code.values()}
-    recent_iterations = prior_iterations[-6:]
-    return {
-        "research_brief": brief.model_dump(mode="json"),
+    active_target = (
+        active_defect.repair_target_id or active_defect.target_id
+        if active_defect is not None
+        else None
+    )
+    relevant_results = [
+        item
+        for item in execution_report.results
+        if active_target in {None, "global", item.artifact_plan_id}
+        or (active_target and active_target.startswith(f"{item.artifact_plan_id}/"))
+    ] or execution_report.results[:1]
+    relevant_code = [
+        item
+        for spec_id, item in latest_code.items()
+        if active_target in {None, "global", spec_id}
+        or (active_target and active_target.startswith(f"{spec_id}/"))
+    ] or list(latest_code.values())[:1]
+    relevant_code_ids = {item.code_artifact_id for item in relevant_code}
+    context = {
+        "research_brief": {
+            "brief_id": brief.brief_id,
+            "title": brief.title,
+            "central_question": brief.central_question,
+            "method": brief.method,
+            "baselines": brief.baseline_candidates,
+            "metrics": brief.expected_metrics,
+            "controls": brief.controls,
+            "negative_controls": brief.negative_controls,
+            "allowed_claim_scope": brief.allowed_claim_scope,
+            "forbidden_claims": brief.forbidden_claims,
+        },
         "package_report": _questioner_package_summary(package_report),
+        "active_defect": (
+            {
+                "defect_id": active_defect.defect_id,
+                "category": active_defect.category,
+                "message": active_defect.message,
+                "repair_kind": active_defect.repair_kind,
+                "repair_target_id": active_defect.repair_target_id,
+                "priority": active_defect.priority,
+            }
+            if active_defect is not None
+            else None
+        ),
         "execution_summary": {
             "report_id": execution_report.report_id,
             "execution_profile": execution_report.execution_profile,
@@ -1240,7 +1633,7 @@ def _questioner_context(
                 execution_report.incomplete_required_artifact_plan_ids
             ),
             "results": [
-                _questioner_result_summary(item) for item in execution_report.results
+                _questioner_result_summary(item) for item in relevant_results[:2]
             ],
             "metric_extractions": [
                 {
@@ -1254,22 +1647,56 @@ def _questioner_context(
                     "extraction_warnings": item.extraction_warnings,
                 }
                 for item in execution_report.metric_extractions
+                if not relevant_code_ids
+                or item.execution_id
+                in {
+                    sandbox.execution_id
+                    for sandbox in execution_report.sandbox_executions
+                    if sandbox.code_artifact_id in relevant_code_ids
+                }
             ],
             "latest_code_artifacts": [
-                _questioner_code_summary(item) for item in latest_code.values()
+                _questioner_code_summary(item) for item in relevant_code[:1]
             ],
             "latest_safety_audits": [
-                item.model_dump(mode="json")
+                {
+                    "code_artifact_id": item.code_artifact_id,
+                    "passed": item.passed,
+                    "blocked": item.blocked,
+                    "reasons": item.reasons,
+                    "contract_violations": item.contract_violations,
+                    "semantic_contract_violations": item.semantic_contract_violations,
+                    "workload_limit_violations": item.workload_limit_violations,
+                }
                 for item in execution_report.safety_audits
-                if item.code_artifact_id in latest_ids
+                if item.code_artifact_id in relevant_code_ids
             ],
             "latest_sandbox_executions": [
-                item.model_dump(mode="json")
+                {
+                    "execution_id": item.execution_id,
+                    "code_artifact_id": item.code_artifact_id,
+                    "status": item.status,
+                    "exit_code": item.exit_code,
+                    "runtime_seconds": item.runtime_seconds,
+                    "timeout": item.timeout,
+                    "output_json_path": item.output_json_path,
+                }
                 for item in execution_report.sandbox_executions
-                if item.code_artifact_id in latest_ids
+                if item.code_artifact_id in relevant_code_ids
             ],
         },
-        "deterministic_diagnostics": [item.__dict__ for item in diagnostics],
+        "deterministic_diagnostics": [
+            {
+                "defect_id": item.defect_id,
+                "category": item.category,
+                "message": item.message,
+                "priority": item.priority,
+                "repair_kind": item.repair_kind,
+                "blocks_acceptance": item.blocks_acceptance,
+            }
+            for item in diagnostics[:8]
+        ],
+        "blocking_defect_ids": _blocking_defect_ids(diagnostics),
         "prior_adaptive_decision_count": len(prior_iterations),
         "prior_action_counts": dict(
             sorted(Counter(item.decision.action for item in prior_iterations).items())
@@ -1282,9 +1709,10 @@ def _questioner_context(
                 "repair_instructions": item.decision.repair_instructions,
                 "progress_made": item.progress_made,
             }
-            for item in recent_iterations
+            for item in prior_iterations[-2:]
         ],
     }
+    return _fit_questioner_context(context)
 
 
 def _questioner_package_summary(
@@ -1302,17 +1730,41 @@ def _questioner_package_summary(
                 "title": package.title,
                 "primary_claim_draft": package.primary_claim_draft,
                 "allowed_claim_scope": package.allowed_claim_scope,
-                "package_rationale": package.package_rationale,
+                "package_rationale": _bounded_text(
+                    package.package_rationale, max_chars=2_000
+                ),
                 "artifact_plans": [
-                    plan.model_dump(mode="json") for plan in package.artifact_plans
+                    {
+                        "artifact_plan_id": plan.artifact_plan_id,
+                        "artifact_type": plan.artifact_type.value,
+                        "purpose": _bounded_text(plan.purpose, max_chars=1_200),
+                        "claim_component_supported": _bounded_text(
+                            plan.claim_component_supported, max_chars=1_200
+                        ),
+                        "required_inputs": _bounded_sequence(
+                            plan.input_contract.get("required_inputs", []), limit=12
+                        ),
+                        "parameters": _bounded_sequence(
+                            plan.input_contract.get("parameters", []), limit=16
+                        ),
+                        "required_metrics": _bounded_sequence(
+                            plan.output_contract.get("required_metrics", []), limit=16
+                        ),
+                        "baselines": plan.baseline_or_comparator_plan[:8],
+                        "controls": (plan.control_plan_optional or [])[:8],
+                        "negative_controls": (
+                            plan.negative_control_plan_optional or []
+                        )[:8],
+                        "success_criteria": plan.success_criteria[:8],
+                        "failure_criteria": plan.failure_criteria[:8],
+                    }
+                    for plan in package.artifact_plans[:4]
                 ],
-                "minimum_required_artifacts": package.minimum_required_artifacts,
-                "artifact_dependency_graph": package.artifact_dependency_graph,
-                "claim_support_map": package.claim_support_map,
-                "known_gaps": package.known_gaps,
-                "unresolved_obligations": package.unresolved_obligations,
+                "minimum_required_artifacts": package.minimum_required_artifacts[:12],
+                "known_gaps": package.known_gaps[:8],
+                "unresolved_obligations": package.unresolved_obligations[:8],
             }
-            for package in report.packages
+            for package in report.packages[:2]
         ],
     }
 
@@ -1330,13 +1782,13 @@ def _questioner_result_summary(result: Any) -> dict[str, Any]:
         "status": result.status,
         "evidence_label": getattr(result.evidence_label, "value", result.evidence_label),
         "scope_label": result.scope_label,
-        "metrics": _bounded_mapping(result.metrics, max_chars=24_000),
+        "metrics": _bounded_mapping(result.metrics, max_chars=12_000),
         "metric_source_count": len(result.metric_sources),
         "metric_source_examples": dict(sorted(result.metric_sources.items())[:8]),
-        "baseline_summary": _bounded_text(result.baseline_summary, max_chars=8_000),
-        "control_summary": _bounded_text(result.control_summary, max_chars=8_000),
+        "baseline_summary": _bounded_text(result.baseline_summary, max_chars=2_000),
+        "control_summary": _bounded_text(result.control_summary, max_chars=2_000),
         "negative_control_summary": _bounded_text(
-            result.negative_control_summary, max_chars=8_000
+            result.negative_control_summary, max_chars=2_000
         ),
         "success_criteria_satisfied": result.success_criteria_satisfied,
         "failure_criteria_satisfied": result.failure_criteria_satisfied,
@@ -1348,8 +1800,93 @@ def _questioner_result_summary(result: Any) -> dict[str, Any]:
 
 def _questioner_code_summary(code_artifact: Any) -> dict[str, Any]:
     payload = code_artifact.model_dump(mode="json")
-    payload["code"] = _bounded_text(payload["code"], max_chars=60_000)
-    return payload
+    code = str(payload.get("code", ""))
+    return {
+        "code_artifact_id": payload.get("code_artifact_id"),
+        "source_spec_id": payload.get("source_spec_id"),
+        "repair_of_code_artifact_id_optional": payload.get(
+            "repair_of_code_artifact_id_optional"
+        ),
+        "generation_attempt": payload.get("generation_attempt"),
+        "entrypoint": payload.get("entrypoint"),
+        "expected_output_files": payload.get("expected_output_files", []),
+        "random_seed": payload.get("random_seed"),
+        "timeout_seconds": payload.get("timeout_seconds"),
+        "code_sha256": sha256_json({"code": code}),
+        "code_line_count": len(code.splitlines()),
+        "code_excerpt": _bounded_text(code, max_chars=12_000),
+    }
+
+
+def _bounded_sequence(value: Any, *, limit: int) -> list[Any]:
+    return list(value[:limit]) if isinstance(value, list) else []
+
+
+def _fit_questioner_context(context: dict[str, Any]) -> dict[str, Any]:
+    """Keep adaptive context below one explicit transport-safe byte ceiling."""
+
+    def size() -> int:
+        return len(
+            json.dumps(context, sort_keys=True, separators=(",", ":"), default=str).encode(
+                "utf-8"
+            )
+        )
+
+    if size() <= _MAX_QUESTIONER_CONTEXT_BYTES:
+        return context
+    for code in context.get("execution_summary", {}).get("latest_code_artifacts", []):
+        code["code_excerpt"] = _bounded_text(
+            str(code.get("code_excerpt", "")), max_chars=4_000
+        )
+    if size() <= _MAX_QUESTIONER_CONTEXT_BYTES:
+        return context
+    for result in context.get("execution_summary", {}).get("results", []):
+        metrics = result.get("metrics", {})
+        if isinstance(metrics, dict) and isinstance(metrics.get("values"), dict):
+            selected = dict(list(sorted(metrics["values"].items()))[:12])
+            metrics["values"] = selected
+            metrics["included_count"] = len(selected)
+            metrics["omitted_count"] = metrics.get("total_count", 0) - len(selected)
+        for field_name in (
+            "baseline_summary",
+            "control_summary",
+            "negative_control_summary",
+        ):
+            result[field_name] = _bounded_text(
+                str(result.get(field_name, "")), max_chars=800
+            )
+    if size() <= _MAX_QUESTIONER_CONTEXT_BYTES:
+        return context
+    context["prior_adaptive_decisions"] = context.get("prior_adaptive_decisions", [])[-1:]
+    package_report = context.get("package_report", {})
+    for package in package_report.get("packages", []):
+        package["artifact_plans"] = package.get("artifact_plans", [])[:2]
+        package["unresolved_obligations"] = package.get("unresolved_obligations", [])[:4]
+    if size() <= _MAX_QUESTIONER_CONTEXT_BYTES:
+        return context
+    context["execution_summary"]["latest_code_artifacts"] = [
+        {
+            key: value
+            for key, value in item.items()
+            if key != "code_excerpt"
+        }
+        for item in context["execution_summary"].get("latest_code_artifacts", [])
+    ]
+    if size() > _MAX_QUESTIONER_CONTEXT_BYTES:
+        context["package_report"]["packages"] = [
+            {
+                "package_id": item.get("package_id"),
+                "title": item.get("title"),
+                "primary_claim_draft": item.get("primary_claim_draft"),
+                "allowed_claim_scope": item.get("allowed_claim_scope"),
+            }
+            for item in context["package_report"].get("packages", [])[:1]
+        ]
+    if size() > _MAX_QUESTIONER_CONTEXT_BYTES:
+        raise AdaptiveEvidenceError(
+            "Compact adaptive evidence snapshot exceeded the 64 KiB context ceiling."
+        )
+    return context
 
 
 def _bounded_mapping(values: dict[str, Any], *, max_chars: int) -> dict[str, Any]:
@@ -1388,6 +1925,7 @@ def _normalize_decision(
     questions: list[dict[str, Any]],
     proposal: AdaptiveQuestionerDecisionProposal,
     diagnostics: list[_Diagnostic],
+    active_defect: _Diagnostic | None,
     fingerprint: str,
     questioner: AdaptiveQuestionerClient,
 ) -> AdaptiveEvidenceDecision:
@@ -1410,7 +1948,11 @@ def _normalize_decision(
     blocking_answers = [
         item for item in answers if item.blocking or item.status in {"fail", "unknown"}
     ]
-    deterministic_blocks = [item for item in diagnostics if item.blocks_acceptance]
+    deterministic_blocks = (
+        [active_defect]
+        if active_defect is not None and active_defect.blocks_acceptance
+        else []
+    )
     terminal_hard = [item for item in diagnostics if item.terminal_block]
     primary_plan_ids = {
         candidate.artifact_plans[0].artifact_plan_id
@@ -1468,6 +2010,11 @@ def _normalize_decision(
         action = "stop_no_progress"
         disposition = "deferred"
 
+    if active_defect is not None and action in {"repair_code", "repair_evidence_plan"}:
+        action = active_defect.repair_kind
+        if action == "blocked":
+            disposition = "deferred"
+
     repair_instructions = list(proposal.repair_instructions)
     if action in {"repair_code", "repair_evidence_plan"} and not repair_instructions:
         repair_instructions = [
@@ -1487,7 +2034,11 @@ def _normalize_decision(
         source_result_ids=[item.result_id for item in execution_report.results],
         source_code_artifact_ids=[item.code_artifact_id for item in latest_code.values()],
         questions=answers,
-        deterministic_findings=[item.message for item in diagnostics],
+        deterministic_findings=(
+            [active_defect.message]
+            if active_defect is not None
+            else [item.message for item in diagnostics if item.blocks_acceptance]
+        ),
         action=action,
         rationale=proposal.rationale,
         repair_instructions=repair_instructions,
@@ -1528,8 +2079,13 @@ def _code_repair_target(
     execution: EvidencePackageExecutionReport,
     *,
     include_completed: bool = False,
+    preferred_target_id: str | None = None,
 ) -> str | None:
     code_specs = {item.source_spec_id for item in execution.code_artifacts}
+    if preferred_target_id:
+        preferred_spec = preferred_target_id.split("/", 1)[0]
+        if preferred_spec in code_specs:
+            return preferred_spec
     for result in execution.results:
         if result.artifact_plan_id in code_specs and result.status not in {
             "completed",
@@ -1562,55 +2118,14 @@ def _latest_code_by_spec(execution: EvidencePackageExecutionReport) -> dict[str,
 def _diagnostic_fingerprint(
     package: HybridEvidencePackageReport,
     execution: EvidencePackageExecutionReport,
+    *,
+    diagnostics: list[_Diagnostic] | None = None,
 ) -> str:
+    current = diagnostics if diagnostics is not None else _diagnose(package, execution)
     return sha256_json(
         {
-            "packages": [
-                {
-                    "title": item.title,
-                    "claim": item.primary_claim_draft,
-                    "scope": item.allowed_claim_scope,
-                    "plans": [
-                        {
-                            "type": plan.artifact_type.value,
-                            "purpose": plan.purpose,
-                            "input": plan.input_contract,
-                            "output": plan.output_contract,
-                            "baselines": plan.baseline_or_comparator_plan,
-                            "controls": plan.control_plan_optional,
-                            "negative_controls": plan.negative_control_plan_optional,
-                            "success": plan.success_criteria,
-                            "failure": plan.failure_criteria,
-                        }
-                        for plan in item.artifact_plans
-                    ],
-                }
-                for item in package.packages
-            ],
-            "results": [
-                {
-                    "artifact_type": item.artifact_type.value,
-                    "status": item.status,
-                    "label": item.evidence_label,
-                    "metrics": item.metrics,
-                    "success": item.success_criteria_satisfied,
-                    "failure": item.failure_criteria_satisfied,
-                    "warnings": item.warnings,
-                    "failure_reason": item.failure_reason_optional,
-                }
-                for item in execution.results
-            ],
-            "metric_extractions": [
-                {
-                    "execution_id": item.execution_id,
-                    "schema_valid": item.schema_valid,
-                    "metrics": item.metrics,
-                    "missing_metrics": item.missing_metrics,
-                    "invalid_metrics": item.invalid_metrics,
-                    "warnings": item.extraction_warnings,
-                }
-                for item in execution.metric_extractions
-            ],
+            "blocking_defect_ids": _blocking_defect_ids(current),
+            "adjudication_ready": execution.adjudication_ready,
         }
     )
 
@@ -1921,6 +2436,57 @@ def _load_latest_loop_report(reports: Path) -> AdaptiveEvidenceLoopReport | None
         raise AdaptiveEvidenceError(f"Could not load adaptive evidence report: {exc}") from exc
 
 
+def _post_critic_diagnostics(
+    reports: Path,
+    execution: EvidencePackageExecutionReport,
+) -> list[_Diagnostic]:
+    """Route adjudication repairs back only to the execution that critics reviewed."""
+    path = _latest_matching(reports, _ADJUDICATION_RE)
+    if path is None:
+        return []
+    try:
+        report = CrossPackageAdjudicationReport.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValidationError) as exc:
+        raise AdaptiveEvidenceError(
+            f"Could not load cross-package adjudication report: {exc}"
+        ) from exc
+    if report.paper_nucleus_selection_optional is not None:
+        return []
+    if Path(report.source_execution_report_path).name != f"{execution.report_id}.json":
+        return []
+
+    result_by_package = {item.package_id: item for item in execution.results}
+    diagnostics: list[_Diagnostic] = []
+    for decision in report.decisions:
+        decision_value = getattr(decision.decision, "value", decision.decision)
+        if decision_value != "needs_repair" or not decision.required_repairs:
+            continue
+        result = result_by_package.get(decision.package_id)
+        if result is None:
+            continue
+        repairs = " ".join(
+            f"{index}. {instruction}"
+            for index, instruction in enumerate(decision.required_repairs, start=1)
+        )
+        diagnostics.append(
+            _Diagnostic(
+                "post_critic_execution_repair",
+                _bounded_text(
+                    "Independent post-execution criticism rejected this package as a paper "
+                    "nucleus. Repair the existing executable artifact without changing the "
+                    f"scientific target. Required repairs: {repairs}",
+                    max_chars=8_000,
+                ),
+                "implementation_fidelity",
+                target_id=decision.package_id,
+                repair_target_id=result.artifact_plan_id,
+            )
+        )
+    return diagnostics
+
+
 def _load_latest_package_report(
     reports: Path,
 ) -> tuple[Path, HybridEvidencePackageReport]:
@@ -1935,11 +2501,66 @@ def _load_latest_package_report(
 def _load_latest_execution_report(
     reports: Path,
 ) -> tuple[Path, EvidencePackageExecutionReport]:
-    path = _latest_matching(reports, _EXECUTION_RE)
-    if path is None:
+    return load_latest_actionable_execution_report(reports)
+
+
+def load_latest_actionable_execution_report(
+    reports: Path,
+) -> tuple[Path, EvidencePackageExecutionReport]:
+    """Keep a rejected patch diagnostic from replacing prior execution evidence."""
+    matches = _matching(reports, _EXECUTION_RE)
+    if not matches:
         raise AdaptiveEvidenceError("Hybrid evidence execution report is missing.")
-    return path, EvidencePackageExecutionReport.model_validate_json(
-        path.read_text(encoding="utf-8")
+    latest_path = matches[-1]
+    latest = EvidencePackageExecutionReport.model_validate_json(
+        latest_path.read_text(encoding="utf-8")
+    )
+    if not _is_rejected_repair_only_report(latest):
+        return latest_path, latest
+
+    for path in reversed(matches[:-1]):
+        historical = EvidencePackageExecutionReport.model_validate_json(
+            path.read_text(encoding="utf-8")
+        )
+        if (
+            historical.source_package_report_path
+            != latest.source_package_report_path
+            or historical.execution_profile != latest.execution_profile
+        ):
+            continue
+        if not (
+            any(item.execution_completed for item in historical.results)
+            or historical.metric_extractions
+            or historical.sandbox_executions
+        ):
+            continue
+        warning = (
+            f"Ignored repair-only diagnostic {latest.report_id} as the active scientific "
+            f"state; retained prior execution evidence from {historical.report_id}."
+        )
+        return path, historical.model_copy(
+            update={"warnings": [*historical.warnings, warning]}
+        )
+    return latest_path, latest
+
+
+def _is_rejected_repair_only_report(
+    report: EvidencePackageExecutionReport,
+) -> bool:
+    if (
+        report.code_artifacts
+        or report.safety_audits
+        or report.sandbox_executions
+        or report.metric_extractions
+        or not report.results
+    ):
+        return False
+    return all(
+        item.status == "failed"
+        and (item.failure_reason_optional or "").startswith(
+            "Scientific code repair was rejected:"
+        )
+        for item in report.results
     )
 
 
@@ -2085,6 +2706,7 @@ def _metadata(stage: str) -> dict[str, Any]:
 __all__ = [
     "AdaptiveEvidenceError",
     "AdaptiveEvidenceStageResult",
+    "load_latest_actionable_execution_report",
     "recover_historical_code_artifacts",
     "run_adaptive_evidence_loop",
 ]

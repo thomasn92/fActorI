@@ -6,7 +6,6 @@ import json
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +32,8 @@ from factori.schemas import (
     ManuscriptCriticRole,
     ManuscriptRevisionReport,
     ManuscriptSectionPlan,
+    NarrativeManuscriptContract,
+    NarrativeSectionRole,
     NucleusManuscriptConfig,
     NucleusManuscriptDraft,
     NucleusManuscriptInspectionReport,
@@ -40,6 +41,7 @@ from factori.schemas import (
     NucleusManuscriptRawArtifact,
     NucleusManuscriptStatus,
     NucleusManuscriptSynthesisReport,
+    NucleusPaperType,
     PaperNucleusSelection,
     ProductionModePolicy,
     RetrievalContext,
@@ -55,14 +57,17 @@ _REPORT_RE = re.compile(r"^nucleus-manuscript-synthesis-report-(\d{4})\.json$")
 _RAW_RE = re.compile(r"^nucleus-manuscript-raw-(\d{4})\.json$")
 _RETRIEVAL_RE = re.compile(r"^retrieval-context-(\d{4})\.json$")
 _ARTIFACT_TOKEN_RE = re.compile(r"[a-z0-9]+")
-_DECIMAL_LITERAL_RE = re.compile(
-    r"(?<![A-Za-z0-9_])[-+]?(?:\d+\.\d+|\.\d+)(?:[eE][-+]?\d+)?"
-    r"(?![A-Za-z0-9_]|\.\d)"
-)
-_DOI_RE = re.compile(r"\b10\.\d{4,9}/[-._;()/:A-Z0-9]+", re.IGNORECASE)
+_METRIC_TOKEN_RE = re.compile(r"\{\{METRIC:\d{3}\}\}")
+_CITATION_TOKEN_RE = re.compile(r"\{\{CITE:\d{3}\}\}")
 
 _REVIEW_ROLES = tuple(ManuscriptCriticRole)
+_POST_REVISION_ROLES = (
+    ManuscriptCriticRole.CLAIM_EVIDENCE_ALIGNMENT,
+    ManuscriptCriticRole.READABILITY_AND_STRUCTURE,
+)
 _MAIN_RESULT_STATUSES = {"completed", "negative_result", "draft_created"}
+_MAX_METRIC_TOKENS = 20
+_MAX_LITERATURE_SOURCES = 8
 _FORBIDDEN_PHRASES = {
     "publication_ready=true": "publication readiness assertion",
     "publication ready": "publication readiness assertion",
@@ -424,11 +429,9 @@ def revise_nucleus_manuscript(
     report_id = f"nucleus-manuscript-synthesis-report-{report_number:04d}"
     inputs = _load_inputs(root_path, run_id)
     synthesis = _latest_phase_report(reports, "synthesis")
-    if (
-        synthesis is None
-        or synthesis.draft_optional is None
-        or synthesis.manuscript_plan_optional is None
-    ):
+    revision_source = _latest_revision_with_draft(reports)
+    manuscript_source = revision_source or synthesis
+    if manuscript_source is None or manuscript_source.manuscript_plan_optional is None:
         return _persist_deferred(
             run_id=run_id,
             root_path=root_path,
@@ -443,23 +446,51 @@ def revise_nucleus_manuscript(
             unresolved=_unresolved_obligations(inputs),
             backend_records=[],
         )
-    plan = synthesis.manuscript_plan_optional
-    draft = synthesis.draft_optional
-    evidence = _build_evidence_context(inputs)
-    first_reviews, first_raws = _run_critics(
-        run_id=run_id,
-        report_id=report_id,
-        raw_start=raw_number,
-        planner=planner,
-        draft=draft,
-        evidence=evidence,
+    plan = manuscript_source.manuscript_plan_optional
+    revision_attempt = (
+        manuscript_source.revision_report_optional.revision_attempt + 1
+        if manuscript_source.revision_report_optional is not None
+        else 1
     )
+    draft = (
+        manuscript_source.revised_draft_optional
+        if manuscript_source.revised_draft_optional is not None
+        else manuscript_source.draft_optional
+    )
+    if draft is None:
+        return _persist_deferred(
+            run_id=run_id,
+            root_path=root_path,
+            store=store,
+            ledger=ledger,
+            report_id=report_id,
+            phase="revision",
+            source_adjudication_path=inputs.adjudication_path,
+            blockers=["The latest manuscript source does not contain a materialized draft."],
+            unresolved=_unresolved_obligations(inputs),
+            backend_records=[],
+        )
+    evidence = _build_evidence_context(inputs)
+    reusable_reviews = [
+        item for item in manuscript_source.critic_reviews if item.draft_id == draft.draft_id
+    ]
+    if reusable_reviews:
+        first_reviews, first_raws = reusable_reviews, []
+    else:
+        first_reviews, first_raws = _run_critics(
+            run_id=run_id,
+            report_id=report_id,
+            raw_start=raw_number,
+            planner=planner,
+            draft=draft,
+            evidence=evidence,
+        )
     if _blocking_reviews(first_reviews):
         # The revision call may repair bounded presentation defects, but a fresh review decides.
         pass
     revision_response = planner.revise_manuscript(
         prompt_id=f"{report_id}-revision-prompt-001",
-        draft_payload=draft.model_dump(mode="json"),
+        draft_payload=_retokenized_draft_payload(draft),
         critic_reviews_payload=[item.model_dump(mode="json") for item in first_reviews],
         evidence_payload=evidence,
     )
@@ -491,6 +522,7 @@ def revise_nucleus_manuscript(
                 + "; ".join(revision_response.rejection_reasons)
             ],
             applied=[],
+            revision_attempt=revision_attempt,
             backend_records=[
                 _critic_record(report_id, planner, [item.raw_artifact_id for item in first_raws]),
                 _synthesis_record(report_id, planner, [revision_raw.raw_artifact_id]),
@@ -518,10 +550,12 @@ def revise_nucleus_manuscript(
             raw_artifacts=[*first_raws, revision_raw],
             blockers=validation,
             applied=list(revision_response.accepted.applied_recommendations),
+            revision_attempt=revision_attempt,
             backend_records=[
                 _critic_record(report_id, planner, [item.raw_artifact_id for item in first_raws]),
                 _synthesis_record(report_id, planner, [revision_raw.raw_artifact_id]),
             ],
+            revised_draft=revised,
         )
     second_reviews, second_raws = _run_critics(
         run_id=run_id,
@@ -530,14 +564,15 @@ def revise_nucleus_manuscript(
         planner=planner,
         draft=revised,
         evidence=evidence,
+        roles=_POST_REVISION_ROLES,
     )
     remaining = _blocking_reviews(second_reviews)
     revision = ManuscriptRevisionReport(
         revision_id=f"manuscript-revision-report-{report_number:04d}",
         run_id=run_id,
         source_draft_id=draft.draft_id,
-        revised_draft_id_optional=revised.draft_id if not remaining else None,
-        revision_attempt=1,
+        revised_draft_id_optional=revised.draft_id,
+        revision_attempt=revision_attempt,
         status="revised" if not remaining else "manuscript_deferred",
         applied_recommendations=list(revision_response.accepted.applied_recommendations),
         remaining_blocking_findings=remaining,
@@ -551,7 +586,7 @@ def revise_nucleus_manuscript(
         _claim_audit_record(report_id, [item.claim_id for item in inputs.claim_bindings]),
         _assembly_record(report_id, [item.binding_id for item in inputs.citation_bindings]),
     ]
-    all_backend_records = [*synthesis.backend_records, *backend_records]
+    all_backend_records = [*manuscript_source.backend_records, *backend_records]
     production = _production_report(
         run_id=run_id,
         inputs=inputs,
@@ -577,20 +612,18 @@ def revise_nucleus_manuscript(
         ),
         source_adjudication_report_path=_relative(root_path, inputs.adjudication_path),
         paper_nucleus_selection_id_optional=inputs.adjudication.report_id,
-        plan_path_optional=synthesis.plan_path_optional,
-        draft_markdown_path_optional=synthesis.draft_markdown_path_optional,
-        draft_latex_path_optional=synthesis.draft_latex_path_optional,
-        revised_markdown_path_optional=(
-            f"runs/{run_id}/reports/{revised_id}.md" if not remaining else None
+        plan_path_optional=manuscript_source.plan_path_optional,
+        draft_markdown_path_optional=manuscript_source.draft_markdown_path_optional,
+        draft_latex_path_optional=manuscript_source.draft_latex_path_optional,
+        revised_markdown_path_optional=f"runs/{run_id}/reports/{revised_id}.md",
+        revised_latex_path_optional=f"runs/{run_id}/latex/{revised_id}.tex",
+        claim_artifact_map_path_optional=manuscript_source.claim_artifact_map_path_optional,
+        evidence_citation_bindings_path_optional=(
+            manuscript_source.evidence_citation_bindings_path_optional
         ),
-        revised_latex_path_optional=(
-            f"runs/{run_id}/latex/{revised_id}.tex" if not remaining else None
-        ),
-        claim_artifact_map_path_optional=synthesis.claim_artifact_map_path_optional,
-        evidence_citation_bindings_path_optional=synthesis.evidence_citation_bindings_path_optional,
         manuscript_plan_optional=plan,
         draft_optional=draft,
-        revised_draft_optional=revised if not remaining else None,
+        revised_draft_optional=revised,
         claim_artifact_bindings=inputs.claim_bindings,
         evidence_citation_bindings=inputs.citation_bindings,
         critic_reviews=[*first_reviews, *second_reviews],
@@ -610,7 +643,7 @@ def revise_nucleus_manuscript(
     return _persist_report(
         report=report,
         raw_artifacts=[*first_raws, revision_raw, *second_raws],
-        revised_draft=revised if not remaining else None,
+        revised_draft=revised,
         revision=revision,
         store=store,
         ledger=ledger,
@@ -943,10 +976,22 @@ def _build_bindings(
 
 
 def _build_evidence_context(inputs: _Inputs) -> dict[str, Any]:
+    selected_retrieval = _selected_retrieval_citations(inputs.citation_bindings)
+    selected_retrieval_ids = {item.binding_id for item in selected_retrieval}
+    selected_citations = [
+        item
+        for item in inputs.citation_bindings
+        if item.source_type != "retrieval_source" or item.binding_id in selected_retrieval_ids
+    ]
+    metric_tokens = _metric_tokens(
+        inputs.primary_results,
+        preferred_metrics=_declared_metric_names(inputs),
+    )
+    citation_tokens = _citation_tokens(inputs)
     return {
         "claim_artifact_bindings": [item.model_dump(mode="json") for item in inputs.claim_bindings],
         "evidence_citation_bindings": [
-            item.model_dump(mode="json") for item in inputs.citation_bindings
+            item.model_dump(mode="json") for item in selected_citations
         ],
         "retrieved_literature_context": [
             {
@@ -958,21 +1003,85 @@ def _build_evidence_context(inputs: _Inputs) -> dict[str, Any]:
                     source.model_dump(mode="json")
                     for source in context.sources
                     if not source.fake_or_mocked
+                    and any(
+                        citation.artifact_id == context.context_id
+                        and citation.citation_or_reference_id in {source.source_id, source.doi}
+                        for citation in selected_retrieval
+                    )
                 ],
             }
             for context in inputs.retrieval_contexts
             if context.retrieval_mode == "real_retrieval"
         ],
         "primary_execution_results": [
-            item.model_dump(mode="json") for item in inputs.primary_results
+            {
+                "result_id": item.result_id,
+                "artifact_plan_id": item.artifact_plan_id,
+                "artifact_type": item.artifact_type,
+                "status": item.status,
+                "evidence_label": item.evidence_label,
+                "baseline_summary": item.baseline_summary[:2000],
+                "control_summary": item.control_summary[:2000],
+                "negative_control_summary": item.negative_control_summary[:2000],
+                "unresolved_obligations": item.unresolved_obligations[:8],
+                "metric_token_ids": [
+                    token["token"]
+                    for token in metric_tokens
+                    if token["artifact_id"] == item.result_id
+                ],
+            }
+            for item in inputs.primary_results
         ],
-        "deterministic_metric_table": _metric_rows(inputs.primary_results),
+        "metric_tokens": metric_tokens,
+        "metric_token_policy": (
+            "Use these tokens verbatim for quantitative results. Local materialization replaces "
+            "them with the exact persisted values. Do not emit raw quantitative result values."
+        ),
+        "citation_tokens": citation_tokens,
+        "citation_token_policy": (
+            "Use a citation token verbatim beside each literature-supported statement. Local "
+            "materialization replaces it with an in-text citation and records the corresponding "
+            "binding. Do not write citation binding IDs in prose."
+        ),
         "allowed_claim_scope": inputs.nucleus.allowed_claim_scope if inputs.nucleus else "none",
         "forbidden_claims": inputs.nucleus.forbidden_claims
         if inputs.nucleus
         else _MANDATORY_FORBIDDEN,
         "unresolved_obligations": _unresolved_obligations(inputs),
     }
+
+
+def _narrative_roles_for_section(
+    title: str,
+    purpose: str,
+) -> list[NarrativeSectionRole]:
+    text = f"{title} {purpose}".casefold()
+    roles: list[NarrativeSectionRole] = []
+    markers = (
+        (NarrativeSectionRole.PROBLEM_FRAMING, ("intro", "question", "problem", "motivation")),
+        (
+            NarrativeSectionRole.BACKGROUND_LITERATURE_POSITIONING,
+            ("literature", "related work", "prior work", "background"),
+        ),
+        (NarrativeSectionRole.MODEL_FRAME, ("method", "design", "model", "setup")),
+        (
+            NarrativeSectionRole.MAIN_BODY_RESULT,
+            ("result", "finding", "evidence", "comparison"),
+        ),
+        (
+            NarrativeSectionRole.NUMERICAL_VALIDATION,
+            ("experiment", "simulation", "numerical", "benchmark"),
+        ),
+        (
+            NarrativeSectionRole.LIMITATIONS_DISCUSSION,
+            ("limitation", "discussion", "conclusion", "boundary"),
+        ),
+        (NarrativeSectionRole.SYNTHETIC_BOUNDARY, ("synthetic", "simulation")),
+    )
+    for role, terms in markers:
+        if any(term in text for term in terms):
+            roles.append(role)
+    return roles or [NarrativeSectionRole.CENTRAL_MESSAGE]
 
 
 def _materialize_plan(
@@ -1010,10 +1119,16 @@ def _materialize_plan(
             ),
             scope_constraints=item.scope_constraints,
             allowed_claim_ids=[value for value in item.claim_ids if value in allowed_claim_ids],
+            narrative_roles=_narrative_roles_for_section(item.title, item.purpose),
+            opening_purpose=item.opening_purpose,
+            takeaway=item.takeaway,
+            transition_to_next=item.transition_to_next,
         )
         for item in proposal.section_plans
     ]
-    retrieval_citations = _retrieval_citation_ids(citations)
+    retrieval_citations = {
+        item.binding_id for item in _selected_retrieval_citations(citations)
+    }
     if retrieval_citations:
         literature_sections = [
             section
@@ -1048,8 +1163,52 @@ def _materialize_plan(
                         "Do not claim exhaustive coverage, novelty, underuse, or scientific "
                         "validation from retrieval context."
                     ],
+                    narrative_roles=[
+                        NarrativeSectionRole.BACKGROUND_LITERATURE_POSITIONING
+                    ],
+                    opening_purpose=(
+                        "Establish the closest prior baselines before stating the unresolved gap."
+                    ),
+                    takeaway=(
+                        "The retrieved record bounds the comparison but does not settle the "
+                        "paper's question."
+                    ),
+                    transition_to_next=(
+                        "The unresolved gap motivates the study design that follows."
+                    ),
                 ),
             )
+    narrative_contract = NarrativeManuscriptContract(
+        contract_id=f"{plan_id}-narrative-contract",
+        run_id=run_id,
+        central_message=f"{proposal.contribution} {proposal.main_result}".strip(),
+        problem_statement=proposal.central_tension,
+        why_interesting=proposal.archetype_rationale,
+        literature_gap=proposal.literature_gap,
+        novelty_claim="No novelty claim is established by this manuscript pipeline.",
+        model_frame=proposal.prior_baseline,
+        notation_policy=(
+            "Introduce only notation required to state the central question and result."
+        ),
+        main_result_id=next(iter(sorted(allowed_claim_ids)), None),
+        main_result_in_words=proposal.main_result,
+        numerical_study_purpose=proposal.interpretation,
+        synthetic_study_boundary=proposal.boundary_statement,
+        empirical_study_boundary=proposal.boundary_statement,
+        appendix_policy=(
+            "Keep secondary checks, audit detail, and open obligations outside the main arc."
+        ),
+        section_plan=[
+            {
+                "section_id": section.section_id,
+                "opening_purpose": section.opening_purpose,
+                "takeaway": section.takeaway,
+                "transition_to_next": section.transition_to_next,
+            }
+            for section in sections
+        ],
+        fake=False,
+    )
     return NucleusManuscriptPlan(
         plan_id=plan_id,
         run_id=run_id,
@@ -1059,6 +1218,16 @@ def _materialize_plan(
         paper_type=proposal.paper_type,
         central_question=proposal.central_question,
         central_claim=proposal.central_claim,
+        archetype_rationale=proposal.archetype_rationale,
+        central_tension=proposal.central_tension,
+        prior_baseline=proposal.prior_baseline,
+        literature_gap=proposal.literature_gap,
+        contribution=proposal.contribution,
+        main_result=proposal.main_result,
+        interpretation=proposal.interpretation,
+        boundary_statement=proposal.boundary_statement,
+        abstract_moves=proposal.abstract_moves,
+        narrative_contract_optional=narrative_contract,
         allowed_claim_scope=nucleus.allowed_claim_scope,
         forbidden_claims=_merge_forbidden(nucleus.forbidden_claims),
         section_plans=sections,
@@ -1109,6 +1278,25 @@ def _validate_plan(plan: NucleusManuscriptPlan, inputs: _Inputs) -> list[str]:
     )
     if not plan.section_plans:
         blockers.append("Manuscript plan lacks section plans.")
+    narrative_values = {
+        "archetype rationale": plan.archetype_rationale,
+        "central tension": plan.central_tension,
+        "prior baseline": plan.prior_baseline,
+        "literature gap": plan.literature_gap,
+        "contribution": plan.contribution,
+        "main result": plan.main_result,
+        "interpretation": plan.interpretation,
+        "boundary statement": plan.boundary_statement,
+    }
+    blockers.extend(
+        f"Manuscript plan lacks {name}."
+        for name, value in narrative_values.items()
+        if not value.strip()
+    )
+    if len(plan.abstract_moves) != 5:
+        blockers.append("Manuscript plan must define exactly five abstract narrative moves.")
+    if plan.narrative_contract_optional is None:
+        blockers.append("Manuscript plan lacks its narrative contract.")
     for section in plan.section_plans:
         if not section.purpose.strip() or not section.scope_constraints:
             blockers.append(f"Section {section.section_id} lacks purpose or scope constraints.")
@@ -1119,6 +1307,17 @@ def _validate_plan(plan: NucleusManuscriptPlan, inputs: _Inputs) -> list[str]:
         if set(section.supporting_package_ids) - known_packages:
             blockers.append(
                 f"Section {section.section_id} references package IDs outside adjudication roles."
+            )
+        if not all(
+            value.strip()
+            for value in (
+                section.opening_purpose,
+                section.takeaway,
+                section.transition_to_next,
+            )
+        ):
+            blockers.append(
+                f"Section {section.section_id} lacks an opening purpose, takeaway, or transition."
             )
     corpus = " ".join(f"{item.title} {item.purpose}" for item in plan.section_plans).casefold()
     required_roles = {
@@ -1139,7 +1338,11 @@ def _validate_plan(plan: NucleusManuscriptPlan, inputs: _Inputs) -> list[str]:
         inputs.nucleus.appendix_package_ids or inputs.nucleus.negative_package_ids
     ) and "append" not in corpus:
         blockers.append("Manuscript plan lacks an appendix-oriented section.")
-    retrieval_citations = _retrieval_citation_ids(inputs.citation_bindings)
+    blockers.extend(_paper_type_compatibility_reasons(plan, inputs))
+    retrieval_citations = {
+        item.binding_id
+        for item in _selected_retrieval_citations(inputs.citation_bindings)
+    }
     if retrieval_citations:
         literature_sections = [
             section
@@ -1158,10 +1361,39 @@ def _validate_plan(plan: NucleusManuscriptPlan, inputs: _Inputs) -> list[str]:
                 for citation in section.required_citations
             }
         ):
-            blockers.append(
-                "The literature section does not bind every accepted retrieval source."
-            )
+            blockers.append("The literature section omits a selected retrieval source.")
     return _unique(blockers)
+
+
+def _paper_type_compatibility_reasons(
+    plan: NucleusManuscriptPlan,
+    inputs: _Inputs,
+) -> list[str]:
+    packages = inputs.packages.packages if inputs.packages is not None else []
+    artifact_types = {
+        artifact.artifact_type for package in packages for artifact in package.artifact_plans
+    }
+    statuses = {item.status for item in inputs.primary_results}
+    reasons: list[str] = []
+    if plan.paper_type == NucleusPaperType.NEGATIVE_RESULT and "negative_result" not in statuses:
+        reasons.append("Negative-result paper type requires an accepted negative result.")
+    if plan.paper_type == NucleusPaperType.COUNTEREXAMPLE and not statuses.intersection(
+        {"negative_result", "inconclusive"}
+    ):
+        reasons.append("Counterexample paper type requires a negative or boundary result.")
+    if plan.paper_type == NucleusPaperType.ROBUSTNESS_STUDY and (
+        EvidenceArtifactType.ROBUSTNESS_SWEEP not in artifact_types
+    ):
+        reasons.append("Robustness-study paper type requires a robustness-sweep artifact.")
+    if plan.paper_type == NucleusPaperType.THEORY_WITH_NUMERICAL_ILLUSTRATION and not any(
+        artifact.requires_symbolic_checker
+        for package in packages
+        for artifact in package.artifact_plans
+    ):
+        reasons.append(
+            "Theory-with-numerical-illustration paper type requires a symbolic obligation."
+        )
+    return reasons
 
 
 def _normalize_citation_references(
@@ -1176,6 +1408,8 @@ def _normalize_citation_references(
         source_prefixes[citation.citation_or_reference_id.split("#", 1)[0]] = (
             citation.binding_id
         )
+    for index, citation in enumerate(_selected_retrieval_citations(citations), start=1):
+        aliases[f"{{{{CITE:{index:03d}}}}}"] = citation.binding_id
     normalized: list[str] = []
     for value in values:
         resolved = aliases.get(value) or source_prefixes.get(value.split("#", 1)[0])
@@ -1202,30 +1436,61 @@ def _materialize_draft(
 ) -> tuple[NucleusManuscriptDraft, list[str]]:
     known_claims = {item.claim_id for item in inputs.claim_bindings}
     known_citations = {item.binding_id for item in inputs.citation_bindings}
-    if source_draft_id is None:
-        markdown = _append_metric_table(proposal.markdown, inputs.primary_results)
-        latex = _append_latex_metric_table(proposal.latex, inputs.primary_results)
-    else:
-        markdown = proposal.markdown
-        latex = proposal.latex
-    retrieval_citations = _retrieval_citation_ids(inputs.citation_bindings)
-    markdown, latex = _ensure_literature_content(
-        markdown=markdown,
-        latex=latex,
+    metric_tokens = _metric_tokens(
+        inputs.primary_results,
+        preferred_metrics=_declared_metric_names(inputs),
+    )
+    citation_tokens = _citation_tokens(inputs)
+    token_texts = {
+        "title": proposal.title,
+        "abstract": proposal.abstract,
+        "markdown": proposal.markdown,
+        "latex": proposal.latex,
+    }
+    token_texts["markdown"], token_texts["latex"] = _ensure_literature_content(
+        markdown=token_texts["markdown"],
+        latex=token_texts["latex"],
         inputs=inputs,
     )
+    metric_resolved_texts, used_tokens, token_blockers = _resolve_metric_tokens(
+        token_texts,
+        metric_tokens,
+    )
+    resolved_texts, used_citation_tokens, citation_token_blockers = (
+        _resolve_citation_tokens(metric_resolved_texts, citation_tokens)
+    )
+    markdown = resolved_texts["markdown"]
+    latex = resolved_texts["latex"]
+    retrieval_citations = {
+        item.binding_id
+        for item in _selected_retrieval_citations(inputs.citation_bindings)
+    }
+    used_retrieval_citations = {
+        str(item["binding_id"])
+        for item in citation_tokens
+        if item["token"] in used_citation_tokens
+    }
+    citation_binding_ids = [
+        item
+        for item in proposal.citation_binding_ids
+        if item not in retrieval_citations
+    ]
+    citation_binding_ids.extend(sorted(used_retrieval_citations))
     draft = NucleusManuscriptDraft(
         draft_id=draft_id,
         run_id=run_id,
         plan_id=plan.plan_id,
-        title=proposal.title,
-        abstract=proposal.abstract,
+        title=resolved_texts["title"],
+        abstract=resolved_texts["abstract"],
         markdown=markdown,
         latex=latex,
         claim_ids_used=proposal.claim_ids_used,
-        citation_binding_ids=_unique(
-            [*proposal.citation_binding_ids, *sorted(retrieval_citations)]
-        ),
+        citation_binding_ids=_unique(citation_binding_ids),
+        metric_tokens_used=used_tokens,
+        metric_token_bindings=[
+            item for item in metric_tokens if item["token"] in used_tokens
+        ],
+        metric_tokenized_text=token_texts,
         source_draft_id_optional=source_draft_id,
     )
     blockers = _forbidden_reasons(
@@ -1244,16 +1509,20 @@ def _materialize_draft(
         blockers.append("Draft does not identify any artifact-bound substantive claims.")
     retrieval_citations = _retrieval_citation_ids(inputs.citation_bindings)
     if retrieval_citations:
-        if not retrieval_citations.issubset(set(draft.citation_binding_ids)):
-            blockers.append("Draft omits accepted retrieval-source citation bindings.")
+        used_retrieval = retrieval_citations.intersection(draft.citation_binding_ids)
+        if len(used_retrieval) < min(3, len(retrieval_citations)):
+            blockers.append(
+                "Draft must use at least three selected retrieval sources when available."
+            )
         if not any(
             marker in draft.markdown.casefold()
             for marker in ("related work", "literature", "prior work")
         ):
             blockers.append("Draft lacks source-grounded literature content.")
-    blockers.extend(
-        _metric_literal_reasons(proposal.markdown, proposal.latex, inputs.primary_results)
-    )
+    blockers.extend(token_blockers)
+    blockers.extend(citation_token_blockers)
+    if metric_tokens and not used_tokens:
+        blockers.append("Draft does not use any supplied exact metric token.")
     requires_appendix = bool(
         inputs.nucleus
         and (
@@ -1286,56 +1555,71 @@ def _retrieval_citation_ids(
     }
 
 
+def _selected_retrieval_citations(
+    citations: Iterable[EvidenceCitationBinding],
+) -> list[EvidenceCitationBinding]:
+    return [
+        item for item in citations if item.source_type == "retrieval_source"
+    ][:_MAX_LITERATURE_SOURCES]
+
+
+def _citation_tokens(inputs: _Inputs) -> list[dict[str, str]]:
+    tokens: list[dict[str, str]] = []
+    for citation in _selected_retrieval_citations(inputs.citation_bindings):
+        source = _retrieval_source_for_citation(citation, inputs.retrieval_contexts)
+        if source is None:
+            continue
+        authors = " and ".join(source.authors[:2]) or "Unknown author"
+        if len(source.authors) > 2:
+            authors += " et al."
+        tokens.append(
+            {
+                "token": f"{{{{CITE:{len(tokens) + 1:03d}}}}}",
+                "binding_id": citation.binding_id,
+                "authors": authors,
+                "year": str(source.year) if source.year is not None else "n.d.",
+                "title": source.title,
+                "citation_key": _citation_key(source.source_id),
+            }
+        )
+    return tokens
+
+
 def _ensure_literature_content(
     *,
     markdown: str,
     latex: str,
     inputs: _Inputs,
 ) -> tuple[str, str]:
-    citations = [
-        item for item in inputs.citation_bindings if item.source_type == "retrieval_source"
-    ]
-    if not citations or any(
+    citation_tokens = _citation_tokens(inputs)
+    if not citation_tokens or any(
         marker in markdown.casefold()
         for marker in ("related work", "literature", "prior work")
     ):
         return markdown, latex
+    token_sequence = " ".join(item["token"] for item in citation_tokens)
     markdown_lines = [
         markdown.rstrip(),
         "",
         "## Related Work and Literature Boundaries",
         "",
         (
-            "The following accepted retrieval records provide bounded background context only; "
-            "they do not establish novelty, completeness, or scientific validation."
+            "The retrieved literature collectively supplies the closest available baseline and "
+            f"problem framing {token_sequence}. Read together, these sources delimit the "
+            "unresolved comparison addressed here; they do not establish exhaustive coverage or "
+            "novelty."
         ),
-        "",
     ]
     latex_lines = [
         latex.rstrip(),
         "",
         r"\section{Related Work and Literature Boundaries}",
         (
-            "The accepted retrieval records provide bounded background context only; they do "
-            "not establish novelty, completeness, or scientific validation."
+            "The accepted retrieval record positions the study against the closest prior "
+            f"approaches {token_sequence} and delimits the unresolved comparison. It does not "
+            "establish exhaustive coverage or novelty."
         ),
-        r"\begin{itemize}",
     ]
-    for citation in citations:
-        source = _retrieval_source_for_citation(citation, inputs.retrieval_contexts)
-        if source is None:
-            continue
-        authors = ", ".join(source.authors) if source.authors else "Unknown author"
-        year = str(source.year) if source.year is not None else "n.d."
-        markdown_lines.append(
-            f"- {authors} ({year}), *{source.title}* "
-            f"[`{citation.binding_id}`]."
-        )
-        latex_lines.append(
-            rf"\item {_latex_escape(authors)} ({_latex_escape(year)}), "
-            rf"\emph{{{_latex_escape(source.title)}}}."
-        )
-    latex_lines.append(r"\end{itemize}")
     return "\n".join(markdown_lines).rstrip() + "\n", "\n".join(latex_lines).rstrip() + "\n"
 
 
@@ -1362,10 +1646,11 @@ def _run_critics(
     planner: NucleusManuscriptClient,
     draft: NucleusManuscriptDraft,
     evidence: dict[str, Any],
+    roles: Iterable[ManuscriptCriticRole] = _REVIEW_ROLES,
 ) -> tuple[list[ManuscriptCriticReview], list[NucleusManuscriptRawArtifact]]:
     reviews: list[ManuscriptCriticReview] = []
     raws: list[NucleusManuscriptRawArtifact] = []
-    for index, role in enumerate(_REVIEW_ROLES, start=1):
+    for index, role in enumerate(roles, start=1):
         response = planner.critique_manuscript(
             prompt_id=f"{report_id}-critic-{index:03d}",
             critic_role=role,
@@ -1460,13 +1745,16 @@ def _persist_revision_deferred(
     raw_artifacts: list[NucleusManuscriptRawArtifact],
     blockers: list[str],
     applied: list[str],
+    revision_attempt: int,
     backend_records: list[StageBackendRecord],
+    revised_draft: NucleusManuscriptDraft | None = None,
 ) -> NucleusManuscriptResult:
     revision = ManuscriptRevisionReport(
         revision_id=f"manuscript-revision-report-{_report_number(report_id):04d}",
         run_id=run_id,
         source_draft_id=draft.draft_id,
-        revision_attempt=1,
+        revised_draft_id_optional=revised_draft.draft_id if revised_draft else None,
+        revision_attempt=revision_attempt,
         status="manuscript_deferred",
         applied_recommendations=applied,
         remaining_blocking_findings=_unique(blockers),
@@ -1481,6 +1769,17 @@ def _persist_revision_deferred(
         paper_nucleus_selection_id_optional=inputs.adjudication.report_id,
         manuscript_plan_optional=plan,
         draft_optional=draft,
+        revised_markdown_path_optional=(
+            f"runs/{run_id}/reports/{revised_draft.draft_id}.md"
+            if revised_draft
+            else None
+        ),
+        revised_latex_path_optional=(
+            f"runs/{run_id}/latex/{revised_draft.draft_id}.tex"
+            if revised_draft
+            else None
+        ),
+        revised_draft_optional=revised_draft,
         claim_artifact_bindings=inputs.claim_bindings,
         evidence_citation_bindings=inputs.citation_bindings,
         critic_reviews=reviews,
@@ -1496,6 +1795,7 @@ def _persist_revision_deferred(
     return _persist_report(
         report=report,
         raw_artifacts=raw_artifacts,
+        revised_draft=revised_draft,
         revision=revision,
         store=store,
         ledger=ledger,
@@ -1829,92 +2129,179 @@ def _metric_rows(results: Iterable[EvidencePackageExecutionResult]) -> list[dict
     return rows
 
 
-def _append_metric_table(markdown: str, results: list[EvidencePackageExecutionResult]) -> str:
+def _metric_tokens(
+    results: Iterable[EvidencePackageExecutionResult],
+    *,
+    preferred_metrics: Iterable[str] = (),
+) -> list[dict[str, Any]]:
     rows = _metric_rows(results)
-    if not rows:
-        return markdown
-    lines = [
-        markdown.rstrip(),
-        "",
-        "## Artifact-Bound Metrics",
-        "",
-        "| Artifact | Metric | Value |",
-        "|---|---|---:|",
+    declared = list(preferred_metrics)
+    selected = sorted(
+        rows,
+        key=lambda row: (
+            -_metric_priority(str(row["metric"]), declared),
+            str(row["artifact_id"]),
+            str(row["metric"]),
+        ),
+    )[:_MAX_METRIC_TOKENS]
+    return [
+        {
+            "token": f"{{{{METRIC:{index:03d}}}}}",
+            "artifact_id": row["artifact_id"],
+            "metric": row["metric"],
+            "display_label": _metric_display_label(str(row["metric"])),
+            "value": row["value"],
+            "source": row["source"],
+        }
+        for index, row in enumerate(selected, start=1)
     ]
-    lines.extend(f"| {row['artifact_id']} | {row['metric']} | {row['value']} |" for row in rows)
-    return "\n".join(lines) + "\n"
 
 
-def _append_latex_metric_table(latex: str, results: list[EvidencePackageExecutionResult]) -> str:
-    rows = _metric_rows(results)
-    if not rows:
-        return latex
-    lines = [
-        latex.rstrip(),
-        "",
-        r"\section*{Artifact-Bound Metrics}",
-        r"\begin{tabular}{lll}",
-        "Artifact & Metric & Value " + r"\\",
-        r"\hline",
-    ]
-    lines.extend(
-        f"{_latex_escape(str(row['artifact_id']))} & {_latex_escape(str(row['metric']))} "
-        f"& {row['value']} " + r"\\"
-        for row in rows
+def _declared_metric_names(inputs: _Inputs) -> list[str]:
+    if inputs.primary_package is None:
+        return []
+    result_plan_ids = {item.artifact_plan_id for item in inputs.primary_results}
+    return _unique(
+        str(metric)
+        for plan in inputs.primary_package.artifact_plans
+        if plan.artifact_plan_id in result_plan_ids
+        for metric in plan.output_contract.get("required_metrics", [])
+        if str(metric).strip()
     )
-    lines.append(r"\end{tabular}")
-    return "\n".join(lines) + "\n"
+
+
+def _metric_priority(metric: str, preferred_metrics: Iterable[str]) -> int:
+    value = metric.casefold()
+    score = 0
+    metric_words = set(_ARTIFACT_TOKEN_RE.findall(value))
+    for preferred in preferred_metrics:
+        preferred_words = set(_ARTIFACT_TOKEN_RE.findall(preferred.casefold()))
+        overlap = metric_words.intersection(preferred_words)
+        if overlap:
+            score = max(score, 100 + 25 * len(overlap))
+    if value.endswith((".mean", "_mean")):
+        score += 80
+    if "paired" in value or "difference" in value or "contrast" in value:
+        score += 25
+    if value.endswith((".count", "_count", ".0", ".1")):
+        score -= 70
+    if any(
+        marker in value
+        for marker in ("failure", "warning", "diagnostic", "runtime", "seed")
+    ):
+        score -= 30
+    return score
+
+
+def _metric_display_label(metric: str) -> str:
+    parts = [part for part in metric.split(".") if part not in {"mean"}]
+    if len(parts) >= 2 and parts[-1].isdigit():
+        parts[-1] = f"cell {parts[-1]}"
+    label = ": ".join(
+        part.replace("_", " ") for part in parts[-3:]
+    )
+    return label[:120]
+
+
+def _resolve_metric_tokens(
+    texts: dict[str, str],
+    tokens: list[dict[str, Any]],
+) -> tuple[dict[str, str], list[str], list[str]]:
+    by_token = {str(item["token"]): item for item in tokens}
+    observed = {
+        token
+        for text in texts.values()
+        for token in _METRIC_TOKEN_RE.findall(text)
+    }
+    unknown = sorted(observed - set(by_token))
+    blockers = (
+        ["Draft references unknown metric tokens: " + ", ".join(unknown)]
+        if unknown
+        else []
+    )
+    resolved: dict[str, str] = {}
+    for name, text in texts.items():
+        value = text
+        for token in sorted(observed.intersection(by_token)):
+            exact = json.dumps(by_token[token]["value"], allow_nan=False)
+            value = value.replace(token, exact)
+        unresolved_text = value
+        for token in unknown:
+            unresolved_text = unresolved_text.replace(token, "")
+        if "{{METRIC:" in unresolved_text:
+            blockers.append(f"Draft {name} contains a malformed or unresolved metric token.")
+        resolved[name] = value
+    return resolved, sorted(observed.intersection(by_token)), _unique(blockers)
+
+
+def _resolve_citation_tokens(
+    texts: dict[str, str],
+    tokens: list[dict[str, str]],
+) -> tuple[dict[str, str], list[str], list[str]]:
+    by_token = {item["token"]: item for item in tokens}
+    observed = {
+        token
+        for text in texts.values()
+        for token in _CITATION_TOKEN_RE.findall(text)
+    }
+    unknown = sorted(observed - set(by_token))
+    blockers = (
+        ["Draft references unknown citation tokens: " + ", ".join(unknown)]
+        if unknown
+        else []
+    )
+    resolved: dict[str, str] = {}
+    for name, text in texts.items():
+        value = text
+        for token in sorted(observed.intersection(by_token)):
+            binding = by_token[token]
+            replacement = (
+                rf"\cite{{{binding['citation_key']}}}"
+                if name == "latex"
+                else (
+                    f"[{binding['authors']}, {binding['year']}]"
+                    f"(#{binding['citation_key']})"
+                )
+            )
+            value = value.replace(token, replacement)
+        for token in unknown:
+            value = value.replace(token, "")
+        if "{{CITE:" in value:
+            blockers.append(f"Draft {name} contains a malformed or unresolved citation token.")
+        resolved[name] = value
+    return resolved, sorted(observed.intersection(by_token)), _unique(blockers)
+
+
+def _retokenized_draft_payload(draft: NucleusManuscriptDraft) -> dict[str, Any]:
+    payload = draft.model_dump(mode="json")
+    if draft.metric_tokenized_text:
+        payload.update(draft.metric_tokenized_text)
+        return payload
+    for field_name in ("title", "abstract", "markdown", "latex"):
+        text = str(payload[field_name])
+        for binding in draft.metric_token_bindings:
+            token = str(binding.get("token", ""))
+            if not token:
+                continue
+            exact = json.dumps(binding.get("value"), allow_nan=False)
+            text = re.sub(
+                rf"(?<![A-Za-z0-9_.]){re.escape(exact)}(?![A-Za-z0-9_.])",
+                lambda _match, replacement=token: replacement,
+                text,
+            )
+        payload[field_name] = text
+    return payload
 
 
 def _metric_literal_reasons(
     markdown: str, latex: str, results: list[EvidencePackageExecutionResult]
 ) -> list[str]:
-    allowed = {
-        Decimal(str(value)) for result in results for value in result.metrics.values()
-    }
-    for result in results:
-        for summary in (
-            result.baseline_summary,
-            result.control_summary,
-            result.negative_control_summary,
-        ):
-            allowed.update(Decimal(value) for value in _DECIMAL_LITERAL_RE.findall(summary))
-    markdown_without_heading_ordinals = re.sub(
-        r"(?m)^(#{1,6}\s+)\d+(?:\.\d+)+(?=\s)", r"\1", markdown
+    """Compatibility helper: validate immutable metric tokens, not arbitrary decimals."""
+    _, _, blockers = _resolve_metric_tokens(
+        {"markdown": markdown, "latex": latex},
+        _metric_tokens(results),
     )
-    latex_without_layout_dimensions = re.sub(
-        r"(?<![\w.])[+-]?(?:\d+(?:\.\d*)?|\.\d+)"
-        r"(?=\\(?:line|text|column|paper)width\b)",
-        "",
-        latex,
-    )
-    validation_corpus = _DOI_RE.sub(
-        "",
-        f"{markdown_without_heading_ordinals}\n{latex_without_layout_dimensions}",
-    )
-    observed = set(
-        _DECIMAL_LITERAL_RE.findall(validation_corpus)
-    )
-    unexpected = sorted(
-        value for value in observed if not _decimal_literal_matches(value, allowed)
-    )
-    return (
-        [
-            "Draft contains decimal metric literals not present in execution artifacts: "
-            + ", ".join(unexpected)
-        ]
-        if unexpected
-        else []
-    )
-
-
-def _decimal_literal_matches(value: str, allowed: set[Decimal]) -> bool:
-    observed = Decimal(value)
-    if observed in allowed:
-        return True
-    displayed_quantum = Decimal(1).scaleb(observed.as_tuple().exponent)
-    rounding_tolerance = abs(displayed_quantum) / 2
-    return any(abs(observed - candidate) <= rounding_tolerance for candidate in allowed)
+    return blockers
 
 
 def _required_draft_content_reasons(
@@ -1932,7 +2319,15 @@ def _required_draft_content_reasons(
             "problem",
             "study scope",
         ),
-        "limitation": ("limitation", "bounded scope", "scope limit"),
+        "limitation": (
+            "limitation",
+            "bounded scope",
+            "scope limit",
+            "limited to",
+            "restricted to",
+            "does not address",
+            "study boundaries",
+        ),
         "conclusion": ("conclusion", "summary"),
     }
     if require_appendix:
@@ -2039,6 +2434,25 @@ def _latest_phase_report(reports: Path, phase: str) -> NucleusManuscriptSynthesi
     return None
 
 
+def _latest_revision_with_draft(
+    reports: Path,
+) -> NucleusManuscriptSynthesisReport | None:
+    paths = (
+        sorted(
+            (path for path in reports.iterdir() if _REPORT_RE.match(path.name)),
+            key=lambda path: path.name,
+            reverse=True,
+        )
+        if reports.is_dir()
+        else []
+    )
+    for path in paths:
+        report = _load_model(path, NucleusManuscriptSynthesisReport)
+        if report.phase == "revision" and report.revised_draft_optional is not None:
+            return report
+    return None
+
+
 def _latest_matching(directory: Path, pattern: re.Pattern[str]) -> Path | None:
     if not directory.is_dir():
         return None
@@ -2088,6 +2502,10 @@ def _unique(values: Iterable[str]) -> list[str]:
 
 def _slug(value: str) -> str:
     return "-".join(re.findall(r"[a-z0-9]+", value.lower())) or "item"
+
+
+def _citation_key(value: str) -> str:
+    return "Retrieved" + "".join(part.title() for part in re.findall(r"[A-Za-z0-9]+", value))
 
 
 def _latex_escape(value: str) -> str:

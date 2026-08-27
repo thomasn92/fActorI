@@ -200,18 +200,43 @@ def parse_adaptive_questioner_response(
         "rationale",
     }.issubset(payload):
         raw = [payload]
-    if not isinstance(raw, list) or len(raw) != 1:
+    if not isinstance(raw, list) or not raw:
         raise AdapterResponseParseError(
             backend="openai",
             provider="openai",
             operation="adaptive_questioner",
             message="adaptive questioner response must contain exactly one decision",
         )
+    candidates = [
+        _validated_decision_candidate(item, questions_payload=questions_payload)
+        for item in raw
+    ]
+    if len(raw) == 1:
+        return candidates[0]
+
+    valid = [decision for decision, reasons in candidates if decision and not reasons]
+    unique = {
+        json.dumps(item.model_dump(mode="json"), sort_keys=True): item for item in valid
+    }
+    if len(unique) == 1:
+        return next(iter(unique.values())), []
+    raise AdapterResponseParseError(
+        backend="openai",
+        provider="openai",
+        operation="adaptive_questioner",
+        message="adaptive questioner response must contain exactly one decision",
+    )
+
+
+def _validated_decision_candidate(
+    payload: Any,
+    *,
+    questions_payload: list[dict[str, Any]],
+) -> tuple[AdaptiveQuestionerDecisionProposal | None, list[str]]:
     try:
-        decision = AdaptiveQuestionerDecisionProposal.model_validate(raw[0])
+        decision = AdaptiveQuestionerDecisionProposal.model_validate(payload)
     except ValidationError as exc:
         return None, [str(exc)]
-
     decision = decision.model_copy(
         update={
             "answers": [

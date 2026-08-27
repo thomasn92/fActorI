@@ -241,7 +241,7 @@ class TargetedLLMBudgetManager:
             max_total_calls=max(0, self.config.max_total_calls - reserved_calls),
             max_quality_repair_calls=(
                 (1 if self.config.mode == "full" else 0)
-                + self.config.adaptive_evidence.max_code_repair_calls
+                + 2 * self.config.adaptive_evidence.max_code_repair_calls
                 + 2 * self.config.adaptive_evidence.max_plan_repair_calls
                 + failed_quality_transports
             ),

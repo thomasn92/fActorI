@@ -532,7 +532,7 @@
         },
         "default_timeout_seconds": {
           "default": 30,
-          "maximum": 300,
+          "maximum": 3600,
           "minimum": 1,
           "title": "Default Timeout Seconds",
           "type": "integer"
@@ -995,7 +995,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/generated-experiment-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/generated-experiment-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only code-generation or local execution report over M101 specs.",
@@ -1264,7 +1264,7 @@
   ],
   "title": "GeneratedExperimentExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.GeneratedExperimentExecutionReport",
   "x-factori-verification-evidence": false
 }

@@ -395,7 +395,7 @@ def execute_hybrid_evidence_packages(
     grid_cell_limit = max_grid_cells or profile_limits["grid_cells"]
     if min(replication_limit, resample_limit, grid_cell_limit) < 1:
         raise HybridEvidencePackageError("Execution workload limits must be positive.")
-    dependencies = allowed_dependencies or ["numpy"]
+    dependencies = allowed_dependencies or ["numpy", "scipy", "sklearn"]
     root_path = Path(root)
     reports = root_path / "runs" / run_id / "reports"
     package_path, package_report = _load_latest_package_report(run_id, reports)
@@ -560,6 +560,114 @@ def execute_hybrid_evidence_packages(
         if not audit.blocked:
             metric_results.append(extraction)
         return observation, result
+
+    def attempt_safety_repair(
+        *,
+        package: HybridEvidencePackageCandidate,
+        plan: EvidenceArtifactPlan,
+        substrate: Any,
+        artifact: LLMExperimentCodeArtifact,
+        audit: ExperimentCodeSafetyAudit,
+        metrics: list[str],
+        required_role_functions: list[str],
+        spec_payload: dict[str, Any],
+    ) -> tuple[LLMExperimentCodeArtifact, ExperimentCodeSafetyAudit]:
+        nonlocal code_index
+        nonlocal raw_index
+        nonlocal safety_repair_attempt_count
+        nonlocal safety_repair_success_count
+        if not audit.blocked or safety_repair_attempt_count >= max_safety_repair_calls:
+            return artifact, audit
+        safety_repair_attempt_count += 1
+        try:
+            repair = code_generator.repair_code(
+                spec_payload=spec_payload,
+                substrate_payload=substrate.model_dump(mode="json"),
+                blocked_code=artifact.code,
+                audit_payload=audit.model_dump(mode="json"),
+                allowed_dependencies=dependencies,
+            )
+        except (AdapterError, ValueError) as exc:
+            warnings.append(
+                f"Safety repair call failed for {artifact.code_artifact_id}: {exc}"
+            )
+            return artifact, audit
+
+        repair_reasons = list(repair.rejection_reasons)
+        repaired_code_id: str | None = None
+        execution_artifact = artifact
+        execution_audit = audit
+        if repair.accepted is not None and not repair_reasons:
+            repaired_code_id = (
+                "evidence-package-code-artifact-"
+                f"{code_number + code_index:04d}"
+            )
+            code_index += 1
+            repaired_artifact = _hybrid_code_artifact(
+                code_artifact_id=repaired_code_id,
+                generation_attempt=artifact.generation_attempt + 1,
+                repair_of_code_artifact_id_optional=artifact.code_artifact_id,
+                run_id=run_id,
+                package=package,
+                plan=plan,
+                proposal=repair.accepted,
+                backend_kind=code_generator.backend_kind,
+                timeout_seconds=timeout_seconds,
+            )
+            repaired_audit = _audit_hybrid_code_artifact(
+                artifact=repaired_artifact,
+                plan=plan,
+                metrics=metrics,
+                required_payload_fields=spec_payload["output_contract"][
+                    "required_payload_fields"
+                ],
+                required_role_functions=required_role_functions,
+                allowed_dependencies=dependencies,
+                execution_profile=execution_profile,
+                replication_limit=replication_limit,
+                resample_limit=resample_limit,
+                grid_cell_limit=grid_cell_limit,
+            )
+            code_artifacts.append(repaired_artifact)
+            audits.append(repaired_audit)
+            if repaired_audit.blocked:
+                warnings.append(
+                    f"Safety audit blocked repair {repaired_code_id}: "
+                    + "; ".join(repaired_audit.reasons)
+                )
+            else:
+                safety_repair_success_count += 1
+                execution_artifact = repaired_artifact
+                execution_audit = repaired_audit
+                warnings.append(
+                    f"Safety repair {repaired_code_id} supersedes blocked artifact "
+                    f"{artifact.code_artifact_id}."
+                )
+        else:
+            warnings.append(
+                f"Rejected safety repair for {artifact.code_artifact_id}: "
+                + "; ".join(repair_reasons)
+            )
+        repair_raw_id = f"hybrid-evidence-code-raw-{raw_number + raw_index:04d}"
+        raw_index += 1
+        code_raws.append(
+            LLMExperimentCodeRawArtifact(
+                raw_artifact_id=repair_raw_id,
+                repair_of_code_artifact_id_optional=artifact.code_artifact_id,
+                generation_attempt=artifact.generation_attempt + 1,
+                run_id=run_id,
+                source_spec_id=plan.artifact_plan_id,
+                backend_name=code_generator.backend_name,
+                model=code_generator.model,
+                prompt_text=repair.prompt_text,
+                requested_output_schema=repair.requested_output_schema,
+                raw_response=repair.raw_response,
+                accepted_code_artifact_id_optional=repaired_code_id,
+                rejection_reasons=repair_reasons,
+                fallback_used=code_generator.fallback_used,
+            )
+        )
+        return execution_artifact, execution_audit
 
     def attempt_runtime_repair(
         *,
@@ -960,6 +1068,13 @@ def execute_hybrid_evidence_packages(
                     if resume_previous_execution and previous_execution is not None
                     else None
                 )
+                if prior_code_artifact is None and resume_previous_execution:
+                    prior_code_artifact = _latest_m103_code_artifact_from_history(
+                        reports=reports,
+                        source_package_report_path=current_package_path,
+                        execution_profile=execution_profile,
+                        source_spec_id=plan.artifact_plan_id,
+                    )
                 if prior_code_artifact is not None:
                     revalidated_code_id = (
                         "evidence-package-code-artifact-"
@@ -990,6 +1105,56 @@ def execute_hybrid_evidence_packages(
                         resample_limit=resample_limit,
                         grid_cell_limit=grid_cell_limit,
                     )
+                    if (
+                        revalidated_audit.blocked
+                        and safety_repair_attempt_count < max_safety_repair_calls
+                    ):
+                        code_artifacts.append(revalidated_artifact)
+                        audits.append(revalidated_audit)
+                        execution_artifact, execution_audit = attempt_safety_repair(
+                            package=package,
+                            plan=plan,
+                            substrate=substrate,
+                            artifact=revalidated_artifact,
+                            audit=revalidated_audit,
+                            metrics=metrics,
+                            required_role_functions=required_role_functions,
+                            spec_payload=spec_payload,
+                        )
+                        observation, result = record_code_execution(
+                            package=package,
+                            plan=plan,
+                            result_id=result_id,
+                            artifact=execution_artifact,
+                            audit=execution_audit,
+                            metrics=metrics,
+                            spec_payload=spec_payload,
+                        )
+                        result = attempt_runtime_repair(
+                            package=package,
+                            plan=plan,
+                            result_id=result_id,
+                            substrate=substrate,
+                            artifact=execution_artifact,
+                            observation=observation,
+                            result=result,
+                            metrics=metrics,
+                            required_role_functions=required_role_functions,
+                            spec_payload=spec_payload,
+                        )
+                        results.append(result)
+                        if result.execution_completed:
+                            available_refs.update(plan_refs)
+                        if result.status in {
+                            "failed",
+                            "inconclusive",
+                            "blocked_safety_audit",
+                        }:
+                            warnings.append(
+                                f"{plan.artifact_plan_id} produced {result.status}: "
+                                f"{result.failure_reason_optional or '; '.join(result.warnings)}"
+                            )
+                        continue
                     if not revalidated_audit.blocked:
                         code_artifacts.append(revalidated_artifact)
                         audits.append(revalidated_audit)
@@ -1129,97 +1294,16 @@ def execute_hybrid_evidence_packages(
                     )
                     code_artifacts.append(artifact)
                     audits.append(audit)
-                    execution_artifact = artifact
-                    execution_audit = audit
-                    repair_raw: LLMExperimentCodeRawArtifact | None = None
-                    if (
-                        audit.blocked
-                        and safety_repair_attempt_count < max_safety_repair_calls
-                    ):
-                        safety_repair_attempt_count += 1
-                        try:
-                            repair = code_generator.repair_code(
-                                spec_payload=spec_payload,
-                                substrate_payload=substrate.model_dump(mode="json"),
-                                blocked_code=artifact.code,
-                                audit_payload=audit.model_dump(mode="json"),
-                                allowed_dependencies=dependencies,
-                            )
-                        except (AdapterError, ValueError) as exc:
-                            warnings.append(
-                                f"Safety repair call failed for {code_id}: {exc}"
-                            )
-                        else:
-                            repair_reasons = list(repair.rejection_reasons)
-                            repaired_code_id: str | None = None
-                            if repair.accepted is not None and not repair_reasons:
-                                repaired_code_id = (
-                                    "evidence-package-code-artifact-"
-                                    f"{code_number + code_index:04d}"
-                                )
-                                code_index += 1
-                                repaired_artifact = _hybrid_code_artifact(
-                                    code_artifact_id=repaired_code_id,
-                                    generation_attempt=2,
-                                    repair_of_code_artifact_id_optional=code_id,
-                                    run_id=run_id,
-                                    package=package,
-                                    plan=plan,
-                                    proposal=repair.accepted,
-                                    backend_kind=code_generator.backend_kind,
-                                    timeout_seconds=timeout_seconds,
-                                )
-                                repaired_audit = _audit_hybrid_code_artifact(
-                                    artifact=repaired_artifact,
-                                    plan=plan,
-                                    metrics=metrics,
-                                    required_payload_fields=required_payload_fields,
-                                    required_role_functions=required_role_functions,
-                                    allowed_dependencies=dependencies,
-                                    execution_profile=execution_profile,
-                                    replication_limit=replication_limit,
-                                    resample_limit=resample_limit,
-                                    grid_cell_limit=grid_cell_limit,
-                                )
-                                code_artifacts.append(repaired_artifact)
-                                audits.append(repaired_audit)
-                                if repaired_audit.blocked:
-                                    warnings.append(
-                                        f"Safety audit blocked repair {repaired_code_id}: "
-                                        + "; ".join(repaired_audit.reasons)
-                                    )
-                                else:
-                                    safety_repair_success_count += 1
-                                    execution_artifact = repaired_artifact
-                                    execution_audit = repaired_audit
-                                    warnings.append(
-                                        f"Safety repair {repaired_code_id} supersedes blocked "
-                                        f"artifact {code_id}."
-                                    )
-                            else:
-                                warnings.append(
-                                    f"Rejected safety repair for {code_id}: "
-                                    + "; ".join(repair_reasons)
-                                )
-                            repair_raw_id = (
-                                f"hybrid-evidence-code-raw-{raw_number + raw_index:04d}"
-                            )
-                            raw_index += 1
-                            repair_raw = LLMExperimentCodeRawArtifact(
-                                raw_artifact_id=repair_raw_id,
-                                repair_of_code_artifact_id_optional=code_id,
-                                generation_attempt=2,
-                                run_id=run_id,
-                                source_spec_id=plan.artifact_plan_id,
-                                backend_name=code_generator.backend_name,
-                                model=code_generator.model,
-                                prompt_text=repair.prompt_text,
-                                requested_output_schema=repair.requested_output_schema,
-                                raw_response=repair.raw_response,
-                                accepted_code_artifact_id_optional=repaired_code_id,
-                                rejection_reasons=repair_reasons,
-                                fallback_used=code_generator.fallback_used,
-                            )
+                    execution_artifact, execution_audit = attempt_safety_repair(
+                        package=package,
+                        plan=plan,
+                        substrate=substrate,
+                        artifact=artifact,
+                        audit=audit,
+                        metrics=metrics,
+                        required_role_functions=required_role_functions,
+                        spec_payload=spec_payload,
+                    )
                     observation, result = record_code_execution(
                         package=package,
                         plan=plan,
@@ -1249,8 +1333,6 @@ def execute_hybrid_evidence_packages(
                             f"{plan.artifact_plan_id} produced {result.status}: "
                             f"{result.failure_reason_optional or '; '.join(result.warnings)}"
                         )
-                    if repair_raw is not None:
-                        code_raws.append(repair_raw)
                 code_raws.append(
                     LLMExperimentCodeRawArtifact(
                         raw_artifact_id=code_raw_id,
@@ -2102,6 +2184,7 @@ def _code_result(
     success = _output_bool(output_payload, "success_criteria_satisfied")
     failure = _output_bool(output_payload, "failure_criteria_satisfied")
     negative_passed = _output_bool(output_payload, "negative_controls_passed")
+    declared_evidence_label = _output_declared_evidence_label(output_payload)
     warnings: list[str] = []
     if execution.status == "blocked":
         status = "blocked_safety_audit"
@@ -2121,6 +2204,13 @@ def _code_result(
         label = "InconclusiveResult"
         warnings.append(
             "Smoke-profile execution validates architecture only and cannot support adjudication."
+        )
+    elif declared_evidence_label == "InconclusiveResult":
+        status = "inconclusive"
+        label = "InconclusiveResult"
+        warnings.append(
+            "Generated output explicitly declared InconclusiveResult; local criteria cannot "
+            "upgrade that conservative evidence boundary."
         )
     elif negative_passed is not True:
         status = "inconclusive"
@@ -2665,7 +2755,11 @@ def _validate_package_output_contract(
         for item in required_logical_artifacts
         if not isinstance(logical_artifacts, dict) or not logical_artifacts.get(item)
     ]
-    if not missing_fields and not missing_logical_artifacts:
+    component_check_failure = _component_check_failure(
+        output_payload=output_payload,
+        required="component_check_summary" in required_fields,
+    )
+    if not missing_fields and not missing_logical_artifacts and component_check_failure is None:
         return extraction
     warnings = list(extraction.extraction_warnings)
     if missing_fields:
@@ -2677,6 +2771,8 @@ def _validate_package_output_contract(
             "Required logical artifacts are missing from output.json: "
             + ", ".join(missing_logical_artifacts)
         )
+    if component_check_failure is not None:
+        warnings.append(component_check_failure)
     return extraction.model_copy(
         update={
             "metrics_extracted": False,
@@ -2686,6 +2782,40 @@ def _validate_package_output_contract(
             "extraction_warnings": warnings,
         }
     )
+
+
+def _component_check_failure(
+    *,
+    output_payload: dict[str, Any] | None,
+    required: bool,
+) -> str | None:
+    if not required:
+        return None
+    summary = (
+        output_payload.get("component_check_summary")
+        if isinstance(output_payload, dict)
+        else None
+    )
+    if not isinstance(summary, dict):
+        return "Component preflight summary is missing or is not an object."
+    passed = summary.get("passed")
+    check_count = summary.get("check_count")
+    failed_count = summary.get("failed_count")
+    if passed is not True:
+        return "Component preflight did not pass."
+    if (
+        not isinstance(check_count, int)
+        or isinstance(check_count, bool)
+        or check_count < 1
+    ):
+        return "Component preflight check_count must be a positive integer."
+    if (
+        not isinstance(failed_count, int)
+        or isinstance(failed_count, bool)
+        or failed_count != 0
+    ):
+        return "Component preflight failed_count must be zero."
+    return None
 
 
 def _unresolved_expected_files(
@@ -2733,6 +2863,7 @@ def _code_spec_payload(
         "negative_controls_passed",
         "success_criteria_satisfied",
         "failure_criteria_satisfied",
+        "component_check_summary",
     ]
     planned_output_fields = [
         str(item) for item in plan.output_contract.get("required_fields", [])
@@ -2792,6 +2923,7 @@ def _required_logical_artifacts(plan: EvidenceArtifactPlan) -> list[str]:
 
 def _required_role_functions(plan: EvidenceArtifactPlan) -> list[str]:
     functions = [
+        "run_component_checks",
         "run_baseline",
         "run_proposed_method",
         "run_controls",
@@ -3197,6 +3329,20 @@ def _output_string(payload: dict[str, Any] | None, key: str, fallback: str) -> s
     if isinstance(value, (dict, list)) and value:
         return json.dumps(value, sort_keys=True, separators=(",", ":"))
     return fallback
+
+
+def _output_declared_evidence_label(payload: dict[str, Any] | None) -> str | None:
+    if payload is None:
+        return None
+    allowed = {"CounterexampleEvidence", "NegativeResult", "InconclusiveResult"}
+    for key, value in payload.items():
+        normalized_key = str(key).casefold().replace("_", " ")
+        is_evidence_field = normalized_key in {"evidence label", "evidence status"} or (
+            normalized_key.startswith("evidence status restricted")
+        )
+        if is_evidence_field and isinstance(value, str) and value in allowed:
+            return value
+    return None
 
 
 def _output_bool(payload: dict[str, Any] | None, key: str) -> bool | None:

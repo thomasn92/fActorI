@@ -8,6 +8,7 @@ from pathlib import Path
 from factori.schemas import ExperimentCodeSafetyAudit, LLMExperimentCodeArtifact
 
 _STDLIB_IMPORTS = {
+    "collections",
     "hashlib",
     "json",
     "math",
@@ -141,7 +142,7 @@ def audit_generated_experiment_code(
 
         if isinstance(node, ast.Call):
             call_name = _call_name(node.func)
-            if call_name in _UNSAFE_CALLS:
+            if call_name in _UNSAFE_CALLS and not _is_safe_literal_getattr(node):
                 unsafe_eval_exec.add(call_name)
             if call_name in _PROCESS_CALLS or call_name.startswith(
                 _PROCESS_CALL_PREFIXES
@@ -327,6 +328,7 @@ def audit_generated_experiment_semantics(
         "baseline_summary": "run_baseline",
         "control_summary": "run_controls",
         "negative_control_summary": "run_negative_controls",
+        "component_check_summary": "run_component_checks",
     }
     for field_name, producer in bindings.items():
         values = _dictionary_values_for_key(tree, field_name)
@@ -730,6 +732,19 @@ def _validate_open_call(node: ast.Call, filesystem_escape: set[str]) -> bool:
         filesystem_escape.add(f"output.json mode={mode}")
         return False
     return True
+
+
+def _is_safe_literal_getattr(node: ast.Call) -> bool:
+    """Allow a bounded public attribute read without enabling dynamic introspection."""
+    if _call_name(node.func) != "getattr" or len(node.args) not in {2, 3}:
+        return False
+    attribute = node.args[1]
+    return (
+        isinstance(attribute, ast.Constant)
+        and isinstance(attribute.value, str)
+        and attribute.value.isidentifier()
+        and not attribute.value.startswith("_")
+    )
 
 
 def _call_name(node: ast.expr) -> str:

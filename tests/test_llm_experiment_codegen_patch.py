@@ -32,7 +32,10 @@ def _spec() -> dict[str, Any]:
     }
 
 
-def _payload(*edits: ExperimentCodeTextEdit) -> dict[str, Any]:
+def _payload(
+    *edits: ExperimentCodeTextEdit,
+    timeout_seconds: int = 30,
+) -> dict[str, Any]:
     return ExperimentCodePatchEnvelope(
         repair=ExperimentCodePatchProposal(
             edits=list(edits),
@@ -43,7 +46,7 @@ def _payload(*edits: ExperimentCodeTextEdit) -> dict[str, Any]:
             required_inputs=[],
             declared_dependencies=[],
             random_seed=17,
-            timeout_seconds=30,
+            timeout_seconds=timeout_seconds,
             network_required=False,
             filesystem_scope="sandbox_workdir_only",
             publication_ready=False,
@@ -68,7 +71,8 @@ def test_openai_experiment_repair_applies_bounded_exact_text_patch() -> None:
         ExperimentCodeTextEdit(
             old_text="    return (1 + 2\n",
             new_text="    return (1 + 2)\n",
-        )
+        ),
+        timeout_seconds=900,
     )
     transport = _StaticTransport(payload)
     client = OpenAILLMExperimentCodeGenerator(
@@ -89,6 +93,7 @@ def test_openai_experiment_repair_applies_bounded_exact_text_patch() -> None:
     assert response.rejection_reasons == []
     assert response.accepted is not None
     assert response.accepted.code == "def compute():\n    return (1 + 2)\n"
+    assert response.accepted.timeout_seconds == 900
     ast.parse(response.accepted.code)
     assert response.raw_response == payload
     assert transport.response_schema == ExperimentCodePatchEnvelope.model_json_schema()
@@ -140,6 +145,25 @@ def test_experiment_repair_ignores_one_no_op_but_rejects_all_no_ops() -> None:
     assert reasons == ["repair patch did not change the blocked script"]
 
 
+def test_experiment_repair_ignores_idempotent_overlapping_edit() -> None:
+    blocked = "prefix = 0\nvalue = {'passed': True, 'count': 1}\n"
+    accepted, reasons = parse_experiment_codegen_patch_response(
+        _payload(
+            ExperimentCodeTextEdit(
+                old_text="value = {'passed': True, 'count': 1}\n",
+                new_text="value = {'passed': 1, 'count': 1}\n",
+            ),
+            ExperimentCodeTextEdit(old_text="'passed': True", new_text="'passed': 1"),
+        ),
+        blocked_code=blocked,
+        allowed_dependencies=[],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.code == "prefix = 0\nvalue = {'passed': 1, 'count': 1}\n"
+
+
 def test_experiment_repair_rejects_patch_that_remains_invalid_python() -> None:
     blocked = "def compute():\n    return (1 + 2\n"
     accepted, reasons = parse_experiment_codegen_patch_response(
@@ -155,6 +179,22 @@ def test_experiment_repair_rejects_patch_that_remains_invalid_python() -> None:
 
     assert accepted is None
     assert "repaired Python is invalid: '(' was never closed" in reasons
+
+
+def test_experiment_repair_omits_one_unique_syntax_breaking_edit() -> None:
+    blocked = "value = 1\nother = 1\n"
+    accepted, reasons = parse_experiment_codegen_patch_response(
+        _payload(
+            ExperimentCodeTextEdit(old_text="value = 1", new_text="    value = 2"),
+            ExperimentCodeTextEdit(old_text="other = 1", new_text="other = 2"),
+        ),
+        blocked_code=blocked,
+        allowed_dependencies=[],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.code == "value = 1\nother = 2\n"
 
 
 def test_experiment_repair_accepts_fourteen_bounded_local_edits() -> None:

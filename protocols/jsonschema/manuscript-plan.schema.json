@@ -48,6 +48,11 @@
           "title": "Narrative Roles",
           "type": "array"
         },
+        "opening_purpose": {
+          "default": "",
+          "title": "Opening Purpose",
+          "type": "string"
+        },
         "purpose": {
           "default": "",
           "title": "Purpose",
@@ -79,9 +84,19 @@
           "title": "Supporting Package Ids",
           "type": "array"
         },
+        "takeaway": {
+          "default": "",
+          "title": "Takeaway",
+          "type": "string"
+        },
         "title": {
           "minLength": 1,
           "title": "Title",
+          "type": "string"
+        },
+        "transition_to_next": {
+          "default": "",
+          "title": "Transition To Next",
           "type": "string"
         }
       },
@@ -113,7 +128,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/manuscript-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/manuscript-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Structured manuscript plan.",
@@ -174,7 +189,7 @@
   ],
   "title": "ManuscriptPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.ManuscriptPlan",
   "x-factori-verification-evidence": false
 }

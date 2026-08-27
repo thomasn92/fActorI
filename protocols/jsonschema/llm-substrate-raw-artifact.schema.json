@@ -65,7 +65,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/llm-substrate-raw-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/llm-substrate-raw-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free raw prompt and response provenance for one substrate call.",
@@ -163,7 +163,7 @@
   ],
   "title": "LLMSubstrateRawArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.LLMSubstrateRawArtifact",
   "x-factori-verification-evidence": false
 }

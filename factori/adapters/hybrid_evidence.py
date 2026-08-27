@@ -442,6 +442,12 @@ def build_hybrid_package_prompt(
         "artifact dependencies as artifact_ref/depends_on records, and claim support as "
         "claim_component/artifact_refs records. Do not claim proof, novelty, underuse, real-world "
         "validation, publication readiness, or computed results. Executable generated-code "
+        "artifacts must set requires_code_generation=true and requires_local_execution=true. "
+        "Symbolic reductions, symbolic derivations, and proof plans must set "
+        "requires_llm_drafting=true and include symbolic_obligations_optional. "
+        "Literature novelty checks must set requires_retrieval=true and include "
+        "retrieval_requirements_optional. "
+        "Executable generated-code "
         "artifacts must be self-contained: when a control or robustness artifact needs synthetic "
         "records from another executable artifact, either include that control in the same "
         "executable artifact or regenerate the required synthetic records inside the dependent "
@@ -497,8 +503,9 @@ def parse_hybrid_package_response(
         item = HybridEvidencePackageProposalItem.model_validate(raw_items[0])
     except ValidationError as exc:
         return None, [str(exc)], format_repairs
-    repaired, boundary_repairs = _repair_forbidden_claim_boundaries(item)
-    repairs = [*format_repairs, *boundary_repairs]
+    repaired, capability_repairs = _repair_implied_artifact_capabilities(item)
+    repaired, boundary_repairs = _repair_forbidden_claim_boundaries(repaired)
+    repairs = [*format_repairs, *capability_repairs, *boundary_repairs]
     reasons = validate_hybrid_package_proposal(repaired)
     if reasons:
         return None, reasons, repairs
@@ -713,6 +720,23 @@ def _repair_forbidden_claim_boundaries(
         plan.model_copy(update={"forbidden_claims": merged(plan.forbidden_claims, "artifact")})
         for plan in item.package.artifact_plans
     ]
+    package = item.package.model_copy(update={"artifact_plans": plans})
+    return item.model_copy(update={"package": package}), repairs
+
+
+def _repair_implied_artifact_capabilities(
+    item: HybridEvidencePackageProposalItem,
+) -> tuple[HybridEvidencePackageProposalItem, list[str]]:
+    """Normalize redundant capability flags already implied by artifact type."""
+    repairs: list[str] = []
+    plans: list[EvidenceArtifactPlanProposal] = []
+    for plan in item.package.artifact_plans:
+        if plan.artifact_type in _SYMBOLIC_TYPES and not plan.requires_llm_drafting:
+            repairs.append(
+                f"enabled mandatory LLM drafting for {plan.artifact_type.value}"
+            )
+            plan = plan.model_copy(update={"requires_llm_drafting": True})
+        plans.append(plan)
     package = item.package.model_copy(update={"artifact_plans": plans})
     return item.model_copy(update={"package": package}), repairs
 

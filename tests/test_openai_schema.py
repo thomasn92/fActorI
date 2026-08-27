@@ -507,6 +507,21 @@ def test_nucleus_manuscript_normalizes_transport_role_entries() -> None:
                                 "The bounded benchmark reports a conditional result and does not "
                                 "establish real-world validation."
                             ),
+                            "archetype_rationale": "The evidence is a synthetic benchmark.",
+                            "central_tension": "Calibration and discrimination may diverge.",
+                            "prior_baseline": "The uncalibrated method is the baseline.",
+                            "literature_gap": "The bounded comparison is unresolved.",
+                            "contribution": "The design isolates the comparison.",
+                            "main_result": "The benchmark reports a bounded contrast.",
+                            "interpretation": "The contrast is synthetic only.",
+                            "boundary_statement": "No real-world conclusion follows.",
+                            "abstract_moves": [
+                                "problem",
+                                "gap",
+                                "approach",
+                                "result",
+                                "boundary",
+                            ],
                             "section_plans": [
                                 {
                                     "section_id": "results",
@@ -518,6 +533,9 @@ def test_nucleus_manuscript_normalizes_transport_role_entries() -> None:
                                     "required_citations": [],
                                     "scope_constraints": ["Synthetic evidence only."],
                                     "bullets": [],
+                                    "opening_purpose": "Introduce the bounded result.",
+                                    "takeaway": "Retain the bounded contrast.",
+                                    "transition_to_next": "Move to interpretation.",
                                 }
                             ],
                             "supporting_package_roles": [
@@ -613,7 +631,9 @@ def test_nucleus_manuscript_prompts_distinguish_limitations_from_blockers() -> N
     assert "unresolved limitation, not by itself a blocking manuscript defect" in critic
     assert "complete persisted execution artifact" in critic
     assert "remove it from the claim-bearing manuscript" in revision
-    assert "artifact-summary report" in revision
+    assert "beside every distinct cluster of execution-derived claims" in revision
+    assert "a section-leading citation may cover a tightly grouped cluster" in revision
+    assert "artifact inventory" in revision
 
 
 def assert_no_portable_schema_omissions(schema: Any) -> None:

@@ -129,6 +129,10 @@ class AdaptiveEvidenceIteration(StrictModel):
     produced_execution_report_path_optional: str | None = None
     before_fingerprint: str = Field(pattern=HASH_RE.pattern)
     after_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    active_defect_id_optional: str | None = None
+    blocking_defect_ids_before: list[str] = Field(default_factory=list)
+    blocking_defect_ids_after: list[str] = Field(default_factory=list)
+    resolved_defect_ids: list[str] = Field(default_factory=list)
     progress_made: bool
     external_calls_used: int = Field(default=1, ge=0)
     estimated_cost_usd: float = Field(default=0.0, ge=0.0)
@@ -226,6 +230,31 @@ class TargetedResearchBrief(StrictModel):
         return self
 
 
+class TargetedStudyContract(StrictModel):
+    """Canonical immutable study contract resolved after opportunity discovery."""
+
+    contract_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    brief_id: str = Field(min_length=1)
+    central_question: str = Field(min_length=1)
+    allowed_method_scope: str = Field(min_length=1)
+    experiment_or_proof_direction_optional: str | None = None
+    required_baselines: list[str] = Field(default_factory=list)
+    required_metrics: list[str] = Field(default_factory=list)
+    required_controls: list[str] = Field(default_factory=list)
+    required_negative_controls: list[str] = Field(default_factory=list)
+    allowed_claim_scope: str = Field(min_length=1)
+    forbidden_claims: list[str] = Field(min_length=1)
+    source_opportunity_id_optional: str | None = None
+    resolution_notes: list[str] = Field(default_factory=list)
+    scope_rules: list[str] = Field(default_factory=list)
+    authorized_execution_limits: dict[str, int] = Field(default_factory=dict)
+    immutable: Literal[True] = True
+    publication_ready: Literal[False] = False
+    creates_scientific_validation: Literal[False] = False
+    is_verification_evidence: Literal[False] = False
+
+
 class TargetedStudyConfig(StrictModel):
     """Fail-closed execution configuration for one targeted study."""
 
@@ -295,6 +324,8 @@ class TargetedStudyStageRecord(StrictModel):
     reused: bool = False
     warnings: list[str] = Field(default_factory=list)
     error_optional: str | None = None
+    input_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    output_fingerprint_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
 
 
 class TargetedStudyCheckpoint(StrictModel):

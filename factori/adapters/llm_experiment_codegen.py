@@ -18,6 +18,7 @@ from factori.adapters.llm_real import LLMTransport, OpenAIResponsesTransport
 from factori.schemas import BackendKind, StrictModel
 
 _MAX_PATCH_CHANGED_SOURCE_BYTES = 64_000
+_MAX_EXPERIMENT_TIMEOUT_SECONDS = 3_600
 
 
 class ExperimentCodeProposal(StrictModel):
@@ -28,7 +29,7 @@ class ExperimentCodeProposal(StrictModel):
     required_inputs: list[str] = Field(default_factory=list)
     declared_dependencies: list[str] = Field(default_factory=list)
     random_seed: int = Field(ge=0)
-    timeout_seconds: int = Field(ge=1, le=300)
+    timeout_seconds: int = Field(ge=1, le=_MAX_EXPERIMENT_TIMEOUT_SECONDS)
     network_required: Literal[False] = False
     filesystem_scope: Literal["sandbox_workdir_only"] = "sandbox_workdir_only"
     publication_ready: Literal[False] = False
@@ -53,7 +54,7 @@ class ExperimentCodePatchProposal(StrictModel):
     required_inputs: list[str]
     declared_dependencies: list[str]
     random_seed: int = Field(ge=0)
-    timeout_seconds: int = Field(ge=1, le=300)
+    timeout_seconds: int = Field(ge=1, le=_MAX_EXPERIMENT_TIMEOUT_SECONDS)
     network_required: Literal[False]
     filesystem_scope: Literal["sandbox_workdir_only"]
     publication_ready: Literal[False]
@@ -209,6 +210,12 @@ def build_experiment_codegen_prompt(
     output_limit_bytes = int(workload.get("output_limit_bytes", 1_048_576))
     workload_instructions = _workload_prompt_instructions(workload)
     required_role_functions = spec_payload.get("required_role_functions", [])
+    trusted_primitive_instructions = _trusted_primitive_instructions(
+        allowed_dependencies
+    )
+    component_check_instructions = _component_check_instructions(
+        required_role_functions
+    )
     prompt = (
         "Generate exactly one self-contained Python experiment script implementing the supplied "
         "bounded execution specification. It must implement the declared baseline, proposed "
@@ -232,11 +239,14 @@ def build_experiment_codegen_prompt(
         "retain bounded summaries or result records; do not hold raw samples for every cell in "
         "memory simultaneously. "
         "If no records, replications, or valid evaluations remain, raise an exception before "
-        "constructing the metrics object and do not write output.json. Do not read external "
-        "files, access network, "
+        "constructing the metrics object and do not write output.json. Set the response metadata "
+        "field required_inputs to an empty list; conceptual inputs from the specification are "
+        "embedded requirements, not external files. Do not read external files, access network, "
         "invoke subprocesses or shells, use eval/exec/compile, or write any other file. Prefer the "
         f"standard library; permitted optional dependencies are {allowed_dependencies}. Return "
-        "only the structured response.\n\n"
+        "only the structured response.\n"
+        f"{trusted_primitive_instructions}"
+        f"{component_check_instructions}\n"
         f"Required metrics: {json.dumps(required_metrics)}\n\n"
         f"Required output fields: {json.dumps(required_payload_fields)}\n"
         "Every required output field must be a literal key in output.json itself or in a "
@@ -281,6 +291,12 @@ def build_experiment_codegen_repair_prompt(
     output_limit_bytes = int(workload.get("output_limit_bytes", 1_048_576))
     workload_instructions = _workload_prompt_instructions(workload)
     required_role_functions = spec_payload.get("required_role_functions", [])
+    trusted_primitive_instructions = _trusted_primitive_instructions(
+        allowed_dependencies
+    )
+    component_check_instructions = _component_check_instructions(
+        required_role_functions
+    )
     repair_kind = str(audit_payload.get("repair_kind", "static_safety_audit"))
     scientific_repair_boundary = (
         "This is a scientific-quality implementation repair. Do not change the central question, "
@@ -298,7 +314,8 @@ def build_experiment_codegen_repair_prompt(
         "bounded list of exact-text edits, not a replacement script and not prose. "
         "The patch may contain at most 32 edits and may replace at most 64,000 aggregate source "
         "bytes. Each old_text must occur exactly once in the blocked script (or in the result of "
-        "the preceding edit); "
+        "the preceding edit). An overlapping edit may repeat a replacement already produced by "
+        "an earlier edit, but it must not conflict with that result; "
         "new_text is its complete replacement and may be empty. Keep edits as small and local as "
         "possible. Do not weaken, bypass, or suppress the audit. Every "
         "required metric must be computed from non-empty execution records produced by the script. "
@@ -322,8 +339,12 @@ def build_experiment_codegen_repair_prompt(
         "deterministic digests. Do not duplicate row-level records across summaries or logical "
         "artifacts. Do not access the "
         "network, external files, subprocesses, shells, eval, exec, or compile. "
+        "Set the response metadata field required_inputs to an empty list; M102 repairs cannot "
+        "introduce external file dependencies. "
         f"Permitted optional dependencies are {allowed_dependencies}. Return only the structured "
-        "response.\n\n"
+        "response.\n"
+        f"{trusted_primitive_instructions}"
+        f"{component_check_instructions}\n"
         f"{scientific_repair_boundary}"
         f"Required metrics: {json.dumps(required_metrics)}\n\n"
         f"Required output fields: {json.dumps(required_payload_fields)}\n\n"
@@ -341,6 +362,45 @@ def build_experiment_codegen_repair_prompt(
         f"Scientific substrate:\n{json.dumps(substrate_payload, indent=2, sort_keys=True)}"
     )
     return prompt, ExperimentCodePatchEnvelope.model_json_schema()
+
+
+def _trusted_primitive_instructions(allowed_dependencies: list[str]) -> str:
+    normalized = {
+        item.casefold().replace("-", "_") for item in allowed_dependencies
+    }
+    instructions: list[str] = []
+    if "scipy" in normalized:
+        instructions.append(
+            "Use scipy implementations for standard optimization, numerical integration, "
+            "linear algebra, or statistical primitives when applicable. In particular, do not "
+            "hand-write BFGS, L-BFGS-B, line searches, or convergence logic when "
+            "scipy.optimize provides the required operation; inspect the returned success, "
+            "status, message, and finite objective values."
+        )
+    if "sklearn" in normalized or "scikit_learn" in normalized:
+        instructions.append(
+            "Use scikit-learn estimators and validation utilities for standard supervised-"
+            "learning components when applicable; declare the import dependency as sklearn. "
+            "Keep custom code for the scientific DGP, proposed method, controls, metrics, and "
+            "bounded reporting rather than reimplementing standard estimators."
+        )
+    if not instructions:
+        return ""
+    return " Trusted scientific primitives: " + " ".join(instructions) + "\n"
+
+
+def _component_check_instructions(required_role_functions: list[str]) -> str:
+    if "run_component_checks" not in required_role_functions:
+        return ""
+    return (
+        " Component preflight: define and call run_component_checks before the full workload. "
+        "Use deterministic tiny fixtures to check every independently implemented numerical or "
+        "method component, including output shape, finite values, declared bounds, deterministic "
+        "replay, and optimizer convergence where applicable. Return component_check_summary as "
+        "a dict containing passed (bool), check_count (positive int), failed_count (nonnegative "
+        "int), and compact per-check diagnostics. Do not hardcode a passing summary. Abort before "
+        "the full workload when a component check fails."
+    )
 
 
 def _workload_prompt_instructions(workload: dict[str, Any]) -> str:
@@ -393,8 +453,9 @@ def parse_experiment_codegen_patch_response(
     allowed_dependencies: list[str],
 ) -> tuple[ExperimentCodeProposal | None, list[str]]:
     """Validate and apply bounded exact-text edits to a prior generated script."""
+    normalized_payload = _normalize_patch_transport_metadata(payload)
     try:
-        envelope = ExperimentCodePatchEnvelope.model_validate(payload)
+        envelope = ExperimentCodePatchEnvelope.model_validate(normalized_payload)
     except ValidationError as exc:
         return None, [str(exc)]
 
@@ -402,6 +463,7 @@ def parse_experiment_codegen_patch_response(
     repaired_code = blocked_code
     reasons: list[str] = []
     changed_source_bytes = 0
+    applied_edits: list[ExperimentCodeTextEdit] = []
     for index, edit in enumerate(proposal.edits, start=1):
         if edit.old_text == edit.new_text:
             continue
@@ -409,6 +471,14 @@ def parse_experiment_codegen_patch_response(
             reasons.append(f"repair edit {index} must not replace the complete script")
             continue
         occurrence_count = repaired_code.count(edit.old_text)
+        if (
+            occurrence_count == 0
+            and blocked_code.count(edit.old_text) == 1
+            and bool(edit.new_text)
+            and edit.new_text in repaired_code
+        ):
+            # An earlier overlapping edit already produced this local replacement.
+            continue
         if occurrence_count != 1:
             reasons.append(
                 f"repair edit {index} old_text must occur exactly once; found "
@@ -417,16 +487,33 @@ def parse_experiment_codegen_patch_response(
             continue
         changed_source_bytes += len(edit.old_text.encode("utf-8"))
         repaired_code = repaired_code.replace(edit.old_text, edit.new_text, 1)
+        applied_edits.append(edit)
 
-    if changed_source_bytes > _MAX_PATCH_CHANGED_SOURCE_BYTES:
-        reasons.append("repair edits exceed the bounded 64000-byte source-change limit")
     if not reasons:
         if repaired_code == blocked_code:
             reasons.append("repair patch did not change the blocked script")
         try:
             ast.parse(repaired_code, filename="experiment.py")
         except SyntaxError as exc:
-            reasons.append(f"repaired Python is invalid: {exc.msg}")
+            salvage_candidates: list[tuple[str, ExperimentCodeTextEdit]] = []
+            for edit in applied_edits:
+                if not edit.new_text or repaired_code.count(edit.new_text) != 1:
+                    continue
+                candidate = repaired_code.replace(edit.new_text, edit.old_text, 1)
+                if candidate == blocked_code:
+                    continue
+                try:
+                    ast.parse(candidate, filename="experiment.py")
+                except SyntaxError:
+                    continue
+                salvage_candidates.append((candidate, edit))
+            if len(salvage_candidates) == 1:
+                repaired_code, omitted_edit = salvage_candidates[0]
+                changed_source_bytes -= len(omitted_edit.old_text.encode("utf-8"))
+            else:
+                reasons.append(f"repaired Python is invalid: {exc.msg}")
+    if changed_source_bytes > _MAX_PATCH_CHANGED_SOURCE_BYTES:
+        reasons.append("repair edits exceed the bounded 64000-byte source-change limit")
     if reasons:
         return None, reasons
 
@@ -478,14 +565,35 @@ def _normalize_transport_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(experiment, dict):
         return payload
     normalized_experiment = dict(experiment)
-    for field_name in ("required_inputs", "declared_dependencies"):
-        if normalized_experiment.get(field_name) is None:
-            normalized_experiment[field_name] = []
+    normalized_experiment["required_inputs"] = []
+    if normalized_experiment.get("declared_dependencies") is None:
+        normalized_experiment["declared_dependencies"] = []
     timeout_seconds = normalized_experiment.get("timeout_seconds")
     if isinstance(timeout_seconds, int) and not isinstance(timeout_seconds, bool):
-        normalized_experiment["timeout_seconds"] = max(1, min(timeout_seconds, 300))
+        normalized_experiment["timeout_seconds"] = max(
+            1, min(timeout_seconds, _MAX_EXPERIMENT_TIMEOUT_SECONDS)
+        )
     normalized_payload = dict(payload)
     normalized_payload["experiment"] = normalized_experiment
+    return normalized_payload
+
+
+def _normalize_patch_transport_metadata(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize bounded patch metadata without changing the persisted raw response."""
+    repair = payload.get("repair")
+    if not isinstance(repair, dict):
+        return payload
+    normalized_repair = dict(repair)
+    normalized_repair["required_inputs"] = []
+    if normalized_repair.get("declared_dependencies") is None:
+        normalized_repair["declared_dependencies"] = []
+    timeout_seconds = normalized_repair.get("timeout_seconds")
+    if isinstance(timeout_seconds, int) and not isinstance(timeout_seconds, bool):
+        normalized_repair["timeout_seconds"] = max(
+            1, min(timeout_seconds, _MAX_EXPERIMENT_TIMEOUT_SECONDS)
+        )
+    normalized_payload = dict(payload)
+    normalized_payload["repair"] = normalized_repair
     return normalized_payload
 
 

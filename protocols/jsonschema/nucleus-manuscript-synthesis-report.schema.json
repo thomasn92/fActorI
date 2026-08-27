@@ -391,6 +391,11 @@
           "title": "Narrative Roles",
           "type": "array"
         },
+        "opening_purpose": {
+          "default": "",
+          "title": "Opening Purpose",
+          "type": "string"
+        },
         "purpose": {
           "default": "",
           "title": "Purpose",
@@ -422,9 +427,19 @@
           "title": "Supporting Package Ids",
           "type": "array"
         },
+        "takeaway": {
+          "default": "",
+          "title": "Takeaway",
+          "type": "string"
+        },
         "title": {
           "minLength": 1,
           "title": "Title",
+          "type": "string"
+        },
+        "transition_to_next": {
+          "default": "",
+          "title": "Transition To Next",
           "type": "string"
         }
       },
@@ -434,6 +449,166 @@
         "bullets"
       ],
       "title": "ManuscriptSectionPlan",
+      "type": "object"
+    },
+    "NarrativeManuscriptContract": {
+      "additionalProperties": false,
+      "description": "Deterministic manuscript narrative contract; not verification evidence.",
+      "properties": {
+        "appendix_policy": {
+          "default": "",
+          "title": "Appendix Policy",
+          "type": "string"
+        },
+        "blocked_or_missing_items": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocked Or Missing Items",
+          "type": "array"
+        },
+        "central_message": {
+          "default": "",
+          "title": "Central Message",
+          "type": "string"
+        },
+        "contract_id": {
+          "minLength": 1,
+          "title": "Contract Id",
+          "type": "string"
+        },
+        "creates_scientific_validation": {
+          "default": false,
+          "title": "Creates Scientific Validation",
+          "type": "boolean"
+        },
+        "derivatives_or_corollaries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Derivatives Or Corollaries",
+          "type": "array"
+        },
+        "empirical_study_boundary": {
+          "default": "",
+          "title": "Empirical Study Boundary",
+          "type": "string"
+        },
+        "fake": {
+          "default": true,
+          "title": "Fake",
+          "type": "boolean"
+        },
+        "final_nucleus_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Nucleus Id"
+        },
+        "implies_publication_readiness": {
+          "default": false,
+          "title": "Implies Publication Readiness",
+          "type": "boolean"
+        },
+        "is_verification_evidence": {
+          "default": false,
+          "title": "Is Verification Evidence",
+          "type": "boolean"
+        },
+        "literature_gap": {
+          "default": "",
+          "title": "Literature Gap",
+          "type": "string"
+        },
+        "main_result_formal_pointer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Main Result Formal Pointer"
+        },
+        "main_result_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Main Result Id"
+        },
+        "main_result_in_words": {
+          "default": "",
+          "title": "Main Result In Words",
+          "type": "string"
+        },
+        "model_frame": {
+          "default": "",
+          "title": "Model Frame",
+          "type": "string"
+        },
+        "notation_policy": {
+          "default": "",
+          "title": "Notation Policy",
+          "type": "string"
+        },
+        "novelty_claim": {
+          "default": "",
+          "title": "Novelty Claim",
+          "type": "string"
+        },
+        "numerical_study_purpose": {
+          "default": "",
+          "title": "Numerical Study Purpose",
+          "type": "string"
+        },
+        "problem_statement": {
+          "default": "",
+          "title": "Problem Statement",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "section_plan": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Section Plan",
+          "type": "array"
+        },
+        "synthetic_study_boundary": {
+          "default": "",
+          "title": "Synthetic Study Boundary",
+          "type": "string"
+        },
+        "why_interesting": {
+          "default": "",
+          "title": "Why Interesting",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_id",
+        "run_id"
+      ],
+      "title": "NarrativeManuscriptContract",
       "type": "object"
     },
     "NarrativeSectionRole": {
@@ -518,6 +693,28 @@
           "title": "Markdown",
           "type": "string"
         },
+        "metric_token_bindings": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Metric Token Bindings",
+          "type": "array"
+        },
+        "metric_tokenized_text": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metric Tokenized Text",
+          "type": "object"
+        },
+        "metric_tokens_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metric Tokens Used",
+          "type": "array"
+        },
         "novelty_proven": {
           "const": false,
           "default": false,
@@ -575,6 +772,13 @@
       "additionalProperties": false,
       "description": "LLM-authored paper shape constrained by an adjudicated paper nucleus.",
       "properties": {
+        "abstract_moves": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Abstract Moves",
+          "type": "array"
+        },
         "allowed_claim_scope": {
           "minLength": 1,
           "title": "Allowed Claim Scope",
@@ -587,6 +791,16 @@
           "title": "Appendix Package Roles",
           "type": "object"
         },
+        "archetype_rationale": {
+          "default": "",
+          "title": "Archetype Rationale",
+          "type": "string"
+        },
+        "boundary_statement": {
+          "default": "",
+          "title": "Boundary Statement",
+          "type": "string"
+        },
         "central_claim": {
           "minLength": 1,
           "title": "Central Claim",
@@ -595,6 +809,16 @@
         "central_question": {
           "minLength": 1,
           "title": "Central Question",
+          "type": "string"
+        },
+        "central_tension": {
+          "default": "",
+          "title": "Central Tension",
+          "type": "string"
+        },
+        "contribution": {
+          "default": "",
+          "title": "Contribution",
           "type": "string"
         },
         "creates_scientific_validation": {
@@ -617,11 +841,37 @@
           "title": "Implies Publication Readiness",
           "type": "boolean"
         },
+        "interpretation": {
+          "default": "",
+          "title": "Interpretation",
+          "type": "string"
+        },
         "is_verification_evidence": {
           "const": false,
           "default": false,
           "title": "Is Verification Evidence",
           "type": "boolean"
+        },
+        "literature_gap": {
+          "default": "",
+          "title": "Literature Gap",
+          "type": "string"
+        },
+        "main_result": {
+          "default": "",
+          "title": "Main Result",
+          "type": "string"
+        },
+        "narrative_contract_optional": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NarrativeManuscriptContract"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "negative_result_roles": {
           "additionalProperties": {
@@ -646,6 +896,11 @@
         "primary_package_id": {
           "minLength": 1,
           "title": "Primary Package Id",
+          "type": "string"
+        },
+        "prior_baseline": {
+          "default": "",
+          "title": "Prior Baseline",
           "type": "string"
         },
         "publication_ready": {
@@ -846,7 +1101,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/nucleus-manuscript-synthesis-report.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/nucleus-manuscript-synthesis-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only plan, draft, critic, revision, and compliance report for M105.",
@@ -1124,7 +1379,7 @@
   ],
   "title": "NucleusManuscriptSynthesisReport",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.NucleusManuscriptSynthesisReport",
   "x-factori-verification-evidence": false
 }

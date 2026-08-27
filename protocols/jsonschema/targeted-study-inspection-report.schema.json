@@ -804,6 +804,32 @@
           "title": "External Call Budget",
           "type": "integer"
         },
+        "input_fingerprint_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Fingerprint Optional"
+        },
+        "output_fingerprint_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Fingerprint Optional"
+        },
         "reused": {
           "default": false,
           "title": "Reused",
@@ -841,7 +867,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/targeted-study-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/targeted-study-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only targeted-study and checkpoint inspection payload.",
@@ -988,7 +1014,7 @@
   ],
   "title": "TargetedStudyInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.TargetedStudyInspectionReport",
   "x-factori-verification-evidence": false
 }

@@ -1004,7 +1004,12 @@ replications, 16 resamples, and 8 grid cells by default, and can never support M
 The `full` profile defaults to upper bounds of 1000 replications, 2000 resamples, and 256 grid
 cells; all limits can be lowered explicitly. Generated scripts must declare their profile and
 workload constants, implement and call baseline/method/control/negative-control/metric role
-functions, and bind output summaries to computed results. Planned tables, records, plots, and audit
+functions, run deterministic component preflight checks before the full workload, and bind output
+summaries to computed results. M103 permits NumPy, SciPy, and scikit-learn as trusted local
+scientific primitives; generated scripts should use them instead of hand-writing standard
+optimizers or estimators. Component preflight summaries must report at least one check, zero failed
+checks, and an overall pass before extracted metrics can support a result. Planned tables, records,
+plots, and audit
 outputs are represented as non-empty logical artifacts inside `output.json`; plot entries are
 plot-ready data, not generated figures. Structured numeric metrics are flattened deterministically
 to leaf metric names with exact `output.json` source pointers. A resume may re-extract a previously
@@ -1056,22 +1061,31 @@ required artifact, metric source, or real retrieval citation yields an append-on
 execution-artifact metric tables. `revise-nucleus-manuscript` runs the eight-role manuscript critic
 ensemble, requests one bounded revision, and rechecks bindings and claim boundaries. It defers when
 blocking findings remain. `inspect-nucleus-manuscript` is read-only. All M105 artifacts retain
-`publication_ready=false`.
+`publication_ready=false`. The three mutating manuscript commands accept `--reasoning-effort` and
+`--llm-timeout-seconds`, allowing a frontier model to be reserved for manuscript work without
+rerunning evidence generation or experiments.
 
 ```bash
 uv run factori plan-nucleus-manuscript --run-id atlas-scan-001 \
-  --backend llm-openai --allow-external-calls --require-non-fake-backends
+  --backend llm-openai --model gpt-5.6-sol --reasoning-effort high \
+  --llm-timeout-seconds 300 --allow-external-calls --require-non-fake-backends
 uv run factori synthesize-nucleus-manuscript --run-id atlas-scan-001 \
-  --backend llm-openai --allow-external-calls --require-non-fake-backends
+  --backend llm-openai --model gpt-5.6-sol --reasoning-effort high \
+  --llm-timeout-seconds 300 --allow-external-calls --require-non-fake-backends
 uv run factori revise-nucleus-manuscript --run-id atlas-scan-001 \
-  --backend llm-openai --allow-external-calls --require-non-fake-backends
+  --backend llm-openai --model gpt-5.6-sol --reasoning-effort high \
+  --llm-timeout-seconds 300 --allow-external-calls --require-non-fake-backends
 uv run factori inspect-nucleus-manuscript --run-id atlas-scan-001 --json
 ```
 
 `assemble-final-paper` performs no LLM drafting. It takes the latest valid revised M105 manuscript,
 resolves its claim/artifact and real-retrieval citation bindings, reconstructs metric tables only
 from completed sandbox `output.json` artifacts with matching schema-valid extraction records, and
-writes final Markdown, LaTeX, manifest, provenance, appendix, and open-obligation context. Missing
+adds a paper-facing metric table only when the accepted manuscript does not already present every
+validated value. Figures are included only when the accepted manuscript explicitly references a
+declared successful sandbox artifact; final assembly does not infer new figures from result-shaped
+data. Exact metric tables remain in the bundle.
+It also writes final Markdown, LaTeX, manifest, provenance, appendix, and open-obligation context. Missing
 sources, figures, citations, scope qualifications, forbidden claims, or strict backend provenance
 defer assembly. `verify-final-paper` reruns local structural, hash, metric, citation, and claim
 checks. `render-final-paper` explicitly gates local LaTeX execution, writes standalone source plus
@@ -1079,6 +1093,8 @@ a PDF and compile report, and gives those artifacts no evidence authority.
 `build-final-paper-bundle` requires a verified assembly and writes a hash-locked, self-contained
 release directory without raw LLM responses, credentials, or executable code. When a successful
 render exists, the bundle includes the standalone source, source fragment, PDF, and render report.
+It packages the latest verified assembly; it does not reassemble a newly revised manuscript. After
+any manuscript revision, rerun the four commands below in order.
 All M106 outputs retain `publication_ready=false`.
 
 ```bash

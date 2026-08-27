@@ -1,0 +1,157 @@
+{
+  "$id": "https://schemas.factori.local/0.79.0/targeted-study-contract.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Canonical immutable study contract resolved after opportunity discovery.",
+  "properties": {
+    "allowed_claim_scope": {
+      "minLength": 1,
+      "title": "Allowed Claim Scope",
+      "type": "string"
+    },
+    "allowed_method_scope": {
+      "minLength": 1,
+      "title": "Allowed Method Scope",
+      "type": "string"
+    },
+    "authorized_execution_limits": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Authorized Execution Limits",
+      "type": "object"
+    },
+    "brief_id": {
+      "minLength": 1,
+      "title": "Brief Id",
+      "type": "string"
+    },
+    "central_question": {
+      "minLength": 1,
+      "title": "Central Question",
+      "type": "string"
+    },
+    "contract_id": {
+      "minLength": 1,
+      "title": "Contract Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "const": false,
+      "default": false,
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "experiment_or_proof_direction_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experiment Or Proof Direction Optional"
+    },
+    "forbidden_claims": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Forbidden Claims",
+      "type": "array"
+    },
+    "immutable": {
+      "const": true,
+      "default": true,
+      "title": "Immutable",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "publication_ready": {
+      "const": false,
+      "default": false,
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "required_baselines": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Baselines",
+      "type": "array"
+    },
+    "required_controls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Controls",
+      "type": "array"
+    },
+    "required_metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Metrics",
+      "type": "array"
+    },
+    "required_negative_controls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Negative Controls",
+      "type": "array"
+    },
+    "resolution_notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Resolution Notes",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scope_rules": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Scope Rules",
+      "type": "array"
+    },
+    "source_opportunity_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Opportunity Id Optional"
+    }
+  },
+  "required": [
+    "contract_id",
+    "run_id",
+    "brief_id",
+    "central_question",
+    "allowed_method_scope",
+    "allowed_claim_scope",
+    "forbidden_claims"
+  ],
+  "title": "TargetedStudyContract",
+  "type": "object",
+  "x-factori-protocol-version": "0.79.0",
+  "x-factori-source-model": "factori.schemas.TargetedStudyContract",
+  "x-factori-verification-evidence": false
+}

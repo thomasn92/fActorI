@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.78.0/nucleus-manuscript-draft.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/nucleus-manuscript-draft.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Artifact-bound Markdown and LaTeX manuscript presentation draft.",
@@ -63,6 +63,28 @@
       "title": "Markdown",
       "type": "string"
     },
+    "metric_token_bindings": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Metric Token Bindings",
+      "type": "array"
+    },
+    "metric_tokenized_text": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Metric Tokenized Text",
+      "type": "object"
+    },
+    "metric_tokens_used": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Metric Tokens Used",
+      "type": "array"
+    },
     "novelty_proven": {
       "const": false,
       "default": false,
@@ -115,7 +137,7 @@
   ],
   "title": "NucleusManuscriptDraft",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.NucleusManuscriptDraft",
   "x-factori-verification-evidence": false
 }

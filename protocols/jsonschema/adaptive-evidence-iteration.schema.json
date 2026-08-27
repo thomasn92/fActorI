@@ -287,11 +287,23 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/adaptive-evidence-iteration.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/adaptive-evidence-iteration.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only record of one question, optional repair, and progress check.",
   "properties": {
+    "active_defect_id_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Active Defect Id Optional"
+    },
     "after_fingerprint_optional": {
       "anyOf": [
         {
@@ -309,6 +321,20 @@
       "pattern": "^[0-9a-f]{64}$",
       "title": "Before Fingerprint",
       "type": "string"
+    },
+    "blocking_defect_ids_after": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Defect Ids After",
+      "type": "array"
+    },
+    "blocking_defect_ids_before": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Defect Ids Before",
+      "type": "array"
     },
     "creates_scientific_validation": {
       "const": false,
@@ -376,6 +402,13 @@
       "title": "Publication Ready",
       "type": "boolean"
     },
+    "resolved_defect_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Resolved Defect Ids",
+      "type": "array"
+    },
     "run_id": {
       "minLength": 1,
       "title": "Run Id",
@@ -410,7 +443,7 @@
   ],
   "title": "AdaptiveEvidenceIteration",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.AdaptiveEvidenceIteration",
   "x-factori-verification-evidence": false
 }

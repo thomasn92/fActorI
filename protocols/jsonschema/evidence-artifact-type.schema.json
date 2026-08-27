@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.78.0/evidence-artifact-type.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/evidence-artifact-type.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Hybrid evidence-package artifact role.",
   "enum": [
@@ -19,7 +19,7 @@
   ],
   "title": "EvidenceArtifactType",
   "type": "string",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.EvidenceArtifactType",
   "x-factori-verification-evidence": false
 }

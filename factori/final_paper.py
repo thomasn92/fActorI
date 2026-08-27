@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import os
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -96,6 +99,8 @@ _SECRET_RE = re.compile(
 )
 _FIGURE_SUFFIXES = {".png", ".jpg", ".jpeg", ".pdf"}
 _METRIC_RESULT_STATUSES = {"completed", "negative_result"}
+_MAX_PAPER_TABLE_ROWS = 12
+_MAX_PAPER_FIGURES = 2
 
 
 class PaperAssemblyError(RuntimeError):
@@ -632,6 +637,13 @@ class _Inputs:
     retrieval_contexts: list[RetrievalContext]
 
 
+@dataclass(frozen=True)
+class _GeneratedFigureAsset:
+    artifact_id: str
+    filename_stem: str
+    content: bytes
+
+
 def assemble_final_paper(
     *,
     run_id: str,
@@ -673,7 +685,11 @@ def assemble_final_paper(
 
     bindings, binding_blockers = _resolve_artifact_bindings(inputs)
     tables, table_blockers = _build_tables(inputs, bindings)
-    figures, figure_blockers = _build_figures(inputs, bindings)
+    figures, figure_blockers, figure_assets = _build_figures(
+        inputs,
+        bindings,
+        figure_prefix=f"final-paper-{number:04d}",
+    )
     citations, citation_blockers = _resolve_citations(inputs)
     obligations = _build_open_obligations(inputs)
     manuscript_metric_blockers = _manuscript_metric_mismatch_reasons(
@@ -865,6 +881,7 @@ def assemble_final_paper(
         citation_bindings=citations,
         provenance=provenance,
         tables=tables,
+        figure_assets=figure_assets,
         store=store,
         ledger=ledger,
     )
@@ -1049,6 +1066,7 @@ def render_final_paper(
     if not source_path.is_file():
         raise FinalPaperError(f"Final-paper LaTeX source is missing: {source_path}")
     standalone = _standalone_final_latex(_read_text(source_path))
+    standalone = _resolve_latex_graphics(standalone, root_path)
     rendered = (renderer or LatexRenderer()).render_document(standalone, config)
     pdf_id = f"final-paper-render-{number:04d}-pdf"
     render_result = rendered.result.model_copy(
@@ -1537,15 +1555,20 @@ def _build_tables(
     }
     by_id = {item.result_id: item for item in inputs.execution.results}
     rows: list[dict[str, Any]] = []
-    source_ids: list[str] = []
     blockers: list[str] = []
+    token_bindings = {
+        (str(item.get("artifact_id", "")), str(item.get("metric", ""))): item
+        for item in inputs.revised_draft.metric_token_bindings
+    }
+    token_order = {
+        key: index for index, key in enumerate(token_bindings)
+    }
     for artifact_id in sorted(required):
         result = by_id.get(artifact_id)
         if result is None or result.status not in _METRIC_RESULT_STATUSES:
             continue
         if not result.metrics:
             continue
-        source_ids.append(artifact_id)
         for metric, value in sorted(result.metrics.items()):
             source = result.metric_sources.get(metric)
             source_path, source_error = _validated_execution_metric_source(
@@ -1572,12 +1595,37 @@ def _build_tables(
                 {
                     "artifact_id": artifact_id,
                     "metric": metric,
+                    "display_label": str(
+                        token_bindings.get((artifact_id, metric), {}).get(
+                            "display_label", _paper_metric_label(metric)
+                        )
+                    ),
                     "value": value,
                     "metric_source": source,
                 }
             )
     if not rows:
         return [], blockers
+    if token_bindings:
+        rows = [
+            row
+            for row in rows
+            if (str(row["artifact_id"]), str(row["metric"])) in token_bindings
+        ]
+    rows = sorted(
+        rows,
+        key=lambda row: (
+            token_order.get(
+                (str(row["artifact_id"]), str(row["metric"])),
+                _MAX_PAPER_TABLE_ROWS + 1,
+            ),
+            -_paper_metric_priority(str(row["metric"])),
+            str(row["display_label"]),
+        ),
+    )[:_MAX_PAPER_TABLE_ROWS]
+    if not rows:
+        return [], blockers
+    source_ids = sorted({str(row["artifact_id"]) for row in rows})
     claim_ids = [
         item.claim_id
         for item in inputs.synthesis.claim_artifact_bindings
@@ -1586,8 +1634,8 @@ def _build_tables(
     table = FinalPaperTableRecord(
         table_id="final-paper-artifact-bound-metrics",
         source_metric_artifact_ids=source_ids,
-        title="Artifact-Bound Metrics",
-        columns=["artifact_id", "metric", "value", "metric_source"],
+        title="Primary quantitative results",
+        columns=["display_label", "value"],
         rows=rows,
         referenced_in_sections=_result_section_ids(inputs.revised_draft),
         claim_ids_supported=claim_ids,
@@ -1600,19 +1648,32 @@ def _build_tables(
 def _build_figures(
     inputs: _Inputs,
     bindings: list[FinalPaperArtifactBinding],
-) -> tuple[list[FinalPaperFigureRecord], list[str]]:
+    *,
+    figure_prefix: str,
+) -> tuple[
+    list[FinalPaperFigureRecord],
+    list[str],
+    list[_GeneratedFigureAsset],
+]:
     assert inputs.revised_draft is not None
     records: list[FinalPaperFigureRecord] = []
     blockers: list[str] = []
+    generated_assets: list[_GeneratedFigureAsset] = []
     markdown_refs = _MARKDOWN_IMAGE_RE.findall(inputs.revised_draft.markdown)
     latex_refs = _LATEX_IMAGE_RE.findall(inputs.revised_draft.latex)
-    reference_paths = [value.strip() for _, value in markdown_refs] + [
-        value.strip() for value in latex_refs
-    ]
+    reference_paths = _unique(
+        [value.strip() for _, value in markdown_refs]
+        + [value.strip() for value in latex_refs]
+    )
+    if len(reference_paths) > _MAX_PAPER_FIGURES:
+        blockers.append(
+            f"Manuscript references {len(reference_paths)} figures; "
+            f"the paper-facing limit is {_MAX_PAPER_FIGURES}."
+        )
     captions = {
         value.strip(): caption.strip() for caption, value in markdown_refs if caption.strip()
     }
-    for index, value in enumerate(reference_paths, start=1):
+    for index, value in enumerate(reference_paths[:_MAX_PAPER_FIGURES], start=1):
         path = _resolve_figure_reference(inputs.root, inputs.run_id, value)
         if path is None or not path.is_file() or path.suffix.lower() not in _FIGURE_SUFFIXES:
             blockers.append(f"Referenced figure is missing or unsupported: {value}.")
@@ -1646,7 +1707,423 @@ def _build_figures(
                 resolved=True,
             )
         )
-    return records, _unique(blockers)
+    # Final assembly must preserve the accepted manuscript's scientific presentation. Derived
+    # figures remain available to upstream authoring, but are not inserted unless the manuscript
+    # explicitly selected and referenced them.
+    return records[:_MAX_PAPER_FIGURES], _unique(blockers), generated_assets
+
+
+def _generate_paired_difference_figure(
+    inputs: _Inputs,
+    bindings: list[FinalPaperArtifactBinding],
+    *,
+    artifact_id: str,
+) -> tuple[FinalPaperFigureRecord, _GeneratedFigureAsset] | None:
+    return _generate_metric_figure(
+        inputs,
+        bindings,
+        artifact_id=artifact_id,
+        finder=_find_paired_difference_series,
+        renderer=_render_paired_difference_png,
+        caption=(
+            "Paired differences from the declared baseline across experimental conditions. "
+            "Points are persisted means and error bars reproduce the persisted interval fields."
+        ),
+    )
+
+
+def _generate_reliability_figure(
+    inputs: _Inputs,
+    bindings: list[FinalPaperArtifactBinding],
+    *,
+    artifact_id: str,
+) -> tuple[FinalPaperFigureRecord, _GeneratedFigureAsset] | None:
+    assert inputs.execution is not None
+    for result in inputs.execution.results:
+        if result.status not in _METRIC_RESULT_STATUSES:
+            continue
+        sources = _unique(
+            source.split("#", 1)[0] for source in result.metric_sources.values() if source
+        )
+        for source in sources:
+            path = _path_from_relative(inputs.root, source)
+            if not path.is_file():
+                continue
+            payload = _read_json(path)
+            curves = _find_reliability_curves(payload)
+            if curves is None:
+                continue
+            content = _render_reliability_png(curves)
+            record = FinalPaperFigureRecord(
+                figure_id=artifact_id,
+                source_artifact_id=result.result_id,
+                file_path=f"runs/{inputs.run_id}/reports/{artifact_id}.png",
+                caption=(
+                    "Reliability curves reconstructed from the validated experiment output. "
+                    "The diagonal denotes exact calibration."
+                ),
+                referenced_in_sections=_result_section_ids(inputs.revised_draft),
+                claim_ids_supported=_unique(
+                    claim_id
+                    for binding in bindings
+                    for claim_id in binding.claim_ids
+                    if binding.artifact_id == result.result_id
+                ),
+                generation_backend="deterministic_presentation_renderer",
+                content_hash=hashlib.sha256(content).hexdigest(),
+                resolved=True,
+            )
+            return record, _GeneratedFigureAsset(
+                artifact_id=artifact_id,
+                filename_stem=artifact_id,
+                content=content,
+            )
+    return None
+
+
+def _generate_interval_summary_figure(
+    inputs: _Inputs,
+    bindings: list[FinalPaperArtifactBinding],
+    *,
+    artifact_id: str,
+) -> tuple[FinalPaperFigureRecord, _GeneratedFigureAsset] | None:
+    return _generate_metric_figure(
+        inputs,
+        bindings,
+        artifact_id=artifact_id,
+        finder=_find_reliability_interval_summaries,
+        renderer=_render_interval_summary_png,
+        caption=(
+            "Reliability-deviation summaries reconstructed from the validated experiment output. "
+            "Bars are persisted means and error bars reproduce the persisted interval fields."
+        ),
+    )
+
+
+def _generate_metric_figure(
+    inputs: _Inputs,
+    bindings: list[FinalPaperArtifactBinding],
+    *,
+    artifact_id: str,
+    finder: Any,
+    renderer: Any,
+    caption: str,
+) -> tuple[FinalPaperFigureRecord, _GeneratedFigureAsset] | None:
+    assert inputs.execution is not None
+    for result in inputs.execution.results:
+        if result.status not in _METRIC_RESULT_STATUSES:
+            continue
+        sources = _unique(
+            source.split("#", 1)[0] for source in result.metric_sources.values() if source
+        )
+        for source in sources:
+            path = _path_from_relative(inputs.root, source)
+            if not path.is_file():
+                continue
+            data = finder(_read_json(path))
+            if data is None:
+                continue
+            content = renderer(data)
+            record = FinalPaperFigureRecord(
+                figure_id=artifact_id,
+                source_artifact_id=result.result_id,
+                file_path=f"runs/{inputs.run_id}/reports/{artifact_id}.png",
+                caption=caption,
+                referenced_in_sections=_result_section_ids(inputs.revised_draft),
+                claim_ids_supported=_unique(
+                    claim_id
+                    for binding in bindings
+                    for claim_id in binding.claim_ids
+                    if binding.artifact_id == result.result_id
+                ),
+                generation_backend="deterministic_presentation_renderer",
+                content_hash=hashlib.sha256(content).hexdigest(),
+                resolved=True,
+            )
+            return record, _GeneratedFigureAsset(
+                artifact_id=artifact_id,
+                filename_stem=artifact_id,
+                content=content,
+            )
+    return None
+
+
+def _find_paired_difference_series(
+    value: Any,
+) -> dict[str, list[tuple[str, float, float, float]]] | None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if "paired" in str(key).casefold() and "difference" in str(key).casefold():
+                parsed = _condition_interval_series(child)
+                if parsed is not None:
+                    return parsed
+        for child in value.values():
+            found = _find_paired_difference_series(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_paired_difference_series(child)
+            if found is not None:
+                return found
+    return None
+
+
+def _condition_interval_series(
+    value: Any,
+) -> dict[str, list[tuple[str, float, float, float]]] | None:
+    if not isinstance(value, dict):
+        return None
+    series: dict[str, list[tuple[str, float, float, float]]] = {}
+    for label, conditions in value.items():
+        if not isinstance(conditions, dict):
+            continue
+        points: list[tuple[str, float, float, float]] = []
+        for condition, payload in sorted(conditions.items(), key=lambda item: str(item[0])):
+            summary = _find_interval_summary(payload)
+            if summary is None:
+                continue
+            mean, low, high = summary
+            points.append((str(condition), mean, low, high))
+        if len(points) >= 2 and any(abs(point[1]) > 1e-15 for point in points):
+            series[str(label)] = points
+    return dict(list(sorted(series.items()))[:4]) if len(series) >= 1 else None
+
+
+def _find_reliability_interval_summaries(
+    value: Any,
+) -> dict[str, tuple[float, float, float]] | None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if "reliability" in str(key).casefold():
+                parsed = _named_interval_summaries(child)
+                if parsed is not None:
+                    return parsed
+        for child in value.values():
+            found = _find_reliability_interval_summaries(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_reliability_interval_summaries(child)
+            if found is not None:
+                return found
+    return None
+
+
+def _named_interval_summaries(
+    value: Any,
+) -> dict[str, tuple[float, float, float]] | None:
+    if not isinstance(value, dict):
+        return None
+    summaries = {
+        str(label): summary
+        for label, payload in value.items()
+        if (summary := _find_interval_summary(payload)) is not None
+    }
+    return dict(list(sorted(summaries.items()))[:6]) if len(summaries) >= 2 else None
+
+
+def _find_interval_summary(value: Any) -> tuple[float, float, float] | None:
+    if not isinstance(value, dict):
+        return None
+    mean = value.get("mean")
+    interval = value.get("interval_95")
+    if (
+        isinstance(mean, (int, float))
+        and isinstance(interval, list)
+        and len(interval) == 2
+        and all(isinstance(item, (int, float)) for item in interval)
+        and all(math.isfinite(float(item)) for item in (mean, *interval))
+    ):
+        return float(mean), float(interval[0]), float(interval[1])
+    matches = [
+        found
+        for child in value.values()
+        if (found := _find_interval_summary(child)) is not None
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _find_reliability_curves(
+    value: Any,
+) -> dict[str, list[tuple[float, float]]] | None:
+    if isinstance(value, dict):
+        curves: dict[str, list[tuple[float, float]]] = {}
+        for label, points in value.items():
+            parsed = _reliability_points(points)
+            if parsed:
+                curves[str(label)] = parsed
+        if len(curves) >= 2:
+            return dict(list(sorted(curves.items()))[:4])
+        for child in value.values():
+            found = _find_reliability_curves(child)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_reliability_curves(child)
+            if found is not None:
+                return found
+    return None
+
+
+def _reliability_points(value: Any) -> list[tuple[float, float]]:
+    if not isinstance(value, list) or len(value) < 3:
+        return []
+    points: list[tuple[float, float]] = []
+    for item in value:
+        if not isinstance(item, dict) or "predicted" not in item:
+            return []
+        target = next(
+            (item[key] for key in ("eta", "clean_label", "observed") if key in item),
+            None,
+        )
+        predicted = item.get("predicted")
+        if not isinstance(predicted, (int, float)) or not isinstance(target, (int, float)):
+            return []
+        if not math.isfinite(float(predicted)) or not math.isfinite(float(target)):
+            return []
+        points.append((float(predicted), float(target)))
+    return sorted(points)
+
+
+def _render_reliability_png(curves: dict[str, list[tuple[float, float]]]) -> bytes:
+    matplotlib_cache = Path(os.environ.setdefault("MPLCONFIGDIR", "/tmp/factori-matplotlib"))
+    matplotlib_cache.mkdir(parents=True, exist_ok=True)
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    figure = Figure(figsize=(6.2, 4.2), dpi=160, facecolor="white")
+    canvas = FigureCanvasAgg(figure)
+    axes = figure.add_subplot(1, 1, 1)
+    axes.plot([0, 1], [0, 1], color="#555555", linestyle="--", linewidth=1.2, label="Ideal")
+    colors = ("#0072B2", "#D55E00", "#009E73", "#CC79A7")
+    for color, (label, points) in zip(colors, sorted(curves.items()), strict=False):
+        axes.plot(
+            [point[0] for point in points],
+            [point[1] for point in points],
+            color=color,
+            linewidth=2.0,
+            marker="o",
+            markersize=3.0,
+            label=label.replace("_", " ").title(),
+        )
+    axes.set(xlim=(0, 1), ylim=(0, 1), xlabel="Mean predicted probability", ylabel="Clean rate")
+    axes.grid(color="#dddddd", linewidth=0.6)
+    axes.spines[["top", "right"]].set_visible(False)
+    axes.legend(frameon=False, fontsize=8, loc="upper left")
+    figure.tight_layout()
+    buffer = BytesIO()
+    canvas.print_png(buffer, metadata={"Software": "factori"})
+    return buffer.getvalue()
+
+
+def _render_paired_difference_png(
+    series: dict[str, list[tuple[str, float, float, float]]],
+) -> bytes:
+    matplotlib_cache = Path(os.environ.setdefault("MPLCONFIGDIR", "/tmp/factori-matplotlib"))
+    matplotlib_cache.mkdir(parents=True, exist_ok=True)
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    figure = Figure(figsize=(6.5, 4.2), dpi=160, facecolor="white")
+    canvas = FigureCanvasAgg(figure)
+    axes = figure.add_subplot(1, 1, 1)
+    colors = ("#0072B2", "#D55E00", "#009E73", "#CC79A7")
+    width = 0.18
+    for index, (label, points) in enumerate(sorted(series.items())):
+        offset = (index - (len(series) - 1) / 2) * width
+        x_values = [position + offset for position in range(len(points))]
+        means = [point[1] for point in points]
+        errors = [
+            [max(0.0, point[1] - point[2]) for point in points],
+            [max(0.0, point[3] - point[1]) for point in points],
+        ]
+        axes.errorbar(
+            x_values,
+            means,
+            yerr=errors,
+            color=colors[index % len(colors)],
+            linewidth=1.5,
+            marker="o",
+            markersize=4.0,
+            capsize=3.0,
+            label=label.replace("_", " ").title(),
+        )
+    first_points = next(iter(series.values()))
+    axes.set_xticks(range(len(first_points)), [f"Cell {point[0]}" for point in first_points])
+    axes.axhline(0.0, color="#555555", linestyle="--", linewidth=1.0)
+    axes.set_ylabel("Paired difference from baseline")
+    axes.grid(axis="y", color="#dddddd", linewidth=0.6)
+    axes.spines[["top", "right"]].set_visible(False)
+    axes.legend(frameon=False, fontsize=8)
+    figure.tight_layout()
+    buffer = BytesIO()
+    canvas.print_png(buffer, metadata={"Software": "factori"})
+    return buffer.getvalue()
+
+
+def _render_interval_summary_png(
+    summaries: dict[str, tuple[float, float, float]],
+) -> bytes:
+    matplotlib_cache = Path(os.environ.setdefault("MPLCONFIGDIR", "/tmp/factori-matplotlib"))
+    matplotlib_cache.mkdir(parents=True, exist_ok=True)
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    labels = list(sorted(summaries))
+    means = [summaries[label][0] for label in labels]
+    errors = [
+        [max(0.0, summaries[label][0] - summaries[label][1]) for label in labels],
+        [max(0.0, summaries[label][2] - summaries[label][0]) for label in labels],
+    ]
+    figure = Figure(figsize=(6.5, 4.2), dpi=160, facecolor="white")
+    canvas = FigureCanvasAgg(figure)
+    axes = figure.add_subplot(1, 1, 1)
+    positions = list(range(len(labels)))
+    axes.bar(
+        positions,
+        means,
+        yerr=errors,
+        capsize=4.0,
+        color=("#0072B2", "#D55E00", "#009E73", "#CC79A7")[: len(labels)],
+        edgecolor="white",
+        linewidth=0.8,
+    )
+    axes.set_xticks(
+        positions,
+        [label.replace("_", " ").title() for label in labels],
+        rotation=15,
+        ha="right",
+    )
+    axes.set_ylabel("Reliability-curve deviation")
+    axes.grid(axis="y", color="#dddddd", linewidth=0.6)
+    axes.spines[["top", "right"]].set_visible(False)
+    figure.tight_layout()
+    buffer = BytesIO()
+    canvas.print_png(buffer, metadata={"Software": "factori"})
+    return buffer.getvalue()
+
+
+def _paper_metric_priority(metric: str) -> int:
+    value = metric.casefold()
+    score = 80 if value.endswith((".mean", "_mean")) else 0
+    if "paired" in value or "difference" in value or "contrast" in value:
+        score += 25
+    if value.endswith((".count", "_count", ".0", ".1")):
+        score -= 70
+    if any(
+        marker in value
+        for marker in ("failure", "warning", "diagnostic", "runtime", "seed")
+    ):
+        score -= 30
+    return score
+
+
+def _paper_metric_label(metric: str) -> str:
+    parts = [part for part in metric.split(".") if part != "mean"]
+    return ": ".join(part.replace("_", " ") for part in parts[-3:])[:120]
 
 
 def _resolve_citations(inputs: _Inputs) -> tuple[list[EvidenceCitationBinding], list[str]]:
@@ -1799,18 +2276,26 @@ def _assemble_markdown(
     retrieval_contexts: list[RetrievalContext],
     config: FinalPaperAssemblyConfig,
 ) -> str:
-    lines = [draft.markdown.rstrip()]
+    result_lines: list[str] = []
     for table in tables:
-        lines.extend(["", "## Reconstructed Result Tables", "", f"### {table.title}", ""])
-        lines.append("| Artifact | Metric | Value | Metric source |")
-        lines.append("|---|---|---:|---|")
-        lines.extend(
-            "| {artifact_id} | {metric} | {value} | {metric_source} |".format(**row)
+        if _table_values_present(draft.markdown, table):
+            continue
+        result_lines.extend([f"### {table.title}", "", "| Measure | Value |", "|---|---:|"])
+        result_lines.extend(
+            "| {display_label} | {value} |".format(**row)
             for row in table.rows
         )
+        result_lines.append("")
     if figures:
-        lines.extend(["", "## Figures", ""])
-        lines.extend(f"![{item.caption}]({item.file_path})" for item in figures)
+        result_lines.extend(["### Figures", ""])
+        result_lines.extend(
+            f"![{item.caption}]({item.file_path})" for item in figures
+        )
+    manuscript = _insert_markdown_result_material(
+        draft.markdown.rstrip(),
+        "\n".join(result_lines).rstrip(),
+    )
+    lines = [manuscript]
     if appendices:
         lines.extend(["", "## Assembly Appendices", ""])
         for appendix in appendices:
@@ -1829,6 +2314,11 @@ def _assemble_markdown(
     if references and not re.search(r"(?mi)^#{1,6}\s+references\b", draft.markdown):
         lines.extend(["## References", "", *references])
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _table_values_present(source: str, table: FinalPaperTableRecord) -> bool:
+    """Return whether the manuscript already presents every validated table value."""
+    return bool(table.rows) and all(str(row["value"]) in source for row in table.rows)
 
 
 def _assemble_latex(
@@ -1865,36 +2355,23 @@ def _assemble_latex(
         base_latex, _, suffix = base_latex.rpartition(r"\end{document}")
         document_suffix = r"\end{document}" + suffix
         base_latex = base_latex.rstrip()
-    lines = [base_latex]
-    reference_lines = _latex_reference_lines(citation_bindings, retrieval_contexts)
-    if reference_lines and r"\begin{thebibliography}" not in base_latex:
-        lines.extend(
-            [
-                "",
-                r"\section*{References}",
-                r"\begin{thebibliography}{99}",
-                *reference_lines,
-                r"\end{thebibliography}",
-            ]
-        )
+    result_lines: list[str] = []
     for table in tables:
-        lines.extend(
+        if _table_values_present(draft.latex, table):
+            continue
+        result_lines.extend(
             [
                 "",
-                r"\section*{Reconstructed Result Tables}",
                 rf"\subsection*{{{_latex_escape(table.title)}}}",
                 r"\small",
-                r"\begin{longtable}{p{0.37\textwidth}p{0.14\textwidth}p{0.41\textwidth}}",
-                r"Metric & Value & Provenance \\",
+                r"\begin{longtable}{p{0.75\textwidth}r}",
+                r"Measure & Value \\",
                 r"\hline",
                 *[
                     " & ".join(
                         [
-                            _latex_path(str(row["metric"])),
+                            _latex_escape(str(row["display_label"])),
                             _latex_escape(str(row["value"])),
-                            _metric_provenance_cell(
-                                str(row["artifact_id"]), str(row["metric_source"])
-                            ),
                         ]
                     )
                     + " \\\\"
@@ -1905,13 +2382,29 @@ def _assemble_latex(
             ]
         )
     for figure in figures:
-        lines.extend(
+        result_lines.extend(
             [
                 r"\begin{figure}[H]",
                 r"\centering",
                 rf"\includegraphics[width=0.9\linewidth]{{{_latex_escape(figure.file_path)}}}",
                 rf"\caption{{{_latex_escape(figure.caption)}}}",
                 r"\end{figure}",
+            ]
+        )
+    base_latex = _insert_latex_result_material(
+        base_latex,
+        "\n".join(result_lines).strip(),
+    )
+    lines = [base_latex]
+    reference_lines = _latex_reference_lines(citation_bindings, retrieval_contexts)
+    if reference_lines and r"\begin{thebibliography}" not in base_latex:
+        lines.extend(
+            [
+                "",
+                r"\section*{References}",
+                r"\begin{thebibliography}{99}",
+                *reference_lines,
+                r"\end{thebibliography}",
             ]
         )
     if appendices:
@@ -1927,15 +2420,103 @@ def _assemble_latex(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _insert_markdown_result_material(source: str, material: str) -> str:
+    if not material:
+        return source
+    result_heading = re.search(
+        r"(?mi)^(?P<marks>#{1,6})[ \t]+[^\n]*\bresults?\b[^\n]*$",
+        source,
+    )
+    if result_heading is not None:
+        level = len(result_heading.group("marks"))
+        next_heading = re.search(
+            rf"(?m)^#{{1,{level}}}[ \t]+",
+            source[result_heading.end() :],
+        )
+        insertion = (
+            result_heading.end() + next_heading.start()
+            if next_heading is not None
+            else len(source)
+        )
+        return (
+            source[:insertion].rstrip()
+            + "\n\n"
+            + material
+            + "\n\n"
+            + source[insertion:].lstrip()
+        ).rstrip()
+    fallback = re.search(
+        r"(?mi)^#{1,6}[ \t]+[^\n]*\b(?:limitations?|discussion|conclusion|appendix|references)\b",
+        source,
+    )
+    block = "## Results Summary\n\n" + material
+    if fallback is None:
+        return source.rstrip() + "\n\n" + block
+    return (
+        source[: fallback.start()].rstrip()
+        + "\n\n"
+        + block
+        + "\n\n"
+        + source[fallback.start() :].lstrip()
+    ).rstrip()
+
+
+def _insert_latex_result_material(source: str, material: str) -> str:
+    if not material:
+        return source
+    result_heading = re.search(
+        r"(?mi)^\\section\*?\{[^}\n]*\bresults?\b[^}\n]*\}",
+        source,
+    )
+    if result_heading is not None:
+        next_heading = re.search(
+            r"(?m)^\\section\*?\{",
+            source[result_heading.end() :],
+        )
+        insertion = (
+            result_heading.end() + next_heading.start()
+            if next_heading is not None
+            else len(source)
+        )
+        return (
+            source[:insertion].rstrip()
+            + "\n\n"
+            + material
+            + "\n\n"
+            + source[insertion:].lstrip()
+        ).rstrip()
+    fallback = re.search(
+        r"(?mi)^\\section\*?\{[^}\n]*\b(?:limitations?|discussion|conclusion|appendix|references)\b",
+        source,
+    )
+    block = r"\section*{Results Summary}" + "\n" + material
+    if fallback is None:
+        return source.rstrip() + "\n\n" + block
+    return (
+        source[: fallback.start()].rstrip()
+        + "\n\n"
+        + block
+        + "\n\n"
+        + source[fallback.start() :].lstrip()
+    ).rstrip()
+
+
 def _standalone_final_latex(source: str) -> str:
     """Turn an M106 fragment into a deterministic, compile-ready paper document."""
     normalized = source.replace("\r\n", "\n").replace("\r", "\n").strip()
+    normalized = _strip_reconstructed_result_tables(normalized)
+    normalized = _strip_presentation_audit_sections(normalized)
     if r"\documentclass" in normalized:
+        normalized = _ensure_latex_preamble_line(normalized, r"\usepackage[T1]{fontenc}")
+        normalized = _ensure_latex_preamble_line(normalized, r"\usepackage[utf8]{inputenc}")
+        normalized = _ensure_latex_preamble_line(normalized, r"\usepackage{lmodern}")
+        normalized = _ensure_latex_preamble_line(normalized, r"\usepackage[margin=1in]{geometry}")
         normalized = _ensure_latex_package(normalized, "adjustbox")
         normalized = _ensure_latex_package(normalized, "microtype")
-        normalized = _strip_reconstructed_result_tables(normalized)
         normalized = _fit_simple_longtables(normalized)
+        normalized = _fit_table_tabulars(normalized)
         normalized = _format_document_tabular_numbers(normalized)
+        normalized = _format_document_longtable_numbers(normalized)
         normalized = re.sub(
             r"(?<!\\protect)\\url\{",
             r"\\protect\\url{",
@@ -1944,6 +2525,14 @@ def _standalone_final_latex(source: str) -> str:
         normalized = _ensure_latex_preamble_line(
             normalized, r"\setlength{\emergencystretch}{4em}"
         )
+        normalized = _ensure_latex_preamble_line(
+            normalized, r"\setlength{\parindent}{1.25em}"
+        )
+        normalized = _ensure_latex_preamble_line(normalized, r"\setlength{\parskip}{0pt}")
+        if not re.search(r"(?m)^\s*\\author\{", normalized):
+            normalized = _ensure_latex_preamble_line(normalized, r"\author{}")
+        if not re.search(r"(?m)^\s*\\date\{", normalized):
+            normalized = _ensure_latex_preamble_line(normalized, r"\date{}")
         return normalized + "\n"
     normalized = re.sub(r"(?<!\\)#", r"\\#", normalized)
     normalized = re.sub(
@@ -1988,6 +2577,26 @@ def _standalone_final_latex(source: str) -> str:
     )
 
 
+def _resolve_latex_graphics(source: str, root: Path) -> str:
+    pattern = re.compile(
+        r"(?P<prefix>\\includegraphics(?:\[[^\]]*\])?\{)"
+        r"(?P<path>runs/[^}]+)"
+        r"(?P<suffix>\})"
+    )
+    def resolve(match: re.Match[str]) -> str:
+        relative = _latex_unescape_text(match.group("path"))
+        absolute = (root / relative).resolve().as_posix()
+        return (
+            match.group("prefix")
+            + r"\detokenize{"
+            + absolute
+            + "}"
+            + match.group("suffix")
+        )
+
+    return pattern.sub(resolve, source)
+
+
 def _ensure_latex_package(source: str, package: str) -> str:
     if re.search(rf"\\usepackage(?:\[[^]]*\])?\{{[^}}]*\b{re.escape(package)}\b[^}}]*\}}", source):
         return source
@@ -2023,11 +2632,60 @@ def _strip_reconstructed_result_tables(source: str) -> str:
     return source[:start].rstrip() + "\n\n" + source[end:].lstrip()
 
 
+def _strip_presentation_audit_sections(source: str) -> str:
+    """Keep machine-readable audit material in the bundle, not the paper PDF."""
+    claim_map = re.compile(
+        r"\n?\\subsection\*\{Machine-readable claim map\}.*?"
+        r"(?=\n\\appendix|\n\\section\*?\{|\n\\end\{document\})",
+        re.DOTALL,
+    )
+    normalized = claim_map.sub("", source)
+    assembly_appendix = re.compile(
+        r"\n?\\appendix\s*\n\\section\*\{Assembly Appendices\}.*?"
+        r"(?=\n\\end\{document\})",
+        re.DOTALL,
+    )
+    normalized = assembly_appendix.sub("", normalized)
+    normalized = re.sub(
+        r"Reader-facing citations use this short identifier;[^.]*"
+        r"machine-readable provenance note below\.",
+        "Full provenance details are retained in the accompanying machine-readable bundle.",
+        normalized,
+    )
+    normalized = normalized.replace(
+        r"\section*{Provenance note and references}",
+        r"\section*{References}",
+    )
+    normalized = re.sub(
+        r"\\section\*\{References\}\s*(?=\\begin\{thebibliography\})",
+        "",
+        normalized,
+    )
+    return normalized
+
+
 def _format_document_tabular_numbers(source: str) -> str:
     pattern = re.compile(
         r"(?P<open>\\begin\{tabular\}\{[^\n]*\}\s*)"
         r"(?P<body>.*?)"
         r"(?P<close>\\end\{tabular\})",
+        re.DOTALL,
+    )
+    return pattern.sub(
+        lambda match: (
+            match.group("open")
+            + _format_table_numbers(match.group("body"))
+            + match.group("close")
+        ),
+        source,
+    )
+
+
+def _format_document_longtable_numbers(source: str) -> str:
+    pattern = re.compile(
+        r"(?P<open>\\begin\{longtable\}\{[^\n]*\}\s*)"
+        r"(?P<body>.*?)"
+        r"(?P<close>\\end\{longtable\})",
         re.DOTALL,
     )
     return pattern.sub(
@@ -2074,6 +2732,34 @@ def _fit_simple_longtables(source: str) -> str:
                 [r"\begin{table}[H]", r"\centering", caption, tabular, r"\end{table}"]
             )
         return "\n".join([r"\begin{center}", tabular, r"\end{center}"])
+
+    return pattern.sub(replace, source)
+
+
+def _fit_table_tabulars(source: str) -> str:
+    """Constrain ordinary manuscript tables without changing their scientific content."""
+    pattern = re.compile(
+        r"(?P<open>\\begin\{table\}(?:\[[^]]*\])?)"
+        r"(?P<body>.*?)"
+        r"(?P<close>\\end\{table\})",
+        re.DOTALL,
+    )
+
+    def replace(match: re.Match[str]) -> str:
+        body = match.group("body")
+        if r"\begin{adjustbox}" in body or r"\begin{tabular}" not in body:
+            return match.group(0)
+        body = body.replace(
+            r"\begin{tabular}",
+            r"\begin{adjustbox}{max width=\linewidth}" + "\n" + r"\begin{tabular}",
+            1,
+        )
+        tabular_end = body.rfind(r"\end{tabular}")
+        if tabular_end < 0:
+            return match.group(0)
+        tabular_end += len(r"\end{tabular}")
+        body = body[:tabular_end] + "\n" + r"\end{adjustbox}" + body[tabular_end:]
+        return match.group("open") + body + match.group("close")
 
     return pattern.sub(replace, source)
 
@@ -2283,7 +2969,10 @@ def _reference_lines(
         authors = ", ".join(source.authors) if source.authors else "Unknown author"
         year = str(source.year) if source.year is not None else "n.d."
         identifier = source.doi or source.source_id
-        lines.append(f"- {authors} ({year}). {source.title}. `{identifier}`")
+        key = _citation_key(source.source_id)
+        lines.append(
+            f'- <a id="{key}"></a>{authors} ({year}). {source.title}. `{identifier}`'
+        )
     return lines
 
 
@@ -2369,6 +3058,7 @@ def _persist_assembly_report(
     citation_bindings: list[EvidenceCitationBinding] | None = None,
     provenance: dict[str, Any] | None = None,
     tables: list[FinalPaperTableRecord] | None = None,
+    figure_assets: list[_GeneratedFigureAsset] | None = None,
 ) -> FinalPaperResult:
     metadata = _metadata("final_paper_assembly")
     specs: list[ArtifactWriteSpec] = [
@@ -2444,6 +3134,19 @@ def _persist_assembly_report(
                 metadata,
             )
             for index, table in enumerate(tables or [], start=1)
+        )
+        specs.extend(
+            ArtifactWriteSpec(
+                asset.artifact_id,
+                ArtifactType.REPORT,
+                asset.content,
+                "binary",
+                _metadata("final_paper_figure"),
+                extension="png",
+                format_label="png",
+                filename_stem=asset.filename_stem,
+            )
+            for asset in figure_assets or []
         )
     persistence = persist_artifacts_with_commit(
         run_id=report.run_id,
@@ -2834,14 +3537,14 @@ def _verify_metric_tables(
                         blocking=True,
                     )
                 )
-            expected_line = f"| {row['artifact_id']} | {metric} | {value} | {source} |"
-            if expected_line not in markdown:
+            expected_line = f"| {row['display_label']} | {value} |"
+            if expected_line not in markdown and str(value) not in markdown:
                 findings.append(
                     _finding(
                         len(findings) + 1,
                         "metric_mismatch",
-                        "Final Markdown does not contain the deterministically assembled "
-                        f"{metric} row.",
+                        "Final Markdown contains neither the manuscript-presented value nor "
+                        f"the deterministically assembled {metric} row.",
                         artifact_ids=table.source_metric_artifact_ids,
                         claim_ids=table.claim_ids_supported,
                         blocking=True,
@@ -3520,6 +4223,24 @@ def _manuscript_metric_mismatch_reasons(
 ) -> list[str]:
     """Check that metric rows retained from M105 equal execution-derived values."""
     blockers: list[str] = []
+    rows_by_key = {
+        (str(row["artifact_id"]), str(row["metric"])): row
+        for table in tables
+        for row in table.rows
+    }
+    for binding in draft.metric_token_bindings:
+        key = (str(binding.get("artifact_id", "")), str(binding.get("metric", "")))
+        row = rows_by_key.get(key)
+        if row is None:
+            blockers.append(
+                "A manuscript metric token is absent from the validated final-paper table: "
+                f"{key[0]}/{key[1]}."
+            )
+        elif row["value"] != binding.get("value"):
+            blockers.append(
+                "A manuscript metric token differs from the validated execution artifact: "
+                f"{key[0]}/{key[1]}."
+            )
     source = f"{draft.markdown}\n{draft.latex}"
     for table in tables:
         for row in table.rows:

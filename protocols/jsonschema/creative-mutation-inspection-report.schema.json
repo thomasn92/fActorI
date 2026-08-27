@@ -418,7 +418,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/creative-mutation-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/creative-mutation-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for creative mutation planning and application.",
@@ -567,7 +567,7 @@
   ],
   "title": "CreativeMutationInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.CreativeMutationInspectionReport",
   "x-factori-verification-evidence": false
 }

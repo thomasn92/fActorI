@@ -1,614 +1,362 @@
 # fActorI
 
-This repository contains the deterministic MVP foundation for fActorI, based on
-`fActori_updated_data_regime.tex`.
+**An evidence-bounded, provenance-aware research orchestration framework**
 
-## For coding agents
+fActorI is a prototype system for structured hypothesis exploration, controlled experiment
+generation and execution, role-separated scientific criticism, and evidence-bounded manuscript
+synthesis. Its central design rule is that models may propose, analyze, criticize, and write, but
+only validated artifacts determine what the pipeline may present as evidence.
 
-Start with:
+**Hypothesis exploration | Automated experimentation | Evidence provenance | LLM research agents**
 
-1. [`AGENTS.md`](AGENTS.md)
-2. [`CONTEXT.md`](CONTEXT.md)
-3. [`ARCHITECTURE.md`](ARCHITECTURE.md)
-4. [`MILESTONES.md`](MILESTONES.md)
-5. [`MODULE_MAP.md`](MODULE_MAP.md)
-6. [`COMMANDS.md`](COMMANDS.md)
+> **Prototype status:** fActorI demonstrates research orchestration and evidence discipline. It
+> does not claim that generated work is publication-quality or scientifically correct without
+> external review.
 
-The LaTeX specification is reference material only and should not be read in full unless required
-by the task.
+Repository snapshot, computed on 2026-08-27: **1,312 pytest test functions | 422 exported JSON
+Schema contracts | one hash-locked end-to-end research showcase**.
 
-Public schema imports should use `factori.schemas`. The schema definitions are internally grouped
-under `factori/schemas/`, but the package re-exports preserve existing imports such as
-`from factori.schemas import Candidate`.
+## Why fActorI
 
-Language-neutral developer contracts are documented in [`protocols/README.md`](protocols/README.md).
-Compatibility rules are documented in
-[`protocols/compatibility.md`](protocols/compatibility.md), with version bump rules in
-[`protocols/versioning.md`](protocols/versioning.md) and server-readiness notes in
-[`protocols/server-readiness.md`](protocols/server-readiness.md).
+LLMs can generate convincing research narratives faster than they can establish that the
+underlying evidence supports them. A single model asked to propose an idea, run an experiment, and
+write the conclusion can silently move between speculation, observation, and established fact.
 
-Implemented so far:
+fActorI separates scientific proposal, execution, evidence classification, criticism,
+adjudication, and manuscript generation. The component writing the narrative has no authority to
+upgrade evidence labels, manufacture metrics, or turn synthetic results into real-world
+validation.
 
-- strict Pydantic schemas for core research entities;
-- grouped schema modules with stable `factori.schemas` compatibility re-exports;
-- typed library entry points for selected CLI commands, keeping CLI output compatible;
-- a local SQLite append-only ledger with deterministic commit hashes;
-- a local filesystem artifact store under `runs/<run_id>/` with atomic replacement, UTF-8/LF
-  normalization, final-byte hashing, and best-effort durability sync;
-- small runtime-checkable ledger, artifact-store, and clock protocols with fixed-clock test support;
-- a minimal Typer CLI;
-- deterministic fake Stage 0 opportunity discovery and Stage A candidate ranking;
-- deterministic fake Stage B structural validation;
-- deterministic Strategic Questioner, Autonomy Contract, stagnation, retrieval adequacy, and
-  runtime summary skeletons;
-- deterministic Stage B-to-C red-team filtering and Stage C candidate selection;
-- deterministic fake Stage C verification labeling and evidence-boundary checks;
-- deterministic Abstract Synthesis skeleton and final nucleus selection;
-- deterministic manuscript planning skeleton with claim/evidence tables;
-- deterministic narrative manuscript contract and paper-shape critique;
-- deterministic draft skeleton and manuscript checklist generation;
-- deterministic section-by-section Markdown manuscript drafting with strict prose safety checks;
-- deterministic citation registry and bounded literature-positioning integration for Markdown
-  drafts, with citation-safety checks and no novelty-proof authority;
-- optional bounded retrieval-backed citation orchestration with deterministic fixture sources,
-  registry-only citation keys, provenance-derived bibliography output, and no evidence authority;
-- deterministic LaTeX export from complete Markdown drafts, with bibliography placeholders,
-  source maps, safety checks, and optional gated render diagnostics;
-- deterministic paper critic and one safe fake revision pass over Markdown/LaTeX artifacts,
-  covering paper shape, citation safety, evidence boundaries, source maps, and section-level
-  revision planning;
-- deterministic full-paper package generation that chains citation registry construction,
-  manuscript drafting, LaTeX export, paper critique, and optional safe fake revision/re-export;
-- explicit gated end-to-end LLM-assisted paper orchestration with call/cost budget checks,
-  secret-safe accounting, and fake smoke mode;
-- deterministic research object packaging and audit manifests;
-- deterministic final-paper assembly skeleton;
-- deterministic final audit and release gate;
-- deterministic export-preparation contracts and plans;
-- read-only deterministic replay verification for completed runs;
-- read-only deterministic provenance diagnostics and safe rerun recommendations;
-- read-only deterministic cross-run comparison and regression diagnostics;
-- canonical direct one-command deterministic pipeline orchestration;
-- read-only checkpoint/status inspection and stricter run-all resume validation;
-- read-only pipeline dry-run planning for run-all options and expected outputs;
-- read-only run output hygiene inspection for orphaned, stale, duplicate, or leaked files;
-- deterministic non-executing hygiene remediation plans with explicit risk levels and rerun advice;
-- explicit LLM, retrieval, proof, experiment, prose, and human-review adapter interfaces with
-  deterministic fake defaults;
-- an explicitly gated OpenAI adapter for Stage A candidate proposal only, with strict local parsing
-  and ledgered non-evidence request/response traces;
-- an explicitly gated OpenAlex adapter for Stage B source metadata/abstract retrieval, with source
-  hashes, ledgered context artifacts, and bounded adequacy that does not prove novelty;
-- an explicitly gated OpenAI reviewer adapter for Stage B structural critique, with strict local
-  safety checks, ledgered context artifacts, and no verification or publication authority;
-- an explicitly gated local Lean proof adapter for Stage C mathematical branches, with proof
-  contracts, trace/result hashes, safety checks, and no default proof-tool execution;
-- an explicitly gated local synthetic experiment runner for Stage C SyntheticOnly branches, with
-  contracts, input/output/trace hashes, safety checks, and no default experiment-tool execution;
-- an explicitly gated OpenAI prose adapter, with section contracts, safety checks, optional complete
-  Markdown draft assembly, ledgered non-evidence prose artifacts when requested, and no default
-  network access;
-- versioned language-neutral JSON Schema contracts and deterministic interoperability examples;
-- conservative read-only protocol compatibility and schema-change classification;
-- server-facing run-control, adapter I/O, manifest, and enum protocol exports with JSON
-  Schema-level example validation and explicit protocol versioning checks;
-- fail-closed mutating-stage rerun policies and read-only ledger tip/fork validation;
-- pytest coverage for the MVP invariants;
-- Ruff configuration.
+## Architecture
 
-Not implemented yet: LangGraph orchestration, autonomous real-LLM research synthesis, polished full-paper writing,
-complete or claim-verifying literature coverage, always-on Lean integration, real empirical
-experiments, Docker, FastAPI, hard PDF-generation dependencies, publication-ready LaTeX, or a
-frontend.
+```mermaid
+flowchart TD
+    Q[Research domain or question] --> O[Opportunity discovery]
+    O --> V[Diverse hypothesis generation]
+    V --> S[ScientificSubstrate construction]
+    S --> R[Experiment, proof, or retrieval planning]
+    R --> G[Experiment code generation]
+    G --> A[Static safety audit]
+    A --> X[Restricted sandbox execution]
+    X --> E[Evidence package]
+    E --> C[Role-separated scientific critics]
+    C --> N[Fail-closed research nucleus selection]
+    N --> M[Evidence-bounded manuscript]
+    M --> B[Hash-locked research bundle]
+```
 
-## Install
+The main path is not a single prompt followed by a paper. Candidate directions are expanded across
+mechanisms, baselines, failure modes, robustness checks, and negative controls. Semantic
+duplicates are filtered before selected ideas become typed scientific objects.
+
+### A ScientificSubstrate
+
+A substrate turns a research idea into an inspectable contract. A simplified substrate looks like:
+
+```yaml
+question: Does calibration recover clean-posterior quality under training-label noise?
+hypothesis: Calibration benefits depend on the corruption mechanism and rate.
+model_object: Binary Gaussian-logistic data-generating process with known posterior.
+assumptions:
+  - Training, calibration, and evaluation splits are disjoint.
+  - Calibration and evaluation labels remain clean.
+data_regime: SyntheticOnly
+baseline: Uncalibrated logistic regression
+negative_control: Permuted calibration labels
+experiment_design: Six noise-mechanism/rate cells with repeated paired comparisons
+success_criteria: Prespecified metric and control checks
+robustness_checks: Realized-noise audits, reruns, and regime sensitivity
+result_schema: Machine-readable metrics, diagnostics, and failure records
+limitations: Synthetic scope; no real-world validation
+forbidden_claims: Publication readiness, novelty proof, or general domain truth
+```
+
+This structure lets downstream stages reason about a concrete object instead of repeatedly
+reinterpreting free-form prose.
+
+## Automated Experiments
+
+```text
+LLM experiment specification
+  -> generated Python
+  -> deterministic AST and policy audit
+  -> restricted local execution with fixed resource ceilings
+  -> sandbox output.json
+  -> metric extraction
+  -> evidence package
+```
+
+Generated scripts are checked before execution. Network access, child-process creation, path
+escape, dynamic execution, and unsafe imports are restricted by policy. Runs use dedicated working
+directories, time and memory limits, and declared seed requirements. Metrics enter an evidence
+package only through successful process output; unsafe, failed, or incomplete runs remain blocked
+or inconclusive.
+
+This is a prototype research sandbox, not a hardened security boundary for hostile code.
+
+## Evidence Authority
+
+The distinctive part of fActorI is not which agent talks to which agent. It is which component is
+allowed to assert what.
+
+```text
+Proposal             != evidence
+LLM criticism        != evidence
+Literature citation  != experimental evidence
+Manuscript prose     != evidence
+Executed output      -> bounded evidence only after contract validation
+```
+
+- A prose model can describe persisted evidence but cannot upgrade it.
+- A critic can reject or narrow a result but cannot manufacture a better result.
+- Retrieval provides literature context but cannot prove novelty or completeness.
+- Synthetic experiments can support bounded simulation claims, never empirical validation.
+- Presentation artifacts, including Markdown, LaTeX, and PDFs, carry no evidence authority.
+
+### How fActorI tries not to fool itself
+
+- explicit baselines and placebo-style negative controls;
+- robustness and regime-sensitivity checks;
+- failure criteria declared before interpretation;
+- tautology, DGP-rigging, false-bridge, and claim-scope criticism;
+- novelty-risk checks without claiming novelty proof;
+- negative-result retention;
+- role-separated scientific critics;
+- fail-closed evidence-package adjudication;
+- prohibited conclusions attached to research contracts.
+
+These controls constrain what the system may claim. They do not guarantee that accepted evidence
+is scientifically correct.
+
+## Provenance
+
+Every mutating stage writes through a local artifact store and an append-only SQLite ledger.
+Artifacts are SHA-256 hashed and linked to producing commits. Parent continuity, forks, artifact
+hashes, required outputs, and evidence boundaries can be checked without rewriting history.
+
+```text
+LLM call / experiment / decision
+  -> persisted artifact
+  -> SHA-256 content hash
+  -> append-only ledger commit
+  -> explicit downstream dependency
+```
+
+Checkpointed execution supports bounded resume and explicit rerun policies. Read-only replay and
+bundle verification inspect consistency; they do not repair provenance or certify scientific
+truth.
+
+## End-to-End Showcase
+
+### Calibration under Symmetric and Class-Conditional Training-Label Noise
+
+The repository includes a complete generated research bundle:
+
+- [paper (PDF)](showcase/label-noise-calibration/bundle/paper/final-paper.pdf)
+- [paper (Markdown)](showcase/label-noise-calibration/bundle/paper/final-paper.md)
+- [bundle index and model disclosure](showcase/label-noise-calibration/README.md)
+- [provenance manifest](showcase/label-noise-calibration/bundle/provenance/provenance-manifest.json)
+- [verification report](showcase/label-noise-calibration/bundle/reports/verification-report.json)
+
+The bounded synthetic benchmark contains:
+
+- six experimental cells and 20 repetitions per cell;
+- symmetric and class-conditional training-label noise;
+- an uncalibrated logistic-regression baseline;
+- temperature scaling and beta calibration;
+- clean calibration labels and independently generated clean evaluation.
+
+The central artifact-reported clean-posterior Brier-risk differences are relative to the
+uncalibrated baseline; negative values are lower:
+
+| Cell | Temperature scaling | Beta calibration |
+|---:|---:|---:|
+| 0 | 0.0001513 | 0.0004764 |
+| 1 | -0.001502 | -0.001312 |
+| 2 | -0.01348 | -0.01346 |
+| 3 | 0.0001619 | 0.0005035 |
+| 4 | -0.0004155 | -0.003659 |
+| 5 | -0.006024 | -0.03663 |
+
+The system retained the directional pattern but refused to promote it into a significance,
+practical-effect, pooled-effect, or generalization claim. Interval construction was unresolved,
+absolute primary-risk levels were unavailable, and the negative control remained inconclusive.
+Those limitations remain visible in the paper.
+
+### Models used
+
+The showcased run deliberately split model roles:
+
+| Role | Backend and model |
+|---|---|
+| Opportunity discovery, variance generation, substrate and route planning, experiment generation and repair, adaptive questioning, and scientific adjudication | OpenAI `gpt-5.6-luna`, reasoning effort `high` |
+| Accepted manuscript planning, synthesis, criticism, and revision | OpenAI `gpt-5.6-sol`, reasoning effort `high` |
+| Literature retrieval | OpenAlex |
+| Safety audit, sandbox execution, metric extraction, claim-binding validation, final assembly, and PDF rendering | Deterministic local tooling |
+
+Model identifiers are recorded in raw adapter artifacts; reasoning effort reflects the command
+configuration used for these calls. Sol improved the manuscript presentation; it did not create or
+upgrade the experiment evidence.
+
+### One provenance trace
+
+The primary paper statement can be followed backward through the bundle:
+
+```text
+Paper result and table
+  -> claim/artifact binding
+  -> evidence-package result
+  -> sandbox output.json
+  -> exact metric field
+```
+
+- [paper result](showcase/label-noise-calibration/bundle/paper/final-paper.md)
+- [claim-to-artifact map](showcase/label-noise-calibration/bundle/reports/claim-artifact-map.json)
+- [evidence-package result](showcase/label-noise-calibration/bundle/evidence/evidence-package-result-0005.json)
+- [sandbox output](showcase/label-noise-calibration/bundle/evidence/metrics/evidence-package-sandbox-execution-0002-output.json)
+- [artifact-bound metric table](showcase/label-noise-calibration/bundle/tables/final-paper-artifact-bound-metrics.json)
+
+The generated implementation is not included in this final bundle, and the paper explicitly
+records that reproducibility limitation. The trace demonstrates metric provenance, not complete
+independent reproduction.
+
+### Illustrative comparison: why evidence-aware orchestration matters
+
+The [AI Scientist-v2 label-noise paper](https://pub.sakana.ai/ai-scientist-v2/paper/paper.pdf)
+is broader and visually closer to a conventional ML workshop paper. Sakana AI's published
+evaluation materials also document numerical text/figure mismatches, claims stronger than plotted
+evidence, missing or duplicated figures, and experimental-description inconsistencies in generated
+papers.
+
+| AI Scientist-v2 example | fActorI example |
+|---|---|
+| Ambitious multi-dataset deep-learning study | Narrow six-cell synthetic benchmark |
+| Richer conventional presentation and figures | Explicit artifact and authority boundaries |
+| Some conclusions exceed the displayed experiments | Unresolved uncertainty remains unresolved |
+| Human review identifies figure, citation, and method-description problems | Unsupported generalizations are rejected from the manuscript |
+
+**This is an illustrative case study, not a controlled head-to-head benchmark.** It supports a
+design hypothesis: architectural constraints on evidence authority can matter as much as raw model
+capability.
+
+## Relevance to Quantitative Research
+
+| fActorI concept | Quant-research analogue |
+|---|---|
+| Hypothesis generation | Alpha or model hypothesis generation |
+| Scientific baselines | Benchmark strategies and models |
+| Negative controls | Placebo tests |
+| DGP checks | Simulation and model-risk analysis |
+| Robustness sweeps | Parameter and regime sensitivity |
+| Evidence boundaries | Avoiding overstated backtests |
+| Append-only provenance | Research audit trail |
+| Candidate tournaments | Model or strategy selection |
+| Negative-result retention | Reducing survivorship bias |
+| Role-separated critics | Research review and model validation |
+| Restricted execution | Controlled research compute |
+| Claim-to-evidence mapping | Traceable investment thesis |
+
+The architecture is intended to support multiple research routes; the current reliable
+end-to-end demonstration focuses on controlled synthetic ML experimentation. A natural next domain
+is systematic quantitative research, especially factor robustness, portfolio estimation, regime
+sensitivity, and transaction-cost stress testing.
+
+## Engineering
+
+The implementation uses Python 3.11+, Pydantic, SQLite, SHA-256 artifact hashing, Typer, NumPy,
+SciPy, scikit-learn, matplotlib, pytest, Ruff, versioned JSON Schemas, checkpointed execution, and
+bounded external adapters.
+
+```text
+factori/
+|-- adapters/       # LLM, retrieval, proof, and experiment boundaries
+|-- commands/       # typed command business logic
+|-- schemas/        # research, evidence, and provenance contracts
+|-- ledger.py       # append-only provenance ledger
+|-- persistence.py  # atomic artifact and commit helpers
+|-- targeted_study.py
+|-- adaptive_evidence.py
+|-- generated_experiments.py
+|-- nucleus_manuscript.py
+|-- final_paper.py
+`-- cli.py          # Typer command interface
+```
+
+## Quick Start
+
+Install the local development environment:
 
 ```bash
 uv sync --dev
 ```
 
-## Test And Lint
+Run the deterministic structural pipeline without external calls:
+
+```bash
+uv run factori run-all \
+  --run-id readme-demo \
+  --domain "synthetic probabilistic classification"
+
+uv run factori replay-verify --run-id readme-demo
+```
+
+This default path uses deterministic development adapters. It tests contracts and provenance; it
+does not constitute scientific validation. Real model, retrieval, proof, or experiment backends
+require explicit safety gates, credentials or local tools, and budgets.
+
+Run the test and lint checks:
 
 ```bash
 uv run pytest
 uv run ruff check .
 ```
 
-## CLI
-
-Canonical full deterministic run:
-
-```bash
-uv run factori run-all --run-id demo --domain "human geography"
-```
-
-The runner supports `--method`, `--root`, `--stop-after`, `--start-at`, `--skip-replay`,
-`--run-diagnostics`, optional non-provenance replay/diagnostic report flags, `--fail-fast`, and an
-explicit `--rerun-policy`.
-Replay and diagnostics remain read-only within the orchestrated run. A repeated full run with the
-same run ID fails clearly by default. `skip-if-complete` explicitly skips completed stages;
-`allow-if-forced --force` permits deliberate reruns. `--start-at` is validated against explicit
-checkpoint artifacts before any resumed stage runs. Use `--dry-run` or `plan-run` to inspect the
-planned stages and blockers without executing or writing anything.
-
-Individual stage and inspection commands:
-
-```bash
-uv run factori init-run --run-id demo
-uv run factori add-candidate --run-id demo --candidate-id candidate-001
-uv run factori write-artifact --run-id demo --artifact-id report-001 --kind report --format markdown
-uv run factori run-stage-a --run-id demo --domain "human geography"
-uv run factori run-stage-b --run-id demo
-uv run factori select-stage-c --run-id demo
-uv run factori run-stage-c --run-id demo
-uv run factori synthesize-abstract --run-id demo
-uv run factori plan-manuscript --run-id demo
-uv run factori critique-paper-shape --run-id demo
-uv run factori critique-paper-shape --run-id demo --write-report
-uv run factori generate-section-draft --run-id demo --section-id introduction
-uv run factori generate-section-draft --run-id demo --section-id introduction --write-report
-uv run factori draft-manuscript --run-id demo
-uv run factori draft-manuscript --run-id demo --write-report
-uv run factori build-citation-registry --run-id demo
-uv run factori build-citation-registry --run-id demo --write-report
-uv run factori draft-manuscript --run-id demo --include-citations
-uv run factori export-latex --run-id demo
-uv run factori export-latex --run-id demo --write-report
-uv run factori export-latex --run-id demo --json
-uv run factori export-latex --run-id demo --render-check \
-  --allow-external-tools --latex-executable pdflatex
-uv run factori critique-paper --run-id demo
-uv run factori critique-paper --run-id demo --write-report
-uv run factori revise-paper --run-id demo
-uv run factori revise-paper --run-id demo --apply-safe-fake-revision --write-report
-uv run factori generate-paper --run-id demo
-uv run factori generate-paper --run-id demo --write-report
-uv run factori generate-paper --run-id demo --apply-safe-fake-revision --write-report
-uv run factori run-llm-paper --run-id llm-fake --domain "human geography" \
-  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
-  --apply-safe-fake-revision --write-report
-uv run factori build-draft-skeleton --run-id demo
-uv run factori package-research-object --run-id demo
-uv run factori assemble-paper-skeleton --run-id demo
-uv run factori final-audit --run-id demo
-uv run factori prepare-export --run-id demo
-uv run factori replay-verify --run-id demo
-uv run factori replay-verify --run-id demo --write-report
-uv run factori diagnose-run --run-id demo
-uv run factori diagnose-run --run-id demo --write-report
-uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate
-uv run factori compare-runs --baseline-run-id baseline --candidate-run-id candidate --write-report
-uv run factori status --run-id demo
-uv run factori status --run-id demo --stage run-stage-b
-uv run factori status --run-id demo --json
-uv run factori validate-resume --run-id demo --start-at plan-manuscript
-uv run factori run-all --run-id demo --domain "human geography" --dry-run
-uv run factori plan-run --run-id demo --domain "human geography" --json
-uv run factori inspect-hygiene --run-id demo
-uv run factori inspect-hygiene --run-id demo --write-report
-uv run factori inspect-hygiene --run-id demo --json
-uv run factori plan-hygiene-remediation --run-id demo
-uv run factori plan-hygiene-remediation --run-id demo --write-report
-uv run factori plan-hygiene-remediation --run-id demo --json
-uv run factori show-adapters
-uv run factori export-protocols
-uv run factori export-protocols --check
-uv run factori validate-protocol-examples
-uv run factori check-protocol-compat --old-dir old/jsonschema --new-dir new/jsonschema
-uv run factori check-protocol-version --old-dir old/jsonschema --new-dir new/jsonschema \
-  --old-version 0.1.0 --new-version 0.13.0
-uv run factori questioner-check --run-id demo --candidate-id candidate-001
-uv run factori retrieval-adequacy-demo
-uv run factori stagnation-demo
-uv run factori show-ledger --run-id demo
-uv run factori validate-run --run-id demo
-uv run factori validate-ledger-tip --run-id demo
-```
-
-Default commands are local and deterministic. They do not call models, retrieval services, Lean,
-experiment runners, Docker, servers, or UI code. The gated Stage A OpenAI path described below is
-one explicit exception and is never selected by default. Stage B also has separately gated OpenAlex
-retrieval and OpenAI structural-review paths. Stage C has separately gated local Lean proof and
-local synthetic experiment paths. OpenAI prose drafting is also separately gated. All
-are disabled by default.
-
-`inspect-hygiene` is read-only. Its optional reports are written under
-`runs/<run_id>/hygiene/`, explicitly marked non-provenance/non-evidence/non-ledgered, and excluded
-from normal artifact manifests. It never deletes, repairs, rewrites, or rehashes stored metadata.
-
-`plan-hygiene-remediation` maps hygiene findings to conservative recommendations and deterministic
-rerun commands when a producing stage is identifiable. It never executes cleanup, deletion,
-quarantine, restoration, manifest regeneration, or reruns. Optional plans remain under `hygiene/`
-and outside provenance.
-
-`export-protocols` derives developer-facing JSON Schemas from existing typed models. Its `--check`
-mode is read-only and suitable for CI. Protocol files are not run artifacts, ledger provenance, or
-scientific evidence.
-
-`check-protocol-compat` compares exported schema directories without modifying them. It detects
-common breaking and widening changes and reports complex composition/reference changes as unknown
-instead of claiming semantic compatibility.
-
-`validate-protocol-examples` validates deterministic examples against exported JSON Schemas.
-`check-protocol-version` enforces MAJOR/MINOR/PATCH rules for schema changes. Both commands are
-developer-contract checks only; they do not create run artifacts or ledger commits.
-
-Persistence writes use a same-directory temporary file, flush and fsync its bytes, then atomically
-replace the final path. Commit and pipeline timestamps use `SystemClock` by default; tests and
-embedded callers may inject `FixedClock` without changing CLI behavior.
-
-## Adapter Interfaces
-
-The adapter registry exposes `LLMClient`, `ReviewerClient`, `RetrievalClient`, `ProofVerifier`,
-`ExperimentRunner`, `ProseGenerator`, and `HumanReviewClient`. It defaults to `fake` with external
-calls disabled. Fake adapters use local deterministic templates and validators. The registry also
-exposes provider-neutral capability descriptors and typed adapter errors so future providers can be
-added without changing evidence or provenance rules. A provider-isolated
-`openai` backend supports Stage A candidate proposal, and a separate explicit Stage B reviewer flag
-uses the same provider transport for structural critique only. Both require external-call permission
-plus `OPENAI_API_KEY`. A separately gated `openalex` retrieval backend supports Stage B source
-metadata and abstract context with `OPENALEX_API_KEY`. A separately gated `lean` proof backend
-supports Stage C mathematical branches through a local executable only when
-`allow_external_tools=true`. A separately gated `local_synthetic` backend supports Stage C
-SyntheticOnly branches through an explicitly configured runner only when
-`allow_external_tools=true`. A separately gated `openai` prose backend drafts planned sections from
-approved contracts only when `allow_external_calls=true` and `OPENAI_API_KEY` is present.
-Human-review adapters remain fake.
-
-LLM output is validated locally, then passes through the existing data gate, scoring, deduplication,
-artifact store, and ledger. Requests, raw responses, parse reports, and proposals are not
-verification evidence.
-
-LLM reviewer output is also validated locally and may affect only existing Stage B reviewer scores
-and disagreement routing. It cannot assign verification labels, approve publication, establish
-proof or experiment success, or turn bounded retrieval context into a literature-coverage claim.
-
-OpenAlex retrieval output is normalized, source-hashed, and ledgered through Stage B. It supports
-only bounded retrieval adequacy and literature context. It does not prove novelty, complete
-coverage, claim correctness, or external-review readiness.
-
-Citation registries and literature-positioning reports are built from retrieval metadata.
-Citation markers are allowed only when they match registry records. Bibliography entries are
-placeholders backed by source provenance; they are not proof evidence, experiment evidence, human
-approval, scientific validation, or novelty proof.
-
-Lean proof output is accepted only through explicit proof contracts, local-tool traces, proof
-result hashes, and safety validation. LLM output, reviewer reports, retrieval records, Markdown,
-LaTeX, and paper artifacts cannot justify `LeanVerified`.
-
-Local synthetic experiment output is accepted only through explicit experiment contracts,
-runner-input/output artifacts, local-tool traces, result hashes, and safety validation. It can
-support only `SyntheticExperimentVerified` for SyntheticOnly claims and cannot justify
-`RealDataExperimentVerified`, empirical validation, or mathematical proof labels.
-
-Generated section prose and complete Markdown drafts are accepted only as manuscript/prose context.
-They may be written as hashed, ledgered drafting artifacts, but they cannot create claims,
-invent citations or bibliography entries, create proof evidence, experiment evidence, retrieval
-evidence, human approval, empirical validation, novelty proof, or verification-label upgrades.
-
-Paper critic and revision artifacts are manuscript-quality context only. `critique-paper` checks
-paper shape, citation safety, evidence-boundary language, LaTeX/source-map coverage, and appendix
-presence. `revise-paper --apply-safe-fake-revision --write-report` can write a deterministic
-conservative revision that downgrades unsafe language and inserts missing warnings/placeholders.
-It cannot invent citations, mutate claim/evidence tables, create evidence, upgrade labels, or
-claim publication readiness.
-
-`generate-paper` chains the existing non-evidence manuscript workflow for an existing run:
-citations, literature positioning, Markdown drafting, LaTeX export, and paper critique by default.
-Revision and render diagnostics remain explicitly gated. Full-paper generation artifacts are
-presentation/context/export artifacts only; they cannot create or upgrade evidence labels, mutate
-claim/evidence tables, invent citations, or claim publication readiness.
-
-The default generated-paper drafting profile is quality-aware but still deterministic: it uses a
-compact paper-shaped outline, derives a non-placeholder title from the selected branch/problem
-context when possible, gives each prose section target word-range guidance, omits empirical-results
-sections when no experiment evidence exists, and omits bibliography output when there are no
-retrieval-backed citation records.
-The profile now treats word count as a skeletal-draft proxy rather than a quality target: section
-contracts require semantic content such as problem framing, one bounded central contribution,
-method summary, evidence boundaries, limitations, and provenance. The assembler owns Markdown
-headings, demotes generated nested headings inside section bodies, and title cleanup avoids weak
-forms such as trailing question titles or method/domain fragments.
-Prose contracts also distinguish safe non-evidential scaffold statements from scientific claims.
-Problem framing, method description, evidence-boundary language, limitations, demonstration status,
-citation-status notes, and provenance statements may be retained when explicitly scoped as
-non-evidence. The safety layer still rejects fake citations, proof/theorem/conjecture labels,
-unsupported empirical validation, novelty-proof language, and publication-readiness claims. When a
-section mixes safe scaffold text with unsafe sentences, the unsafe sentences are removed and
-reported; if no safe content remains, deterministic non-evidence fallback text is inserted for
-required manuscript sections.
-
-`evaluate-paper-release` checks a generated bundle for internal human-review handoff readiness:
-
-```bash
-uv run factori evaluate-paper-release --run-id demo
-uv run factori evaluate-paper-release --run-id demo --write-report
-```
-
-`ReadyForHumanReview` is not peer review, acceptance, scientific validation, verification
-evidence, or publication readiness.
-
-`run-llm-paper` is the explicit end-to-end LLM-assisted orchestration command. Fake mode remains
-local and deterministic:
-
-```bash
-uv run factori run-llm-paper --run-id llm-fake --domain "human geography" \
-  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
-  --apply-safe-fake-revision --write-report
-```
-
-Bounded citation integration is opt-in. This deterministic smoke uses fixture metadata only and
-performs no network calls:
-
-```bash
-uv run factori run-llm-paper \
-  --run-id local-citation-registry-smoke-001 \
-  --domain "human geography" \
-  --llm-scope full-paper \
-  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
-  --enable-retrieval --retrieval-backend fake \
-  --max-retrieval-sources 5 --citation-policy registry-only \
-  --generate-paper --enable-safe-repair --write-report --json
-```
-
-This writes `retrieval-report.json` and `citation-registry.json` before drafting. Prose contracts
-may use only registry keys; unknown keys, invented bibliography metadata, and citation-as-proof or
-validation language fail citation safety. Fixture sources validate pipeline plumbing only and do
-not establish real literature coverage, novelty, proof, experiments, or publication readiness.
-Generated paper packages also write `claim-support-audit.json`. The audit classifies manuscript
-sentences as scaffold, source-context, external factual, proof, experiment, novelty, or
-publication-readiness claims; citations can support only local background/source-context claims
-inside the same sentence or paragraph, and fixture sources cannot support proof, empirical,
-novelty, validation, or readiness claims.
-
-Bounded local-source retrieval ingests an explicit JSON source file, scores relevance and metadata
-quality deterministically, writes `retrieval-quality-report.json`, and builds the citation registry
-only from accepted records:
-
-```bash
-uv run factori run-llm-paper \
-  --run-id local-retrieval-quality-smoke-001 \
-  --domain "human geography" \
-  --llm-scope full-paper \
-  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
-  --enable-retrieval --retrieval-backend local \
-  --retrieval-local-path tests/fixtures/retrieval/human_geography_sources.json \
-  --max-retrieval-sources 8 --citation-policy registry-only \
-  --generate-paper --enable-safe-repair --write-report --json
-```
-
-Rejected, duplicate, incomplete, or low-relevance local sources remain visible in retrieval quality
-reports but cannot be cited. Accepted sources are bounded background context only; relevance scores
-do not prove correctness, validation, novelty, literature completeness, or publication readiness.
-
-Ambiguous claim-support sentences can use a bounded semantic adjudicator. The fake backend is
-deterministic; OpenAI is opt-in and shares the orchestration budget guard:
-
-```bash
-uv run factori run-llm-paper \
-  --run-id claim-adjudication-demo --domain "human geography" \
-  --candidate-backend fake --reviewer-backend fake --prose-backend fake \
-  --claim-adjudicator-backend fake \
-  --enable-retrieval --retrieval-backend fake --citation-policy registry-only \
-  --generate-paper --write-report
-```
-
-The adjudicator judges sentence meaning only. Deterministic checks still decide whether citation
-keys exist, source scopes match, bibliography metadata is registry-backed, and proof or experiment
-artifacts exist. Negated statements such as "no proof" remain limitations; unsupported positive
-proof, validation, novelty, and publication-readiness claims remain blocked. Adjudication is
-non-evidence and `publication_ready` remains false.
-
-After adjudication, citations are required only for positive external/source/literature claims.
-Current-run status, absence of retrieval or literature support, scaffold role, retrieval
-limitations, and evidence-boundary statements do not require citations. fActorI still blocks
-unregistered citations, invented bibliography metadata, citation-as-validation, and uncited
-positive external factual claims.
-
-Real mode requires explicit OpenAI backends, `--allow-external-calls`, credentials, and a budget
-before any network call can be attempted:
-
-```bash
-OPENAI_API_KEY="<key>" uv run factori run-llm-paper \
-  --run-id llm-real --domain "human geography" \
-  --allow-external-calls \
-  --candidate-backend openai --reviewer-backend openai --prose-backend openai \
-  --candidate-model gpt-5-mini --reviewer-model gpt-5-mini --prose-model gpt-5-mini \
-  --max-total-calls 50 --max-estimated-cost-usd 5.00 --rate-limit-per-minute 10 \
-  --apply-safe-fake-revision --write-report
-```
-
-Recommended live-smoke ladder:
-
-```bash
-export OPENAI_API_KEY="..."
-
-uv run factori run-llm-paper \
-  --run-id live-smoke-preflight \
-  --domain "human geography" \
-  --candidate-backend openai --candidate-model gpt-5.4-mini \
-  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
-  --prose-backend openai --prose-model gpt-5.4-mini \
-  --allow-external-calls \
-  --max-total-calls 29 --max-estimated-cost-usd 1.00 \
-  --preflight-only --json
-
-uv run factori run-llm-paper \
-  --run-id live-candidate-smoke-004 \
-  --domain "human geography" \
-  --llm-scope candidate-only \
-  --candidate-backend openai --candidate-model gpt-5.4-mini \
-  --reviewer-backend fake --prose-backend fake \
-  --allow-external-calls \
-  --max-total-calls 3 --max-candidate-generation-calls 3 \
-  --max-estimated-cost-usd 0.20 \
-  --write-report --json
-
-uv run factori run-llm-paper \
-  --run-id live-candidate-budget-block \
-  --domain "human geography" \
-  --llm-scope candidate-only \
-  --candidate-backend openai --candidate-model gpt-5.4-mini \
-  --reviewer-backend fake --prose-backend fake \
-  --allow-external-calls \
-  --max-total-calls 1 --max-candidate-generation-calls 1 \
-  --max-estimated-cost-usd 0.20 \
-  --write-report --json
-
-uv run factori run-llm-paper \
-  --run-id live-smoke-002 \
-  --domain "human geography" \
-  --llm-scope full-paper \
-  --candidate-backend openai --candidate-model gpt-5.4-mini \
-  --reviewer-backend openai --reviewer-model gpt-5.4-mini \
-  --prose-backend openai --prose-model gpt-5.4-mini \
-  --allow-external-calls \
-  --max-total-calls 50 --max-estimated-cost-usd 1.00 \
-  --generate-paper --evaluate-release --write-report --json
-```
-
-OpenAI 4xx/5xx diagnostics include status, operation, backend/provider, redacted URL, selected
-model, request/prompt hashes, and a sanitized truncated error-body excerpt. They never include API
-keys or Authorization headers.
-OpenAI structured outputs use an adapter-local strict schema copy: every object property is listed
-in `required`, optional values are nullable, and public fActorI protocol schemas remain separate.
-`--llm-scope candidate-only` is an isolated live-smoke path: it runs Stage A candidate generation
-only and forces paper generation, LaTeX export, critique/revision, and release evaluation off.
-Runtime LLM budget guards authorize each candidate/reviewer/prose transport call before the
-external request; a blocked call is recorded as `Blocked` with `external_call_performed=false`.
-
-`--llm-scope reviewer-only` runs Stage A and the Stage B reviewer path only. It disables Stage C,
-paper generation, release evaluation, LaTeX export, critique, and revision. Preflight plans one
-review request per deterministic Stage B child: the current four-survivor/four-child maximum is 16
-review calls, or 19 total calls for the three-call human-geography candidate path. A runtime budget
-failure in full-paper mode now blocks orchestration before paper generation.
-
-`--enable-safe-repair` enables one bounded deterministic repair after manuscript drafting and
-before release evaluation. The pass removes explicitly unsafe section placeholders and unsupported
-label/publication language, downgrades synthetic-as-real claims, adds a non-evidence limitation,
-and re-exports revised LaTeX. It writes `safe-repair-report.json` with before/after hashes and patch
-metadata, including pre-repair, repaired, and post-repair warning buckets. Top-level orchestration
-warnings reflect the current post-repair state only. It never retries a provider call, invents
-citations or evidence, upgrades labels, hides remaining findings, or claims publication readiness.
-
-Current candidate-only live smoke:
-
-```bash
-uv run factori run-llm-paper \
-  --run-id live-candidate-smoke-004 \
-  --domain "human geography" \
-  --llm-scope candidate-only \
-  --candidate-backend openai \
-  --candidate-model gpt-5.4-mini \
-  --reviewer-backend fake \
-  --prose-backend fake \
-  --allow-external-calls \
-  --max-total-calls 3 \
-  --max-candidate-generation-calls 3 \
-  --max-estimated-cost-usd 0.20 \
-  --write-report \
-  --json
-```
-
-The orchestration report, budget report, call accounting, and safety report are context/audit
-artifacts only. They cannot create evidence, upgrade labels, or imply publication readiness.
-
-Inspect an existing LLM run without rerunning stages or creating artifacts:
-
-```bash
-uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001
-uv run factori inspect-llm-run --run-id live-integrated-openai-smoke-001 --json
-```
-
-The inspection command reads persisted LLM reports only and summarizes call counts, release status,
-current warnings, budget blocks, and paper artifact paths.
-
-Inspect generated paper bundle artifacts without rerunning stages or creating artifacts:
-
-```bash
-uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001
-uv run factori inspect-paper-bundle --run-id live-integrated-openai-smoke-001 --json
-```
-
-This compact summary prefers revised Markdown/LaTeX artifacts when present and reports main-body,
-appendix, and total heading counts separately, plus word, citation, claim-support, warning,
-blocking, safe-repair, and artifact-path details.
-
-Lint generated paper bundle draft quality without rerunning stages or creating artifacts:
-
-```bash
-uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001
-uv run factori lint-paper-bundle --run-id live-integrated-openai-smoke-001 --json
-```
-
-The lint is separate from the release gate. It reports semantic checks first: problem statement,
-central contribution, method summary, evidence-boundary statement, limitations, provenance,
-unsupported claims, fake citations, fake empirical claims, title quality, and heading
-fragmentation. Main-body shape is evaluated separately from required appendices and repair
-metadata. A safe-repair central message is consolidated into a planned section rather than emitted
-as another top-level section, and a missing conclusion receives a bounded non-evidence synthesis
-that identifies future evidence-producing work. Word count, average section length, appendix
-headings, and citation absence remain development warnings for skeletal drafts, not standalone
-quality failures. When a claim-support audit exists, lint distinguishes registry-backed citation
-markers from correctly placed source support and reports missing required citations, scope
-mismatches, and citation-as-validation misuse. Missing-citation failures are limited to positive
-external/source/literature claims, not current-run scaffold or absence-of-evidence statements. The
-lint does not change release status, safety status, evidence labels, or publication-readiness flags.
-
-The deterministic golden smoke workflow exercises the complete scaffold without network or
-external tools:
-
-```bash
-uv run factori run-all --run-id golden-paper --domain "human geography"
-uv run factori generate-paper --run-id golden-paper \
-  --apply-safe-fake-revision --reexport-latex-after-revision --write-report
-uv run factori evaluate-paper-release --run-id golden-paper --write-report
-uv run factori export-protocols --check
-uv run factori validate-protocol-examples
-```
-
-The corresponding test pins structural outputs, replay, hygiene, audit, and protocol compatibility.
-It is a regression fixture, not scientific validation or publication readiness.
-
-LaTeX export is accepted only as presentation/export context. `export-latex --write-report` writes
-content-hashed LaTeX source, bibliography placeholders, source maps, export reports, and safety
-reports. `--render-check` is optional and requires `--allow-external-tools` plus a configured LaTeX
-executable. LaTeX files and rendered PDFs cannot create claims, mutate claim/evidence tables,
-upgrade labels, prove publication readiness, or justify proof, experiment, retrieval, human-review,
-or scientific-validation evidence.
-
-`show-adapters` prints both active adapter classes and provider capability metadata. Invalid
-backend names, disabled external calls, missing credentials, capability mismatches, HTTP failures,
-and malformed JSON responses use shared typed errors. Error strings are deterministic and must not
-expose API keys or secrets.
-
-## Narrative Paper Shape
-
-`critique-paper-shape` checks whether the manuscript plan has a central message, explicit problem
-framing, bounded literature positioning, simple model notation, one main result, purposeful
-numerics, synthetic/empirical boundaries, and appendix allocation.
-
-```bash
-uv run factori critique-paper-shape --run-id demo
-uv run factori critique-paper-shape --run-id demo --write-report
-```
-
-The critique is manuscript-quality context only. It is not proof evidence, experiment evidence,
-retrieval evidence, human approval, or scientific validation.
-
-```bash
-OPENAI_API_KEY="<key>" uv run factori run-stage-a \
-  --run-id llm-demo --domain "human geography" --method "optimal transport" \
-  --adapter-backend openai --allow-external-calls --llm-model gpt-5-mini
-```
-
-```bash
-OPENALEX_API_KEY="<key>" uv run factori run-stage-b \
-  --run-id demo --retrieval-backend openalex --allow-external-calls --retrieval-limit 5
-```
-
-```bash
-OPENAI_API_KEY="<key>" uv run factori run-stage-b \
-  --run-id demo --reviewer-backend openai --use-llm-reviewers \
-  --allow-external-calls --reviewer-model gpt-5-mini
-```
+The full command catalog is in [COMMANDS.md](COMMANDS.md).
+
+## Current Boundaries
+
+- prototype, not production infrastructure;
+- no guarantee that generated research is correct or publication-quality;
+- no exhaustive literature review or automatic novelty proof;
+- synthetic evidence does not imply real-world validity;
+- role separation does not guarantee independent model or provider judgment;
+- the local sandbox is not a hardened hostile-code container;
+- generated manuscripts remain human-review artifacts;
+- the current showcase is not a financial strategy or alpha result;
+- final structural verification intentionally preserves `publication_ready=false`.
+
+## Next Steps
+
+1. Add a quantitative-finance demonstration with placebo tests, regime sensitivity, transaction
+   costs, and strict out-of-sample boundaries.
+2. Strengthen the statistical layer with preregistered inferential rules, uncertainty procedures,
+   and multiple-testing controls.
+3. Use rejected and negative branches as research memory for deduplication and budget allocation.
+4. Increase proposer, experimenter, critic, and writer diversity across models and providers.
+
+## Project Ownership
+
+The repository author designed and implemented the framework architecture, provenance model,
+evidence boundaries, orchestration, experiment sandbox, critic/adjudication structure, and final
+assembly. LLMs operated inside those contracts for research proposals, experiment code and repairs,
+scientific criticism, and manuscript generation where disclosed above.
+
+## Documentation
+
+- [Project context](CONTEXT.md)
+- [Architecture and invariants](ARCHITECTURE.md)
+- [Module map](MODULE_MAP.md)
+- [Command reference](COMMANDS.md)
+- [Protocol contracts](protocols/README.md)
+- [Milestone history](MILESTONES.md)
+
+---
+
+**fActorI is an experiment in making autonomous research systems accountable to their evidence:
+models may propose, experiment, criticize, and write, but only executed and validated artifacts
+determine what the system is allowed to claim.**
+
+**[Paper](showcase/label-noise-calibration/bundle/paper/final-paper.pdf) |
+[Bundle](showcase/label-noise-calibration/README.md) |
+[Architecture](ARCHITECTURE.md) |
+[Commands](COMMANDS.md)**

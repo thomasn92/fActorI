@@ -35,7 +35,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.78.0/prose-section-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/prose-section-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Section-level prose contract with claim/evidence grounding.",
@@ -204,7 +204,7 @@
   ],
   "title": "ProseSectionContract",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.ProseSectionContract",
   "x-factori-verification-evidence": false
 }

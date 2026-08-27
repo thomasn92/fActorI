@@ -1184,7 +1184,7 @@ class LLMExperimentCodegenConfig(StrictModel):
     max_executable_specs: int = Field(default=12, ge=1)
     max_codegen_calls: int = Field(default=12, ge=1)
     max_safety_repair_calls: int = Field(default=1, ge=0, le=12)
-    default_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    default_timeout_seconds: int = Field(default=30, ge=1, le=3600)
     memory_limit_mb: int = Field(default=512, ge=64, le=4096)
     allowed_dependencies: list[str] = Field(default_factory=lambda: ["numpy"])
     require_non_fake_backends: bool = False
@@ -3032,6 +3032,9 @@ class ManuscriptSectionPlan(StrictModel):
     supporting_package_ids: list[str] = Field(default_factory=list)
     required_citations: list[str] = Field(default_factory=list)
     scope_constraints: list[str] = Field(default_factory=list)
+    opening_purpose: str = ""
+    takeaway: str = ""
+    transition_to_next: str = ""
 
 
 class ManuscriptPlan(StrictModel):
@@ -6998,6 +7001,16 @@ class NucleusManuscriptPlan(StrictModel):
     paper_type: NucleusPaperType
     central_question: str = Field(min_length=1)
     central_claim: str = Field(min_length=1)
+    archetype_rationale: str = ""
+    central_tension: str = ""
+    prior_baseline: str = ""
+    literature_gap: str = ""
+    contribution: str = ""
+    main_result: str = ""
+    interpretation: str = ""
+    boundary_statement: str = ""
+    abstract_moves: list[str] = Field(default_factory=list)
+    narrative_contract_optional: NarrativeManuscriptContract | None = None
     allowed_claim_scope: str = Field(min_length=1)
     forbidden_claims: list[str] = Field(min_length=1)
     section_plans: list[ManuscriptSectionPlan] = Field(min_length=1)
@@ -7024,6 +7037,9 @@ class NucleusManuscriptDraft(StrictModel):
     latex: str = Field(min_length=1)
     claim_ids_used: list[str] = Field(min_length=1)
     citation_binding_ids: list[str] = Field(default_factory=list)
+    metric_tokens_used: list[str] = Field(default_factory=list)
+    metric_token_bindings: list[dict[str, Any]] = Field(default_factory=list)
+    metric_tokenized_text: dict[str, str] = Field(default_factory=dict)
     source_draft_id_optional: str | None = None
     publication_ready: Literal[False] = False
     creates_scientific_validation: Literal[False] = False

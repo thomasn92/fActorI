@@ -199,9 +199,19 @@ from factori.final_manuscript_regeneration import (
     regenerate_final_manuscript,
 )
 from factori.final_paper import (
+    _find_paired_difference_series,
+    _find_reliability_curves,
+    _find_reliability_interval_summaries,
     _forbidden_claim_reasons,
+    _insert_latex_result_material,
+    _insert_markdown_result_material,
     _metrics_from_output,
+    _render_interval_summary_png,
+    _render_paired_difference_png,
+    _render_reliability_png,
+    _resolve_latex_graphics,
     _standalone_final_latex,
+    _table_values_present,
     assemble_final_paper,
     build_final_paper_bundle,
     inspect_final_paper,
@@ -303,6 +313,7 @@ from factori.nucleus_manuscript import (
     _normalize_citation_references,
     _required_artifact_plan_ids,
     _required_draft_content_reasons,
+    _resolve_citation_tokens,
     _validate_plan,
     inspect_nucleus_manuscript,
     plan_nucleus_manuscript,
@@ -1217,6 +1228,7 @@ def test_hybrid_package_prompt_requires_self_contained_executable_artifacts() ->
 
     assert "Executable generated-code artifacts must be self-contained" in prompt
     assert "Do not require cross-artifact input files" in prompt
+    assert "Symbolic reductions, symbolic derivations, and proof plans must set" in prompt
 
 
 class MockHybridEvidencePlanner:
@@ -1756,6 +1768,7 @@ class MockNucleusManuscriptPlanner:
         self.unsafe_draft = unsafe_draft
         self.block_after_revision = block_after_revision
         self.critic_calls: list[tuple[str, ManuscriptCriticRole]] = []
+        self.revision_payloads: list[dict[str, object]] = []
 
     def plan_manuscript(self, *, prompt_id, nucleus_payload, evidence_payload):
         claim_id = evidence_payload["claim_artifact_bindings"][0]["claim_id"]
@@ -1777,6 +1790,9 @@ class MockNucleusManuscriptPlanner:
                     "Keep all claims within the persisted synthetic or draft scope."
                 ],
                 bullets=[purpose],
+                opening_purpose=f"Open the section by explaining why {purpose.casefold()}",
+                takeaway=f"The reader should retain that {purpose.casefold()}",
+                transition_to_next="Connect this result to the next part of the argument.",
             )
             for index, (title, purpose, include_claim) in enumerate(
                 [
@@ -1800,6 +1816,21 @@ class MockNucleusManuscriptPlanner:
             paper_type=NucleusPaperType.SYNTHETIC_BENCHMARK,
             central_question="How does the selected mechanism compare with its declared baseline?",
             central_claim=nucleus_payload["central_claim_draft"],
+            archetype_rationale="A bounded synthetic benchmark matches the available evidence.",
+            central_tension="Calibration may improve while discrimination remains stable.",
+            prior_baseline="The uncalibrated method is the declared baseline.",
+            literature_gap="The bounded regimes have not yet been compared in one design.",
+            contribution="The study isolates the comparison in a controlled synthetic design.",
+            main_result="The persisted experiment supplies the bounded comparison.",
+            interpretation="The comparison is informative only within the generated regimes.",
+            boundary_statement="No real-world or universal conclusion follows.",
+            abstract_moves=[
+                "State the calibration problem.",
+                "Identify the bounded comparison gap.",
+                "Describe the synthetic design.",
+                "Report the artifact-bound result.",
+                "State the synthetic boundary.",
+            ],
             section_plans=sections,
             supporting_package_roles={},
             appendix_package_roles={},
@@ -1816,7 +1847,8 @@ class MockNucleusManuscriptPlanner:
 
     def synthesize_manuscript(self, *, prompt_id, plan_payload, evidence_payload):
         claim_id = evidence_payload["claim_artifact_bindings"][0]["claim_id"]
-        markdown = """# Bounded Synthetic Comparison
+        metric_token = evidence_payload["metric_tokens"][0]["token"]
+        markdown = f"""# Bounded Synthetic Comparison
 
 ## Introduction
 This draft frames a bounded synthetic comparison rather than a workflow audit.
@@ -1828,7 +1860,7 @@ The question is restricted to the declared synthetic setting.
 The method is compared with the declared baseline and controls.
 
 ## Results
-The artifact-bound claim is interpreted only under the declared metrics.
+The primary artifact-bound metric is {metric_token} in the declared setting.
 
 ## Limitations
 Unresolved obligations and synthetic-scope boundaries remain explicit.
@@ -1843,9 +1875,15 @@ Secondary packages are not used as support for the central claim.
             markdown += "\nThis establishes real-world validation.\n"
         proposal = ManuscriptDraftProposal(
             title=plan_payload["working_title"],
-            abstract="A bounded synthetic manuscript draft with artifact-linked claims.",
+            abstract=(
+                "A bounded synthetic manuscript reports the primary metric "
+                f"{metric_token} under the declared design."
+            ),
             markdown=markdown,
-            latex="\\section*{Introduction}\nBounded synthetic draft.\n",
+            latex=(
+                "\\section*{Introduction}\nBounded synthetic draft.\n"
+                f"\\section*{{Results}}\nPrimary metric: {metric_token}.\n"
+            ),
             claim_ids_used=[claim_id],
             citation_binding_ids=[
                 item["binding_id"] for item in evidence_payload["evidence_citation_bindings"]
@@ -1886,6 +1924,7 @@ Secondary packages are not used as support for the central claim.
     def revise_manuscript(
         self, *, prompt_id, draft_payload, critic_reviews_payload, evidence_payload
     ):
+        self.revision_payloads.append(draft_payload)
         markdown = draft_payload["markdown"].split("\n## Artifact-Bound Metrics", 1)[0]
         latex = draft_payload["latex"].split(
             r"\section*{Artifact-Bound Metrics}", 1
@@ -1924,18 +1963,24 @@ class MockLLMExperimentCodeGenerator:
         runtime_failure_index: int = 4,
         oversized_output_index: int = -1,
         runtime_repair_succeeds: bool = True,
+        component_check_failure_index: int = -1,
+        declared_inconclusive_index: int = -1,
     ) -> None:
         self.received_spec_ids: list[str] = []
+        self.received_allowed_dependencies: list[list[str]] = []
         self.received_repair_audits: list[dict] = []
         self.unsafe_index = unsafe_index
         self.negative_control_failure_index = negative_control_failure_index
         self.runtime_failure_index = runtime_failure_index
         self.oversized_output_index = oversized_output_index
         self.runtime_repair_succeeds = runtime_repair_succeeds
+        self.component_check_failure_index = component_check_failure_index
+        self.declared_inconclusive_index = declared_inconclusive_index
 
     def generate_code(self, *, spec_payload, substrate_payload, allowed_dependencies):
         index = len(self.received_spec_ids)
         self.received_spec_ids.append(spec_payload["spec_id"])
+        self.received_allowed_dependencies.append(list(allowed_dependencies))
         prompt, schema = build_experiment_codegen_prompt(
             spec_payload=spec_payload,
             substrate_payload=substrate_payload,
@@ -1976,6 +2021,7 @@ class MockLLMExperimentCodeGenerator:
             for metric_index, metric in enumerate(required_metrics)
         )
         negative_controls_passed = index != self.negative_control_failure_index
+        component_checks_passed = index != self.component_check_failure_index
         runtime_failure = index == self.runtime_failure_index
         oversized_output = index == self.oversized_output_index
         unsafe_import = "import subprocess\n" if index == self.unsafe_index else ""
@@ -1984,6 +2030,11 @@ class MockLLMExperimentCodeGenerator:
         )
         oversized_payload_line = (
             '    "oversized_blob": "x" * 2_000_000,\n' if oversized_output else ""
+        )
+        declared_evidence_line = (
+            '    "evidence_status": "InconclusiveResult",\n'
+            if index == self.declared_inconclusive_index
+            else ""
         )
         code = f"""import json
 import random
@@ -2012,6 +2063,15 @@ method_errors = [
 baseline_mae = sum(baseline_errors) / len(baseline_errors)
 held_out_mae = sum(method_errors) / len(method_errors)
 negative_control_values = list(baseline_errors)
+def run_component_checks():
+    passed = {component_checks_passed!r}
+    return {{
+        "passed": passed,
+        "check_count": 1,
+        "failed_count": 0 if passed else 1,
+        "checks": {{"finite_method_predictions": passed}},
+    }}
+
 def run_baseline():
     return {{"mae": baseline_mae, "record_count": len(baseline_errors)}}
 
@@ -2031,6 +2091,7 @@ def compute_metrics():
         {metric_items}
     }}
 
+component_check_summary = run_component_checks()
 baseline_summary = run_baseline()
 proposed_summary = run_proposed_method()
 control_summary = run_controls()
@@ -2040,7 +2101,8 @@ metrics = compute_metrics()
 success_criteria_satisfied = proposed_summary["mae"] <= baseline_summary["mae"]
 failure_criteria_satisfied = not success_criteria_satisfied
 {failure_line}payload = {{
-{oversized_payload_line}    "metrics": metrics,
+{oversized_payload_line}{declared_evidence_line}    "metrics": metrics,
+    "component_check_summary": component_check_summary,
     "baseline_summary": baseline_summary,
     "control_summary": control_summary,
     "negative_control_summary": negative_control_summary,
@@ -2153,6 +2215,35 @@ def test_experiment_codegen_normalizes_nullable_empty_metadata_lists() -> None:
     assert payload["experiment"]["declared_dependencies"] is None
 
 
+def test_experiment_codegen_normalizes_conceptual_inputs_to_self_contained_contract() -> None:
+    proposal = ExperimentCodeProposal(
+        code="import json\nwith open('output.json', 'w') as handle: json.dump({}, handle)\n",
+        expected_output_files=["output.json"],
+        required_inputs=[],
+        declared_dependencies=[],
+        random_seed=17,
+        timeout_seconds=10,
+    )
+    payload = ExperimentCodeProposalEnvelope(experiment=proposal).model_dump(mode="json")
+    payload["experiment"]["required_inputs"] = [
+        "The immutable targeted research contract.",
+        "Fixed support values embedded in the generated script.",
+    ]
+
+    accepted, reasons = parse_experiment_codegen_response(
+        payload,
+        allowed_dependencies=[],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.required_inputs == []
+    assert payload["experiment"]["required_inputs"] == [
+        "The immutable targeted research contract.",
+        "Fixed support values embedded in the generated script.",
+    ]
+
+
 def test_experiment_codegen_clamps_transport_timeout_to_hard_limit() -> None:
     proposal = ExperimentCodeProposal(
         code="import json\nwith open('output.json', 'w') as handle: json.dump({}, handle)\n",
@@ -2163,7 +2254,7 @@ def test_experiment_codegen_clamps_transport_timeout_to_hard_limit() -> None:
         timeout_seconds=300,
     )
     payload = ExperimentCodeProposalEnvelope(experiment=proposal).model_dump(mode="json")
-    payload["experiment"]["timeout_seconds"] = 3600
+    payload["experiment"]["timeout_seconds"] = 7200
 
     accepted, reasons = parse_experiment_codegen_response(
         payload,
@@ -2172,8 +2263,8 @@ def test_experiment_codegen_clamps_transport_timeout_to_hard_limit() -> None:
 
     assert reasons == []
     assert accepted is not None
-    assert accepted.timeout_seconds == 300
-    assert payload["experiment"]["timeout_seconds"] == 3600
+    assert accepted.timeout_seconds == 3600
+    assert payload["experiment"]["timeout_seconds"] == 7200
 
     payload["experiment"]["timeout_seconds"] = 0
     accepted, reasons = parse_experiment_codegen_response(
@@ -4737,10 +4828,14 @@ with open("output.json", "w", encoding="utf-8") as handle:
     ) == ["required output fields are not constructed: baseline_summary"]
 
     metadata_code = safe_code + """
+from collections import defaultdict
 import platform
+counts = defaultdict(int)
+counts["completed"] += 1
 runtime_metadata = {
     "exception_type": ValueError.__name__,
     "system": platform.system(),
+    "completed": counts["completed"],
 }
 """
     metadata_audit = audit_generated_experiment_code(
@@ -4750,12 +4845,43 @@ runtime_metadata = {
         allowed_dependencies=[],
     )
     assert metadata_audit.blocked is False
+    assert "collections" in metadata_audit.allowed_imports
+
+    literal_getattr_audit = audit_generated_experiment_code(
+        artifact=artifact(
+            safe_code + '\nresult = object()\niterations = getattr(result, "nit", 0)\n'
+        ),
+        required_metrics=["held_out_mae"],
+        negative_controls_required=True,
+        allowed_dependencies=[],
+    )
+    assert literal_getattr_audit.blocked is False
+
+    trusted_ml_code = "import scipy\nimport sklearn\n" + safe_code
+    trusted_ml_audit = audit_generated_experiment_code(
+        artifact=artifact(trusted_ml_code),
+        required_metrics=["held_out_mae"],
+        negative_controls_required=True,
+        allowed_dependencies=["numpy", "scipy", "sklearn"],
+    )
+    assert trusted_ml_audit.blocked is False
+    assert trusted_ml_audit.forbidden_imports_found == []
 
     unsafe_cases = [
         ("import subprocess\n" + safe_code, "subprocess_found"),
         ("import os\nos.system('echo unsafe')\n" + safe_code, "subprocess_found"),
         ("import requests\n" + safe_code, "network_access_found"),
         (safe_code + "\neval('1 + 1')\n", "unsafe_eval_exec_found"),
+        (
+            safe_code
+            + '\nresult = object()\nattribute = "nit"\n'
+            + "iterations = getattr(result, attribute, 0)\n",
+            "unsafe_eval_exec_found",
+        ),
+        (
+            safe_code + '\nresult = object()\nkind = getattr(result, "__class__")\n',
+            "unsafe_eval_exec_found",
+        ),
         (
             safe_code.replace(
                 'open("output.json", "w", encoding="utf-8")',
@@ -4869,6 +4995,65 @@ def test_experiment_codegen_prompt_reserves_integer_workload_constants() -> None
     assert "GRID_CELLS must each be positive integer literals" in prompt
     assert "GRID_CONFIGS" in prompt
     assert "len(GRID_CONFIGS) <= GRID_CELLS" in prompt
+
+
+def test_experiment_codegen_prompt_prefers_trusted_ml_primitives_and_preflight() -> None:
+    prompt, _ = build_experiment_codegen_prompt(
+        spec_payload={
+            "output_contract": {
+                "required_metrics": ["brier_score"],
+                "required_payload_fields": ["metrics", "component_check_summary"],
+                "required_logical_artifacts": [],
+            },
+            "workload_contract": {
+                "execution_profile": "full",
+                "max_replications": 2,
+                "max_resamples": 2,
+                "max_grid_cells": 1,
+            },
+            "required_role_functions": ["run_component_checks"],
+        },
+        substrate_payload={"substrate_id": "substrate-ml-prompt-test"},
+        allowed_dependencies=["numpy", "scipy", "sklearn"],
+    )
+
+    assert "do not hand-write BFGS" in prompt
+    assert "Use scikit-learn estimators" in prompt
+    assert "define and call run_component_checks before the full workload" in prompt
+    assert "component_check_summary" in prompt
+
+
+def test_component_preflight_summary_validation() -> None:
+    valid = {
+        "component_check_summary": {
+            "passed": True,
+            "check_count": 3,
+            "failed_count": 0,
+        }
+    }
+    failed = {
+        "component_check_summary": {
+            "passed": False,
+            "check_count": 3,
+            "failed_count": 1,
+        }
+    }
+
+    assert (
+        hybrid_evidence_module._component_check_failure(
+            output_payload=valid,
+            required=True,
+        )
+        is None
+    )
+    assert hybrid_evidence_module._component_check_failure(
+        output_payload=failed,
+        required=True,
+    ) == "Component preflight did not pass."
+    assert hybrid_evidence_module._component_check_failure(
+        output_payload={},
+        required=True,
+    ) == "Component preflight summary is missing or is not an object."
 
 
 def test_full_experiment_workload_requires_exact_values_and_grid_iteration() -> None:
@@ -5461,6 +5646,27 @@ def test_metric_extraction_accepts_only_successful_output_json() -> None:
         output_json_path=execution.output_json_path,
         allow_nested_numeric_metrics=True,
     )
+    nested_with_empty_optional_groups = extract_metrics_from_output(
+        execution=execution,
+        output_payload={
+            "metrics": {
+                "conditional_coverage": {
+                    "stationary": {"mean": 0.94, "interval": []},
+                    "unused_subgroup": {},
+                }
+            }
+        },
+        required_metrics=["conditional_coverage"],
+        output_json_path=execution.output_json_path,
+        allow_nested_numeric_metrics=True,
+    )
+    entirely_empty_nested = extract_metrics_from_output(
+        execution=execution,
+        output_payload={"metrics": {"conditional_coverage": {"unused": []}}},
+        required_metrics=["conditional_coverage"],
+        output_json_path=execution.output_json_path,
+        allow_nested_numeric_metrics=True,
+    )
 
     assert extracted.schema_valid is True
     assert extracted.metrics == {"held_out_mae": 0.25}
@@ -5479,6 +5685,12 @@ def test_metric_extraction_accepts_only_successful_output_json() -> None:
     assert nested.metric_sources["conditional_coverage.drift"].endswith(
         "#metrics.conditional_coverage.drift"
     )
+    assert nested_with_empty_optional_groups.schema_valid is True
+    assert nested_with_empty_optional_groups.metrics == {
+        "conditional_coverage.stationary.mean": 0.94
+    }
+    assert entirely_empty_nested.schema_valid is False
+    assert entirely_empty_nested.invalid_metrics == ["conditional_coverage"]
 
 
 def test_llm_generated_experiments_execute_and_extract_real_metrics(tmp_path) -> None:
@@ -5749,6 +5961,18 @@ def test_hybrid_evidence_packages_plan_multiple_artifact_types(tmp_path) -> None
     assert "normalized null package.optional_supporting_artifacts to []" in repairs
     assert "normalized hybrid package scores from 0-10 to 0-1" in repairs
 
+    symbolic_flag_mismatch = json.loads(json.dumps(valid_raw))
+    symbolic_flag_mismatch["package"]["artifact_plans"][0][
+        "requires_llm_drafting"
+    ] = False
+    accepted, reasons, repairs = parse_hybrid_package_response(
+        {"packages": [symbolic_flag_mismatch]}
+    )
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.package.artifact_plans[0].requires_llm_drafting is True
+    assert "enabled mandatory LLM drafting for symbolic_reduction" in repairs
+
     affirmative_validation = json.loads(json.dumps(valid_raw))
     affirmative_validation["package"]["primary_claim_draft"] = (
         "The package provides real-world validation."
@@ -5841,6 +6065,11 @@ def test_hybrid_evidence_package_execution_uses_sandbox_metrics_and_draft_bounda
     assert executed.report.production_ready is True
     assert executed.report.publication_ready is False
     assert executed.report.novelty_proven is False
+    assert code_generator.received_allowed_dependencies
+    assert all(
+        dependencies == ["numpy", "scipy", "sklearn"]
+        for dependencies in code_generator.received_allowed_dependencies
+    )
     assert all((tmp_path / path).is_file() for path in executed.report.code_artifact_paths)
     assert all((tmp_path / path).is_file() for path in executed.report.sandbox_execution_paths)
     assert all((tmp_path / path).is_file() for path in executed.report.metric_extraction_paths)
@@ -5971,6 +6200,79 @@ def test_hybrid_evidence_execution_repairs_blocked_code_before_execution(tmp_pat
     assert executed.report.safety_audits[1].blocked is False
     assert executed.report.metric_extraction_count == 1
     assert generator.received_repair_audits
+
+
+def test_hybrid_resume_repairs_blocked_historical_code_without_codegen(tmp_path) -> None:
+    run_id = "run-hybrid-evidence-resumed-safety-repair"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=0,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+    )
+    blocked = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        max_safety_repair_calls=0,
+    )
+    assert blocked.report.results[0].status == "blocked_safety_audit"
+    assert len(generator.received_spec_ids) == 1
+
+    repaired = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+        max_safety_repair_calls=1,
+        resume_previous_execution=True,
+    )
+
+    assert len(generator.received_spec_ids) == 1
+    assert repaired.report.safety_repair_attempt_count == 1
+    assert repaired.report.safety_repair_success_count == 1
+    assert repaired.report.budget_deferred_artifact_count == 0
+    assert len(repaired.report.code_artifacts) == 2
+    assert repaired.report.code_artifacts[1].repair_of_code_artifact_id_optional == (
+        repaired.report.code_artifacts[0].code_artifact_id
+    )
+    assert repaired.report.results[0].execution_completed is True
+    assert repaired.report.metric_extraction_count == 1
 
 
 def test_hybrid_evidence_scientific_repair_is_append_only_and_reexecutes(
@@ -6269,6 +6571,109 @@ def test_hybrid_evidence_runtime_repair_fails_closed_after_one_attempt(tmp_path)
     assert executed.report.results[0].evidence_label == "InconclusiveResult"
 
 
+def test_hybrid_resume_runtime_repairs_historical_code_after_rejected_repair(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-evidence-runtime-repair-history"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    planner.received_substrate_ids.extend(["offset-1", "offset-2", "offset-3"])
+    planned = plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=0,
+    )
+    plan_id = planned.report.packages[0].artifact_plans[0].artifact_plan_id
+
+    failed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=1,
+        max_runtime_repair_calls=0,
+        execution_profile="full",
+    )
+    assert failed.report.results[0].status == "failed"
+    original_code = failed.report.code_artifacts[0]
+
+    rejected_repair = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+        max_scientific_repair_calls=0,
+        scientific_repair_requests={
+            plan_id: {
+                "decision_id": "decision-rejected-history-repair",
+                "repair_instructions": ["Correct the runtime failure."],
+            }
+        },
+        execution_profile="full",
+        resume_previous_execution=True,
+    )
+    assert rejected_repair.report.code_artifacts == []
+
+    resumed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="mocked_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=1,
+        max_codegen_calls=0,
+        max_runtime_repair_calls=1,
+        execution_profile="full",
+        resume_previous_execution=True,
+    )
+
+    assert resumed.report.runtime_repair_attempt_count == 1
+    assert resumed.report.runtime_repair_success_count == 1
+    assert resumed.report.results[0].execution_completed is True
+    assert resumed.report.budget_deferred_artifact_count == 0
+    assert resumed.report.code_artifacts[0].repair_of_code_artifact_id_optional == (
+        original_code.code_artifact_id
+    )
+    assert generator.received_repair_audits[-1]["repair_kind"] == "runtime_failure"
+
+
 def test_hybrid_resume_reaudits_prior_llm_code_without_new_generation(
     tmp_path,
     monkeypatch,
@@ -6411,6 +6816,57 @@ def test_hybrid_execution_bounds_artifacts_and_codegen_calls(tmp_path) -> None:
         item.status == "deferred_insufficient_support"
         for item in executed.report.results
     ) == 2
+
+
+def test_hybrid_execution_preserves_declared_inconclusive_evidence_ceiling(
+    tmp_path,
+) -> None:
+    run_id = "run-hybrid-declared-inconclusive"
+    store, ledger, _ = _prepare_m102_route_fixture(tmp_path, run_id)
+    planner = MockHybridEvidencePlanner()
+    plan_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=HybridEvidencePackageConfig(
+            run_id=run_id,
+            backend="llm-openai",
+            max_source_substrates=1,
+            max_planning_calls=1,
+            require_non_fake_backends=True,
+        ),
+    )
+    generator = MockLLMExperimentCodeGenerator(
+        unsafe_index=-1,
+        negative_control_failure_index=-1,
+        runtime_failure_index=-1,
+        declared_inconclusive_index=0,
+    )
+
+    executed = execute_hybrid_evidence_packages(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        code_generator=generator,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+        timeout_seconds=10,
+        memory_limit_mb=256,
+        allowed_dependencies=[],
+        max_artifact_plans=4,
+        max_codegen_calls=1,
+    )
+
+    result = next(item for item in executed.report.results if item.metrics)
+    assert result.failure_criteria_satisfied is False
+    assert result.status == "inconclusive"
+    assert result.evidence_label == "InconclusiveResult"
+    assert result.supports_adjudication is False
+    assert any("cannot upgrade" in warning for warning in result.warnings)
 
 
 def test_hybrid_smoke_execution_resumes_components_without_adjudication_support(
@@ -6881,7 +7337,25 @@ def _prepare_m105_nucleus_fixture(tmp_path, run_id: str):
                     doi="10.1000/mock",
                     provider="mocked-production-record",
                     fake_or_mocked=False,
-                )
+                ),
+                RetrievedSourceSummary(
+                    source_id="doi:10.1000/mock-2",
+                    title="Mock calibration baseline study",
+                    authors=["Second Author"],
+                    year=2023,
+                    doi="10.1000/mock-2",
+                    provider="mocked-production-record",
+                    fake_or_mocked=False,
+                ),
+                RetrievedSourceSummary(
+                    source_id="doi:10.1000/mock-3",
+                    title="Mock label-noise comparison",
+                    authors=["Third Author"],
+                    year=2022,
+                    doi="10.1000/mock-3",
+                    provider="mocked-production-record",
+                    fake_or_mocked=False,
+                ),
             ],
             retrieval_confidence=0.70,
             limitations=["Retrieved context is not novelty proof."],
@@ -6949,7 +7423,12 @@ def test_nucleus_manuscript_synthesis_and_bounded_revision(tmp_path) -> None:
         planned.report.manuscript_plan_optional.paper_type == NucleusPaperType.SYNTHETIC_BENCHMARK
     )
     assert drafted.report.draft_optional is not None
-    assert "Artifact-Bound Metrics" in drafted.report.draft_optional.markdown
+    assert "{{METRIC:" not in drafted.report.draft_optional.markdown
+    assert drafted.report.draft_optional.metric_token_bindings
+    assert "{{METRIC:" in drafted.report.draft_optional.metric_tokenized_text["markdown"]
+    assert "{{CITE:" in drafted.report.draft_optional.metric_tokenized_text["markdown"]
+    assert "](#Retrieved" in drafted.report.draft_optional.markdown
+    assert r"\cite{Retrieved" in drafted.report.draft_optional.latex
     assert drafted.report.claim_artifact_bindings
     assert all(item.supporting_artifact_ids for item in drafted.report.claim_artifact_bindings)
     execution_citations = [
@@ -6973,7 +7452,9 @@ def test_nucleus_manuscript_synthesis_and_bounded_revision(tmp_path) -> None:
     assert "Artifact-Bound Metrics" not in revised.report.revised_draft_optional.markdown
     assert revised.report.revision_report_optional is not None
     assert revised.report.revision_report_optional.claim_artifact_validation_passed is True
-    assert len(planner.critic_calls) == 2 * len(ManuscriptCriticRole)
+    assert len(planner.critic_calls) == len(ManuscriptCriticRole) + 2
+    assert "{{METRIC:" in planner.revision_payloads[0]["markdown"]
+    assert "{{CITE:" in planner.revision_payloads[0]["markdown"]
     assert inspection.revised_draft_present is True
     assert inspection.publication_ready is False
     assert any(
@@ -7057,13 +7538,28 @@ def test_nucleus_manuscript_normalizes_bounded_plan_references_and_sections() ->
         ],
         [citation],
     ) == ["citation-1"]
+    retrieval_citations = [
+        EvidenceCitationBinding(
+            binding_id=f"retrieval-citation-{index}",
+            manuscript_location="related_work",
+            artifact_id="retrieval-context-1",
+            source_type="retrieval_source",
+            evidence_label="BoundedLiteratureContext",
+            citation_or_reference_id=f"W{index}",
+            supports_claim_ids=[],
+        )
+        for index in (1, 2)
+    ]
+    assert _normalize_citation_references(
+        ["{{CITE:001}}", "{{CITE:002}}", "W1"],
+        [citation, *retrieval_citations],
+    ) == ["retrieval-citation-1", "retrieval-citation-2"]
     assert _forbidden_reasons(
         "This bounded study does not establish real-world validation."
     ) == []
     assert _forbidden_reasons("This establishes real-world validation.") == [
         "real-world validation assertion"
     ]
-
     section = lambda section_id, title: SimpleNamespace(  # noqa: E731
         section_id=section_id,
         title=title,
@@ -7073,11 +7569,25 @@ def test_nucleus_manuscript_normalizes_bounded_plan_references_and_sections() ->
         required_citations=["citation-1"],
         supporting_package_ids=["primary-package"],
         bullets=[],
+        opening_purpose="Open the section.",
+        takeaway="State the takeaway.",
+        transition_to_next="Transition to the next section.",
     )
     plan = SimpleNamespace(
         working_title="Bounded benchmark",
         central_question="What happens in the bounded benchmark?",
         central_claim="A conditional synthetic result is reported.",
+        archetype_rationale="The evidence is a bounded benchmark.",
+        central_tension="Calibration and discrimination can diverge.",
+        prior_baseline="The uncalibrated estimator is the baseline.",
+        literature_gap="The bounded comparison is unresolved.",
+        contribution="The design isolates that comparison.",
+        main_result="The benchmark reports a bounded contrast.",
+        interpretation="The contrast applies only to the generated setting.",
+        boundary_statement="No real-world conclusion follows.",
+        abstract_moves=["problem", "gap", "approach", "result", "boundary"],
+        narrative_contract_optional=SimpleNamespace(),
+        paper_type=NucleusPaperType.SYNTHETIC_BENCHMARK,
         section_plans=[
             section("scope", "Bounded question and study scope"),
             section("methods", "Data-generating process and methods"),
@@ -7094,75 +7604,87 @@ def test_nucleus_manuscript_normalizes_bounded_plan_references_and_sections() ->
             appendix_package_ids=[],
             negative_package_ids=[],
         ),
+        packages=SimpleNamespace(packages=[]),
+        primary_results=[],
     )
 
     assert _validate_plan(plan, inputs) == []
 
 
-def test_nucleus_manuscript_accepts_artifact_bound_signed_and_summary_numbers() -> None:
+def test_nucleus_manuscript_accepts_explicit_boundary_language_as_limitations() -> None:
+    markdown = """# Introduction
+Question and motivation.
+
+# Conclusion
+The conclusion is limited to this synthetic design and does not address applied datasets.
+
+# Appendix
+Supporting details.
+"""
+
+    assert _required_draft_content_reasons(markdown) == []
+
+
+def test_nucleus_manuscript_validates_metric_tokens_not_arbitrary_decimals() -> None:
     result = SimpleNamespace(
+        result_id="result-1",
         metrics={
             "contrast": -0.0005526032587906083,
             "negative_control_maximum": 0.0382992585859323,
         },
-        baseline_summary='{"rate": 0.1}',
-        control_summary='{"tolerance": 0.03, "rerun": 8.948475294090485e-11}',
-        negative_control_summary='{"gain_threshold": -0.005}',
+        metric_sources={
+            "contrast": "runs/example/output.json#metrics.contrast",
+            "negative_control_maximum": (
+                "runs/example/output.json#metrics.negative_control_maximum"
+            ),
+        },
     )
-    markdown = (
-        "### 3.1 Artifact-bound results\n"
-        "Contrast -0.0005526032587906083; rate 0.1; tolerance 0.03; "
-        "rerun 0.00000000008948475294090485; threshold -0.005."
-    )
-
-    assert _metric_literal_reasons(markdown, "", [result]) == []
-    assert _metric_literal_reasons(markdown + " Invented 0.1234.", "", [result]) == [
-        "Draft contains decimal metric literals not present in execution artifacts: 0.1234"
+    assert _metric_literal_reasons("Result {{METRIC:001}}.", "", [result]) == []
+    assert _metric_literal_reasons("Result {{METRIC:999}}.", "", [result]) == [
+        "Draft references unknown metric tokens: {{METRIC:999}}"
+    ]
+    assert _metric_literal_reasons("Result {{METRIC:abc}}.", "", [result]) == [
+        "Draft markdown contains a malformed or unresolved metric token."
     ]
     assert _metric_literal_reasons(
-        markdown + " Incorrect approximation 0.038299258370.", "", [result]
-    ) == [
-        "Draft contains decimal metric literals not present in execution artifacts: 0.038299258370"
-    ]
-    assert _metric_literal_reasons(
-        markdown,
-        r"\begin{tabular}{p{0.31\linewidth}|p{0.60\textwidth}}",
-        [result],
+        "A design rate is 0.3; DOI 10.48550/arxiv.2505.20761.", "", [result]
     ) == []
-    assert _metric_literal_reasons(markdown, "Invented result 0.60.", [result]) == [
-        "Draft contains decimal metric literals not present in execution artifacts: 0.60"
+
+
+def test_nucleus_manuscript_resolves_only_known_citation_tokens() -> None:
+    tokens = [
+        {
+            "token": "{{CITE:001}}",
+            "binding_id": "citation-1",
+            "authors": "A. Author",
+            "year": "2024",
+            "title": "Bounded source",
+            "citation_key": "RetrievedSource1",
+        }
     ]
-
-
-def test_nucleus_manuscript_accepts_precision_consistent_rounding() -> None:
-    result = SimpleNamespace(
-        metrics={"realized_rate": 0.44999999999999996},
-        baseline_summary="{}",
-        control_summary="{}",
-        negative_control_summary="{}",
+    resolved, used, blockers = _resolve_citation_tokens(
+        {
+            "markdown": "Prior work {{CITE:001}}.",
+            "latex": r"Prior work \citep{placeholder} {{CITE:001}}.",
+        },
+        tokens,
     )
 
-    assert _metric_literal_reasons("Realized rate 0.45.", "", [result]) == []
-    assert _metric_literal_reasons("Realized rate 0.44.", "", [result]) == [
-        "Draft contains decimal metric literals not present in execution artifacts: 0.44"
-    ]
+    assert resolved["markdown"] == "Prior work [A. Author, 2024](#RetrievedSource1)."
+    assert r"\cite{RetrievedSource1}" in resolved["latex"]
+    assert used == ["{{CITE:001}}"]
+    assert blockers == []
 
-
-def test_nucleus_manuscript_does_not_treat_dois_as_metrics() -> None:
-    result = SimpleNamespace(
-        metrics={},
-        baseline_summary="{}",
-        control_summary="{}",
-        negative_control_summary="{}",
+    _, _, unknown = _resolve_citation_tokens(
+        {"markdown": "Prior work {{CITE:999}}.", "latex": ""}, tokens
     )
-    markdown = (
-        "Related work: https://doi.org/10.48550/arxiv.2505.20761 and "
-        "doi:10.3390/wevj17040219."
-    )
+    assert unknown == ["Draft references unknown citation tokens: {{CITE:999}}"]
 
-    assert _metric_literal_reasons(markdown, "", [result]) == []
-    assert _metric_literal_reasons("Invented result 2505.20761.", "", [result]) == [
-        "Draft contains decimal metric literals not present in execution artifacts: 2505.20761"
+    _, _, malformed = _resolve_citation_tokens(
+        {"markdown": "Prior work {{CITE:oops}}.", "latex": ""}, tokens
+    )
+    assert malformed == [
+        "Draft markdown contains a malformed or unresolved citation token."
     ]
 
 
@@ -7193,7 +7715,7 @@ Retained appendix.
     assert r"\setlength{\emergencystretch}{4em}" in rendered
     assert "0.1235" in rendered
     assert "Bundle-only exact metrics." not in rendered
-    assert "Retained appendix." in rendered
+    assert "Retained appendix." not in rendered
     assert r"\begin{longtable}{lrr}" not in rendered
 
 
@@ -7335,9 +7857,164 @@ def test_nucleus_manuscript_rejects_unsafe_draft_and_blocks_after_revision(tmp_p
         config=config,
     )
     assert result.report.manuscript_status == NucleusManuscriptStatus.MANUSCRIPT_DEFERRED
-    assert result.report.revised_draft_optional is None
+    assert result.report.revised_draft_optional is not None
     assert result.report.revision_report_optional is not None
     assert result.report.revision_report_optional.remaining_blocking_findings
+
+
+def test_nucleus_manuscript_revision_resumes_from_latest_revised_draft(tmp_path) -> None:
+    run_id = "run-nucleus-manuscript-revision-resume"
+    store, ledger = _prepare_m105_nucleus_fixture(tmp_path, run_id)
+    planner = MockNucleusManuscriptPlanner(block_after_revision=True)
+    config = NucleusManuscriptConfig(
+        run_id=run_id,
+        backend="llm-openai",
+        require_non_fake_backends=True,
+    )
+    plan_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    synthesize_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    first = revise_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+    first_revised = first.report.revised_draft_optional
+    assert first_revised is not None
+    assert len(planner.critic_calls) == len(ManuscriptCriticRole) + 2
+
+    second = revise_nucleus_manuscript(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        planner=planner,
+        config=config,
+    )
+
+    assert second.report.revision_report_optional is not None
+    assert second.report.revision_report_optional.source_draft_id == first_revised.draft_id
+    assert second.report.revision_report_optional.revision_attempt == 2
+    assert second.report.revised_draft_optional is not None
+    assert second.report.revised_draft_optional.source_draft_id_optional == first_revised.draft_id
+    assert len(planner.critic_calls) == len(ManuscriptCriticRole) + 4
+
+
+def test_reliability_curve_figure_is_derived_from_structured_results() -> None:
+    payload = {
+        "logical_artifacts": {
+            "plot_ready": {
+                "uncalibrated": [
+                    {"predicted": 0.1, "eta": 0.14},
+                    {"predicted": 0.5, "eta": 0.55},
+                    {"predicted": 0.9, "eta": 0.82},
+                ],
+                "temperature_scaling": [
+                    {"predicted": 0.1, "eta": 0.11},
+                    {"predicted": 0.5, "eta": 0.51},
+                    {"predicted": 0.9, "eta": 0.88},
+                ],
+            }
+        }
+    }
+
+    curves = _find_reliability_curves(payload)
+
+    assert curves is not None
+    assert list(curves) == ["temperature_scaling", "uncalibrated"]
+    rendered = _render_reliability_png(curves)
+    assert rendered.startswith(b"\x89PNG\r\n\x1a\n")
+    assert len(rendered) > 10_000
+
+
+def test_interval_figures_are_derived_from_structured_results() -> None:
+    payload = {
+        "metrics": {
+            "paired_method_differences": {
+                "method_a": {
+                    "0": {"risk": {"mean": 0.01, "interval_95": [0.005, 0.015]}},
+                    "1": {"risk": {"mean": -0.02, "interval_95": [-0.03, -0.01]}},
+                },
+                "method_b": {
+                    "0": {"risk": {"mean": 0.02, "interval_95": [0.01, 0.03]}},
+                    "1": {"risk": {"mean": -0.01, "interval_95": [-0.02, 0.0]}},
+                },
+            },
+            "reliability_curve_deviation": {
+                "method_a": {"mean": 0.03, "interval_95": [0.02, 0.04]},
+                "method_b": {"mean": 0.05, "interval_95": [0.04, 0.06]},
+            },
+        }
+    }
+
+    paired = _find_paired_difference_series(payload)
+    summaries = _find_reliability_interval_summaries(payload)
+
+    assert paired is not None
+    assert list(paired) == ["method_a", "method_b"]
+    assert summaries is not None
+    assert list(summaries) == ["method_a", "method_b"]
+    assert _render_paired_difference_png(paired).startswith(b"\x89PNG\r\n\x1a\n")
+    assert _render_interval_summary_png(summaries).startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_result_material_is_inserted_before_interpretation_sections(tmp_path) -> None:
+    markdown = """## Introduction
+Motivation.
+
+## Results
+Primary finding.
+
+## Limitations
+Bounded interpretation.
+"""
+    latex = r"""\section{Introduction}
+Motivation.
+\section{Results}
+Primary finding.
+\section{Limitations}
+Bounded interpretation.
+"""
+
+    assembled_markdown = _insert_markdown_result_material(
+        markdown,
+        "### Primary quantitative results\n\n| Measure | Value |\n|---|---:|\n| Brier | 0.1 |",
+    )
+    assembled_latex = _insert_latex_result_material(
+        latex,
+        r"\subsection*{Primary quantitative results}"
+        r"\begin{longtable}{lr}Brier & 0.1\\\end{longtable}",
+    )
+
+    assert assembled_markdown.index("Primary finding.") < assembled_markdown.index(
+        "Primary quantitative results"
+    ) < assembled_markdown.index("## Limitations")
+    assert assembled_latex.index("Primary finding.") < assembled_latex.index(
+        "Primary quantitative results"
+    ) < assembled_latex.index(r"\section{Limitations}")
+
+    resolved = _resolve_latex_graphics(
+        r"\includegraphics{runs/run_with_underscore/reports/figure\_one.png}",
+        tmp_path,
+    )
+    assert r"\includegraphics{\detokenize{" in resolved
+    assert "run_with_underscore/reports/figure_one.png" in resolved
 
 
 def _prepare_m106_final_paper_fixture(tmp_path, run_id: str):
@@ -7396,6 +8073,7 @@ def test_final_paper_assembly_verification_and_bundle(tmp_path) -> None:
     assert assembled.manifest_optional is not None
     manifest = FinalPaperManifest.model_validate(assembled.manifest_optional)
     assert manifest.table_records
+    assert manifest.figure_records == []
     assert all(item.resolved for item in manifest.artifact_bindings)
     assert all(item.deterministically_assembled for item in manifest.table_records)
     assert (tmp_path / manifest.main_markdown_path).is_file()
@@ -7513,6 +8191,126 @@ def test_standalone_final_latex_uses_paper_layout_and_omits_audit_dump() -> None
     assert r"\begin{adjustbox}{max width=\linewidth}" in rendered
     assert "0.1235" in rendered
     assert "Bundle-only metrics." not in rendered
+
+
+def test_standalone_complete_document_omits_audit_dump() -> None:
+    source = "\n".join(
+        [
+            r"\documentclass{article}",
+            r"\begin{document}",
+            r"\section{Results}",
+            "A bounded result.",
+            r"\section*{Reconstructed Result Tables}",
+            r"\begin{longtable}{lll}",
+            r"Metric & Value & Provenance\\",
+            r"raw.metric & 0.123456789 & artifact\\",
+            r"\end{longtable}",
+            r"\appendix",
+            r"\section*{Assembly Appendices}",
+            "Open obligations.",
+            r"\end{document}",
+        ]
+    )
+
+    rendered = _standalone_final_latex(source)
+
+    assert "A bounded result." in rendered
+    assert "Reconstructed Result Tables" not in rendered
+    assert "raw.metric" not in rendered
+    assert r"\appendix" not in rendered
+    assert "Open obligations." not in rendered
+
+
+def test_standalone_complete_document_formats_fixed_width_longtable_numbers() -> None:
+    source = "\n".join(
+        [
+            r"\documentclass{article}",
+            r"\usepackage{longtable}",
+            r"\begin{document}",
+            r"\begin{longtable}{p{0.75\textwidth}r}",
+            r"Measure & Value\\",
+            r"A persisted metric & 0.00047639548159566564\\",
+            r"\end{longtable}",
+            r"\end{document}",
+        ]
+    )
+
+    rendered = _standalone_final_latex(source)
+
+    assert "0.00047639548159566564" not in rendered
+    assert "0.0004764" in rendered
+
+
+def test_standalone_complete_document_applies_paper_layout_and_fits_tables() -> None:
+    source = "\n".join(
+        [
+            r"\documentclass{article}",
+            r"\title{Bounded Study}",
+            r"\begin{document}",
+            r"\maketitle",
+            r"\begin{table}[ht]",
+            r"\centering",
+            r"\begin{tabular}{cll}",
+            r"Cell & Branch & Long parameter description\\",
+            r"\end{tabular}",
+            r"\end{table}",
+            r"\end{document}",
+        ]
+    )
+
+    rendered = _standalone_final_latex(source)
+
+    assert r"\usepackage[margin=1in]{geometry}" in rendered
+    assert r"\usepackage{lmodern}" in rendered
+    assert r"\author{}" in rendered
+    assert r"\date{}" in rendered
+    assert r"\begin{adjustbox}{max width=\linewidth}" in rendered
+
+
+def test_standalone_complete_document_omits_machine_audit_appendices() -> None:
+    source = "\n".join(
+        [
+            r"\documentclass{article}",
+            r"\begin{document}",
+            r"\section{Conclusion}",
+            "A bounded conclusion.",
+            r"\section*{Provenance note and references}",
+            r"\begin{thebibliography}{9}",
+            (
+                r"\bibitem{exec} Execution artifact. Reader-facing citations use this short "
+                "identifier; the full source path and formal binding identifier are confined "
+                "to the machine-readable provenance note below."
+            ),
+            r"\end{thebibliography}",
+            r"\subsection*{Machine-readable claim map}",
+            r"\begin{verbatim}",
+            '{"claim_id": "a-very-long-machine-identifier"}',
+            r"\end{verbatim}",
+            r"\appendix",
+            r"\section*{Assembly Appendices}",
+            r"\subsection*{Open Obligations and Scope Boundaries}",
+            "Duplicated audit obligation.",
+            r"\end{document}",
+        ]
+    )
+
+    rendered = _standalone_final_latex(source)
+
+    assert r"\begin{thebibliography}{9}" in rendered
+    assert r"\section*{References}" not in rendered
+    assert "A bounded conclusion." in rendered
+    assert "Full provenance details are retained" in rendered
+    assert "Machine-readable claim map" not in rendered
+    assert "a-very-long-machine-identifier" not in rendered
+    assert "Assembly Appendices" not in rendered
+    assert "Duplicated audit obligation." not in rendered
+
+
+def test_table_values_present_detects_manuscript_native_result_table() -> None:
+    table = SimpleNamespace(rows=[{"value": 0.125}, {"value": -0.25}])
+
+    assert _table_values_present("| A | 0.125 |\n| B | -0.25 |", table)
+    assert not _table_values_present("| A | 0.125 |", table)
 
 
 def test_final_paper_defers_for_missing_revision_artifact_or_figure(tmp_path) -> None:
@@ -7758,9 +8556,9 @@ def test_final_paper_inserts_assembled_latex_assets_before_document_terminator(t
     latex = (tmp_path / manifest.main_latex_path).read_text(encoding="utf-8")
     assert r"\section*{References}" in latex
     assert r"\begin{thebibliography}{99}" in latex
-    assert latex.index(r"\section*{Reconstructed Result Tables}") < latex.rindex(
-        r"\end{document}"
-    )
+    document_end = latex.rindex(r"\end{document}")
+    assert latex.index(r"\begin{thebibliography}{99}") < document_end
+    assert latex.index(r"\appendix") < document_end
 
     result_artifact = tmp_path / "runs" / run_id / "reports" / (
         manifest.artifact_bindings[0].artifact_id + ".json"

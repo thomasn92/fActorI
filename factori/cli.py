@@ -4931,6 +4931,13 @@ def execute_hybrid_evidence_packages_command(
     retrieval_mode: Annotated[str, typer.Option("--retrieval-mode")] = "mocked",
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    reasoning_effort: Annotated[
+        str,
+        typer.Option(
+            "--reasoning-effort",
+            help="OpenAI reasoning effort: default, low, medium, or high.",
+        ),
+    ] = "default",
     allow_external_calls: Annotated[
         bool,
         typer.Option("--allow-external-calls"),
@@ -4996,6 +5003,18 @@ def execute_hybrid_evidence_packages_command(
     if llm_timeout_seconds <= 0:
         typer.echo("llm-timeout-seconds must be greater than zero", err=True)
         raise typer.Exit(code=1)
+    normalized_reasoning_effort = reasoning_effort.strip().lower()
+    if normalized_reasoning_effort not in {"default", "low", "medium", "high"}:
+        typer.echo(
+            "reasoning-effort must be default, low, medium, or high",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    transport_effort = (
+        None
+        if normalized_reasoning_effort == "default"
+        else normalized_reasoning_effort
+    )
     try:
         planner = OpenAIHybridEvidencePlanner(
             api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
@@ -5003,6 +5022,7 @@ def execute_hybrid_evidence_packages_command(
             transport=OpenAIResponsesTransport(
                 timeout_seconds=llm_timeout_seconds,
                 schema_name="factori_hybrid_evidence",
+                reasoning_effort=transport_effort,
             ),
             allow_external_calls=allow_external_calls,
         )
@@ -5011,6 +5031,7 @@ def execute_hybrid_evidence_packages_command(
             model=model,
             transport=OpenAIResponsesTransport(
                 timeout_seconds=llm_timeout_seconds,
+                reasoning_effort=transport_effort,
             ),
             allow_external_calls=allow_external_calls,
         )
@@ -5218,6 +5239,20 @@ def plan_nucleus_manuscript_command(
     backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    reasoning_effort: Annotated[
+        str,
+        typer.Option(
+            "--reasoning-effort",
+            help="OpenAI reasoning effort: default, low, medium, or high.",
+        ),
+    ] = "default",
+    llm_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--llm-timeout-seconds",
+            help="Timeout for each OpenAI Responses request.",
+        ),
+    ] = 300.0,
     allow_external_calls: Annotated[bool, typer.Option("--allow-external-calls")] = False,
     require_non_fake_backends: Annotated[
         bool,
@@ -5230,6 +5265,8 @@ def plan_nucleus_manuscript_command(
         backend=backend,
         model=model,
         allow_external_calls=allow_external_calls,
+        reasoning_effort=reasoning_effort,
+        llm_timeout_seconds=llm_timeout_seconds,
     )
     try:
         result = plan_nucleus_manuscript(
@@ -5256,6 +5293,20 @@ def synthesize_nucleus_manuscript_command(
     backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    reasoning_effort: Annotated[
+        str,
+        typer.Option(
+            "--reasoning-effort",
+            help="OpenAI reasoning effort: default, low, medium, or high.",
+        ),
+    ] = "default",
+    llm_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--llm-timeout-seconds",
+            help="Timeout for each OpenAI Responses request.",
+        ),
+    ] = 300.0,
     allow_external_calls: Annotated[bool, typer.Option("--allow-external-calls")] = False,
     require_non_fake_backends: Annotated[
         bool,
@@ -5268,6 +5319,8 @@ def synthesize_nucleus_manuscript_command(
         backend=backend,
         model=model,
         allow_external_calls=allow_external_calls,
+        reasoning_effort=reasoning_effort,
+        llm_timeout_seconds=llm_timeout_seconds,
     )
     try:
         result = synthesize_nucleus_manuscript(
@@ -5294,6 +5347,20 @@ def revise_nucleus_manuscript_command(
     backend: Annotated[str, typer.Option("--backend")] = "llm-openai",
     root: Annotated[Path, typer.Option("--root")] = DEFAULT_ROOT,
     model: Annotated[str, typer.Option("--model")] = DEFAULT_LLM_MODEL,
+    reasoning_effort: Annotated[
+        str,
+        typer.Option(
+            "--reasoning-effort",
+            help="OpenAI reasoning effort: default, low, medium, or high.",
+        ),
+    ] = "default",
+    llm_timeout_seconds: Annotated[
+        float,
+        typer.Option(
+            "--llm-timeout-seconds",
+            help="Timeout for each OpenAI Responses request.",
+        ),
+    ] = 300.0,
     allow_external_calls: Annotated[bool, typer.Option("--allow-external-calls")] = False,
     require_non_fake_backends: Annotated[
         bool,
@@ -5307,6 +5374,8 @@ def revise_nucleus_manuscript_command(
         backend=backend,
         model=model,
         allow_external_calls=allow_external_calls,
+        reasoning_effort=reasoning_effort,
+        llm_timeout_seconds=llm_timeout_seconds,
     )
     try:
         result = revise_nucleus_manuscript(
@@ -5498,16 +5567,32 @@ def _echo_final_paper_result(result, *, json_output: bool) -> None:
 
 
 def _nucleus_manuscript_client(
-    *, backend: str, model: str, allow_external_calls: bool
+    *,
+    backend: str,
+    model: str,
+    allow_external_calls: bool,
+    reasoning_effort: str = "default",
+    llm_timeout_seconds: float = 300.0,
 ) -> OpenAINucleusManuscript:
     normalized = backend.strip().lower().replace("_", "-")
     if normalized not in {"llm-openai", "openai"}:
         raise NucleusManuscriptError(
             "Only llm-openai nucleus manuscript synthesis is implemented; no fallback exists."
         )
+    if llm_timeout_seconds <= 0:
+        raise ValueError("llm-timeout-seconds must be greater than zero")
+    normalized_effort = reasoning_effort.strip().lower()
+    if normalized_effort not in {"default", "low", "medium", "high"}:
+        raise ValueError("reasoning-effort must be default, low, medium, or high")
     return OpenAINucleusManuscript(
         api_key=os.environ.get(OPENAI_API_KEY_ENV, ""),
         model=model,
+        transport=OpenAIResponsesTransport(
+            timeout_seconds=llm_timeout_seconds,
+            schema_name="factori_nucleus_manuscript",
+            nullable_optional_fields=False,
+            reasoning_effort=(None if normalized_effort == "default" else normalized_effort),
+        ),
         allow_external_calls=allow_external_calls,
     )
 

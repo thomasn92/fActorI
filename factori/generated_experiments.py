@@ -641,7 +641,7 @@ def extract_metrics_from_output(
                     missing.append(name)
                 elif allow_nested_numeric_metrics and isinstance(value, dict):
                     nested = _flatten_numeric_metric(value, prefix=name)
-                    if nested is None:
+                    if nested is None or not nested:
                         invalid.append(name)
                     else:
                         metrics.update(nested)
@@ -689,7 +689,7 @@ def _flatten_numeric_metric(
             flattened.update(nested)
         else:
             return None
-    return flattened or None
+    return flattened
 
 
 def inspect_experiment_code(

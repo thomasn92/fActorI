@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.78.0/capability-escalation-item.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/capability-escalation-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Disposition of one deferred proof or retrieval escalation candidate.",
@@ -152,7 +152,7 @@
   ],
   "title": "CapabilityEscalationItem",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.CapabilityEscalationItem",
   "x-factori-verification-evidence": false
 }

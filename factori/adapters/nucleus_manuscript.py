@@ -33,6 +33,9 @@ class ManuscriptSectionProposal(StrictModel):
     required_citations: list[str] = Field(default_factory=list)
     scope_constraints: list[str] = Field(min_length=1)
     bullets: list[str] = Field(default_factory=list)
+    opening_purpose: str = Field(min_length=1)
+    takeaway: str = Field(min_length=1)
+    transition_to_next: str = Field(min_length=1)
 
 
 class ManuscriptPlanProposal(StrictModel):
@@ -40,6 +43,15 @@ class ManuscriptPlanProposal(StrictModel):
     paper_type: NucleusPaperType
     central_question: str = Field(min_length=1)
     central_claim: str = Field(min_length=1)
+    archetype_rationale: str = Field(min_length=1)
+    central_tension: str = Field(min_length=1)
+    prior_baseline: str = Field(min_length=1)
+    literature_gap: str = Field(min_length=1)
+    contribution: str = Field(min_length=1)
+    main_result: str = Field(min_length=1)
+    interpretation: str = Field(min_length=1)
+    boundary_statement: str = Field(min_length=1)
+    abstract_moves: list[str] = Field(min_length=5, max_length=5)
     section_plans: list[ManuscriptSectionProposal] = Field(min_length=1)
     supporting_package_roles: dict[str, str] = Field(default_factory=dict)
     appendix_package_roles: dict[str, str] = Field(default_factory=dict)
@@ -62,6 +74,15 @@ class ManuscriptPlanTransportProposal(StrictModel):
     paper_type: NucleusPaperType
     central_question: str = Field(min_length=1)
     central_claim: str = Field(min_length=1)
+    archetype_rationale: str = Field(min_length=1)
+    central_tension: str = Field(min_length=1)
+    prior_baseline: str = Field(min_length=1)
+    literature_gap: str = Field(min_length=1)
+    contribution: str = Field(min_length=1)
+    main_result: str = Field(min_length=1)
+    interpretation: str = Field(min_length=1)
+    boundary_statement: str = Field(min_length=1)
+    abstract_moves: list[str] = Field(min_length=5, max_length=5)
     section_plans: list[ManuscriptSectionProposal] = Field(min_length=1)
     supporting_package_roles: list[ManuscriptPackageRoleProposal] = Field(
         default_factory=list
@@ -276,14 +297,18 @@ class OpenAINucleusManuscript:
 
 def _planning_prompt(nucleus: dict[str, Any], evidence: dict[str, Any]) -> str:
     return (
-        "Plan a bounded scientific manuscript around the selected paper nucleus. Choose the most "
-        "coherent paper type from the evidence package rather than describing the pipeline. Define "
-        "a title, central question, central claim, flexible sections, and appropriate roles for "
-        "supporting, appendix, and negative packages. Every section needs scope constraints. "
-        "When retrieved_literature_context is nonempty, include a Related Work or Literature "
-        "section that uses every retrieval_source binding in required_citations. Describe only "
-        "what the supplied metadata or abstract supports and preserve its retrieval limitations. "
-        "Do not "
+        "Plan a bounded scientific paper around the selected nucleus, not around the pipeline. "
+        "Choose the evidence-compatible paper archetype and explain why it fits. All archetypes "
+        "must follow the narrative backbone: question or tension, prior context and gap, precise "
+        "contribution, evidence or argument, interpretation, and boundary. Return explicit values "
+        "for central_tension, prior_baseline, literature_gap, contribution, main_result, "
+        "interpretation, and boundary_statement. abstract_moves must contain exactly five moves: "
+        "problem, gap, approach, result, and boundary. Each section must state its opening "
+        "purpose, reader takeaway, and transition to the next section. Put technical audit detail "
+        "secondary checks in appendices rather than making provenance the story. When literature "
+        "context exists, organize the most relevant sources thematically around the baseline and "
+        "gap; do not write one source-summary paragraph per record and do not force irrelevant "
+        "sources into the paper. Every section still needs scope constraints. Do not "
         "claim proof, novelty, underuse, real-world validation, publication readiness, or general "
         "domain truth. Return exactly one structured plan.\n\n"
         f"Nucleus:\n{json.dumps(nucleus, indent=2, sort_keys=True)}\n\n"
@@ -293,20 +318,24 @@ def _planning_prompt(nucleus: dict[str, Any], evidence: dict[str, Any]) -> str:
 
 def _synthesis_prompt(plan: dict[str, Any], evidence: dict[str, Any]) -> str:
     return (
-        "Write a coherent research manuscript from this approved plan and the supplied artifact "
-        "bindings. Center the scientific nucleus, not the pipeline. Use only claim IDs and "
-        "citation "
-        "binding IDs supplied in the evidence. Numerical values must be copied exactly from the "
-        "artifact-bound evidence payload, including its execution summaries; do not calculate, "
-        "round, approximate, or invent numbers. If an exact value cannot be located, omit the "
-        "numeric statement and record the limitation without a numeric placeholder or question "
-        "mark. State symbolic material as a draft with unresolved obligations. Place negative and "
-        "secondary packages in "
-        "appendices. Do not claim proof, novelty, underuse, real-world validation, publication "
+        "Write a research paper that realizes the approved narrative contract. Center the "
+        "scientific question and result, never the pipeline, artifact inventory, or audit process. "
+        "The abstract must execute the five planned moves in order. The introduction must move "
+        "from motivation to prior baseline, gap, approach, result preview, and roadmap. Start the "
+        "conclusion with the bounded answer, then interpretation and limits. Consolidate caveats "
+        "instead of repeating them after every claim. Use only supplied claim and citation binding "
+        "IDs. For quantitative statements, emit the supplied immutable metric token verbatim; do "
+        "not copy, calculate, round, or invent a raw metric value. For literature statements, "
+        "emit the supplied immutable citation token beside the sentence it supports. Metric and "
+        "citation tokens are replaced locally after validation. Omit unsupported numbers. Use "
+        "literature thematically to establish the "
+        "prior baseline and unresolved gap, not as a list of abstracts. Place negative, secondary, "
+        "and reproducibility detail in appendices. Do not call the manuscript an artifact-summary "
+        "report. Do not claim proof, novelty, underuse, real-world validation, publication "
         "readiness, or general domain truth. Return exactly one structured draft.\n\n"
-        "When retrieval_source bindings are supplied, write a source-grounded Related Work or "
-        "Literature section, include every such binding in citation_binding_ids, and do not infer "
-        "beyond the supplied titles, metadata, abstracts, or snippets. "
+        "When retrieval sources are supplied, cite only those actually used, use at least three "
+        "when three are available, and do not infer beyond their titles, metadata, abstracts, or "
+        "snippets. Never write citation binding IDs directly into prose. "
         f"Plan:\n{json.dumps(plan, indent=2, sort_keys=True)}\n\n"
         f"Artifact-bound evidence:\n{json.dumps(evidence, indent=2, sort_keys=True)}"
     )
@@ -319,7 +348,10 @@ def _critic_prompt(
         f"Act as the {role.value} critic for a bounded scientific manuscript. Inspect the draft "
         "only against the attached claim/artifact bindings and citations. Identify claim-evidence "
         "misalignment, incoherence, unsafe scope, missing baselines or controls, negative-result "
-        "omissions, citation problems, or readability defects. Do not invent metrics or evidence. "
+        "omissions, citation problems, or readability defects. For readability_and_structure, "
+        "also test whether the paper sustains one central tension, gives each section a distinct "
+        "role and takeaway, and reaches an answer rather than becoming a report list. Do not "
+        "invent metrics or evidence. "
         "Reserve blocking_findings for unsupported assertions, unsafe scope, internally "
         "incoherent claims, or missing claim-local provenance that must be repaired before this "
         "bounded draft can be released. A design detail, manifest, decision rule, or validation "
@@ -354,10 +386,13 @@ def _revision_prompt(
         "ambiguous status fields neutrally rather than calling them contradictory or successful. "
         "An unresolved control must be called inconclusive and must not support the abstract, "
         "conclusion, robustness, or validation language. Put the supplied formal artifact binding "
-        "next to each retained primary claim or table it supports. If implementation details or "
-        "audit manifests are unavailable, consistently frame the document as an artifact-summary "
-        "report and keep those absences as unresolved limitations rather than implying independent "
-        "auditability. "
+        "in the machine-readable claim map. Also place a short reader-resolvable artifact citation "
+        "beside every distinct cluster of execution-derived claims, including design or control "
+        "paragraphs and tables; a section-leading citation may cover a tightly grouped cluster. "
+        "Keep full paths and binding identifiers in one provenance note so the paper does not "
+        "become an artifact inventory. Preserve the selected archetype, central tension, "
+        "section takeaways, and transitions. Keep unavailable implementation details as a concise "
+        "limitation rather than changing the document genre. "
         "Do not "
         "claim proof, novelty, underuse, real-world validation, publication readiness, or general "
         "domain truth. Return exactly one structured revision.\n\n"
@@ -374,6 +409,10 @@ def _parse_one(
     model_type: type[StrictModel],
 ) -> tuple[StrictModel | None, list[str]]:
     items = payload.get(envelope_key)
+    if isinstance(items, dict):
+        items = [items]
+    elif items is None and _looks_like_model_payload(payload, model_type):
+        items = [payload]
     if not isinstance(items, list) or len(items) != 1:
         raise AdapterResponseParseError(
             backend="openai",
@@ -382,7 +421,7 @@ def _parse_one(
             message=f"response must contain exactly one {envelope_key} item",
         )
     try:
-        candidate = items[0]
+        candidate = _normalize_optional_transport_lists(items[0], model_type)
         if model_type is ManuscriptPlanProposal:
             candidate = _normalize_plan_transport(candidate)
         elif model_type is ManuscriptCriticProposal:
@@ -391,6 +430,45 @@ def _parse_one(
     except ValidationError as exc:
         return None, [str(exc)]
     return item, _boundary_reasons(item)
+
+
+def _looks_like_model_payload(payload: dict[str, Any], model_type: type[StrictModel]) -> bool:
+    required = {
+        name
+        for name, field_info in model_type.model_fields.items()
+        if field_info.is_required()
+    }
+    return bool(required) and required.issubset(payload)
+
+
+def _normalize_optional_transport_lists(
+    value: Any,
+    model_type: type[StrictModel],
+) -> Any:
+    if not isinstance(value, dict):
+        return value
+    normalized = dict(value)
+    optional_lists = {
+        ManuscriptPlanProposal: {
+            "supporting_package_roles",
+            "appendix_package_roles",
+            "negative_result_roles",
+        },
+        ManuscriptDraftProposal: {"citation_binding_ids"},
+        ManuscriptRevisionProposal: {
+            "citation_binding_ids",
+            "applied_recommendations",
+        },
+        ManuscriptCriticProposal: {
+            "findings",
+            "blocking_findings",
+            "recommended_revisions",
+        },
+    }.get(model_type, set())
+    for field_name in optional_lists:
+        if normalized.get(field_name) is None:
+            normalized[field_name] = []
+    return normalized
 
 
 def _normalize_plan_transport(value: Any) -> Any:
@@ -428,7 +506,7 @@ def _normalize_critic_transport(value: Any) -> Any:
 
 
 def _boundary_reasons(item: StrictModel) -> list[str]:
-    text = json.dumps(item.model_dump(mode="json"), sort_keys=True).lower()
+    texts = [value.casefold() for value in _string_values(item.model_dump(mode="json"))]
     forbidden = {
         r"publication_ready=true": "manuscript output asserts publication readiness",
         r"\bnovelty (?:is )?(?:proven|established)\b": "manuscript output asserts novelty",
@@ -440,13 +518,25 @@ def _boundary_reasons(item: StrictModel) -> list[str]:
         ),
     }
     reasons = [
-        message for pattern, message in forbidden.items() if re.search(pattern, text)
+        message
+        for pattern, message in forbidden.items()
+        if any(re.search(pattern, text) for text in texts)
     ]
-    if _contains_affirmative_publication_readiness(text):
+    if any(_contains_affirmative_publication_readiness(text) for text in texts):
         reasons.append("manuscript output asserts publication readiness")
-    if _contains_affirmative_real_world_validation(text):
+    if any(_contains_affirmative_real_world_validation(text) for text in texts):
         reasons.append("manuscript output asserts real-world validation")
     return reasons
+
+
+def _string_values(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [item for child in value.values() for item in _string_values(child)]
+    if isinstance(value, list):
+        return [item for child in value for item in _string_values(child)]
+    return []
 
 
 def _contains_affirmative_publication_readiness(text: str) -> bool:

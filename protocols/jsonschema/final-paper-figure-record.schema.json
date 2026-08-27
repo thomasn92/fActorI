@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.78.0/final-paper-figure-record.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/final-paper-figure-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One actual hash-verified generated figure included by the final paper.",
@@ -82,7 +82,7 @@
   ],
   "title": "FinalPaperFigureRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.FinalPaperFigureRecord",
   "x-factori-verification-evidence": false
 }

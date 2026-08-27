@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from factori.adaptive_evidence import (
     adaptive_loop_can_resume,
+    load_latest_actionable_execution_report,
     recover_historical_code_artifacts,
     run_adaptive_evidence_loop,
 )
@@ -47,6 +48,7 @@ from factori.nucleus_manuscript import (
 from factori.persistence import ArtifactWriteSpec, persist_artifacts_with_commit
 from factori.production_mode import check_production_mode
 from factori.schemas import (
+    AdaptiveEvidenceLoopConfig,
     AdaptiveEvidenceLoopReport,
     ArtifactRef,
     ArtifactType,
@@ -54,6 +56,7 @@ from factori.schemas import (
     Candidate,
     ControllerActionType,
     DeepOpportunityDiscoveryConfig,
+    DeepOpportunityDiscoveryReport,
     EvidencePackageExecutionReport,
     FinalPaperAssemblyConfig,
     HybridEvidencePackageConfig,
@@ -67,6 +70,7 @@ from factori.schemas import (
     TargetedResearchBrief,
     TargetedStudyCheckpoint,
     TargetedStudyConfig,
+    TargetedStudyContract,
     TargetedStudyInspectionReport,
     TargetedStudyRunReport,
     TargetedStudyStageRecord,
@@ -77,6 +81,7 @@ _REPORT_RE = re.compile(r"^targeted-study-report-(\d{4})\.json$")
 _CHECKPOINT_RE = re.compile(r"^targeted-study-checkpoint-(\d{4})\.json$")
 _EXECUTION_RE = re.compile(r"^evidence-package-execution-report-(\d{4})\.json$")
 _ADAPTIVE_RE = re.compile(r"^adaptive-evidence-loop-report-(\d{4})\.json$")
+_DEEP_OPPORTUNITY_RE = re.compile(r"^deep-opportunity-discovery-report-(\d{4})\.json$")
 _NUCLEUS_MANUSCRIPT_RE = re.compile(
     r"^nucleus-manuscript-synthesis-report-(\d{4})\.json$"
 )
@@ -86,7 +91,7 @@ _FINAL_PAPER_VERIFICATION_RE = re.compile(
     r"^final-paper-verification-report-(\d{4})\.json$"
 )
 _FINAL_PAPER_RENDER_RE = re.compile(r"^final-paper-render-report-(\d{4})\.json$")
-_MANUSCRIPT_REVISION_CALLS = 2 * len(tuple(ManuscriptCriticRole)) + 1
+_MANUSCRIPT_REVISION_CALLS = len(tuple(ManuscriptCriticRole)) + 3
 
 
 class TargetedStudyError(RuntimeError):
@@ -114,6 +119,12 @@ class TargetedStudyResult:
     run_id: str
     report: TargetedStudyRunReport
     report_artifact: ArtifactRef | None = None
+
+
+@dataclass(frozen=True)
+class _TargetedContractResult:
+    contract: TargetedStudyContract
+    report_artifact: ArtifactRef
 
 
 @dataclass
@@ -216,32 +227,69 @@ def _targeted_research_contract(
     brief: TargetedResearchBrief,
     config: TargetedStudyConfig,
 ) -> dict[str, Any]:
-    return {
-        "brief_id": brief.brief_id,
-        "immutable": True,
-        "central_question": brief.central_question,
-        "allowed_method_scope": brief.method,
-        "experiment_or_proof_direction": brief.experiment_or_proof_direction_optional,
-        "required_baselines": brief.baseline_candidates,
-        "required_metrics": brief.expected_metrics,
-        "required_controls": brief.controls,
-        "required_negative_controls": brief.negative_controls,
-        "allowed_claim_scope": brief.allowed_claim_scope,
-        "forbidden_claims": brief.forbidden_claims,
-        "scope_rules": [
+    """Return the transport payload for an already resolved targeted contract."""
+    return _contract_from_brief(brief=brief, config=config).model_dump(mode="json")
+
+
+def _contract_from_brief(
+    *,
+    brief: TargetedResearchBrief,
+    config: TargetedStudyConfig,
+    opportunity: Any | None = None,
+) -> TargetedStudyContract:
+    """Resolve missing benchmark fields once; explicit brief fields always win."""
+    baselines = list(brief.baseline_candidates)
+    metrics = list(brief.expected_metrics)
+    controls = list(brief.controls)
+    negative_controls = list(brief.negative_controls)
+    notes: list[str] = []
+    source_opportunity_id: str | None = None
+    if opportunity is not None:
+        source_opportunity_id = opportunity.opportunity_id
+        for field_name, current, fallback in (
+            ("baselines", baselines, opportunity.baseline_candidates),
+            ("metrics", metrics, opportunity.expected_metrics),
+            ("controls", controls, [opportunity.benchmark_plan]),
+            ("negative controls", negative_controls, opportunity.negative_controls),
+        ):
+            if current:
+                notes.append(f"Explicit brief {field_name} retained.")
+            else:
+                current.extend(str(item) for item in fallback if str(item).strip())
+                notes.append(
+                    f"Missing brief {field_name} filled from selected deep opportunity."
+                )
+    return TargetedStudyContract(
+        contract_id="targeted-study-contract",
+        run_id=config.run_id,
+        brief_id=brief.brief_id,
+        central_question=brief.central_question,
+        allowed_method_scope=brief.method,
+        experiment_or_proof_direction_optional=(
+            brief.experiment_or_proof_direction_optional
+        ),
+        required_baselines=_unique_strings(baselines),
+        required_metrics=_unique_strings(metrics),
+        required_controls=_unique_strings(controls),
+        required_negative_controls=_unique_strings(negative_controls),
+        allowed_claim_scope=brief.allowed_claim_scope,
+        forbidden_claims=brief.forbidden_claims,
+        source_opportunity_id_optional=source_opportunity_id,
+        resolution_notes=notes,
+        scope_rules=[
             "Do not introduce a proposed or primary method excluded by the selected brief.",
             "Do not replace the central question with a nearby upstream opportunity.",
             "Supporting methods must remain comparators and may not become the paper nucleus.",
             "Treat authorized execution limits as hard ceilings, not minimum targets.",
         ],
-        "authorized_execution_limits": {
+        authorized_execution_limits={
             "max_replications": config.max_replications,
             "max_resamples": config.max_resamples,
             "max_grid_cells": config.max_grid_cells,
             "timeout_seconds": config.experiment_timeout_seconds,
             "memory_limit_mb": config.experiment_memory_limit_mb,
         },
-    }
+    )
 
 
 def _targeted_workload_violations(
@@ -293,7 +341,12 @@ def _targeted_workload_limit_name(name: str) -> str | None:
     if any(term in name for term in ("resample", "bootstrap")):
         return "max_resamples"
     tokens = set(re.findall(r"[a-z]+", name))
-    if "grid" in tokens:
+    if "grid" in tokens and (
+        tokens.intersection({"cell", "cells"})
+        or tokens.intersection(
+            {"count", "number", "num", "size", "total", "maximum", "max"}
+        )
+    ):
         return "max_grid_cells"
     if "per" not in tokens and tokens.intersection(
         {"cells", "scenarios", "conditions", "configurations"}
@@ -432,14 +485,7 @@ def run_targeted_study(
     )
     brief = preflight.brief
     budgeted_clients = _budgeted_clients(clients, budget)
-    budgeted_clients = replace(
-        budgeted_clients,
-        hybrid_planner=_TargetedHybridPlanner(
-            delegate=budgeted_clients.hybrid_planner,
-            contract=_targeted_research_contract(brief, config),
-        ),
-    )
-    config_hash = _model_hash(config.model_copy(update={"resume": False}))
+    config_hash = _semantic_config_hash(config)
     brief_hash = _model_hash(brief)
     prior_checkpoint = _latest_checkpoint(reports)
     if prior_checkpoint is not None:
@@ -459,8 +505,14 @@ def run_targeted_study(
             raise TargetedStudyError(
                 "Resume configuration or source brief differs from checkpoint."
             )
-        records = list(prior_checkpoint.stage_records)
+        records = _current_stage_records(prior_checkpoint.stage_records)
         completed = set(prior_checkpoint.completed_stage_names)
+        _invalidate_stale_completed_stages(
+            completed=completed,
+            records=records,
+            brief_hash=brief_hash,
+            config=config,
+        )
         prior_adaptive = _latest_adaptive_report(reports)
         prior_execution = (
             _latest_execution_report(reports) if prior_adaptive is not None else None
@@ -477,10 +529,15 @@ def run_targeted_study(
                 config.adaptive_evidence,
                 latest_execution=prior_execution,
                 authorized_timeout_seconds=config.experiment_timeout_seconds,
+                root=root_path,
             )
         ):
-            completed.remove("adaptive_evidence_loop")
-        _reopen_deferred_paper_tail(completed, reports)
+            _discard_stage_and_downstream(
+                completed,
+                "adaptive_evidence_loop",
+                config=config,
+            )
+        _reopen_deferred_paper_tail(completed, reports, stage_records=records)
         if config.render_final_pdf:
             render = _latest_json(reports, _FINAL_PAPER_RENDER_RE)
             if render is None or render.get("render_status") != "rendered":
@@ -506,6 +563,12 @@ def run_targeted_study(
         nonlocal completed_calls
         if name in completed:
             return None
+        input_fingerprint = _stage_input_fingerprint(
+            name=name,
+            brief_hash=brief_hash,
+            config=config,
+            records=records,
+        )
         try:
             result = operation()
         except Exception as exc:
@@ -515,8 +578,9 @@ def run_targeted_study(
                 status="failed",
                 external_call_budget=calls,
                 error_optional=str(exc),
+                input_fingerprint_optional=input_fingerprint,
             )
-            records.append(failed)
+            _set_stage_record(records, failed)
             _persist_targeted_report(
                 run_id=config.run_id,
                 config=config,
@@ -540,7 +604,8 @@ def run_targeted_study(
             and getattr(result_report, "status", None) == "budget_exhausted"
         )
         deferred = resumable_budget_stop or deferred_reason is not None
-        records.append(
+        _set_stage_record(
+            records,
             TargetedStudyStageRecord(
                 stage_name=name,
                 status="deferred" if deferred else "completed",
@@ -551,7 +616,12 @@ def run_targeted_study(
                     if resumable_budget_stop
                     else ([deferred_reason] if deferred_reason else [])
                 ),
-            )
+                input_fingerprint_optional=input_fingerprint,
+                output_fingerprint_optional=_stage_output_fingerprint(
+                    root=root_path,
+                    paths=paths,
+                ),
+            ),
         )
         if not deferred:
             completed.add(name)
@@ -593,9 +663,34 @@ def run_targeted_study(
                 min_method_family_coverage=1,
                 max_opportunities_per_domain_family=1,
                 max_opportunities_per_method_family=1,
-                max_retrieval_sources_per_pair=3,
+                max_retrieval_sources_per_pair=5,
                 require_non_fake_backends=True,
             ),
+        ),
+    )
+    contract_result = stage(
+        "targeted_contract_resolution",
+        0,
+        lambda: _resolve_and_persist_targeted_contract(
+            run_id=config.run_id,
+            brief=brief,
+            config=config,
+            reports=reports,
+            store=store,
+            ledger=ledger,
+        ),
+    )
+    contract = (
+        contract_result.contract
+        if contract_result is not None
+        else _load_targeted_contract(reports)
+    )
+    resolved_brief = _brief_with_contract(brief, contract)
+    budgeted_clients = replace(
+        budgeted_clients,
+        hybrid_planner=_TargetedHybridPlanner(
+            delegate=budgeted_clients.hybrid_planner,
+            contract=contract.model_dump(mode="json"),
         ),
     )
     variance_generation_calls = 2 if config.mode == "full" else 1
@@ -741,12 +836,15 @@ def run_targeted_study(
             clients.adaptive_questioner,
             {"review_evidence": "llm-stage-b-review"},
         )
-        plan_repairer = budget.wrap_client(
-            clients.hybrid_planner,
-            {
-                "plan_package": "llm-quality-repair",
-                "draft_artifact": "targeted-hybrid-evidence-draft",
-            },
+        plan_repairer = _TargetedHybridPlanner(
+            delegate=budget.wrap_client(
+                clients.hybrid_planner,
+                {
+                    "plan_package": "llm-quality-repair",
+                    "draft_artifact": "targeted-hybrid-evidence-draft",
+                },
+            ),
+            contract=contract.model_dump(mode="json"),
         )
         code_repairer = budget.wrap_client(
             clients.code_generator,
@@ -764,7 +862,7 @@ def run_targeted_study(
                 root=root_path,
                 store=store,
                 ledger=ledger,
-                brief=brief,
+                brief=resolved_brief,
                 questioner=adaptive_questioner,
                 planner=budgeted_clients.hybrid_planner,
                 plan_repairer=plan_repairer,
@@ -784,7 +882,8 @@ def run_targeted_study(
             else _latest_adaptive_report(reports)
         )
         if adaptive.status not in {"satisfied_supported", "satisfied_negative"}:
-            records.append(
+            _set_stage_record(
+                records,
                 TargetedStudyStageRecord(
                     stage_name="cross_package_adjudication",
                     status="deferred",
@@ -792,7 +891,7 @@ def run_targeted_study(
                         "Adaptive evidence questioning did not accept a trustworthy supported or "
                         "negative result; no manuscript was synthesized."
                     ],
-                )
+                ),
             )
             return _complete_targeted_run(
                 config=config,
@@ -1026,7 +1125,21 @@ def _stage_result_deferred_reason(name: str, report: Any) -> str | None:
     return f"{name} deferred: {detail}"
 
 
-def _reopen_deferred_paper_tail(completed: set[str], reports: Path) -> None:
+def _reopen_deferred_paper_tail(
+    completed: set[str],
+    reports: Path,
+    *,
+    stage_records: list[TargetedStudyStageRecord] | None = None,
+) -> None:
+    records_by_name = {
+        item.stage_name: item for item in stage_records or []
+    }
+    completed_paper_stages = completed.intersection(_PAPER_TAIL_STAGES)
+    fingerprinted_resume = bool(completed_paper_stages) and all(
+        records_by_name.get(name) is not None
+        and records_by_name[name].input_fingerprint_optional is not None
+        for name in completed_paper_stages
+    )
     manuscript = _latest_json(reports, _NUCLEUS_MANUSCRIPT_RE)
     if manuscript:
         has_retrieval_binding = any(
@@ -1074,7 +1187,7 @@ def _reopen_deferred_paper_tail(completed: set[str], reports: Path) -> None:
                 "final_paper_bundle",
             },
         }
-        if phase in reopen_by_phase:
+        if phase in reopen_by_phase and (deferred or not fingerprinted_resume):
             stages = set(reopen_by_phase[phase])
             if deferred:
                 stages.add(f"manuscript_{phase}")
@@ -1290,6 +1403,7 @@ def _planned_stages(
 ) -> list[tuple[str, int]]:
     base = [
         ("deep_opportunity_discovery", 1),
+        ("targeted_contract_resolution", 0),
         ("llm_variance_generation", 2 if mode == "full" else 1),
         ("idea_tree_construction", 0),
         ("llm_substrate_construction", 1),
@@ -1300,7 +1414,7 @@ def _planned_stages(
     if mode == "full":
         adaptive_calls = (
             adaptive_config.max_questioner_iterations
-            + adaptive_config.max_code_repair_calls
+            + 2 * adaptive_config.max_code_repair_calls
             + 3 * adaptive_config.max_plan_repair_calls
             if adaptive_config is not None
             else 7
@@ -1352,7 +1466,7 @@ def _adaptive_call_upper_bound(config: TargetedStudyConfig) -> int:
     adaptive = config.adaptive_evidence
     return (
         adaptive.max_questioner_iterations
-        + adaptive.max_code_repair_calls
+        + 2 * adaptive.max_code_repair_calls
         + 3 * adaptive.max_plan_repair_calls
     )
 
@@ -1417,6 +1531,111 @@ def _persist_brief_if_needed(
     return result.artifacts[0].path
 
 
+def _resolve_and_persist_targeted_contract(
+    *,
+    run_id: str,
+    brief: TargetedResearchBrief,
+    config: TargetedStudyConfig,
+    reports: Path,
+    store: ArtifactStore,
+    ledger: ResearchLedger,
+) -> _TargetedContractResult:
+    opportunity_report_path = _latest_matching(reports, _DEEP_OPPORTUNITY_RE)
+    if opportunity_report_path is None:
+        raise TargetedStudyError(
+            "Targeted contract resolution requires deep opportunity discovery."
+        )
+    try:
+        opportunity_report = DeepOpportunityDiscoveryReport.model_validate_json(
+            opportunity_report_path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValidationError) as exc:
+        raise TargetedStudyError(
+            f"Could not load deep opportunity report for contract resolution: {exc}"
+        ) from exc
+    selected = set(opportunity_report.selected_opportunity_ids)
+    opportunity = next(
+        (item for item in opportunity_report.candidates if item.opportunity_id in selected),
+        None,
+    )
+    if opportunity is None:
+        raise TargetedStudyError(
+            "Targeted contract resolution found no selected deep opportunity."
+        )
+    contract = _contract_from_brief(
+        brief=brief,
+        config=config,
+        opportunity=opportunity,
+    )
+    path = reports / f"{contract.contract_id}.json"
+    if path.is_file():
+        try:
+            existing = TargetedStudyContract.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValidationError) as exc:
+            raise TargetedStudyError(
+                f"Could not load persisted targeted study contract: {exc}"
+            ) from exc
+        if _model_hash(existing) != _model_hash(contract):
+            raise TargetedStudyError(
+                "Persisted targeted study contract differs from resolved scientific inputs."
+            )
+        return _TargetedContractResult(
+            contract=existing,
+            report_artifact=ArtifactRef(
+                id=existing.contract_id,
+                type=ArtifactType.REPORT,
+                path=_relative(store.root, path),
+                content_hash=hashlib.sha256(path.read_bytes()).hexdigest(),
+                metadata={"is_verification_evidence": False},
+            ),
+        )
+    persistence = persist_artifacts_with_commit(
+        run_id=run_id,
+        store=store,
+        ledger=ledger,
+        artifact_specs=[
+            ArtifactWriteSpec(
+                contract.contract_id,
+                ArtifactType.REPORT,
+                contract,
+                "json",
+                _metadata("targeted_study_contract"),
+            )
+        ],
+        action_type=ControllerActionType.CONTROLLER_ACTION,
+        commit_payload={
+            "operation": "targeted_study_contract_resolved",
+            "contract_id": contract.contract_id,
+            "source_opportunity_id": opportunity.opportunity_id,
+        },
+    )
+    return _TargetedContractResult(contract, persistence.artifacts[0])
+
+
+def _load_targeted_contract(reports: Path) -> TargetedStudyContract:
+    path = reports / "targeted-study-contract.json"
+    try:
+        return TargetedStudyContract.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValidationError) as exc:
+        raise TargetedStudyError(f"Could not load targeted study contract: {exc}") from exc
+
+
+def _brief_with_contract(
+    brief: TargetedResearchBrief,
+    contract: TargetedStudyContract,
+) -> TargetedResearchBrief:
+    return brief.model_copy(
+        update={
+            "baseline_candidates": contract.required_baselines,
+            "expected_metrics": contract.required_metrics,
+            "controls": contract.required_controls,
+            "negative_controls": contract.required_negative_controls,
+        }
+    )
+
+
 def _persist_checkpoint(
     *,
     run_id: str,
@@ -1428,6 +1647,7 @@ def _persist_checkpoint(
     store: ArtifactStore,
     ledger: ResearchLedger,
 ) -> ArtifactRef:
+    records = _current_stage_records(records)
     number = _next_number(reports, _CHECKPOINT_RE)
     checkpoint_id = f"targeted-study-checkpoint-{number:04d}"
     completed = [item.stage_name for item in records if item.status in {"completed", "reused"}]
@@ -1505,10 +1725,11 @@ def _persist_targeted_report(
     budget: TargetedLLMBudgetManager | None = None,
 ) -> TargetedStudyResult:
     actual_run_id = run_id or config.run_id
+    records = _current_stage_records(records)
     reports = root / "runs" / actual_run_id / "reports"
     number = _next_number(reports, _REPORT_RE)
     report_id = f"targeted-study-report-{number:04d}"
-    planned_calls = _planned_call_count(config)
+    planned_calls = max(_planned_call_count(config), completed_calls)
     minimum_calls = _minimum_required_call_count(config)
     adaptive = _latest_adaptive_report(reports)
     budget_usage = (
@@ -1601,78 +1822,33 @@ def _resume_config_matches(
     if prior_path is None:
         return False
     try:
-        prior = TargetedStudyRunReport.model_validate_json(
+        prior_report = TargetedStudyRunReport.model_validate_json(
             prior_path.read_text(encoding="utf-8")
-        ).config
+        )
     except (OSError, ValidationError):
         return False
-
-    prior_base = prior.model_dump(mode="json")
-    current_base = config.model_dump(mode="json")
-    for payload in (prior_base, current_base):
-        payload.pop("resume", None)
-        payload.pop("max_total_calls", None)
-        payload.pop("max_cost_usd", None)
-        payload.pop("adaptive_evidence", None)
-        payload.pop("experiment_timeout_seconds", None)
-        payload.pop("experiment_memory_limit_mb", None)
-        payload.pop("reasoning_effort", None)
-        payload.pop("llm_timeout_seconds", None)
-        payload.pop("render_final_pdf", None)
-        payload.pop("latex_executable", None)
-        payload.pop("latex_timeout_seconds", None)
-    if prior_base != current_base:
+    prior = prior_report.config
+    if _semantic_config_payload(prior) != _semantic_config_payload(config):
         return False
-    if config.max_total_calls < prior.max_total_calls:
+    if config.max_total_calls < prior_report.budget_usage.total_calls:
         return False
-    if config.max_cost_usd < prior.max_cost_usd:
+    spent = prior_report.budget_usage.estimated_cost_usd or 0.0
+    if config.max_cost_usd < spent:
         return False
-    if config.experiment_timeout_seconds < prior.experiment_timeout_seconds:
-        return False
-    if config.experiment_memory_limit_mb < prior.experiment_memory_limit_mb:
-        return False
-    effort_rank = {"default": 0, "low": 1, "medium": 2, "high": 3}
-    if effort_rank[config.reasoning_effort] < effort_rank[prior.reasoning_effort]:
-        return False
-    if config.llm_timeout_seconds < prior.llm_timeout_seconds:
-        return False
-    if prior.render_final_pdf and not config.render_final_pdf:
-        return False
-    if (
-        prior.render_final_pdf
-        and config.render_final_pdf
-        and config.latex_executable != prior.latex_executable
-    ):
-        return False
-    if config.latex_timeout_seconds < prior.latex_timeout_seconds:
-        return False
-    previous_adaptive = prior.adaptive_evidence
-    current_adaptive = config.adaptive_evidence
-    return all(
-        current >= previous
-        for current, previous in (
-            (
-                current_adaptive.max_questioner_iterations,
-                previous_adaptive.max_questioner_iterations,
-            ),
-            (
-                current_adaptive.max_code_repair_calls,
-                previous_adaptive.max_code_repair_calls,
-            ),
-            (
-                current_adaptive.max_plan_repair_calls,
-                previous_adaptive.max_plan_repair_calls,
-            ),
-            (current_adaptive.no_progress_limit, previous_adaptive.no_progress_limit),
-        )
+    adaptive = _latest_adaptive_report(reports)
+    if adaptive is None:
+        return True
+    return (
+        config.adaptive_evidence.max_questioner_iterations >= len(adaptive.iterations)
+        and config.adaptive_evidence.max_code_repair_calls
+        >= adaptive.code_repair_attempt_count
+        and config.adaptive_evidence.max_plan_repair_calls
+        >= adaptive.plan_repair_attempt_count
     )
 
 
 def _latest_execution_report(reports: Path) -> EvidencePackageExecutionReport:
-    path = _latest_matching(reports, _EXECUTION_RE)
-    if path is None:
-        raise TargetedStudyError("Hybrid evidence execution report is missing.")
-    return EvidencePackageExecutionReport.model_validate_json(path.read_text(encoding="utf-8"))
+    return load_latest_actionable_execution_report(reports)[1]
 
 
 def _latest_adaptive_report(reports: Path) -> AdaptiveEvidenceLoopReport | None:
@@ -1683,6 +1859,154 @@ def _latest_adaptive_report(reports: Path) -> AdaptiveEvidenceLoopReport | None:
         return AdaptiveEvidenceLoopReport.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValidationError) as exc:
         raise TargetedStudyError(f"Could not load adaptive evidence report: {exc}") from exc
+
+
+def _semantic_config_payload(config: TargetedStudyConfig) -> dict[str, Any]:
+    """Scientific inputs only; transport and future-call controls are intentionally excluded."""
+    return {
+        "run_id": config.run_id,
+        "mode": config.mode,
+        "brief_path_optional": config.brief_path_optional,
+        "source_run_id_optional": config.source_run_id_optional,
+        "candidate_id_optional": config.candidate_id_optional,
+        "retrieval_mode": config.retrieval_mode,
+        "require_non_fake_backends": config.require_non_fake_backends,
+        "max_replications": config.max_replications,
+        "max_resamples": config.max_resamples,
+        "max_grid_cells": config.max_grid_cells,
+    }
+
+
+def _semantic_config_hash(config: TargetedStudyConfig) -> str:
+    payload = json.dumps(
+        _semantic_config_payload(config), sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _current_stage_records(
+    records: list[TargetedStudyStageRecord],
+) -> list[TargetedStudyStageRecord]:
+    latest = {item.stage_name: item for item in records}
+    planned_order = [
+        name
+        for name, _ in _planned_stages(
+            "full",
+            AdaptiveEvidenceLoopConfig(),
+            True,
+        )
+    ]
+    ordered = [latest.pop(name) for name in planned_order if name in latest]
+    return [*ordered, *[latest[name] for name in sorted(latest)]]
+
+
+def _set_stage_record(
+    records: list[TargetedStudyStageRecord],
+    record: TargetedStudyStageRecord,
+) -> None:
+    records[:] = [item for item in records if item.stage_name != record.stage_name]
+    records.append(record)
+
+
+def _stage_input_fingerprint(
+    *,
+    name: str,
+    brief_hash: str,
+    config: TargetedStudyConfig,
+    records: list[TargetedStudyStageRecord],
+) -> str:
+    planned_order = [
+        stage_name
+        for stage_name, _ in _planned_stages(
+            "full",
+            AdaptiveEvidenceLoopConfig(),
+            True,
+        )
+    ]
+    stage_index = planned_order.index(name) if name in planned_order else len(planned_order)
+    upstream_names = set(planned_order[:stage_index])
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "stage": name,
+                "brief_hash": brief_hash,
+                "semantic_config": _semantic_config_payload(config),
+                "upstream_outputs": {
+                    item.stage_name: item.output_fingerprint_optional
+                    for item in records
+                    if item.stage_name in upstream_names
+                    if item.status in {"completed", "reused"}
+                    and item.output_fingerprint_optional
+                },
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _stage_output_fingerprint(*, root: Path, paths: list[str]) -> str:
+    outputs: dict[str, str] = {}
+    for value in sorted(set(paths)):
+        path = _resolve_path(root, value)
+        if path.is_file():
+            outputs[value] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(outputs, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _discard_stage_and_downstream(
+    completed: set[str],
+    stage_name: str,
+    *,
+    config: TargetedStudyConfig,
+) -> None:
+    planned = [
+        name
+        for name, _ in _planned_stages(
+            config.mode,
+            config.adaptive_evidence,
+            config.render_final_pdf,
+        )
+    ]
+    if stage_name not in planned:
+        completed.discard(stage_name)
+        return
+    completed.difference_update(planned[planned.index(stage_name) :])
+
+
+def _invalidate_stale_completed_stages(
+    *,
+    completed: set[str],
+    records: list[TargetedStudyStageRecord],
+    brief_hash: str,
+    config: TargetedStudyConfig,
+) -> None:
+    by_name = {item.stage_name: item for item in records}
+    planned = [
+        name
+        for name, _ in _planned_stages(
+            config.mode,
+            config.adaptive_evidence,
+            config.render_final_pdf,
+        )
+    ]
+    for name in planned:
+        if name not in completed:
+            continue
+        record = by_name.get(name)
+        if record is None or record.input_fingerprint_optional is None:
+            continue
+        expected = _stage_input_fingerprint(
+            name=name,
+            brief_hash=brief_hash,
+            config=config,
+            records=records,
+        )
+        if record.input_fingerprint_optional != expected:
+            completed.difference_update(planned[planned.index(name) :])
+            return
 
 
 def _result_paths(result: Any) -> list[str]:
@@ -1701,6 +2025,10 @@ def _model_hash(model: Any) -> str:
 
 def _string_list(value: Any) -> list[str]:
     return [str(item).strip() for item in value] if isinstance(value, list) else []
+
+
+def _unique_strings(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(item.strip() for item in values if item.strip()))
 
 
 def _resolve_path(root: Path, value: str) -> Path:

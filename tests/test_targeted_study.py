@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,7 +23,7 @@ from factori.adapters.deep_opportunity import (
     OpportunityProposalItem,
     OpportunityScoreProposal,
 )
-from factori.adapters.errors import AdapterTransportError
+from factori.adapters.errors import AdapterResponseParseError, AdapterTransportError
 from factori.adapters.llm_variance import (
     VarianceCandidateProposal,
     VarianceGenerationResponse,
@@ -61,10 +62,13 @@ from factori.schemas import (
     BackendKind,
     BranchRouteType,
     Candidate,
+    CrossPackageAdjudicationReport,
     DataRequirement,
     DeepOpportunityDiscoveryConfig,
     EvidenceArtifactPlan,
     EvidenceArtifactType,
+    EvidencePackageAdjudicationDecision,
+    EvidencePackageDecision,
     EvidencePackageExecutionReport,
     EvidencePackageExecutionResult,
     ExperimentCodeSafetyAudit,
@@ -80,12 +84,14 @@ from factori.schemas import (
     SandboxExecutionResult,
     TargetedResearchBrief,
     TargetedStudyConfig,
+    TargetedStudyStageRecord,
 )
 from factori.targeted_llm_budget import TargetedLLMBudgetManager
 from factori.targeted_study import (
     _PAPER_TAIL_STAGES,
     TargetedStudyClients,
     _complete_targeted_run,
+    _contract_from_brief,
     _model_hash,
     _reopen_deferred_paper_tail,
     _resume_config_matches,
@@ -380,6 +386,41 @@ class _RepairPlanQuestioner(_AcceptNegativeQuestioner):
         )
         return AdaptiveQuestionerResponse(
             prompt_text=f"adaptive plan-repair prompt {prompt_id}",
+            requested_output_schema={"type": "object"},
+            raw_response={"decisions": [accepted.model_dump(mode="json")]},
+            accepted=accepted,
+            rejection_reasons=[],
+        )
+
+
+class _RepairCodeQuestioner(_AcceptNegativeQuestioner):
+    def review_evidence(
+        self, *, prompt_id, questions_payload, context_payload
+    ) -> AdaptiveQuestionerResponse:
+        del context_payload
+        self.call_count += 1
+        answers = [
+            AdaptiveQuestionAnswerProposal(
+                question_id=item["question_id"],
+                category=item["category"],
+                status="fail",
+                explanation="The generated experiment has a repairable implementation defect.",
+                evidence_artifact_ids=["evidence-result-1"],
+                blocking=True,
+                recommended_fix_optional="Repair and rerun the generated experiment.",
+            )
+            for item in questions_payload
+        ]
+        accepted = AdaptiveQuestionerDecisionProposal(
+            answers=answers,
+            recommended_action="repair_code",
+            rationale="The generated experiment requires a bounded code repair.",
+            repair_instructions=["Repair the implementation defect and rerun the experiment."],
+            unresolved_questions=["implementation fidelity"],
+            claim_disposition="inconclusive",
+        )
+        return AdaptiveQuestionerResponse(
+            prompt_text=f"adaptive code-repair prompt {prompt_id}",
             requested_output_schema={"type": "object"},
             raw_response={"decisions": [accepted.model_dump(mode="json")]},
             accepted=accepted,
@@ -709,9 +750,156 @@ def test_adaptive_questioner_context_bounds_large_result_payloads() -> None:
 
     assert summary["metrics"]["omitted_count"] > 0
     assert len(summary["metric_source_examples"]) == 8
-    assert len(summary["baseline_summary"]) == 8_000
-    assert len(summary["control_summary"]) == 8_000
-    assert len(summary["negative_control_summary"]) == 8_000
+    assert len(summary["baseline_summary"]) == 2_000
+    assert len(summary["control_summary"]) == 2_000
+    assert len(summary["negative_control_summary"]) == 2_000
+
+
+def test_adaptive_questioner_context_is_a_bounded_evidence_snapshot(tmp_path: Path) -> None:
+    run_id = "adaptive-bounded-snapshot"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    package = HybridEvidencePackageReport.model_validate_json(
+        (reports / "hybrid-evidence-package-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    huge_result = execution.results[0].model_copy(
+        update={
+            "metrics": {f"metric-{index:04d}": float(index) for index in range(2_000)},
+            "metric_sources": {
+                f"metric-{index:04d}": "runs/example/output.json#metrics." + "x" * 400
+                for index in range(2_000)
+            },
+            "baseline_summary": "b" * 100_000,
+            "control_summary": "c" * 100_000,
+            "negative_control_summary": "n" * 100_000,
+        }
+    )
+    execution = execution.model_copy(update={"results": [huge_result]})
+    diagnostics = adaptive_evidence_module._diagnose(package, execution)
+    context = adaptive_evidence_module._questioner_context(
+        brief=_brief(),
+        package_report=package,
+        execution_report=execution,
+        diagnostics=diagnostics,
+        prior_iterations=[],
+        active_defect=adaptive_evidence_module._active_defect(diagnostics),
+    )
+
+    assert len(json.dumps(context, sort_keys=True).encode("utf-8")) <= 64 * 1024
+
+
+def test_targeted_contract_explicit_fields_win_and_missing_fields_resolve() -> None:
+    opportunity = SimpleNamespace(
+        opportunity_id="opportunity-1",
+        baseline_candidates=["opportunity baseline"],
+        expected_metrics=["opportunity metric"],
+        benchmark_plan="opportunity control",
+        negative_controls=["opportunity negative control"],
+    )
+    config = TargetedStudyConfig(
+        run_id="contract-resolution",
+        brief_path_optional="brief.json",
+        model="test-model",
+        max_total_calls=0,
+        max_cost_usd=0.0,
+    )
+    explicit = _contract_from_brief(
+        brief=_brief().model_copy(update={"controls": ["brief control"]}),
+        config=config,
+        opportunity=opportunity,
+    )
+    resolved = _contract_from_brief(
+        brief=_brief().model_copy(
+            update={
+                "baseline_candidates": [],
+                "expected_metrics": [],
+                "controls": [],
+                "negative_controls": [],
+            }
+        ),
+        config=config,
+        opportunity=opportunity,
+    )
+
+    assert explicit.required_baselines == ["uncalibrated predictor"]
+    assert explicit.required_metrics == ["Brier score"]
+    assert explicit.required_controls == ["brief control"]
+    assert explicit.required_negative_controls == ["zero corruption"]
+    assert resolved.required_baselines == ["opportunity baseline"]
+    assert resolved.required_metrics == ["opportunity metric"]
+    assert resolved.required_controls == ["opportunity control"]
+    assert resolved.required_negative_controls == ["opportunity negative control"]
+
+
+def test_adaptive_defect_selection_has_stable_priority_and_identity() -> None:
+    lower = _Diagnostic(
+        code="required_artifacts_deferred",
+        category="evidence_sufficiency",
+        message="Need more evidence.",
+        target_id="plan-2",
+        blocks_acceptance=True,
+    )
+    higher = _Diagnostic(
+        code="missing_code_artifact",
+        category="implementation_fidelity",
+        message="The implementation is incomplete.",
+        target_id="plan-1",
+        blocks_acceptance=True,
+    )
+
+    active = adaptive_evidence_module._active_defect([lower, higher])
+    assert active is not None
+    assert active.defect_id == "missing_code_artifact:plan-1"
+    assert adaptive_evidence_module._blocking_defect_ids([lower, higher]) == [
+        "missing_code_artifact:plan-1",
+        "required_artifacts_deferred:plan-2",
+    ]
+
+
+def test_adaptive_defect_target_survives_plan_regeneration() -> None:
+    old_package = SimpleNamespace(
+        packages=[
+            SimpleNamespace(
+                source_substrate_id="substrate-1",
+                artifact_plans=[
+                    SimpleNamespace(
+                        artifact_plan_id="old-plan-id",
+                        artifact_type=EvidenceArtifactType.SYNTHETIC_EXPERIMENT,
+                    )
+                ],
+            )
+        ]
+    )
+    repaired_package = SimpleNamespace(
+        packages=[
+            SimpleNamespace(
+                source_substrate_id="substrate-1",
+                artifact_plans=[
+                    SimpleNamespace(
+                        artifact_plan_id="new-plan-id",
+                        artifact_type=EvidenceArtifactType.SYNTHETIC_EXPERIMENT,
+                    )
+                ],
+            )
+        ]
+    )
+
+    old_target = adaptive_evidence_module._diagnostic_plan_targets(old_package)[
+        "old-plan-id"
+    ]
+    repaired_target = adaptive_evidence_module._diagnostic_plan_targets(
+        repaired_package
+    )["new-plan-id"]
+
+    assert old_target[0] == repaired_target[0]
+    assert old_target[1] != repaired_target[1]
 
 
 def test_targeted_hybrid_planning_receives_immutable_scope_and_workload() -> None:
@@ -847,7 +1035,10 @@ def test_targeted_workload_does_not_treat_repetitions_per_cell_as_grid_cells(
     assert violations == []
 
 
-@pytest.mark.parametrize("parameter_name", ["max_grid_cells", "scenario_count"])
+@pytest.mark.parametrize(
+    "parameter_name",
+    ["max_grid_cells", "grid_cell_count", "grid_size", "scenario_count"],
+)
 def test_targeted_workload_still_enforces_grid_cell_counts(
     parameter_name: str,
 ) -> None:
@@ -880,6 +1071,53 @@ def test_targeted_workload_still_enforces_grid_cell_counts(
     assert violations == [
         f"targeted workload parameter {parameter_name}='12' exceeds max_grid_cells=6"
     ]
+
+
+@pytest.mark.parametrize(
+    "parameter_name,parameter_value",
+    [
+        (
+            "posterior_grid",
+            "eta=(0.05,0.20,0.50,0.80,0.95), with no post hoc perturbation",
+        ),
+        ("noise_rate_grid", "0, 0.1, and 0.3"),
+        ("overlap_threshold_grid", "0.01, 0.05, 0.1"),
+    ],
+)
+def test_targeted_workload_does_not_treat_axis_values_as_grid_cell_count(
+    parameter_name: str,
+    parameter_value: str,
+) -> None:
+    class Accepted:
+        def model_dump(self, *, mode):
+            assert mode == "json"
+            return {
+                "package": {
+                    "artifact_plans": [
+                        {
+                            "input_contract": {
+                                "parameters": [
+                                    {
+                                        "name": parameter_name,
+                                        "value": parameter_value,
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+
+    violations = _targeted_workload_violations(
+        Accepted(),
+        limits={
+            "max_replications": 20,
+            "max_resamples": 50,
+            "max_grid_cells": 6,
+        },
+    )
+
+    assert violations == []
 
 
 def test_targeted_completion_maps_blockers_to_persisted_report(tmp_path: Path) -> None:
@@ -1003,6 +1241,90 @@ def test_targeted_resume_reopens_manuscript_after_literature_refresh(
     assert "production_mode_check" not in completed
 
 
+def test_fingerprinted_completed_manuscript_tail_is_not_reopened(tmp_path: Path) -> None:
+    reports = tmp_path / "runs" / "targeted-complete-tail" / "reports"
+    reports.mkdir(parents=True)
+    (reports / "nucleus-manuscript-synthesis-report-0001.json").write_text(
+        '{"phase":"revision","manuscript_status":"revised",'
+        '"evidence_citation_bindings":[]}',
+        encoding="utf-8",
+    )
+    completed = set(_PAPER_TAIL_STAGES) | {"production_mode_check"}
+    records = [
+        TargetedStudyStageRecord(
+            stage_name=name,
+            status="completed",
+            input_fingerprint_optional="a" * 64,
+            output_fingerprint_optional="b" * 64,
+        )
+        for name in _PAPER_TAIL_STAGES
+    ]
+
+    _reopen_deferred_paper_tail(completed, reports, stage_records=records)
+
+    assert completed == set(_PAPER_TAIL_STAGES) | {"production_mode_check"}
+
+
+def test_stage_fingerprints_invalidate_only_changed_stage_and_downstream() -> None:
+    config = TargetedStudyConfig(
+        run_id="targeted-fingerprint-invalidation",
+        mode="full",
+        brief_path_optional="brief.json",
+        model="test-model",
+        allow_external_calls=True,
+        require_non_fake_backends=True,
+        max_total_calls=40,
+        max_cost_usd=2.0,
+    )
+    brief_hash = "a" * 64
+    planned = [
+        name
+        for name, _ in targeted_study_module._planned_stages(
+            config.mode,
+            config.adaptive_evidence,
+            config.render_final_pdf,
+        )
+    ]
+    records: list[TargetedStudyStageRecord] = []
+    for index, name in enumerate(planned, start=1):
+        records.append(
+            TargetedStudyStageRecord(
+                stage_name=name,
+                status="completed",
+                input_fingerprint_optional=targeted_study_module._stage_input_fingerprint(
+                    name=name,
+                    brief_hash=brief_hash,
+                    config=config,
+                    records=records,
+                ),
+                output_fingerprint_optional=f"{index:064x}",
+            )
+        )
+    completed = set(planned)
+
+    targeted_study_module._invalidate_stale_completed_stages(
+        completed=completed,
+        records=records,
+        brief_hash=brief_hash,
+        config=config,
+    )
+    assert completed == set(planned)
+
+    revision_index = planned.index("manuscript_revision")
+    records[revision_index] = records[revision_index].model_copy(
+        update={"output_fingerprint_optional": "f" * 64}
+    )
+    targeted_study_module._invalidate_stale_completed_stages(
+        completed=completed,
+        records=records,
+        brief_hash=brief_hash,
+        config=config,
+    )
+
+    final_assembly_index = planned.index("final_paper_assembly")
+    assert completed == set(planned[:final_assembly_index])
+
+
 def test_targeted_resume_allows_only_budget_resource_and_adaptive_limit_increases(
     tmp_path: Path,
 ) -> None:
@@ -1045,7 +1367,7 @@ def test_targeted_resume_allows_only_budget_resource_and_adaptive_limit_increase
     changed_model = expanded.model_copy(update={"model": "different-model"})
     higher_reasoning = expanded.model_copy(update={"reasoning_effort": "high"})
     higher_llm_timeout = expanded.model_copy(update={"llm_timeout_seconds": 300.0})
-    reduced = expanded.model_copy(update={"max_total_calls": 26})
+    reduced_below_usage = expanded.model_copy(update={"max_total_calls": 6})
     reduced_timeout = expanded.model_copy(update={"experiment_timeout_seconds": 299})
 
     assert _resume_config_matches(
@@ -1070,7 +1392,7 @@ def test_targeted_resume_allows_only_budget_resource_and_adaptive_limit_increase
         ),
         reports=reports,
     )
-    assert not _resume_config_matches(
+    assert _resume_config_matches(
         "different-checkpoint-hash",
         config=changed_model,
         current_hash=_model_hash(changed_model.model_copy(update={"resume": False})),
@@ -1078,11 +1400,11 @@ def test_targeted_resume_allows_only_budget_resource_and_adaptive_limit_increase
     )
     assert not _resume_config_matches(
         "different-checkpoint-hash",
-        config=reduced,
-        current_hash=_model_hash(reduced.model_copy(update={"resume": False})),
+        config=reduced_below_usage,
+        current_hash=_model_hash(reduced_below_usage.model_copy(update={"resume": False})),
         reports=reports,
     )
-    assert not _resume_config_matches(
+    assert _resume_config_matches(
         "different-checkpoint-hash",
         config=reduced_timeout,
         current_hash=_model_hash(
@@ -1090,6 +1412,65 @@ def test_targeted_resume_allows_only_budget_resource_and_adaptive_limit_increase
         ),
         reports=reports,
     )
+
+
+def test_targeted_stage_fingerprint_ignores_transport_changes() -> None:
+    base = TargetedStudyConfig(
+        run_id="targeted-stage-fingerprint",
+        mode="full",
+        brief_path_optional="brief.json",
+        model="luna",
+        allow_external_calls=True,
+        require_non_fake_backends=True,
+        max_total_calls=40,
+        max_cost_usd=2.0,
+        max_replications=20,
+    )
+    transport_changed = base.model_copy(
+        update={
+            "model": "sol",
+            "reasoning_effort": "high",
+            "llm_timeout_seconds": 300.0,
+            "max_total_calls": 80,
+            "max_cost_usd": 4.0,
+        }
+    )
+    scientific_changed = base.model_copy(update={"max_replications": 21})
+
+    def fingerprint(config: TargetedStudyConfig) -> str:
+        return targeted_study_module._stage_input_fingerprint(
+            name="hybrid_evidence_execution",
+            brief_hash="a" * 64,
+            config=config,
+            records=[],
+        )
+
+    assert fingerprint(base) == fingerprint(transport_changed)
+    assert fingerprint(base) != fingerprint(scientific_changed)
+
+    upstream = SimpleNamespace(
+        stage_name="deep_opportunity_discovery",
+        status="completed",
+        output_fingerprint_optional="b" * 64,
+    )
+    downstream = SimpleNamespace(
+        stage_name="final_paper_bundle",
+        status="completed",
+        output_fingerprint_optional="c" * 64,
+    )
+    upstream_only = targeted_study_module._stage_input_fingerprint(
+        name="hybrid_evidence_execution",
+        brief_hash="a" * 64,
+        config=base,
+        records=[upstream],
+    )
+    with_downstream = targeted_study_module._stage_input_fingerprint(
+        name="hybrid_evidence_execution",
+        brief_hash="a" * 64,
+        config=base,
+        records=[upstream, downstream],
+    )
+    assert upstream_only == with_downstream
 
 
 def test_targeted_cli_commands_are_registered_and_preflight_is_read_only(
@@ -1122,11 +1503,11 @@ def test_targeted_cli_commands_are_registered_and_preflight_is_read_only(
     assert help_result.exit_code == 0
     assert "--max-total-calls" in help_result.output
     assert "--max-cost-usd" in help_result.output
-    assert "--max-questioner-iterations" in help_result.output
-    assert "--max-code-repair-calls" in help_result.output
-    assert "--max-plan-repair-calls" in help_result.output
+    assert "--max-questioner-i" in help_result.output
+    assert "--max-code-repair-" in help_result.output
+    assert "--max-plan-repair-" in help_result.output
     assert "--reasoning-effort" in help_result.output
-    assert "--llm-timeout-seconds" in help_result.output
+    assert "--llm-timeout-seco" in help_result.output
     assert "--max-replications" in help_result.output
     assert validation.exit_code == 0
     assert "valid=true" in validation.output
@@ -1201,10 +1582,24 @@ def test_full_targeted_orchestration_reaches_final_paper_tail(
             )
         )
 
+    def resolve_contract(**kwargs):
+        calls.append("targeted_contract_resolution")
+        return SimpleNamespace(
+            contract=targeted_study_module._contract_from_brief(
+                brief=kwargs["brief"],
+                config=kwargs["config"],
+            )
+        )
+
     monkeypatch.setattr(
         targeted_study_module,
         "discover_deep_opportunities",
         no_op("deep_opportunity_discovery"),
+    )
+    monkeypatch.setattr(
+        targeted_study_module,
+        "_resolve_and_persist_targeted_contract",
+        resolve_contract,
     )
     monkeypatch.setattr(
         targeted_study_module,
@@ -1401,8 +1796,8 @@ def test_full_targeted_preflight_separates_minimum_budget_from_upper_bound(
     report = preflight_targeted_study(config=config, root=tmp_path)
 
     assert report.status == "preflight_ready"
-    assert report.minimum_required_external_call_count == 35
-    assert report.planned_external_call_count == 55
+    assert report.minimum_required_external_call_count == 29
+    assert report.planned_external_call_count == 51
     assert report.minimum_estimated_cost_usd <= config.max_cost_usd
     assert report.estimated_cost_usd > config.max_cost_usd
     assert not (tmp_path / "runs" / config.run_id).exists()
@@ -1819,6 +2214,292 @@ def test_adaptive_diagnostics_surface_invalid_required_metrics(
     ) != adaptive_evidence_module._diagnostic_fingerprint(package, invalid_execution)
 
 
+def test_adaptive_diagnostics_ignore_metrics_from_superseded_failed_code(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-superseded-metrics"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    package = HybridEvidencePackageReport.model_validate_json(
+        (reports / "hybrid-evidence-package-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    old_code = execution.code_artifacts[0]
+    latest_code = old_code.model_copy(
+        update={
+            "code_artifact_id": "code-repaired",
+            "generation_attempt": old_code.generation_attempt + 1,
+            "repair_of_code_artifact_id_optional": old_code.code_artifact_id,
+        }
+    )
+    old_sandbox = execution.sandbox_executions[0].model_copy(
+        update={"execution_id": "execution-failed", "status": "failed"}
+    )
+    latest_sandbox = execution.sandbox_executions[0].model_copy(
+        update={
+            "execution_id": "execution-repaired",
+            "code_artifact_id": latest_code.code_artifact_id,
+            "status": "completed",
+        }
+    )
+    stale_extraction = execution.metric_extractions[0].model_copy(
+        update={
+            "execution_id": old_sandbox.execution_id,
+            "metrics": {},
+            "metric_sources": {},
+            "missing_metrics": ["Brier score"],
+            "schema_valid": False,
+        }
+    )
+    latest_extraction = execution.metric_extractions[0].model_copy(
+        update={"execution_id": latest_sandbox.execution_id}
+    )
+    latest_audit = execution.safety_audits[0].model_copy(
+        update={"code_artifact_id": latest_code.code_artifact_id}
+    )
+    repaired_execution = execution.model_copy(
+        update={
+            "code_artifacts": [old_code, latest_code],
+            "safety_audits": [*execution.safety_audits, latest_audit],
+            "sandbox_executions": [old_sandbox, latest_sandbox],
+            "metric_extractions": [stale_extraction, latest_extraction],
+        }
+    )
+
+    diagnostics = adaptive_evidence_module._diagnose(package, repaired_execution)
+
+    assert not any(item.code == "missing_required_metric" for item in diagnostics)
+
+
+def test_adaptive_diagnostics_route_failed_control_provenance_to_code_repair(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-control-provenance"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    package = HybridEvidencePackageReport.model_validate_json(
+        (reports / "hybrid-evidence-package-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    result = execution.results[0].model_copy(
+        update={
+            "negative_control_summary": json.dumps(
+                {
+                    "integrity_passed": True,
+                    "provenance_checks": {
+                        "independent_streams": False,
+                        "prevalence_preservation": True,
+                    },
+                }
+            )
+        }
+    )
+
+    diagnostics = adaptive_evidence_module._diagnose(
+        package, execution.model_copy(update={"results": [result]})
+    )
+
+    provenance = next(
+        item for item in diagnostics if item.code == "negative_control_provenance_failed"
+    )
+    assert provenance.repair_kind == "repair_code"
+    assert "independent_streams" in provenance.message
+    assert "integrity_passed is true" in provenance.message
+
+
+def test_adaptive_diagnostics_repair_inconclusive_negative_result(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-inconclusive-negative"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    package = HybridEvidencePackageReport.model_validate_json(
+        (reports / "hybrid-evidence-package-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    result = execution.results[0].model_copy(
+        update={
+            "status": "negative_result",
+            "negative_control_summary": json.dumps(
+                {
+                    "integrity_passed": True,
+                    "interpretation_status": "InconclusiveResult",
+                    "provenance_checks": {"independent_streams": True},
+                }
+            ),
+        }
+    )
+
+    diagnostics = adaptive_evidence_module._diagnose(
+        package, execution.model_copy(update={"results": [result]})
+    )
+
+    interpretation = next(
+        item
+        for item in diagnostics
+        if item.code == "negative_control_interpretation_inconsistent"
+    )
+    assert interpretation.repair_kind == "repair_code"
+    assert "InconclusiveResult" in interpretation.message
+
+
+def test_adaptive_diagnostics_repair_invalid_criteria_output_in_place(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-invalid-criteria-output"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    package = HybridEvidencePackageReport.model_validate_json(
+        (reports / "hybrid-evidence-package-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    invalid_result = execution.results[0].model_copy(
+        update={
+            "status": "inconclusive",
+            "execution_completed": True,
+            "supports_adjudication": False,
+            "success_criteria_satisfied": None,
+            "failure_criteria_satisfied": None,
+            "warnings": [
+                "Output did not resolve success and failure criteria consistently."
+            ],
+        }
+    )
+    invalid_execution = execution.model_copy(update={"results": [invalid_result]})
+
+    diagnostics = adaptive_evidence_module._diagnose(package, invalid_execution)
+
+    criteria = next(
+        item for item in diagnostics if item.code == "invalid_criteria_output"
+    )
+    assert criteria.category == "implementation_fidelity"
+    assert criteria.repair_kind == "repair_code"
+
+
+def test_adaptive_progress_rejects_a_higher_priority_regression() -> None:
+    inconclusive = _Diagnostic(
+        code="inconclusive_result",
+        message="Criteria remain unresolved.",
+        category="evidence_sufficiency",
+    )
+    runtime_failure = _Diagnostic(
+        code="execution_failure",
+        message="The repaired experiment failed at runtime.",
+        category="implementation_fidelity",
+    )
+    criteria_fixed = _Diagnostic(
+        code="local_contracts_passed",
+        message="All local contracts passed.",
+        category="evidence_sufficiency",
+        blocks_acceptance=False,
+    )
+
+    assert not adaptive_evidence_module._repair_made_progress(
+        inconclusive,
+        [runtime_failure],
+    )
+    assert adaptive_evidence_module._repair_made_progress(
+        inconclusive,
+        [criteria_fixed],
+    )
+
+
+def test_adaptive_diagnostics_distinguish_control_code_from_control_outcome(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-negative-control-routing"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    package = HybridEvidencePackageReport.model_validate_json(
+        (reports / "hybrid-evidence-package-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    base_result = execution.results[0].model_copy(
+        update={
+            "status": "inconclusive",
+            "execution_completed": True,
+            "warnings": ["Negative controls did not pass; support was downgraded."],
+        }
+    )
+    bookkeeping_failure = base_result.model_copy(
+        update={
+            "negative_control_summary": json.dumps(
+                {
+                    "attempted": 600,
+                    "valid": 600,
+                    "complete_cells": 0,
+                    "permuted_label_integrity": "failed",
+                }
+            )
+        }
+    )
+    bookkeeping_diagnostics = adaptive_evidence_module._diagnose(
+        package,
+        execution.model_copy(update={"results": [bookkeeping_failure]}),
+    )
+    bookkeeping = next(
+        item
+        for item in bookkeeping_diagnostics
+        if item.code == "negative_control_implementation_failed"
+    )
+    assert bookkeeping.repair_kind == "repair_code"
+    assert bookkeeping.terminal_block is False
+
+    scientific_failure = base_result.model_copy(
+        update={
+            "negative_control_summary": json.dumps(
+                {
+                    "attempted": 600,
+                    "valid": 600,
+                    "complete_cells": 6,
+                    "permuted_label_integrity": "passed",
+                }
+            )
+        }
+    )
+    scientific_diagnostics = adaptive_evidence_module._diagnose(
+        package,
+        execution.model_copy(update={"results": [scientific_failure]}),
+    )
+    scientific = next(
+        item
+        for item in scientific_diagnostics
+        if item.code == "negative_control_failed"
+    )
+    assert scientific.terminal_block is True
+    assert scientific.repair_kind == "blocked"
+
+
 def test_adaptive_scientific_repair_includes_latest_runtime_diagnostics(
     tmp_path: Path,
 ) -> None:
@@ -1961,6 +2642,53 @@ def test_adaptive_evidence_loop_resumes_only_after_limits_expand(
         }
     )
     assert _iteration_counts_for_no_progress(executed_repair)
+    rejected_report = (
+        tmp_path
+        / "runs"
+        / "adaptive-expanded-limits"
+        / "reports"
+        / "evidence-package-execution-report-rejected.json"
+    )
+    rejected_report.parent.mkdir(parents=True, exist_ok=True)
+    rejected_report.write_text(
+        json.dumps(
+            {
+                "code_artifact_count": 0,
+                "sandbox_executions": [],
+                "scientific_repair_attempt_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    rejected_repair = executed_repair.model_copy(
+        update={
+            "produced_execution_report_path_optional": str(
+                rejected_report.relative_to(tmp_path)
+            )
+        }
+    )
+    assert not _iteration_counts_for_no_progress(rejected_repair, root=tmp_path)
+    accepted_report = rejected_report.with_name(
+        "evidence-package-execution-report-accepted.json"
+    )
+    accepted_report.write_text(
+        json.dumps(
+            {
+                "code_artifact_count": 1,
+                "sandbox_executions": [],
+                "scientific_repair_attempt_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    accepted_repair = executed_repair.model_copy(
+        update={
+            "produced_execution_report_path_optional": str(
+                accepted_report.relative_to(tmp_path)
+            )
+        }
+    )
+    assert _iteration_counts_for_no_progress(accepted_repair, root=tmp_path)
     assert (
         _premature_stop_repair_action(
             proposed_action="stop_no_progress",
@@ -2017,6 +2745,56 @@ def test_adaptive_evidence_loop_resumes_only_after_limits_expand(
         max_code_repair_calls=3,
     )
     assert adaptive_loop_can_resume(repairable_stop, remaining_repair)
+    evidence_labeled_stop = repairable_stop.model_copy(
+        update={
+            "plan_repair_attempt_count": 1,
+            "iterations": [
+                repairable_stop.iterations[-1].model_copy(
+                    update={
+                        "decision": repairable_stop.iterations[-1].decision.model_copy(
+                            update={
+                                "questions": [
+                                    repairable_stop.iterations[-1]
+                                    .decision.questions[0]
+                                    .model_copy(
+                                        update={"category": "evidence_sufficiency"}
+                                    )
+                                ]
+                            }
+                        )
+                    }
+                )
+            ],
+        }
+    )
+    assert adaptive_loop_can_resume(
+        evidence_labeled_stop,
+        AdaptiveEvidenceLoopConfig(
+            max_questioner_iterations=2,
+            max_code_repair_calls=3,
+            max_plan_repair_calls=1,
+        ),
+    )
+    plan_labeled_stop = evidence_labeled_stop.model_copy(
+        update={
+            "iterations": [
+                evidence_labeled_stop.iterations[-1].model_copy(
+                    update={
+                        "decision": evidence_labeled_stop.iterations[-1]
+                        .decision.model_copy(update={"action": "repair_evidence_plan"})
+                    }
+                )
+            ]
+        }
+    )
+    assert adaptive_loop_can_resume(
+        plan_labeled_stop,
+        AdaptiveEvidenceLoopConfig(
+            max_questioner_iterations=2,
+            max_code_repair_calls=3,
+            max_plan_repair_calls=1,
+        ),
+    )
     assert (
         _premature_stop_repair_action(
             proposed_action="stop_no_progress",
@@ -2262,6 +3040,183 @@ def test_adaptive_evidence_loop_resumes_only_after_limits_expand(
     assert resumed.report.budget_usage.total_calls == 2
 
 
+def test_post_critic_repairs_reopen_satisfied_adaptive_execution(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-post-critic-repair"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    execution = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    config = TargetedStudyConfig(
+        run_id=run_id,
+        mode="full",
+        brief_path_optional="brief.json",
+        model="test-model",
+        allow_external_calls=True,
+        require_non_fake_backends=True,
+        max_total_calls=10,
+        max_cost_usd=10.0,
+        adaptive_evidence=AdaptiveEvidenceLoopConfig(
+            max_questioner_iterations=1,
+            max_code_repair_calls=0,
+            max_plan_repair_calls=0,
+        ),
+    )
+    store = ArtifactStore(tmp_path)
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    first = run_adaptive_evidence_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=store,
+        ledger=ledger,
+        brief=_brief(),
+        questioner=_AcceptNegativeQuestioner(),
+        planner=None,
+        plan_repairer=None,
+        code_generator=None,
+        code_repairer=None,
+        budget=TargetedLLMBudgetManager(
+            config=config,
+            root=tmp_path,
+            store=store,
+            ledger=ledger,
+        ),
+        config=config.adaptive_evidence,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+    )
+    assert first.report.status == "satisfied_negative"
+
+    package_id = execution.results[0].package_id
+    adjudication = CrossPackageAdjudicationReport(
+        run_id=run_id,
+        report_id="cross-package-adjudication-report-0001",
+        adjudication_status="completed_with_warnings",
+        source_package_report_path=execution.source_package_report_path,
+        source_execution_report_path=(
+            f"runs/{run_id}/reports/{execution.report_id}.json"
+        ),
+        critic_review_count=8,
+        adjudicated_package_count=1,
+        blocking_finding_count=1,
+        decisions=[
+            EvidencePackageAdjudicationDecision(
+                package_id=package_id,
+                decision=EvidencePackageDecision.NEEDS_REPAIR,
+                rank=1,
+                role="repair candidate",
+                reason="The executed method set violates the frozen contract.",
+                required_repairs=["Remove the unauthorized method and rerun."],
+                allowed_claim_scope="bounded synthetic execution only",
+                forbidden_claims=["publication ready"],
+                supporting_artifact_ids=[],
+                blocking_findings=["critic-finding-001"],
+                recommended_next_action="Repair and rerun the generated experiment.",
+            )
+        ],
+        production_ready=True,
+    )
+    store.write_json(
+        run_id=run_id,
+        artifact_id=adjudication.report_id,
+        artifact_type=ArtifactType.REPORT,
+        data=adjudication,
+    )
+
+    diagnostics = adaptive_evidence_module._post_critic_diagnostics(
+        reports,
+        execution,
+    )
+    assert [item.code for item in diagnostics] == ["post_critic_execution_repair"]
+    assert diagnostics[0].repair_target_id == execution.results[0].artifact_plan_id
+    assert adaptive_loop_can_resume(
+        first.report,
+        AdaptiveEvidenceLoopConfig(
+            max_questioner_iterations=2,
+            max_code_repair_calls=1,
+            max_plan_repair_calls=0,
+        ),
+        latest_execution=execution,
+        root=tmp_path,
+    )
+    newer = execution.model_copy(
+        update={"report_id": "evidence-package-execution-report-0002"}
+    )
+    assert adaptive_evidence_module._post_critic_diagnostics(reports, newer) == []
+
+
+def test_rejected_scientific_patch_does_not_replace_completed_execution(
+    tmp_path: Path,
+) -> None:
+    run_id = "adaptive-rejected-patch-lineage"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    completed_path = reports / "evidence-package-execution-report-0001.json"
+    completed = EvidencePackageExecutionReport.model_validate_json(
+        completed_path.read_text(encoding="utf-8")
+    )
+    rejected_result = completed.results[0].model_copy(
+        update={
+            "result_id": "evidence-result-rejected-patch",
+            "execution_completed": False,
+            "supports_adjudication": False,
+            "status": "failed",
+            "evidence_label": "InconclusiveResult",
+            "metrics": {},
+            "metric_sources": {},
+            "failure_reason_optional": (
+                "Scientific code repair was rejected: repair edit old_text was absent"
+            ),
+        }
+    )
+    rejected = completed.model_copy(
+        update={
+            "report_id": "evidence-package-execution-report-0002",
+            "code_artifact_count": 0,
+            "safety_audit_count": 0,
+            "executed_code_count": 0,
+            "metric_extraction_count": 0,
+            "completed_required_artifact_count": 0,
+            "incomplete_required_artifact_plan_ids": [
+                completed.results[0].artifact_plan_id
+            ],
+            "adjudication_ready_package_ids": [],
+            "adjudication_ready": False,
+            "code_artifacts": [],
+            "safety_audits": [],
+            "sandbox_configs": [],
+            "sandbox_executions": [],
+            "metric_extractions": [],
+            "results": [rejected_result],
+        }
+    )
+    rejected = EvidencePackageExecutionReport.model_validate(
+        rejected.model_dump(mode="json")
+    )
+    ArtifactStore(tmp_path).write_json(
+        run_id=run_id,
+        artifact_id=rejected.report_id,
+        artifact_type=ArtifactType.REPORT,
+        data=rejected,
+    )
+
+    selected_path, selected = (
+        adaptive_evidence_module.load_latest_actionable_execution_report(reports)
+    )
+
+    assert selected_path == completed_path
+    assert selected.report_id == completed.report_id
+    assert selected.metric_extractions == completed.metric_extractions
+    assert any("Ignored repair-only diagnostic" in item for item in selected.warnings)
+    assert targeted_study_module._latest_execution_report(reports).report_id == (
+        completed.report_id
+    )
+
+
 def test_adaptive_questioner_normalizes_passing_blocking_answer() -> None:
     accepted, reasons = parse_adaptive_questioner_response(
         {
@@ -2334,6 +3289,73 @@ def test_adaptive_questioner_normalizes_unambiguous_single_decision_envelopes(
     assert reasons == []
     assert accepted is not None
     assert accepted.recommended_action == "accept_supported_result"
+
+
+@pytest.mark.parametrize("extra_kind", ["invalid", "identical"])
+def test_adaptive_questioner_salvages_one_unambiguous_decision_from_list(
+    extra_kind: str,
+) -> None:
+    decision = {
+        "answers": [
+            {
+                "question_id": "stopping",
+                "category": "stopping",
+                "status": "pass",
+                "explanation": "The bounded result is ready for adjudication.",
+                "evidence_artifact_ids": [],
+                "blocking": False,
+            }
+        ],
+        "recommended_action": "accept_supported_result",
+        "rationale": "The selected checks passed.",
+        "repair_instructions": [],
+        "unresolved_questions": [],
+        "claim_disposition": "supported",
+    }
+    extra = {**decision, "answers": []} if extra_kind == "invalid" else decision
+
+    accepted, reasons = parse_adaptive_questioner_response(
+        {"decisions": [decision, extra]},
+        questions_payload=[{"question_id": "stopping", "category": "stopping"}],
+    )
+
+    assert reasons == []
+    assert accepted is not None
+    assert accepted.recommended_action == "accept_supported_result"
+
+
+def test_adaptive_questioner_rejects_conflicting_decisions() -> None:
+    supported = {
+        "answers": [
+            {
+                "question_id": "stopping",
+                "category": "stopping",
+                "status": "pass",
+                "explanation": "The bounded result is ready for adjudication.",
+                "evidence_artifact_ids": [],
+                "blocking": False,
+            }
+        ],
+        "recommended_action": "accept_supported_result",
+        "rationale": "The selected checks passed.",
+        "repair_instructions": [],
+        "unresolved_questions": [],
+        "claim_disposition": "supported",
+    }
+    negative = {
+        **supported,
+        "recommended_action": "accept_negative_result",
+        "rationale": "The bounded hypothesis failed.",
+        "claim_disposition": "negative_result",
+    }
+
+    with pytest.raises(AdapterResponseParseError):
+        parse_adaptive_questioner_response(
+            {"decisions": [supported, negative]},
+            questions_payload=[
+                {"question_id": "stopping", "category": "stopping"}
+            ],
+        )
 
 
 def test_adaptive_timeout_retry_requires_explicitly_larger_authorized_limit(
@@ -2450,7 +3472,7 @@ def test_targeted_budget_prechecks_quality_repair_capacity(tmp_path: Path) -> No
     )
     max_quality_calls = (
         1
-        + config.adaptive_evidence.max_code_repair_calls
+        + 2 * config.adaptive_evidence.max_code_repair_calls
         + 2 * config.adaptive_evidence.max_plan_repair_calls
     )
 
@@ -2575,6 +3597,112 @@ def test_budget_blocked_plan_repair_does_not_consume_scientific_attempt(
     assert result.report.plan_repair_attempt_count == 0
     assert result.report.plan_repair_success_count == 0
     assert "runtime repair" in result.report.terminal_reason
+
+
+def test_adaptive_scientific_code_repair_gets_one_runtime_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = "adaptive-code-runtime-repair"
+    _persist_adaptive_negative_fixture(tmp_path, run_id)
+    reports = tmp_path / "runs" / run_id / "reports"
+    completed = EvidencePackageExecutionReport.model_validate_json(
+        (reports / "evidence-package-execution-report-0001.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    failed_result = completed.results[0].model_copy(
+        update={
+            "status": "failed",
+            "execution_completed": False,
+            "supports_adjudication": False,
+            "evidence_label": "InconclusiveResult",
+            "metrics": {},
+            "metric_sources": {},
+            "failure_reason_optional": "generated experiment exited with code 1",
+        }
+    )
+    failed_execution = completed.model_copy(
+        update={
+            "report_id": "evidence-package-execution-report-0002",
+            "results": [failed_result],
+            "adjudication_ready": False,
+            "adjudication_ready_package_ids": [],
+            "sandbox_executions": [
+                completed.sandbox_executions[0].model_copy(
+                    update={
+                        "status": "failed",
+                        "exit_code": 1,
+                        "failure_reason_optional": "generated experiment exited with code 1",
+                    }
+                )
+            ],
+        }
+    )
+    ArtifactStore(tmp_path).write_json(
+        run_id=run_id,
+        artifact_id=failed_execution.report_id,
+        artifact_type=ArtifactType.REPORT,
+        data=failed_execution,
+    )
+    execution_options: dict[str, object] = {}
+
+    def execute(**kwargs):
+        execution_options.update(kwargs)
+        return SimpleNamespace(
+            report=completed,
+            report_artifact=SimpleNamespace(
+                path=f"runs/{run_id}/reports/evidence-package-execution-report-0001.json"
+            ),
+        )
+
+    monkeypatch.setattr(
+        adaptive_evidence_module,
+        "execute_hybrid_evidence_packages",
+        execute,
+    )
+    config = TargetedStudyConfig(
+        run_id=run_id,
+        mode="full",
+        brief_path_optional="brief.json",
+        model="test-model",
+        allow_external_calls=True,
+        require_non_fake_backends=True,
+        max_total_calls=10,
+        max_cost_usd=10.0,
+        adaptive_evidence=AdaptiveEvidenceLoopConfig(
+            max_questioner_iterations=1,
+            max_code_repair_calls=1,
+            max_plan_repair_calls=0,
+        ),
+    )
+    budget = TargetedLLMBudgetManager(
+        config=config,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+    )
+    dummy = SimpleNamespace()
+
+    run_adaptive_evidence_loop(
+        run_id=run_id,
+        root=tmp_path,
+        store=ArtifactStore(tmp_path),
+        ledger=ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite"),
+        brief=_brief(),
+        questioner=_RepairCodeQuestioner(),
+        planner=dummy,
+        plan_repairer=dummy,
+        code_generator=dummy,
+        code_repairer=dummy,
+        budget=budget,
+        config=config.adaptive_evidence,
+        retrieval_mode="real_retrieval",
+        require_non_fake_backends=True,
+    )
+
+    assert execution_options["max_scientific_repair_calls"] == 1
+    assert execution_options["max_runtime_repair_calls"] == 1
 
 
 def test_replanned_evidence_execution_gets_one_runtime_repair(

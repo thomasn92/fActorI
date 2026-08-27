@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.78.0/latex-source-map-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.79.0/latex-source-map-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One LaTeX source-map entry.",
@@ -69,7 +69,7 @@
   ],
   "title": "LatexSourceMapEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.78.0",
+  "x-factori-protocol-version": "0.79.0",
   "x-factori-source-model": "factori.schemas.LatexSourceMapEntry",
   "x-factori-verification-evidence": false
 }

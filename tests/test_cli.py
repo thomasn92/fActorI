@@ -298,6 +298,7 @@ def test_idea_tree_cli_commands_are_registered() -> None:
     assert "--require-non-fake" in execute_hybrid_packages.output
     assert "--allow-external-calls" in execute_hybrid_packages.output
     assert "--llm-timeout-sec" in execute_hybrid_packages.output
+    assert "--reasoning-effort" in execute_hybrid_packages.output
     assert inspect_package_execution.exit_code == 0, inspect_package_execution.output
     assert "--json" in inspect_package_execution.output
     assert critique_packages.exit_code == 0, critique_packages.output
