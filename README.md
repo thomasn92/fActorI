@@ -74,6 +74,39 @@ demonstrates the pipeline; it is not presented as publication-ready science.
 **[Example paper](showcase/label-noise-calibration/bundle/paper/final-paper.pdf) |
 [Research bundle](showcase/label-noise-calibration/README.md)**
 
+## Models and Providers
+
+The real LLM path currently supports **OpenAI only**. Provider-neutral adapter contracts exist, but
+other real LLM providers have not yet been implemented. OpenAlex is used separately for literature
+retrieval, while safety checks, execution, metric extraction, provenance validation, and final
+assembly are deterministic local operations.
+
+The showcased run split model roles:
+
+| Role | Model |
+|---|---|
+| Research planning, experiment generation and repair, adaptive questioning, and adjudication | OpenAI gpt-5.6-luna, high reasoning effort |
+| Manuscript planning, synthesis, criticism, and revision | OpenAI gpt-5.6-sol, high reasoning effort |
+
+Sol improved the final presentation; it did not create metrics or upgrade experimental evidence.
+The full disclosure is retained in the [showcase bundle](showcase/label-noise-calibration/README.md).
+
+## Comparison With AI Scientist-v2
+
+The [Sakana AI Scientist-v2 label-noise paper](https://pub.sakana.ai/ai-scientist-v2/paper/paper.pdf)
+is a useful reference point on a closely related subject.
+
+| AI Scientist-v2 example | fActorI example |
+|---|---|
+| Broader multi-dataset deep-learning study | Narrow controlled synthetic benchmark |
+| Stronger conventional paper presentation and figures | Weaker presentation but explicit evidence provenance |
+| Annotated evaluation exposes text/figure and claim/evidence inconsistencies | Unsupported generalizations and unresolved uncertainty remain explicit |
+| Optimizes strongly for producing a recognizable paper | Optimizes for a traceable research object with bounded claims |
+
+This is an illustrative artifact comparison, not a controlled head-to-head benchmark. The relevant
+design hypothesis is that evidence authority and provenance constraints can complement raw model
+capability.
+
 ## Direction
 
 The next major research tracks are:
