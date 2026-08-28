@@ -918,13 +918,31 @@ fn classify_evidence_payload(
         .get("evidence_role")
         .and_then(Value::as_str);
 
-    if explicit_false
-        || is_presentation_artifact(artifact)
-        || artifact.artifact_type == "literature"
-    {
+    if is_presentation_artifact(artifact) {
+        return Ok((
+            evidence_classification_result(
+                &classify.run_id,
+                &artifact.id,
+                "Presentation",
+                None,
+                false,
+            ),
+            Vec::new(),
+        ));
+    }
+
+    if explicit_false || artifact.artifact_type == "literature" {
         return Ok((
             evidence_classification_result(&classify.run_id, &artifact.id, "Context", None, false),
             Vec::new(),
+        ));
+    }
+
+    if explicit_true && role.is_none() {
+        return Err((
+            "authority_denied",
+            "explicit verification authority requires a supported evidence role".to_owned(),
+            Some("payload.artifact.metadata.evidence_role"),
         ));
     }
 
@@ -1355,11 +1373,21 @@ fn is_presentation_artifact(artifact: &WireArtifactRef) -> bool {
 }
 
 fn artifact_matches_reference(artifact: &WireArtifactRef, reference: &Map<String, Value>) -> bool {
+    let reference_producer = reference
+        .get("producing_commit_hash")
+        .and_then(Value::as_str);
+    let reference_metadata = reference
+        .get("metadata")
+        .cloned()
+        .unwrap_or_else(|| Value::Object(Map::new()));
+
     reference.get("id").and_then(Value::as_str) == Some(artifact.id.as_str())
         && reference.get("path").and_then(Value::as_str) == Some(artifact.path.as_str())
         && reference.get("type").and_then(Value::as_str) == Some(artifact.artifact_type.as_str())
         && reference.get("content_hash").and_then(Value::as_str)
             == Some(artifact.content_hash.as_str())
+        && reference_producer == artifact.producing_commit_hash.as_deref()
+        && reference_metadata == Value::Object(artifact.metadata.clone())
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -1834,7 +1862,7 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             Ok(())
         }
         KernelOperation::EvidenceClassify => {
-            require_exact_keys(
+            require_allowed_keys(
                 &response.result,
                 &[
                     "run_id",
@@ -1845,6 +1873,19 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
                     "authority_granted",
                 ],
             )?;
+            for field in [
+                "run_id",
+                "artifact_id",
+                "authority_class",
+                "compatibility_only",
+                "authority_granted",
+            ] {
+                if !response.result.contains_key(field) {
+                    return Err(format!(
+                        "evidence classification result is missing field: {field}"
+                    ));
+                }
+            }
             for field in ["run_id", "artifact_id"] {
                 if response
                     .result
@@ -1875,12 +1916,32 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
                     return Err("candidate_kind is not supported".to_owned());
                 }
             }
+            let is_candidate = authority_class == "CapabilityCandidate";
+            let has_candidate_kind = response
+                .result
+                .get("candidate_kind")
+                .is_some_and(|value| !value.is_null());
+            if is_candidate != has_candidate_kind {
+                return Err(
+                    "CapabilityCandidate requires candidate_kind and other classes forbid it"
+                        .to_owned(),
+                );
+            }
             if !response
                 .result
                 .get("compatibility_only")
                 .is_some_and(Value::is_boolean)
             {
                 return Err("compatibility_only must be a boolean".to_owned());
+            }
+            if response
+                .result
+                .get("compatibility_only")
+                .and_then(Value::as_bool)
+                == Some(true)
+                && !is_candidate
+            {
+                return Err("compatibility_only is valid only for capability candidates".to_owned());
             }
             if response.result.get("authority_granted") != Some(&Value::Bool(false)) {
                 return Err("evidence classification cannot grant authority".to_owned());

@@ -250,6 +250,26 @@ class KernelEvidenceClassifyResult(StrictModel):
     compatibility_only: bool = Field(strict=True)
     authority_granted: Literal[False]
 
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_false(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be the boolean false")
+        return value
+
+    @model_validator(mode="after")
+    def validate_classification_shape(self) -> KernelEvidenceClassifyResult:
+        """Keep candidate kind and compatibility flags coupled to the class."""
+
+        is_candidate = self.authority_class == KernelEvidenceAuthorityClass.CAPABILITY_CANDIDATE
+        if is_candidate != (self.candidate_kind is not None):
+            raise ValueError(
+                "CapabilityCandidate requires candidate_kind and other classes forbid it"
+            )
+        if self.compatibility_only and not is_candidate:
+            raise ValueError("compatibility_only is valid only for capability candidates")
+        return self
+
 
 KernelResult = Annotated[
     KernelEmptyResult

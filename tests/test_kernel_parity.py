@@ -15,6 +15,7 @@ from factori.schemas import (
     ControllerActionType,
     KernelArtifactVerifyRequest,
     KernelEvidenceClassifyRequest,
+    KernelEvidenceClassifyResult,
     KernelLedgerVerifyRequest,
     KernelMode,
     KernelRequestEnvelope,
@@ -243,6 +244,45 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             text=True,
         )
         assert json.loads(completed.stdout)["status"] == "rejected"
+
+
+def test_rust_protocol_validation_accepts_optional_candidate_kind_omission() -> None:
+    _build_kernel_binary()
+    instance = {
+        "protocol_version": "0.82.0",
+        "kernel_version": "0.1.0-dev",
+        "request_id": "response-context-without-candidate-kind",
+        "operation": "evidence.classify",
+        "mode": "DevelopmentCompatibility",
+        "status": "accepted",
+        "result": {
+            "run_id": "run-1",
+            "artifact_id": "artifact-1",
+            "authority_class": "Context",
+            "compatibility_only": False,
+            "authority_granted": False,
+        },
+        "diagnostics": [],
+        "mutation_performed": False,
+    }
+    KernelResponseEnvelope.model_validate(instance)
+    request = {
+        "protocol_version": "0.82.0",
+        "request_id": "validate-optional-candidate-kind",
+        "operation": "protocol.validate",
+        "mode": "DevelopmentCompatibility",
+        "payload": {"protocol_name": "KernelResponseEnvelope", "instance": instance},
+    }
+
+    completed = subprocess.run(
+        [str(KERNEL_BINARY)],
+        input=json.dumps(request) + "\n",
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert json.loads(completed.stdout)["status"] == "accepted"
 
 
 def test_python_commit_hash_payload_matches_kernel_golden_corpus() -> None:
@@ -934,6 +974,7 @@ def _persist_classifiable_artifact(
     artifact_type: ArtifactType,
     metadata: dict[str, object] | None = None,
     artifact_id: str = "artifact-classify",
+    extension: str = "json",
 ) -> tuple[str, ArtifactRef]:
     from factori.artifacts import ArtifactStore
 
@@ -943,8 +984,8 @@ def _persist_classifiable_artifact(
         artifact_id=artifact_id,
         artifact_type=artifact_type,
         content=b"classifiable artifact\n",
-        extension="json",
-        format_label="json",
+        extension=extension,
+        format_label=extension,
         metadata=metadata,
     )
     ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
@@ -972,7 +1013,16 @@ def _classify_kernel_artifact(
         mode=mode,
         payload={"run_id": run_id, "artifact": artifact},
     )
-    return _run_kernel(request.model_dump(mode="json"), root=tmp_path)
+    response = _run_kernel(request.model_dump(mode="json"), root=tmp_path)
+    if response["status"] == "accepted":
+        result = response["result"]
+        assert result["authority_granted"] is False
+        assert not {
+            "verification_label",
+            "capability",
+            "capability_id",
+        }.intersection(result)
+    return response
 
 
 def test_evidence_classification_preserves_non_authority_and_precedence(tmp_path: Path) -> None:
@@ -1090,6 +1140,335 @@ def test_evidence_classification_rejects_authority_mismatches_and_real_data(tmp_
     )
     assert response["status"] == "rejected"
     assert response["diagnostics"][0]["code"] == "data_regime_denied"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_preserves_presentation_for_markdown_artifacts(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    report_run, markdown = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.REPORT,
+        artifact_id="artifact-markdown",
+        extension="md",
+    )
+
+    response = _classify_kernel_artifact(tmp_path, report_run, markdown, mode=mode)
+
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Presentation"
+    assert response["result"]["candidate_kind"] is None
+
+    override_run, override = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.REPORT,
+        metadata={"is_verification_evidence": True},
+        artifact_id="artifact-markdown-override",
+        extension="md",
+    )
+    response = _classify_kernel_artifact(tmp_path, override_run, override, mode=mode)
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "artifact_presentation_override"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_rejects_forged_role_metadata(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    run_id, artifact = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        artifact_id="artifact-forged-role",
+    )
+    forged = artifact.model_copy(
+        update={"metadata": {**artifact.metadata, "evidence_role": "proof"}}
+    )
+
+    response = _classify_kernel_artifact(tmp_path, run_id, forged, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "artifact_producer_link_mismatch"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_rejects_explicit_authority_without_role(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    run_id, artifact = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"is_verification_evidence": True},
+        artifact_id="artifact-missing-role",
+    )
+
+    response = _classify_kernel_artifact(tmp_path, run_id, artifact, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "authority_denied"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_covers_role_precedence_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    literature_run, literature = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LITERATURE,
+        artifact_id="artifact-literature",
+    )
+    response = _classify_kernel_artifact(
+        tmp_path,
+        literature_run,
+        literature,
+        mode=mode,
+    )
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+
+    unknown_run, unknown = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "llm_review"},
+        artifact_id="artifact-unknown-role",
+    )
+    response = _classify_kernel_artifact(tmp_path, unknown_run, unknown, mode=mode)
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+
+    unknown_authority_run, unknown_authority = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"is_verification_evidence": True, "evidence_role": "llm_review"},
+        artifact_id="artifact-unknown-authority-role",
+    )
+    response = _classify_kernel_artifact(
+        tmp_path,
+        unknown_authority_run,
+        unknown_authority,
+        mode=mode,
+    )
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "authority_denied"
+
+    missing_run, missing = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        artifact_id="artifact-missing-role-context",
+    )
+    response = _classify_kernel_artifact(tmp_path, missing_run, missing, mode=mode)
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+
+    explicit_false_run, explicit_false = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"is_verification_evidence": False, "evidence_role": "proof"},
+        artifact_id="artifact-explicit-false",
+    )
+    response = _classify_kernel_artifact(
+        tmp_path,
+        explicit_false_run,
+        explicit_false,
+        mode=mode,
+    )
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+
+    synthetic_run, synthetic = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.EXPERIMENT,
+        metadata={"evidence_role": "synthetic_experiment"},
+        artifact_id="artifact-synthetic",
+    )
+    response = _classify_kernel_artifact(tmp_path, synthetic_run, synthetic, mode=mode)
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "CapabilityCandidate"
+    assert response["result"]["candidate_kind"] == "SyntheticExperiment"
+    assert response["result"]["compatibility_only"] is False
+
+    fake_run, fake = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.EXPERIMENT,
+        metadata={"evidence_role": "fake_synthetic_experiment"},
+        artifact_id="artifact-fake-synthetic",
+    )
+    response = _classify_kernel_artifact(tmp_path, fake_run, fake, mode=mode)
+    assert response["status"] == "accepted"
+    if mode == KernelMode.DEVELOPMENT_COMPATIBILITY:
+        assert response["result"]["authority_class"] == "CapabilityCandidate"
+        assert response["result"]["candidate_kind"] == "SyntheticExperiment"
+        assert response["result"]["compatibility_only"] is True
+    else:
+        assert response["result"]["authority_class"] == "Context"
+        assert response["diagnostics"][0]["code"] == "fake_backend_denied"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+@pytest.mark.parametrize(
+    ("artifact_type", "role"),
+    [
+        (ArtifactType.REPORT, "proof"),
+        (ArtifactType.LEAN, "synthetic_experiment"),
+    ],
+)
+def test_evidence_classification_rejects_wrong_role_type_pairs_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+    artifact_type: ArtifactType,
+    role: str,
+) -> None:
+    _build_kernel_binary()
+    run_id, artifact = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=artifact_type,
+        metadata={"evidence_role": role},
+        artifact_id=f"artifact-wrong-{artifact_type.value}-{role}",
+    )
+
+    response = _classify_kernel_artifact(tmp_path, run_id, artifact, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "authority_denied"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_rejects_unlinked_candidates_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    from factori.artifacts import ArtifactStore
+
+    run_id = "run-kernel-classify-unlinked"
+    artifact = ArtifactStore(tmp_path).write_bytes(
+        run_id=run_id,
+        artifact_id="artifact-unlinked-proof",
+        artifact_type=ArtifactType.LEAN,
+        content=b"unlinked proof\n",
+        extension="json",
+        format_label="json",
+        metadata={"evidence_role": "proof"},
+    )
+
+    response = _classify_kernel_artifact(tmp_path, run_id, artifact, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "artifact_producer_missing"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_rejects_tampered_bytes_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    run_id, artifact = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "proof"},
+        artifact_id="artifact-tampered-proof",
+    )
+    (tmp_path / artifact.path).write_bytes(b"tampered proof\n")
+
+    response = _classify_kernel_artifact(tmp_path, run_id, artifact, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "artifact_hash_mismatch"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_rejects_corrupt_ledgers_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    import sqlite3
+
+    run_id, artifact = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "proof"},
+        artifact_id="artifact-corrupt-ledger-proof",
+    )
+    with sqlite3.connect(tmp_path / "runs" / run_id / "ledger.sqlite") as connection:
+        connection.execute("DROP TRIGGER commits_no_update")
+        connection.execute(
+            "UPDATE commits SET payload_json = ? WHERE commit_hash = ?",
+            ('{"artifact_id":"tampered"}', artifact.producing_commit_hash),
+        )
+
+    response = _classify_kernel_artifact(tmp_path, run_id, artifact, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "ledger_hash_mismatch"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_evidence_classification_rejects_cross_run_producers_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    from factori.artifacts import ArtifactStore
+
+    _, source = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "proof"},
+        artifact_id="artifact-source-proof",
+    )
+    target_run = "run-kernel-classify-cross-run-target"
+    target = ArtifactStore(tmp_path).write_bytes(
+        run_id=target_run,
+        artifact_id="artifact-target-proof",
+        artifact_type=ArtifactType.LEAN,
+        content=b"classifiable artifact\n",
+        extension="json",
+        format_label="json",
+        metadata={"evidence_role": "proof"},
+    )
+    ResearchLedger(tmp_path / "runs" / target_run / "ledger.sqlite")
+    cross_run = target.model_copy(
+        update={"producing_commit_hash": source.producing_commit_hash}
+    )
+
+    response = _classify_kernel_artifact(tmp_path, target_run, cross_run, mode=mode)
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "artifact_producer_missing"
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        {"authority_class": "Context", "candidate_kind": "LeanProof"},
+        {"authority_class": "CapabilityCandidate", "candidate_kind": None},
+        {"authority_class": "Context", "compatibility_only": True},
+        {"authority_granted": 0},
+    ],
+)
+def test_evidence_classification_result_rejects_incoherent_shapes(
+    update: dict[str, object],
+) -> None:
+    payload = {
+        "run_id": "run-kernel-classify",
+        "artifact_id": "artifact-classify",
+        "authority_class": "Context",
+        "candidate_kind": None,
+        "compatibility_only": False,
+        "authority_granted": False,
+    }
+
+    with pytest.raises(ValidationError):
+        KernelEvidenceClassifyResult.model_validate({**payload, **update})
 
 
 def test_rust_kernel_cli_rejects_oversized_requests() -> None:
