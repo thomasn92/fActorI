@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.81.0";
+pub const PROTOCOL_VERSION: &str = "0.82.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 
 #[derive(Debug, serde::Deserialize)]
@@ -39,6 +39,13 @@ struct LedgerVerifyPayload {
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ArtifactVerifyPayload {
+    run_id: String,
+    artifact: WireArtifactRef,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EvidenceClassifyPayload {
     run_id: String,
     artifact: WireArtifactRef,
 }
@@ -84,6 +91,8 @@ pub enum KernelOperation {
     ArtifactVerify,
     #[serde(rename = "ledger.verify")]
     LedgerVerify,
+    #[serde(rename = "evidence.classify")]
+    EvidenceClassify,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +130,9 @@ pub struct KernelResponse {
     pub diagnostics: Vec<KernelDiagnostic>,
     pub mutation_performed: bool,
 }
+
+type KernelOperationError = (&'static str, String, Option<&'static str>);
+type EvidenceClassification = (Map<String, Value>, Vec<KernelDiagnostic>);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum KernelError {
@@ -356,6 +368,25 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 path,
             ),
         },
+        KernelOperation::EvidenceClassify => {
+            match classify_evidence_payload(&request.payload, project_root, mode) {
+                Ok((result, diagnostics)) => accepted_response_with_diagnostics(
+                    request_id,
+                    KernelOperation::EvidenceClassify,
+                    mode,
+                    result,
+                    diagnostics,
+                ),
+                Err((code, message, path)) => rejected_response(
+                    request_id,
+                    KernelOperation::EvidenceClassify,
+                    mode,
+                    code,
+                    message,
+                    path,
+                ),
+            }
+        }
     }
 }
 
@@ -489,6 +520,7 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         }
         KernelOperation::ArtifactVerify => validate_artifact_payload_structure(&request.payload)?,
         KernelOperation::LedgerVerify => validate_ledger_payload_structure(&request.payload)?,
+        KernelOperation::EvidenceClassify => validate_artifact_payload_structure(&request.payload)?,
     }
     Ok(())
 }
@@ -858,6 +890,214 @@ fn verify_artifact_payload(
     ]))
 }
 
+fn classify_evidence_payload(
+    payload: &Map<String, Value>,
+    project_root: Option<&Path>,
+    mode: KernelMode,
+) -> Result<EvidenceClassification, KernelOperationError> {
+    validate_artifact_payload_shape(payload)
+        .map_err(|message| ("protocol_invalid", message, Some("payload")))?;
+    let classify: EvidenceClassifyPayload = serde_json::from_value(Value::Object(payload.clone()))
+        .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload")))?;
+
+    // Classification is deliberately downstream of the complete persisted artifact check. This
+    // keeps a valid-looking role from bypassing bytes, provenance, or ledger verification.
+    verify_artifact_payload(payload, project_root)?;
+
+    let artifact = &classify.artifact;
+    let explicit_false = artifact
+        .metadata
+        .get("is_verification_evidence")
+        .is_some_and(|value| value == &Value::Bool(false));
+    let explicit_true = artifact
+        .metadata
+        .get("is_verification_evidence")
+        .is_some_and(|value| value == &Value::Bool(true));
+    let role = artifact
+        .metadata
+        .get("evidence_role")
+        .and_then(Value::as_str);
+
+    if explicit_false
+        || is_presentation_artifact(artifact)
+        || artifact.artifact_type == "literature"
+    {
+        return Ok((
+            evidence_classification_result(&classify.run_id, &artifact.id, "Context", None, false),
+            Vec::new(),
+        ));
+    }
+
+    if role.is_none() {
+        let authority_class = if artifact.artifact_type == "report" {
+            "Presentation"
+        } else {
+            "Context"
+        };
+        return Ok((
+            evidence_classification_result(
+                &classify.run_id,
+                &artifact.id,
+                authority_class,
+                None,
+                false,
+            ),
+            Vec::new(),
+        ));
+    }
+
+    let role = role.expect("checked above");
+    match role {
+        "proof" => {
+            if artifact.artifact_type != "lean" {
+                return Err((
+                    "authority_denied",
+                    "proof evidence role requires a lean artifact".to_owned(),
+                    Some("payload.artifact.metadata.evidence_role"),
+                ));
+            }
+            Ok((
+                evidence_classification_result(
+                    &classify.run_id,
+                    &artifact.id,
+                    "CapabilityCandidate",
+                    Some("LeanProof"),
+                    false,
+                ),
+                Vec::new(),
+            ))
+        }
+        "synthetic_experiment" => {
+            if artifact.artifact_type != "experiment" {
+                return Err((
+                    "authority_denied",
+                    "synthetic_experiment evidence role requires an experiment artifact".to_owned(),
+                    Some("payload.artifact.metadata.evidence_role"),
+                ));
+            }
+            Ok((
+                evidence_classification_result(
+                    &classify.run_id,
+                    &artifact.id,
+                    "CapabilityCandidate",
+                    Some("SyntheticExperiment"),
+                    false,
+                ),
+                Vec::new(),
+            ))
+        }
+        "fake_proof" => classify_fake_candidate(
+            &classify.run_id,
+            artifact,
+            mode,
+            "lean",
+            "LeanProof",
+            "fake proof evidence requires a lean artifact",
+        ),
+        "fake_synthetic_experiment" => classify_fake_candidate(
+            &classify.run_id,
+            artifact,
+            mode,
+            "experiment",
+            "SyntheticExperiment",
+            "fake synthetic-experiment evidence requires an experiment artifact",
+        ),
+        "real_data_experiment" => {
+            if artifact.artifact_type != "experiment" {
+                return Err((
+                    "authority_denied",
+                    "real_data_experiment evidence role requires an experiment artifact".to_owned(),
+                    Some("payload.artifact.metadata.evidence_role"),
+                ));
+            }
+            if mode == KernelMode::StrictProduction {
+                return Err((
+                    "data_regime_denied",
+                    "real-data experiment authority is not constructible in this kernel version"
+                        .to_owned(),
+                    Some("payload.artifact.metadata.evidence_role"),
+                ));
+            }
+            Ok((
+                evidence_classification_result(
+                    &classify.run_id,
+                    &artifact.id,
+                    "Context",
+                    None,
+                    false,
+                ),
+                Vec::new(),
+            ))
+        }
+        _ if explicit_true => Err((
+            "authority_denied",
+            "artifact role cannot provide verification authority".to_owned(),
+            Some("payload.artifact.metadata.evidence_role"),
+        )),
+        _ => Ok((
+            evidence_classification_result(&classify.run_id, &artifact.id, "Context", None, false),
+            Vec::new(),
+        )),
+    }
+}
+
+fn classify_fake_candidate(
+    run_id: &str,
+    artifact: &WireArtifactRef,
+    mode: KernelMode,
+    expected_type: &str,
+    candidate_kind: &str,
+    mismatch_message: &str,
+) -> Result<EvidenceClassification, KernelOperationError> {
+    if artifact.artifact_type != expected_type {
+        return Err((
+            "authority_denied",
+            mismatch_message.to_owned(),
+            Some("payload.artifact.metadata.evidence_role"),
+        ));
+    }
+    if mode == KernelMode::DevelopmentCompatibility {
+        return Ok((
+            evidence_classification_result(
+                run_id,
+                &artifact.id,
+                "CapabilityCandidate",
+                Some(candidate_kind),
+                true,
+            ),
+            Vec::new(),
+        ));
+    }
+    Ok((
+        evidence_classification_result(run_id, &artifact.id, "Context", None, false),
+        vec![KernelDiagnostic {
+            code: "fake_backend_denied".to_owned(),
+            message: "fake evidence is retained as context in strict production mode".to_owned(),
+            path: Some("payload.artifact.metadata.evidence_role".to_owned()),
+        }],
+    ))
+}
+
+fn evidence_classification_result(
+    run_id: &str,
+    artifact_id: &str,
+    authority_class: &str,
+    candidate_kind: Option<&str>,
+    compatibility_only: bool,
+) -> Map<String, Value> {
+    map_value([
+        ("run_id", Value::String(run_id.to_owned())),
+        ("artifact_id", Value::String(artifact_id.to_owned())),
+        ("authority_class", Value::String(authority_class.to_owned())),
+        (
+            "candidate_kind",
+            candidate_kind.map_or(Value::Null, |kind| Value::String(kind.to_owned())),
+        ),
+        ("compatibility_only", Value::Bool(compatibility_only)),
+        ("authority_granted", Value::Bool(false)),
+    ])
+}
+
 fn is_verification_evidence(artifact: &WireArtifactRef) -> bool {
     if artifact
         .metadata
@@ -1106,10 +1346,12 @@ fn artifact_directory(artifact_type: &str) -> Option<&'static str> {
 
 fn is_presentation_artifact(artifact: &WireArtifactRef) -> bool {
     artifact.artifact_type == "latex"
-        || artifact
-            .path
-            .rsplit_once('.')
-            .is_some_and(|(_, suffix)| matches!(suffix, "md" | "markdown" | "tex" | "pdf"))
+        || artifact.path.rsplit_once('.').is_some_and(|(_, suffix)| {
+            suffix.eq_ignore_ascii_case("md")
+                || suffix.eq_ignore_ascii_case("markdown")
+                || suffix.eq_ignore_ascii_case("tex")
+                || suffix.eq_ignore_ascii_case("pdf")
+        })
 }
 
 fn artifact_matches_reference(artifact: &WireArtifactRef, reference: &Map<String, Value>) -> bool {
@@ -1591,6 +1833,60 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             Ok(())
         }
+        KernelOperation::EvidenceClassify => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "run_id",
+                    "artifact_id",
+                    "authority_class",
+                    "candidate_kind",
+                    "compatibility_only",
+                    "authority_granted",
+                ],
+            )?;
+            for field in ["run_id", "artifact_id"] {
+                if response
+                    .result
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+                {
+                    return Err(format!(
+                        "evidence classification {field} must be a non-empty string"
+                    ));
+                }
+            }
+            let authority_class = response
+                .result
+                .get("authority_class")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "authority_class must be a string".to_owned())?;
+            if !matches!(
+                authority_class,
+                "Context" | "Presentation" | "CapabilityCandidate"
+            ) {
+                return Err("authority_class is not supported".to_owned());
+            }
+            if let Some(value) = response.result.get("candidate_kind") {
+                if !value.is_null()
+                    && !matches!(value.as_str(), Some("LeanProof" | "SyntheticExperiment"))
+                {
+                    return Err("candidate_kind is not supported".to_owned());
+                }
+            }
+            if !response
+                .result
+                .get("compatibility_only")
+                .is_some_and(Value::is_boolean)
+            {
+                return Err("compatibility_only must be a boolean".to_owned());
+            }
+            if response.result.get("authority_granted") != Some(&Value::Bool(false)) {
+                return Err("evidence classification cannot grant authority".to_owned());
+            }
+            Ok(())
+        }
     }
 }
 
@@ -1758,6 +2054,16 @@ fn accepted_response(
     mode: KernelMode,
     result: Map<String, Value>,
 ) -> KernelResponse {
+    accepted_response_with_diagnostics(request_id, operation, mode, result, Vec::new())
+}
+
+fn accepted_response_with_diagnostics(
+    request_id: String,
+    operation: KernelOperation,
+    mode: KernelMode,
+    result: Map<String, Value>,
+    diagnostics: Vec<KernelDiagnostic>,
+) -> KernelResponse {
     KernelResponse {
         protocol_version: PROTOCOL_VERSION,
         kernel_version: KERNEL_VERSION,
@@ -1766,7 +2072,7 @@ fn accepted_response(
         mode,
         status: KernelResponseStatus::Accepted,
         result,
-        diagnostics: Vec::new(),
+        diagnostics,
         mutation_performed: false,
     }
 }
@@ -1877,7 +2183,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.81.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.82.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -1903,7 +2209,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.81.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.81.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.82.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.82.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -1922,7 +2228,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.81.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.82.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));

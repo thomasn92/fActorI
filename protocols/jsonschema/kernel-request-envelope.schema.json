@@ -330,6 +330,62 @@
       "title": "KernelCanonicalJsonRequest",
       "type": "object"
     },
+    "KernelEvidenceClassifyPayload": {
+      "additionalProperties": false,
+      "description": "Payload for read-only classification of one persisted artifact.",
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "artifact"
+      ],
+      "title": "KernelEvidenceClassifyPayload",
+      "type": "object"
+    },
+    "KernelEvidenceClassifyRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for non-authoritative artifact classification.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "evidence.classify",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelEvidenceClassifyPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelEvidenceClassifyRequest",
+      "type": "object"
+    },
     "KernelLedgerVerifyPayload": {
       "additionalProperties": false,
       "description": "Payload for read-only verification of one run's ordered ledger commits.",
@@ -529,12 +585,13 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.81.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the read-only research kernel boundary.",
   "discriminator": {
     "mapping": {
       "artifact.verify": "#/$defs/KernelArtifactVerifyRequest",
+      "evidence.classify": "#/$defs/KernelEvidenceClassifyRequest",
       "hash.canonical_json": "#/$defs/KernelCanonicalJsonRequest",
       "ledger.verify": "#/$defs/KernelLedgerVerifyRequest",
       "protocol.validate": "#/$defs/KernelProtocolValidateRequest"
@@ -553,10 +610,13 @@
     },
     {
       "$ref": "#/$defs/KernelLedgerVerifyRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelEvidenceClassifyRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

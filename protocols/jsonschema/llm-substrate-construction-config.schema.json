@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/llm-substrate-construction-config.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/llm-substrate-construction-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded configuration for non-fake LLM scientific substrate construction.",
@@ -79,7 +79,7 @@
   ],
   "title": "LLMSubstrateConstructionConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.LLMSubstrateConstructionConfig",
   "x-factori-verification-evidence": false
 }

@@ -16,8 +16,11 @@ from factori.schemas import (
     ArtifactRef,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
+    KernelEvidenceClassifyRequest,
+    KernelEvidenceClassifyResult,
     KernelLedgerVerifyRequest,
     KernelLedgerVerifyResult,
+    KernelMode,
     KernelResponseEnvelope,
     KernelResponseStatus,
 )
@@ -179,6 +182,54 @@ def verify_persisted_artifact(
     return response
 
 
+def classify_persisted_artifact(
+    run_id: str,
+    artifact: ArtifactRef,
+    *,
+    mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Classify one persisted artifact through the non-authoritative Rust shadow operation.
+
+    Classification is intentionally weaker than evidence validation: an accepted response only
+    identifies a context, presentation artifact, or candidate for later bundle validation.
+    """
+    root_path = Path(root)
+    runs_root = (root_path / "runs").resolve()
+    _validate_artifact_request_path(run_id, artifact, runs_root=runs_root)
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelEvidenceClassifyRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"evidence-classify-{run_id}-{artifact.id}-{mode.value}",
+        operation="evidence.classify",
+        mode=mode,
+        payload={"run_id": run_id, "artifact": artifact},
+    )
+    response = _invoke_kernel(
+        request,
+        binary=binary,
+        root=root_path.resolve(),
+        timeout_seconds=timeout_seconds,
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelEvidenceClassifyResult):
+            raise KernelBridgeError("evidence classification response has the wrong result type")
+        if (
+            result.run_id != run_id
+            or result.artifact_id != artifact.id
+            or result.authority_granted is not False
+        ):
+            raise KernelBridgeError("Rust evidence classification response does not match request")
+    return response
+
+
 def _validate_artifact_request_path(
     run_id: str,
     artifact: ArtifactRef,
@@ -217,7 +268,11 @@ def _validate_artifact_request_path(
 
 
 def _invoke_kernel(
-    request: KernelArtifactVerifyRequest | KernelLedgerVerifyRequest,
+    request: (
+        KernelArtifactVerifyRequest
+        | KernelLedgerVerifyRequest
+        | KernelEvidenceClassifyRequest
+    ),
     *,
     binary: Path,
     root: Path,
@@ -253,4 +308,9 @@ def _invoke_kernel(
     return response
 
 
-__all__ = ["KernelBridgeError", "verify_persisted_artifact", "verify_persisted_ledger"]
+__all__ = [
+    "KernelBridgeError",
+    "classify_persisted_artifact",
+    "verify_persisted_artifact",
+    "verify_persisted_ledger",
+]

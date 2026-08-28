@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/substrate-experiment-comparison-table.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/substrate-experiment-comparison-table.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Baseline-versus-method comparison table for a substrate experiment.",
@@ -45,7 +45,7 @@
   ],
   "title": "SubstrateExperimentComparisonTable",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.SubstrateExperimentComparisonTable",
   "x-factori-verification-evidence": false
 }

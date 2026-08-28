@@ -1007,7 +1007,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.81.0/evidence-package-execution-report.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/evidence-package-execution-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only execution report for hybrid evidence-package components.",
@@ -1462,7 +1462,7 @@
   ],
   "title": "EvidencePackageExecutionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.EvidencePackageExecutionReport",
   "x-factori-verification-evidence": false
 }

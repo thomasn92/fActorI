@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/full-paper-release-status.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/full-paper-release-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Generated-paper human-review readiness status enum.",
   "enum": [
@@ -15,7 +15,7 @@
   ],
   "title": "FullPaperReleaseStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.FullPaperReleaseStatus",
   "x-factori-verification-evidence": false
 }

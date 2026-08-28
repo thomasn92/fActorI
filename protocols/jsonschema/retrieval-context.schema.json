@@ -122,7 +122,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.81.0/retrieval-context.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/retrieval-context.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Per-pair retrieval context with explicit novelty and coverage boundaries.",
@@ -230,7 +230,7 @@
   ],
   "title": "RetrievalContext",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.RetrievalContext",
   "x-factori-verification-evidence": false
 }

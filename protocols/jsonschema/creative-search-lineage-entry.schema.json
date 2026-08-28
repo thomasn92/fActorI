@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/creative-search-lineage-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/creative-search-lineage-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One bounded branch transition in creative-search lineage.",
@@ -128,7 +128,7 @@
   ],
   "title": "CreativeSearchLineageEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.CreativeSearchLineageEntry",
   "x-factori-verification-evidence": false
 }

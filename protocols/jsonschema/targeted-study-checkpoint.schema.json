@@ -92,7 +92,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.81.0/targeted-study-checkpoint.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/targeted-study-checkpoint.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only stage-level targeted-study resume checkpoint.",
@@ -165,7 +165,7 @@
   ],
   "title": "TargetedStudyCheckpoint",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.TargetedStudyCheckpoint",
   "x-factori-verification-evidence": false
 }

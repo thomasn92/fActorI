@@ -428,7 +428,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.81.0/llm-variance-generation-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/llm-variance-generation-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest LLM variance generation report.",
@@ -584,7 +584,7 @@
   ],
   "title": "LLMVarianceGenerationInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.LLMVarianceGenerationInspectionReport",
   "x-factori-verification-evidence": false
 }

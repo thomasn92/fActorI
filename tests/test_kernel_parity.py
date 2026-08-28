@@ -14,7 +14,9 @@ from factori.schemas import (
     ArtifactType,
     ControllerActionType,
     KernelArtifactVerifyRequest,
+    KernelEvidenceClassifyRequest,
     KernelLedgerVerifyRequest,
+    KernelMode,
     KernelRequestEnvelope,
     KernelResponseEnvelope,
 )
@@ -57,7 +59,7 @@ def test_rust_kernel_cli_matches_python_canonical_json_corpus() -> None:
 
     for case in cases:
         request = {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
             "request_id": case["name"],
             "operation": "hash.canonical_json",
             "mode": "DevelopmentCompatibility",
@@ -84,7 +86,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "request_id": "",
                 "operation": "hash.canonical_json",
                 "mode": "DevelopmentCompatibility",
@@ -95,7 +97,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "request_id": "request-invalid-payload",
                 "operation": "hash.canonical_json",
                 "mode": "DevelopmentCompatibility",
@@ -106,7 +108,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "request_id": "request-invalid-commit-hash",
                 "operation": "ledger.verify",
                 "mode": "DevelopmentCompatibility",
@@ -131,7 +133,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-invalid-diagnostic",
                 "operation": "hash.canonical_json",
@@ -146,7 +148,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-count",
                 "operation": "ledger.verify",
@@ -161,7 +163,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-mutation",
                 "operation": "ledger.verify",
@@ -176,7 +178,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-valid",
                 "operation": "ledger.verify",
@@ -191,7 +193,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-empty-run-id",
                 "operation": "ledger.verify",
@@ -206,7 +208,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.81.0",
+                "protocol_version": "0.82.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-invalid-result",
                 "operation": "hash.canonical_json",
@@ -227,7 +229,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
         else:
             raise AssertionError(f"invalid Python fixture was accepted: {protocol_name}")
         request = {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
             "request_id": f"validate-{protocol_name}",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
@@ -290,7 +292,7 @@ def test_rust_ledger_verification_matches_python_commit_chain(tmp_path: Path) ->
         commit.model_dump(mode="json") for commit in ledger.list_commits("run-kernel-ledger")
     ]
     request = KernelLedgerVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="ledger-verify-test",
         operation="ledger.verify",
         mode="DevelopmentCompatibility",
@@ -322,7 +324,7 @@ def test_rust_ledger_verification_rejects_tampered_commit_payload(tmp_path: Path
     tampered = commit.model_dump(mode="json")
     tampered["payload"] = {"run_id": "tampered"}
     request = {
-        "protocol_version": "0.81.0",
+        "protocol_version": "0.82.0",
         "request_id": "ledger-verify-tampered",
         "operation": "ledger.verify",
         "mode": "DevelopmentCompatibility",
@@ -338,7 +340,7 @@ def test_rust_ledger_verification_rejects_tampered_commit_payload(tmp_path: Path
 def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> None:
     _build_kernel_binary()
     malformed_request = {
-        "protocol_version": "0.81.0",
+        "protocol_version": "0.82.0",
         "request_id": "nested-ledger-invalid",
         "operation": "ledger.verify",
         "mode": "DevelopmentCompatibility",
@@ -346,7 +348,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> N
     }
     response = _run_kernel(
         {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
             "request_id": "validate-nested-ledger",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
@@ -376,14 +378,14 @@ def test_rust_protocol_validation_only_checks_nested_ledger_shape(
     tampered["payload"] = {"run_id": "tampered"}
     response = _run_kernel(
         {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
             "request_id": "validate-nested-ledger-semantic",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
             "payload": {
                 "protocol_name": "KernelRequestEnvelope",
                 "instance": {
-                    "protocol_version": "0.81.0",
+                    "protocol_version": "0.82.0",
                     "request_id": "nested-ledger-semantic",
                     "operation": "ledger.verify",
                     "mode": "DevelopmentCompatibility",
@@ -425,7 +427,7 @@ def test_rust_ledger_verification_rejects_forked_or_non_tip_append(tmp_path: Pat
     assert fork.parent_hash == root.commit_hash
     response = _run_kernel(
         KernelLedgerVerifyRequest(
-            protocol_version="0.81.0",
+            protocol_version="0.82.0",
             request_id="ledger-forked",
             operation="ledger.verify",
             mode="DevelopmentCompatibility",
@@ -457,7 +459,7 @@ def test_rust_ledger_verification_accepts_python_defaulted_fields(tmp_path: Path
     raw.pop("artifact_refs")
     response = _run_kernel(
         {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
             "request_id": "ledger-defaults",
             "operation": "ledger.verify",
             "mode": "DevelopmentCompatibility",
@@ -486,7 +488,7 @@ def test_rust_ledger_verification_rejects_duplicate_artifact_ids(tmp_path: Path)
     )
     response = _run_kernel(
         {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
             "request_id": "ledger-duplicate-artifacts",
             "operation": "ledger.verify",
             "mode": "DevelopmentCompatibility",
@@ -530,7 +532,7 @@ def test_rust_ledger_verification_rejects_artifact_with_wrong_producer(tmp_path:
     )
     response = _run_kernel(
         KernelLedgerVerifyRequest(
-            protocol_version="0.81.0",
+            protocol_version="0.82.0",
             request_id="ledger-wrong-producer",
             operation="ledger.verify",
             mode="DevelopmentCompatibility",
@@ -672,7 +674,7 @@ def test_rust_artifact_verification_rejects_tampered_raw_bytes(tmp_path: Path) -
     _build_kernel_binary()
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-tampered-bytes",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -701,7 +703,7 @@ def test_rust_artifact_verification_rejects_wrong_directory_and_presentation_ove
         metadata={"is_verification_evidence": True},
     )
     request = {
-        "protocol_version": "0.81.0",
+        "protocol_version": "0.82.0",
         "request_id": "artifact-invalid-location",
         "operation": "artifact.verify",
         "mode": "DevelopmentCompatibility",
@@ -732,7 +734,7 @@ def test_rust_artifact_verification_rejects_missing_persisted_producer(tmp_path:
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     artifact = artifact.model_copy(update={"producing_commit_hash": "f" * 64})
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-missing-producer",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -761,7 +763,7 @@ def test_rust_artifact_verification_rejects_unlinked_implicit_evidence(tmp_path:
         format_label="json",
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-unlinked-evidence",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -792,7 +794,7 @@ def test_rust_artifact_verification_accepts_unlinked_context_artifact(tmp_path: 
         .model_copy(update={"metadata": {"is_verification_evidence": False}})
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-unlinked-context",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -817,7 +819,7 @@ def test_rust_artifact_verification_rejects_corrupt_persisted_ledger(tmp_path: P
             ('{"artifact_id":"tampered"}', artifact.producing_commit_hash),
         )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-corrupt-ledger",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -834,7 +836,7 @@ def test_rust_artifact_verification_requires_root(tmp_path: Path) -> None:
     _build_kernel_binary()
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-root-missing",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -859,7 +861,7 @@ def test_rust_artifact_verification_rejects_python_invalid_identifier_grammar(
         metadata={"is_verification_evidence": False},
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-invalid-identifier",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -913,7 +915,7 @@ def test_rust_artifact_verification_rejects_symlinked_artifacts(tmp_path: Path) 
     artifact_path.unlink()
     artifact_path.symlink_to(outside)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.81.0",
+        protocol_version="0.82.0",
         request_id="artifact-rust-symlink",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -924,6 +926,170 @@ def test_rust_artifact_verification_rejects_symlinked_artifacts(tmp_path: Path) 
 
     assert response["status"] == "rejected"
     assert response["diagnostics"][0]["code"] == "artifact_path_invalid"
+
+
+def _persist_classifiable_artifact(
+    tmp_path: Path,
+    *,
+    artifact_type: ArtifactType,
+    metadata: dict[str, object] | None = None,
+    artifact_id: str = "artifact-classify",
+) -> tuple[str, ArtifactRef]:
+    from factori.artifacts import ArtifactStore
+
+    run_id = f"run-kernel-classify-{artifact_type.value}-{artifact_id}"
+    artifact = ArtifactStore(tmp_path).write_bytes(
+        run_id=run_id,
+        artifact_id=artifact_id,
+        artifact_type=artifact_type,
+        content=b"classifiable artifact\n",
+        extension="json",
+        format_label="json",
+        metadata=metadata,
+    )
+    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    ledger.append_commit(
+        run_id=run_id,
+        action_type=ControllerActionType.WRITE_ARTIFACT,
+        payload={"artifact_id": artifact.id},
+        artifact_refs=[artifact],
+        timestamp="2026-01-01T00:00:00.000000Z",
+    )
+    return run_id, ledger.list_commits(run_id)[0].artifact_refs[0]
+
+
+def _classify_kernel_artifact(
+    tmp_path: Path,
+    run_id: str,
+    artifact: ArtifactRef,
+    *,
+    mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
+) -> dict[str, object]:
+    request = KernelEvidenceClassifyRequest(
+        protocol_version="0.82.0",
+        request_id=f"classify-{artifact.id}-{mode.value}",
+        operation="evidence.classify",
+        mode=mode,
+        payload={"run_id": run_id, "artifact": artifact},
+    )
+    return _run_kernel(request.model_dump(mode="json"), root=tmp_path)
+
+
+def test_evidence_classification_preserves_non_authority_and_precedence(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    report_run, report = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.REPORT,
+    )
+    response = _classify_kernel_artifact(tmp_path, report_run, report)
+    assert response["status"] == "accepted"
+    assert response["result"] == {
+        "run_id": report_run,
+        "artifact_id": report.id,
+        "authority_class": "Presentation",
+        "candidate_kind": None,
+        "compatibility_only": False,
+        "authority_granted": False,
+    }
+
+    context_run, context = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.REPORT,
+        artifact_id="artifact-explicit-context",
+        metadata={"is_verification_evidence": False, "evidence_role": "proof"},
+    )
+    response = _classify_kernel_artifact(tmp_path, context_run, context)
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+    assert response["result"]["authority_granted"] is False
+
+
+def test_persisted_artifact_bridge_classifies_without_granting_authority(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    run_id, artifact = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "proof"},
+        artifact_id="artifact-bridge-proof",
+    )
+    from factori.kernel_bridge import classify_persisted_artifact
+
+    response = classify_persisted_artifact(
+        run_id,
+        artifact,
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted"
+    assert response.result.authority_class.value == "CapabilityCandidate"
+    assert response.result.candidate_kind.value == "LeanProof"
+    assert response.result.authority_granted is False
+
+
+def test_evidence_classification_distinguishes_real_and_fake_candidates(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    lean_run, lean = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "proof"},
+        artifact_id="artifact-proof",
+    )
+    response = _classify_kernel_artifact(tmp_path, lean_run, lean)
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "CapabilityCandidate"
+    assert response["result"]["candidate_kind"] == "LeanProof"
+    assert response["result"]["authority_granted"] is False
+
+    fake_run, fake = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.LEAN,
+        metadata={"evidence_role": "fake_proof"},
+        artifact_id="artifact-fake-proof",
+    )
+    response = _classify_kernel_artifact(tmp_path, fake_run, fake)
+    assert response["result"]["authority_class"] == "CapabilityCandidate"
+    assert response["result"]["compatibility_only"] is True
+    response = _classify_kernel_artifact(
+        tmp_path,
+        fake_run,
+        fake,
+        mode=KernelMode.STRICT_PRODUCTION,
+    )
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+    assert response["diagnostics"][0]["code"] == "fake_backend_denied"
+
+
+def test_evidence_classification_rejects_authority_mismatches_and_real_data(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    wrong_run, wrong = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.REPORT,
+        metadata={"evidence_role": "proof"},
+        artifact_id="artifact-wrong-proof-type",
+    )
+    response = _classify_kernel_artifact(tmp_path, wrong_run, wrong)
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "authority_denied"
+
+    real_run, real = _persist_classifiable_artifact(
+        tmp_path,
+        artifact_type=ArtifactType.EXPERIMENT,
+        metadata={"evidence_role": "real_data_experiment"},
+        artifact_id="artifact-real-data",
+    )
+    response = _classify_kernel_artifact(tmp_path, real_run, real)
+    assert response["status"] == "accepted"
+    assert response["result"]["authority_class"] == "Context"
+    response = _classify_kernel_artifact(
+        tmp_path,
+        real_run,
+        real,
+        mode=KernelMode.STRICT_PRODUCTION,
+    )
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "data_regime_denied"
 
 
 def test_rust_kernel_cli_rejects_oversized_requests() -> None:

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/hybrid-evidence-package-score.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/hybrid-evidence-package-score.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-fake LLM score for one hybrid evidence package.",
@@ -119,7 +119,7 @@
   ],
   "title": "HybridEvidencePackageScore",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.HybridEvidencePackageScore",
   "x-factori-verification-evidence": false
 }

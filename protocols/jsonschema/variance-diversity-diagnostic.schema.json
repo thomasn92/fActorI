@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/variance-diversity-diagnostic.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/variance-diversity-diagnostic.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Coverage and duplication diagnostic over variance-augmented branches.",
@@ -75,7 +75,7 @@
   ],
   "title": "VarianceDiversityDiagnostic",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.VarianceDiversityDiagnostic",
   "x-factori-verification-evidence": false
 }

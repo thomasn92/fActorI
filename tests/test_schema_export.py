@@ -174,7 +174,7 @@ def test_protocol_export_is_deterministic_and_emits_all_schemas(tmp_path: Path) 
     for path in first.schema_files:
         schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert schema["x-factori-protocol-version"] == "0.81.0"
+        assert schema["x-factori-protocol-version"] == "0.82.0"
         assert schema["x-factori-verification-evidence"] is False
 
 
@@ -184,7 +184,7 @@ def test_protocol_version_and_examples_are_validated_by_source_models(tmp_path: 
 
     metadata = json.loads(result.version_file.read_text(encoding="utf-8"))
     assert metadata == {
-            "protocol_version": "0.81.0",
+            "protocol_version": "0.82.0",
         "schema_format": "json-schema",
         "source": "factori-pydantic-models",
         "generated_by": "factori export-protocols",
@@ -205,8 +205,9 @@ def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> Non
         "artifact.verify",
         "ledger.verify",
         "protocol.validate",
+        "evidence.classify",
     }
-    assert len(schema["oneOf"]) == 4
+    assert len(schema["oneOf"]) == 5
 
 
 def test_check_passes_after_export_and_detects_stale_schema(tmp_path: Path) -> None:

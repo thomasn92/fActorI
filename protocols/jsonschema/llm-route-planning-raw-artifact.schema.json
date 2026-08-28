@@ -65,7 +65,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.81.0/llm-route-planning-raw-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/llm-route-planning-raw-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free raw prompt and response provenance for route planning.",
@@ -175,7 +175,7 @@
   ],
   "title": "LLMRoutePlanningRawArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.LLMRoutePlanningRawArtifact",
   "x-factori-verification-evidence": false
 }

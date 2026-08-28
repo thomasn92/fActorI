@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/method-atlas-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/method-atlas-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One curated method-lens entry used as atlas search infrastructure.",
@@ -96,7 +96,7 @@
   ],
   "title": "MethodAtlasEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.MethodAtlasEntry",
   "x-factori-verification-evidence": false
 }

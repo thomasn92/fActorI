@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.81.0/llm-substrate-construction-score.schema.json",
+  "$id": "https://schemas.factori.local/0.82.0/llm-substrate-construction-score.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-fake LLM scientific score for one substrate candidate.",
@@ -105,7 +105,7 @@
   ],
   "title": "LLMSubstrateConstructionScore",
   "type": "object",
-  "x-factori-protocol-version": "0.81.0",
+  "x-factori-protocol-version": "0.82.0",
   "x-factori-source-model": "factori.schemas.LLMSubstrateConstructionScore",
   "x-factori-verification-evidence": false
 }

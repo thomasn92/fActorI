@@ -25,6 +25,7 @@ class KernelOperation(StrEnum):
     HASH_CANONICAL_JSON = "hash.canonical_json"
     ARTIFACT_VERIFY = "artifact.verify"
     LEDGER_VERIFY = "ledger.verify"
+    EVIDENCE_CLASSIFY = "evidence.classify"
 
 
 class KernelResponseStatus(StrEnum):
@@ -57,6 +58,13 @@ class KernelLedgerVerifyPayload(StrictModel):
 
 class KernelArtifactVerifyPayload(StrictModel):
     """Payload for read-only verification of one persisted artifact."""
+
+    run_id: str = Field(min_length=1)
+    artifact: ArtifactRef
+
+
+class KernelEvidenceClassifyPayload(StrictModel):
+    """Payload for read-only classification of one persisted artifact."""
 
     run_id: str = Field(min_length=1)
     artifact: ArtifactRef
@@ -98,11 +106,19 @@ class KernelArtifactVerifyRequest(KernelRequestFields):
     payload: KernelArtifactVerifyPayload
 
 
+class KernelEvidenceClassifyRequest(KernelRequestFields):
+    """Typed request for non-authoritative artifact classification."""
+
+    operation: Literal[KernelOperation.EVIDENCE_CLASSIFY]
+    payload: KernelEvidenceClassifyPayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
     | KernelArtifactVerifyRequest
-    | KernelLedgerVerifyRequest,
+    | KernelLedgerVerifyRequest
+    | KernelEvidenceClassifyRequest,
     Field(discriminator="operation"),
 ]
 
@@ -137,6 +153,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelProtocolValidatePayload
         | KernelArtifactVerifyPayload
         | KernelLedgerVerifyPayload
+        | KernelEvidenceClassifyPayload
     ):
         return self.root.payload
 
@@ -208,12 +225,39 @@ class KernelArtifactVerifyResult(StrictModel):
         return value
 
 
+class KernelEvidenceAuthorityClass(StrEnum):
+    """Non-authoritative classification returned by evidence.classify."""
+
+    CONTEXT = "Context"
+    PRESENTATION = "Presentation"
+    CAPABILITY_CANDIDATE = "CapabilityCandidate"
+
+
+class KernelEvidenceCandidateKind(StrEnum):
+    """Candidate family eligible for later strict evidence validation."""
+
+    LEAN_PROOF = "LeanProof"
+    SYNTHETIC_EXPERIMENT = "SyntheticExperiment"
+
+
+class KernelEvidenceClassifyResult(StrictModel):
+    """Classification result that cannot grant evidence authority."""
+
+    run_id: str = Field(min_length=1)
+    artifact_id: str = Field(min_length=1)
+    authority_class: KernelEvidenceAuthorityClass
+    candidate_kind: KernelEvidenceCandidateKind | None = None
+    compatibility_only: bool = Field(strict=True)
+    authority_granted: Literal[False]
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
     | KernelProtocolValidateResult
     | KernelArtifactVerifyResult
-    | KernelLedgerVerifyResult,
+    | KernelLedgerVerifyResult
+    | KernelEvidenceClassifyResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -245,6 +289,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.PROTOCOL_VALIDATE: KernelProtocolValidateResult,
             KernelOperation.ARTIFACT_VERIFY: KernelArtifactVerifyResult,
             KernelOperation.LEDGER_VERIFY: KernelLedgerVerifyResult,
+            KernelOperation.EVIDENCE_CLASSIFY: KernelEvidenceClassifyResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -262,6 +307,11 @@ __all__ = [
     "KernelArtifactVerifyPayload",
     "KernelArtifactVerifyRequest",
     "KernelArtifactVerifyResult",
+    "KernelEvidenceAuthorityClass",
+    "KernelEvidenceCandidateKind",
+    "KernelEvidenceClassifyPayload",
+    "KernelEvidenceClassifyRequest",
+    "KernelEvidenceClassifyResult",
     "KernelLedgerVerifyPayload",
     "KernelLedgerVerifyRequest",
     "KernelLedgerVerifyResult",
