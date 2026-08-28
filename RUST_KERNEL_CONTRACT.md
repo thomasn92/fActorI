@@ -297,6 +297,93 @@ enum EvidenceCapability {
 No public constructor may accept an arbitrary string and produce `ValidatedProofEvidence` or
 `ValidatedSyntheticEvidence`.
 
+### `evidence.classify` Semantic Freeze
+
+`evidence.classify` is a read-only artifact-classification operation. It does not validate a proof
+or experiment bundle, construct an `EvidenceCapability`, assign a `VerificationLabel`, or decide
+claim admissibility. Its purpose is to reduce a persisted artifact to one of three classes after
+integrity and provenance checks:
+
+```rust
+enum ArtifactAuthorityClass {
+    Context,
+    Presentation,
+    CapabilityCandidate(CandidateKind),
+}
+
+enum CandidateKind {
+    LeanProof,
+    SyntheticExperiment,
+}
+```
+
+The actual Rust types and constructors remain private. `CapabilityCandidate` means only that the
+artifact may be submitted as one member of a later strict evidence-bundle validation. It is not a
+capability and cannot support a claim by itself.
+
+The operation must internally repeat persisted `artifact.verify` checks under the configured
+project root. It must not accept a caller-provided `verified=true`, classification, producer
+snapshot, capability ID, or prior kernel response as authority. Its request identifies only the
+run and artifact through the versioned envelope. Its accepted result must include the run ID,
+artifact ID, one authority class, an optional candidate kind, whether the result is compatibility
+only, and a literal `authority_granted=false`. It must not return a verification label.
+
+Classification precedence is fixed:
+
+1. Reject any artifact that fails path, bytes, hash, same-run ledger, producing-commit, or exact
+   commit-reference verification.
+2. A `latex` artifact or a path ending in `.md`, `.markdown`, `.tex`, or `.pdf` is `Presentation`.
+   Metadata cannot override this. An explicit `is_verification_evidence=true` on such an artifact
+   remains a rejection performed by `artifact.verify`.
+3. For other artifacts, explicit `is_verification_evidence=false` yields `Context`, even if an
+   evidence-role string is present.
+4. A `report` without an authority-bearing role is `Presentation`, preserving current manifest
+   behavior. Candidate, score, log, and other non-presentation artifacts without an
+   authority-bearing role are `Context`.
+5. Literature and retrieval artifacts are always `Context` for claim-verification authority. The
+   existing manifest may call them evidence for packaging, but they can never become proof or
+   experiment capability candidates.
+6. A linked `lean` artifact with role `proof` is a `CapabilityCandidate(LeanProof)`.
+7. A linked `experiment` artifact with role `synthetic_experiment` is a
+   `CapabilityCandidate(SyntheticExperiment)`.
+8. Roles `fake_proof` and `fake_synthetic_experiment` produce the corresponding capability
+   candidate only in `DevelopmentCompatibility`, with `compatibility_only=true` and
+   `authority_granted=false`. In `StrictProduction` they are `Context` with a stable
+   `fake_backend_denied` diagnostic; they are not rejected merely for existing in the research
+   record.
+9. Role `real_data_experiment` is `Context` in `DevelopmentCompatibility`. In `StrictProduction`,
+   an attempt to present it as verification evidence is rejected with `data_regime_denied` because
+   the current kernel cannot construct real-data authority.
+10. An authority-bearing role on the wrong artifact type is rejected with `authority_denied`.
+    Unknown roles and all LLM, reviewer, retrieval, citation, manuscript, prose, replay,
+    diagnostics, and readiness roles are `Context`; an explicit request to treat one as authority
+    is rejected with `authority_denied`.
+
+An "explicit request to treat one as authority" means either
+`metadata.is_verification_evidence=true` or use of an authority-bearing role. Absence of the
+metadata field does not grant authority. The existing Python
+`ArtifactRef.is_mvp_verification_evidence()` predicate is only an integrity/link eligibility check;
+it is not the classifier and must not be translated as if it minted a capability candidate.
+
+The only authority-bearing role/type pairs in this protocol version are:
+
+| Artifact type | Evidence role | DevelopmentCompatibility | StrictProduction |
+| --- | --- | --- | --- |
+| `lean` | `proof` | Lean candidate | Lean candidate |
+| `lean` | `fake_proof` | Compatibility-only Lean candidate | Context |
+| `experiment` | `synthetic_experiment` | Synthetic candidate | Synthetic candidate |
+| `experiment` | `fake_synthetic_experiment` | Compatibility-only synthetic candidate | Context |
+
+Even the two strict-production candidates remain untrusted inputs to bundle validation. A `proof`
+role does not establish a supported checker, and a `synthetic_experiment` role does not establish
+the data regime, backend, success criteria, or metric validity.
+
+Luna's differential matrix must cover every precedence rule above across both modes, including
+presentation overrides, explicit false metadata, missing roles, fake roles, wrong type/role pairs,
+literature context, unknown roles, unlinked artifacts, tampered bytes, corrupt ledgers, and
+cross-run producers. Tests must separately assert that every accepted response has
+`authority_granted=false` and contains no verification label or opaque capability.
+
 A strict Lean capability requires all of:
 
 - a valid proof contract for the exact candidate and claim;
