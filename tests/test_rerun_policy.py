@@ -161,6 +161,16 @@ def test_ledger_tip_validation_passes_for_linear_run(tmp_path) -> None:
     assert report.blocking_findings == []
 
 
+def test_ledger_tip_validation_warns_for_an_empty_existing_ledger(tmp_path) -> None:
+    ResearchLedger(tmp_path / "runs" / "run-empty" / "ledger.sqlite")
+
+    report = validate_ledger_tip("run-empty", root=tmp_path)
+
+    assert report.status == LedgerTipStatus.WARNING
+    assert report.branch_findings[0].finding_type == "EmptyLedger"
+    assert report.blocking_findings == []
+
+
 def test_ledger_tip_validation_detects_broken_parent(tmp_path) -> None:
     ledger = _linear_ledger(tmp_path)
     with sqlite3.connect(ledger.path) as connection:

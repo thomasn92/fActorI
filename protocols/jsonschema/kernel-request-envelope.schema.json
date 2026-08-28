@@ -1,0 +1,562 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "ControllerActionType": {
+      "description": "Current deterministic action types.\n\nTODO: Extend this enum as the real controller modules are introduced.",
+      "enum": [
+        "InitRun",
+        "AddCandidate",
+        "WriteArtifact",
+        "ValidateRun",
+        "ControllerAction",
+        "StageAStarted",
+        "StageALLMCandidatesProposed",
+        "Stage0OpportunityDiscovery",
+        "Stage0Skipped",
+        "StageADataGateDeferred",
+        "StageACandidateGenerated",
+        "StageAScoreComputed",
+        "StageADuplicatePruned",
+        "StageAGatePruned",
+        "StageASurvivorsSelected",
+        "StageAReportWritten",
+        "QuestionerCheck",
+        "RetrievalAdequacyDemo",
+        "RetrievalRunRecorded",
+        "StagnationDemo",
+        "StageBStarted",
+        "StageBChildGenerated",
+        "StageBLLMReviewRecorded",
+        "StageBReviewersRun",
+        "StageBDisagreementResolved",
+        "StageBBridgeChecked",
+        "StageBBridgeRepaired",
+        "StageBBaselineChecked",
+        "StageBRedteamChecked",
+        "StageBQuestionerRouted",
+        "StageBScoreComputed",
+        "StageBGatePruned",
+        "StageBSurvivorsSelected",
+        "StageBReportWritten",
+        "StageCSelectionStarted",
+        "StageCRedteamAggregated",
+        "StageCUncertaintyComputed",
+        "StageCScoreComputed",
+        "StageCSelectionDecided",
+        "StageCBudgetSelected",
+        "StageCSelectionReportWritten",
+        "StageCVerificationStarted",
+        "StageCProofValidated",
+        "StageCSyntheticExperimentRun",
+        "StageCNoDataValidated",
+        "StageCVerificationDecided",
+        "StageCVerificationReportWritten",
+        "AbstractSynthesisStarted",
+        "AbstractModelProposed",
+        "AbstractionAttackRun",
+        "AbstractionReportWritten",
+        "FinalNucleusSelected",
+        "AbstractSynthesisReportWritten",
+        "ManuscriptPlanningStarted",
+        "ClaimTableBuilt",
+        "BlockedClaimsIdentified",
+        "ManuscriptPlanBuilt",
+        "ManuscriptPlanReportWritten",
+        "NarrativeContractWritten",
+        "PaperShapeCritiqueWritten",
+        "DraftSkeletonStarted",
+        "DraftSkeletonBuilt",
+        "ManuscriptChecklistBuilt",
+        "DraftSkeletonReportWritten",
+        "ManuscriptChecklistReportWritten",
+        "ResearchObjectPackagingStarted",
+        "ArtifactManifestWritten",
+        "LedgerSummaryWritten",
+        "BranchOutcomesWritten",
+        "ReproducibilityManifestWritten",
+        "ResearchObjectWritten",
+        "PaperAssemblyStarted",
+        "PaperSkeletonWritten",
+        "PaperAssemblyReportWritten",
+        "FinalAuditStarted",
+        "FinalAuditReportWritten",
+        "ReleaseGateDecided",
+        "ExportPreparationStarted",
+        "ProseGenerationContractWritten",
+        "LatexExportPlanWritten",
+        "ExportSectionMapWritten",
+        "ExportClaimMapWritten",
+        "ExportReadinessReportWritten",
+        "ExportBundleManifestWritten",
+        "ProseSectionDraftWritten",
+        "ManuscriptDraftWritten",
+        "CitationRegistryWritten",
+        "LatexExportWritten",
+        "PaperCriticReportWritten",
+        "PaperRevisionWritten",
+        "FullPaperGenerationWritten",
+        "FullPaperReleaseEvaluated",
+        "HumanReviewIngested",
+        "ProofArtifactIngested",
+        "ExperimentArtifactIngested",
+        "ClaimEvidenceMapWritten",
+        "EvidenceAwareRefreshWritten",
+        "HumanReviewReconciliationWritten",
+        "ReviewerChangeRequestsIngested",
+        "HumanReviewReconciliationIndexWritten",
+        "AutonomousEvidencePlanWritten",
+        "AutonomousPlanExecutionWritten",
+        "PlannedSpecExecutionWritten",
+        "PythonExperimentSandboxWritten",
+        "ExperimentGapRoutingWritten",
+        "AutonomousLoopWritten",
+        "GapAttemptHistoryWritten",
+        "GapStrategyDiversificationWritten",
+        "CapabilityEscalationWritten",
+        "FinalManuscriptRegenerated",
+        "FinalReleaseBundleAssembled",
+        "AutonomousPaperRunWritten",
+        "AutonomousPaperCheckpointWritten",
+        "AutonomousPaperResumeWritten",
+        "ScientificSubstrateBuilt",
+        "SubstrateExperimentRouted",
+        "SubstrateTournamentRun",
+        "CreativeMutationPlanWritten",
+        "CreativeMutationsApplied",
+        "MutationTournamentRun",
+        "CreativeSearchCycleWritten",
+        "CreativeSearchControllerWritten",
+        "GenerationMutationPlanWritten",
+        "GenerationMutationsApplied",
+        "OpportunityDiscoveryWritten",
+        "VarianceAugmentationWritten",
+        "VarianceAugmentationApplied",
+        "VarianceSubstratesPromoted",
+        "BranchRoutesWritten",
+        "RouteExecutionSpecsWritten",
+        "RouteExecutionRun",
+        "ProductionModeChecked",
+        "DomainMethodAtlasBuilt",
+        "AtlasScanWritten",
+        "DeepOpportunityDiscoveryWritten",
+        "LLMVarianceGenerationWritten",
+        "LLMIdeaTreeConstructionWritten",
+        "LLMSubstrateConstructionWritten",
+        "LLMRoutePlanningWritten",
+        "LLMExperimentCodeWritten",
+        "GeneratedExperimentExecutionWritten",
+        "HybridEvidencePackagesPlanned",
+        "HybridEvidencePackagesExecuted",
+        "ScientificCriticReviewsWritten",
+        "CrossPackageAdjudicationWritten",
+        "NucleusManuscriptPlanned",
+        "NucleusManuscriptSynthesized",
+        "NucleusManuscriptRevised",
+        "FinalPaperAssembled",
+        "FinalPaperVerified",
+        "FinalPaperRendered",
+        "FinalPaperBundleBuilt",
+        "LLMOrchestrationWritten",
+        "PipelineRunReportWritten"
+      ],
+      "title": "ControllerActionType",
+      "type": "string"
+    },
+    "KernelArtifactVerifyPayload": {
+      "additionalProperties": false,
+      "description": "Payload for read-only verification of one persisted artifact.",
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "artifact"
+      ],
+      "title": "KernelArtifactVerifyPayload",
+      "type": "object"
+    },
+    "KernelArtifactVerifyRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for Python/Rust artifact integrity parity.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "artifact.verify",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelArtifactVerifyPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelArtifactVerifyRequest",
+      "type": "object"
+    },
+    "KernelCanonicalJsonPayload": {
+      "additionalProperties": false,
+      "description": "Payload for the canonical JSON operation.",
+      "properties": {
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "KernelCanonicalJsonPayload",
+      "type": "object"
+    },
+    "KernelCanonicalJsonRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for Python-compatible canonical JSON and SHA-256.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "hash.canonical_json",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelCanonicalJsonPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelCanonicalJsonRequest",
+      "type": "object"
+    },
+    "KernelLedgerVerifyPayload": {
+      "additionalProperties": false,
+      "description": "Payload for read-only verification of one run's ordered ledger commits.",
+      "properties": {
+        "commits": {
+          "items": {
+            "$ref": "#/$defs/LedgerCommit"
+          },
+          "title": "Commits",
+          "type": "array"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "commits"
+      ],
+      "title": "KernelLedgerVerifyPayload",
+      "type": "object"
+    },
+    "KernelLedgerVerifyRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for Python/Rust ledger hash-chain parity.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "ledger.verify",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelLedgerVerifyPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelLedgerVerifyRequest",
+      "type": "object"
+    },
+    "KernelMode": {
+      "description": "Compatibility mode requested for one read-only kernel operation.",
+      "enum": [
+        "DevelopmentCompatibility",
+        "StrictProduction"
+      ],
+      "title": "KernelMode",
+      "type": "string"
+    },
+    "KernelProtocolValidatePayload": {
+      "additionalProperties": false,
+      "description": "Payload for validating one supported kernel protocol instance.",
+      "properties": {
+        "instance": {
+          "additionalProperties": true,
+          "title": "Instance",
+          "type": "object"
+        },
+        "protocol_name": {
+          "enum": [
+            "KernelRequestEnvelope",
+            "KernelResponseEnvelope"
+          ],
+          "title": "Protocol Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_name",
+        "instance"
+      ],
+      "title": "KernelProtocolValidatePayload",
+      "type": "object"
+    },
+    "KernelProtocolValidateRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for validating one selected kernel protocol.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "protocol.validate",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelProtocolValidatePayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelProtocolValidateRequest",
+      "type": "object"
+    },
+    "LedgerCommit": {
+      "additionalProperties": false,
+      "description": "Immutable ledger commit.",
+      "properties": {
+        "action_type": {
+          "$ref": "#/$defs/ControllerActionType"
+        },
+        "artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Id"
+        },
+        "commit_hash": {
+          "title": "Commit Hash",
+          "type": "string"
+        },
+        "parent_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Hash"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit_hash",
+        "run_id",
+        "action_type",
+        "timestamp"
+      ],
+      "title": "LedgerCommit",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.81.0/kernel-request-envelope.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Versioned request envelope for the read-only research kernel boundary.",
+  "discriminator": {
+    "mapping": {
+      "artifact.verify": "#/$defs/KernelArtifactVerifyRequest",
+      "hash.canonical_json": "#/$defs/KernelCanonicalJsonRequest",
+      "ledger.verify": "#/$defs/KernelLedgerVerifyRequest",
+      "protocol.validate": "#/$defs/KernelProtocolValidateRequest"
+    },
+    "propertyName": "operation"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/KernelCanonicalJsonRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelProtocolValidateRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelArtifactVerifyRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelLedgerVerifyRequest"
+    }
+  ],
+  "title": "KernelRequestEnvelope",
+  "x-factori-protocol-version": "0.81.0",
+  "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
+  "x-factori-verification-evidence": false
+}

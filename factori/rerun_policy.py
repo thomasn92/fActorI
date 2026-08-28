@@ -150,8 +150,8 @@ def validate_ledger_tip(
             ledger_exists=False,
         )
     try:
-        ledger = ResearchLedger(path)
-        commits = ledger.list_commits(run_id)
+        ledger = ResearchLedger.open_existing(path)
+        commits = ledger.list_commits_read_only(run_id)
     except Exception as exc:  # pragma: no cover - defensive for corrupt SQLite files.
         finding = LedgerBranchFinding(
             finding_type="UnreadableLedger",
@@ -182,7 +182,7 @@ def validate_ledger_tip(
 
     branch_findings: list[LedgerBranchFinding] = []
     try:
-        ledger.validate()
+        ResearchLedger.validate_snapshot(commits)
     except LedgerError as exc:
         branch_findings.append(
             LedgerBranchFinding(

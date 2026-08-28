@@ -108,8 +108,28 @@ class ResearchLedger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
+    @classmethod
+    def open_existing(cls, path: str | Path, *, clock: Clock | None = None) -> ResearchLedger:
+        """Open an existing ledger without creating tables or changing the file."""
+        ledger_path = Path(path)
+        if not ledger_path.is_file():
+            raise LedgerError(f"ledger does not exist: {ledger_path}")
+        ledger = cls.__new__(cls)
+        ledger.path = ledger_path
+        ledger.clock = clock or SystemClock()
+        return ledger
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def _connect_read_only(self) -> sqlite3.Connection:
+        """Open the existing database through SQLite's read-only URI mode."""
+        connection = sqlite3.connect(
+            f"{self.path.resolve().as_uri()}?mode=ro",
+            uri=True,
+        )
         connection.row_factory = sqlite3.Row
         return connection
 
@@ -263,6 +283,18 @@ class ResearchLedger:
             rows = connection.execute(query, params).fetchall()
         return [self._row_to_commit(row) for row in rows]
 
+    def list_commits_read_only(self, run_id: str | None = None) -> list[LedgerCommit]:
+        """Return commits without opening SQLite in read-write mode."""
+        query = "SELECT rowid, * FROM commits"
+        params: tuple[str, ...] = ()
+        if run_id is not None:
+            query += " WHERE run_id = ?"
+            params = (run_id,)
+        query += " ORDER BY rowid"
+        with self._connect_read_only() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [self._row_to_commit(row) for row in rows]
+
     def latest_commit_hash(self, run_id: str) -> str | None:
         """Return the latest commit hash for a run."""
         with self._connect() as connection:
@@ -279,7 +311,11 @@ class ResearchLedger:
 
     def validate(self) -> None:
         """Validate parent links and deterministic commit hashes."""
-        commits = self.list_commits()
+        self.validate_snapshot(self.list_commits())
+
+    @staticmethod
+    def validate_snapshot(commits: list[LedgerCommit]) -> None:
+        """Validate an explicitly supplied, insertion-ordered commit snapshot."""
         seen: set[str] = set()
         for commit in commits:
             if commit.parent_hash is not None and commit.parent_hash not in seen:

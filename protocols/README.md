@@ -4,6 +4,11 @@ This directory contains language-neutral developer contracts generated from the 
 existing Pydantic models. They are intended for Python tools, future Rust crates, future servers,
 and coding agents that need a stable boundary without importing the Python runtime.
 
+Protocol `0.81.0` adds the read-only `artifact.verify` kernel operation. It checks confined artifact
+locations, type-directory mapping, raw-byte SHA-256 hashes, presentation restrictions, and exact
+same-run producer-commit links. The operation is exposed through a development-compatibility
+shadow bridge and creates no evidence or authority.
+
 Protocol files are developer interfaces only. They are not run provenance, scientific evidence,
 verification evidence, or a replacement for the append-only research ledger.
 

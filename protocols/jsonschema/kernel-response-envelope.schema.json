@@ -1,0 +1,300 @@
+{
+  "$defs": {
+    "KernelArtifactVerifyResult": {
+      "additionalProperties": false,
+      "description": "Result returned by artifact integrity verification.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "valid": {
+          "const": true,
+          "title": "Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "valid",
+        "run_id",
+        "artifact_id",
+        "content_hash"
+      ],
+      "title": "KernelArtifactVerifyResult",
+      "type": "object"
+    },
+    "KernelCanonicalJsonResult": {
+      "additionalProperties": false,
+      "description": "Result returned by canonical JSON hashing.",
+      "properties": {
+        "canonical_json": {
+          "title": "Canonical Json",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonical_json",
+        "sha256"
+      ],
+      "title": "KernelCanonicalJsonResult",
+      "type": "object"
+    },
+    "KernelDiagnostic": {
+      "additionalProperties": false,
+      "description": "Bounded stable diagnostic returned by a kernel operation.",
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "KernelDiagnostic",
+      "type": "object"
+    },
+    "KernelEmptyResult": {
+      "additionalProperties": false,
+      "description": "Empty result used by rejected kernel operations.",
+      "properties": {},
+      "title": "KernelEmptyResult",
+      "type": "object"
+    },
+    "KernelLedgerVerifyResult": {
+      "additionalProperties": false,
+      "description": "Result returned by ledger verification.",
+      "properties": {
+        "commit_count": {
+          "minimum": 0,
+          "title": "Commit Count",
+          "type": "integer"
+        },
+        "root_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root Hash"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "tip_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tip Hash"
+        },
+        "valid": {
+          "const": true,
+          "title": "Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "valid",
+        "run_id",
+        "commit_count"
+      ],
+      "title": "KernelLedgerVerifyResult",
+      "type": "object"
+    },
+    "KernelMode": {
+      "description": "Compatibility mode requested for one read-only kernel operation.",
+      "enum": [
+        "DevelopmentCompatibility",
+        "StrictProduction"
+      ],
+      "title": "KernelMode",
+      "type": "string"
+    },
+    "KernelOperation": {
+      "description": "Read-only operations exposed by the initial kernel boundary.",
+      "enum": [
+        "protocol.validate",
+        "hash.canonical_json",
+        "artifact.verify",
+        "ledger.verify"
+      ],
+      "title": "KernelOperation",
+      "type": "string"
+    },
+    "KernelProtocolValidateResult": {
+      "additionalProperties": false,
+      "description": "Result returned by protocol validation.",
+      "properties": {
+        "protocol_name": {
+          "enum": [
+            "KernelRequestEnvelope",
+            "KernelResponseEnvelope"
+          ],
+          "title": "Protocol Name",
+          "type": "string"
+        },
+        "valid": {
+          "const": true,
+          "title": "Valid",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "valid",
+        "protocol_name"
+      ],
+      "title": "KernelProtocolValidateResult",
+      "type": "object"
+    },
+    "KernelResponseStatus": {
+      "description": "Transport-level result status; this is not scientific evidence.",
+      "enum": [
+        "accepted",
+        "rejected",
+        "error"
+      ],
+      "title": "KernelResponseStatus",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.81.0/kernel-response-envelope.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Versioned response envelope for the read-only research kernel boundary.",
+  "properties": {
+    "diagnostics": {
+      "items": {
+        "$ref": "#/$defs/KernelDiagnostic"
+      },
+      "title": "Diagnostics",
+      "type": "array"
+    },
+    "kernel_version": {
+      "minLength": 1,
+      "title": "Kernel Version",
+      "type": "string"
+    },
+    "mode": {
+      "$ref": "#/$defs/KernelMode"
+    },
+    "mutation_performed": {
+      "title": "Mutation Performed",
+      "type": "boolean"
+    },
+    "operation": {
+      "$ref": "#/$defs/KernelOperation"
+    },
+    "protocol_version": {
+      "minLength": 1,
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KernelEmptyResult"
+        },
+        {
+          "$ref": "#/$defs/KernelCanonicalJsonResult"
+        },
+        {
+          "$ref": "#/$defs/KernelProtocolValidateResult"
+        },
+        {
+          "$ref": "#/$defs/KernelArtifactVerifyResult"
+        },
+        {
+          "$ref": "#/$defs/KernelLedgerVerifyResult"
+        }
+      ],
+      "title": "Result"
+    },
+    "status": {
+      "$ref": "#/$defs/KernelResponseStatus"
+    }
+  },
+  "required": [
+    "protocol_version",
+    "kernel_version",
+    "request_id",
+    "operation",
+    "mode",
+    "status",
+    "result",
+    "diagnostics",
+    "mutation_performed"
+  ],
+  "title": "KernelResponseEnvelope",
+  "type": "object",
+  "x-factori-protocol-version": "0.81.0",
+  "x-factori-source-model": "factori.schemas.KernelResponseEnvelope",
+  "x-factori-verification-evidence": false
+}

@@ -55,6 +55,12 @@ from factori.schemas import (
     FullPaperReleaseReport,
     FullPaperReleaseStatus,
     GeneratedSectionDraft,
+    KernelLedgerVerifyRequest,
+    KernelMode,
+    KernelOperation,
+    KernelRequestEnvelope,
+    KernelResponseEnvelope,
+    KernelResponseStatus,
     LatexCompileCheckReport,
     LatexExportContract,
     LatexExportResult,
@@ -190,6 +196,9 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "run-status-report.example.json": "RunStatusReport",
     "stage-result.example.json": "StageResult",
     "targeted-research-brief.example.json": "TargetedResearchBrief",
+    "kernel-request-envelope.example.json": "KernelRequestEnvelope",
+    "kernel-ledger-request-envelope.example.json": "KernelRequestEnvelope",
+    "kernel-response-envelope.example.json": "KernelResponseEnvelope",
 }
 
 
@@ -1276,6 +1285,36 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         allowed_claim_scope="Controlled synthetic settings under declared corruption mechanisms.",
         forbidden_claims=["real-world validation", "novelty proven", "publication ready"],
     )
+    kernel_request = KernelRequestEnvelope.model_validate(
+        {
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": "kernel-request-example",
+            "operation": KernelOperation.HASH_CANONICAL_JSON,
+            "mode": KernelMode.DEVELOPMENT_COMPATIBILITY,
+            "payload": {"value": {"b": 2, "a": 1}},
+        }
+    )
+    kernel_response = KernelResponseEnvelope(
+        protocol_version=PROTOCOL_VERSION,
+        kernel_version="0.1.0-dev",
+        request_id=kernel_request.request_id,
+        operation=kernel_request.operation,
+        mode=kernel_request.mode,
+        status=KernelResponseStatus.ACCEPTED,
+        result={
+            "canonical_json": '{"a":1,"b":2}',
+            "sha256": "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777",
+        },
+        diagnostics=[],
+        mutation_performed=False,
+    )
+    kernel_ledger_request = KernelLedgerVerifyRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id="ledger-verify-example",
+        operation=KernelOperation.LEDGER_VERIFY,
+        mode=KernelMode.DEVELOPMENT_COMPATIBILITY,
+        payload={"run_id": "run-example", "commits": []},
+    )
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
@@ -1343,6 +1382,11 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),
+        "kernel-request-envelope.example.json": kernel_request.model_dump(mode="json"),
+        "kernel-response-envelope.example.json": kernel_response.model_dump(mode="json"),
+        "kernel-ledger-request-envelope.example.json": kernel_ledger_request.model_dump(
+            mode="json"
+        ),
     }
 
 

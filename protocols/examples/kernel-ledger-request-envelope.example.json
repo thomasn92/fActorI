@@ -1,0 +1,10 @@
+{
+  "mode": "DevelopmentCompatibility",
+  "operation": "ledger.verify",
+  "payload": {
+    "commits": [],
+    "run_id": "run-example"
+  },
+  "protocol_version": "0.81.0",
+  "request_id": "ledger-verify-example"
+}

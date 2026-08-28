@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.79.0/substrate-promotion-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.81.0/substrate-promotion-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic variance candidate promotion decision.",
@@ -88,7 +88,7 @@
   ],
   "title": "SubstratePromotionDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.79.0",
+  "x-factori-protocol-version": "0.81.0",
   "x-factori-source-model": "factori.schemas.SubstratePromotionDecision",
   "x-factori-verification-evidence": false
 }

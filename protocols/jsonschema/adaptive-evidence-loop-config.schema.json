@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.79.0/adaptive-evidence-loop-config.schema.json",
+  "$id": "https://schemas.factori.local/0.81.0/adaptive-evidence-loop-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded iteration and scientific-repair controls for targeted evidence loops.",
@@ -35,7 +35,7 @@
   },
   "title": "AdaptiveEvidenceLoopConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.79.0",
+  "x-factori-protocol-version": "0.81.0",
   "x-factori-source-model": "factori.schemas.AdaptiveEvidenceLoopConfig",
   "x-factori-verification-evidence": false
 }

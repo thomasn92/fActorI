@@ -1,0 +1,12 @@
+{
+  "mode": "DevelopmentCompatibility",
+  "operation": "hash.canonical_json",
+  "payload": {
+    "value": {
+      "a": 1,
+      "b": 2
+    }
+  },
+  "protocol_version": "0.81.0",
+  "request_id": "kernel-request-example"
+}

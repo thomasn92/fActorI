@@ -1,0 +1,16 @@
+[
+  {
+    "name": "root_stage_commit",
+    "value": {
+      "artifact_refs": [],
+      "candidate_id": null,
+      "parent_hash": null,
+      "payload": {"stage": "kernel"},
+      "run_id": "run-1",
+      "timestamp": "2026-08-27T00:00:00Z",
+      "action_type": "StageAStarted"
+    },
+    "canonical_json": "{\"action_type\":\"StageAStarted\",\"artifact_refs\":[],\"candidate_id\":null,\"parent_hash\":null,\"payload\":{\"stage\":\"kernel\"},\"run_id\":\"run-1\",\"timestamp\":\"2026-08-27T00:00:00Z\"}",
+    "sha256": "a215fcd3368a603147e16fa89dde84d94c6cdc9044f1b3ead121e5988a5ed581"
+  }
+]

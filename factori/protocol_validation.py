@@ -143,6 +143,17 @@ def _validate(
             return []
         return [f"{path}: value did not match any allowed schema"]
 
+    one_of = schema.get("oneOf")
+    if isinstance(one_of, list):
+        branch_errors = [
+            _validate(instance, branch, root, path=path)
+            for branch in one_of
+            if isinstance(branch, dict)
+        ]
+        if sum(not branch for branch in branch_errors) == 1:
+            return []
+        return [f"{path}: value did not match exactly one allowed schema"]
+
     if "const" in schema and instance != schema["const"]:
         errors.append(f"{path}: expected constant {schema['const']!r}")
     enum = schema.get("enum")

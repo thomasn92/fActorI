@@ -3,6 +3,7 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+rust-kernel/target/
 *.pyc
 runs/
 *.egg-info/

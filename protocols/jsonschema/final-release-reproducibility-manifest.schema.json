@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.79.0/final-release-reproducibility-manifest.schema.json",
+  "$id": "https://schemas.factori.local/0.81.0/final-release-reproducibility-manifest.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Reproducibility metadata locked into a final release bundle.",
@@ -151,7 +151,7 @@
   ],
   "title": "FinalReleaseReproducibilityManifest",
   "type": "object",
-  "x-factori-protocol-version": "0.79.0",
+  "x-factori-protocol-version": "0.81.0",
   "x-factori-source-model": "factori.schemas.FinalReleaseReproducibilityManifest",
   "x-factori-verification-evidence": false
 }

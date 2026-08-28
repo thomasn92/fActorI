@@ -1,0 +1,14 @@
+{
+  "diagnostics": [],
+  "kernel_version": "0.1.0-dev",
+  "mode": "DevelopmentCompatibility",
+  "mutation_performed": false,
+  "operation": "hash.canonical_json",
+  "protocol_version": "0.81.0",
+  "request_id": "kernel-request-example",
+  "result": {
+    "canonical_json": "{\"a\":1,\"b\":2}",
+    "sha256": "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+  },
+  "status": "accepted"
+}

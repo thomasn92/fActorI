@@ -17,6 +17,9 @@ Before large schema, storage, API, server, or cross-language refactors, inspect
 schemas. Validate examples with `factori validate-protocol-examples` and use
 `factori check-protocol-version` for schema version bump rules.
 
+Before implementing or reviewing the Rust research kernel, read `RUST_KERNEL_CONTRACT.md`. It
+defines the approved trust boundary, compatibility semantics, authority model, and model handoff.
+
 ## Scope
 
 - Keep the implementation deterministic unless a user explicitly changes that requirement.

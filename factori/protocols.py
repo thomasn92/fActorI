@@ -200,6 +200,8 @@ from factori.schemas import (
     IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    KernelRequestEnvelope,
+    KernelResponseEnvelope,
     LatexCompileCheckReport,
     LatexExportContract,
     LatexExportResult,
@@ -426,7 +428,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.79.0"
+PROTOCOL_VERSION = "0.81.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -498,6 +500,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition("Candidate", Candidate, "Research candidate branch."),
     ProtocolDefinition("ScoreVector", ScoreVector, "Structured candidate score vector."),
     ProtocolDefinition("LedgerCommit", LedgerCommit, "Append-only provenance commit."),
+    ProtocolDefinition(
+        "KernelRequestEnvelope",
+        KernelRequestEnvelope,
+        "Versioned request envelope for the read-only research kernel boundary.",
+    ),
+    ProtocolDefinition(
+        "KernelResponseEnvelope",
+        KernelResponseEnvelope,
+        "Versioned response envelope for the read-only research kernel boundary.",
+    ),
     ProtocolDefinition("ArtifactRecord", ArtifactRef, "Content-hashed artifact reference."),
     ProtocolDefinition("ArtifactManifest", ArtifactManifest, "Derived artifact manifest."),
     ProtocolDefinition("StageResult", PipelineStageResult, "One pipeline-stage execution result."),

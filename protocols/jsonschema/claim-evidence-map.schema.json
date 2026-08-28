@@ -161,7 +161,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.79.0/claim-evidence-map.schema.json",
+  "$id": "https://schemas.factori.local/0.81.0/claim-evidence-map.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic final claim-evidence support map.",
@@ -225,7 +225,7 @@
   ],
   "title": "ClaimEvidenceMap",
   "type": "object",
-  "x-factori-protocol-version": "0.79.0",
+  "x-factori-protocol-version": "0.81.0",
   "x-factori-source-model": "factori.schemas.ClaimEvidenceMap",
   "x-factori-verification-evidence": false
 }

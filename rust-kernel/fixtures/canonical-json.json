@@ -1,0 +1,39 @@
+[
+  {
+    "name": "empty_object",
+    "value": {},
+    "canonical_json": "{}",
+    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  {
+    "name": "nested_objects_and_unicode",
+    "value": {"z": [3, {"b": true, "a": null}], "a": "café"},
+    "canonical_json": "{\"a\":\"café\",\"z\":[3,{\"a\":null,\"b\":true}]}",
+    "sha256": "e1c3879dd04b51a97a4bcb910e5c1ac1a0b7d76c6f241ee2c659e732238fec3c"
+  },
+  {
+    "name": "numbers_and_escapes",
+    "value": {"escaped": "line\nquote\"", "negative": -2, "fraction": 0.5},
+    "canonical_json": "{\"escaped\":\"line\\nquote\\\"\",\"fraction\":0.5,\"negative\":-2}",
+    "sha256": "31d05c9930fededca008640f3c3ebef277973e22eb3c398d5c1c82c4659ed40e"
+  },
+  {
+    "name": "ordered_arrays",
+    "value": ["b", {"z": 0, "a": 1}, false],
+    "canonical_json": "[\"b\",{\"a\":1,\"z\":0},false]",
+    "sha256": "9f5643d5548ce0f343b3f66f8594f202aad054dcee05b72f7b2c06255b282784"
+  },
+  {
+    "name": "python_float_exponents_and_large_integer",
+    "value": {
+      "fractional_exp": 0.0000123,
+      "large_int": 123456789012345678901234567890,
+      "medium_exp": 0.00001,
+      "negative_zero": -0.0,
+      "small_exp": 0.000001,
+      "tiny_exp": 0.0000001
+    },
+    "canonical_json": "{\"fractional_exp\":1.23e-05,\"large_int\":123456789012345678901234567890,\"medium_exp\":1e-05,\"negative_zero\":-0.0,\"small_exp\":1e-06,\"tiny_exp\":1e-07}",
+    "sha256": "a4de8f7e264df77ac4337a32cee7cd03f6c199d20ecddc8d4e89a46d9ea5c1b9"
+  }
+]

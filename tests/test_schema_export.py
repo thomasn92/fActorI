@@ -11,6 +11,7 @@ from factori.ledger import ResearchLedger
 from factori.protocols import get_protocol_definition, get_protocol_definitions
 from factori.schema_export import (
     EXAMPLE_PROTOCOLS,
+    build_protocol_schema,
     check_protocols,
     export_protocols,
     protocol_examples,
@@ -169,11 +170,11 @@ def test_protocol_export_is_deterministic_and_emits_all_schemas(tmp_path: Path) 
         "generation-mutation-inspection-report.schema.json",
     } <= {path.name for path in first.schema_files}
     assert first_contents == second_contents
-    assert len(first.schema_files) == len(get_protocol_definitions()) == 422
+    assert len(first.schema_files) == len(get_protocol_definitions()) == 424
     for path in first.schema_files:
         schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert schema["x-factori-protocol-version"] == "0.79.0"
+        assert schema["x-factori-protocol-version"] == "0.81.0"
         assert schema["x-factori-verification-evidence"] is False
 
 
@@ -183,7 +184,7 @@ def test_protocol_version_and_examples_are_validated_by_source_models(tmp_path: 
 
     metadata = json.loads(result.version_file.read_text(encoding="utf-8"))
     assert metadata == {
-        "protocol_version": "0.79.0",
+            "protocol_version": "0.81.0",
         "schema_format": "json-schema",
         "source": "factori-pydantic-models",
         "generated_by": "factori export-protocols",
@@ -193,6 +194,19 @@ def test_protocol_version_and_examples_are_validated_by_source_models(tmp_path: 
         payload = json.loads(path.read_text(encoding="utf-8"))
         definition = get_protocol_definition(EXAMPLE_PROTOCOLS[path.name])
         TypeAdapter(definition.model).validate_python(payload)
+
+
+def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> None:
+    schema = build_protocol_schema(get_protocol_definition("KernelRequestEnvelope"))
+
+    assert schema["discriminator"]["propertyName"] == "operation"
+    assert set(schema["discriminator"]["mapping"]) == {
+        "hash.canonical_json",
+        "artifact.verify",
+        "ledger.verify",
+        "protocol.validate",
+    }
+    assert len(schema["oneOf"]) == 4
 
 
 def test_check_passes_after_export_and_detects_stale_schema(tmp_path: Path) -> None:
@@ -219,7 +233,7 @@ def test_export_cli_and_check_mode_work(tmp_path: Path) -> None:
     )
 
     assert exported.exit_code == 0, exported.output
-    assert "schemas=422" in exported.output
+    assert "schemas=424" in exported.output
     assert checked.exit_code == 0, checked.output
     assert "check=ok" in checked.output
 
@@ -257,7 +271,7 @@ def test_protocol_export_does_not_touch_run_provenance(tmp_path: Path) -> None:
 
 def test_checked_in_protocol_files_are_current() -> None:
     assert require_protocols_current().up_to_date
-    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 44
+    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 47
 
 
 def test_timestamp_fields_are_exported_with_date_time_format(tmp_path: Path) -> None:

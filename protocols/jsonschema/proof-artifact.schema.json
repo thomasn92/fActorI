@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.79.0/proof-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.81.0/proof-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Local proof artifact intake record.",
@@ -155,7 +155,7 @@
   ],
   "title": "ProofArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.79.0",
+  "x-factori-protocol-version": "0.81.0",
   "x-factori-source-model": "factori.schemas.ProofArtifact",
   "x-factori-verification-evidence": false
 }

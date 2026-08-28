@@ -404,7 +404,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.79.0/idea-tree-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.81.0/idea-tree-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection report for a reconstructed idea tree.",
@@ -528,7 +528,7 @@
   ],
   "title": "IdeaTreeInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.79.0",
+  "x-factori-protocol-version": "0.81.0",
   "x-factori-source-model": "factori.schemas.IdeaTreeInspectionReport",
   "x-factori-verification-evidence": false
 }
