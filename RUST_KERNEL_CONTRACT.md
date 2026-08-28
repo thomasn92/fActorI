@@ -120,6 +120,8 @@ Read-only operations:
   complete persisted ledger link beneath the configured project root;
 - `ledger.verify`: verify schema, hashes, parent links, roots, tips, run ownership, and linearity;
 - `evidence.classify`: classify an artifact as context, presentation, or a capability candidate;
+- `evidence.validate_bundle`: validate one persisted proof or synthetic-experiment bundle and
+  construct a private, request-local capability without returning claim authority;
 - `claim.resolve`: decide whether specified evidence capabilities support one claim and section;
 - `checkpoint.verify`: validate completion artifacts without mutating the run;
 - `replay.verify_core`: run ledger, artifact, dependency, and authority checks read-only.
@@ -384,31 +386,220 @@ literature context, unknown roles, unlinked artifacts, tampered bytes, corrupt l
 cross-run producers. Tests must separately assert that every accepted response has
 `authority_granted=false` and contains no verification label or opaque capability.
 
+### `evidence.validate_bundle` Semantic Freeze
+
+`evidence.validate_bundle` is the next read-only kernel operation. It validates one complete
+persisted Stage C bundle. It may construct an `EvidenceCapability` internally, but the capability
+is private, request-local, and dropped before returning. The response must not contain a
+capability ID, bearer token, verification label, serialized capability, or reusable attestation.
+It always contains literal `authority_granted=false`.
+
+An accepted response means only that the named persisted bundle satisfied the frozen structural,
+integrity, backend, and result rules. It does not authorize a manuscript claim. Future
+`claim.resolve` must receive the persisted bundle locator and repeat bundle validation in the same
+request; it must not accept a prior bundle-validation response as authority.
+
+The operation is new and requires a protocol minor-version bump. Luna owns the exact Pydantic
+model names, but the wire payload must preserve this logical shape:
+
+```text
+run_id
+candidate_id
+claim_id
+producing_commit_hash
+bundle:
+  kind = LeanProof | SyntheticExperiment
+  role-specific artifact IDs
+```
+
+The caller supplies artifact IDs and one producing-commit hash, not `ArtifactRef` objects,
+metadata, paths, hashes, a prior classification, or a `verified=true` assertion. Rust loads the
+commit from the run's read-only SQLite ledger and resolves the complete references itself.
+
+The Lean variant names exactly five distinct members:
+
+```text
+contract_artifact_id
+payload_artifact_id
+trace_artifact_id
+result_artifact_id
+safety_artifact_id
+```
+
+The synthetic variant names exactly six distinct members:
+
+```text
+contract_artifact_id
+input_artifact_id
+trace_artifact_id
+output_artifact_id
+result_artifact_id
+safety_artifact_id
+```
+
+Before parsing scientific payloads, the validator must:
+
+1. validate the request envelope and safe identifier/hash grammar;
+2. open the configured run ledger read-only and verify the complete linear chain;
+3. resolve exactly one same-run producing commit by hash;
+4. require the commit candidate ID to equal the request candidate ID;
+5. require action `StageCProofValidated` for Lean or `StageCSyntheticExperimentRun` for synthetic;
+6. require the commit's artifact-ID set to equal the named bundle member set, with no missing,
+   duplicate, cross-commit, or unlisted members;
+7. repeat full path, byte-hash, metadata, and exact producer-link verification for every member;
+8. require JSON artifacts, reject duplicate JSON keys, and parse each member against its selected
+   closed protocol schema;
+9. reject presentation artifacts and any fake, compatibility-only, retrieval, LLM, reviewer,
+   manuscript, citation, replay, diagnostics, or readiness member.
+
+All bundle members therefore originate in one immutable Stage C commit. A valid-looking result
+cannot be combined with a contract, trace, output, or safety artifact from another attempt.
+
+The contract and result members already have public strict models. Luna must add closed companion
+models for the proof payload, proof trace, proof safety report, experiment input, experiment trace,
+experiment output, and experiment safety report before implementing Rust parsing. These models may
+preserve bounded domain-specific maps where the current wire format requires them, but the
+surrounding object must reject unknown top-level fields. Rust must not deserialize these members
+directly into generic JSON maps.
+
+For every member, metadata equality means equality of the complete persisted metadata map, not
+presence of a trusted subset. The only accepted maps are:
+
+| Bundle members | Exact metadata |
+| --- | --- |
+| Lean contract, payload, safety | `format=json`, `stage=stage_c`, `backend=lean`, `provider=lean`, `is_verification_evidence=false`, `fake=false` |
+| Lean trace, result | the preceding map with `evidence_role=proof` and `is_verification_evidence=true` |
+| Synthetic contract, input, safety | `format=json`, `stage=stage_c`, `backend=local_synthetic`, `provider=local`, `is_verification_evidence=false`, `fake=false` |
+| Synthetic trace, output, result | the preceding map with `evidence_role=synthetic_experiment` and `is_verification_evidence=true` |
+
+No extra metadata key is accepted. In particular, caller-supplied authority flags, alternate roles,
+compatibility markers, or presentation metadata cannot be ignored as harmless decoration.
+
+The accepted result contains only:
+
+```text
+run_id
+candidate_id
+claim_id
+bundle_kind
+producing_commit_hash
+validated_artifact_ids
+bundle_valid = true
+authority_granted = false
+```
+
+`validated_artifact_ids` is emitted in the fixed role order above. Rejected and error responses
+have an empty result and stable diagnostics. Both kernel modes apply the same strict bundle rules:
+fake bundles are rejected with `fake_backend_denied` even in `DevelopmentCompatibility` because
+compatibility classification never constructs a strict capability.
+
+#### Strict Lean bundle
+
 A strict Lean capability requires all of:
 
 - a valid proof contract for the exact candidate and claim;
-- a non-fake supported proof backend;
-- successful checker status and zero exit code;
-- matching candidate and claim IDs;
-- proof payload, stdout, and stderr hashes;
-- no forbidden tokens or external/network dependency;
-- linked raw proof/transcript and safety evidence;
-- same-run artifact and ledger validation.
+- contract language `Lean`, backend `lean`, non-empty tool name, `allow_external_tools=true`,
+  `allow_external_calls=false`, `fake_default=false`, and `is_verification_evidence=false`;
+- a non-empty proof payload with no forbidden token, network marker, absolute external import, or
+  undeclared external dependency;
+- payload-artifact candidate, claim, language, and proof text exactly matching the contract;
+- result candidate and claim IDs matching the request and contract;
+- result backend/provider `lean`, matching language/tool fields, `fake=false`, `verified=true`,
+  `exit_code=0`, `forbidden_tokens_present=false`, and label `LeanVerified`;
+- result trace and safety artifact IDs matching the named bundle members;
+- trace backend/provider/tool/exit fields matching the result, with `fake=false`;
+- SHA-256 of the exact proof text, trace stdout, and trace stderr matching the result hashes;
+- safety candidate and claim IDs matching, `contract_valid=true`, `result_valid=true`, empty
+  reason lists, `fake=false`, and `is_verification_evidence=false`;
+- exact Stage C metadata for the backend/provider and JSON format; trace and result have role
+  `proof`, `is_verification_evidence=true`, and `fake=false`, while contract, payload, and safety
+  remain non-evidence context;
+- commit payload backend/provider, contract ID, result ID, candidate, claim, result fields, and
+  trace/safety links matching the resolved bundle.
+
+The proof checker remains the authority for whether Lean accepted the payload. Rust verifies that
+the persisted record faithfully and safely represents that checker result; Rust does not re-prove
+the theorem or infer that the formal statement matches an informal scientific claim.
+
+Import checking is deliberately conservative. After normalizing line endings, every non-comment
+line whose first token is `import` must contain only bounded Lean module identifiers and every
+listed module must occur exactly in `allowed_imports`. A malformed import command, path separator,
+URL marker, or imported module absent from the allowlist rejects the bundle. This scanner is a
+safety gate, not a Lean parser; uncertainty rejects rather than broadening the accepted language.
+
+#### Strict synthetic bundle
 
 A strict synthetic capability requires all of:
 
 - a valid synthetic experiment contract;
-- `SyntheticOnly` data regime;
-- fixed seed, declared metrics, acceptance criteria, and bounded replications;
-- a non-fake allowed local backend and explicit external-tool gate;
-- zero exit code and passed result;
-- metrics satisfying the declared criteria;
-- matching candidate, claim, and experiment IDs;
-- linked input, output, raw trace, and safety artifacts with valid hashes;
-- no real, public-download, or user-provided data dependency.
+- contract backend `local_synthetic`, non-empty runner name, `SyntheticOnly` data regime, a
+  supported synthetic experiment kind, `allow_external_tools=true`, `allow_external_calls=false`,
+  `fake_default=false`, and `is_verification_evidence=false`;
+- non-empty synthetic-data, metric, and acceptance-criteria specifications; a fixed seed;
+  replications in `[1, 100]`; timeout in `[1, 60]`; and explicit prohibition of public-download,
+  user-provided, real-world, network, and absolute-path inputs;
+- input artifact exactly equal to the deterministic runner-input projection of the contract;
+- result candidate, claim, and experiment IDs matching the request and contract;
+- result backend/provider `local_synthetic`/`local`, matching experiment kind, data regime, and
+  runner fields, `fake=false`, `passed=true`, `exit_code=0`, and label
+  `SyntheticExperimentVerified`;
+- result trace and safety artifact IDs matching the named bundle members;
+- trace backend/provider/runner/exit fields matching the result, with `fake=false`;
+- SHA-256 of canonical input JSON, canonical output JSON, exact trace stdout, and exact trace
+  stderr matching the result hashes;
+- output metrics exactly matching the finite result metrics and every declared acceptance metric
+  satisfying a non-empty numeric `min`, `max`, or scalar-minimum rule;
+- result acceptance criteria exactly matching the contract criteria;
+- safety candidate and claim IDs matching, `contract_valid=true`, `result_valid=true`, empty
+  reason lists, `fake=false`, and `is_verification_evidence=false`;
+- exact Stage C metadata for backend/provider and JSON format; trace, output, and result have role
+  `synthetic_experiment`, `is_verification_evidence=true`, and `fake=false`, while contract, input,
+  and safety remain non-evidence context;
+- commit payload backend/provider, contract ID, result ID, candidate, claim, experiment, result
+  fields, and trace/safety links matching the resolved bundle.
+
+Unknown acceptance-rule keys, empty bound maps, non-finite metrics, Boolean-as-number coercion,
+real/public/user data markers, absolute paths, and network markers are rejected. A successful
+synthetic bundle supports only its declared synthetic experiment and never real-world empirical
+validation.
 
 LLM, reviewer, retrieval, citation, manuscript, LaTeX, PDF, replay, diagnostics, and readiness
 artifacts can never create these capabilities.
+
+#### Failure and test matrix
+
+Stable bundle-specific diagnostics are:
+
+- `bundle_member_missing`
+- `bundle_member_duplicate`
+- `bundle_member_unexpected`
+- `bundle_commit_mismatch`
+- `bundle_candidate_mismatch`
+- `bundle_claim_mismatch`
+- `bundle_contract_invalid`
+- `bundle_backend_denied`
+- `bundle_result_invalid`
+- `bundle_trace_hash_mismatch`
+- `bundle_payload_hash_mismatch`
+- `bundle_output_hash_mismatch`
+- `bundle_safety_invalid`
+- `bundle_metrics_invalid`
+
+Existing artifact, ledger, fake-backend, data-regime, protocol, and authority diagnostics remain
+applicable and should be preferred when they identify the lower-level cause.
+
+Luna's tests must include one valid real Lean bundle and one valid local synthetic bundle produced
+through the existing injected-runner Stage C paths. For every required field or relationship, a
+single-mutation negative fixture must fail closed in both modes. Additional fixtures must cover
+member substitution across candidates, claims, commits, and runs; fake bundles; presentation
+members; malformed and duplicate-key JSON; tampered bytes and SQLite rows; unsafe contracts;
+mismatched raw hashes; invalid safety reports; unmet or malformed metric criteria; non-finite and
+Boolean metric coercions; missing and extra members; and unknown fields.
+
+Compatibility comparison is asymmetric: Rust must never accept a bundle rejected by the existing
+Python safety validators. Rust may reject additional ambiguous bundles in strict validation, but
+each difference requires a named test and Sol review. No expected Python test may be weakened to
+make Rust pass.
 
 ## Claim Authority
 
@@ -470,6 +661,20 @@ Kernel diagnostics need stable codes independent of prose. The initial taxonomy 
 - `claim_scope_denied`
 - `fake_backend_denied`
 - `data_regime_denied`
+- `bundle_member_missing`
+- `bundle_member_duplicate`
+- `bundle_member_unexpected`
+- `bundle_commit_mismatch`
+- `bundle_candidate_mismatch`
+- `bundle_claim_mismatch`
+- `bundle_contract_invalid`
+- `bundle_backend_denied`
+- `bundle_result_invalid`
+- `bundle_trace_hash_mismatch`
+- `bundle_payload_hash_mismatch`
+- `bundle_output_hash_mismatch`
+- `bundle_safety_invalid`
+- `bundle_metrics_invalid`
 - `checkpoint_incomplete`
 - `io_failure`
 - `sqlite_failure`
@@ -535,7 +740,7 @@ Luna must stop and request Sol review if:
 - unsafe Rust, network access, arbitrary subprocess execution, or a new persistence engine is
   proposed.
 
-## Luna Handoff
+## Initial Luna Handoff (Completed)
 
 Sol's initial task ends with this document. The next task belongs to Luna:
 
@@ -547,3 +752,27 @@ Sol's initial task ends with this document. The next task belongs to Luna:
 
 No Rust crate, generated binding, FFI layer, or translated implementation should be attributed to
 this Sol design phase.
+
+## Current Luna Handoff: Strict Evidence Bundles
+
+Sol's strict-bundle design task ends with the semantic freeze above. The next implementation task
+belongs to Luna:
+
+1. inventory the exact persisted proof and synthetic bundle bytes, metadata, commit payloads, and
+   transitive schemas from representative injected-runner Stage C fixtures;
+2. propose the minimal closed Pydantic request/result models for `evidence.validate_bundle`, bump
+   the protocol minor version, add the seven closed companion artifact models named above, export
+   schemas, and add valid/invalid protocol examples;
+3. implement Rust locator resolution and private request-local `EvidenceCapability` constructors
+   without exposing a capability token or changing ledger/persistence semantics;
+4. port the frozen Lean and synthetic checks as small deterministic functions;
+5. add Python/Rust differential, single-mutation, corruption, cross-run, and both-mode tests;
+6. add a read-only Python shadow bridge that checks response identity and literal
+   `authority_granted=false`;
+7. run focused protocol, Rust, parity, Ruff, and then full-suite verification before Sol review.
+
+Luna must stop before implementation if the current Python artifacts cannot satisfy the exact
+single-commit member sets, if a required relationship is absent from persisted bytes, if accepting
+a bundle would require trusting caller metadata or a prior kernel response, or if any valid
+fixture would require weakening a frozen authority rule. `claim.resolve`, mutation authority,
+PyO3, networking, process execution, and changes to Stage C persistence are outside this handoff.
