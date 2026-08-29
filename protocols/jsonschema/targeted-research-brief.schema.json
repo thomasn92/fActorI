@@ -19,7 +19,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.82.0/targeted-research-brief.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/targeted-research-brief.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Generic user-selected research direction for targeted autonomous study.",
@@ -216,7 +216,7 @@
   ],
   "title": "TargetedResearchBrief",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.TargetedResearchBrief",
   "x-factori-verification-evidence": false
 }

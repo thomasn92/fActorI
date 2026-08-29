@@ -688,7 +688,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.82.0/atlas-scan-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/atlas-scan-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only latest atlas build or pair-scan inspection payload.",
@@ -844,7 +844,7 @@
   ],
   "title": "AtlasScanInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.AtlasScanInspectionReport",
   "x-factori-verification-evidence": false
 }

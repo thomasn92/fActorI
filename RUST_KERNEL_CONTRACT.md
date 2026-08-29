@@ -7,7 +7,7 @@ deterministic trust kernel. It freezes the intended trust boundary, authority ru
 requirements, and model handoff. The current Rust implementation remains a read-only compatibility
 kernel and has not received evidence or mutation authority.
 
-Protocol baseline: `0.82.0`.
+Protocol baseline: `0.83.0`.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of

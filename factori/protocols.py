@@ -200,8 +200,17 @@ from factori.schemas import (
     IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    KernelEvidenceValidateBundlePayload,
+    KernelEvidenceValidateBundleResult,
+    KernelProofPayload,
+    KernelProofSafetyReport,
+    KernelProofTrace,
     KernelRequestEnvelope,
     KernelResponseEnvelope,
+    KernelSyntheticExperimentInput,
+    KernelSyntheticExperimentOutput,
+    KernelSyntheticExperimentSafetyReport,
+    KernelSyntheticExperimentTrace,
     LatexCompileCheckReport,
     LatexExportContract,
     LatexExportResult,
@@ -428,7 +437,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.82.0"
+PROTOCOL_VERSION = "0.83.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -509,6 +518,51 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "KernelResponseEnvelope",
         KernelResponseEnvelope,
         "Versioned response envelope for the read-only research kernel boundary.",
+    ),
+    ProtocolDefinition(
+        "KernelEvidenceValidateBundlePayload",
+        KernelEvidenceValidateBundlePayload,
+        "Locator payload for strict persisted Stage C evidence-bundle validation.",
+    ),
+    ProtocolDefinition(
+        "KernelEvidenceValidateBundleResult",
+        KernelEvidenceValidateBundleResult,
+        "Non-authoritative result of strict persisted Stage C evidence-bundle validation.",
+    ),
+    ProtocolDefinition(
+        "KernelProofPayload",
+        KernelProofPayload,
+        "Closed persisted Lean proof payload companion artifact.",
+    ),
+    ProtocolDefinition(
+        "KernelProofTrace",
+        KernelProofTrace,
+        "Closed persisted Lean proof execution trace companion artifact.",
+    ),
+    ProtocolDefinition(
+        "KernelProofSafetyReport",
+        KernelProofSafetyReport,
+        "Closed persisted Lean proof safety companion artifact.",
+    ),
+    ProtocolDefinition(
+        "KernelSyntheticExperimentInput",
+        KernelSyntheticExperimentInput,
+        "Closed persisted synthetic experiment input companion artifact.",
+    ),
+    ProtocolDefinition(
+        "KernelSyntheticExperimentTrace",
+        KernelSyntheticExperimentTrace,
+        "Closed persisted synthetic experiment trace companion artifact.",
+    ),
+    ProtocolDefinition(
+        "KernelSyntheticExperimentOutput",
+        KernelSyntheticExperimentOutput,
+        "Closed persisted synthetic experiment output companion artifact.",
+    ),
+    ProtocolDefinition(
+        "KernelSyntheticExperimentSafetyReport",
+        KernelSyntheticExperimentSafetyReport,
+        "Closed persisted synthetic experiment safety companion artifact.",
     ),
     ProtocolDefinition("ArtifactRecord", ArtifactRef, "Content-hashed artifact reference."),
     ProtocolDefinition("ArtifactManifest", ArtifactManifest, "Derived artifact manifest."),

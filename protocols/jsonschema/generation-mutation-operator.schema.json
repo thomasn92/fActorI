@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/generation-mutation-operator.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/generation-mutation-operator.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Current-winner-conditioned generation mutation operator enum.",
   "enum": [
@@ -11,7 +11,7 @@
   ],
   "title": "GenerationMutationOperator",
   "type": "string",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.GenerationMutationOperator",
   "x-factori-verification-evidence": false
 }

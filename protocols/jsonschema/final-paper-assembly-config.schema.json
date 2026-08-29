@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/final-paper-assembly-config.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/final-paper-assembly-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Local-only configuration for bounded final-paper assembly.",
@@ -35,7 +35,7 @@
   ],
   "title": "FinalPaperAssemblyConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.FinalPaperAssemblyConfig",
   "x-factori-verification-evidence": false
 }

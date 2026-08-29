@@ -1,0 +1,72 @@
+{
+  "$id": "https://schemas.factori.local/0.83.0/kernel-evidence-validate-bundle-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-authoritative result of strict persisted Stage C evidence-bundle validation.",
+  "properties": {
+    "authority_granted": {
+      "const": false,
+      "title": "Authority Granted",
+      "type": "boolean"
+    },
+    "bundle_kind": {
+      "enum": [
+        "LeanProof",
+        "SyntheticExperiment"
+      ],
+      "title": "Bundle Kind",
+      "type": "string"
+    },
+    "bundle_valid": {
+      "const": true,
+      "title": "Bundle Valid",
+      "type": "boolean"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "producing_commit_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Producing Commit Hash",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "validated_artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Validated Artifact Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "run_id",
+    "candidate_id",
+    "claim_id",
+    "bundle_kind",
+    "producing_commit_hash",
+    "validated_artifact_ids",
+    "bundle_valid",
+    "authority_granted"
+  ],
+  "title": "KernelEvidenceValidateBundleResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.83.0",
+  "x-factori-source-model": "factori.schemas.KernelEvidenceValidateBundleResult",
+  "x-factori-verification-evidence": false
+}

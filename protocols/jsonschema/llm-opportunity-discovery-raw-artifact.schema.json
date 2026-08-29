@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/llm-opportunity-discovery-raw-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/llm-opportunity-discovery-raw-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free prompt and raw-response provenance for one discovery call.",
@@ -101,7 +101,7 @@
   ],
   "title": "LLMOpportunityDiscoveryRawArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.LLMOpportunityDiscoveryRawArtifact",
   "x-factori-verification-evidence": false
 }

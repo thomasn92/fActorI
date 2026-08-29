@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.82.0";
+pub const PROTOCOL_VERSION: &str = "0.83.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 
 #[derive(Debug, serde::Deserialize)]
@@ -48,6 +48,230 @@ struct ArtifactVerifyPayload {
 struct EvidenceClassifyPayload {
     run_id: String,
     artifact: WireArtifactRef,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EvidenceValidateBundlePayload {
+    run_id: String,
+    candidate_id: String,
+    claim_id: String,
+    producing_commit_hash: String,
+    bundle: EvidenceBundle,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(tag = "kind")]
+enum EvidenceBundle {
+    #[serde(rename = "LeanProof")]
+    Lean {
+        contract_artifact_id: String,
+        payload_artifact_id: String,
+        trace_artifact_id: String,
+        result_artifact_id: String,
+        safety_artifact_id: String,
+    },
+    #[serde(rename = "SyntheticExperiment")]
+    Synthetic {
+        contract_artifact_id: String,
+        input_artifact_id: String,
+        trace_artifact_id: String,
+        output_artifact_id: String,
+        result_artifact_id: String,
+        safety_artifact_id: String,
+    },
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProofContractWire {
+    candidate_id: String,
+    claim_id: String,
+    claim_text: String,
+    proof_language: String,
+    proof_payload_path: Option<String>,
+    proof_payload_text: Option<String>,
+    proof_payload: Map<String, Value>,
+    allowed_imports: Vec<String>,
+    forbidden_tokens: Vec<String>,
+    timeout_seconds: i64,
+    expected_output_type: String,
+    backend: String,
+    tool_name: Option<String>,
+    allow_external_calls: bool,
+    allow_external_tools: bool,
+    fake_default: bool,
+    is_verification_evidence: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProofPayloadWire {
+    candidate_id: String,
+    claim_id: String,
+    proof_language: String,
+    proof_payload_text: String,
+    is_verification_evidence: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProofTraceWire {
+    backend: String,
+    provider: String,
+    tool_name: String,
+    exit_code: i64,
+    stdout: String,
+    stderr: String,
+    elapsed_ms: i64,
+    tool_version: Option<String>,
+    fake: bool,
+    is_verification_evidence: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProofResultWire {
+    candidate_id: String,
+    claim_id: String,
+    backend: String,
+    provider: String,
+    proof_language: String,
+    tool_name: String,
+    tool_version: Option<String>,
+    exit_code: i64,
+    stdout_hash: String,
+    stderr_hash: String,
+    proof_payload_hash: String,
+    forbidden_tokens_present: bool,
+    verified: bool,
+    label: String,
+    reason: String,
+    elapsed_ms: Option<i64>,
+    raw_trace_artifact_id: Option<String>,
+    safety_report_artifact_id: Option<String>,
+    fake: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProofSafetyWire {
+    candidate_id: String,
+    claim_id: String,
+    contract_valid: bool,
+    contract_reasons: Vec<String>,
+    result_valid: bool,
+    result_reasons: Vec<String>,
+    is_verification_evidence: bool,
+    fake: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyntheticContractWire {
+    candidate_id: String,
+    claim_id: String,
+    experiment_id: String,
+    experiment_kind: String,
+    data_regime: String,
+    synthetic_data_spec: Map<String, Value>,
+    model_spec: Map<String, Value>,
+    algorithm_spec: Map<String, Value>,
+    metrics: Vec<String>,
+    acceptance_criteria: Map<String, Value>,
+    random_seed: i64,
+    replications: i64,
+    timeout_seconds: i64,
+    backend: String,
+    runner_name: Option<String>,
+    forbidden_external_inputs: Vec<String>,
+    expected_output_type: String,
+    allow_external_calls: bool,
+    allow_external_tools: bool,
+    fake_default: bool,
+    is_verification_evidence: bool,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyntheticInputWire {
+    candidate_id: String,
+    claim_id: String,
+    experiment_id: String,
+    experiment_kind: String,
+    data_regime: String,
+    synthetic_data_spec: Map<String, Value>,
+    model_spec: Map<String, Value>,
+    algorithm_spec: Map<String, Value>,
+    metrics: Vec<String>,
+    acceptance_criteria: Map<String, Value>,
+    random_seed: i64,
+    replications: i64,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyntheticTraceWire {
+    backend: String,
+    provider: String,
+    runner_name: String,
+    exit_code: i64,
+    stdout: String,
+    stderr: String,
+    elapsed_ms: i64,
+    runner_version: Option<String>,
+    fake: bool,
+    is_verification_evidence: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyntheticOutputWire {
+    metrics: Map<String, Value>,
+    #[serde(default)]
+    synthetic_only: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyntheticResultWire {
+    candidate_id: String,
+    claim_id: String,
+    experiment_id: String,
+    backend: String,
+    provider: String,
+    experiment_kind: String,
+    data_regime: String,
+    runner_name: String,
+    runner_version: Option<String>,
+    exit_code: i64,
+    stdout_hash: String,
+    stderr_hash: String,
+    input_spec_hash: String,
+    output_payload_hash: String,
+    metrics: Map<String, Value>,
+    acceptance_criteria: Map<String, Value>,
+    passed: bool,
+    label: String,
+    reason: String,
+    elapsed_ms: Option<i64>,
+    raw_trace_artifact_id: Option<String>,
+    safety_report_artifact_id: Option<String>,
+    fake: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SyntheticSafetyWire {
+    candidate_id: String,
+    claim_id: String,
+    contract_valid: bool,
+    contract_reasons: Vec<String>,
+    result_valid: bool,
+    result_reasons: Vec<String>,
+    is_verification_evidence: bool,
+    fake: bool,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -93,6 +317,8 @@ pub enum KernelOperation {
     LedgerVerify,
     #[serde(rename = "evidence.classify")]
     EvidenceClassify,
+    #[serde(rename = "evidence.validate_bundle")]
+    EvidenceValidateBundle,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -387,6 +613,24 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::EvidenceValidateBundle => {
+            match validate_evidence_bundle_payload(&request.payload, project_root) {
+                Ok(result) => accepted_response(
+                    request_id,
+                    KernelOperation::EvidenceValidateBundle,
+                    mode,
+                    result,
+                ),
+                Err((code, message, path)) => rejected_response(
+                    request_id,
+                    KernelOperation::EvidenceValidateBundle,
+                    mode,
+                    code,
+                    message,
+                    path,
+                ),
+            }
+        }
     }
 }
 
@@ -521,6 +765,9 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         KernelOperation::ArtifactVerify => validate_artifact_payload_structure(&request.payload)?,
         KernelOperation::LedgerVerify => validate_ledger_payload_structure(&request.payload)?,
         KernelOperation::EvidenceClassify => validate_artifact_payload_structure(&request.payload)?,
+        KernelOperation::EvidenceValidateBundle => {
+            validate_evidence_bundle_payload_structure(&request.payload)?
+        }
     }
     Ok(())
 }
@@ -550,6 +797,930 @@ fn validate_artifact_payload_structure(payload: &Map<String, Value>) -> Result<(
     serde_json::from_value::<ArtifactVerifyPayload>(Value::Object(payload.clone()))
         .map_err(|error| error.to_string())?;
     Ok(())
+}
+
+fn validate_evidence_bundle_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+    let bundle: EvidenceValidateBundlePayload =
+        serde_json::from_value(Value::Object(payload.clone()))
+            .map_err(|error| error.to_string())?;
+    if !is_sha256_hex(&bundle.producing_commit_hash) {
+        return Err("producing_commit_hash must be a lowercase SHA-256 hex digest".to_owned());
+    }
+    if !is_safe_segment(&bundle.run_id)
+        || !is_safe_segment(&bundle.candidate_id)
+        || !is_safe_segment(&bundle.claim_id)
+    {
+        return Err("bundle identifiers contain unsafe characters".to_owned());
+    }
+    let members = bundle_member_ids(&bundle.bundle);
+    if members.iter().any(|member| !is_safe_segment(member)) {
+        return Err("bundle artifact ids contain unsafe characters".to_owned());
+    }
+    if members.iter().collect::<HashSet<_>>().len() != members.len() {
+        return Err("bundle artifact ids must be distinct".to_owned());
+    }
+    Ok(())
+}
+
+fn bundle_member_ids(bundle: &EvidenceBundle) -> Vec<&str> {
+    match bundle {
+        EvidenceBundle::Lean {
+            contract_artifact_id,
+            payload_artifact_id,
+            trace_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        } => vec![
+            contract_artifact_id,
+            payload_artifact_id,
+            trace_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        ],
+        EvidenceBundle::Synthetic {
+            contract_artifact_id,
+            input_artifact_id,
+            trace_artifact_id,
+            output_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        } => vec![
+            contract_artifact_id,
+            input_artifact_id,
+            trace_artifact_id,
+            output_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        ],
+    }
+}
+
+fn validate_evidence_bundle_payload(
+    payload: &Map<String, Value>,
+    project_root: Option<&Path>,
+) -> Result<Map<String, Value>, (&'static str, String, Option<&'static str>)> {
+    validate_evidence_bundle_payload_structure(payload)
+        .map_err(|message| ("protocol_invalid", message, Some("payload")))?;
+    let request: EvidenceValidateBundlePayload =
+        serde_json::from_value(Value::Object(payload.clone()))
+            .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload")))?;
+    let root = project_root.ok_or((
+        "kernel_root_missing",
+        "evidence bundle validation requires --root <project-root>".to_owned(),
+        None,
+    ))?;
+    let ledger = load_persisted_ledger(root, &request.run_id)?;
+    verify_ledger(&ledger)?;
+    let commit = ledger
+        .commits
+        .iter()
+        .find(|commit| commit.commit_hash == request.producing_commit_hash)
+        .ok_or((
+            "bundle_commit_mismatch",
+            "producing commit is absent from the persisted run ledger".to_owned(),
+            Some("payload.producing_commit_hash"),
+        ))?;
+    let (action, expected_type) = match &request.bundle {
+        EvidenceBundle::Lean { .. } => ("StageCProofValidated", "lean"),
+        EvidenceBundle::Synthetic { .. } => ("StageCSyntheticExperimentRun", "experiment"),
+    };
+    if commit.run_id != request.run_id {
+        return Err((
+            "bundle_commit_mismatch",
+            "producing commit belongs to a different run".to_owned(),
+            Some("payload.producing_commit_hash"),
+        ));
+    }
+    if commit.candidate_id.as_deref() != Some(request.candidate_id.as_str()) {
+        return Err((
+            "bundle_candidate_mismatch",
+            "producing commit candidate does not match the request".to_owned(),
+            Some("payload.candidate_id"),
+        ));
+    }
+    if commit.action_type != action {
+        return Err((
+            "bundle_commit_mismatch",
+            format!("producing commit action must be {action}"),
+            Some("payload.producing_commit_hash"),
+        ));
+    }
+    let member_ids = bundle_member_ids(&request.bundle);
+    let commit_ids: HashSet<&str> = commit
+        .artifact_refs
+        .iter()
+        .filter_map(|value| value.as_object()?.get("id")?.as_str())
+        .collect();
+    let requested_ids: HashSet<&str> = member_ids.iter().copied().collect();
+    if commit_ids != requested_ids {
+        return Err((
+            "bundle_member_unexpected",
+            "producing commit artifact set does not exactly match the bundle".to_owned(),
+            Some("payload.bundle"),
+        ));
+    }
+
+    let mut members = HashMap::new();
+    for member_id in member_ids {
+        let reference = commit
+            .artifact_refs
+            .iter()
+            .find(|value| {
+                value
+                    .as_object()
+                    .and_then(|object| object.get("id"))
+                    .and_then(Value::as_str)
+                    == Some(member_id)
+            })
+            .ok_or((
+                "bundle_member_missing",
+                format!("bundle member is not in producing commit: {member_id}"),
+                Some("payload.bundle"),
+            ))?;
+        let artifact: WireArtifactRef =
+            serde_json::from_value(reference.clone()).map_err(|error| {
+                (
+                    "bundle_member_unexpected",
+                    format!("bundle member reference is invalid: {error}"),
+                    Some("payload.bundle"),
+                )
+            })?;
+        if artifact.artifact_type != expected_type {
+            return Err((
+                "bundle_member_unexpected",
+                format!("bundle member has unexpected artifact type: {member_id}"),
+                Some("payload.bundle"),
+            ));
+        }
+        let content = read_bundle_artifact(root, &request.run_id, commit, &artifact, member_id)?;
+        members.insert(member_id.to_owned(), (artifact, content));
+    }
+
+    match &request.bundle {
+        EvidenceBundle::Lean {
+            contract_artifact_id,
+            payload_artifact_id,
+            trace_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        } => validate_lean_bundle(
+            &request,
+            commit,
+            &members,
+            contract_artifact_id,
+            payload_artifact_id,
+            trace_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        )?,
+        EvidenceBundle::Synthetic {
+            contract_artifact_id,
+            input_artifact_id,
+            trace_artifact_id,
+            output_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        } => validate_synthetic_bundle(
+            &request,
+            commit,
+            &members,
+            contract_artifact_id,
+            input_artifact_id,
+            trace_artifact_id,
+            output_artifact_id,
+            result_artifact_id,
+            safety_artifact_id,
+        )?,
+    }
+    let ids = member_ids_for_result(&request.bundle);
+    Ok(map_value([
+        ("run_id", Value::String(request.run_id)),
+        ("candidate_id", Value::String(request.candidate_id)),
+        ("claim_id", Value::String(request.claim_id)),
+        (
+            "bundle_kind",
+            Value::String(match request.bundle {
+                EvidenceBundle::Lean { .. } => "LeanProof".to_owned(),
+                EvidenceBundle::Synthetic { .. } => "SyntheticExperiment".to_owned(),
+            }),
+        ),
+        (
+            "producing_commit_hash",
+            Value::String(request.producing_commit_hash),
+        ),
+        (
+            "validated_artifact_ids",
+            Value::Array(ids.into_iter().map(Value::String).collect()),
+        ),
+        ("bundle_valid", Value::Bool(true)),
+        ("authority_granted", Value::Bool(false)),
+    ]))
+}
+
+fn member_ids_for_result(bundle: &EvidenceBundle) -> Vec<String> {
+    bundle_member_ids(bundle)
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+fn read_bundle_artifact(
+    root: &Path,
+    run_id: &str,
+    commit: &WireLedgerCommit,
+    artifact: &WireArtifactRef,
+    member_id: &str,
+) -> Result<Value, (&'static str, String, Option<&'static str>)> {
+    if artifact.producing_commit_hash.as_deref() != Some(commit.commit_hash.as_str()) {
+        return Err((
+            "bundle_commit_mismatch",
+            format!("bundle member has an incorrect producer: {member_id}"),
+            Some("payload.bundle"),
+        ));
+    }
+    validate_artifact_location(run_id, artifact)
+        .map_err(|message| ("path_invalid", message, Some("payload.bundle")))?;
+    let path = resolve_run_file(root, run_id, &artifact.path)
+        .map_err(|message| ("path_invalid", message, Some("payload.bundle")))?;
+    let bytes = fs::read(&path).map_err(|error| {
+        (
+            "artifact_missing",
+            format!("bundle member cannot be read: {error}"),
+            Some("payload.bundle"),
+        )
+    })?;
+    let actual_hash = sha256_hex(&bytes);
+    if actual_hash != artifact.content_hash {
+        return Err((
+            "hash_mismatch",
+            format!(
+                "bundle member bytes hash to {actual_hash}, expected {}",
+                artifact.content_hash
+            ),
+            Some("payload.bundle"),
+        ));
+    }
+    let value = parse_json_without_duplicate_keys(std::str::from_utf8(&bytes).map_err(|_| {
+        (
+            "protocol_invalid",
+            "bundle member must contain UTF-8 JSON".to_owned(),
+            Some("payload.bundle"),
+        )
+    })?)
+    .map_err(|error| {
+        (
+            "protocol_invalid",
+            format!("bundle member JSON is invalid: {error}"),
+            Some("payload.bundle"),
+        )
+    })?;
+    if !value.is_object() {
+        return Err((
+            "protocol_invalid",
+            "bundle member JSON must be an object".to_owned(),
+            Some("payload.bundle"),
+        ));
+    }
+    Ok(value)
+}
+
+fn exact_metadata(
+    stage: &str,
+    backend: &str,
+    provider: &str,
+    evidence_role: Option<&str>,
+) -> Map<String, Value> {
+    let mut metadata = map_value([
+        ("format", Value::String("json".to_owned())),
+        ("stage", Value::String(stage.to_owned())),
+        ("backend", Value::String(backend.to_owned())),
+        ("provider", Value::String(provider.to_owned())),
+        (
+            "is_verification_evidence",
+            Value::Bool(evidence_role.is_some()),
+        ),
+        ("fake", Value::Bool(false)),
+    ]);
+    if let Some(role) = evidence_role {
+        metadata.insert("evidence_role".to_owned(), Value::String(role.to_owned()));
+    }
+    metadata
+}
+
+fn require_metadata(
+    artifact: &WireArtifactRef,
+    expected: &Map<String, Value>,
+) -> Result<(), (&'static str, String, Option<&'static str>)> {
+    if artifact.metadata != *expected {
+        return Err((
+            "authority_denied",
+            format!(
+                "bundle member metadata is not an exact Stage C metadata map: {}",
+                artifact.id
+            ),
+            Some("payload.bundle"),
+        ));
+    }
+    Ok(())
+}
+
+fn bundle_member<'a>(
+    members: &'a HashMap<String, (WireArtifactRef, Value)>,
+    id: &str,
+) -> Result<&'a (WireArtifactRef, Value), (&'static str, String, Option<&'static str>)> {
+    members.get(id).ok_or((
+        "bundle_member_missing",
+        format!("bundle member is absent: {id}"),
+        Some("payload.bundle"),
+    ))
+}
+
+fn validate_lean_bundle(
+    request: &EvidenceValidateBundlePayload,
+    commit: &WireLedgerCommit,
+    members: &HashMap<String, (WireArtifactRef, Value)>,
+    contract_id: &str,
+    payload_id: &str,
+    trace_id: &str,
+    result_id: &str,
+    safety_id: &str,
+) -> Result<(), (&'static str, String, Option<&'static str>)> {
+    let (contract_ref, contract_value) = bundle_member(members, contract_id)?;
+    let (payload_ref, payload_value) = bundle_member(members, payload_id)?;
+    let (trace_ref, trace_value) = bundle_member(members, trace_id)?;
+    let (result_ref, result_value) = bundle_member(members, result_id)?;
+    let (safety_ref, safety_value) = bundle_member(members, safety_id)?;
+    let contract: ProofContractWire = parse_closed(contract_value, "payload.contract")?;
+    let proof_payload: ProofPayloadWire = parse_closed(payload_value, "payload.proof_payload")?;
+    let trace: ProofTraceWire = parse_closed(trace_value, "payload.trace")?;
+    let result: ProofResultWire = parse_closed(result_value, "payload.result")?;
+    let safety: ProofSafetyWire = parse_closed(safety_value, "payload.safety")?;
+    require_metadata(
+        contract_ref,
+        &exact_metadata("stage_c", "lean", "lean", None),
+    )?;
+    require_metadata(
+        payload_ref,
+        &exact_metadata("stage_c", "lean", "lean", None),
+    )?;
+    require_metadata(
+        trace_ref,
+        &exact_metadata("stage_c", "lean", "lean", Some("proof")),
+    )?;
+    require_metadata(
+        result_ref,
+        &exact_metadata("stage_c", "lean", "lean", Some("proof")),
+    )?;
+    require_metadata(safety_ref, &exact_metadata("stage_c", "lean", "lean", None))?;
+    if contract.candidate_id != request.candidate_id
+        || contract.claim_id != request.claim_id
+        || contract.backend != "lean"
+        || contract.proof_language.to_lowercase() != "lean"
+        || contract.claim_text.trim().is_empty()
+        || contract
+            .proof_payload_text
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        || contract.proof_payload_path.is_some()
+        || contract.proof_payload.len() != 1
+        || contract.proof_payload.get("text").and_then(Value::as_str)
+            != contract.proof_payload_text.as_deref()
+        || contract
+            .tool_name
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        || contract.expected_output_type != "proof_transcript"
+        || !imports_are_allowed(
+            contract.proof_payload_text.as_deref().unwrap_or_default(),
+            &contract.allowed_imports,
+        )
+        || contract.timeout_seconds < 1
+        || contract.timeout_seconds > 60
+        || !contract.allow_external_tools
+        || contract.allow_external_calls
+        || contract.fake_default
+        || contract.is_verification_evidence
+    {
+        return Err((
+            "bundle_contract_invalid",
+            "Lean contract violates strict bundle requirements".to_owned(),
+            Some("payload.contract"),
+        ));
+    }
+    let contract_text = contract.proof_payload_text.as_deref().unwrap_or_default();
+    if proof_payload.candidate_id != contract.candidate_id
+        || proof_payload.claim_id != contract.claim_id
+        || proof_payload.proof_language != contract.proof_language
+        || proof_payload.proof_payload_text != contract_text
+        || proof_payload.is_verification_evidence
+        || contract.forbidden_tokens.iter().any(|token| {
+            let lower = format!("{}\n{}", contract.claim_text, contract_text).to_lowercase();
+            lower.contains(&token.to_lowercase())
+        })
+        || contains_network_marker(contract_text)
+    {
+        return Err((
+            "bundle_payload_hash_mismatch",
+            "Lean payload does not exactly match its contract or safety rules".to_owned(),
+            Some("payload.proof_payload"),
+        ));
+    }
+    if result.candidate_id != request.candidate_id
+        || result.claim_id != request.claim_id
+        || result.backend != "lean"
+        || result.provider != "lean"
+        || result.proof_language != contract.proof_language
+        || result.tool_name != contract.tool_name.clone().unwrap_or_default()
+        || result.exit_code != 0
+        || !result.verified
+        || result.reason.trim().is_empty()
+        || result.forbidden_tokens_present
+        || result.label != "LeanVerified"
+        || result.fake
+        || result.raw_trace_artifact_id.as_deref() != Some(trace_id)
+        || result.safety_report_artifact_id.as_deref() != Some(safety_id)
+        || !is_sha256_hex(&result.stdout_hash)
+        || !is_sha256_hex(&result.stderr_hash)
+        || !is_sha256_hex(&result.proof_payload_hash)
+    {
+        return Err((
+            "bundle_result_invalid",
+            "Lean result does not satisfy strict verification requirements".to_owned(),
+            Some("payload.result"),
+        ));
+    }
+    if sha256_hex(contract_text.as_bytes()) != result.proof_payload_hash
+        || trace.backend != result.backend
+        || trace.provider != result.provider
+        || trace.tool_name != result.tool_name
+        || trace.tool_version != result.tool_version
+        || trace.exit_code != result.exit_code
+        || result.elapsed_ms != Some(trace.elapsed_ms)
+        || trace.fake
+        || trace.is_verification_evidence
+        || sha256_hex(trace.stdout.as_bytes()) != result.stdout_hash
+        || sha256_hex(trace.stderr.as_bytes()) != result.stderr_hash
+    {
+        return Err((
+            "bundle_trace_hash_mismatch",
+            "Lean trace does not match the persisted result hashes".to_owned(),
+            Some("payload.trace"),
+        ));
+    }
+    if safety.candidate_id != request.candidate_id
+        || safety.claim_id != request.claim_id
+        || !safety.contract_valid
+        || !safety.result_valid
+        || !safety.contract_reasons.is_empty()
+        || !safety.result_reasons.is_empty()
+        || safety.is_verification_evidence
+        || safety.fake
+    {
+        return Err((
+            "bundle_safety_invalid",
+            "Lean safety report is not a clean validation record".to_owned(),
+            Some("payload.safety"),
+        ));
+    }
+    require_commit_payload(
+        commit,
+        result_value.as_object().expect("closed object schema"),
+        &[
+            ("proof_backend", "backend"),
+            ("proof_provider", "provider"),
+            ("proof_contract_id", "contract_artifact_id"),
+            ("proof_result_id", "result_artifact_id"),
+        ],
+        contract_id,
+        result_id,
+    )?;
+    Ok(())
+}
+
+fn validate_synthetic_bundle(
+    request: &EvidenceValidateBundlePayload,
+    commit: &WireLedgerCommit,
+    members: &HashMap<String, (WireArtifactRef, Value)>,
+    contract_id: &str,
+    input_id: &str,
+    trace_id: &str,
+    output_id: &str,
+    result_id: &str,
+    safety_id: &str,
+) -> Result<(), (&'static str, String, Option<&'static str>)> {
+    let (contract_ref, contract_value) = bundle_member(members, contract_id)?;
+    let (input_ref, input_value) = bundle_member(members, input_id)?;
+    let (trace_ref, trace_value) = bundle_member(members, trace_id)?;
+    let (output_ref, output_value) = bundle_member(members, output_id)?;
+    let (result_ref, result_value) = bundle_member(members, result_id)?;
+    let (safety_ref, safety_value) = bundle_member(members, safety_id)?;
+    let contract: SyntheticContractWire = parse_closed(contract_value, "payload.contract")?;
+    let input: SyntheticInputWire = parse_closed(input_value, "payload.input")?;
+    let trace: SyntheticTraceWire = parse_closed(trace_value, "payload.trace")?;
+    let output: SyntheticOutputWire = parse_closed(output_value, "payload.output")?;
+    let result: SyntheticResultWire = parse_closed(result_value, "payload.result")?;
+    let safety: SyntheticSafetyWire = parse_closed(safety_value, "payload.safety")?;
+    require_metadata(
+        contract_ref,
+        &exact_metadata("stage_c", "local_synthetic", "local", None),
+    )?;
+    require_metadata(
+        input_ref,
+        &exact_metadata("stage_c", "local_synthetic", "local", None),
+    )?;
+    require_metadata(
+        trace_ref,
+        &exact_metadata(
+            "stage_c",
+            "local_synthetic",
+            "local",
+            Some("synthetic_experiment"),
+        ),
+    )?;
+    require_metadata(
+        output_ref,
+        &exact_metadata(
+            "stage_c",
+            "local_synthetic",
+            "local",
+            Some("synthetic_experiment"),
+        ),
+    )?;
+    require_metadata(
+        result_ref,
+        &exact_metadata(
+            "stage_c",
+            "local_synthetic",
+            "local",
+            Some("synthetic_experiment"),
+        ),
+    )?;
+    require_metadata(
+        safety_ref,
+        &exact_metadata("stage_c", "local_synthetic", "local", None),
+    )?;
+    if contract.candidate_id != request.candidate_id
+        || contract.claim_id != request.claim_id
+        || contract.experiment_id.trim().is_empty()
+        || contract.backend != "local_synthetic"
+        || contract.data_regime != "SyntheticOnly"
+        || contract.experiment_kind.trim().is_empty()
+        || contract.synthetic_data_spec.is_empty()
+        || contract.metrics.is_empty()
+        || contract.acceptance_criteria.is_empty()
+        || !(1..=100).contains(&contract.replications)
+        || !(1..=60).contains(&contract.timeout_seconds)
+        || contract
+            .runner_name
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+        || !contract.allow_external_tools
+        || contract.allow_external_calls
+        || contract.fake_default
+        || contract.is_verification_evidence
+        || contract.expected_output_type != "synthetic_experiment_result"
+        || !contains_required_forbidden_inputs(&contract.forbidden_external_inputs)
+        || contains_network_or_absolute_marker(&contract.synthetic_data_spec)
+        || contains_network_or_absolute_marker(&contract.model_spec)
+        || contains_network_or_absolute_marker(&contract.algorithm_spec)
+    {
+        return Err((
+            "bundle_contract_invalid",
+            "synthetic contract violates strict bundle requirements".to_owned(),
+            Some("payload.contract"),
+        ));
+    }
+    let expected_input = synthetic_input_projection(&contract);
+    if serde_json::to_value(&input)
+        .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload.input")))?
+        != expected_input
+        || sha256_canonical(&expected_input)? != result.input_spec_hash
+    {
+        return Err((
+            "bundle_payload_hash_mismatch",
+            "synthetic input does not match its contract or result hash".to_owned(),
+            Some("payload.input"),
+        ));
+    }
+    if output.metrics != result.metrics
+        || output.synthetic_only == Some(false)
+        || contract
+            .acceptance_criteria
+            .keys()
+            .any(|metric| !contract.metrics.iter().any(|declared| declared == metric))
+        || result
+            .metrics
+            .keys()
+            .any(|metric| !contract.metrics.iter().any(|declared| declared == metric))
+        || output.metrics.values().any(|value| {
+            value.as_f64().is_none() || !value.as_f64().unwrap_or_default().is_finite()
+        })
+        || result.metrics.is_empty()
+        || !acceptance_satisfied(&result.metrics, &contract.acceptance_criteria)
+        || result.acceptance_criteria != contract.acceptance_criteria
+    {
+        return Err((
+            "bundle_metrics_invalid",
+            "synthetic metrics or acceptance criteria are invalid".to_owned(),
+            Some("payload.result.metrics"),
+        ));
+    }
+    if result.candidate_id != request.candidate_id
+        || result.claim_id != request.claim_id
+        || result.experiment_id != contract.experiment_id
+        || result.backend != "local_synthetic"
+        || result.provider != "local"
+        || result.experiment_kind != contract.experiment_kind
+        || result.data_regime != "SyntheticOnly"
+        || result.runner_name != contract.runner_name.clone().unwrap_or_default()
+        || result.exit_code != 0
+        || !result.passed
+        || result.reason.trim().is_empty()
+        || result.label != "SyntheticExperimentVerified"
+        || result.fake
+        || result.raw_trace_artifact_id.as_deref() != Some(trace_id)
+        || result.safety_report_artifact_id.as_deref() != Some(safety_id)
+        || !is_sha256_hex(&result.stdout_hash)
+        || !is_sha256_hex(&result.stderr_hash)
+        || !is_sha256_hex(&result.input_spec_hash)
+        || !is_sha256_hex(&result.output_payload_hash)
+    {
+        return Err((
+            "bundle_result_invalid",
+            "synthetic result does not satisfy strict verification requirements".to_owned(),
+            Some("payload.result"),
+        ));
+    }
+    if sha256_canonical(output_value)? != result.output_payload_hash
+        || trace.backend != result.backend
+        || trace.provider != result.provider
+        || trace.runner_name != result.runner_name
+        || trace.runner_version != result.runner_version
+        || trace.exit_code != result.exit_code
+        || result.elapsed_ms != Some(trace.elapsed_ms)
+        || trace.fake
+        || trace.is_verification_evidence
+        || sha256_hex(trace.stdout.as_bytes()) != result.stdout_hash
+        || sha256_hex(trace.stderr.as_bytes()) != result.stderr_hash
+    {
+        return Err((
+            "bundle_trace_hash_mismatch",
+            "synthetic trace does not match the persisted result hashes".to_owned(),
+            Some("payload.trace"),
+        ));
+    }
+    if safety.candidate_id != request.candidate_id
+        || safety.claim_id != request.claim_id
+        || !safety.contract_valid
+        || !safety.result_valid
+        || !safety.contract_reasons.is_empty()
+        || !safety.result_reasons.is_empty()
+        || safety.is_verification_evidence
+        || safety.fake
+    {
+        return Err((
+            "bundle_safety_invalid",
+            "synthetic safety report is not a clean validation record".to_owned(),
+            Some("payload.safety"),
+        ));
+    }
+    require_commit_payload(
+        commit,
+        result_value.as_object().expect("closed object schema"),
+        &[
+            ("experiment_backend", "backend"),
+            ("experiment_provider", "provider"),
+            ("experiment_contract_id", "contract_artifact_id"),
+            ("experiment_result_id", "result_artifact_id"),
+        ],
+        contract_id,
+        result_id,
+    )?;
+    Ok(())
+}
+
+fn require_commit_payload(
+    commit: &WireLedgerCommit,
+    result: &Map<String, Value>,
+    aliases: &[(&str, &str)],
+    contract_id: &str,
+    result_id: &str,
+) -> Result<(), (&'static str, String, Option<&'static str>)> {
+    if aliases.len() != 4 {
+        return Err((
+            "internal_error",
+            "kernel commit-payload alias configuration is invalid".to_owned(),
+            None,
+        ));
+    }
+    let expected_keys = result.len() + aliases.len();
+    if commit.payload.len() != expected_keys {
+        return Err((
+            "bundle_commit_mismatch",
+            "producing commit payload has unexpected fields".to_owned(),
+            Some("payload.producing_commit_hash"),
+        ));
+    }
+    for (key, value) in result {
+        if commit.payload.get(key) != Some(value) {
+            return Err((
+                "bundle_commit_mismatch",
+                format!("producing commit result field does not match: {key}"),
+                Some("payload.producing_commit_hash"),
+            ));
+        }
+    }
+    let expected_aliases = [
+        (
+            aliases[0].0,
+            result.get(aliases[0].1).cloned().unwrap_or(Value::Null),
+        ),
+        (
+            aliases[1].0,
+            result.get(aliases[1].1).cloned().unwrap_or(Value::Null),
+        ),
+        (aliases[2].0, Value::String(contract_id.to_owned())),
+        (aliases[3].0, Value::String(result_id.to_owned())),
+    ];
+    for (key, value) in expected_aliases {
+        if commit.payload.get(key) != Some(&value) {
+            return Err((
+                "bundle_commit_mismatch",
+                format!("producing commit link does not match: {key}"),
+                Some("payload.producing_commit_hash"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn imports_are_allowed(payload: &str, allowed_imports: &[String]) -> bool {
+    let allowed: HashSet<&str> = allowed_imports.iter().map(String::as_str).collect();
+    payload.lines().all(|line| {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            return true;
+        }
+        let mut tokens = trimmed.split_whitespace();
+        if tokens.next() != Some("import") {
+            return true;
+        }
+        let modules: Vec<&str> = tokens.collect();
+        !modules.is_empty()
+            && modules.iter().all(|module| {
+                module
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'.')
+                    && allowed.contains(module)
+            })
+    })
+}
+
+fn parse_closed<T: serde::de::DeserializeOwned>(
+    value: &Value,
+    path: &'static str,
+) -> Result<T, (&'static str, String, Option<&'static str>)> {
+    serde_json::from_value(value.clone()).map_err(|error| {
+        (
+            "protocol_invalid",
+            format!("closed bundle schema rejected member: {error}"),
+            Some(path),
+        )
+    })
+}
+
+fn sha256_canonical(value: &Value) -> Result<String, (&'static str, String, Option<&'static str>)> {
+    let canonical = canonical_json(value).map_err(|error| {
+        (
+            "protocol_invalid",
+            error.to_string(),
+            Some("payload.bundle"),
+        )
+    })?;
+    Ok(sha256_hex(canonical.as_bytes()))
+}
+
+fn contains_network_marker(value: &str) -> bool {
+    let lowered = value.to_lowercase();
+    ["http://", "https://", "ftp://", "curl ", "wget "]
+        .iter()
+        .any(|marker| lowered.contains(marker))
+}
+
+fn contains_network_or_absolute_marker(value: &Map<String, Value>) -> bool {
+    fn visit(value: &Value) -> bool {
+        match value {
+            Value::String(text) => {
+                let trimmed = text.trim();
+                contains_network_marker(text)
+                    || trimmed.starts_with('/')
+                    || trimmed.starts_with('\\')
+                    || trimmed.starts_with("~/")
+                    || trimmed.contains("file:///")
+            }
+            Value::Array(items) => items.iter().any(visit),
+            Value::Object(object) => object.values().any(visit),
+            Value::Null | Value::Bool(_) | Value::Number(_) => false,
+        }
+    }
+
+    visit(&Value::Object(value.clone()))
+}
+
+fn contains_required_forbidden_inputs(inputs: &[String]) -> bool {
+    ["PublicDownload", "UserProvided", "RealWorldData"]
+        .iter()
+        .all(|required| inputs.iter().any(|input| input == required))
+}
+
+fn synthetic_input_projection(contract: &SyntheticContractWire) -> Value {
+    map_value([
+        ("candidate_id", Value::String(contract.candidate_id.clone())),
+        ("claim_id", Value::String(contract.claim_id.clone())),
+        (
+            "experiment_id",
+            Value::String(contract.experiment_id.clone()),
+        ),
+        (
+            "experiment_kind",
+            Value::String(contract.experiment_kind.clone()),
+        ),
+        ("data_regime", Value::String(contract.data_regime.clone())),
+        (
+            "synthetic_data_spec",
+            Value::Object(contract.synthetic_data_spec.clone()),
+        ),
+        ("model_spec", Value::Object(contract.model_spec.clone())),
+        (
+            "algorithm_spec",
+            Value::Object(contract.algorithm_spec.clone()),
+        ),
+        (
+            "metrics",
+            Value::Array(
+                contract
+                    .metrics
+                    .iter()
+                    .cloned()
+                    .map(Value::String)
+                    .collect(),
+            ),
+        ),
+        (
+            "acceptance_criteria",
+            Value::Object(contract.acceptance_criteria.clone()),
+        ),
+        ("random_seed", Value::Number(contract.random_seed.into())),
+        ("replications", Value::Number(contract.replications.into())),
+    ])
+    .into()
+}
+
+fn acceptance_satisfied(metrics: &Map<String, Value>, criteria: &Map<String, Value>) -> bool {
+    if criteria.is_empty() {
+        return false;
+    }
+    criteria.iter().all(|(name, rule)| {
+        let Some(value) = metrics.get(name).and_then(Value::as_f64) else {
+            return false;
+        };
+        if !value.is_finite() {
+            return false;
+        }
+        match rule {
+            Value::Object(rule) => {
+                if rule.len() == 0 || rule.keys().any(|key| key != "min" && key != "max") {
+                    return false;
+                }
+                let Some(bound) = rule.get("min").or_else(|| rule.get("max")) else {
+                    return false;
+                };
+                let Some(bound) = bound.as_f64() else {
+                    return false;
+                };
+                if !bound.is_finite() {
+                    return false;
+                }
+                rule.get("min")
+                    .and_then(Value::as_f64)
+                    .is_none_or(|min| value >= min)
+                    && rule
+                        .get("max")
+                        .and_then(Value::as_f64)
+                        .is_none_or(|max| value <= max)
+            }
+            Value::Number(number) => number
+                .as_f64()
+                .is_some_and(|minimum| minimum.is_finite() && value >= minimum),
+            _ => false,
+        }
+    })
 }
 
 fn validate_ledger_payload_shape(payload: &Map<String, Value>) -> Result<(), String> {
@@ -1948,6 +3119,69 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             Ok(())
         }
+        KernelOperation::EvidenceValidateBundle => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "run_id",
+                    "candidate_id",
+                    "claim_id",
+                    "bundle_kind",
+                    "producing_commit_hash",
+                    "validated_artifact_ids",
+                    "bundle_valid",
+                    "authority_granted",
+                ],
+            )?;
+            for field in ["run_id", "candidate_id", "claim_id", "bundle_kind"] {
+                if response
+                    .result
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+                {
+                    return Err(format!("bundle result {field} must be a non-empty string"));
+                }
+            }
+            if !matches!(
+                response.result.get("bundle_kind").and_then(Value::as_str),
+                Some("LeanProof" | "SyntheticExperiment")
+            ) {
+                return Err("bundle_kind is not supported".to_owned());
+            }
+            require_sha256_field(&response.result, "producing_commit_hash")?;
+            if response.result.get("bundle_valid") != Some(&Value::Bool(true))
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("bundle validation result has invalid authority flags".to_owned());
+            }
+            let ids = response
+                .result
+                .get("validated_artifact_ids")
+                .and_then(Value::as_array)
+                .ok_or_else(|| "validated_artifact_ids must be an array".to_owned())?;
+            let expected_count = if response.result.get("bundle_kind").and_then(Value::as_str)
+                == Some("LeanProof")
+            {
+                5
+            } else {
+                6
+            };
+            if ids.len() != expected_count
+                || ids
+                    .iter()
+                    .any(|id| id.as_str().is_none_or(|value| !is_safe_segment(value)))
+                || ids
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<HashSet<_>>()
+                    .len()
+                    != expected_count
+            {
+                return Err("validated_artifact_ids are invalid".to_owned());
+            }
+            Ok(())
+        }
     }
 }
 
@@ -2075,6 +3309,13 @@ impl<'de> Visitor<'de> for JsonValueVisitor {
         Ok(Value::Null)
     }
 
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(self)
+    }
+
     fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
@@ -2092,6 +3333,23 @@ impl<'de> Visitor<'de> for JsonValueVisitor {
     {
         let mut values = Map::new();
         while let Some(key) = access.next_key::<String>()? {
+            if key == "$serde_json::private::Number" {
+                if !values.is_empty() {
+                    return Err(de::Error::custom(
+                        "arbitrary-precision number wrapper must be a single map entry",
+                    ));
+                }
+                let raw = access.next_value::<String>()?;
+                let number = raw.parse::<serde_json::Number>().map_err(|error| {
+                    de::Error::custom(format!("invalid arbitrary-precision number: {error}"))
+                })?;
+                if access.next_key::<String>()?.is_some() {
+                    return Err(de::Error::custom(
+                        "arbitrary-precision number wrapper has extra fields",
+                    ));
+                }
+                return Ok(Value::Number(number));
+            }
             if values.contains_key(&key) {
                 return Err(de::Error::custom(format!("duplicate object key: {key}")));
             }
@@ -2244,7 +3502,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.82.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.83.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -2270,7 +3528,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.82.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.82.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.83.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.83.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -2289,7 +3547,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.82.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.83.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));

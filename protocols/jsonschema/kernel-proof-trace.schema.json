@@ -1,0 +1,76 @@
+{
+  "$id": "https://schemas.factori.local/0.83.0/kernel-proof-trace.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed persisted Lean proof execution trace companion artifact.",
+  "properties": {
+    "backend": {
+      "minLength": 1,
+      "title": "Backend",
+      "type": "string"
+    },
+    "elapsed_ms": {
+      "minimum": 0,
+      "title": "Elapsed Ms",
+      "type": "integer"
+    },
+    "exit_code": {
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "fake": {
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "provider": {
+      "minLength": 1,
+      "title": "Provider",
+      "type": "string"
+    },
+    "stderr": {
+      "title": "Stderr",
+      "type": "string"
+    },
+    "stdout": {
+      "title": "Stdout",
+      "type": "string"
+    },
+    "tool_name": {
+      "minLength": 1,
+      "title": "Tool Name",
+      "type": "string"
+    },
+    "tool_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Version"
+    }
+  },
+  "required": [
+    "backend",
+    "provider",
+    "tool_name",
+    "exit_code",
+    "stdout",
+    "stderr",
+    "elapsed_ms",
+    "fake",
+    "is_verification_evidence"
+  ],
+  "title": "KernelProofTrace",
+  "type": "object",
+  "x-factori-protocol-version": "0.83.0",
+  "x-factori-source-model": "factori.schemas.KernelProofTrace",
+  "x-factori-verification-evidence": false
+}

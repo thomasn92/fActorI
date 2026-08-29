@@ -55,12 +55,14 @@ from factori.schemas import (
     FullPaperReleaseReport,
     FullPaperReleaseStatus,
     GeneratedSectionDraft,
+    KernelEvidenceValidateBundlePayload,
     KernelLedgerVerifyRequest,
     KernelMode,
     KernelOperation,
     KernelRequestEnvelope,
     KernelResponseEnvelope,
     KernelResponseStatus,
+    KernelSyntheticEvidenceBundle,
     LatexCompileCheckReport,
     LatexExportContract,
     LatexExportResult,
@@ -199,6 +201,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "kernel-request-envelope.example.json": "KernelRequestEnvelope",
     "kernel-ledger-request-envelope.example.json": "KernelRequestEnvelope",
     "kernel-response-envelope.example.json": "KernelResponseEnvelope",
+    "kernel-evidence-validate-bundle-payload.example.json": "KernelEvidenceValidateBundlePayload",
 }
 
 
@@ -1315,6 +1318,21 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         mode=KernelMode.DEVELOPMENT_COMPATIBILITY,
         payload={"run_id": "run-example", "commits": []},
     )
+    kernel_evidence_validate_bundle_payload = KernelEvidenceValidateBundlePayload(
+        run_id="run-example",
+        candidate_id="candidate-example",
+        claim_id="claim-example",
+        producing_commit_hash=_HASH,
+        bundle=KernelSyntheticEvidenceBundle(
+            kind="SyntheticExperiment",
+            contract_artifact_id="experiment-contract-example",
+            input_artifact_id="experiment-input-example",
+            trace_artifact_id="experiment-trace-example",
+            output_artifact_id="experiment-output-example",
+            result_artifact_id="experiment-result-example",
+            safety_artifact_id="experiment-safety-example",
+        ),
+    )
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
@@ -1386,6 +1404,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "kernel-response-envelope.example.json": kernel_response.model_dump(mode="json"),
         "kernel-ledger-request-envelope.example.json": kernel_ledger_request.model_dump(
             mode="json"
+        ),
+        "kernel-evidence-validate-bundle-payload.example.json": (
+            kernel_evidence_validate_bundle_payload.model_dump(mode="json")
         ),
     }
 

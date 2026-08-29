@@ -287,7 +287,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.82.0/final-paper-verification-report.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/final-paper-verification-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only local final-paper verification report.",
@@ -489,7 +489,7 @@
   ],
   "title": "FinalPaperVerificationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.FinalPaperVerificationReport",
   "x-factori-verification-evidence": false
 }

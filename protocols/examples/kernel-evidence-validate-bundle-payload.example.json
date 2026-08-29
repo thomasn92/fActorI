@@ -1,0 +1,15 @@
+{
+  "bundle": {
+    "contract_artifact_id": "experiment-contract-example",
+    "input_artifact_id": "experiment-input-example",
+    "kind": "SyntheticExperiment",
+    "output_artifact_id": "experiment-output-example",
+    "result_artifact_id": "experiment-result-example",
+    "safety_artifact_id": "experiment-safety-example",
+    "trace_artifact_id": "experiment-trace-example"
+  },
+  "candidate_id": "candidate-example",
+  "claim_id": "claim-example",
+  "producing_commit_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "run_id": "run-example"
+}

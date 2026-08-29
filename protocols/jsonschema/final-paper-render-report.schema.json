@@ -236,7 +236,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.82.0/final-paper-render-report.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/final-paper-render-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only local PDF rendering report for one verified final paper.",
@@ -388,7 +388,7 @@
   ],
   "title": "FinalPaperRenderReport",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.FinalPaperRenderReport",
   "x-factori-verification-evidence": false
 }

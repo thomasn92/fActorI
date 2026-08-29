@@ -1,0 +1,172 @@
+{
+  "$defs": {
+    "KernelLeanEvidenceBundle": {
+      "additionalProperties": false,
+      "description": "Exact persisted artifact members of one real Lean Stage C bundle.",
+      "properties": {
+        "contract_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Contract Artifact Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "LeanProof",
+          "title": "Kind",
+          "type": "string"
+        },
+        "payload_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Payload Artifact Id",
+          "type": "string"
+        },
+        "result_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Result Artifact Id",
+          "type": "string"
+        },
+        "safety_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Safety Artifact Id",
+          "type": "string"
+        },
+        "trace_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Trace Artifact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "contract_artifact_id",
+        "payload_artifact_id",
+        "trace_artifact_id",
+        "result_artifact_id",
+        "safety_artifact_id"
+      ],
+      "title": "KernelLeanEvidenceBundle",
+      "type": "object"
+    },
+    "KernelSyntheticEvidenceBundle": {
+      "additionalProperties": false,
+      "description": "Exact persisted artifact members of one local synthetic Stage C bundle.",
+      "properties": {
+        "contract_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Contract Artifact Id",
+          "type": "string"
+        },
+        "input_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Input Artifact Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "SyntheticExperiment",
+          "title": "Kind",
+          "type": "string"
+        },
+        "output_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Output Artifact Id",
+          "type": "string"
+        },
+        "result_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Result Artifact Id",
+          "type": "string"
+        },
+        "safety_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Safety Artifact Id",
+          "type": "string"
+        },
+        "trace_artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Trace Artifact Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "contract_artifact_id",
+        "input_artifact_id",
+        "trace_artifact_id",
+        "output_artifact_id",
+        "result_artifact_id",
+        "safety_artifact_id"
+      ],
+      "title": "KernelSyntheticEvidenceBundle",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.83.0/kernel-evidence-validate-bundle-payload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Locator payload for strict persisted Stage C evidence-bundle validation.",
+  "properties": {
+    "bundle": {
+      "discriminator": {
+        "mapping": {
+          "LeanProof": "#/$defs/KernelLeanEvidenceBundle",
+          "SyntheticExperiment": "#/$defs/KernelSyntheticEvidenceBundle"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/KernelLeanEvidenceBundle"
+        },
+        {
+          "$ref": "#/$defs/KernelSyntheticEvidenceBundle"
+        }
+      ],
+      "title": "Bundle"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "producing_commit_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Producing Commit Hash",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "candidate_id",
+    "claim_id",
+    "producing_commit_hash",
+    "bundle"
+  ],
+  "title": "KernelEvidenceValidateBundlePayload",
+  "type": "object",
+  "x-factori-protocol-version": "0.83.0",
+  "x-factori-source-model": "factori.schemas.KernelEvidenceValidateBundlePayload",
+  "x-factori-verification-evidence": false
+}

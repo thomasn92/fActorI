@@ -1,0 +1,44 @@
+{
+  "$id": "https://schemas.factori.local/0.83.0/kernel-proof-payload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed persisted Lean proof payload companion artifact.",
+  "properties": {
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "is_verification_evidence": {
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "proof_language": {
+      "minLength": 1,
+      "title": "Proof Language",
+      "type": "string"
+    },
+    "proof_payload_text": {
+      "minLength": 1,
+      "title": "Proof Payload Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "claim_id",
+    "proof_language",
+    "proof_payload_text",
+    "is_verification_evidence"
+  ],
+  "title": "KernelProofPayload",
+  "type": "object",
+  "x-factori-protocol-version": "0.83.0",
+  "x-factori-source-model": "factori.schemas.KernelProofPayload",
+  "x-factori-verification-evidence": false
+}

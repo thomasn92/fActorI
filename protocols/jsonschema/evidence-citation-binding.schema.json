@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/evidence-citation-binding.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/evidence-citation-binding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Deterministic manuscript location binding to an artifact or retrieval source.",
@@ -70,7 +70,7 @@
   ],
   "title": "EvidenceCitationBinding",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.EvidenceCitationBinding",
   "x-factori-verification-evidence": false
 }

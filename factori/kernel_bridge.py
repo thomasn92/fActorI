@@ -16,8 +16,11 @@ from factori.schemas import (
     ArtifactRef,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
+    KernelEvidenceBundle,
     KernelEvidenceClassifyRequest,
     KernelEvidenceClassifyResult,
+    KernelEvidenceValidateBundleRequest,
+    KernelEvidenceValidateBundleResult,
     KernelLedgerVerifyRequest,
     KernelLedgerVerifyResult,
     KernelMode,
@@ -230,6 +233,71 @@ def classify_persisted_artifact(
     return response
 
 
+def validate_persisted_evidence_bundle(
+    run_id: str,
+    *,
+    candidate_id: str,
+    claim_id: str,
+    producing_commit_hash: str,
+    bundle: KernelEvidenceBundle,
+    mode: KernelMode = KernelMode.STRICT_PRODUCTION,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Validate one persisted Stage C bundle through the non-authoritative Rust shadow.
+
+    The bridge sends only locator fields. Rust resolves artifact references and payload bytes from
+    the read-only ledger; the returned result is an integrity decision, never a reusable authority
+    token or a claim-label upgrade.
+    """
+    root_path = Path(root)
+    if not _SAFE_RUN_ID.fullmatch(run_id):
+        raise KernelBridgeError("unsafe run id")
+    if not _SAFE_ARTIFACT_SEGMENT.fullmatch(candidate_id) or not _SAFE_ARTIFACT_SEGMENT.fullmatch(
+        claim_id
+    ):
+        raise KernelBridgeError("unsafe candidate or claim id")
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelEvidenceValidateBundleRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"evidence-validate-bundle-{run_id}-{candidate_id}",
+        operation="evidence.validate_bundle",
+        mode=mode,
+        payload={
+            "run_id": run_id,
+            "candidate_id": candidate_id,
+            "claim_id": claim_id,
+            "producing_commit_hash": producing_commit_hash,
+            "bundle": bundle,
+        },
+    )
+    response = _invoke_kernel(
+        request,
+        binary=binary,
+        root=root_path.resolve(),
+        timeout_seconds=timeout_seconds,
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelEvidenceValidateBundleResult):
+            raise KernelBridgeError("bundle validation response has the wrong result type")
+        if (
+            result.run_id != run_id
+            or result.candidate_id != candidate_id
+            or result.claim_id != claim_id
+            or result.producing_commit_hash != producing_commit_hash
+            or result.authority_granted is not False
+            or result.bundle_valid is not True
+        ):
+            raise KernelBridgeError("Rust bundle validation response does not match request")
+    return response
+
+
 def _validate_artifact_request_path(
     run_id: str,
     artifact: ArtifactRef,
@@ -272,6 +340,7 @@ def _invoke_kernel(
         KernelArtifactVerifyRequest
         | KernelLedgerVerifyRequest
         | KernelEvidenceClassifyRequest
+        | KernelEvidenceValidateBundleRequest
     ),
     *,
     binary: Path,
@@ -311,6 +380,7 @@ def _invoke_kernel(
 __all__ = [
     "KernelBridgeError",
     "classify_persisted_artifact",
+    "validate_persisted_evidence_bundle",
     "verify_persisted_artifact",
     "verify_persisted_ledger",
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
@@ -26,6 +27,7 @@ class KernelOperation(StrEnum):
     ARTIFACT_VERIFY = "artifact.verify"
     LEDGER_VERIFY = "ledger.verify"
     EVIDENCE_CLASSIFY = "evidence.classify"
+    EVIDENCE_VALIDATE_BUNDLE = "evidence.validate_bundle"
 
 
 class KernelResponseStatus(StrEnum):
@@ -68,6 +70,165 @@ class KernelEvidenceClassifyPayload(StrictModel):
 
     run_id: str = Field(min_length=1)
     artifact: ArtifactRef
+
+
+_KERNEL_IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+
+
+class KernelLeanEvidenceBundle(StrictModel):
+    """Exact persisted artifact members of one real Lean Stage C bundle."""
+
+    kind: Literal["LeanProof"]
+    contract_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    payload_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    trace_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    result_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    safety_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+
+    @model_validator(mode="after")
+    def require_distinct_members(self) -> KernelLeanEvidenceBundle:
+        members = (
+            self.contract_artifact_id,
+            self.payload_artifact_id,
+            self.trace_artifact_id,
+            self.result_artifact_id,
+            self.safety_artifact_id,
+        )
+        if len(set(members)) != len(members):
+            raise ValueError("Lean evidence bundle members must be distinct")
+        return self
+
+
+class KernelSyntheticEvidenceBundle(StrictModel):
+    """Exact persisted artifact members of one local synthetic Stage C bundle."""
+
+    kind: Literal["SyntheticExperiment"]
+    contract_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    input_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    trace_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    output_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    result_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    safety_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+
+    @model_validator(mode="after")
+    def require_distinct_members(self) -> KernelSyntheticEvidenceBundle:
+        members = (
+            self.contract_artifact_id,
+            self.input_artifact_id,
+            self.trace_artifact_id,
+            self.output_artifact_id,
+            self.result_artifact_id,
+            self.safety_artifact_id,
+        )
+        if len(set(members)) != len(members):
+            raise ValueError("synthetic evidence bundle members must be distinct")
+        return self
+
+
+KernelEvidenceBundle = Annotated[
+    KernelLeanEvidenceBundle | KernelSyntheticEvidenceBundle,
+    Field(discriminator="kind"),
+]
+
+
+class KernelProofPayload(StrictModel):
+    """Closed persisted payload member of a real Lean Stage C bundle."""
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    proof_language: str = Field(min_length=1)
+    proof_payload_text: str = Field(min_length=1)
+    is_verification_evidence: bool
+
+
+class KernelProofTrace(StrictModel):
+    """Closed persisted execution trace member of a real Lean bundle."""
+
+    backend: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    tool_name: str = Field(min_length=1)
+    exit_code: int
+    stdout: str
+    stderr: str
+    elapsed_ms: int = Field(ge=0)
+    tool_version: str | None = None
+    fake: bool
+    is_verification_evidence: bool
+
+
+class KernelProofSafetyReport(StrictModel):
+    """Closed persisted safety member of a real Lean Stage C bundle."""
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    contract_valid: bool
+    contract_reasons: list[str]
+    result_valid: bool
+    result_reasons: list[str]
+    is_verification_evidence: bool
+    fake: bool
+
+
+class KernelSyntheticExperimentInput(StrictModel):
+    """Closed persisted input member of a local synthetic Stage C bundle."""
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    experiment_id: str = Field(min_length=1)
+    experiment_kind: str = Field(min_length=1)
+    data_regime: str = Field(min_length=1)
+    synthetic_data_spec: dict[str, Any]
+    model_spec: dict[str, Any]
+    algorithm_spec: dict[str, Any]
+    metrics: list[str]
+    acceptance_criteria: dict[str, Any]
+    random_seed: int
+    replications: int = Field(ge=1)
+
+
+class KernelSyntheticExperimentTrace(StrictModel):
+    """Closed persisted execution trace member of a synthetic bundle."""
+
+    backend: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    runner_name: str = Field(min_length=1)
+    exit_code: int
+    stdout: str
+    stderr: str
+    elapsed_ms: int = Field(ge=0)
+    runner_version: str | None = None
+    fake: bool
+    is_verification_evidence: bool
+
+
+class KernelSyntheticExperimentOutput(StrictModel):
+    """Closed persisted output member of a local synthetic bundle."""
+
+    metrics: dict[str, float]
+    synthetic_only: bool | None = None
+
+
+class KernelSyntheticExperimentSafetyReport(StrictModel):
+    """Closed persisted safety member of a synthetic Stage C bundle."""
+
+    candidate_id: str = Field(min_length=1)
+    claim_id: str = Field(min_length=1)
+    contract_valid: bool
+    contract_reasons: list[str]
+    result_valid: bool
+    result_reasons: list[str]
+    is_verification_evidence: bool
+    fake: bool
+
+
+class KernelEvidenceValidateBundlePayload(StrictModel):
+    """Locator-only request for strict persisted Stage C bundle validation."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    candidate_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    claim_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+    bundle: KernelEvidenceBundle
 
 
 class KernelRequestFields(StrictModel):
@@ -113,12 +274,20 @@ class KernelEvidenceClassifyRequest(KernelRequestFields):
     payload: KernelEvidenceClassifyPayload
 
 
+class KernelEvidenceValidateBundleRequest(KernelRequestFields):
+    """Typed request for read-only strict evidence-bundle validation."""
+
+    operation: Literal[KernelOperation.EVIDENCE_VALIDATE_BUNDLE]
+    payload: KernelEvidenceValidateBundlePayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
     | KernelArtifactVerifyRequest
     | KernelLedgerVerifyRequest
-    | KernelEvidenceClassifyRequest,
+    | KernelEvidenceClassifyRequest
+    | KernelEvidenceValidateBundleRequest,
     Field(discriminator="operation"),
 ]
 
@@ -154,6 +323,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelArtifactVerifyPayload
         | KernelLedgerVerifyPayload
         | KernelEvidenceClassifyPayload
+        | KernelEvidenceValidateBundlePayload
     ):
         return self.root.payload
 
@@ -271,13 +441,55 @@ class KernelEvidenceClassifyResult(StrictModel):
         return self
 
 
+class KernelEvidenceValidateBundleResult(StrictModel):
+    """Non-authoritative result of strict persisted bundle validation."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    candidate_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    claim_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    bundle_kind: Literal["LeanProof", "SyntheticExperiment"]
+    producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+    validated_artifact_ids: list[str] = Field(min_length=1)
+    bundle_valid: Literal[True]
+    authority_granted: Literal[False]
+
+    @field_validator("bundle_valid", mode="before")
+    @classmethod
+    def require_strict_bundle_valid(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("bundle_valid must be the boolean true")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_authority_false(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be the boolean false")
+        return value
+
+    @model_validator(mode="after")
+    def validate_artifact_order(self) -> KernelEvidenceValidateBundleResult:
+        if any(
+            re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, artifact_id) is None
+            for artifact_id in self.validated_artifact_ids
+        ):
+            raise ValueError("validated artifact ids use invalid identifier grammar")
+        expected_count = 5 if self.bundle_kind == "LeanProof" else 6
+        if len(self.validated_artifact_ids) != expected_count:
+            raise ValueError("validated artifact ids do not match bundle kind")
+        if len(set(self.validated_artifact_ids)) != expected_count:
+            raise ValueError("validated artifact ids must be distinct")
+        return self
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
     | KernelProtocolValidateResult
     | KernelArtifactVerifyResult
     | KernelLedgerVerifyResult
-    | KernelEvidenceClassifyResult,
+    | KernelEvidenceClassifyResult
+    | KernelEvidenceValidateBundleResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -310,6 +522,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.ARTIFACT_VERIFY: KernelArtifactVerifyResult,
             KernelOperation.LEDGER_VERIFY: KernelLedgerVerifyResult,
             KernelOperation.EVIDENCE_CLASSIFY: KernelEvidenceClassifyResult,
+            KernelOperation.EVIDENCE_VALIDATE_BUNDLE: KernelEvidenceValidateBundleResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -332,6 +545,19 @@ __all__ = [
     "KernelEvidenceClassifyPayload",
     "KernelEvidenceClassifyRequest",
     "KernelEvidenceClassifyResult",
+    "KernelEvidenceBundle",
+    "KernelProofPayload",
+    "KernelProofSafetyReport",
+    "KernelProofTrace",
+    "KernelSyntheticExperimentInput",
+    "KernelSyntheticExperimentOutput",
+    "KernelSyntheticExperimentSafetyReport",
+    "KernelSyntheticExperimentTrace",
+    "KernelEvidenceValidateBundlePayload",
+    "KernelEvidenceValidateBundleRequest",
+    "KernelEvidenceValidateBundleResult",
+    "KernelLeanEvidenceBundle",
+    "KernelSyntheticEvidenceBundle",
     "KernelLedgerVerifyPayload",
     "KernelLedgerVerifyRequest",
     "KernelLedgerVerifyResult",

@@ -1,0 +1,88 @@
+{
+  "$id": "https://schemas.factori.local/0.83.0/kernel-synthetic-experiment-input.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed persisted synthetic experiment input companion artifact.",
+  "properties": {
+    "acceptance_criteria": {
+      "additionalProperties": true,
+      "title": "Acceptance Criteria",
+      "type": "object"
+    },
+    "algorithm_spec": {
+      "additionalProperties": true,
+      "title": "Algorithm Spec",
+      "type": "object"
+    },
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "data_regime": {
+      "minLength": 1,
+      "title": "Data Regime",
+      "type": "string"
+    },
+    "experiment_id": {
+      "minLength": 1,
+      "title": "Experiment Id",
+      "type": "string"
+    },
+    "experiment_kind": {
+      "minLength": 1,
+      "title": "Experiment Kind",
+      "type": "string"
+    },
+    "metrics": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "model_spec": {
+      "additionalProperties": true,
+      "title": "Model Spec",
+      "type": "object"
+    },
+    "random_seed": {
+      "title": "Random Seed",
+      "type": "integer"
+    },
+    "replications": {
+      "minimum": 1,
+      "title": "Replications",
+      "type": "integer"
+    },
+    "synthetic_data_spec": {
+      "additionalProperties": true,
+      "title": "Synthetic Data Spec",
+      "type": "object"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "claim_id",
+    "experiment_id",
+    "experiment_kind",
+    "data_regime",
+    "synthetic_data_spec",
+    "model_spec",
+    "algorithm_spec",
+    "metrics",
+    "acceptance_criteria",
+    "random_seed",
+    "replications"
+  ],
+  "title": "KernelSyntheticExperimentInput",
+  "type": "object",
+  "x-factori-protocol-version": "0.83.0",
+  "x-factori-source-model": "factori.schemas.KernelSyntheticExperimentInput",
+  "x-factori-verification-evidence": false
+}

@@ -8,7 +8,7 @@ from typer.testing import CliRunner
 
 from factori.cli import app
 from factori.ledger import ResearchLedger
-from factori.protocols import get_protocol_definition, get_protocol_definitions
+from factori.protocols import PROTOCOL_VERSION, get_protocol_definition, get_protocol_definitions
 from factori.schema_export import (
     EXAMPLE_PROTOCOLS,
     build_protocol_schema,
@@ -170,11 +170,11 @@ def test_protocol_export_is_deterministic_and_emits_all_schemas(tmp_path: Path) 
         "generation-mutation-inspection-report.schema.json",
     } <= {path.name for path in first.schema_files}
     assert first_contents == second_contents
-    assert len(first.schema_files) == len(get_protocol_definitions()) == 424
+    assert len(first.schema_files) == len(get_protocol_definitions()) == 433
     for path in first.schema_files:
         schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert schema["x-factori-protocol-version"] == "0.82.0"
+        assert schema["x-factori-protocol-version"] == PROTOCOL_VERSION
         assert schema["x-factori-verification-evidence"] is False
 
 
@@ -184,7 +184,7 @@ def test_protocol_version_and_examples_are_validated_by_source_models(tmp_path: 
 
     metadata = json.loads(result.version_file.read_text(encoding="utf-8"))
     assert metadata == {
-            "protocol_version": "0.82.0",
+            "protocol_version": PROTOCOL_VERSION,
         "schema_format": "json-schema",
         "source": "factori-pydantic-models",
         "generated_by": "factori export-protocols",
@@ -206,8 +206,9 @@ def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> Non
         "ledger.verify",
         "protocol.validate",
         "evidence.classify",
+        "evidence.validate_bundle",
     }
-    assert len(schema["oneOf"]) == 5
+    assert len(schema["oneOf"]) == 6
 
 
 def test_check_passes_after_export_and_detects_stale_schema(tmp_path: Path) -> None:
@@ -234,7 +235,7 @@ def test_export_cli_and_check_mode_work(tmp_path: Path) -> None:
     )
 
     assert exported.exit_code == 0, exported.output
-    assert "schemas=424" in exported.output
+    assert "schemas=433" in exported.output
     assert checked.exit_code == 0, checked.output
     assert "check=ok" in checked.output
 
@@ -272,7 +273,7 @@ def test_protocol_export_does_not_touch_run_provenance(tmp_path: Path) -> None:
 
 def test_checked_in_protocol_files_are_current() -> None:
     assert require_protocols_current().up_to_date
-    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 47
+    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 48
 
 
 def test_timestamp_fields_are_exported_with_date_time_format(tmp_path: Path) -> None:

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/scientific-stage-kind.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/scientific-stage-kind.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Scientific generation, judgment, execution, or verification stage class.",
   "enum": [
@@ -34,7 +34,7 @@
   ],
   "title": "ScientificStageKind",
   "type": "string",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.ScientificStageKind",
   "x-factori-verification-evidence": false
 }

@@ -1109,7 +1109,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.82.0/llm-orchestration-result.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/llm-orchestration-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Typed result for gated LLM paper orchestration commands.",
@@ -1172,7 +1172,7 @@
   ],
   "title": "LLMOrchestrationResult",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.LLMOrchestrationResult",
   "x-factori-verification-evidence": false
 }

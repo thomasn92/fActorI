@@ -158,7 +158,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.82.0/scientific-critic-review.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/scientific-critic-review.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One scientific-critic role review; judgment context only.",
@@ -242,7 +242,7 @@
   ],
   "title": "ScientificCriticReview",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.ScientificCriticReview",
   "x-factori-verification-evidence": false
 }

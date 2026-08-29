@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/sandbox-execution-config.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/sandbox-execution-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Offline local sandbox limits for one audited generated script.",
@@ -66,7 +66,7 @@
   ],
   "title": "SandboxExecutionConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.SandboxExecutionConfig",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,63 @@
+{
+  "$id": "https://schemas.factori.local/0.83.0/kernel-proof-safety-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed persisted Lean proof safety companion artifact.",
+  "properties": {
+    "candidate_id": {
+      "minLength": 1,
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "contract_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Contract Reasons",
+      "type": "array"
+    },
+    "contract_valid": {
+      "title": "Contract Valid",
+      "type": "boolean"
+    },
+    "fake": {
+      "title": "Fake",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "result_reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Result Reasons",
+      "type": "array"
+    },
+    "result_valid": {
+      "title": "Result Valid",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "claim_id",
+    "contract_valid",
+    "contract_reasons",
+    "result_valid",
+    "result_reasons",
+    "is_verification_evidence",
+    "fake"
+  ],
+  "title": "KernelProofSafetyReport",
+  "type": "object",
+  "x-factori-protocol-version": "0.83.0",
+  "x-factori-source-model": "factori.schemas.KernelProofSafetyReport",
+  "x-factori-verification-evidence": false
+}

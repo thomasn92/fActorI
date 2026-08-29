@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.82.0/domain-method-pair.schema.json",
+  "$id": "https://schemas.factori.local/0.83.0/domain-method-pair.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One domain-method pair with exclusion-only compatibility metadata.",
@@ -77,7 +77,7 @@
   ],
   "title": "DomainMethodPair",
   "type": "object",
-  "x-factori-protocol-version": "0.82.0",
+  "x-factori-protocol-version": "0.83.0",
   "x-factori-source-model": "factori.schemas.DomainMethodPair",
   "x-factori-verification-evidence": false
 }
