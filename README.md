@@ -11,13 +11,6 @@ The intended output is a **ledgered research object**: a labeled manuscript toge
 candidate tree, literature context, proof or experiment artifacts, failed branches, criticism, and
 provenance.
 
-<p align="center">
-  <img src="images/Analogy.png" alt="fActorI lifts a compact research prompt into an expanded idea space, then filters and verifies branches into a research object" width="100%">
-</p>
-
-*Target architecture. The complete path is currently demonstrated only for bounded synthetic
-experiments.*
-
 ## Lift, Then Filter
 
 The system deliberately preserves variance early. Alternative mechanisms, mathematical lenses,
