@@ -708,6 +708,143 @@ Stable claim-resolution diagnostics are:
 Existing protocol, ledger, artifact, bundle, fake-backend, data-regime, and authority diagnostics
 remain applicable and should be preferred for their lower-level causes.
 
+### `checkpoint.verify` Scope Decision
+
+The first `checkpoint.verify` implementation is deliberately limited to the immutable autonomous-
+paper checkpoint chain written by `AutonomousPaperCheckpointWritten` commits. This is the only
+current checkpoint representation with a persisted self-hash, predecessor link, output-hash map,
+ledger-tip locator, immutable index snapshots, and explicit resume policy.
+
+The following objects remain outside this operation:
+
+- `StageCheckpoint`, which is a read-only file-existence diagnostic and is not provenance;
+- `TargetedStudyCheckpoint`, which is a resumable orchestration snapshot but does not yet contain
+  the self-hash and predecessor-chain material required by this kernel contract;
+- replay reports, manifests, release reports, and final-paper bundles, which receive separate
+  integrity decisions and cannot stand in for a checkpoint chain.
+
+Supporting either excluded checkpoint format requires a later protocol extension with its own
+discriminator and semantic freeze. Luna must not generalize this operation by accepting arbitrary
+checkpoint JSON or caller-supplied output inventories.
+
+### `checkpoint.verify` Semantic Freeze
+
+`checkpoint.verify` is a read-only integrity and resume-policy decision over the latest persisted
+autonomous-paper checkpoint index and the complete checkpoint chain it names. The caller may locate
+the run and latest index artifact, but it must not supply checkpoint paths, checkpoint contents,
+output hashes, stage status, safety status, resume permission, a prior kernel response, or a reusable
+capability.
+
+The initial wire payload is:
+
+```text
+run_id
+index:
+  artifact_id
+  producing_commit_hash
+```
+
+The locator commit must be the latest `AutonomousPaperCheckpointWritten` commit in the verified
+run ledger. Selecting an older, merely valid index is rejected rather than interpreted as a partial
+resume request.
+
+Before returning a decision, Rust must:
+
+1. validate safe run/artifact identifiers and a lowercase SHA-256 commit hash, and require a
+   configured project root;
+2. load and verify the complete persisted run ledger using the frozen ledger contract;
+3. resolve the requested producing commit, require action `AutonomousPaperCheckpointWritten`, and
+   prove that no later commit with that action exists in the run;
+4. require that commit to contain exactly one numbered checkpoint `report` artifact and its matching
+   numbered checkpoint-index `report` artifact, with confined canonical paths, exact producing-
+   commit links, raw-byte hashes, and exact metadata:
+   `format=json`, `stage=autonomous_paper_checkpoint`,
+   `artifact_role=controller_reliability_context`, and all four scientific/publication authority
+   flags `false`;
+5. parse the located index as a closed `AutonomousPaperCheckpointIndex`; require the run ID,
+   authority flags, positive count, unique path inventory, and `checkpoint_count` to agree; and
+   require paths to be the consecutive canonical checkpoint paths `0001..N` in index order;
+6. resolve every named checkpoint through its own earlier-or-equal
+   `AutonomousPaperCheckpointWritten` commit, requiring the matching historical index snapshot,
+   exact artifact identity/metadata/hash/link checks, and the same two-artifact commit shape;
+7. parse every checkpoint as a closed `AutonomousPaperCheckpoint`, require its companion artifact
+   ID/path number, run ID, controller ID, closed stage name, non-empty timestamps, current protocol
+   version, authority flags, stage/output inventory, and producing-commit payload to agree;
+8. recompute each `checkpoint_hash` as Python-compatible canonical JSON SHA-256 over the complete
+   checkpoint object with only `checkpoint_hash` omitted;
+9. require the first checkpoint to have an empty `input_hashes` map and each later checkpoint to
+   have exactly `previous_checkpoint=<preceding checkpoint hash>` using lowercase SHA-256 grammar;
+10. require each checkpoint's `ledger_tip_hash_optional` to equal its producing commit's parent hash,
+    rather than merely naming any commit somewhere in the ledger;
+11. require `stage_artifact_paths` and `output_hashes` to have identical unique path sets, confine
+    every output beneath `runs/<run_id>/`, reject symlinks in any path component, read raw bytes,
+    and match every output SHA-256; an output need not itself be evidence or a ledger artifact;
+12. validate every historical index snapshot as the exact prefix ending at its companion checkpoint,
+    and require the latest index controller ID, stage, count, inventory, declared resume state, and
+    blockers to agree with the fully derived chain state.
+
+Checkpoint and index artifacts are controller reliability context only. Their hashes can establish
+that a specific prior output is unchanged; they cannot establish that the output is scientifically
+correct, evidence-bearing, publication-ready, or safe for any use beyond the exact bounded resume
+decision.
+
+Integrity and resume policy are separate:
+
+- missing, malformed, stale, unlinked, non-latest, path-escaping, symlinked, hash-mismatched, or
+  authority-claiming checkpoint state is rejected with an empty result;
+- a structurally valid chain containing a coherently persisted failed/blocked checkpoint is accepted
+  with `resume_allowed=false` and a stable non-reusable diagnostic;
+- a reusable checkpoint requires safety status `passed` or `passed_with_warnings`, stage status
+  `completed`, `completed_with_warnings`, or `reused`, `verified_for_resume=true`, verification
+  status `verified` or `verified_with_warnings`, and no verification errors;
+- a coherently non-reusable checkpoint requires safety status `failed`, stage status `blocked` or
+  `failed`, `verified_for_resume=false`, and verification status `failed`; it never grants
+  permission to reuse that stage or any later stage;
+- index `resume_allowed` and `resume_blockers` are assertions to validate against the derived state,
+  not trusted inputs.
+
+The accepted result contains only:
+
+```text
+run_id
+checkpoint_index_artifact_id
+checkpoint_index_producing_commit_hash
+checkpoint_count
+validated_checkpoint_hashes
+latest_checkpoint_hash
+latest_completed_stage
+validated_output_count
+checkpoint_chain_valid = true
+resume_allowed
+authority_granted = false
+```
+
+`validated_checkpoint_hashes` preserves index order. `validated_output_count` counts validated
+checkpoint output entries, including the same immutable output if deliberately referenced by more
+than one checkpoint. `authority_granted=false` means no evidence, label, scientific-validation,
+human-approval, or publication authority is returned; `resume_allowed=true` is only an operational
+decision for this exact hash-locked chain.
+
+Stable checkpoint diagnostics are:
+
+- `checkpoint_index_missing`
+- `checkpoint_index_invalid`
+- `checkpoint_not_latest`
+- `checkpoint_record_missing`
+- `checkpoint_record_invalid`
+- `checkpoint_chain_mismatch`
+- `checkpoint_hash_mismatch`
+- `checkpoint_protocol_mismatch`
+- `checkpoint_ledger_mismatch`
+- `checkpoint_output_missing`
+- `checkpoint_output_path_invalid`
+- `checkpoint_output_hash_mismatch`
+- `checkpoint_authority_violation`
+- `checkpoint_not_reusable`
+
+Existing protocol, ledger, artifact-path, artifact-hash, and transport diagnostics remain applicable
+and should be preferred when they identify a lower-level cause precisely.
+
 ## Threat Model
 
 The kernel must fail closed against:
@@ -766,6 +903,20 @@ Kernel diagnostics need stable codes independent of prose. The initial taxonomy 
 - `bundle_safety_invalid`
 - `bundle_metrics_invalid`
 - `checkpoint_incomplete`
+- `checkpoint_index_missing`
+- `checkpoint_index_invalid`
+- `checkpoint_not_latest`
+- `checkpoint_record_missing`
+- `checkpoint_record_invalid`
+- `checkpoint_chain_mismatch`
+- `checkpoint_hash_mismatch`
+- `checkpoint_protocol_mismatch`
+- `checkpoint_ledger_mismatch`
+- `checkpoint_output_missing`
+- `checkpoint_output_path_invalid`
+- `checkpoint_output_hash_mismatch`
+- `checkpoint_authority_violation`
+- `checkpoint_not_reusable`
 - `io_failure`
 - `sqlite_failure`
 - `internal_error`
@@ -867,7 +1018,7 @@ a bundle would require trusting caller metadata or a prior kernel response, or i
 fixture would require weakening a frozen authority rule. `claim.resolve`, mutation authority,
 PyO3, networking, process execution, and changes to Stage C persistence were outside that handoff.
 
-## Current Luna Handoff: Claim Resolution
+## Completed Luna Handoff: Claim Resolution
 
 Sol's claim-resolution design task ends with the semantic freeze above. Luna owns the bounded
 implementation:
@@ -884,3 +1035,32 @@ implementation:
 Luna must stop if claim identity cannot be resolved from immutable persisted bytes, if accepting a
 claim would require trusting caller-authored text or labels, or if a valid fixture requires
 weakening strict evidence-bundle validation.
+
+## Current Luna Handoff: Autonomous Checkpoint Verification
+
+Sol's checkpoint-verification design task ends with the semantic freeze above. The next
+implementation task belongs to Luna:
+
+1. inventory representative successful, warning, failed-handoff, crash-resume, and resumed
+   autonomous-paper checkpoint chains, including exact artifact metadata and commit payloads;
+2. add the locator-only `checkpoint.verify` request/result protocols and closed transport copies of
+   the autonomous checkpoint/index records, then bump the protocol minor version to `0.85.0` and
+   regenerate schemas/examples through `factori export-protocols`;
+3. implement latest-index resolution, full-ledger verification, historical prefix/index validation,
+   checkpoint self-hash and predecessor checks, parent-tip binding, output confinement/hash checks,
+   and derived resume policy in Rust;
+4. add a read-only Python shadow bridge that verifies request identity, exact ordered checkpoint
+   hashes, `checkpoint_chain_valid=true`, and literal `authority_granted=false`;
+5. add Python/Rust differential tests for successful and coherently blocked chains plus
+   single-mutation tests for stale index selection, count/path/order changes, checkpoint and output
+   hash corruption, predecessor breaks, wrong parent tip, stale protocol, authority-flag inversion,
+   unsafe paths, symlinks, missing outputs, malformed closed records, and unexpected fields;
+6. run protocol export/check, example validation, Rust format/Clippy/tests, focused parity tests,
+   Ruff, and the complete Python suite before final Sol review.
+
+Luna must stop before implementation if current successful and failed checkpoint fixtures cannot
+satisfy the frozen two-artifact commit shape, if any checkpoint output necessarily escapes the run,
+if the current writer does not preserve exact historical index prefixes, or if matching Python
+behavior would require trusting filesystem discovery instead of the hash-linked ledger locator.
+Luna must not modify checkpoint persistence, broaden the operation to targeted/generic checkpoints,
+add mutation authority, or treat resume permission as scientific authority in this handoff.
