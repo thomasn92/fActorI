@@ -18,6 +18,13 @@ use rusqlite::{Connection, OpenFlags};
 
 pub const PROTOCOL_VERSION: &str = "0.83.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
+const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
+const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
+    "SyntheticSimulation",
+    "SyntheticAblation",
+    "SyntheticRobustnessCheck",
+    "NoDataSanityCheck",
+];
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -124,7 +131,7 @@ struct ProofTraceWire {
     exit_code: i64,
     stdout: String,
     stderr: String,
-    elapsed_ms: i64,
+    elapsed_ms: u64,
     tool_version: Option<String>,
     fake: bool,
     is_verification_evidence: bool,
@@ -148,7 +155,7 @@ struct ProofResultWire {
     verified: bool,
     label: String,
     reason: String,
-    elapsed_ms: Option<i64>,
+    elapsed_ms: Option<u64>,
     raw_trace_artifact_id: Option<String>,
     safety_report_artifact_id: Option<String>,
     fake: bool,
@@ -219,7 +226,7 @@ struct SyntheticTraceWire {
     exit_code: i64,
     stdout: String,
     stderr: String,
-    elapsed_ms: i64,
+    elapsed_ms: u64,
     runner_version: Option<String>,
     fake: bool,
     is_verification_evidence: bool,
@@ -255,7 +262,7 @@ struct SyntheticResultWire {
     passed: bool,
     label: String,
     reason: String,
-    elapsed_ms: Option<i64>,
+    elapsed_ms: Option<u64>,
     raw_trace_artifact_id: Option<String>,
     safety_report_artifact_id: Option<String>,
     fake: bool,
@@ -645,7 +652,7 @@ pub fn parse_and_handle_with_root(
     let value = parse_json_without_duplicate_keys(input)?;
     let request: KernelRequest = serde_json::from_value(value)
         .map_err(|error| KernelError::InvalidRequest(error.to_string()))?;
-    validate_kernel_request(&request).map_err(KernelError::InvalidRequest)?;
+    validate_transport_request(&request).map_err(KernelError::InvalidRequest)?;
     Ok(handle_request(request, project_root.as_deref()))
 }
 
@@ -766,9 +773,25 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         KernelOperation::LedgerVerify => validate_ledger_payload_structure(&request.payload)?,
         KernelOperation::EvidenceClassify => validate_artifact_payload_structure(&request.payload)?,
         KernelOperation::EvidenceValidateBundle => {
-            validate_evidence_bundle_payload_structure(&request.payload)?
+            validate_evidence_bundle_payload_structure(&request.payload)
+                .map_err(|(_, message, _)| message)?
         }
     }
+    Ok(())
+}
+
+fn validate_transport_request(request: &KernelRequest) -> Result<(), String> {
+    if request.operation != KernelOperation::EvidenceValidateBundle {
+        return validate_kernel_request(request);
+    }
+    if request.protocol_version.is_empty() {
+        return Err("protocol_version must not be empty".to_owned());
+    }
+    if request.request_id.is_empty() {
+        return Err("request_id must not be empty".to_owned());
+    }
+    serde_json::from_value::<EvidenceValidateBundlePayload>(Value::Object(request.payload.clone()))
+        .map_err(|error| error.to_string())?;
     Ok(())
 }
 
@@ -799,25 +822,45 @@ fn validate_artifact_payload_structure(payload: &Map<String, Value>) -> Result<(
     Ok(())
 }
 
-fn validate_evidence_bundle_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+type BundleValidationError = (&'static str, String, Option<&'static str>);
+
+fn validate_evidence_bundle_payload_structure(
+    payload: &Map<String, Value>,
+) -> Result<(), BundleValidationError> {
     let bundle: EvidenceValidateBundlePayload =
         serde_json::from_value(Value::Object(payload.clone()))
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload")))?;
     if !is_sha256_hex(&bundle.producing_commit_hash) {
-        return Err("producing_commit_hash must be a lowercase SHA-256 hex digest".to_owned());
+        return Err((
+            "protocol_invalid",
+            "producing_commit_hash must be a lowercase SHA-256 hex digest".to_owned(),
+            Some("payload.producing_commit_hash"),
+        ));
     }
     if !is_safe_segment(&bundle.run_id)
         || !is_safe_segment(&bundle.candidate_id)
         || !is_safe_segment(&bundle.claim_id)
     {
-        return Err("bundle identifiers contain unsafe characters".to_owned());
+        return Err((
+            "protocol_invalid",
+            "bundle identifiers contain unsafe characters".to_owned(),
+            Some("payload"),
+        ));
     }
     let members = bundle_member_ids(&bundle.bundle);
     if members.iter().any(|member| !is_safe_segment(member)) {
-        return Err("bundle artifact ids contain unsafe characters".to_owned());
+        return Err((
+            "protocol_invalid",
+            "bundle artifact ids contain unsafe characters".to_owned(),
+            Some("payload.bundle"),
+        ));
     }
     if members.iter().collect::<HashSet<_>>().len() != members.len() {
-        return Err("bundle artifact ids must be distinct".to_owned());
+        return Err((
+            "bundle_member_duplicate",
+            "bundle artifact ids must be distinct".to_owned(),
+            Some("payload.bundle"),
+        ));
     }
     Ok(())
 }
@@ -859,8 +902,7 @@ fn validate_evidence_bundle_payload(
     payload: &Map<String, Value>,
     project_root: Option<&Path>,
 ) -> Result<Map<String, Value>, (&'static str, String, Option<&'static str>)> {
-    validate_evidence_bundle_payload_structure(payload)
-        .map_err(|message| ("protocol_invalid", message, Some("payload")))?;
+    validate_evidence_bundle_payload_structure(payload)?;
     let request: EvidenceValidateBundlePayload =
         serde_json::from_value(Value::Object(payload.clone()))
             .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload")))?;
@@ -1112,8 +1154,21 @@ fn require_metadata(
     expected: &Map<String, Value>,
 ) -> Result<(), (&'static str, String, Option<&'static str>)> {
     if artifact.metadata != *expected {
+        if artifact.metadata.get("fake") == Some(&Value::Bool(true)) {
+            return Err((
+                "fake_backend_denied",
+                format!("fake bundle member is not admissible: {}", artifact.id),
+                Some("payload.bundle"),
+            ));
+        }
+        let backend_mismatch = artifact.metadata.get("backend") != expected.get("backend")
+            || artifact.metadata.get("provider") != expected.get("provider");
         return Err((
-            "authority_denied",
+            if backend_mismatch {
+                "bundle_backend_denied"
+            } else {
+                "authority_denied"
+            },
             format!(
                 "bundle member metadata is not an exact Stage C metadata map: {}",
                 artifact.id
@@ -1155,6 +1210,43 @@ fn validate_lean_bundle(
     let trace: ProofTraceWire = parse_closed(trace_value, "payload.trace")?;
     let result: ProofResultWire = parse_closed(result_value, "payload.result")?;
     let safety: ProofSafetyWire = parse_closed(safety_value, "payload.safety")?;
+    if contract.fake_default
+        || trace.fake
+        || result.fake
+        || safety.fake
+        || is_fake_backend(&contract.backend)
+        || is_fake_backend(&trace.backend)
+        || is_fake_backend(&trace.provider)
+        || is_fake_backend(&result.backend)
+        || is_fake_backend(&result.provider)
+    {
+        return Err((
+            "fake_backend_denied",
+            "fake Lean bundle members are not admissible".to_owned(),
+            Some("payload.bundle"),
+        ));
+    }
+    if contract.candidate_id != request.candidate_id {
+        return Err((
+            "bundle_candidate_mismatch",
+            "Lean contract candidate does not match the request".to_owned(),
+            Some("payload.contract.candidate_id"),
+        ));
+    }
+    if contract.claim_id != request.claim_id {
+        return Err((
+            "bundle_claim_mismatch",
+            "Lean contract claim does not match the request".to_owned(),
+            Some("payload.contract.claim_id"),
+        ));
+    }
+    if contract.backend != "lean" {
+        return Err((
+            "bundle_backend_denied",
+            "Lean contract backend is not authorized".to_owned(),
+            Some("payload.contract.backend"),
+        ));
+    }
     require_metadata(
         contract_ref,
         &exact_metadata("stage_c", "lean", "lean", None),
@@ -1194,6 +1286,7 @@ fn validate_lean_bundle(
             .trim()
             .is_empty()
         || contract.expected_output_type != "proof_transcript"
+        || !allowed_imports_are_safe(&contract.allowed_imports)
         || !imports_are_allowed(
             contract.proof_payload_text.as_deref().unwrap_or_default(),
             &contract.allowed_imports,
@@ -1217,10 +1310,11 @@ fn validate_lean_bundle(
         || proof_payload.proof_language != contract.proof_language
         || proof_payload.proof_payload_text != contract_text
         || proof_payload.is_verification_evidence
-        || contract.forbidden_tokens.iter().any(|token| {
-            let lower = format!("{}\n{}", contract.claim_text, contract_text).to_lowercase();
-            lower.contains(&token.to_lowercase())
-        })
+        || contains_forbidden_proof_token(
+            &contract.claim_text,
+            contract_text,
+            &contract.forbidden_tokens,
+        )
         || contains_network_marker(contract_text)
     {
         return Err((
@@ -1253,8 +1347,14 @@ fn validate_lean_bundle(
             Some("payload.result"),
         ));
     }
-    if sha256_hex(contract_text.as_bytes()) != result.proof_payload_hash
-        || trace.backend != result.backend
+    if sha256_hex(contract_text.as_bytes()) != result.proof_payload_hash {
+        return Err((
+            "bundle_payload_hash_mismatch",
+            "Lean proof payload hash does not match the persisted result".to_owned(),
+            Some("payload.proof_payload"),
+        ));
+    }
+    if trace.backend != result.backend
         || trace.provider != result.provider
         || trace.tool_name != result.tool_name
         || trace.tool_version != result.tool_version
@@ -1324,6 +1424,43 @@ fn validate_synthetic_bundle(
     let output: SyntheticOutputWire = parse_closed(output_value, "payload.output")?;
     let result: SyntheticResultWire = parse_closed(result_value, "payload.result")?;
     let safety: SyntheticSafetyWire = parse_closed(safety_value, "payload.safety")?;
+    if contract.fake_default
+        || trace.fake
+        || result.fake
+        || safety.fake
+        || is_fake_backend(&contract.backend)
+        || is_fake_backend(&trace.backend)
+        || is_fake_backend(&trace.provider)
+        || is_fake_backend(&result.backend)
+        || is_fake_backend(&result.provider)
+    {
+        return Err((
+            "fake_backend_denied",
+            "fake synthetic bundle members are not admissible".to_owned(),
+            Some("payload.bundle"),
+        ));
+    }
+    if contract.candidate_id != request.candidate_id {
+        return Err((
+            "bundle_candidate_mismatch",
+            "synthetic contract candidate does not match the request".to_owned(),
+            Some("payload.contract.candidate_id"),
+        ));
+    }
+    if contract.claim_id != request.claim_id {
+        return Err((
+            "bundle_claim_mismatch",
+            "synthetic contract claim does not match the request".to_owned(),
+            Some("payload.contract.claim_id"),
+        ));
+    }
+    if contract.backend != "local_synthetic" {
+        return Err((
+            "bundle_backend_denied",
+            "synthetic contract backend is not authorized".to_owned(),
+            Some("payload.contract.backend"),
+        ));
+    }
     require_metadata(
         contract_ref,
         &exact_metadata("stage_c", "local_synthetic", "local", None),
@@ -1368,7 +1505,7 @@ fn validate_synthetic_bundle(
         || contract.experiment_id.trim().is_empty()
         || contract.backend != "local_synthetic"
         || contract.data_regime != "SyntheticOnly"
-        || contract.experiment_kind.trim().is_empty()
+        || !SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS.contains(&contract.experiment_kind.as_str())
         || contract.synthetic_data_spec.is_empty()
         || contract.metrics.is_empty()
         || contract.acceptance_criteria.is_empty()
@@ -1386,9 +1523,17 @@ fn validate_synthetic_bundle(
         || contract.is_verification_evidence
         || contract.expected_output_type != "synthetic_experiment_result"
         || !contains_required_forbidden_inputs(&contract.forbidden_external_inputs)
-        || contains_network_or_absolute_marker(&contract.synthetic_data_spec)
-        || contains_network_or_absolute_marker(&contract.model_spec)
-        || contains_network_or_absolute_marker(&contract.algorithm_spec)
+        || contains_network_or_absolute_marker(&Value::Object(contract.synthetic_data_spec.clone()))
+        || contains_network_or_absolute_marker(&Value::Object(contract.model_spec.clone()))
+        || contains_network_or_absolute_marker(&Value::Object(contract.algorithm_spec.clone()))
+        || contains_network_or_absolute_marker(&Value::Array(
+            contract
+                .forbidden_external_inputs
+                .iter()
+                .cloned()
+                .map(Value::String)
+                .collect(),
+        ))
     {
         return Err((
             "bundle_contract_invalid",
@@ -1457,8 +1602,14 @@ fn validate_synthetic_bundle(
             Some("payload.result"),
         ));
     }
-    if sha256_canonical(output_value)? != result.output_payload_hash
-        || trace.backend != result.backend
+    if sha256_canonical(output_value)? != result.output_payload_hash {
+        return Err((
+            "bundle_output_hash_mismatch",
+            "synthetic output hash does not match the persisted result".to_owned(),
+            Some("payload.output"),
+        ));
+    }
+    if trace.backend != result.backend
         || trace.provider != result.provider
         || trace.runner_name != result.runner_name
         || trace.runner_version != result.runner_version
@@ -1582,6 +1733,40 @@ fn imports_are_allowed(payload: &str, allowed_imports: &[String]) -> bool {
     })
 }
 
+fn allowed_imports_are_safe(allowed_imports: &[String]) -> bool {
+    allowed_imports.iter().all(|module| {
+        !module.is_empty()
+            && !contains_network_marker(module)
+            && module.split('.').all(|segment| {
+                !segment.is_empty()
+                    && segment
+                        .bytes()
+                        .next()
+                        .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+                    && segment
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+            })
+    })
+}
+
+fn contains_forbidden_proof_token(
+    claim_text: &str,
+    payload_text: &str,
+    forbidden_tokens: &[String],
+) -> bool {
+    let lower = format!("{claim_text}\n{payload_text}").to_lowercase();
+    if forbidden_tokens.is_empty() {
+        DEFAULT_FORBIDDEN_PROOF_TOKENS
+            .iter()
+            .any(|token| lower.contains(token))
+    } else {
+        forbidden_tokens
+            .iter()
+            .any(|token| lower.contains(&token.to_lowercase()))
+    }
+}
+
 fn parse_closed<T: serde::de::DeserializeOwned>(
     value: &Value,
     path: &'static str,
@@ -1613,30 +1798,44 @@ fn contains_network_marker(value: &str) -> bool {
         .any(|marker| lowered.contains(marker))
 }
 
-fn contains_network_or_absolute_marker(value: &Map<String, Value>) -> bool {
+fn is_fake_backend(value: &str) -> bool {
+    value.eq_ignore_ascii_case("fake")
+}
+
+fn contains_network_or_absolute_marker(value: &Value) -> bool {
+    fn contains_absolute_marker(text: &str) -> bool {
+        let lowered = text.to_lowercase();
+        lowered.trim().starts_with("~/")
+            || lowered.trim().starts_with('\\')
+            || lowered.contains("file:///")
+            || format!(" {lowered}").contains(" /")
+            || lowered.contains("\\\\")
+    }
+
     fn visit(value: &Value) -> bool {
         match value {
-            Value::String(text) => {
-                let trimmed = text.trim();
-                contains_network_marker(text)
-                    || trimmed.starts_with('/')
-                    || trimmed.starts_with('\\')
-                    || trimmed.starts_with("~/")
-                    || trimmed.contains("file:///")
-            }
+            Value::String(text) => contains_network_marker(text) || contains_absolute_marker(text),
             Value::Array(items) => items.iter().any(visit),
-            Value::Object(object) => object.values().any(visit),
+            Value::Object(object) => object.iter().any(|(key, value)| {
+                contains_network_marker(key) || contains_absolute_marker(key) || visit(value)
+            }),
             Value::Null | Value::Bool(_) | Value::Number(_) => false,
         }
     }
 
-    visit(&Value::Object(value.clone()))
+    visit(value)
 }
 
 fn contains_required_forbidden_inputs(inputs: &[String]) -> bool {
-    ["PublicDownload", "UserProvided", "RealWorldData"]
-        .iter()
-        .all(|required| inputs.iter().any(|input| input == required))
+    [
+        "PublicDownload",
+        "UserProvided",
+        "RealWorldData",
+        "network",
+        "absolute_path",
+    ]
+    .iter()
+    .all(|required| inputs.iter().any(|input| input == required))
 }
 
 fn synthetic_input_projection(contract: &SyntheticContractWire) -> Value {
@@ -1698,22 +1897,29 @@ fn acceptance_satisfied(metrics: &Map<String, Value>, criteria: &Map<String, Val
                 if rule.len() == 0 || rule.keys().any(|key| key != "min" && key != "max") {
                     return false;
                 }
-                let Some(bound) = rule.get("min").or_else(|| rule.get("max")) else {
-                    return false;
-                };
-                let Some(bound) = bound.as_f64() else {
-                    return false;
-                };
-                if !bound.is_finite() {
+                if !rule.contains_key("min") && !rule.contains_key("max") {
                     return false;
                 }
-                rule.get("min")
-                    .and_then(Value::as_f64)
-                    .is_none_or(|min| value >= min)
-                    && rule
-                        .get("max")
-                        .and_then(Value::as_f64)
-                        .is_none_or(|max| value <= max)
+                let min = rule
+                    .get("min")
+                    .map(|bound| bound.as_f64().filter(|bound| bound.is_finite()));
+                let max = rule
+                    .get("max")
+                    .map(|bound| bound.as_f64().filter(|bound| bound.is_finite()));
+                let min = match min {
+                    None => f64::NEG_INFINITY,
+                    Some(Some(bound)) => bound,
+                    Some(None) => return false,
+                };
+                let max = match max {
+                    None => f64::INFINITY,
+                    Some(Some(bound)) => bound,
+                    Some(None) => return false,
+                };
+                if min > max {
+                    return false;
+                }
+                value >= min && value <= max
             }
             Value::Number(number) => number
                 .as_f64()
@@ -3572,5 +3778,150 @@ mod tests {
         assert_eq!(rust_types, schema_types);
         assert!(!is_valid_action_type("UnknownAction"));
         assert!(!is_valid_action_type("init_run"));
+    }
+
+    #[test]
+    fn strict_bundle_safety_helpers_match_the_frozen_contract() {
+        assert!(contains_forbidden_proof_token(
+            "claim",
+            "theorem body uses sorry",
+            &[],
+        ));
+        assert!(!contains_forbidden_proof_token(
+            "claim",
+            "theorem body is complete",
+            &[],
+        ));
+        assert!(!allowed_imports_are_safe(&["/tmp/unsafe".to_owned()]));
+        assert!(!allowed_imports_are_safe(&[
+            "http://example.invalid".to_owned()
+        ]));
+        assert!(allowed_imports_are_safe(&[
+            "Mathlib.Data.Nat.Basic".to_owned()
+        ]));
+        assert!(SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS.contains(&"SyntheticSimulation"));
+        assert!(!SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS.contains(&"InventedExperiment"));
+        assert!(contains_required_forbidden_inputs(&[
+            "PublicDownload".to_owned(),
+            "UserProvided".to_owned(),
+            "RealWorldData".to_owned(),
+            "network".to_owned(),
+            "absolute_path".to_owned(),
+        ]));
+        assert!(!contains_required_forbidden_inputs(&[
+            "PublicDownload".to_owned(),
+            "UserProvided".to_owned(),
+            "RealWorldData".to_owned(),
+        ]));
+    }
+
+    #[test]
+    fn strict_bundle_external_input_scan_covers_keys_values_and_forbidden_inputs() {
+        assert!(contains_network_or_absolute_marker(&serde_json::json!({
+            "https://example.invalid": 1
+        })));
+        assert!(contains_network_or_absolute_marker(&serde_json::json!({
+            "source": "load /tmp/data"
+        })));
+        assert!(contains_network_or_absolute_marker(&serde_json::json!([
+            "https://example.invalid/data"
+        ])));
+        assert!(contains_network_or_absolute_marker(&serde_json::json!({
+            "source": "~/private/data"
+        })));
+        assert!(!contains_network_or_absolute_marker(&serde_json::json!({
+            "source": "generated in memory"
+        })));
+    }
+
+    #[test]
+    fn strict_bundle_acceptance_rejects_malformed_or_inverted_bounds() {
+        let metrics = serde_json::json!({"score": 0.5});
+        let metrics = metrics.as_object().expect("object metrics");
+
+        assert!(acceptance_satisfied(
+            metrics,
+            serde_json::json!({"score": {"min": 0.0, "max": 1.0}})
+                .as_object()
+                .expect("object criteria")
+        ));
+        assert!(!acceptance_satisfied(
+            metrics,
+            serde_json::json!({"score": {"min": 0.0, "max": "invalid"}})
+                .as_object()
+                .expect("object criteria")
+        ));
+        assert!(!acceptance_satisfied(
+            metrics,
+            serde_json::json!({"score": {"min": 0.8, "max": 0.2}})
+                .as_object()
+                .expect("object criteria")
+        ));
+        assert!(!acceptance_satisfied(
+            metrics,
+            serde_json::json!({"score": {"min": true}})
+                .as_object()
+                .expect("object criteria")
+        ));
+    }
+
+    #[test]
+    fn strict_bundle_lean_module_names_require_valid_segments() {
+        assert!(allowed_imports_are_safe(&[
+            "Mathlib.Data.Nat.Basic".to_owned(),
+            "_Internal.Module2".to_owned(),
+        ]));
+        assert!(!allowed_imports_are_safe(&[".".to_owned()]));
+        assert!(!allowed_imports_are_safe(&["Mathlib..Nat".to_owned()]));
+        assert!(!allowed_imports_are_safe(&["2Mathlib.Nat".to_owned()]));
+    }
+
+    #[test]
+    fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
+        let request_value = serde_json::json!({
+            "protocol_version": "0.83.0",
+            "request_id": "duplicate-bundle-member",
+            "operation": "evidence.validate_bundle",
+            "mode": "StrictProduction",
+            "payload": {
+                "run_id": "run-001",
+                "candidate_id": "candidate-001",
+                "claim_id": "claim-001",
+                "producing_commit_hash": "f".repeat(64),
+                "bundle": {
+                    "kind": "SyntheticExperiment",
+                    "contract_artifact_id": "contract-001",
+                    "input_artifact_id": "contract-001",
+                    "trace_artifact_id": "trace-001",
+                    "output_artifact_id": "output-001",
+                    "result_artifact_id": "result-001",
+                    "safety_artifact_id": "safety-001"
+                }
+            }
+        });
+        serde_json::from_value::<KernelRequest>(request_value.clone())
+            .expect("valid typed request");
+
+        let input = serde_json::to_string(&request_value).expect("serializable request");
+        let response = parse_and_handle(&input).expect("operation-level rejection");
+        assert_eq!(response.status, KernelResponseStatus::Rejected);
+        assert_eq!(response.diagnostics[0].code, "bundle_member_duplicate");
+    }
+
+    #[test]
+    fn strict_bundle_trace_schemas_reject_negative_elapsed_time() {
+        let proof_trace = r#"{
+            "backend":"lean","provider":"lean","tool_name":"lean","exit_code":0,
+            "stdout":"","stderr":"","elapsed_ms":-1,"tool_version":null,
+            "fake":false,"is_verification_evidence":true
+        }"#;
+        let synthetic_trace = r#"{
+            "backend":"local_synthetic","provider":"local","runner_name":"runner",
+            "exit_code":0,"stdout":"","stderr":"","elapsed_ms":-1,
+            "runner_version":null,"fake":false,"is_verification_evidence":true
+        }"#;
+
+        assert!(serde_json::from_str::<ProofTraceWire>(proof_trace).is_err());
+        assert!(serde_json::from_str::<SyntheticTraceWire>(synthetic_trace).is_err());
     }
 }

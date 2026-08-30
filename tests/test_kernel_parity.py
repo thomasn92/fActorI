@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -17,6 +19,8 @@ from factori.schemas import (
     KernelArtifactVerifyRequest,
     KernelEvidenceClassifyRequest,
     KernelEvidenceClassifyResult,
+    KernelEvidenceValidateBundleResult,
+    KernelLeanEvidenceBundle,
     KernelLedgerVerifyRequest,
     KernelMode,
     KernelRequestEnvelope,
@@ -405,6 +409,35 @@ def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> N
         KernelRequestEnvelope.model_validate(malformed_request)
 
 
+def test_rust_protocol_validation_rejects_malformed_nested_bundle_request() -> None:
+    _build_kernel_binary()
+    malformed_request = {
+        "protocol_version": "0.83.0",
+        "request_id": "nested-bundle-invalid",
+        "operation": "evidence.validate_bundle",
+        "mode": "StrictProduction",
+        "payload": {},
+    }
+
+    response = _run_kernel(
+        {
+            "protocol_version": "0.83.0",
+            "request_id": "validate-nested-bundle",
+            "operation": "protocol.validate",
+            "mode": "StrictProduction",
+            "payload": {
+                "protocol_name": "KernelRequestEnvelope",
+                "instance": malformed_request,
+            },
+        }
+    )
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "protocol_invalid"
+    with pytest.raises(ValidationError):
+        KernelRequestEnvelope.model_validate(malformed_request)
+
+
 def test_rust_protocol_validation_only_checks_nested_ledger_shape(
     tmp_path: Path,
 ) -> None:
@@ -712,10 +745,11 @@ def test_persisted_artifact_bridge_verifies_bytes_and_producer_link(tmp_path: Pa
     assert sha256_file(ledger_path) == ledger_hash
 
 
-def test_rust_validates_persisted_synthetic_bundle_without_granting_authority(
-    tmp_path: Path,
-) -> None:
-    _build_kernel_binary()
+def _persist_synthetic_bundle_fixture(
+    root: Path,
+    *,
+    run_id: str = "run-kernel-synthetic-bundle",
+) -> tuple[str, str, str, KernelSyntheticEvidenceBundle, dict[str, ArtifactRef]]:
     from factori.adapters.experiment_real import (
         ExperimentToolRunResult,
         LocalSyntheticExperimentRunner,
@@ -737,10 +771,9 @@ def test_rust_validates_persisted_synthetic_bundle_without_granting_authority(
                 runner_version="test-runner-v1",
             )
 
-    run_id = "run-kernel-synthetic-bundle"
-    store = ArtifactStore(tmp_path)
+    store = ArtifactStore(root)
     store.init_run(run_id)
-    ledger = ResearchLedger(tmp_path / "runs" / run_id / "ledger.sqlite")
+    ledger = ResearchLedger(root / "runs" / run_id / "ledger.sqlite")
     ledger.append_commit(
         run_id=run_id,
         action_type=ControllerActionType.INIT_RUN,
@@ -779,14 +812,35 @@ def test_rust_validates_persisted_synthetic_bundle_without_granting_authority(
         safety_artifact_id=f"experiment-safety-{candidate.id}",
     )
     assert set(bundle.model_dump().values()) - {"SyntheticExperiment"} <= set(by_id)
+    return (
+        candidate.id,
+        contract.claim_id,
+        ledger.latest_commit_hash(run_id) or "",
+        bundle,
+        by_id,
+    )
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_rust_validates_persisted_synthetic_bundle_without_granting_authority(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-synthetic-bundle"
+    candidate_id, claim_id, commit_hash, bundle, by_id = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
     from factori.kernel_bridge import validate_persisted_evidence_bundle
 
     response = validate_persisted_evidence_bundle(
         run_id,
-        candidate_id=candidate.id,
-        claim_id=contract.claim_id,
-        producing_commit_hash=ledger.latest_commit_hash(run_id) or "",
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        producing_commit_hash=commit_hash,
         bundle=bundle,
+        mode=mode,
         root=tmp_path,
         kernel_binary=KERNEL_BINARY,
     )
@@ -798,13 +852,524 @@ def test_rust_validates_persisted_synthetic_bundle_without_granting_authority(
     assert response.result.bundle_valid is True
     assert response.result.authority_granted is False
     assert response.result.validated_artifact_ids == [
-        by_id[f"experiment-contract-{candidate.id}"].id,
-        by_id[f"experiment-input-{candidate.id}"].id,
-        by_id[f"experiment-trace-{candidate.id}"].id,
-        by_id[f"experiment-output-{candidate.id}"].id,
-        by_id[f"experiment-result-{candidate.id}"].id,
-        by_id[f"experiment-safety-{candidate.id}"].id,
+        by_id[f"experiment-contract-{candidate_id}"].id,
+        by_id[f"experiment-input-{candidate_id}"].id,
+        by_id[f"experiment-trace-{candidate_id}"].id,
+        by_id[f"experiment-output-{candidate_id}"].id,
+        by_id[f"experiment-result-{candidate_id}"].id,
+        by_id[f"experiment-safety-{candidate_id}"].id,
     ]
+
+
+def _clone_stage_c_bundle_with_mutation(
+    *,
+    source_root: Path,
+    target_root: Path,
+    run_id: str,
+    mutate_payloads: Callable[[dict[str, dict[str, Any]]], None] | None = None,
+    metadata_overrides: dict[str, dict[str, Any]] | None = None,
+    raw_overrides: dict[str, str] | None = None,
+) -> str:
+    from factori.artifacts import ArtifactStore
+
+    source_ledger = ResearchLedger.open_existing(source_root / "runs" / run_id / "ledger.sqlite")
+    source_commits = source_ledger.list_commits(run_id)
+    assert len(source_commits) == 2
+    root_commit, evidence_commit = source_commits
+    payloads = {
+        artifact.id: json.loads((source_root / artifact.path).read_text(encoding="utf-8"))
+        for artifact in evidence_commit.artifact_refs
+    }
+    if mutate_payloads is not None:
+        mutate_payloads(payloads)
+
+    target_store = ArtifactStore(target_root)
+    target_store.init_run(run_id)
+    target_ledger = ResearchLedger(target_root / "runs" / run_id / "ledger.sqlite")
+    cloned_root = target_ledger.append_commit(
+        run_id=run_id,
+        action_type=root_commit.action_type,
+        payload=root_commit.payload,
+        candidate_id=root_commit.candidate_id,
+        timestamp=root_commit.timestamp,
+    )
+    cloned_artifacts = []
+    for artifact in evidence_commit.artifact_refs:
+        metadata = dict(artifact.metadata)
+        metadata.update((metadata_overrides or {}).get(artifact.id, {}))
+        format_label = str(metadata.pop("format", "json"))
+        if artifact.id in (raw_overrides or {}):
+            cloned = target_store.write_text(
+                run_id=run_id,
+                artifact_id=artifact.id,
+                artifact_type=artifact.type,
+                text=(raw_overrides or {})[artifact.id],
+                extension="json",
+                format_label=format_label,
+                metadata=metadata,
+            )
+        elif format_label != "json":
+            cloned = target_store.write_text(
+                run_id=run_id,
+                artifact_id=artifact.id,
+                artifact_type=artifact.type,
+                text=canonical_json(payloads[artifact.id]) + "\n",
+                extension="json",
+                format_label=format_label,
+                metadata=metadata,
+            )
+        else:
+            cloned = target_store.write_json(
+                run_id=run_id,
+                artifact_id=artifact.id,
+                artifact_type=artifact.type,
+                data=payloads[artifact.id],
+                metadata=metadata,
+            )
+        cloned_artifacts.append(cloned)
+    cloned_commit = target_ledger.append_commit(
+        run_id=run_id,
+        parent_hash=cloned_root.commit_hash,
+        action_type=evidence_commit.action_type,
+        payload=evidence_commit.payload,
+        candidate_id=evidence_commit.candidate_id,
+        artifact_refs=cloned_artifacts,
+        timestamp=evidence_commit.timestamp,
+    )
+    return cloned_commit.commit_hash
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_rust_bundle_operation_preserves_duplicate_member_diagnostic(
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    response = _run_kernel(
+        {
+            "protocol_version": "0.83.0",
+            "request_id": f"bundle-duplicate-{mode.value}",
+            "operation": "evidence.validate_bundle",
+            "mode": mode.value,
+            "payload": {
+                "run_id": "run-001",
+                "candidate_id": "candidate-001",
+                "claim_id": "claim-001",
+                "producing_commit_hash": "f" * 64,
+                "bundle": {
+                    "kind": "SyntheticExperiment",
+                    "contract_artifact_id": "contract-001",
+                    "input_artifact_id": "contract-001",
+                    "trace_artifact_id": "trace-001",
+                    "output_artifact_id": "output-001",
+                    "result_artifact_id": "result-001",
+                    "safety_artifact_id": "safety-001",
+                },
+            },
+        }
+    )
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "bundle_member_duplicate"
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("fake_metadata", "fake_backend_denied"),
+        ("output_hash", "bundle_output_hash_mismatch"),
+        ("claim", "bundle_claim_mismatch"),
+        ("unsafe_contract", "bundle_contract_invalid"),
+        ("unknown_result_field", "protocol_invalid"),
+        ("invalid_safety", "bundle_safety_invalid"),
+        ("boolean_metric", "bundle_metrics_invalid"),
+        ("trace_hash", "bundle_trace_hash_mismatch"),
+        ("duplicate_json_key", "protocol_invalid"),
+        ("presentation_metadata", "authority_denied"),
+    ],
+)
+def test_rust_rejects_persisted_synthetic_bundle_mutations_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    _build_kernel_binary()
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    run_id = "run-kernel-synthetic-mutation"
+    candidate_id, claim_id, _, bundle, by_id = _persist_synthetic_bundle_fixture(
+        source_root,
+        run_id=run_id,
+    )
+    contract_id = bundle.contract_artifact_id
+    output_id = bundle.output_artifact_id
+    result_id = bundle.result_artifact_id
+    safety_id = bundle.safety_artifact_id
+    metadata_overrides: dict[str, dict[str, Any]] = {}
+    raw_overrides: dict[str, str] = {}
+
+    def mutate_payloads(payloads: dict[str, dict[str, Any]]) -> None:
+        if mutation == "output_hash":
+            assert payloads[output_id].pop("synthetic_only") is True
+        elif mutation == "claim":
+            payloads[contract_id]["claim_id"] = "claim-other"
+        elif mutation == "unsafe_contract":
+            payloads[contract_id]["model_spec"]["source"] = "load /tmp/data"
+        elif mutation == "unknown_result_field":
+            payloads[result_id]["unexpected"] = True
+        elif mutation == "invalid_safety":
+            payloads[safety_id]["result_valid"] = False
+        elif mutation == "boolean_metric":
+            payloads[output_id]["metrics"]["delta"] = True
+            payloads[result_id]["metrics"]["delta"] = True
+        elif mutation == "trace_hash":
+            payloads[result_id]["stdout_hash"] = "0" * 64
+
+    if mutation == "fake_metadata":
+        metadata_overrides[output_id] = {"fake": True}
+    elif mutation == "presentation_metadata":
+        metadata_overrides[output_id] = {"format": "markdown"}
+    elif mutation == "duplicate_json_key":
+        source_result = json.loads(
+            (source_root / by_id[result_id].path).read_text(encoding="utf-8")
+        )
+        raw_overrides[result_id] = json.dumps(source_result)[:-1] + ',"fake":false}'
+
+    commit_hash = _clone_stage_c_bundle_with_mutation(
+        source_root=source_root,
+        target_root=target_root,
+        run_id=run_id,
+        mutate_payloads=mutate_payloads,
+        metadata_overrides=metadata_overrides,
+        raw_overrides=raw_overrides,
+    )
+    from factori.kernel_bridge import validate_persisted_evidence_bundle
+
+    ledger_path = target_root / "runs" / run_id / "ledger.sqlite"
+    ledger_hash = sha256_file(ledger_path)
+    response = validate_persisted_evidence_bundle(
+        run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        producing_commit_hash=commit_hash,
+        bundle=bundle,
+        mode=mode,
+        root=target_root,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "rejected"
+    assert response.result.model_dump() == {}
+    assert response.diagnostics[0].code == expected_code
+    assert response.mutation_performed is False
+    assert sha256_file(ledger_path) == ledger_hash
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("candidate", "bundle_candidate_mismatch"),
+        ("claim", "bundle_claim_mismatch"),
+        ("commit", "bundle_commit_mismatch"),
+        ("member", "bundle_member_unexpected"),
+    ],
+)
+def test_rust_rejects_cross_identity_bundle_requests_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-synthetic-cross-identity"
+    candidate_id, claim_id, commit_hash, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    bundle_payload = bundle.model_dump(mode="json")
+    if mutation == "candidate":
+        candidate_id = "candidate-other"
+    elif mutation == "claim":
+        claim_id = "claim-other"
+    elif mutation == "commit":
+        ledger = ResearchLedger.open_existing(tmp_path / "runs" / run_id / "ledger.sqlite")
+        commit_hash = ledger.append_commit(
+            run_id=run_id,
+            parent_hash=commit_hash,
+            action_type=ControllerActionType.WRITE_ARTIFACT,
+            payload={"artifact_id": "unrelated"},
+            candidate_id=candidate_id,
+            timestamp="1970-01-01T00:00:01.000000Z",
+        ).commit_hash
+    elif mutation == "member":
+        bundle_payload["output_artifact_id"] = "experiment-output-other"
+
+    ledger_path = tmp_path / "runs" / run_id / "ledger.sqlite"
+    ledger_hash = sha256_file(ledger_path)
+    response = _run_kernel(
+        {
+            "protocol_version": "0.83.0",
+            "request_id": f"bundle-cross-{mutation}-{mode.value}",
+            "operation": "evidence.validate_bundle",
+            "mode": mode.value,
+            "payload": {
+                "run_id": run_id,
+                "candidate_id": candidate_id,
+                "claim_id": claim_id,
+                "producing_commit_hash": commit_hash,
+                "bundle": bundle_payload,
+            },
+        },
+        root=tmp_path,
+    )
+
+    assert response["status"] == "rejected"
+    assert response["result"] == {}
+    assert response["diagnostics"][0]["code"] == expected_code
+    assert response["mutation_performed"] is False
+    assert sha256_file(ledger_path) == ledger_hash
+
+
+def test_bundle_bridge_rejects_accepted_response_with_wrong_bundle_members(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from factori.kernel_bridge import KernelBridgeError
+
+    bundle = KernelSyntheticEvidenceBundle(
+        kind="SyntheticExperiment",
+        contract_artifact_id="contract-001",
+        input_artifact_id="input-001",
+        trace_artifact_id="trace-001",
+        output_artifact_id="output-001",
+        result_artifact_id="result-001",
+        safety_artifact_id="safety-001",
+    )
+    response = KernelResponseEnvelope.model_validate(
+        {
+            "protocol_version": "0.83.0",
+            "kernel_version": "0.1.0-dev",
+            "request_id": "evidence-validate-bundle-run-001-candidate-001",
+            "operation": "evidence.validate_bundle",
+            "mode": "StrictProduction",
+            "status": "accepted",
+            "result": KernelEvidenceValidateBundleResult(
+                run_id="run-001",
+                candidate_id="candidate-001",
+                claim_id="claim-001",
+                bundle_kind="SyntheticExperiment",
+                producing_commit_hash="f" * 64,
+                validated_artifact_ids=[
+                    "wrong-001",
+                    "input-001",
+                    "trace-001",
+                    "output-001",
+                    "result-001",
+                    "safety-001",
+                ],
+                bundle_valid=True,
+                authority_granted=False,
+            ),
+            "diagnostics": [],
+            "mutation_performed": False,
+        }
+    )
+    monkeypatch.setattr("factori.kernel_bridge._invoke_kernel", lambda *args, **kwargs: response)
+
+    from factori.kernel_bridge import validate_persisted_evidence_bundle
+
+    with pytest.raises(KernelBridgeError, match="does not match request"):
+        validate_persisted_evidence_bundle(
+            "run-001",
+            candidate_id="candidate-001",
+            claim_id="claim-001",
+            producing_commit_hash="f" * 64,
+            bundle=bundle,
+            root=tmp_path,
+        )
+
+
+def _persist_lean_bundle_fixture(
+    root: Path,
+    *,
+    run_id: str = "run-kernel-lean-bundle",
+) -> tuple[str, str, str, KernelLeanEvidenceBundle, dict[str, ArtifactRef]]:
+    from factori.adapters.proof_real import LeanProofVerifier, ProofToolRunResult
+    from factori.artifacts import ArtifactStore
+    from factori.stage_c_phases import run_real_proof_validation
+
+    class Runner:
+        def run(self, **kwargs) -> ProofToolRunResult:
+            return ProofToolRunResult(
+                exit_code=0,
+                stdout="theorem accepted",
+                stderr="",
+                elapsed_ms=7,
+                tool_version="lean-test-v1",
+            )
+
+    store = ArtifactStore(root)
+    store.init_run(run_id)
+    ledger = ResearchLedger(root / "runs" / run_id / "ledger.sqlite")
+    ledger.append_commit(
+        run_id=run_id,
+        action_type=ControllerActionType.INIT_RUN,
+        payload={"run_id": run_id},
+        timestamp="1970-01-01T00:00:00.000000Z",
+    )
+    candidate = Candidate(
+        id="candidate-lean-bundle",
+        domain="formal methods",
+        method="Lean proof",
+        question="Does the formal statement hold?",
+        hypothesis="The formal statement holds.",
+        theory="A formal theorem claim.",
+        data_requirement="NoData",
+    )
+    _, artifacts, _, contract = run_real_proof_validation(
+        run_id=run_id,
+        candidate=candidate,
+        proof_verifier=LeanProofVerifier(
+            proof_executable="lean",
+            runner=Runner(),
+            allow_external_tools=True,
+        ),
+        store=store,
+        ledger=ledger,
+    )
+    by_id = {artifact.id: artifact for artifact in artifacts}
+    bundle = KernelLeanEvidenceBundle(
+        kind="LeanProof",
+        contract_artifact_id=f"proof-contract-{candidate.id}",
+        payload_artifact_id=f"proof-payload-{candidate.id}",
+        trace_artifact_id=f"proof-trace-{candidate.id}",
+        result_artifact_id=f"proof-result-{candidate.id}",
+        safety_artifact_id=f"proof-safety-{candidate.id}",
+    )
+    assert set(bundle.model_dump().values()) - {"LeanProof"} <= set(by_id)
+    return (
+        candidate.id,
+        contract.claim_id,
+        ledger.latest_commit_hash(run_id) or "",
+        bundle,
+        by_id,
+    )
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+def test_rust_validates_persisted_lean_bundle_without_granting_authority(
+    tmp_path: Path,
+    mode: KernelMode,
+) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-lean-bundle"
+    candidate_id, claim_id, commit_hash, bundle, _ = _persist_lean_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    from factori.kernel_bridge import validate_persisted_evidence_bundle
+
+    response = validate_persisted_evidence_bundle(
+        run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        producing_commit_hash=commit_hash,
+        bundle=bundle,
+        mode=mode,
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted", [
+        (diagnostic.code, diagnostic.message, diagnostic.path)
+        for diagnostic in response.diagnostics
+    ]
+    assert response.result.bundle_valid is True
+    assert response.result.authority_granted is False
+
+
+@pytest.mark.parametrize("mode", list(KernelMode))
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("fake_metadata", "fake_backend_denied"),
+        ("payload_hash", "bundle_payload_hash_mismatch"),
+        ("claim", "bundle_claim_mismatch"),
+        ("malformed_import", "bundle_contract_invalid"),
+        ("unknown_trace_field", "protocol_invalid"),
+        ("invalid_safety", "bundle_safety_invalid"),
+        ("trace_hash", "bundle_trace_hash_mismatch"),
+        ("presentation_metadata", "authority_denied"),
+    ],
+)
+def test_rust_rejects_persisted_lean_bundle_mutations_in_both_modes(
+    tmp_path: Path,
+    mode: KernelMode,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    _build_kernel_binary()
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    run_id = "run-kernel-lean-mutation"
+    candidate_id, claim_id, _, bundle, _ = _persist_lean_bundle_fixture(
+        source_root,
+        run_id=run_id,
+    )
+    contract_id = bundle.contract_artifact_id
+    trace_id = bundle.trace_artifact_id
+    result_id = bundle.result_artifact_id
+    safety_id = bundle.safety_artifact_id
+    metadata_overrides: dict[str, dict[str, Any]] = {}
+
+    def mutate_payloads(payloads: dict[str, dict[str, Any]]) -> None:
+        if mutation == "payload_hash":
+            payloads[result_id]["proof_payload_hash"] = "0" * 64
+        elif mutation == "claim":
+            payloads[contract_id]["claim_id"] = "claim-other"
+        elif mutation == "malformed_import":
+            payloads[contract_id]["allowed_imports"] = ["Mathlib..Invalid"]
+        elif mutation == "unknown_trace_field":
+            payloads[trace_id]["unexpected"] = True
+        elif mutation == "invalid_safety":
+            payloads[safety_id]["result_valid"] = False
+        elif mutation == "trace_hash":
+            payloads[result_id]["stdout_hash"] = "0" * 64
+
+    if mutation == "fake_metadata":
+        metadata_overrides[trace_id] = {"fake": True}
+    elif mutation == "presentation_metadata":
+        metadata_overrides[trace_id] = {"format": "markdown"}
+
+    commit_hash = _clone_stage_c_bundle_with_mutation(
+        source_root=source_root,
+        target_root=target_root,
+        run_id=run_id,
+        mutate_payloads=mutate_payloads,
+        metadata_overrides=metadata_overrides,
+    )
+    from factori.kernel_bridge import validate_persisted_evidence_bundle
+
+    ledger_path = target_root / "runs" / run_id / "ledger.sqlite"
+    ledger_hash = sha256_file(ledger_path)
+    response = validate_persisted_evidence_bundle(
+        run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        producing_commit_hash=commit_hash,
+        bundle=bundle,
+        mode=mode,
+        root=target_root,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "rejected"
+    assert response.result.model_dump() == {}
+    assert response.diagnostics[0].code == expected_code
+    assert response.mutation_performed is False
+    assert sha256_file(ledger_path) == ledger_hash
 
 
 def test_rust_artifact_verification_rejects_tampered_raw_bytes(tmp_path: Path) -> None:
@@ -1533,9 +2098,7 @@ def test_evidence_classification_rejects_cross_run_producers_in_both_modes(
         metadata={"evidence_role": "proof"},
     )
     ResearchLedger(tmp_path / "runs" / target_run / "ledger.sqlite")
-    cross_run = target.model_copy(
-        update={"producing_commit_hash": source.producing_commit_hash}
-    )
+    cross_run = target.model_copy(update={"producing_commit_hash": source.producing_commit_hash})
 
     response = _classify_kernel_artifact(tmp_path, target_run, cross_run, mode=mode)
 

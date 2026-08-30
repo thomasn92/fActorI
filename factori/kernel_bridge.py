@@ -286,11 +286,34 @@ def validate_persisted_evidence_bundle(
         result = response.result
         if not isinstance(result, KernelEvidenceValidateBundleResult):
             raise KernelBridgeError("bundle validation response has the wrong result type")
+        bundle_payload = bundle.model_dump(mode="json")
+        expected_kind = bundle_payload["kind"]
+        expected_fields = (
+            (
+                "contract_artifact_id",
+                "payload_artifact_id",
+                "trace_artifact_id",
+                "result_artifact_id",
+                "safety_artifact_id",
+            )
+            if expected_kind == "LeanProof"
+            else (
+                "contract_artifact_id",
+                "input_artifact_id",
+                "trace_artifact_id",
+                "output_artifact_id",
+                "result_artifact_id",
+                "safety_artifact_id",
+            )
+        )
+        expected_artifact_ids = [bundle_payload[field] for field in expected_fields]
         if (
             result.run_id != run_id
             or result.candidate_id != candidate_id
             or result.claim_id != claim_id
+            or result.bundle_kind != expected_kind
             or result.producing_commit_hash != producing_commit_hash
+            or result.validated_artifact_ids != expected_artifact_ids
             or result.authority_granted is not False
             or result.bundle_valid is not True
         ):
