@@ -846,7 +846,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/llm-route-planning-report.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/llm-route-planning-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-fake LLM route and execution-spec planning report.",
@@ -1039,7 +1039,7 @@
   ],
   "title": "LLMRoutePlanningReport",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.LLMRoutePlanningReport",
   "x-factori-verification-evidence": false
 }

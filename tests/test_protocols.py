@@ -144,9 +144,9 @@ def test_protocol_registry_is_complete_unique_and_deterministic() -> None:
     names = [definition.name for definition in first]
 
     assert first == second
-    assert len(first) == 433
+    assert len(first) == 437
     assert len(names) == len(set(names))
-    assert PROTOCOL_VERSION == "0.83.0"
+    assert PROTOCOL_VERSION == "0.84.0"
     assert names[:3] == ["Candidate", "ScoreVector", "LedgerCommit"]
     assert names[-1] == "ProtocolCompatibilityStatus"
 

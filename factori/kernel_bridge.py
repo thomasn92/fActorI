@@ -16,6 +16,9 @@ from factori.schemas import (
     ArtifactRef,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
+    KernelClaimResolvePayload,
+    KernelClaimResolveRequest,
+    KernelClaimResolveResult,
     KernelEvidenceBundle,
     KernelEvidenceClassifyRequest,
     KernelEvidenceClassifyResult,
@@ -321,6 +324,74 @@ def validate_persisted_evidence_bundle(
     return response
 
 
+def resolve_persisted_claim(
+    run_id: str,
+    *,
+    claim_id: str,
+    claim_table_artifact_id: str,
+    claim_table_producing_commit_hash: str,
+    evidence: dict[str, object] | None = None,
+    mode: KernelMode = KernelMode.STRICT_PRODUCTION,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Resolve one claim through the read-only Rust shadow operation.
+
+    Any supplied evidence locator is revalidated by Rust in this same request. The returned
+    admissibility decision remains manuscript context and never grants evidence authority.
+    """
+    root_path = Path(root)
+    if not _SAFE_RUN_ID.fullmatch(run_id):
+        raise KernelBridgeError("unsafe run id")
+    if not _SAFE_ARTIFACT_SEGMENT.fullmatch(claim_id) or not _SAFE_ARTIFACT_SEGMENT.fullmatch(
+        claim_table_artifact_id
+    ):
+        raise KernelBridgeError("unsafe claim or claim-table artifact id")
+    payload = KernelClaimResolvePayload(
+        run_id=run_id,
+        claim_id=claim_id,
+        claim_table={
+            "artifact_id": claim_table_artifact_id,
+            "producing_commit_hash": claim_table_producing_commit_hash,
+        },
+        evidence=evidence,
+    )
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelClaimResolveRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=(
+            f"claim-resolve-{run_id}-{claim_id}-"
+            f"{claim_table_producing_commit_hash[:12]}"
+        ),
+        operation="claim.resolve",
+        mode=mode,
+        payload=payload,
+    )
+    response = _invoke_kernel(
+        request,
+        binary=binary,
+        root=root_path.resolve(),
+        timeout_seconds=timeout_seconds,
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelClaimResolveResult):
+            raise KernelBridgeError("claim resolution response has the wrong result type")
+        if (
+            result.run_id != run_id
+            or result.claim_id != claim_id
+            or result.claim_record_validated is not True
+            or result.authority_granted is not False
+        ):
+            raise KernelBridgeError("Rust claim resolution response does not match request")
+    return response
+
+
 def _validate_artifact_request_path(
     run_id: str,
     artifact: ArtifactRef,
@@ -364,6 +435,7 @@ def _invoke_kernel(
         | KernelLedgerVerifyRequest
         | KernelEvidenceClassifyRequest
         | KernelEvidenceValidateBundleRequest
+        | KernelClaimResolveRequest
     ),
     *,
     binary: Path,

@@ -7,7 +7,7 @@ deterministic trust kernel. It freezes the intended trust boundary, authority ru
 requirements, and model handoff. The current Rust implementation remains a read-only compatibility
 kernel and has not received evidence or mutation authority.
 
-Protocol baseline: `0.83.0`.
+Protocol baseline: `0.84.0`.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of
@@ -618,6 +618,96 @@ The kernel may decide whether a claim is admissible; it does not write or reinte
 The kernel returns a decision and reasons. It must never silently downgrade or upgrade a label;
 Python may propose a separate explicit claim revision using the returned diagnostic.
 
+### `claim.resolve` Semantic Freeze
+
+`claim.resolve` is a read-only decision over one persisted claim-table record. The caller may
+identify the run, claim-table artifact, claim ID, and optional strict evidence bundle, but it must
+not supply claim text, label, section, main-text permission, evidence status, a prior kernel
+response, or any reusable capability. Rust resolves those fields from the hash-linked claim table.
+
+The wire payload is:
+
+```text
+run_id
+claim_id
+claim_table:
+  artifact_id
+  producing_commit_hash
+evidence: null | {
+  producing_commit_hash
+  bundle:
+    kind = LeanProof | SyntheticExperiment
+    role-specific artifact IDs
+}
+```
+
+Before deciding admissibility, Rust must:
+
+1. validate safe identifier and hash grammar and require a configured project root;
+2. load and verify the complete persisted run ledger;
+3. resolve the named `ClaimTableBuilt` commit and require exactly one `report` artifact with the
+   requested ID, matching producing-commit link, confined path, content hash, and exact metadata
+   `format=json`, `stage=manuscript_planning`, `fake=true`;
+4. parse the artifact as a closed `ClaimTable`, reject duplicate claim IDs, and require its parsed
+   value to equal the producing commit payload;
+5. resolve exactly one claim with the requested claim ID and validate its candidate ID, label,
+   section, non-empty text, and evidence-artifact IDs;
+6. when evidence is supplied, repeat strict `evidence.validate_bundle` validation in the same
+   request for the persisted claim's candidate and claim IDs;
+7. require the claim's evidence-artifact-ID set to equal the authority-bearing members of that
+   strict bundle: Lean trace and result, or synthetic trace, output, and result.
+
+The claim table is identity/context, not evidence. Its `fake=true` metadata records deterministic
+construction and cannot mint a capability. Only the same-request strict bundle validation can
+support a verified label.
+
+Admissibility is fixed as follows:
+
+- `LeanVerified` requires a matching strict Lean bundle;
+- `SyntheticExperimentVerified` requires a matching strict synthetic bundle, section `Abstract`,
+  `Synthetic Experiments`, or `Results`, and a persisted claim text containing the complete token
+  `synthetic` or `simulation` while containing none of `real-world`, `real world`, `empirical
+  validation`, `external validity`, `deploy`, `deployment`, `generalize`, `generalization`, or
+  `universal`;
+- `ExperimentVerified` and `RealDataExperimentVerified` are inadmissible;
+- `Conjecture` is restricted to `Theory`, `Future Work`, or `Appendix`;
+- `NegativeResult` is restricted to `Negative Results`, `Results`, or `Limitations`;
+- `Limitation` is restricted to `Limitations`;
+- `Unsupported` is restricted to `Future Work` with `allowed_in_main_text=false`;
+- any claim with `allowed_in_main_text=false` is inadmissible in an existing main-text section.
+
+The accepted result contains only:
+
+```text
+run_id
+candidate_id
+claim_id
+claim_text_hash
+claim_label
+allowed_in_main_text
+allowed_section
+claim_record_validated = true
+admissible
+evidence_bundle_validated
+authority_granted = false
+```
+
+`claim_text_hash` is SHA-256 over the exact UTF-8 persisted claim text. Rejected and error
+responses have an empty result. An accepted response with `admissible=false` is a completed bounded
+decision, not transport failure and not a label downgrade.
+
+Stable claim-resolution diagnostics are:
+
+- `claim_record_missing`
+- `claim_record_invalid`
+- `claim_evidence_missing`
+- `claim_evidence_mismatch`
+- `claim_scope_denied`
+- `claim_not_admissible`
+
+Existing protocol, ledger, artifact, bundle, fake-backend, data-regime, and authority diagnostics
+remain applicable and should be preferred for their lower-level causes.
+
 ## Threat Model
 
 The kernel must fail closed against:
@@ -753,7 +843,7 @@ Sol's initial task ends with this document. The next task belongs to Luna:
 No Rust crate, generated binding, FFI layer, or translated implementation should be attributed to
 this Sol design phase.
 
-## Current Luna Handoff: Strict Evidence Bundles
+## Completed Luna Handoff: Strict Evidence Bundles
 
 Sol's strict-bundle design task ends with the semantic freeze above. The next implementation task
 belongs to Luna:
@@ -775,4 +865,22 @@ Luna must stop before implementation if the current Python artifacts cannot sati
 single-commit member sets, if a required relationship is absent from persisted bytes, if accepting
 a bundle would require trusting caller metadata or a prior kernel response, or if any valid
 fixture would require weakening a frozen authority rule. `claim.resolve`, mutation authority,
-PyO3, networking, process execution, and changes to Stage C persistence are outside this handoff.
+PyO3, networking, process execution, and changes to Stage C persistence were outside that handoff.
+
+## Current Luna Handoff: Claim Resolution
+
+Sol's claim-resolution design task ends with the semantic freeze above. Luna owns the bounded
+implementation:
+
+1. replace caller-authored claim fields with the persisted claim-table locator;
+2. add closed claim-table wire models and read-only claim-record verification;
+3. reuse strict same-request evidence-bundle validation and bind exact evidence-member IDs;
+4. return only the frozen non-authoritative result shape;
+5. add valid Lean and synthetic fixtures, single-mutation claim-table tests, synthetic-scope tests,
+   raw transport-schema tests, bridge identity tests, and Python/Rust differential tests;
+6. regenerate protocol schemas/examples and run focused Rust, protocol, parity, Ruff, and full-suite
+   verification before final Sol review.
+
+Luna must stop if claim identity cannot be resolved from immutable persisted bytes, if accepting a
+claim would require trusting caller-authored text or labels, or if a valid fixture requires
+weakening strict evidence-bundle validation.

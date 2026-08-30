@@ -68,6 +68,80 @@
       "title": "KernelCanonicalJsonResult",
       "type": "object"
     },
+    "KernelClaimResolveResult": {
+      "additionalProperties": false,
+      "description": "Non-authoritative claim admissibility result.",
+      "properties": {
+        "admissible": {
+          "title": "Admissible",
+          "type": "boolean"
+        },
+        "allowed_in_main_text": {
+          "title": "Allowed In Main Text",
+          "type": "boolean"
+        },
+        "allowed_section": {
+          "minLength": 1,
+          "title": "Allowed Section",
+          "type": "string"
+        },
+        "authority_granted": {
+          "const": false,
+          "title": "Authority Granted",
+          "type": "boolean"
+        },
+        "candidate_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "claim_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_label": {
+          "$ref": "#/$defs/VerificationLabel"
+        },
+        "claim_record_validated": {
+          "const": true,
+          "title": "Claim Record Validated",
+          "type": "boolean"
+        },
+        "claim_text_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Claim Text Hash",
+          "type": "string"
+        },
+        "evidence_bundle_validated": {
+          "title": "Evidence Bundle Validated",
+          "type": "boolean"
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "candidate_id",
+        "claim_id",
+        "claim_text_hash",
+        "claim_label",
+        "allowed_in_main_text",
+        "allowed_section",
+        "claim_record_validated",
+        "admissible",
+        "evidence_bundle_validated",
+        "authority_granted"
+      ],
+      "title": "KernelClaimResolveResult",
+      "type": "object"
+    },
     "KernelDiagnostic": {
       "additionalProperties": false,
       "description": "Bounded stable diagnostic returned by a kernel operation.",
@@ -315,7 +389,8 @@
         "artifact.verify",
         "ledger.verify",
         "evidence.classify",
-        "evidence.validate_bundle"
+        "evidence.validate_bundle",
+        "claim.resolve"
       ],
       "title": "KernelOperation",
       "type": "string"
@@ -354,9 +429,24 @@
       ],
       "title": "KernelResponseStatus",
       "type": "string"
+    },
+    "VerificationLabel": {
+      "description": "Verification and epistemic labels required by the specification.",
+      "enum": [
+        "LeanVerified",
+        "ExperimentVerified",
+        "SyntheticExperimentVerified",
+        "RealDataExperimentVerified",
+        "Conjecture",
+        "NegativeResult",
+        "Limitation",
+        "Unsupported"
+      ],
+      "title": "VerificationLabel",
+      "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/kernel-response-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/kernel-response-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Versioned response envelope for the read-only research kernel boundary.",
@@ -415,6 +505,9 @@
         },
         {
           "$ref": "#/$defs/KernelEvidenceValidateBundleResult"
+        },
+        {
+          "$ref": "#/$defs/KernelClaimResolveResult"
         }
       ],
       "title": "Result"
@@ -436,7 +529,7 @@
   ],
   "title": "KernelResponseEnvelope",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.KernelResponseEnvelope",
   "x-factori-verification-evidence": false
 }

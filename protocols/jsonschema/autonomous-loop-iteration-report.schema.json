@@ -292,7 +292,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/autonomous-loop-iteration-report.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/autonomous-loop-iteration-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One autonomous loop iteration report.",
@@ -696,7 +696,7 @@
   ],
   "title": "AutonomousLoopIterationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.AutonomousLoopIterationReport",
   "x-factori-verification-evidence": false
 }

@@ -15,8 +15,10 @@ from factori.schemas import (
     ArtifactRef,
     ArtifactType,
     Candidate,
+    Claim,
     ControllerActionType,
     KernelArtifactVerifyRequest,
+    KernelClaimResolveRequest,
     KernelEvidenceClassifyRequest,
     KernelEvidenceClassifyResult,
     KernelEvidenceValidateBundleResult,
@@ -26,6 +28,7 @@ from factori.schemas import (
     KernelRequestEnvelope,
     KernelResponseEnvelope,
     KernelSyntheticEvidenceBundle,
+    VerificationLabel,
 )
 
 FIXTURE = Path(__file__).parent / ".." / "rust-kernel" / "fixtures" / "canonical-json.json"
@@ -66,7 +69,7 @@ def test_rust_kernel_cli_matches_python_canonical_json_corpus() -> None:
 
     for case in cases:
         request = {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": case["name"],
             "operation": "hash.canonical_json",
             "mode": "DevelopmentCompatibility",
@@ -93,7 +96,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "request_id": "",
                 "operation": "hash.canonical_json",
                 "mode": "DevelopmentCompatibility",
@@ -104,7 +107,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "request_id": "request-invalid-payload",
                 "operation": "hash.canonical_json",
                 "mode": "DevelopmentCompatibility",
@@ -115,7 +118,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "request_id": "request-invalid-commit-hash",
                 "operation": "ledger.verify",
                 "mode": "DevelopmentCompatibility",
@@ -140,7 +143,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-invalid-diagnostic",
                 "operation": "hash.canonical_json",
@@ -155,7 +158,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-count",
                 "operation": "ledger.verify",
@@ -170,7 +173,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-mutation",
                 "operation": "ledger.verify",
@@ -185,7 +188,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-valid",
                 "operation": "ledger.verify",
@@ -200,7 +203,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-empty-run-id",
                 "operation": "ledger.verify",
@@ -215,7 +218,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.83.0",
+                "protocol_version": "0.84.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-invalid-result",
                 "operation": "hash.canonical_json",
@@ -236,7 +239,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
         else:
             raise AssertionError(f"invalid Python fixture was accepted: {protocol_name}")
         request = {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": f"validate-{protocol_name}",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
@@ -255,7 +258,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
 def test_rust_protocol_validation_accepts_optional_candidate_kind_omission() -> None:
     _build_kernel_binary()
     instance = {
-        "protocol_version": "0.83.0",
+        "protocol_version": "0.84.0",
         "kernel_version": "0.1.0-dev",
         "request_id": "response-context-without-candidate-kind",
         "operation": "evidence.classify",
@@ -273,7 +276,7 @@ def test_rust_protocol_validation_accepts_optional_candidate_kind_omission() -> 
     }
     KernelResponseEnvelope.model_validate(instance)
     request = {
-        "protocol_version": "0.83.0",
+        "protocol_version": "0.84.0",
         "request_id": "validate-optional-candidate-kind",
         "operation": "protocol.validate",
         "mode": "DevelopmentCompatibility",
@@ -338,7 +341,7 @@ def test_rust_ledger_verification_matches_python_commit_chain(tmp_path: Path) ->
         commit.model_dump(mode="json") for commit in ledger.list_commits("run-kernel-ledger")
     ]
     request = KernelLedgerVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="ledger-verify-test",
         operation="ledger.verify",
         mode="DevelopmentCompatibility",
@@ -370,7 +373,7 @@ def test_rust_ledger_verification_rejects_tampered_commit_payload(tmp_path: Path
     tampered = commit.model_dump(mode="json")
     tampered["payload"] = {"run_id": "tampered"}
     request = {
-        "protocol_version": "0.83.0",
+        "protocol_version": "0.84.0",
         "request_id": "ledger-verify-tampered",
         "operation": "ledger.verify",
         "mode": "DevelopmentCompatibility",
@@ -386,7 +389,7 @@ def test_rust_ledger_verification_rejects_tampered_commit_payload(tmp_path: Path
 def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> None:
     _build_kernel_binary()
     malformed_request = {
-        "protocol_version": "0.83.0",
+        "protocol_version": "0.84.0",
         "request_id": "nested-ledger-invalid",
         "operation": "ledger.verify",
         "mode": "DevelopmentCompatibility",
@@ -394,7 +397,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> N
     }
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": "validate-nested-ledger",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
@@ -412,7 +415,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> N
 def test_rust_protocol_validation_rejects_malformed_nested_bundle_request() -> None:
     _build_kernel_binary()
     malformed_request = {
-        "protocol_version": "0.83.0",
+        "protocol_version": "0.84.0",
         "request_id": "nested-bundle-invalid",
         "operation": "evidence.validate_bundle",
         "mode": "StrictProduction",
@@ -421,7 +424,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_bundle_request() -> N
 
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": "validate-nested-bundle",
             "operation": "protocol.validate",
             "mode": "StrictProduction",
@@ -453,14 +456,14 @@ def test_rust_protocol_validation_only_checks_nested_ledger_shape(
     tampered["payload"] = {"run_id": "tampered"}
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": "validate-nested-ledger-semantic",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
             "payload": {
                 "protocol_name": "KernelRequestEnvelope",
                 "instance": {
-                    "protocol_version": "0.83.0",
+                    "protocol_version": "0.84.0",
                     "request_id": "nested-ledger-semantic",
                     "operation": "ledger.verify",
                     "mode": "DevelopmentCompatibility",
@@ -502,7 +505,7 @@ def test_rust_ledger_verification_rejects_forked_or_non_tip_append(tmp_path: Pat
     assert fork.parent_hash == root.commit_hash
     response = _run_kernel(
         KernelLedgerVerifyRequest(
-            protocol_version="0.83.0",
+            protocol_version="0.84.0",
             request_id="ledger-forked",
             operation="ledger.verify",
             mode="DevelopmentCompatibility",
@@ -534,7 +537,7 @@ def test_rust_ledger_verification_accepts_python_defaulted_fields(tmp_path: Path
     raw.pop("artifact_refs")
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": "ledger-defaults",
             "operation": "ledger.verify",
             "mode": "DevelopmentCompatibility",
@@ -563,7 +566,7 @@ def test_rust_ledger_verification_rejects_duplicate_artifact_ids(tmp_path: Path)
     )
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": "ledger-duplicate-artifacts",
             "operation": "ledger.verify",
             "mode": "DevelopmentCompatibility",
@@ -607,7 +610,7 @@ def test_rust_ledger_verification_rejects_artifact_with_wrong_producer(tmp_path:
     )
     response = _run_kernel(
         KernelLedgerVerifyRequest(
-            protocol_version="0.83.0",
+            protocol_version="0.84.0",
             request_id="ledger-wrong-producer",
             operation="ledger.verify",
             mode="DevelopmentCompatibility",
@@ -946,7 +949,7 @@ def test_rust_bundle_operation_preserves_duplicate_member_diagnostic(
     _build_kernel_binary()
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": f"bundle-duplicate-{mode.value}",
             "operation": "evidence.validate_bundle",
             "mode": mode.value,
@@ -1110,7 +1113,7 @@ def test_rust_rejects_cross_identity_bundle_requests_in_both_modes(
     ledger_hash = sha256_file(ledger_path)
     response = _run_kernel(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": f"bundle-cross-{mutation}-{mode.value}",
             "operation": "evidence.validate_bundle",
             "mode": mode.value,
@@ -1132,6 +1135,512 @@ def test_rust_rejects_cross_identity_bundle_requests_in_both_modes(
     assert sha256_file(ledger_path) == ledger_hash
 
 
+def _claim_resolve_request(
+    *,
+    run_id: str,
+    claim_id: str,
+    claim_table_commit_hash: str,
+    claim_table_artifact_id: str = "claim-table",
+    evidence: dict[str, object] | None = None,
+) -> dict[str, object]:
+    return KernelClaimResolveRequest(
+        protocol_version="0.84.0",
+        request_id=f"claim-resolve-{run_id}-{claim_id}",
+        operation="claim.resolve",
+        mode=KernelMode.STRICT_PRODUCTION,
+        payload={
+            "run_id": run_id,
+            "claim_id": claim_id,
+            "claim_table": {
+                "artifact_id": claim_table_artifact_id,
+                "producing_commit_hash": claim_table_commit_hash,
+            },
+            "evidence": evidence,
+        },
+    ).model_dump(mode="json")
+
+
+def _persist_claim_table_fixture(
+    root: Path,
+    *,
+    run_id: str,
+    candidate_id: str,
+    claim_id: str,
+    claim_text: str,
+    claim_label: str,
+    evidence_artifact_ids: list[str] | None = None,
+    allowed_in_main_text: bool = True,
+    allowed_section: str = "Theory",
+) -> str:
+    from factori.artifacts import ArtifactStore
+
+    store = ArtifactStore(root)
+    ledger = ResearchLedger.open_existing(root / "runs" / run_id / "ledger.sqlite")
+    evidence_ids = list(evidence_artifact_ids or [])
+    payload = {
+        "final_nucleus_id": f"final-{candidate_id}",
+        "claims": [
+            {
+                "claim_id": claim_id,
+                "claim_text": claim_text,
+                "claim_label": claim_label,
+                "candidate_id": candidate_id,
+                "evidence_artifact_ids": evidence_ids,
+                "evidence_types": (
+                    ["proof"]
+                    if evidence_ids and claim_label == "LeanVerified"
+                    else ["experiment"]
+                    if evidence_ids
+                    else []
+                ),
+                "allowed_in_main_text": allowed_in_main_text,
+                "allowed_section": allowed_section,
+                "reason": "bounded persisted claim fixture",
+            }
+        ],
+        "evidence_links": [],
+    }
+    artifact = store.write_json(
+        run_id=run_id,
+        artifact_id="claim-table",
+        artifact_type=ArtifactType.REPORT,
+        data=payload,
+        metadata={"stage": "manuscript_planning", "fake": True},
+    )
+    commit = ledger.append_commit(
+        run_id=run_id,
+        parent_hash=ledger.latest_commit_hash(run_id),
+        action_type=ControllerActionType.CLAIM_TABLE_BUILT,
+        payload=payload,
+        artifact_refs=[artifact],
+        timestamp="1970-01-01T00:00:02.000000Z",
+    )
+    store.link_artifact_to_commit(artifact, commit.commit_hash)
+    return commit.commit_hash
+
+
+def _persist_empty_run_fixture(root: Path, *, run_id: str) -> None:
+    from factori.artifacts import ArtifactStore
+
+    ArtifactStore(root).init_run(run_id)
+    ResearchLedger(root / "runs" / run_id / "ledger.sqlite").append_commit(
+        run_id=run_id,
+        action_type=ControllerActionType.INIT_RUN,
+        payload={"run_id": run_id},
+        timestamp="1970-01-01T00:00:00.000000Z",
+    )
+
+
+def test_rust_claim_resolution_revalidates_synthetic_bundle_and_grants_no_authority(
+    tmp_path: Path,
+) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-claim-resolve"
+    candidate_id, claim_id, evidence_commit_hash, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_text = "This synthetic simulation remains bounded to the configured setting."
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text=claim_text,
+        claim_label="SyntheticExperimentVerified",
+        evidence_artifact_ids=[
+            bundle.trace_artifact_id,
+            bundle.output_artifact_id,
+            bundle.result_artifact_id,
+        ],
+        allowed_section="Synthetic Experiments",
+    )
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+            evidence={
+                "producing_commit_hash": evidence_commit_hash,
+                "bundle": bundle.model_dump(mode="json"),
+            },
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "accepted"
+    assert response["result"] == {
+        "run_id": run_id,
+        "candidate_id": candidate_id,
+        "claim_id": claim_id,
+        "claim_text_hash": sha256_text(claim_text),
+        "claim_label": "SyntheticExperimentVerified",
+        "allowed_in_main_text": True,
+        "allowed_section": "Synthetic Experiments",
+        "claim_record_validated": True,
+        "admissible": True,
+        "evidence_bundle_validated": True,
+        "authority_granted": False,
+    }
+
+
+def test_claim_resolution_bridge_checks_identity_and_authority_boundary(
+    tmp_path: Path,
+) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-claim-bridge"
+    candidate_id, claim_id, evidence_commit_hash, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text="This synthetic simulation remains bounded.",
+        claim_label="SyntheticExperimentVerified",
+        evidence_artifact_ids=[
+            bundle.trace_artifact_id,
+            bundle.output_artifact_id,
+            bundle.result_artifact_id,
+        ],
+        allowed_section="Synthetic Experiments",
+    )
+    from factori.kernel_bridge import resolve_persisted_claim
+
+    response = resolve_persisted_claim(
+        run_id,
+        claim_id=claim_id,
+        claim_table_artifact_id="claim-table",
+        claim_table_producing_commit_hash=claim_table_commit_hash,
+        evidence={
+            "producing_commit_hash": evidence_commit_hash,
+            "bundle": bundle.model_dump(mode="json"),
+        },
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted"
+    assert response.result.run_id == run_id
+    assert response.result.candidate_id == candidate_id
+    assert response.result.claim_id == claim_id
+    assert response.result.claim_record_validated is True
+    assert response.result.authority_granted is False
+
+
+def test_rust_claim_resolution_revalidates_lean_bundle(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-claim-resolve-lean"
+    candidate_id, claim_id, evidence_commit_hash, bundle, _ = _persist_lean_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_text = "The persisted formal theorem is accepted by the configured Lean checker."
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text=claim_text,
+        claim_label="LeanVerified",
+        evidence_artifact_ids=[bundle.trace_artifact_id, bundle.result_artifact_id],
+        allowed_section="Theory",
+    )
+
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+            evidence={
+                "producing_commit_hash": evidence_commit_hash,
+                "bundle": bundle.model_dump(mode="json"),
+            },
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "accepted"
+    assert response["result"]["candidate_id"] == candidate_id
+    assert response["result"]["claim_text_hash"] == sha256_text(claim_text)
+    assert response["result"]["admissible"] is True
+    assert response["result"]["evidence_bundle_validated"] is True
+    assert response["result"]["authority_granted"] is False
+
+
+@pytest.mark.parametrize(
+    ("claim_label", "allowed_section", "allowed_in_main_text", "expected"),
+    [
+        ("Conjecture", "Theory", True, True),
+        ("NegativeResult", "Results", True, True),
+        ("Limitation", "Limitations", True, True),
+        ("Unsupported", "Future Work", False, True),
+        ("Unsupported", "Future Work", True, False),
+        ("RealDataExperimentVerified", "Results", True, False),
+    ],
+)
+def test_rust_claim_resolution_preserves_non_verified_claim_boundaries(
+    tmp_path: Path,
+    claim_label: str,
+    allowed_section: str,
+    allowed_in_main_text: bool,
+    expected: bool,
+) -> None:
+    _build_kernel_binary()
+    run_id = f"run-kernel-claim-boundary-{claim_label}-{allowed_in_main_text}"
+    candidate_id = "candidate-claim-boundary"
+    claim_id = f"claim-{claim_label}"
+    claim_text = "A bounded statement about the configured study."
+    _persist_empty_run_fixture(tmp_path, run_id=run_id)
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text=claim_text,
+        claim_label=claim_label,
+        allowed_in_main_text=allowed_in_main_text,
+        allowed_section=allowed_section,
+    )
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+        ),
+        root=tmp_path,
+    )
+
+    from factori.claims import is_claim_admissible
+
+    python_admissible = is_claim_admissible(
+        Claim(
+            claim_id=claim_id,
+            claim_text=claim_text,
+            claim_label=VerificationLabel(claim_label),
+            candidate_id=candidate_id,
+            evidence_artifact_ids=[],
+            evidence_types=[],
+            allowed_in_main_text=allowed_in_main_text,
+            allowed_section=allowed_section,
+            reason="bounded persisted claim fixture",
+        ),
+        [],
+    )
+    assert response["status"] == "accepted"
+    assert python_admissible is expected
+    assert response["result"]["admissible"] is python_admissible
+    assert response["result"]["evidence_bundle_validated"] is False
+    assert response["result"]["authority_granted"] is False
+
+
+def test_rust_claim_resolution_requires_evidence_for_verified_labels(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-claim-missing-evidence"
+    candidate_id, claim_id, _, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text="This synthetic simulation is bounded.",
+        claim_label="SyntheticExperimentVerified",
+        evidence_artifact_ids=[
+            bundle.trace_artifact_id,
+            bundle.output_artifact_id,
+            bundle.result_artifact_id,
+        ],
+        allowed_section="Synthetic Experiments",
+    )
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "accepted"
+    assert response["result"]["admissible"] is False
+    assert response["result"]["evidence_bundle_validated"] is False
+    assert response["diagnostics"][0]["code"] == "claim_evidence_missing"
+
+
+def test_rust_claim_resolution_rejects_mismatched_claim_evidence(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-claim-evidence-mismatch"
+    candidate_id, claim_id, evidence_commit_hash, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text="A bounded synthetic simulation statement.",
+        claim_label="SyntheticExperimentVerified",
+        evidence_artifact_ids=[bundle.trace_artifact_id, bundle.result_artifact_id],
+        allowed_section="Synthetic Experiments",
+    )
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+            evidence={
+                "producing_commit_hash": evidence_commit_hash,
+                "bundle": bundle.model_dump(mode="json"),
+            },
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "accepted"
+    assert response["result"]["admissible"] is False
+    assert response["diagnostics"][0]["code"] == "claim_evidence_mismatch"
+
+
+def test_rust_claim_resolution_does_not_ignore_mismatched_optional_evidence(
+    tmp_path: Path,
+) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-conjecture-evidence-mismatch"
+    candidate_id, claim_id, evidence_commit_hash, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text="A bounded conjecture about the configured study.",
+        claim_label="Conjecture",
+        allowed_section="Theory",
+    )
+
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+            evidence={
+                "producing_commit_hash": evidence_commit_hash,
+                "bundle": bundle.model_dump(mode="json"),
+            },
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "accepted"
+    assert response["result"]["admissible"] is False
+    assert response["result"]["evidence_bundle_validated"] is True
+    assert response["diagnostics"][0]["code"] == "claim_evidence_mismatch"
+
+
+def test_rust_claim_resolution_rejects_unbounded_synthetic_text(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    run_id = "run-kernel-claim-invalid-scope"
+    candidate_id, claim_id, evidence_commit_hash, bundle, _ = _persist_synthetic_bundle_fixture(
+        tmp_path,
+        run_id=run_id,
+    )
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id=candidate_id,
+        claim_id=claim_id,
+        claim_text="This synthetic simulation establishes universal deployment performance.",
+        claim_label="SyntheticExperimentVerified",
+        evidence_artifact_ids=[
+            bundle.trace_artifact_id,
+            bundle.output_artifact_id,
+            bundle.result_artifact_id,
+        ],
+        allowed_section="Synthetic Experiments",
+    )
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id=claim_id,
+            claim_table_commit_hash=claim_table_commit_hash,
+            evidence={
+                "producing_commit_hash": evidence_commit_hash,
+                "bundle": bundle.model_dump(mode="json"),
+            },
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "accepted"
+    assert response["result"]["admissible"] is False
+    assert response["diagnostics"][0]["code"] == "claim_scope_denied"
+
+
+@pytest.mark.parametrize(
+    ("claim_text", "allowed_section"),
+    [("", "Theory"), ("A bounded statement.", "NotASection")],
+)
+def test_rust_claim_resolution_rejects_invalid_persisted_claim_record(
+    tmp_path: Path,
+    claim_text: str,
+    allowed_section: str,
+) -> None:
+    _build_kernel_binary()
+    run_id = f"run-kernel-claim-invalid-record-{len(claim_text)}-{allowed_section}"
+    _persist_empty_run_fixture(tmp_path, run_id=run_id)
+    claim_table_commit_hash = _persist_claim_table_fixture(
+        tmp_path,
+        run_id=run_id,
+        candidate_id="candidate-claim-invalid-record",
+        claim_id="claim-invalid-record",
+        claim_text=claim_text,
+        claim_label="Conjecture",
+        allowed_section=allowed_section,
+    )
+    response = _run_kernel(
+        _claim_resolve_request(
+            run_id=run_id,
+            claim_id="claim-invalid-record",
+            claim_table_commit_hash=claim_table_commit_hash,
+        ),
+        root=tmp_path,
+    )
+
+    assert response["status"] == "rejected"
+    assert response["diagnostics"][0]["code"] == "claim_record_invalid"
+
+
+def test_rust_claim_resolution_rejects_unknown_payload_fields(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    request = _claim_resolve_request(
+        run_id="run-kernel-claim-unknown",
+        claim_id="claim-claim-unknown",
+        claim_table_commit_hash="a" * 64,
+    )
+    request["payload"]["unexpected"] = True
+
+    completed = subprocess.run(
+        [str(KERNEL_BINARY), "--root", str(tmp_path)],
+        input=json.dumps(request) + "\n",
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 2
+    response = json.loads(completed.stdout)
+    assert response["status"] == "error"
+    assert response["diagnostics"][0]["code"] == "transport_invalid"
+
+
 def test_bundle_bridge_rejects_accepted_response_with_wrong_bundle_members(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1149,7 +1658,7 @@ def test_bundle_bridge_rejects_accepted_response_with_wrong_bundle_members(
     )
     response = KernelResponseEnvelope.model_validate(
         {
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "kernel_version": "0.1.0-dev",
             "request_id": "evidence-validate-bundle-run-001-candidate-001",
             "operation": "evidence.validate_bundle",
@@ -1376,7 +1885,7 @@ def test_rust_artifact_verification_rejects_tampered_raw_bytes(tmp_path: Path) -
     _build_kernel_binary()
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-tampered-bytes",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1405,7 +1914,7 @@ def test_rust_artifact_verification_rejects_wrong_directory_and_presentation_ove
         metadata={"is_verification_evidence": True},
     )
     request = {
-        "protocol_version": "0.83.0",
+        "protocol_version": "0.84.0",
         "request_id": "artifact-invalid-location",
         "operation": "artifact.verify",
         "mode": "DevelopmentCompatibility",
@@ -1436,7 +1945,7 @@ def test_rust_artifact_verification_rejects_missing_persisted_producer(tmp_path:
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     artifact = artifact.model_copy(update={"producing_commit_hash": "f" * 64})
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-missing-producer",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1465,7 +1974,7 @@ def test_rust_artifact_verification_rejects_unlinked_implicit_evidence(tmp_path:
         format_label="json",
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-unlinked-evidence",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1496,7 +2005,7 @@ def test_rust_artifact_verification_accepts_unlinked_context_artifact(tmp_path: 
         .model_copy(update={"metadata": {"is_verification_evidence": False}})
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-unlinked-context",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1521,7 +2030,7 @@ def test_rust_artifact_verification_rejects_corrupt_persisted_ledger(tmp_path: P
             ('{"artifact_id":"tampered"}', artifact.producing_commit_hash),
         )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-corrupt-ledger",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1538,7 +2047,7 @@ def test_rust_artifact_verification_requires_root(tmp_path: Path) -> None:
     _build_kernel_binary()
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-root-missing",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1563,7 +2072,7 @@ def test_rust_artifact_verification_rejects_python_invalid_identifier_grammar(
         metadata={"is_verification_evidence": False},
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-invalid-identifier",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1617,7 +2126,7 @@ def test_rust_artifact_verification_rejects_symlinked_artifacts(tmp_path: Path) 
     artifact_path.unlink()
     artifact_path.symlink_to(outside)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id="artifact-rust-symlink",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1669,7 +2178,7 @@ def _classify_kernel_artifact(
     mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
 ) -> dict[str, object]:
     request = KernelEvidenceClassifyRequest(
-        protocol_version="0.83.0",
+        protocol_version="0.84.0",
         request_id=f"classify-{artifact.id}-{mode.value}",
         operation="evidence.classify",
         mode=mode,

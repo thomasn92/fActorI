@@ -4,6 +4,9 @@ This directory contains language-neutral developer contracts generated from the 
 existing Pydantic models. They are intended for Python tools, future Rust crates, future servers,
 and coding agents that need a stable boundary without importing the Python runtime.
 
+Protocol `0.84.0` adds the read-only `claim.resolve` kernel operation. It resolves one bounded
+claim against a same-request, revalidated persisted evidence locator without returning authority.
+
 Protocol `0.83.0` adds the read-only `evidence.validate_bundle` kernel operation. It validates
 complete persisted Lean or local synthetic Stage C bundles without returning evidence authority,
 a verification label, or a reusable capability.

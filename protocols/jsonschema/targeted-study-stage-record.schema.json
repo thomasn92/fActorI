@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.83.0/targeted-study-stage-record.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/targeted-study-stage-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One planned or completed stage in a targeted study.",
@@ -90,7 +90,7 @@
   ],
   "title": "TargetedStudyStageRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.TargetedStudyStageRecord",
   "x-factori-verification-evidence": false
 }

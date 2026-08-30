@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.83.0/substrate-tournament-comparison.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/substrate-tournament-comparison.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Normalized synthetic-scope comparison across substrate branches.",
@@ -111,7 +111,7 @@
   ],
   "title": "SubstrateTournamentComparison",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.SubstrateTournamentComparison",
   "x-factori-verification-evidence": false
 }

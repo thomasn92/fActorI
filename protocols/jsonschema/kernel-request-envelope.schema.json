@@ -330,6 +330,139 @@
       "title": "KernelCanonicalJsonRequest",
       "type": "object"
     },
+    "KernelClaimEvidenceLocator": {
+      "additionalProperties": false,
+      "description": "Locator for the persisted bundle revalidated during claim resolution.",
+      "properties": {
+        "bundle": {
+          "discriminator": {
+            "mapping": {
+              "LeanProof": "#/$defs/KernelLeanEvidenceBundle",
+              "SyntheticExperiment": "#/$defs/KernelSyntheticEvidenceBundle"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/KernelLeanEvidenceBundle"
+            },
+            {
+              "$ref": "#/$defs/KernelSyntheticEvidenceBundle"
+            }
+          ],
+          "title": "Bundle"
+        },
+        "producing_commit_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Producing Commit Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "producing_commit_hash",
+        "bundle"
+      ],
+      "title": "KernelClaimEvidenceLocator",
+      "type": "object"
+    },
+    "KernelClaimResolvePayload": {
+      "additionalProperties": false,
+      "description": "Locator-only claim admissibility request with no authority-bearing input.",
+      "properties": {
+        "claim_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_table": {
+          "$ref": "#/$defs/KernelClaimTableLocator"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KernelClaimEvidenceLocator"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "claim_id",
+        "claim_table"
+      ],
+      "title": "KernelClaimResolvePayload",
+      "type": "object"
+    },
+    "KernelClaimResolveRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for read-only claim admissibility resolution.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "claim.resolve",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelClaimResolvePayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelClaimResolveRequest",
+      "type": "object"
+    },
+    "KernelClaimTableLocator": {
+      "additionalProperties": false,
+      "description": "Locator for the persisted claim-table record resolved by the kernel.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Producing Commit Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "producing_commit_hash"
+      ],
+      "title": "KernelClaimTableLocator",
+      "type": "object"
+    },
     "KernelEvidenceClassifyPayload": {
       "additionalProperties": false,
       "description": "Payload for read-only classification of one persisted artifact.",
@@ -786,12 +919,13 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the read-only research kernel boundary.",
   "discriminator": {
     "mapping": {
       "artifact.verify": "#/$defs/KernelArtifactVerifyRequest",
+      "claim.resolve": "#/$defs/KernelClaimResolveRequest",
       "evidence.classify": "#/$defs/KernelEvidenceClassifyRequest",
       "evidence.validate_bundle": "#/$defs/KernelEvidenceValidateBundleRequest",
       "hash.canonical_json": "#/$defs/KernelCanonicalJsonRequest",
@@ -818,10 +952,13 @@
     },
     {
       "$ref": "#/$defs/KernelEvidenceValidateBundleRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelClaimResolveRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

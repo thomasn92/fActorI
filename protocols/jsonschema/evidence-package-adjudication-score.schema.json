@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.83.0/evidence-package-adjudication-score.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/evidence-package-adjudication-score.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Auditable local aggregation over execution metadata and critic reviews.",
@@ -165,7 +165,7 @@
   ],
   "title": "EvidencePackageAdjudicationScore",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.EvidencePackageAdjudicationScore",
   "x-factori-verification-evidence": false
 }

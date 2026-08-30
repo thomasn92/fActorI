@@ -17,7 +17,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/llm-route-decision-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/llm-route-decision-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One non-fake LLM scientific route decision candidate.",
@@ -179,7 +179,7 @@
   ],
   "title": "LLMRouteDecisionCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.LLMRouteDecisionCandidate",
   "x-factori-verification-evidence": false
 }

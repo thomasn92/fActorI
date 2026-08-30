@@ -54,7 +54,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/stage-backend-record.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/stage-backend-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Explicit backend authority record for one pipeline stage.",
@@ -127,7 +127,7 @@
   ],
   "title": "StageBackendRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.StageBackendRecord",
   "x-factori-verification-evidence": false
 }

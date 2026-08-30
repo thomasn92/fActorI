@@ -128,7 +128,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/manuscript-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/manuscript-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Structured manuscript plan.",
@@ -189,7 +189,7 @@
   ],
   "title": "ManuscriptPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.ManuscriptPlan",
   "x-factori-verification-evidence": false
 }

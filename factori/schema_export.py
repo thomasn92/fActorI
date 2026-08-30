@@ -55,6 +55,7 @@ from factori.schemas import (
     FullPaperReleaseReport,
     FullPaperReleaseStatus,
     GeneratedSectionDraft,
+    KernelClaimResolvePayload,
     KernelEvidenceValidateBundlePayload,
     KernelLedgerVerifyRequest,
     KernelMode,
@@ -202,6 +203,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "kernel-ledger-request-envelope.example.json": "KernelRequestEnvelope",
     "kernel-response-envelope.example.json": "KernelResponseEnvelope",
     "kernel-evidence-validate-bundle-payload.example.json": "KernelEvidenceValidateBundlePayload",
+    "kernel-claim-resolve-payload.example.json": "KernelClaimResolvePayload",
 }
 
 
@@ -249,9 +251,7 @@ def check_protocols(output_dir: Path = DEFAULT_PROTOCOL_OUTPUT_DIR) -> ProtocolE
     expected_schemas = {path for path in expected if path.parent == output_dir}
     if output_dir.is_dir():
         stale.extend(
-            path
-            for path in output_dir.glob("*.schema.json")
-            if path not in expected_schemas
+            path for path in output_dir.glob("*.schema.json") if path not in expected_schemas
         )
     return _result(output_dir, stale_files=tuple(sorted(set(stale))))
 
@@ -272,9 +272,7 @@ def build_protocol_schema(definition: ProtocolDefinition) -> dict[str, Any]:
     schema = TypeAdapter(definition.model).json_schema(mode="serialization")
     _normalize_protocol_schema(schema)
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["$id"] = (
-        f"https://schemas.factori.local/{PROTOCOL_VERSION}/{definition.filename}"
-    )
+    schema["$id"] = f"https://schemas.factori.local/{PROTOCOL_VERSION}/{definition.filename}"
     schema["title"] = definition.name
     schema["description"] = definition.description
     schema["x-factori-protocol-version"] = PROTOCOL_VERSION
@@ -591,9 +589,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
             "Use only allowed citation keys.",
             "Do not claim retrieval proves novelty.",
         ],
-        literature_positioning_context=literature_positioning_report.model_dump(
-            mode="json"
-        ),
+        literature_positioning_context=literature_positioning_report.model_dump(mode="json"),
         style_instructions=["Use placeholder-grade prose only."],
         max_words=120,
         source_contract_hashes={"claim_table": _HASH},
@@ -889,9 +885,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         action=PaperRevisionActionKind.ADD_BOUNDED_LITERATURE_GAP,
         target_section_id="introduction",
         before_snippet="## Introduction",
-        after_snippet=(
-            "## Introduction\n\nLiterature positioning is bounded and non-exhaustive."
-        ),
+        after_snippet=("## Introduction\n\nLiterature positioning is bounded and non-exhaustive."),
         rationale="inserted bounded literature disclaimer",
     )
     revision_safety_report = RevisionSafetyReport(
@@ -972,9 +966,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         report_id="full-paper-generation-report-example",
         run_id="example",
         config=full_paper_config,
-        generation_status=(
-            FullPaperGenerationStatus.PAPER_GENERATION_SUCCEEDED_WITH_WARNINGS
-        ),
+        generation_status=(FullPaperGenerationStatus.PAPER_GENERATION_SUCCEEDED_WITH_WARNINGS),
         steps=[full_paper_step],
         artifact_bundle=full_paper_bundle,
         warnings=["Full-paper generation is not publication readiness."],
@@ -1218,9 +1210,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         report_id="llm-orchestration-report-example",
         run_id="example",
         config=llm_orchestration_config,
-        orchestration_status=(
-            LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS
-        ),
+        orchestration_status=(LLMOrchestrationStatus.ORCHESTRATION_SUCCEEDED_WITH_WARNINGS),
         steps=[llm_orchestration_step],
         budget_decision=llm_budget_decision,
         budget_usage=llm_usage,
@@ -1333,13 +1323,23 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
             safety_artifact_id="experiment-safety-example",
         ),
     )
+    kernel_claim_resolve_payload = KernelClaimResolvePayload(
+        run_id="run-example",
+        claim_id="claim-example",
+        claim_table={
+            "artifact_id": "claim-table",
+            "producing_commit_hash": _HASH,
+        },
+        evidence={
+            "producing_commit_hash": _HASH,
+            "bundle": kernel_evidence_validate_bundle_payload.bundle,
+        },
+    )
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
         "citation-registry.example.json": citation_registry.model_dump(mode="json"),
-        "citation-safety-report.example.json": citation_safety_report.model_dump(
-            mode="json"
-        ),
+        "citation-safety-report.example.json": citation_safety_report.model_dump(mode="json"),
         "claim-support-audit.example.json": claim_support_audit.model_dump(mode="json"),
         "artifact.example.json": artifact.model_dump(mode="json"),
         "artifact-manifest.example.json": artifact_manifest.model_dump(mode="json"),
@@ -1348,9 +1348,7 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "run-status-report.example.json": run_status.model_dump(mode="json"),
         "resume-validation-report.example.json": resume_validation.model_dump(mode="json"),
         "ledger-tip-validation-report.example.json": ledger_tip.model_dump(mode="json"),
-        "llm-orchestration-result.example.json": llm_orchestration_result.model_dump(
-            mode="json"
-        ),
+        "llm-orchestration-result.example.json": llm_orchestration_result.model_dump(mode="json"),
         "llm-candidate-request.example.json": llm_prompt.model_dump(mode="json"),
         "llm-candidate-response.example.json": llm_response.model_dump(mode="json"),
         "retrieval-query.example.json": retrieval_query.model_dump(mode="json"),
@@ -1368,15 +1366,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "prose-generation-request.example.json": prose_request.model_dump(mode="json"),
         "prose-generation-parse-result.example.json": prose_parse_result.model_dump(mode="json"),
         "prose-safety-report.example.json": prose_safety_report.model_dump(mode="json"),
-        "manuscript-drafting-plan.example.json": manuscript_drafting_plan.model_dump(
-            mode="json"
-        ),
-        "section-drafting-result.example.json": section_drafting_result.model_dump(
-            mode="json"
-        ),
-        "complete-markdown-draft.example.json": complete_markdown_draft.model_dump(
-            mode="json"
-        ),
+        "manuscript-drafting-plan.example.json": manuscript_drafting_plan.model_dump(mode="json"),
+        "section-drafting-result.example.json": section_drafting_result.model_dump(mode="json"),
+        "complete-markdown-draft.example.json": complete_markdown_draft.model_dump(mode="json"),
         "manuscript-drafting-report.example.json": manuscript_drafting_report.model_dump(
             mode="json"
         ),
@@ -1388,15 +1380,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         "latex-export-result.example.json": latex_export_result.model_dump(mode="json"),
         "paper-critic-report.example.json": paper_critic_report.model_dump(mode="json"),
         "paper-revision-result.example.json": paper_revision_result.model_dump(mode="json"),
-        "full-paper-generation-result.example.json": full_paper_result.model_dump(
-            mode="json"
-        ),
-        "full-paper-golden-bundle.example.json": full_paper_golden_bundle.model_dump(
-            mode="json"
-        ),
-        "full-paper-release-report.example.json": full_paper_release_report.model_dump(
-            mode="json"
-        ),
+        "full-paper-generation-result.example.json": full_paper_result.model_dump(mode="json"),
+        "full-paper-golden-bundle.example.json": full_paper_golden_bundle.model_dump(mode="json"),
+        "full-paper-release-report.example.json": full_paper_release_report.model_dump(mode="json"),
         "research-object-manifest.example.json": research_manifest.model_dump(mode="json"),
         "pipeline-dry-run-plan.example.json": dry_run_plan.model_dump(mode="json"),
         "pipeline-run-report.example.json": pipeline_report.model_dump(mode="json"),
@@ -1407,6 +1393,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         ),
         "kernel-evidence-validate-bundle-payload.example.json": (
             kernel_evidence_validate_bundle_payload.model_dump(mode="json")
+        ),
+        "kernel-claim-resolve-payload.example.json": kernel_claim_resolve_payload.model_dump(
+            mode="json"
         ),
     }
 

@@ -536,7 +536,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.83.0/final-paper-manifest.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/final-paper-manifest.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Machine-readable final-paper asset and open-obligation manifest.",
@@ -699,7 +699,7 @@
   ],
   "title": "FinalPaperManifest",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.FinalPaperManifest",
   "x-factori-verification-evidence": false
 }

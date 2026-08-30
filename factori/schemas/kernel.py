@@ -10,6 +10,7 @@ from pydantic import ConfigDict, Field, RootModel, field_validator, model_valida
 
 from factori.schemas.artifacts import ArtifactRef, LedgerCommit
 from factori.schemas.base import HASH_RE, StrictModel
+from factori.schemas.enums import VerificationLabel
 
 
 class KernelMode(StrEnum):
@@ -28,6 +29,7 @@ class KernelOperation(StrEnum):
     LEDGER_VERIFY = "ledger.verify"
     EVIDENCE_CLASSIFY = "evidence.classify"
     EVIDENCE_VALIDATE_BUNDLE = "evidence.validate_bundle"
+    CLAIM_RESOLVE = "claim.resolve"
 
 
 class KernelResponseStatus(StrEnum):
@@ -231,6 +233,29 @@ class KernelEvidenceValidateBundlePayload(StrictModel):
     bundle: KernelEvidenceBundle
 
 
+class KernelClaimEvidenceLocator(StrictModel):
+    """Locator for the persisted bundle revalidated during claim resolution."""
+
+    producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+    bundle: KernelEvidenceBundle
+
+
+class KernelClaimTableLocator(StrictModel):
+    """Locator for the persisted claim-table record resolved by the kernel."""
+
+    artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+
+
+class KernelClaimResolvePayload(StrictModel):
+    """Locator-only claim admissibility request with no authority-bearing input."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    claim_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    claim_table: KernelClaimTableLocator
+    evidence: KernelClaimEvidenceLocator | None = None
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -281,13 +306,21 @@ class KernelEvidenceValidateBundleRequest(KernelRequestFields):
     payload: KernelEvidenceValidateBundlePayload
 
 
+class KernelClaimResolveRequest(KernelRequestFields):
+    """Typed request for read-only claim admissibility resolution."""
+
+    operation: Literal[KernelOperation.CLAIM_RESOLVE]
+    payload: KernelClaimResolvePayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
     | KernelArtifactVerifyRequest
     | KernelLedgerVerifyRequest
     | KernelEvidenceClassifyRequest
-    | KernelEvidenceValidateBundleRequest,
+    | KernelEvidenceValidateBundleRequest
+    | KernelClaimResolveRequest,
     Field(discriminator="operation"),
 ]
 
@@ -324,6 +357,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelLedgerVerifyPayload
         | KernelEvidenceClassifyPayload
         | KernelEvidenceValidateBundlePayload
+        | KernelClaimResolvePayload
     ):
         return self.root.payload
 
@@ -482,6 +516,36 @@ class KernelEvidenceValidateBundleResult(StrictModel):
         return self
 
 
+class KernelClaimResolveResult(StrictModel):
+    """Non-authoritative claim admissibility result."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    candidate_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    claim_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    claim_text_hash: str = Field(pattern=HASH_RE.pattern)
+    claim_label: VerificationLabel
+    allowed_in_main_text: bool = Field(strict=True)
+    allowed_section: str = Field(min_length=1)
+    claim_record_validated: Literal[True]
+    admissible: bool = Field(strict=True)
+    evidence_bundle_validated: bool = Field(strict=True)
+    authority_granted: Literal[False]
+
+    @field_validator("claim_record_validated", mode="before")
+    @classmethod
+    def require_strict_claim_record_true(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("claim_record_validated must be the boolean true")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_authority_false(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be the boolean false")
+        return value
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -489,7 +553,8 @@ KernelResult = Annotated[
     | KernelArtifactVerifyResult
     | KernelLedgerVerifyResult
     | KernelEvidenceClassifyResult
-    | KernelEvidenceValidateBundleResult,
+    | KernelEvidenceValidateBundleResult
+    | KernelClaimResolveResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -523,6 +588,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.LEDGER_VERIFY: KernelLedgerVerifyResult,
             KernelOperation.EVIDENCE_CLASSIFY: KernelEvidenceClassifyResult,
             KernelOperation.EVIDENCE_VALIDATE_BUNDLE: KernelEvidenceValidateBundleResult,
+            KernelOperation.CLAIM_RESOLVE: KernelClaimResolveResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -556,6 +622,11 @@ __all__ = [
     "KernelEvidenceValidateBundlePayload",
     "KernelEvidenceValidateBundleRequest",
     "KernelEvidenceValidateBundleResult",
+    "KernelClaimEvidenceLocator",
+    "KernelClaimTableLocator",
+    "KernelClaimResolvePayload",
+    "KernelClaimResolveRequest",
+    "KernelClaimResolveResult",
     "KernelLeanEvidenceBundle",
     "KernelSyntheticEvidenceBundle",
     "KernelLedgerVerifyPayload",

@@ -200,6 +200,10 @@ from factori.schemas import (
     IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    KernelClaimEvidenceLocator,
+    KernelClaimResolvePayload,
+    KernelClaimResolveResult,
+    KernelClaimTableLocator,
     KernelEvidenceValidateBundlePayload,
     KernelEvidenceValidateBundleResult,
     KernelProofPayload,
@@ -437,7 +441,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.83.0"
+PROTOCOL_VERSION = "0.84.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -528,6 +532,26 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "KernelEvidenceValidateBundleResult",
         KernelEvidenceValidateBundleResult,
         "Non-authoritative result of strict persisted Stage C evidence-bundle validation.",
+    ),
+    ProtocolDefinition(
+        "KernelClaimEvidenceLocator",
+        KernelClaimEvidenceLocator,
+        "Persisted evidence locator revalidated during claim resolution.",
+    ),
+    ProtocolDefinition(
+        "KernelClaimTableLocator",
+        KernelClaimTableLocator,
+        "Persisted claim-table locator resolved during claim resolution.",
+    ),
+    ProtocolDefinition(
+        "KernelClaimResolvePayload",
+        KernelClaimResolvePayload,
+        "Locator-only claim admissibility request with no authority-bearing input.",
+    ),
+    ProtocolDefinition(
+        "KernelClaimResolveResult",
+        KernelClaimResolveResult,
+        "Non-authoritative claim admissibility result.",
     ),
     ProtocolDefinition(
         "KernelProofPayload",

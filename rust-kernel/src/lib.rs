@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.83.0";
+pub const PROTOCOL_VERSION: &str = "0.84.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -68,6 +68,61 @@ struct EvidenceValidateBundlePayload {
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClaimEvidenceLocator {
+    producing_commit_hash: String,
+    bundle: EvidenceBundle,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClaimTableLocator {
+    artifact_id: String,
+    producing_commit_hash: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClaimResolvePayload {
+    run_id: String,
+    claim_id: String,
+    claim_table: ClaimTableLocator,
+    evidence: Option<ClaimEvidenceLocator>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClaimEvidenceLinkWire {
+    claim_id: String,
+    artifact_id: String,
+    artifact_type: String,
+    evidence_role: Option<String>,
+    supports_label: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClaimWire {
+    claim_id: String,
+    claim_text: String,
+    claim_label: String,
+    candidate_id: String,
+    evidence_artifact_ids: Vec<String>,
+    evidence_types: Vec<String>,
+    allowed_in_main_text: bool,
+    allowed_section: String,
+    reason: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ClaimTableWire {
+    final_nucleus_id: String,
+    claims: Vec<ClaimWire>,
+    evidence_links: Vec<ClaimEvidenceLinkWire>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(tag = "kind")]
 enum EvidenceBundle {
@@ -326,6 +381,8 @@ pub enum KernelOperation {
     EvidenceClassify,
     #[serde(rename = "evidence.validate_bundle")]
     EvidenceValidateBundle,
+    #[serde(rename = "claim.resolve")]
+    ClaimResolve,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -638,6 +695,25 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::ClaimResolve => {
+            match resolve_claim_payload(&request.payload, project_root) {
+                Ok((result, diagnostics)) => accepted_response_with_diagnostics(
+                    request_id,
+                    KernelOperation::ClaimResolve,
+                    mode,
+                    result,
+                    diagnostics,
+                ),
+                Err((code, message, path)) => rejected_response(
+                    request_id,
+                    KernelOperation::ClaimResolve,
+                    mode,
+                    code,
+                    message,
+                    path,
+                ),
+            }
+        }
     }
 }
 
@@ -775,6 +851,10 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         KernelOperation::EvidenceValidateBundle => {
             validate_evidence_bundle_payload_structure(&request.payload)
                 .map_err(|(_, message, _)| message)?
+        }
+        KernelOperation::ClaimResolve => {
+            serde_json::from_value::<ClaimResolvePayload>(Value::Object(request.payload.clone()))
+                .map_err(|error| error.to_string())?;
         }
     }
     Ok(())
@@ -1654,6 +1734,424 @@ fn validate_synthetic_bundle(
         result_id,
     )?;
     Ok(())
+}
+
+fn resolve_claim_payload(
+    payload: &Map<String, Value>,
+    project_root: Option<&Path>,
+) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), KernelOperationError> {
+    let request: ClaimResolvePayload = serde_json::from_value(Value::Object(payload.clone()))
+        .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload")))?;
+    if !is_safe_segment(&request.run_id)
+        || !is_safe_segment(&request.claim_id)
+        || !is_safe_segment(&request.claim_table.artifact_id)
+        || !is_sha256_hex(&request.claim_table.producing_commit_hash)
+    {
+        return Err((
+            "protocol_invalid",
+            "claim locators contain invalid identifiers or hashes".to_owned(),
+            Some("payload"),
+        ));
+    }
+    let root = project_root.ok_or((
+        "kernel_root_missing",
+        "claim resolution requires --root <project-root>".to_owned(),
+        None,
+    ))?;
+    let claim = load_persisted_claim(&request, root)?;
+
+    let mut evidence_bundle_validated = false;
+    let mut bundle_kind = None;
+    let mut evidence_ids_match = false;
+    if let Some(evidence) = &request.evidence {
+        let bundle_payload = map_value([
+            ("run_id", Value::String(request.run_id.clone())),
+            ("candidate_id", Value::String(claim.candidate_id.clone())),
+            ("claim_id", Value::String(request.claim_id.clone())),
+            (
+                "producing_commit_hash",
+                Value::String(evidence.producing_commit_hash.clone()),
+            ),
+            (
+                "bundle",
+                serde_json::to_value(&evidence.bundle).map_err(|error| {
+                    (
+                        "protocol_invalid",
+                        error.to_string(),
+                        Some("payload.evidence.bundle"),
+                    )
+                })?,
+            ),
+        ]);
+        let bundle_result = validate_evidence_bundle_payload(&bundle_payload, project_root)?;
+        bundle_kind = bundle_result
+            .get("bundle_kind")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        evidence_bundle_validated = true;
+        let expected_ids = authority_member_ids(&evidence.bundle);
+        let claim_ids = claim
+            .evidence_artifact_ids
+            .iter()
+            .map(String::as_str)
+            .collect::<HashSet<_>>();
+        evidence_ids_match = expected_ids == claim_ids;
+    }
+
+    let lowered_claim = claim.claim_text.to_lowercase();
+    let synthetic_text = synthetic_claim_text_is_bounded(&lowered_claim);
+    let main_text_sections = [
+        "Abstract",
+        "Introduction",
+        "Model",
+        "Theory",
+        "Synthetic Experiments",
+        "Results",
+        "Negative Results",
+        "Limitations",
+    ];
+    let blocked_by_main_text =
+        !claim.allowed_in_main_text && main_text_sections.contains(&claim.allowed_section.as_str());
+    let label_admissible = match claim.claim_label.as_str() {
+        "LeanVerified" => {
+            evidence_bundle_validated
+                && evidence_ids_match
+                && bundle_kind.as_deref() == Some("LeanProof")
+        }
+        "SyntheticExperimentVerified" => {
+            evidence_bundle_validated
+                && evidence_ids_match
+                && bundle_kind.as_deref() == Some("SyntheticExperiment")
+                && ["Abstract", "Synthetic Experiments", "Results"]
+                    .contains(&claim.allowed_section.as_str())
+                && synthetic_text
+        }
+        "ExperimentVerified" | "RealDataExperimentVerified" => false,
+        "Conjecture" => {
+            ["Theory", "Future Work", "Appendix"].contains(&claim.allowed_section.as_str())
+        }
+        "NegativeResult" => {
+            ["Negative Results", "Results", "Limitations"].contains(&claim.allowed_section.as_str())
+        }
+        "Limitation" => claim.allowed_section == "Limitations",
+        "Unsupported" => claim.allowed_section == "Future Work" && !claim.allowed_in_main_text,
+        _ => {
+            return Err((
+                "claim_record_invalid",
+                "claim label is not supported by the current kernel contract".to_owned(),
+                Some("payload.claim_table"),
+            ));
+        }
+    };
+    let supplied_evidence_matches = !evidence_bundle_validated || evidence_ids_match;
+    let admissible = label_admissible && !blocked_by_main_text && supplied_evidence_matches;
+    let mut diagnostics = Vec::new();
+    if matches!(
+        claim.claim_label.as_str(),
+        "LeanVerified" | "SyntheticExperimentVerified"
+    ) && !evidence_bundle_validated
+    {
+        diagnostics.push(KernelDiagnostic {
+            code: "claim_evidence_missing".to_owned(),
+            message: "verified claims require a revalidated persisted evidence bundle".to_owned(),
+            path: Some("payload.evidence".to_owned()),
+        });
+    }
+    if evidence_bundle_validated && !evidence_ids_match {
+        diagnostics.push(KernelDiagnostic {
+            code: "claim_evidence_mismatch".to_owned(),
+            message: "claim-table evidence IDs do not match the strict evidence bundle".to_owned(),
+            path: Some("payload.claim_table".to_owned()),
+        });
+    }
+    if claim.claim_label == "SyntheticExperimentVerified" && !synthetic_text {
+        diagnostics.push(KernelDiagnostic {
+            code: "claim_scope_denied".to_owned(),
+            message: "persisted synthetic claim text exceeds the bounded synthetic scope"
+                .to_owned(),
+            path: Some("payload.claim_table".to_owned()),
+        });
+    }
+    if !admissible && diagnostics.is_empty() {
+        diagnostics.push(KernelDiagnostic {
+            code: "claim_not_admissible".to_owned(),
+            message:
+                "claim label, section, text, and evidence do not satisfy the bounded claim contract"
+                    .to_owned(),
+            path: Some("payload".to_owned()),
+        });
+    }
+    Ok((
+        map_value([
+            ("run_id", Value::String(request.run_id)),
+            ("candidate_id", Value::String(claim.candidate_id)),
+            ("claim_id", Value::String(request.claim_id)),
+            (
+                "claim_text_hash",
+                Value::String(sha256_hex(claim.claim_text.as_bytes())),
+            ),
+            ("claim_label", Value::String(claim.claim_label)),
+            (
+                "allowed_in_main_text",
+                Value::Bool(claim.allowed_in_main_text),
+            ),
+            ("allowed_section", Value::String(claim.allowed_section)),
+            ("claim_record_validated", Value::Bool(true)),
+            ("admissible", Value::Bool(admissible)),
+            (
+                "evidence_bundle_validated",
+                Value::Bool(evidence_bundle_validated),
+            ),
+            ("authority_granted", Value::Bool(false)),
+        ]),
+        diagnostics,
+    ))
+}
+
+fn load_persisted_claim(
+    request: &ClaimResolvePayload,
+    root: &Path,
+) -> Result<ClaimWire, KernelOperationError> {
+    let ledger = load_persisted_ledger(root, &request.run_id)?;
+    verify_ledger(&ledger)?;
+    let commit = ledger
+        .commits
+        .iter()
+        .find(|commit| commit.commit_hash == request.claim_table.producing_commit_hash)
+        .ok_or((
+            "claim_record_missing",
+            "claim-table producing commit is absent from the persisted run ledger".to_owned(),
+            Some("payload.claim_table.producing_commit_hash"),
+        ))?;
+    if commit.run_id != request.run_id
+        || commit.action_type != "ClaimTableBuilt"
+        || commit.artifact_refs.len() != 1
+    {
+        return Err((
+            "claim_record_invalid",
+            "claim-table commit has the wrong run, action, or artifact set".to_owned(),
+            Some("payload.claim_table"),
+        ));
+    }
+    let artifact: WireArtifactRef = serde_json::from_value(commit.artifact_refs[0].clone())
+        .map_err(|error| {
+            (
+                "claim_record_invalid",
+                format!("claim-table artifact reference is invalid: {error}"),
+                Some("payload.claim_table"),
+            )
+        })?;
+    if artifact.id != request.claim_table.artifact_id
+        || artifact.artifact_type != "report"
+        || artifact.producing_commit_hash.as_deref() != Some(commit.commit_hash.as_str())
+        || artifact.metadata
+            != map_value([
+                ("format", Value::String("json".to_owned())),
+                ("stage", Value::String("manuscript_planning".to_owned())),
+                ("fake", Value::Bool(true)),
+            ])
+    {
+        return Err((
+            "claim_record_invalid",
+            "claim-table artifact identity or metadata is invalid".to_owned(),
+            Some("payload.claim_table"),
+        ));
+    }
+    validate_artifact_location(&request.run_id, &artifact).map_err(|message| {
+        (
+            "artifact_path_invalid",
+            message,
+            Some("payload.claim_table"),
+        )
+    })?;
+    let path = resolve_run_file(root, &request.run_id, &artifact.path).map_err(|message| {
+        (
+            "artifact_path_invalid",
+            message,
+            Some("payload.claim_table"),
+        )
+    })?;
+    let bytes = fs::read(&path).map_err(|error| {
+        (
+            "artifact_missing",
+            format!("claim-table artifact cannot be read: {error}"),
+            Some("payload.claim_table"),
+        )
+    })?;
+    if sha256_hex(&bytes) != artifact.content_hash {
+        return Err((
+            "artifact_hash_mismatch",
+            "claim-table artifact hash does not match its persisted bytes".to_owned(),
+            Some("payload.claim_table"),
+        ));
+    }
+    let value = parse_json_without_duplicate_keys(std::str::from_utf8(&bytes).map_err(|_| {
+        (
+            "claim_record_invalid",
+            "claim-table artifact must contain UTF-8 JSON".to_owned(),
+            Some("payload.claim_table"),
+        )
+    })?)
+    .map_err(|error| {
+        (
+            "claim_record_invalid",
+            format!("claim-table JSON is invalid: {error}"),
+            Some("payload.claim_table"),
+        )
+    })?;
+    if value != Value::Object(commit.payload.clone()) {
+        return Err((
+            "claim_record_invalid",
+            "claim-table artifact does not equal its producing commit payload".to_owned(),
+            Some("payload.claim_table"),
+        ));
+    }
+    let table: ClaimTableWire =
+        parse_closed(&value, "payload.claim_table").map_err(|(_, message, _)| {
+            (
+                "claim_record_invalid",
+                format!("claim-table artifact violates the closed claim contract: {message}"),
+                Some("payload.claim_table"),
+            )
+        })?;
+    if table.final_nucleus_id.trim().is_empty() {
+        return Err((
+            "claim_record_invalid",
+            "claim table has an empty final nucleus ID".to_owned(),
+            Some("payload.claim_table"),
+        ));
+    }
+    let mut claim_ids = HashSet::new();
+    for claim in &table.claims {
+        if !claim_ids.insert(claim.claim_id.as_str()) {
+            return Err((
+                "claim_record_invalid",
+                "claim table contains duplicate claim IDs".to_owned(),
+                Some("payload.claim_table"),
+            ));
+        }
+    }
+    for link in &table.evidence_links {
+        if !is_safe_segment(&link.claim_id)
+            || !is_safe_segment(&link.artifact_id)
+            || link.artifact_type.trim().is_empty()
+            || link.evidence_role.as_deref().is_some_and(str::is_empty)
+        {
+            return Err((
+                "claim_record_invalid",
+                "claim table contains an invalid evidence link".to_owned(),
+                Some("payload.claim_table"),
+            ));
+        }
+        let _ = link.supports_label;
+    }
+    let claim = table
+        .claims
+        .into_iter()
+        .find(|claim| claim.claim_id == request.claim_id)
+        .ok_or((
+            "claim_record_missing",
+            "requested claim is absent from the persisted claim table".to_owned(),
+            Some("payload.claim_id"),
+        ))?;
+    validate_claim_record(&claim)?;
+    Ok(claim)
+}
+
+fn validate_claim_record(claim: &ClaimWire) -> Result<(), KernelOperationError> {
+    let allowed_sections = [
+        "Abstract",
+        "Introduction",
+        "Related Work",
+        "Model",
+        "Theory",
+        "Synthetic Experiments",
+        "Results",
+        "Negative Results",
+        "Limitations",
+        "Future Work",
+        "Appendix",
+    ];
+    if !is_safe_segment(&claim.claim_id)
+        || !is_safe_segment(&claim.candidate_id)
+        || claim.claim_text.trim().is_empty()
+        || claim.reason.trim().is_empty()
+        || !allowed_sections.contains(&claim.allowed_section.as_str())
+        || !matches!(
+            claim.claim_label.as_str(),
+            "LeanVerified"
+                | "ExperimentVerified"
+                | "SyntheticExperimentVerified"
+                | "RealDataExperimentVerified"
+                | "Conjecture"
+                | "NegativeResult"
+                | "Limitation"
+                | "Unsupported"
+        )
+        || claim
+            .evidence_artifact_ids
+            .iter()
+            .any(|artifact_id| !is_safe_segment(artifact_id))
+        || claim
+            .evidence_artifact_ids
+            .iter()
+            .collect::<HashSet<_>>()
+            .len()
+            != claim.evidence_artifact_ids.len()
+        || claim
+            .evidence_types
+            .iter()
+            .any(|kind| kind.trim().is_empty())
+    {
+        return Err((
+            "claim_record_invalid",
+            "persisted claim record violates the closed claim contract".to_owned(),
+            Some("payload.claim_table"),
+        ));
+    }
+    Ok(())
+}
+
+fn authority_member_ids(bundle: &EvidenceBundle) -> HashSet<&str> {
+    match bundle {
+        EvidenceBundle::Lean {
+            trace_artifact_id,
+            result_artifact_id,
+            ..
+        } => [trace_artifact_id.as_str(), result_artifact_id.as_str()]
+            .into_iter()
+            .collect(),
+        EvidenceBundle::Synthetic {
+            trace_artifact_id,
+            output_artifact_id,
+            result_artifact_id,
+            ..
+        } => [
+            trace_artifact_id.as_str(),
+            output_artifact_id.as_str(),
+            result_artifact_id.as_str(),
+        ]
+        .into_iter()
+        .collect(),
+    }
+}
+
+fn synthetic_claim_text_is_bounded(lowered: &str) -> bool {
+    let has_scope_token = lowered
+        .split(|character: char| !character.is_alphanumeric())
+        .any(|token| matches!(token, "synthetic" | "simulation"));
+    let forbidden = [
+        "real-world",
+        "real world",
+        "empirical validation",
+        "external validity",
+        "deploy",
+        "deployment",
+        "generalize",
+        "generalization",
+        "universal",
+    ];
+    has_scope_token && !forbidden.iter().any(|phrase| lowered.contains(phrase))
 }
 
 fn require_commit_payload(
@@ -3388,6 +3886,74 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             Ok(())
         }
+        KernelOperation::ClaimResolve => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "run_id",
+                    "candidate_id",
+                    "claim_id",
+                    "claim_text_hash",
+                    "claim_label",
+                    "allowed_in_main_text",
+                    "allowed_section",
+                    "claim_record_validated",
+                    "admissible",
+                    "evidence_bundle_validated",
+                    "authority_granted",
+                ],
+            )?;
+            for field in [
+                "run_id",
+                "candidate_id",
+                "claim_id",
+                "claim_label",
+                "allowed_section",
+            ] {
+                if response
+                    .result
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+                {
+                    return Err(format!(
+                        "claim resolution {field} must be a non-empty string"
+                    ));
+                }
+            }
+            require_sha256_field(&response.result, "claim_text_hash")?;
+            if !matches!(
+                response.result.get("claim_label").and_then(Value::as_str),
+                Some(
+                    "LeanVerified"
+                        | "ExperimentVerified"
+                        | "SyntheticExperimentVerified"
+                        | "RealDataExperimentVerified"
+                        | "Conjecture"
+                        | "NegativeResult"
+                        | "Limitation"
+                        | "Unsupported",
+                )
+            ) {
+                return Err("claim_label is not supported".to_owned());
+            }
+            for field in [
+                "allowed_in_main_text",
+                "admissible",
+                "evidence_bundle_validated",
+            ] {
+                if !response.result.get(field).is_some_and(Value::is_boolean) {
+                    return Err(format!("claim resolution {field} must be a boolean"));
+                }
+            }
+            if response.result.get("claim_record_validated") != Some(&Value::Bool(true)) {
+                return Err("claim resolution requires a validated claim record".to_owned());
+            }
+            if response.result.get("authority_granted") != Some(&Value::Bool(false)) {
+                return Err("claim resolution cannot grant authority".to_owned());
+            }
+            Ok(())
+        }
     }
 }
 
@@ -3708,7 +4274,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.83.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.84.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -3734,7 +4300,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.83.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.83.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.84.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.84.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -3753,7 +4319,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.83.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.84.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));
@@ -3879,7 +4445,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.83.0",
+            "protocol_version": "0.84.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

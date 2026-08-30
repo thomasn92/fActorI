@@ -170,7 +170,7 @@ def test_protocol_export_is_deterministic_and_emits_all_schemas(tmp_path: Path) 
         "generation-mutation-inspection-report.schema.json",
     } <= {path.name for path in first.schema_files}
     assert first_contents == second_contents
-    assert len(first.schema_files) == len(get_protocol_definitions()) == 433
+    assert len(first.schema_files) == len(get_protocol_definitions()) == 437
     for path in first.schema_files:
         schema = json.loads(path.read_text(encoding="utf-8"))
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
@@ -207,8 +207,9 @@ def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> Non
         "protocol.validate",
         "evidence.classify",
         "evidence.validate_bundle",
+        "claim.resolve",
     }
-    assert len(schema["oneOf"]) == 6
+    assert len(schema["oneOf"]) == 7
 
 
 def test_check_passes_after_export_and_detects_stale_schema(tmp_path: Path) -> None:
@@ -235,7 +236,7 @@ def test_export_cli_and_check_mode_work(tmp_path: Path) -> None:
     )
 
     assert exported.exit_code == 0, exported.output
-    assert "schemas=433" in exported.output
+    assert "schemas=437" in exported.output
     assert checked.exit_code == 0, checked.output
     assert "check=ok" in checked.output
 
@@ -273,7 +274,7 @@ def test_protocol_export_does_not_touch_run_provenance(tmp_path: Path) -> None:
 
 def test_checked_in_protocol_files_are_current() -> None:
     assert require_protocols_current().up_to_date
-    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 48
+    assert len(protocol_examples()) == len(EXAMPLE_PROTOCOLS) == 49
 
 
 def test_timestamp_fields_are_exported_with_date_time_format(tmp_path: Path) -> None:

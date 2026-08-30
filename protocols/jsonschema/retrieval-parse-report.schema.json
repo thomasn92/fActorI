@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.83.0/retrieval-parse-report.schema.json",
+  "$id": "https://schemas.factori.local/0.84.0/retrieval-parse-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Provider retrieval response parse report.",
@@ -51,7 +51,7 @@
   ],
   "title": "RetrievalParseReport",
   "type": "object",
-  "x-factori-protocol-version": "0.83.0",
+  "x-factori-protocol-version": "0.84.0",
   "x-factori-source-model": "factori.schemas.RetrievalParseReport",
   "x-factori-verification-evidence": false
 }
