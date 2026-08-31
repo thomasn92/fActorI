@@ -46,6 +46,8 @@ def _write_checkpoint_chain(
     run_id: str = "run-kernel-checkpoints",
     safety_gate_status: str = "passed",
     stage_status: str = "completed",
+    stage_specs: tuple[tuple[str, str, str], ...] | None = None,
+    controller_run_ids: tuple[str, ...] | None = None,
 ) -> tuple[ResearchLedger, object]:
     from factori.artifacts import ArtifactStore
     from factori.autonomous_paper_checkpoint import write_autonomous_paper_checkpoint
@@ -55,23 +57,33 @@ def _write_checkpoint_chain(
     ledger = ResearchLedger(root / "runs" / run_id / "ledger.sqlite")
     previous_hash: str | None = None
     result = None
-    for number, stage_name in enumerate(("base_generation", "autonomous_loop"), start=1):
+    specs = stage_specs or tuple(
+        (stage_name, safety_gate_status, stage_status)
+        for stage_name in ("base_generation", "autonomous_loop")
+    )
+    for number, (stage_name, current_safety_gate_status, current_stage_status) in enumerate(
+        specs, start=1
+    ):
         relative = f"runs/{run_id}/reports/stage-output-{number:04d}.json"
         output_path = root / relative
         output_path.write_text(json.dumps({"stage": stage_name}), encoding="utf-8")
         stage = AutonomousPaperRunStage(
             stage_name=stage_name,
-            stage_status=stage_status,
+            stage_status=current_stage_status,
             started_at=f"2026-01-01T00:00:0{number}.000000Z",
             completed_at=f"2026-01-01T00:00:1{number}.000000Z",
             summary=f"checkpoint {number}",
         )
         result = write_autonomous_paper_checkpoint(
             run_id=run_id,
-            controller_run_id="controller-checkpoint-test",
+            controller_run_id=(
+                controller_run_ids[number - 1]
+                if controller_run_ids is not None
+                else "controller-checkpoint-test"
+            ),
             stage=stage,
             artifact_paths=[relative],
-            safety_gate_status=safety_gate_status,
+            safety_gate_status=current_safety_gate_status,
             release_status=None,
             input_hashes=(
                 {} if previous_hash is None else {"previous_checkpoint": previous_hash}
@@ -149,7 +161,12 @@ def _reseal_latest_checkpoint_commit(
     return new_hash
 
 
-def test_rust_checkpoint_verification_accepts_writer_produced_chain(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "mode", [KernelMode.STRICT_PRODUCTION, KernelMode.DEVELOPMENT_COMPATIBILITY]
+)
+def test_rust_checkpoint_verification_accepts_writer_produced_chain(
+    tmp_path: Path, mode: KernelMode
+) -> None:
     _build_kernel_binary()
     ledger, latest = _write_checkpoint_chain(tmp_path)
 
@@ -157,6 +174,7 @@ def test_rust_checkpoint_verification_accepts_writer_produced_chain(tmp_path: Pa
         "run-kernel-checkpoints",
         index_artifact_id=latest.index_artifact.id,
         index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        mode=mode,
         root=tmp_path,
         kernel_binary=KERNEL_BINARY,
     )
@@ -176,21 +194,27 @@ def test_rust_checkpoint_verification_accepts_writer_produced_chain(tmp_path: Pa
     assert result.authority_granted is False
 
 
-def test_rust_checkpoint_verification_accepts_failed_chain_without_resume_authority(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    "mode", [KernelMode.STRICT_PRODUCTION, KernelMode.DEVELOPMENT_COMPATIBILITY]
+)
+def test_rust_checkpoint_verification_accepts_terminal_failed_chain_without_resume_authority(
+    tmp_path: Path, mode: KernelMode
 ) -> None:
     _build_kernel_binary()
     _, latest = _write_checkpoint_chain(
         tmp_path,
         run_id="run-kernel-failed-checkpoints",
-        safety_gate_status="failed",
-        stage_status="blocked",
+        stage_specs=(
+            ("base_generation", "passed", "completed"),
+            ("autonomous_loop", "failed", "blocked"),
+        ),
     )
 
     response = verify_persisted_autonomous_checkpoints(
         "run-kernel-failed-checkpoints",
         index_artifact_id=latest.index_artifact.id,
         index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        mode=mode,
         root=tmp_path,
         kernel_binary=KERNEL_BINARY,
     )
@@ -200,6 +224,101 @@ def test_rust_checkpoint_verification_accepts_failed_chain_without_resume_author
     assert response.result.authority_granted is False
     assert [diagnostic.code for diagnostic in response.diagnostics] == [
         "checkpoint_not_reusable"
+    ]
+
+
+def test_rust_checkpoint_verification_accepts_warning_chain(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    _, latest = _write_checkpoint_chain(
+        tmp_path,
+        run_id="run-kernel-warning-checkpoints",
+        stage_specs=(
+            ("base_generation", "passed_with_warnings", "completed_with_warnings"),
+            ("autonomous_loop", "passed_with_warnings", "completed_with_warnings"),
+        ),
+    )
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-warning-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted"
+    assert response.result.resume_allowed is True
+    assert response.result.authority_granted is False
+    assert response.diagnostics == []
+
+
+def test_rust_checkpoint_verification_rejects_failed_then_reusable_chain(
+    tmp_path: Path,
+) -> None:
+    _build_kernel_binary()
+    ledger, latest = _write_checkpoint_chain(
+        tmp_path,
+        run_id="run-kernel-failed-then-reusable",
+        stage_specs=(
+            ("base_generation", "failed", "blocked"),
+            ("autonomous_loop", "passed", "completed"),
+        ),
+    )
+    producing_commit_hash = _reseal_latest_checkpoint_commit(tmp_path, ledger, latest)
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-failed-then-reusable",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=producing_commit_hash,
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "rejected"
+    assert response.diagnostics[0].code == "checkpoint_chain_mismatch"
+
+
+def test_rust_checkpoint_verification_accepts_resumed_controller_chain(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    ledger, latest = _write_checkpoint_chain(
+        tmp_path,
+        run_id="run-kernel-resumed-checkpoints",
+        stage_specs=(
+            ("base_generation", "passed", "completed"),
+            ("autonomous_loop", "passed", "completed"),
+            ("final_release_bundle_assembly", "passed", "completed"),
+            ("final_release_bundle_assembly", "passed", "reused"),
+        ),
+        controller_run_ids=(
+            "controller-initial",
+            "controller-initial",
+            "controller-resumed",
+            "controller-resumed",
+        ),
+    )
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-resumed-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted"
+    assert response.result.checkpoint_count == 4
+    assert response.result.latest_completed_stage == "final_release_bundle_assembly"
+    assert response.result.resume_allowed is True
+    checkpoint_commits = [
+        commit
+        for commit in ledger.list_commits("run-kernel-resumed-checkpoints")
+        if commit.action_type == ControllerActionType.AUTONOMOUS_PAPER_CHECKPOINT_WRITTEN
+    ]
+    assert [commit.payload["controller_run_id"] for commit in checkpoint_commits] == [
+        "controller-initial",
+        "controller-initial",
+        "controller-resumed",
+        "controller-resumed",
     ]
 
 
@@ -330,7 +449,7 @@ def test_rust_checkpoint_verification_rejects_resealed_record_mutations(
     assert response.diagnostics[0].code == expected_code
 
 
-@pytest.mark.parametrize("mutation", ["count", "order", "unexpected_field"])
+@pytest.mark.parametrize("mutation", ["count", "order", "path", "unexpected_field"])
 def test_rust_checkpoint_verification_rejects_resealed_index_mutations(
     tmp_path: Path,
     mutation: str,
@@ -343,6 +462,8 @@ def test_rust_checkpoint_verification_rejects_resealed_index_mutations(
         index["checkpoint_count"] = 1
     elif mutation == "order":
         index["checkpoints"] = list(reversed(index["checkpoints"]))
+    elif mutation == "path":
+        index["checkpoints"][0] = "runs/run-kernel-checkpoints/reports/wrong.json"
     else:
         index["unexpected"] = True
     _rewrite_json(index_path, index)

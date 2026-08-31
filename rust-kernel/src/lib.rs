@@ -2478,6 +2478,7 @@ fn verify_checkpoint_payload(
     let mut latest_resume_allowed = false;
     let mut latest_stage = String::new();
     let mut latest_controller = String::new();
+    let mut terminal_failure_seen = false;
     for (position, relative) in index.checkpoints.iter().enumerate() {
         let number = position + 1;
         let checkpoint_commit = ledger
@@ -2582,13 +2583,24 @@ fn verify_checkpoint_payload(
             &checkpoint,
         )?;
         validated_output_count += checkpoint.output_hashes.len();
-        latest_resume_allowed = checkpoint_is_reusable(&checkpoint).map_err(|message| {
+        let checkpoint_reusable = checkpoint_is_reusable(&checkpoint).map_err(|message| {
             (
                 "checkpoint_record_invalid",
                 message,
                 Some("payload.index.checkpoints"),
             )
         })?;
+        if terminal_failure_seen {
+            return Err((
+                "checkpoint_chain_mismatch",
+                "a checkpoint follows a terminal failed or blocked checkpoint".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+        if !checkpoint_reusable {
+            terminal_failure_seen = true;
+        }
+        latest_resume_allowed = checkpoint_reusable;
         latest_stage = checkpoint.stage_name.clone();
         latest_controller = checkpoint.controller_run_id.clone();
         previous_hash = Some(checkpoint.checkpoint_hash.clone());
