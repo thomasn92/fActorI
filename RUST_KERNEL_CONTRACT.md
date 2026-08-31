@@ -1478,3 +1478,28 @@ that matrix. Luna's next bounded handoff is therefore:
 This handoff is test-only unless a mutation fixture exposes a new semantic mismatch. Luna must not
 weaken a validator to make a mutated fixture pass, change the frozen request/result shape, port the
 full Python replay report, begin mutating operations, or claim cutover before final Sol review.
+
+## Sol Review of Luna `5240865`: Semantic Matrix Still Open
+
+Sol accepts the reusable fixture, both-mode parameterization, immutable-byte corruption cases,
+stale-tip and bridge-mismatch checks, authority-assertion rejection, symlink/path rejection, and
+complete nonmutation check as useful regression coverage. Luna changed no production code. The
+focused 17-test replay suite and the reported complete 1,523-test Python run are green, as are Rust,
+Ruff, and protocol checks.
+
+This is not yet the frozen adversarial matrix. The `manifest_tamper` and `claim_tamper` cases append
+unhashed bytes without resealing the affected commit and its descendants, so both stop at the
+outer artifact-hash check; they do not exercise manifest ordering/count/path/metadata/prefix or
+claim-link dependency validation. Likewise, stale-tip coverage is not a deterministic concurrent
+append test, and no test changes artifact bytes between the kernel's first and final snapshot
+checks. Producer mismatch, duplicate identity/path, path escape, required-output selection,
+forbidden-label, and the detailed dependency mutations remain uncovered at their intended semantic
+layer.
+
+Cutover gates 6, 9, and 10 therefore remain open. Luna's final test-only correction must add a
+suffix-resealing fixture helper (including manifest-entry updates when an earlier artifact changes),
+then exercise each remaining mutation so the expected diagnostic proves the intended validator was
+reached. Concurrent snapshot tests must be deterministic and must prove both ledger append and
+artifact-byte replacement are caught by the final stability pass. Every accepted and rejected case
+must remain mode-identical and read-only. After focused checks and the complete suite return green,
+Sol can perform the final operation-level cutover review.
