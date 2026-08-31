@@ -1451,13 +1451,16 @@ exact identity, count, and digest parity, literal non-authority, and no ledger, 
 report mutation. Stale-tip rejection, bridge mismatch rejection, protocol currentness and examples,
 Rust format/Clippy/tests, focused Python protocol/replay tests, and Ruff also pass.
 
-Cutover gates 6, 9, and 10 remain open because the correction handoff's adversarial differential
-matrix was not implemented. The current Python suite has one complete-run replay-core integration
-test plus protocol-validation coverage; it does not prove all enumerated single mutations or
-concurrent snapshot changes fail closed in both modes. Luna's next bounded handoff is therefore:
+Cutover gates 6 and 9 remain open because the correction handoff's adversarial differential matrix
+is only partially implemented. Luna added a reusable writer-produced fixture and 17 replay-core
+tests covering both modes, stale and bridged-result mismatches, read-only behavior, artifact and
+manifest/claim tampering, missing output, ledger corruption, symlink and derived-path inputs, and
+forbidden authority assertions. The suite still does not prove all enumerated single mutations or
+concurrent snapshot changes fail closed in both modes. Gate 10 (Sol review) remains open pending
+that matrix. Luna's next bounded handoff is therefore:
 
-1. add a reusable writer-produced replay fixture and deterministic mutation/resealing helpers that
-   never alter production persistence behavior;
+1. extend the reusable writer-produced replay fixture and deterministic mutation/resealing helpers
+   without altering production persistence behavior;
 2. cover incomplete and stale snapshots, concurrent append and artifact-byte changes, ledger
    corruption, missing/tampered/symlinked/path-escaping artifacts, producer-link mismatches,
    duplicate paths and identities, and required-output removal;
@@ -1468,8 +1471,9 @@ concurrent snapshot changes fail closed in both modes. Luna's next bounded hando
 5. require the same accepted/rejected result and stable diagnostic code in
    `DevelopmentCompatibility` and `StrictProduction`, while rechecking exact bridge digests and
    complete nonmutation;
-6. rerun protocol currentness/version/examples, Rust format/Clippy/unit and integration tests,
-   focused parity, Ruff, and the complete Python suite before returning to Sol.
+6. add the remaining concurrent-snapshot and semantic mutation cases, then rerun protocol
+   currentness/version/examples, Rust format/Clippy/unit and integration tests, focused parity,
+   Ruff, and the complete Python suite before returning to Sol.
 
 This handoff is test-only unless a mutation fixture exposes a new semantic mismatch. Luna must not
 weaken a validator to make a mutated fixture pass, change the frozen request/result shape, port the
