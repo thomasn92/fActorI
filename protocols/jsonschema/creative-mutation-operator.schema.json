@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.84.0/creative-mutation-operator.schema.json",
+  "$id": "https://schemas.factori.local/0.85.0/creative-mutation-operator.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Tournament-driven scientific mutation operator enum.",
   "enum": [
@@ -16,7 +16,7 @@
   ],
   "title": "CreativeMutationOperator",
   "type": "string",
-  "x-factori-protocol-version": "0.84.0",
+  "x-factori-protocol-version": "0.85.0",
   "x-factori-source-model": "factori.schemas.CreativeMutationOperator",
   "x-factori-verification-evidence": false
 }

@@ -7,7 +7,7 @@ deterministic trust kernel. It freezes the intended trust boundary, authority ru
 requirements, and model handoff. The current Rust implementation remains a read-only compatibility
 kernel and has not received evidence or mutation authority.
 
-Protocol baseline: `0.84.0`.
+Protocol baseline: `0.85.0`.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of
@@ -1036,10 +1036,10 @@ Luna must stop if claim identity cannot be resolved from immutable persisted byt
 claim would require trusting caller-authored text or labels, or if a valid fixture requires
 weakening strict evidence-bundle validation.
 
-## Current Luna Handoff: Autonomous Checkpoint Verification
+## Completed Luna Handoff: Autonomous Checkpoint Verification
 
-Sol's checkpoint-verification design task ends with the semantic freeze above. The next
-implementation task belongs to Luna:
+Sol's checkpoint-verification design task ends with the semantic freeze above. The bounded
+implementation includes:
 
 1. inventory representative successful, warning, failed-handoff, crash-resume, and resumed
    autonomous-paper checkpoint chains, including exact artifact metadata and commit payloads;

@@ -55,6 +55,8 @@ from factori.schemas import (
     FullPaperReleaseReport,
     FullPaperReleaseStatus,
     GeneratedSectionDraft,
+    KernelCheckpointIndexLocator,
+    KernelCheckpointVerifyPayload,
     KernelClaimResolvePayload,
     KernelEvidenceValidateBundlePayload,
     KernelLedgerVerifyRequest,
@@ -204,6 +206,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "kernel-response-envelope.example.json": "KernelResponseEnvelope",
     "kernel-evidence-validate-bundle-payload.example.json": "KernelEvidenceValidateBundlePayload",
     "kernel-claim-resolve-payload.example.json": "KernelClaimResolvePayload",
+    "kernel-checkpoint-verify-payload.example.json": "KernelCheckpointVerifyPayload",
 }
 
 
@@ -1335,6 +1338,13 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
             "bundle": kernel_evidence_validate_bundle_payload.bundle,
         },
     )
+    kernel_checkpoint_verify_payload = KernelCheckpointVerifyPayload(
+        run_id="run-example",
+        index=KernelCheckpointIndexLocator(
+            artifact_id="autonomous-paper-checkpoint-index-0001",
+            producing_commit_hash=_HASH,
+        ),
+    )
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
@@ -1396,6 +1406,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         ),
         "kernel-claim-resolve-payload.example.json": kernel_claim_resolve_payload.model_dump(
             mode="json"
+        ),
+        "kernel-checkpoint-verify-payload.example.json": (
+            kernel_checkpoint_verify_payload.model_dump(mode="json")
         ),
     }
 

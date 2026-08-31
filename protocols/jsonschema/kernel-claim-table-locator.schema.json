@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.84.0/kernel-claim-table-locator.schema.json",
+  "$id": "https://schemas.factori.local/0.85.0/kernel-claim-table-locator.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Persisted claim-table locator resolved during claim resolution.",
@@ -22,7 +22,7 @@
   ],
   "title": "KernelClaimTableLocator",
   "type": "object",
-  "x-factori-protocol-version": "0.84.0",
+  "x-factori-protocol-version": "0.85.0",
   "x-factori-source-model": "factori.schemas.KernelClaimTableLocator",
   "x-factori-verification-evidence": false
 }

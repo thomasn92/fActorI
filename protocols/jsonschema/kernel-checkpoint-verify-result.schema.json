@@ -1,0 +1,85 @@
+{
+  "$id": "https://schemas.factori.local/0.85.0/kernel-checkpoint-verify-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-authoritative autonomous checkpoint integrity and resume result.",
+  "properties": {
+    "authority_granted": {
+      "const": false,
+      "title": "Authority Granted",
+      "type": "boolean"
+    },
+    "checkpoint_chain_valid": {
+      "const": true,
+      "title": "Checkpoint Chain Valid",
+      "type": "boolean"
+    },
+    "checkpoint_count": {
+      "minimum": 1,
+      "title": "Checkpoint Count",
+      "type": "integer"
+    },
+    "checkpoint_index_artifact_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Checkpoint Index Artifact Id",
+      "type": "string"
+    },
+    "checkpoint_index_producing_commit_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Checkpoint Index Producing Commit Hash",
+      "type": "string"
+    },
+    "latest_checkpoint_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Latest Checkpoint Hash",
+      "type": "string"
+    },
+    "latest_completed_stage": {
+      "minLength": 1,
+      "title": "Latest Completed Stage",
+      "type": "string"
+    },
+    "resume_allowed": {
+      "title": "Resume Allowed",
+      "type": "boolean"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "validated_checkpoint_hashes": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Validated Checkpoint Hashes",
+      "type": "array"
+    },
+    "validated_output_count": {
+      "minimum": 0,
+      "title": "Validated Output Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "run_id",
+    "checkpoint_index_artifact_id",
+    "checkpoint_index_producing_commit_hash",
+    "checkpoint_count",
+    "validated_checkpoint_hashes",
+    "latest_checkpoint_hash",
+    "latest_completed_stage",
+    "validated_output_count",
+    "checkpoint_chain_valid",
+    "resume_allowed",
+    "authority_granted"
+  ],
+  "title": "KernelCheckpointVerifyResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.85.0",
+  "x-factori-source-model": "factori.schemas.KernelCheckpointVerifyResult",
+  "x-factori-verification-evidence": false
+}

@@ -1,0 +1,88 @@
+{
+  "$id": "https://schemas.factori.local/0.85.0/kernel-autonomous-paper-checkpoint-index.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed persisted autonomous checkpoint index for Rust verification.",
+  "properties": {
+    "checkpoint_count": {
+      "minimum": 1,
+      "title": "Checkpoint Count",
+      "type": "integer"
+    },
+    "checkpoints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Checkpoints",
+      "type": "array"
+    },
+    "creates_scientific_validation": {
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "is_verification_evidence": {
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "latest_completed_stage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latest Completed Stage"
+    },
+    "latest_controller_run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Latest Controller Run Id",
+      "type": "string"
+    },
+    "publication_ready": {
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "resume_allowed": {
+      "title": "Resume Allowed",
+      "type": "boolean"
+    },
+    "resume_blockers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Resume Blockers",
+      "type": "array"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "latest_controller_run_id",
+    "checkpoint_count",
+    "checkpoints",
+    "resume_allowed",
+    "resume_blockers",
+    "publication_ready",
+    "creates_scientific_validation",
+    "implies_publication_readiness",
+    "is_verification_evidence"
+  ],
+  "title": "KernelAutonomousPaperCheckpointIndex",
+  "type": "object",
+  "x-factori-protocol-version": "0.85.0",
+  "x-factori-source-model": "factori.schemas.KernelAutonomousPaperCheckpointIndex",
+  "x-factori-verification-evidence": false
+}

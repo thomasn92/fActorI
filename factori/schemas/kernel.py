@@ -30,6 +30,7 @@ class KernelOperation(StrEnum):
     EVIDENCE_CLASSIFY = "evidence.classify"
     EVIDENCE_VALIDATE_BUNDLE = "evidence.validate_bundle"
     CLAIM_RESOLVE = "claim.resolve"
+    CHECKPOINT_VERIFY = "checkpoint.verify"
 
 
 class KernelResponseStatus(StrEnum):
@@ -75,6 +76,15 @@ class KernelEvidenceClassifyPayload(StrictModel):
 
 
 _KERNEL_IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+
+KernelAutonomousCheckpointStage = Literal[
+    "base_generation",
+    "autonomous_loop",
+    "final_manuscript_regeneration",
+    "final_release_bundle_assembly",
+    "final_bundle_verification",
+    "handoff",
+]
 
 
 class KernelLeanEvidenceBundle(StrictModel):
@@ -256,6 +266,20 @@ class KernelClaimResolvePayload(StrictModel):
     evidence: KernelClaimEvidenceLocator | None = None
 
 
+class KernelCheckpointIndexLocator(StrictModel):
+    """Locator for the latest persisted autonomous checkpoint index."""
+
+    artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+
+
+class KernelCheckpointVerifyPayload(StrictModel):
+    """Locator-only autonomous checkpoint-chain verification request."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    index: KernelCheckpointIndexLocator
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -313,6 +337,13 @@ class KernelClaimResolveRequest(KernelRequestFields):
     payload: KernelClaimResolvePayload
 
 
+class KernelCheckpointVerifyRequest(KernelRequestFields):
+    """Typed request for autonomous checkpoint-chain verification."""
+
+    operation: Literal[KernelOperation.CHECKPOINT_VERIFY]
+    payload: KernelCheckpointVerifyPayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
@@ -320,7 +351,8 @@ KernelRequestVariant = Annotated[
     | KernelLedgerVerifyRequest
     | KernelEvidenceClassifyRequest
     | KernelEvidenceValidateBundleRequest
-    | KernelClaimResolveRequest,
+    | KernelClaimResolveRequest
+    | KernelCheckpointVerifyRequest,
     Field(discriminator="operation"),
 ]
 
@@ -358,6 +390,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelEvidenceClassifyPayload
         | KernelEvidenceValidateBundlePayload
         | KernelClaimResolvePayload
+        | KernelCheckpointVerifyPayload
     ):
         return self.root.payload
 
@@ -546,6 +579,100 @@ class KernelClaimResolveResult(StrictModel):
         return value
 
 
+KernelAutonomousCheckpointVerificationStatus = Literal[
+    "verified",
+    "verified_with_warnings",
+    "failed",
+    "unverified",
+]
+
+
+class KernelAutonomousPaperCheckpoint(StrictModel):
+    """Closed persisted autonomous checkpoint record for Rust verification."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    controller_run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    stage_name: KernelAutonomousCheckpointStage
+    stage_status: str = Field(min_length=1)
+    stage_artifact_paths: list[str]
+    stage_started_at: str = Field(min_length=1)
+    stage_completed_at: str = Field(min_length=1)
+    protocol_version: str = Field(min_length=1)
+    ledger_tip_hash_optional: str | None = Field(default=None, pattern=HASH_RE.pattern)
+    checkpoint_hash: str = Field(pattern=HASH_RE.pattern)
+    input_hashes: dict[str, str]
+    output_hashes: dict[str, str]
+    safety_gate_status: Literal["passed", "passed_with_warnings", "failed"]
+    release_status_optional: str | None = None
+    publication_ready: bool = Field(strict=True)
+    verified_for_resume: bool = Field(strict=True)
+    verification_status: KernelAutonomousCheckpointVerificationStatus
+    verification_errors: list[str]
+    creates_scientific_validation: bool = Field(strict=True)
+    implies_publication_readiness: bool = Field(strict=True)
+    is_verification_evidence: bool = Field(strict=True)
+
+
+class KernelAutonomousPaperCheckpointIndex(StrictModel):
+    """Closed persisted autonomous checkpoint index for Rust verification."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    latest_controller_run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    checkpoint_count: int = Field(ge=1)
+    latest_completed_stage: str | None = None
+    checkpoints: list[str]
+    resume_allowed: bool = Field(strict=True)
+    resume_blockers: list[str]
+    publication_ready: bool = Field(strict=True)
+    creates_scientific_validation: bool = Field(strict=True)
+    implies_publication_readiness: bool = Field(strict=True)
+    is_verification_evidence: bool = Field(strict=True)
+
+
+class KernelCheckpointVerifyResult(StrictModel):
+    """Non-authoritative autonomous checkpoint integrity and resume result."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    checkpoint_index_artifact_id: str = Field(
+        min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN
+    )
+    checkpoint_index_producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+    checkpoint_count: int = Field(ge=1)
+    validated_checkpoint_hashes: list[str] = Field(min_length=1)
+    latest_checkpoint_hash: str = Field(pattern=HASH_RE.pattern)
+    latest_completed_stage: str = Field(min_length=1)
+    validated_output_count: int = Field(ge=0)
+    checkpoint_chain_valid: Literal[True]
+    resume_allowed: bool = Field(strict=True)
+    authority_granted: Literal[False]
+
+    @field_validator("checkpoint_chain_valid", mode="before")
+    @classmethod
+    def require_strict_checkpoint_chain_true(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("checkpoint_chain_valid must be the boolean true")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_checkpoint_authority_false(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be the boolean false")
+        return value
+
+    @model_validator(mode="after")
+    def validate_checkpoint_result_shape(self) -> KernelCheckpointVerifyResult:
+        if len(self.validated_checkpoint_hashes) != self.checkpoint_count:
+            raise ValueError("validated checkpoint hashes must match checkpoint count")
+        if any(not HASH_RE.fullmatch(item) for item in self.validated_checkpoint_hashes):
+            raise ValueError("validated checkpoint hashes must be lowercase SHA-256 hashes")
+        if len(set(self.validated_checkpoint_hashes)) != self.checkpoint_count:
+            raise ValueError("validated checkpoint hashes must be distinct")
+        if self.latest_checkpoint_hash != self.validated_checkpoint_hashes[-1]:
+            raise ValueError("latest checkpoint hash must be the final validated hash")
+        return self
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -554,7 +681,8 @@ KernelResult = Annotated[
     | KernelLedgerVerifyResult
     | KernelEvidenceClassifyResult
     | KernelEvidenceValidateBundleResult
-    | KernelClaimResolveResult,
+    | KernelClaimResolveResult
+    | KernelCheckpointVerifyResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -589,6 +717,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.EVIDENCE_CLASSIFY: KernelEvidenceClassifyResult,
             KernelOperation.EVIDENCE_VALIDATE_BUNDLE: KernelEvidenceValidateBundleResult,
             KernelOperation.CLAIM_RESOLVE: KernelClaimResolveResult,
+            KernelOperation.CHECKPOINT_VERIFY: KernelCheckpointVerifyResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -627,6 +756,14 @@ __all__ = [
     "KernelClaimResolvePayload",
     "KernelClaimResolveRequest",
     "KernelClaimResolveResult",
+    "KernelCheckpointIndexLocator",
+    "KernelCheckpointVerifyPayload",
+    "KernelCheckpointVerifyRequest",
+    "KernelCheckpointVerifyResult",
+    "KernelAutonomousCheckpointStage",
+    "KernelAutonomousCheckpointVerificationStatus",
+    "KernelAutonomousPaperCheckpoint",
+    "KernelAutonomousPaperCheckpointIndex",
     "KernelLeanEvidenceBundle",
     "KernelSyntheticEvidenceBundle",
     "KernelLedgerVerifyPayload",

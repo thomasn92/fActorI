@@ -16,6 +16,12 @@ from factori.schemas import (
     ArtifactRef,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
+    KernelAutonomousPaperCheckpoint,
+    KernelAutonomousPaperCheckpointIndex,
+    KernelCheckpointIndexLocator,
+    KernelCheckpointVerifyPayload,
+    KernelCheckpointVerifyRequest,
+    KernelCheckpointVerifyResult,
     KernelClaimResolvePayload,
     KernelClaimResolveRequest,
     KernelClaimResolveResult,
@@ -392,6 +398,132 @@ def resolve_persisted_claim(
     return response
 
 
+def verify_persisted_autonomous_checkpoints(
+    run_id: str,
+    *,
+    index_artifact_id: str,
+    index_producing_commit_hash: str,
+    mode: KernelMode = KernelMode.STRICT_PRODUCTION,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Verify the latest autonomous-paper checkpoint chain through the Rust shadow kernel."""
+    root_path = Path(root)
+    if not _SAFE_RUN_ID.fullmatch(run_id) or not _SAFE_ARTIFACT_SEGMENT.fullmatch(
+        index_artifact_id
+    ):
+        raise KernelBridgeError("unsafe checkpoint or run id")
+    payload = KernelCheckpointVerifyPayload(
+        run_id=run_id,
+        index=KernelCheckpointIndexLocator(
+            artifact_id=index_artifact_id,
+            producing_commit_hash=index_producing_commit_hash,
+        ),
+    )
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelCheckpointVerifyRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=(
+            f"checkpoint-verify-{run_id}-{index_artifact_id}-"
+            f"{index_producing_commit_hash[:12]}"
+        ),
+        operation="checkpoint.verify",
+        mode=mode,
+        payload=payload,
+    )
+    response = _invoke_kernel(
+        request,
+        binary=binary,
+        root=root_path.resolve(),
+        timeout_seconds=timeout_seconds,
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelCheckpointVerifyResult):
+            raise KernelBridgeError("checkpoint verification response has the wrong result type")
+        index, expected_hashes = _load_checkpoint_shadow_expectations(
+            root_path,
+            run_id,
+            index_artifact_id,
+        )
+        if (
+            result.run_id != run_id
+            or result.checkpoint_index_artifact_id != index_artifact_id
+            or result.checkpoint_index_producing_commit_hash != index_producing_commit_hash
+            or result.checkpoint_count != index.checkpoint_count
+            or result.validated_checkpoint_hashes != expected_hashes
+            or result.latest_completed_stage != index.latest_completed_stage
+            or result.checkpoint_chain_valid is not True
+            or result.authority_granted is not False
+        ):
+            raise KernelBridgeError("Rust checkpoint verification response does not match request")
+    return response
+
+
+def _load_checkpoint_shadow_expectations(
+    root: Path,
+    run_id: str,
+    index_artifact_id: str,
+) -> tuple[KernelAutonomousPaperCheckpointIndex, list[str]]:
+    index_relative = f"runs/{run_id}/reports/{index_artifact_id}.json"
+    index_path = _resolve_checkpoint_shadow_path(root, run_id, index_relative)
+    try:
+        index = KernelAutonomousPaperCheckpointIndex.model_validate_json(
+            index_path.read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError) as exc:
+        raise KernelBridgeError(f"checkpoint index is unreadable: {exc}") from exc
+    if index.run_id != run_id:
+        raise KernelBridgeError("checkpoint index run id does not match request")
+    hashes: list[str] = []
+    for relative in index.checkpoints:
+        checkpoint_path = _resolve_checkpoint_shadow_path(root, run_id, relative)
+        try:
+            checkpoint = KernelAutonomousPaperCheckpoint.model_validate_json(
+                checkpoint_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as exc:
+            raise KernelBridgeError(f"checkpoint record is unreadable: {exc}") from exc
+        hashes.append(checkpoint.checkpoint_hash)
+    return index, hashes
+
+
+def _resolve_checkpoint_shadow_path(root: Path, run_id: str, relative: str) -> Path:
+    if relative.startswith("/") or "\\" in relative:
+        raise KernelBridgeError(f"unsafe checkpoint path: {relative}")
+    parts = relative.split("/")
+    if (
+        len(parts) != 4
+        or parts[:3] != ["runs", run_id, "reports"]
+        or any(part in {"", ".", ".."} for part in parts)
+        or not _SAFE_ARTIFACT_SEGMENT.fullmatch(parts[3])
+        or not parts[3].endswith(".json")
+    ):
+        raise KernelBridgeError(f"unsafe checkpoint path: {relative}")
+    root_resolved = root.resolve()
+    run_root = (root_resolved / "runs" / run_id).resolve()
+    if run_root.parent != (root_resolved / "runs").resolve():
+        raise KernelBridgeError(f"unsafe checkpoint run path: {run_id}")
+    current = root_resolved
+    for part in parts:
+        current = current / part
+        if current.is_symlink():
+            raise KernelBridgeError(f"unsafe symlink in checkpoint path: {relative}")
+    if not current.is_file():
+        raise KernelBridgeError(f"checkpoint path is not a regular file: {relative}")
+    resolved = current.resolve()
+    try:
+        resolved.relative_to(run_root)
+    except ValueError:
+        raise KernelBridgeError(f"checkpoint path escapes run directory: {relative}") from None
+    return resolved
+
+
 def _validate_artifact_request_path(
     run_id: str,
     artifact: ArtifactRef,
@@ -436,6 +568,7 @@ def _invoke_kernel(
         | KernelEvidenceClassifyRequest
         | KernelEvidenceValidateBundleRequest
         | KernelClaimResolveRequest
+        | KernelCheckpointVerifyRequest
     ),
     *,
     binary: Path,
@@ -475,6 +608,7 @@ def _invoke_kernel(
 __all__ = [
     "KernelBridgeError",
     "classify_persisted_artifact",
+    "verify_persisted_autonomous_checkpoints",
     "validate_persisted_evidence_bundle",
     "verify_persisted_artifact",
     "verify_persisted_ledger",

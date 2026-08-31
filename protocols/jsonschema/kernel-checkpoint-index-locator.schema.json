@@ -1,0 +1,28 @@
+{
+  "$id": "https://schemas.factori.local/0.85.0/kernel-checkpoint-index-locator.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Latest autonomous checkpoint index locator.",
+  "properties": {
+    "artifact_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "producing_commit_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Producing Commit Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifact_id",
+    "producing_commit_hash"
+  ],
+  "title": "KernelCheckpointIndexLocator",
+  "type": "object",
+  "x-factori-protocol-version": "0.85.0",
+  "x-factori-source-model": "factori.schemas.KernelCheckpointIndexLocator",
+  "x-factori-verification-evidence": false
+}

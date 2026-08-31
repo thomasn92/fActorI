@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.84.0";
+pub const PROTOCOL_VERSION: &str = "0.85.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -88,6 +88,62 @@ struct ClaimResolvePayload {
     claim_id: String,
     claim_table: ClaimTableLocator,
     evidence: Option<ClaimEvidenceLocator>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CheckpointIndexLocator {
+    artifact_id: String,
+    producing_commit_hash: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CheckpointVerifyPayload {
+    run_id: String,
+    index: CheckpointIndexLocator,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CheckpointWire {
+    run_id: String,
+    controller_run_id: String,
+    stage_name: String,
+    stage_status: String,
+    stage_artifact_paths: Vec<String>,
+    stage_started_at: String,
+    stage_completed_at: String,
+    protocol_version: String,
+    ledger_tip_hash_optional: Option<String>,
+    checkpoint_hash: String,
+    input_hashes: BTreeMap<String, String>,
+    output_hashes: BTreeMap<String, String>,
+    safety_gate_status: String,
+    release_status_optional: Option<String>,
+    publication_ready: bool,
+    verified_for_resume: bool,
+    verification_status: String,
+    verification_errors: Vec<String>,
+    creates_scientific_validation: bool,
+    implies_publication_readiness: bool,
+    is_verification_evidence: bool,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CheckpointIndexWire {
+    run_id: String,
+    latest_controller_run_id: String,
+    checkpoint_count: usize,
+    latest_completed_stage: Option<String>,
+    checkpoints: Vec<String>,
+    resume_allowed: bool,
+    resume_blockers: Vec<String>,
+    publication_ready: bool,
+    creates_scientific_validation: bool,
+    implies_publication_readiness: bool,
+    is_verification_evidence: bool,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -336,7 +392,7 @@ struct SyntheticSafetyWire {
     fake: bool,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WireArtifactRef {
     id: String,
@@ -383,6 +439,8 @@ pub enum KernelOperation {
     EvidenceValidateBundle,
     #[serde(rename = "claim.resolve")]
     ClaimResolve,
+    #[serde(rename = "checkpoint.verify")]
+    CheckpointVerify,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -714,6 +772,25 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::CheckpointVerify => {
+            match verify_checkpoint_payload(&request.payload, project_root) {
+                Ok((result, diagnostics)) => accepted_response_with_diagnostics(
+                    request_id,
+                    KernelOperation::CheckpointVerify,
+                    mode,
+                    result,
+                    diagnostics,
+                ),
+                Err((code, message, path)) => rejected_response(
+                    request_id,
+                    KernelOperation::CheckpointVerify,
+                    mode,
+                    code,
+                    message,
+                    path,
+                ),
+            }
+        }
     }
 }
 
@@ -856,6 +933,31 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
             serde_json::from_value::<ClaimResolvePayload>(Value::Object(request.payload.clone()))
                 .map_err(|error| error.to_string())?;
         }
+        KernelOperation::CheckpointVerify => {
+            validate_checkpoint_payload_structure(&request.payload)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_checkpoint_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+    if payload.len() != 2 || !payload.contains_key("run_id") || !payload.contains_key("index") {
+        return Err(
+            "checkpoint.verify payload must contain exactly run_id and index fields".to_owned(),
+        );
+    }
+    let request = serde_json::from_value::<CheckpointVerifyPayload>(Value::Object(payload.clone()))
+        .map_err(|error| error.to_string())?;
+    if !is_safe_segment(&request.run_id) {
+        return Err("checkpoint run_id has invalid identifier syntax".to_owned());
+    }
+    if !is_safe_segment(&request.index.artifact_id) {
+        return Err("checkpoint index artifact_id has invalid identifier syntax".to_owned());
+    }
+    if !is_sha256_hex(&request.index.producing_commit_hash) {
+        return Err(
+            "checkpoint index producing_commit_hash must be a lowercase SHA-256 digest".to_owned(),
+        );
     }
     Ok(())
 }
@@ -1270,6 +1372,7 @@ fn bundle_member<'a>(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_lean_bundle(
     request: &EvidenceValidateBundlePayload,
     commit: &WireLedgerCommit,
@@ -1481,6 +1584,7 @@ fn validate_lean_bundle(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_synthetic_bundle(
     request: &EvidenceValidateBundlePayload,
     commit: &WireLedgerCommit,
@@ -2265,6 +2369,790 @@ fn contains_forbidden_proof_token(
     }
 }
 
+fn verify_checkpoint_payload(
+    payload: &Map<String, Value>,
+    project_root: Option<&Path>,
+) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), KernelOperationError> {
+    if payload.len() != 2 || !payload.contains_key("run_id") || !payload.contains_key("index") {
+        return Err((
+            "protocol_invalid",
+            "checkpoint.verify payload must contain exactly run_id and index fields".to_owned(),
+            Some("payload"),
+        ));
+    }
+    let request: CheckpointVerifyPayload =
+        serde_json::from_value(Value::Object(payload.clone()))
+            .map_err(|error| ("protocol_invalid", error.to_string(), Some("payload")))?;
+    let root = project_root.ok_or((
+        "kernel_root_missing",
+        "checkpoint verification requires --root <project-root>".to_owned(),
+        None,
+    ))?;
+    let ledger = load_persisted_ledger(root, &request.run_id)?;
+    verify_ledger(&ledger)?;
+    let requested_commit = ledger
+        .commits
+        .iter()
+        .find(|commit| commit.commit_hash == request.index.producing_commit_hash)
+        .ok_or((
+            "checkpoint_index_missing",
+            "checkpoint index producer commit is absent from the persisted ledger".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ))?;
+    if requested_commit.action_type != "AutonomousPaperCheckpointWritten" {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint index producer commit has the wrong action type".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    }
+    let latest_commit = ledger
+        .commits
+        .iter()
+        .rev()
+        .find(|commit| commit.action_type == "AutonomousPaperCheckpointWritten")
+        .ok_or((
+            "checkpoint_index_missing",
+            "the persisted ledger contains no autonomous checkpoint commit".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ))?;
+    if latest_commit.commit_hash != requested_commit.commit_hash {
+        return Err((
+            "checkpoint_not_latest",
+            "checkpoint index locator does not identify the latest autonomous checkpoint commit"
+                .to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    }
+    let (index_ref, _) = checkpoint_commit_refs(requested_commit, &request.run_id, None, None)?;
+    if index_ref.id != request.index.artifact_id {
+        return Err((
+            "checkpoint_index_invalid",
+            "requested checkpoint index artifact does not match its producer commit".to_owned(),
+            Some("payload.index.artifact_id"),
+        ));
+    }
+    validate_checkpoint_artifact_ref(&index_ref, &request.run_id, requested_commit)?;
+    let index_path =
+        resolve_run_file(root, &request.run_id, &index_ref.path).map_err(|message| {
+            (
+                "checkpoint_index_missing",
+                message,
+                Some("payload.index.artifact_id"),
+            )
+        })?;
+    if sha256_file(&index_path).map_err(|message| {
+        (
+            "checkpoint_index_missing",
+            message,
+            Some("payload.index.artifact_id"),
+        )
+    })? != index_ref.content_hash
+    {
+        return Err((
+            "artifact_hash_mismatch",
+            "checkpoint index bytes do not match the ledger artifact hash".to_owned(),
+            Some("payload.index.artifact_id"),
+        ));
+    }
+    let index_value = read_json_without_duplicate_keys(&index_path).map_err(|message| {
+        (
+            "checkpoint_index_invalid",
+            message,
+            Some("payload.index.artifact_id"),
+        )
+    })?;
+    let index: CheckpointIndexWire =
+        parse_closed(&index_value, "payload.index").map_err(|(_, message, _)| {
+            (
+                "checkpoint_index_invalid",
+                message,
+                Some("payload.index.artifact_id"),
+            )
+        })?;
+    validate_checkpoint_index(&index, &request.run_id, &request.index.artifact_id)?;
+
+    let mut checkpoint_hashes = Vec::with_capacity(index.checkpoint_count);
+    let mut validated_output_count = 0_usize;
+    let mut previous_hash: Option<String> = None;
+    let mut latest_resume_allowed = false;
+    let mut latest_stage = String::new();
+    let mut latest_controller = String::new();
+    for (position, relative) in index.checkpoints.iter().enumerate() {
+        let number = position + 1;
+        let checkpoint_commit = ledger
+            .commits
+            .iter()
+            .take_while(|commit| commit.commit_hash != requested_commit.commit_hash)
+            .chain(std::iter::once(requested_commit))
+            .find(|commit| {
+                commit.action_type == "AutonomousPaperCheckpointWritten"
+                    && commit.artifact_refs.iter().any(|raw| {
+                        raw.get("path").and_then(Value::as_str) == Some(relative.as_str())
+                    })
+            })
+            .ok_or((
+                "checkpoint_record_missing",
+                "checkpoint path is not linked by an earlier checkpoint commit".to_owned(),
+                Some("payload.index.checkpoints"),
+            ))?;
+        let (historical_index_ref, checkpoint_ref) = checkpoint_commit_refs(
+            checkpoint_commit,
+            &request.run_id,
+            Some(number),
+            Some(relative),
+        )?;
+        validate_checkpoint_artifact_ref(
+            &historical_index_ref,
+            &request.run_id,
+            checkpoint_commit,
+        )?;
+        validate_checkpoint_artifact_ref(&checkpoint_ref, &request.run_id, checkpoint_commit)?;
+        let checkpoint_path =
+            resolve_run_file(root, &request.run_id, relative).map_err(|message| {
+                (
+                    "checkpoint_record_missing",
+                    message,
+                    Some("payload.index.checkpoints"),
+                )
+            })?;
+        if sha256_file(&checkpoint_path).map_err(|message| {
+            (
+                "checkpoint_record_missing",
+                message,
+                Some("payload.index.checkpoints"),
+            )
+        })? != checkpoint_ref.content_hash
+        {
+            return Err((
+                "artifact_hash_mismatch",
+                "checkpoint bytes do not match the ledger artifact hash".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+        let checkpoint_value =
+            read_json_without_duplicate_keys(&checkpoint_path).map_err(|message| {
+                (
+                    "checkpoint_record_invalid",
+                    message,
+                    Some("payload.index.checkpoints"),
+                )
+            })?;
+        let checkpoint: CheckpointWire = parse_closed(&checkpoint_value, "payload.checkpoint")
+            .map_err(|(_, message, _)| {
+                (
+                    "checkpoint_record_invalid",
+                    message,
+                    Some("payload.index.checkpoints"),
+                )
+            })?;
+        validate_checkpoint_record(
+            root,
+            &request.run_id,
+            checkpoint_commit,
+            &checkpoint,
+            previous_hash.as_deref(),
+            number,
+        )?;
+        let expected_id = format!(
+            "autonomous-paper-checkpoint-{number:04}-{}",
+            checkpoint.stage_name.replace('_', "-")
+        );
+        if checkpoint_ref.id != expected_id {
+            return Err((
+                "checkpoint_record_invalid",
+                "checkpoint artifact id does not match its stage".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+        if relative != &format!("runs/{}/reports/{}.json", request.run_id, checkpoint_ref.id) {
+            return Err((
+                "checkpoint_record_invalid",
+                "checkpoint path is not canonical for its artifact id".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+        validate_checkpoint_commit_payload(checkpoint_commit, &checkpoint)?;
+        validate_checkpoint_index_snapshot(
+            root,
+            &request.run_id,
+            &historical_index_ref,
+            &index.checkpoints[..number],
+            number,
+            &checkpoint,
+        )?;
+        validated_output_count += checkpoint.output_hashes.len();
+        latest_resume_allowed = checkpoint_is_reusable(&checkpoint).map_err(|message| {
+            (
+                "checkpoint_record_invalid",
+                message,
+                Some("payload.index.checkpoints"),
+            )
+        })?;
+        latest_stage = checkpoint.stage_name.clone();
+        latest_controller = checkpoint.controller_run_id.clone();
+        previous_hash = Some(checkpoint.checkpoint_hash.clone());
+        checkpoint_hashes.push(checkpoint.checkpoint_hash);
+    }
+    if index.publication_ready
+        || index.creates_scientific_validation
+        || index.implies_publication_readiness
+        || index.is_verification_evidence
+    {
+        return Err((
+            "checkpoint_authority_violation",
+            "checkpoint index claims forbidden authority".to_owned(),
+            Some("payload.index"),
+        ));
+    }
+    if index.latest_controller_run_id != latest_controller
+        || index.latest_completed_stage.as_deref() != Some(latest_stage.as_str())
+        || index.resume_allowed != latest_resume_allowed
+    {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint index fields do not match the validated checkpoint chain".to_owned(),
+            Some("payload.index"),
+        ));
+    }
+    let diagnostics = if latest_resume_allowed {
+        Vec::new()
+    } else {
+        vec![KernelDiagnostic {
+            code: "checkpoint_not_reusable".to_owned(),
+            message: "the latest checkpoint is structurally valid but is not reusable".to_owned(),
+            path: Some("payload.index.resume_allowed".to_owned()),
+        }]
+    };
+    Ok((
+        map_value([
+            ("run_id", Value::String(request.run_id)),
+            (
+                "checkpoint_index_artifact_id",
+                Value::String(request.index.artifact_id),
+            ),
+            (
+                "checkpoint_index_producing_commit_hash",
+                Value::String(request.index.producing_commit_hash),
+            ),
+            (
+                "checkpoint_count",
+                Value::Number((index.checkpoint_count as u64).into()),
+            ),
+            (
+                "validated_checkpoint_hashes",
+                Value::Array(checkpoint_hashes.into_iter().map(Value::String).collect()),
+            ),
+            (
+                "latest_checkpoint_hash",
+                Value::String(previous_hash.expect("checkpoint count is positive")),
+            ),
+            ("latest_completed_stage", Value::String(latest_stage)),
+            (
+                "validated_output_count",
+                Value::Number((validated_output_count as u64).into()),
+            ),
+            ("checkpoint_chain_valid", Value::Bool(true)),
+            ("resume_allowed", Value::Bool(latest_resume_allowed)),
+            ("authority_granted", Value::Bool(false)),
+        ]),
+        diagnostics,
+    ))
+}
+
+fn validate_checkpoint_index(
+    index: &CheckpointIndexWire,
+    run_id: &str,
+    index_artifact_id: &str,
+) -> Result<(), KernelOperationError> {
+    if index.run_id != run_id
+        || index.checkpoint_count == 0
+        || index.checkpoint_count != index.checkpoints.len()
+        || index.checkpoints.windows(2).any(|pair| pair[0] == pair[1])
+        || index.checkpoints.iter().collect::<HashSet<_>>().len() != index.checkpoints.len()
+        || index.latest_controller_run_id.is_empty()
+        || index.latest_completed_stage.is_none()
+        || index_artifact_id
+            != format!(
+                "autonomous-paper-checkpoint-index-{:04}",
+                index.checkpoint_count
+            )
+    {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint index identity or count is invalid".to_owned(),
+            Some("payload.index"),
+        ));
+    }
+    for (position, path) in index.checkpoints.iter().enumerate() {
+        let number = position + 1;
+        let prefix = format!("runs/{run_id}/reports/autonomous-paper-checkpoint-{number:04}-");
+        if !path.starts_with(&prefix) || !path.ends_with(".json") || path.contains("..") {
+            return Err((
+                "checkpoint_index_invalid",
+                "checkpoint inventory contains a non-canonical path".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn checkpoint_commit_refs(
+    commit: &WireLedgerCommit,
+    run_id: &str,
+    expected_number: Option<usize>,
+    expected_checkpoint_path: Option<&str>,
+) -> Result<(WireArtifactRef, WireArtifactRef), KernelOperationError> {
+    if commit.run_id != run_id || commit.artifact_refs.len() != 2 {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint commit must contain exactly two artifacts for the declared run".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    }
+    let refs: Vec<WireArtifactRef> = commit
+        .artifact_refs
+        .iter()
+        .map(|raw| {
+            serde_json::from_value(raw.clone()).map_err(|error| {
+                (
+                    "checkpoint_index_invalid",
+                    format!("checkpoint artifact reference is invalid: {error}"),
+                    Some("payload.index.producing_commit_hash"),
+                )
+            })
+        })
+        .collect::<Result<_, _>>()?;
+    let index_position = refs.iter().position(|artifact| {
+        artifact.artifact_type == "report"
+            && artifact
+                .id
+                .starts_with("autonomous-paper-checkpoint-index-")
+    });
+    let checkpoint_position = refs.iter().position(|artifact| {
+        artifact.artifact_type == "report"
+            && artifact.id.starts_with("autonomous-paper-checkpoint-")
+            && !artifact.id.contains("-index-")
+    });
+    let (Some(index_position), Some(checkpoint_position)) = (index_position, checkpoint_position)
+    else {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint commit must contain one checkpoint and one index report".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    };
+    let index_ref = refs[index_position].clone();
+    let checkpoint_ref = refs[checkpoint_position].clone();
+    if let Some(number) = expected_number {
+        if index_ref.id != format!("autonomous-paper-checkpoint-index-{number:04}") {
+            return Err((
+                "checkpoint_index_invalid",
+                "checkpoint commit index number is not sequential".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+    }
+    if index_ref.path != format!("runs/{run_id}/reports/{}.json", index_ref.id) {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint index path is not canonical for its artifact id".to_owned(),
+            Some("payload.index"),
+        ));
+    }
+    if let Some(path) = expected_checkpoint_path {
+        if checkpoint_ref.path != path {
+            return Err((
+                "checkpoint_index_invalid",
+                "checkpoint commit does not link the declared checkpoint path".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+    }
+    Ok((index_ref, checkpoint_ref))
+}
+
+fn validate_checkpoint_artifact_ref(
+    artifact: &WireArtifactRef,
+    run_id: &str,
+    commit: &WireLedgerCommit,
+) -> Result<(), KernelOperationError> {
+    validate_artifact_ref(&serde_json::to_value(artifact).map_err(|error| {
+        (
+            "checkpoint_index_invalid",
+            error.to_string(),
+            Some("payload.index.producing_commit_hash"),
+        )
+    })?)
+    .map_err(|message| ("checkpoint_index_invalid", message, Some("payload.index")))?;
+    validate_artifact_location(run_id, artifact)
+        .map_err(|message| ("checkpoint_index_invalid", message, Some("payload.index")))?;
+    if checkpoint_metadata_claims_authority(&artifact.metadata) {
+        return Err((
+            "checkpoint_authority_violation",
+            "checkpoint artifact metadata claims forbidden authority".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    }
+    if artifact.producing_commit_hash.as_deref() != Some(commit.commit_hash.as_str())
+        || artifact.metadata != checkpoint_metadata()
+        || !is_sha256_hex(&artifact.content_hash)
+    {
+        return Err((
+            "checkpoint_index_invalid",
+            "checkpoint artifact reference has invalid metadata, hash, or producer link".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_checkpoint_commit_payload(
+    commit: &WireLedgerCommit,
+    checkpoint: &CheckpointWire,
+) -> Result<(), KernelOperationError> {
+    let expected = map_value([
+        (
+            "checkpoint_hash",
+            Value::String(checkpoint.checkpoint_hash.clone()),
+        ),
+        (
+            "controller_run_id",
+            Value::String(checkpoint.controller_run_id.clone()),
+        ),
+        ("creates_scientific_validation", Value::Bool(false)),
+        ("implies_publication_readiness", Value::Bool(false)),
+        ("is_verification_evidence", Value::Bool(false)),
+        ("publication_ready", Value::Bool(false)),
+        ("run_id", Value::String(checkpoint.run_id.clone())),
+        ("stage_name", Value::String(checkpoint.stage_name.clone())),
+    ]);
+    if commit.payload != expected {
+        return Err((
+            "checkpoint_record_invalid",
+            "checkpoint commit payload is not the exact frozen payload".to_owned(),
+            Some("payload.index.producing_commit_hash"),
+        ));
+    }
+    Ok(())
+}
+
+fn checkpoint_metadata() -> Map<String, Value> {
+    map_value([
+        (
+            "artifact_role",
+            Value::String("controller_reliability_context".to_owned()),
+        ),
+        ("creates_scientific_validation", Value::Bool(false)),
+        ("format", Value::String("json".to_owned())),
+        ("implies_publication_readiness", Value::Bool(false)),
+        ("is_verification_evidence", Value::Bool(false)),
+        ("publication_ready", Value::Bool(false)),
+        (
+            "stage",
+            Value::String("autonomous_paper_checkpoint".to_owned()),
+        ),
+    ])
+}
+
+fn checkpoint_metadata_claims_authority(metadata: &Map<String, Value>) -> bool {
+    [
+        "publication_ready",
+        "creates_scientific_validation",
+        "implies_publication_readiness",
+        "is_verification_evidence",
+    ]
+    .iter()
+    .any(|field| metadata.get(*field) == Some(&Value::Bool(true)))
+}
+
+fn validate_checkpoint_index_snapshot(
+    root: &Path,
+    run_id: &str,
+    artifact: &WireArtifactRef,
+    expected_paths: &[String],
+    expected_count: usize,
+    checkpoint: &CheckpointWire,
+) -> Result<(), KernelOperationError> {
+    let path = resolve_run_file(root, run_id, &artifact.path).map_err(|message| {
+        (
+            "checkpoint_index_invalid",
+            message,
+            Some("payload.index.checkpoints"),
+        )
+    })?;
+    if sha256_file(&path).map_err(|message| {
+        (
+            "checkpoint_index_invalid",
+            message,
+            Some("payload.index.checkpoints"),
+        )
+    })? != artifact.content_hash
+    {
+        return Err((
+            "artifact_hash_mismatch",
+            "historical checkpoint index bytes do not match the ledger hash".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    let value = read_json_without_duplicate_keys(&path).map_err(|message| {
+        (
+            "checkpoint_index_invalid",
+            message,
+            Some("payload.index.checkpoints"),
+        )
+    })?;
+    let snapshot: CheckpointIndexWire =
+        parse_closed(&value, "payload.index.checkpoints").map_err(|(_, message, _)| {
+            (
+                "checkpoint_index_invalid",
+                message,
+                Some("payload.index.checkpoints"),
+            )
+        })?;
+    if snapshot.publication_ready
+        || snapshot.creates_scientific_validation
+        || snapshot.implies_publication_readiness
+        || snapshot.is_verification_evidence
+    {
+        return Err((
+            "checkpoint_authority_violation",
+            "historical checkpoint index claims forbidden authority".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    if snapshot.run_id != run_id
+        || snapshot.checkpoint_count != expected_count
+        || snapshot.checkpoints != expected_paths
+        || snapshot.latest_controller_run_id != checkpoint.controller_run_id
+        || snapshot.latest_completed_stage.as_deref() != Some(checkpoint.stage_name.as_str())
+        || snapshot.resume_allowed
+            != checkpoint_is_reusable(checkpoint).map_err(|message| {
+                (
+                    "checkpoint_record_invalid",
+                    message,
+                    Some("payload.index.checkpoints"),
+                )
+            })?
+        || snapshot.resume_blockers
+            != if checkpoint_is_reusable(checkpoint).map_err(|message| {
+                (
+                    "checkpoint_record_invalid",
+                    message,
+                    Some("payload.index.checkpoints"),
+                )
+            })? {
+                Vec::new()
+            } else {
+                vec![checkpoint.stage_name.clone()]
+            }
+    {
+        return Err((
+            "checkpoint_index_invalid",
+            "historical checkpoint index is not the exact declared prefix".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_checkpoint_record(
+    root: &Path,
+    run_id: &str,
+    commit: &WireLedgerCommit,
+    checkpoint: &CheckpointWire,
+    previous_hash: Option<&str>,
+    number: usize,
+) -> Result<(), KernelOperationError> {
+    if checkpoint.run_id != run_id
+        || checkpoint.controller_run_id.is_empty()
+        || !matches!(
+            checkpoint.stage_name.as_str(),
+            "base_generation"
+                | "autonomous_loop"
+                | "final_manuscript_regeneration"
+                | "final_release_bundle_assembly"
+                | "final_bundle_verification"
+                | "handoff"
+        )
+        || checkpoint.stage_status.is_empty()
+        || checkpoint.stage_started_at.is_empty()
+        || checkpoint.stage_completed_at.is_empty()
+        || !is_sha256_hex(&checkpoint.checkpoint_hash)
+        || !matches!(
+            checkpoint.safety_gate_status.as_str(),
+            "passed" | "passed_with_warnings" | "failed"
+        )
+        || !matches!(
+            checkpoint.verification_status.as_str(),
+            "verified" | "verified_with_warnings" | "failed" | "unverified"
+        )
+    {
+        return Err((
+            "checkpoint_record_invalid",
+            "checkpoint record has invalid identity, protocol, status, or authority fields"
+                .to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    if checkpoint.protocol_version != PROTOCOL_VERSION {
+        return Err((
+            "checkpoint_protocol_mismatch",
+            "checkpoint protocol version does not match the kernel protocol".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    if checkpoint.publication_ready
+        || checkpoint.creates_scientific_validation
+        || checkpoint.implies_publication_readiness
+        || checkpoint.is_verification_evidence
+    {
+        return Err((
+            "checkpoint_authority_violation",
+            "checkpoint claims forbidden scientific or publication authority".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    if checkpoint.ledger_tip_hash_optional.as_deref() != commit.parent_hash.as_deref() {
+        return Err((
+            "checkpoint_ledger_mismatch",
+            "checkpoint ledger tip does not equal its producing commit parent".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    if number == 1 {
+        if !checkpoint.input_hashes.is_empty() {
+            return Err((
+                "checkpoint_chain_mismatch",
+                "the first checkpoint must not have predecessor inputs".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+    } else if checkpoint.input_hashes.len() != 1
+        || checkpoint
+            .input_hashes
+            .get("previous_checkpoint")
+            .map(String::as_str)
+            != previous_hash
+    {
+        return Err((
+            "checkpoint_chain_mismatch",
+            "checkpoint predecessor input does not match the prior checkpoint".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    let mut canonical = serde_json::to_value(checkpoint).map_err(|error| {
+        (
+            "checkpoint_record_invalid",
+            error.to_string(),
+            Some("payload.index.checkpoints"),
+        )
+    })?;
+    canonical
+        .as_object_mut()
+        .expect("checkpoint wire is an object")
+        .remove("checkpoint_hash");
+    let expected_hash = canonical_json(&canonical)
+        .map(|value| sha256_hex(value.as_bytes()))
+        .map_err(|error| {
+            (
+                "checkpoint_record_invalid",
+                error.to_string(),
+                Some("payload"),
+            )
+        })?;
+    if checkpoint.checkpoint_hash != expected_hash {
+        return Err((
+            "checkpoint_hash_mismatch",
+            "checkpoint self-hash does not match canonical checkpoint content".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    if checkpoint.stage_artifact_paths.len() != checkpoint.output_hashes.len()
+        || checkpoint
+            .stage_artifact_paths
+            .iter()
+            .any(|path| !checkpoint.output_hashes.contains_key(path))
+        || checkpoint.output_hashes.keys().any(|path| {
+            !checkpoint
+                .stage_artifact_paths
+                .iter()
+                .any(|candidate| candidate == path)
+        })
+    {
+        return Err((
+            "checkpoint_record_invalid",
+            "checkpoint stage paths and output hashes differ".to_owned(),
+            Some("payload.index.checkpoints"),
+        ));
+    }
+    for (relative, expected_hash) in &checkpoint.output_hashes {
+        if !is_sha256_hex(expected_hash) {
+            return Err((
+                "checkpoint_output_hash_mismatch",
+                "checkpoint output hash is not a lowercase SHA-256 digest".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+        let path = resolve_run_file(root, run_id, relative).map_err(|message| {
+            let code = if message.contains("does not resolve to an existing file") {
+                "checkpoint_output_missing"
+            } else {
+                "checkpoint_output_path_invalid"
+            };
+            (code, message, Some("payload.index.checkpoints"))
+        })?;
+        if sha256_file(&path).map_err(|message| {
+            (
+                "checkpoint_output_missing",
+                message,
+                Some("payload.index.checkpoints"),
+            )
+        })? != *expected_hash
+        {
+            return Err((
+                "checkpoint_output_hash_mismatch",
+                "checkpoint output bytes do not match the declared hash".to_owned(),
+                Some("payload.index.checkpoints"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn checkpoint_is_reusable(checkpoint: &CheckpointWire) -> Result<bool, String> {
+    let reusable = matches!(
+        checkpoint.safety_gate_status.as_str(),
+        "passed" | "passed_with_warnings"
+    ) && matches!(
+        checkpoint.stage_status.as_str(),
+        "completed" | "completed_with_warnings" | "reused"
+    ) && checkpoint.verified_for_resume
+        && matches!(
+            checkpoint.verification_status.as_str(),
+            "verified" | "verified_with_warnings"
+        )
+        && checkpoint.verification_errors.is_empty();
+    let terminal_failure = checkpoint.safety_gate_status == "failed"
+        && matches!(checkpoint.stage_status.as_str(), "blocked" | "failed")
+        && !checkpoint.verified_for_resume
+        && checkpoint.verification_status == "failed";
+    if !reusable && !terminal_failure {
+        return Err(
+            "checkpoint status is neither reusable nor a coherent terminal failure".to_owned(),
+        );
+    }
+    Ok(reusable)
+}
+
+fn read_json_without_duplicate_keys(path: &Path) -> Result<Value, String> {
+    let bytes = fs::read(path).map_err(|_| "artifact JSON cannot be read".to_owned())?;
+    let text =
+        std::str::from_utf8(&bytes).map_err(|_| "artifact JSON is not valid UTF-8".to_owned())?;
+    parse_json_without_duplicate_keys(text).map_err(|error| error.to_string())
+}
+
 fn parse_closed<T: serde::de::DeserializeOwned>(
     value: &Value,
     path: &'static str,
@@ -2392,7 +3280,7 @@ fn acceptance_satisfied(metrics: &Map<String, Value>, criteria: &Map<String, Val
         }
         match rule {
             Value::Object(rule) => {
-                if rule.len() == 0 || rule.keys().any(|key| key != "min" && key != "max") {
+                if rule.is_empty() || rule.keys().any(|key| key != "min" && key != "max") {
                     return false;
                 }
                 if !rule.contains_key("min") && !rule.contains_key("max") {
@@ -3954,6 +4842,86 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             Ok(())
         }
+        KernelOperation::CheckpointVerify => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "run_id",
+                    "checkpoint_index_artifact_id",
+                    "checkpoint_index_producing_commit_hash",
+                    "checkpoint_count",
+                    "validated_checkpoint_hashes",
+                    "latest_checkpoint_hash",
+                    "latest_completed_stage",
+                    "validated_output_count",
+                    "checkpoint_chain_valid",
+                    "resume_allowed",
+                    "authority_granted",
+                ],
+            )?;
+            for field in [
+                "run_id",
+                "checkpoint_index_artifact_id",
+                "latest_completed_stage",
+            ] {
+                if response
+                    .result
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+                {
+                    return Err(format!(
+                        "checkpoint result {field} must be a non-empty string"
+                    ));
+                }
+            }
+            require_sha256_field(&response.result, "checkpoint_index_producing_commit_hash")?;
+            require_sha256_field(&response.result, "latest_checkpoint_hash")?;
+            for field in ["checkpoint_count", "validated_output_count"] {
+                if !response.result.get(field).is_some_and(Value::is_u64) {
+                    return Err(format!("checkpoint result {field} must be an integer"));
+                }
+            }
+            let count = response
+                .result
+                .get("checkpoint_count")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| "checkpoint_count must be an integer".to_owned())?;
+            let hashes = response
+                .result
+                .get("validated_checkpoint_hashes")
+                .and_then(Value::as_array)
+                .ok_or_else(|| "validated_checkpoint_hashes must be an array".to_owned())?;
+            if count == 0
+                || hashes.len() != count as usize
+                || hashes
+                    .iter()
+                    .any(|hash| hash.as_str().is_none_or(|value| !is_sha256_hex(value)))
+                || hashes
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<HashSet<_>>()
+                    .len()
+                    != hashes.len()
+                || hashes.last().and_then(Value::as_str)
+                    != response
+                        .result
+                        .get("latest_checkpoint_hash")
+                        .and_then(Value::as_str)
+            {
+                return Err("validated checkpoint hashes are invalid".to_owned());
+            }
+            if response.result.get("checkpoint_chain_valid") != Some(&Value::Bool(true))
+                || !response
+                    .result
+                    .get("resume_allowed")
+                    .is_some_and(Value::is_boolean)
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("checkpoint verification result has invalid authority flags".to_owned());
+            }
+            Ok(())
+        }
     }
 }
 
@@ -4274,7 +5242,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.84.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.85.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -4300,7 +5268,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.84.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.84.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.85.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.85.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -4319,7 +5287,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.84.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.85.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));
@@ -4445,7 +5413,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

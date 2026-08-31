@@ -1,0 +1,175 @@
+{
+  "$id": "https://schemas.factori.local/0.85.0/kernel-autonomous-paper-checkpoint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed persisted autonomous checkpoint record for Rust verification.",
+  "properties": {
+    "checkpoint_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Checkpoint Hash",
+      "type": "string"
+    },
+    "controller_run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Controller Run Id",
+      "type": "string"
+    },
+    "creates_scientific_validation": {
+      "title": "Creates Scientific Validation",
+      "type": "boolean"
+    },
+    "implies_publication_readiness": {
+      "title": "Implies Publication Readiness",
+      "type": "boolean"
+    },
+    "input_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Input Hashes",
+      "type": "object"
+    },
+    "is_verification_evidence": {
+      "title": "Is Verification Evidence",
+      "type": "boolean"
+    },
+    "ledger_tip_hash_optional": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ledger Tip Hash Optional"
+    },
+    "output_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Output Hashes",
+      "type": "object"
+    },
+    "protocol_version": {
+      "minLength": 1,
+      "title": "Protocol Version",
+      "type": "string"
+    },
+    "publication_ready": {
+      "title": "Publication Ready",
+      "type": "boolean"
+    },
+    "release_status_optional": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Release Status Optional"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "safety_gate_status": {
+      "enum": [
+        "passed",
+        "passed_with_warnings",
+        "failed"
+      ],
+      "title": "Safety Gate Status",
+      "type": "string"
+    },
+    "stage_artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Stage Artifact Paths",
+      "type": "array"
+    },
+    "stage_completed_at": {
+      "minLength": 1,
+      "title": "Stage Completed At",
+      "type": "string"
+    },
+    "stage_name": {
+      "enum": [
+        "base_generation",
+        "autonomous_loop",
+        "final_manuscript_regeneration",
+        "final_release_bundle_assembly",
+        "final_bundle_verification",
+        "handoff"
+      ],
+      "title": "Stage Name",
+      "type": "string"
+    },
+    "stage_started_at": {
+      "minLength": 1,
+      "title": "Stage Started At",
+      "type": "string"
+    },
+    "stage_status": {
+      "minLength": 1,
+      "title": "Stage Status",
+      "type": "string"
+    },
+    "verification_errors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Verification Errors",
+      "type": "array"
+    },
+    "verification_status": {
+      "enum": [
+        "verified",
+        "verified_with_warnings",
+        "failed",
+        "unverified"
+      ],
+      "title": "Verification Status",
+      "type": "string"
+    },
+    "verified_for_resume": {
+      "title": "Verified For Resume",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "run_id",
+    "controller_run_id",
+    "stage_name",
+    "stage_status",
+    "stage_artifact_paths",
+    "stage_started_at",
+    "stage_completed_at",
+    "protocol_version",
+    "checkpoint_hash",
+    "input_hashes",
+    "output_hashes",
+    "safety_gate_status",
+    "publication_ready",
+    "verified_for_resume",
+    "verification_status",
+    "verification_errors",
+    "creates_scientific_validation",
+    "implies_publication_readiness",
+    "is_verification_evidence"
+  ],
+  "title": "KernelAutonomousPaperCheckpoint",
+  "type": "object",
+  "x-factori-protocol-version": "0.85.0",
+  "x-factori-source-model": "factori.schemas.KernelAutonomousPaperCheckpoint",
+  "x-factori-verification-evidence": false
+}

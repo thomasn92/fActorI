@@ -235,7 +235,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.84.0/production-mode-report.schema.json",
+  "$id": "https://schemas.factori.local/0.85.0/production-mode-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Backend inventory and strict-production policy result for one run.",
@@ -372,7 +372,7 @@
   ],
   "title": "ProductionModeReport",
   "type": "object",
-  "x-factori-protocol-version": "0.84.0",
+  "x-factori-protocol-version": "0.85.0",
   "x-factori-source-model": "factori.schemas.ProductionModeReport",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,51 @@
+{
+  "$defs": {
+    "KernelCheckpointIndexLocator": {
+      "additionalProperties": false,
+      "description": "Locator for the latest persisted autonomous checkpoint index.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Producing Commit Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "producing_commit_hash"
+      ],
+      "title": "KernelCheckpointIndexLocator",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.factori.local/0.85.0/kernel-checkpoint-verify-payload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Locator-only autonomous checkpoint-chain verification request.",
+  "properties": {
+    "index": {
+      "$ref": "#/$defs/KernelCheckpointIndexLocator"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "index"
+  ],
+  "title": "KernelCheckpointVerifyPayload",
+  "type": "object",
+  "x-factori-protocol-version": "0.85.0",
+  "x-factori-source-model": "factori.schemas.KernelCheckpointVerifyPayload",
+  "x-factori-verification-evidence": false
+}

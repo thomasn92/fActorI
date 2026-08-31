@@ -330,6 +330,86 @@
       "title": "KernelCanonicalJsonRequest",
       "type": "object"
     },
+    "KernelCheckpointIndexLocator": {
+      "additionalProperties": false,
+      "description": "Locator for the latest persisted autonomous checkpoint index.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Producing Commit Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "producing_commit_hash"
+      ],
+      "title": "KernelCheckpointIndexLocator",
+      "type": "object"
+    },
+    "KernelCheckpointVerifyPayload": {
+      "additionalProperties": false,
+      "description": "Locator-only autonomous checkpoint-chain verification request.",
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/KernelCheckpointIndexLocator"
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "index"
+      ],
+      "title": "KernelCheckpointVerifyPayload",
+      "type": "object"
+    },
+    "KernelCheckpointVerifyRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for autonomous checkpoint-chain verification.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "checkpoint.verify",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelCheckpointVerifyPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelCheckpointVerifyRequest",
+      "type": "object"
+    },
     "KernelClaimEvidenceLocator": {
       "additionalProperties": false,
       "description": "Locator for the persisted bundle revalidated during claim resolution.",
@@ -919,12 +999,13 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.84.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.85.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the read-only research kernel boundary.",
   "discriminator": {
     "mapping": {
       "artifact.verify": "#/$defs/KernelArtifactVerifyRequest",
+      "checkpoint.verify": "#/$defs/KernelCheckpointVerifyRequest",
       "claim.resolve": "#/$defs/KernelClaimResolveRequest",
       "evidence.classify": "#/$defs/KernelEvidenceClassifyRequest",
       "evidence.validate_bundle": "#/$defs/KernelEvidenceValidateBundleRequest",
@@ -955,10 +1036,13 @@
     },
     {
       "$ref": "#/$defs/KernelClaimResolveRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelCheckpointVerifyRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.84.0",
+  "x-factori-protocol-version": "0.85.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

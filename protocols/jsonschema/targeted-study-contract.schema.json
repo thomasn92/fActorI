@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.84.0/targeted-study-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.85.0/targeted-study-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Canonical immutable study contract resolved after opportunity discovery.",
@@ -151,7 +151,7 @@
   ],
   "title": "TargetedStudyContract",
   "type": "object",
-  "x-factori-protocol-version": "0.84.0",
+  "x-factori-protocol-version": "0.85.0",
   "x-factori-source-model": "factori.schemas.TargetedStudyContract",
   "x-factori-verification-evidence": false
 }

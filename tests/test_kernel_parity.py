@@ -10,10 +10,12 @@ import pytest
 from pydantic import ValidationError
 
 from factori.hashing import canonical_json, sha256_file, sha256_text
+from factori.kernel_bridge import verify_persisted_autonomous_checkpoints
 from factori.ledger import ResearchLedger
 from factori.schemas import (
     ArtifactRef,
     ArtifactType,
+    AutonomousPaperRunStage,
     Candidate,
     Claim,
     ControllerActionType,
@@ -36,6 +38,373 @@ LEDGER_FIXTURE = (
     Path(__file__).parent / ".." / "rust-kernel" / "fixtures" / "ledger-commit-hashes.json"
 )
 KERNEL_BINARY = Path(__file__).parent / ".." / "rust-kernel" / "target" / "debug" / "factori-kernel"
+
+
+def _write_checkpoint_chain(
+    root: Path,
+    *,
+    run_id: str = "run-kernel-checkpoints",
+    safety_gate_status: str = "passed",
+    stage_status: str = "completed",
+) -> tuple[ResearchLedger, object]:
+    from factori.artifacts import ArtifactStore
+    from factori.autonomous_paper_checkpoint import write_autonomous_paper_checkpoint
+
+    store = ArtifactStore(root)
+    store.init_run(run_id)
+    ledger = ResearchLedger(root / "runs" / run_id / "ledger.sqlite")
+    previous_hash: str | None = None
+    result = None
+    for number, stage_name in enumerate(("base_generation", "autonomous_loop"), start=1):
+        relative = f"runs/{run_id}/reports/stage-output-{number:04d}.json"
+        output_path = root / relative
+        output_path.write_text(json.dumps({"stage": stage_name}), encoding="utf-8")
+        stage = AutonomousPaperRunStage(
+            stage_name=stage_name,
+            stage_status=stage_status,
+            started_at=f"2026-01-01T00:00:0{number}.000000Z",
+            completed_at=f"2026-01-01T00:00:1{number}.000000Z",
+            summary=f"checkpoint {number}",
+        )
+        result = write_autonomous_paper_checkpoint(
+            run_id=run_id,
+            controller_run_id="controller-checkpoint-test",
+            stage=stage,
+            artifact_paths=[relative],
+            safety_gate_status=safety_gate_status,
+            release_status=None,
+            input_hashes=(
+                {} if previous_hash is None else {"previous_checkpoint": previous_hash}
+            ),
+            root=root,
+            store=store,
+            ledger=ledger,
+        )
+        previous_hash = result.checkpoint.checkpoint_hash
+    assert result is not None
+    return ledger, result
+
+
+def _rewrite_json(path: Path, payload: dict[str, object]) -> None:
+    path.write_text(canonical_json(payload) + "\n", encoding="utf-8")
+
+
+def _reseal_latest_checkpoint_commit(
+    root: Path,
+    ledger: ResearchLedger,
+    latest: Any,
+) -> str:
+    import sqlite3
+
+    from factori.ledger import compute_commit_hash
+
+    old_hash = latest.index_artifact.producing_commit_hash
+    assert old_hash is not None
+    commit = ledger.get_commit(old_hash)
+    refs = [
+        ref.model_copy(
+            update={
+                "content_hash": sha256_file(root / ref.path),
+                "producing_commit_hash": None,
+            }
+        )
+        for ref in commit.artifact_refs
+    ]
+    checkpoint_ref = next(
+        ref
+        for ref in refs
+        if ref.id.startswith("autonomous-paper-checkpoint-")
+        and "-index-" not in ref.id
+    )
+    checkpoint_payload = json.loads((root / checkpoint_ref.path).read_text(encoding="utf-8"))
+    commit_payload = {**commit.payload, "checkpoint_hash": checkpoint_payload["checkpoint_hash"]}
+    self_link_ids = {ref.id for ref in refs}
+    new_hash = compute_commit_hash(
+        parent_hash=commit.parent_hash,
+        run_id=commit.run_id,
+        candidate_id=commit.candidate_id,
+        action_type=commit.action_type,
+        payload=commit_payload,
+        artifact_refs=refs,
+        timestamp=commit.timestamp,
+        self_link_artifact_ids=self_link_ids,
+    )
+    linked_refs = [ref.model_copy(update={"producing_commit_hash": new_hash}) for ref in refs]
+    with sqlite3.connect(ledger.path) as connection:
+        connection.execute("DROP TRIGGER commits_no_update")
+        connection.execute("DROP TRIGGER commits_no_delete")
+        connection.execute(
+            """
+            UPDATE commits
+            SET commit_hash = ?, payload_json = ?, artifact_refs_json = ?
+            WHERE commit_hash = ?
+            """,
+            (
+                new_hash,
+                canonical_json(commit_payload),
+                canonical_json(linked_refs),
+                old_hash,
+            ),
+        )
+    return new_hash
+
+
+def test_rust_checkpoint_verification_accepts_writer_produced_chain(tmp_path: Path) -> None:
+    _build_kernel_binary()
+    ledger, latest = _write_checkpoint_chain(tmp_path)
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted"
+    result = response.result
+    assert result.checkpoint_count == 2
+    expected_hashes = [
+        json.loads((tmp_path / relative).read_text(encoding="utf-8"))["checkpoint_hash"]
+        for relative in latest.index.checkpoints
+    ]
+    assert result.validated_checkpoint_hashes == expected_hashes
+    assert result.latest_completed_stage == "autonomous_loop"
+    assert result.validated_output_count == 2
+    assert result.checkpoint_chain_valid is True
+    assert result.resume_allowed is True
+    assert result.authority_granted is False
+
+
+def test_rust_checkpoint_verification_accepts_failed_chain_without_resume_authority(
+    tmp_path: Path,
+) -> None:
+    _build_kernel_binary()
+    _, latest = _write_checkpoint_chain(
+        tmp_path,
+        run_id="run-kernel-failed-checkpoints",
+        safety_gate_status="failed",
+        stage_status="blocked",
+    )
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-failed-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "accepted"
+    assert response.result.resume_allowed is False
+    assert response.result.authority_granted is False
+    assert [diagnostic.code for diagnostic in response.diagnostics] == [
+        "checkpoint_not_reusable"
+    ]
+
+
+def test_rust_checkpoint_verification_rejects_stale_index_and_mutated_output(
+    tmp_path: Path,
+) -> None:
+    _build_kernel_binary()
+    ledger, latest = _write_checkpoint_chain(tmp_path)
+    checkpoint_commits = [
+        commit
+        for commit in ledger.list_commits("run-kernel-checkpoints")
+        if commit.action_type == ControllerActionType.AUTONOMOUS_PAPER_CHECKPOINT_WRITTEN
+    ]
+    first_index = next(
+        artifact
+        for artifact in checkpoint_commits[0].artifact_refs
+        if artifact.id.startswith("autonomous-paper-checkpoint-index-")
+    )
+    stale = verify_persisted_autonomous_checkpoints(
+        "run-kernel-checkpoints",
+        index_artifact_id=first_index.id,
+        index_producing_commit_hash=checkpoint_commits[0].commit_hash,
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+    assert stale.status.value == "rejected"
+    assert stale.diagnostics[0].code == "checkpoint_not_latest"
+
+    (tmp_path / "runs/run-kernel-checkpoints/reports/stage-output-0002.json").write_text(
+        "mutated", encoding="utf-8"
+    )
+    mutated = verify_persisted_autonomous_checkpoints(
+        "run-kernel-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+    assert mutated.status.value == "rejected"
+    assert mutated.diagnostics[0].code == "checkpoint_output_hash_mismatch"
+
+
+@pytest.mark.parametrize("mutation", ["missing", "symlink"])
+def test_rust_checkpoint_verification_rejects_missing_or_symlinked_output(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    _build_kernel_binary()
+    _, latest = _write_checkpoint_chain(tmp_path)
+    output = tmp_path / "runs/run-kernel-checkpoints/reports/stage-output-0002.json"
+    output.unlink()
+    if mutation == "symlink":
+        outside = tmp_path / "outside-checkpoint-output.json"
+        outside.write_text("outside", encoding="utf-8")
+        output.symlink_to(outside)
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=latest.index_artifact.producing_commit_hash or "",
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "rejected"
+    assert response.diagnostics[0].code == (
+        "checkpoint_output_missing" if mutation == "missing" else "checkpoint_output_path_invalid"
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("self_hash", "checkpoint_hash_mismatch"),
+        ("predecessor", "checkpoint_chain_mismatch"),
+        ("ledger_tip", "checkpoint_ledger_mismatch"),
+        ("protocol", "checkpoint_protocol_mismatch"),
+        ("authority", "checkpoint_authority_violation"),
+        ("output_hash", "checkpoint_output_hash_mismatch"),
+        ("output_path", "checkpoint_output_path_invalid"),
+        ("unexpected_field", "checkpoint_record_invalid"),
+    ],
+)
+def test_rust_checkpoint_verification_rejects_resealed_record_mutations(
+    tmp_path: Path,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    _build_kernel_binary()
+    ledger, latest = _write_checkpoint_chain(tmp_path)
+    checkpoint_path = tmp_path / latest.index.checkpoints[-1]
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    if mutation == "self_hash":
+        checkpoint["checkpoint_hash"] = "f" * 64
+    elif mutation == "predecessor":
+        checkpoint["input_hashes"] = {"previous_checkpoint": "f" * 64}
+    elif mutation == "ledger_tip":
+        checkpoint["ledger_tip_hash_optional"] = "f" * 64
+    elif mutation == "protocol":
+        checkpoint["protocol_version"] = "0.84.0"
+    elif mutation == "authority":
+        checkpoint["publication_ready"] = True
+    elif mutation == "output_hash":
+        checkpoint["output_hashes"][checkpoint["stage_artifact_paths"][0]] = "f" * 64
+    elif mutation == "output_path":
+        checkpoint["stage_artifact_paths"] = ["../outside.json"]
+        checkpoint["output_hashes"] = {"../outside.json": "f" * 64}
+    else:
+        checkpoint["unexpected"] = True
+    if mutation not in {"self_hash", "unexpected_field"}:
+        checkpoint["checkpoint_hash"] = sha256_text(
+            canonical_json(
+                {key: value for key, value in checkpoint.items() if key != "checkpoint_hash"}
+            )
+        )
+    _rewrite_json(checkpoint_path, checkpoint)
+    producing_commit_hash = _reseal_latest_checkpoint_commit(tmp_path, ledger, latest)
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=producing_commit_hash,
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "rejected"
+    assert response.diagnostics[0].code == expected_code
+
+
+@pytest.mark.parametrize("mutation", ["count", "order", "unexpected_field"])
+def test_rust_checkpoint_verification_rejects_resealed_index_mutations(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    _build_kernel_binary()
+    ledger, latest = _write_checkpoint_chain(tmp_path)
+    index_path = tmp_path / latest.index_artifact.path
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    if mutation == "count":
+        index["checkpoint_count"] = 1
+    elif mutation == "order":
+        index["checkpoints"] = list(reversed(index["checkpoints"]))
+    else:
+        index["unexpected"] = True
+    _rewrite_json(index_path, index)
+    producing_commit_hash = _reseal_latest_checkpoint_commit(tmp_path, ledger, latest)
+
+    response = verify_persisted_autonomous_checkpoints(
+        "run-kernel-checkpoints",
+        index_artifact_id=latest.index_artifact.id,
+        index_producing_commit_hash=producing_commit_hash,
+        root=tmp_path,
+        kernel_binary=KERNEL_BINARY,
+    )
+
+    assert response.status.value == "rejected"
+    assert response.diagnostics[0].code == "checkpoint_index_invalid"
+
+
+def test_checkpoint_bridge_rejects_accepted_response_with_wrong_hash_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from factori.kernel_bridge import KernelBridgeError
+
+    _, latest = _write_checkpoint_chain(tmp_path)
+    producing_commit_hash = latest.index_artifact.producing_commit_hash or ""
+    response = KernelResponseEnvelope.model_validate(
+        {
+            "protocol_version": "0.85.0",
+            "kernel_version": "0.1.0-dev",
+            "request_id": (
+                "checkpoint-verify-run-kernel-checkpoints-"
+                f"{latest.index_artifact.id}-{producing_commit_hash[:12]}"
+            ),
+            "operation": "checkpoint.verify",
+            "mode": "StrictProduction",
+            "status": "accepted",
+            "result": {
+                "run_id": "run-kernel-checkpoints",
+                "checkpoint_index_artifact_id": latest.index_artifact.id,
+                "checkpoint_index_producing_commit_hash": producing_commit_hash,
+                "checkpoint_count": 2,
+                "validated_checkpoint_hashes": ["d" * 64, "e" * 64],
+                "latest_checkpoint_hash": "e" * 64,
+                "latest_completed_stage": "autonomous_loop",
+                "validated_output_count": 2,
+                "checkpoint_chain_valid": True,
+                "resume_allowed": True,
+                "authority_granted": False,
+            },
+            "diagnostics": [],
+            "mutation_performed": False,
+        }
+    )
+    monkeypatch.setattr("factori.kernel_bridge._invoke_kernel", lambda *args, **kwargs: response)
+
+    with pytest.raises(KernelBridgeError, match="does not match request"):
+        verify_persisted_autonomous_checkpoints(
+            "run-kernel-checkpoints",
+            index_artifact_id=latest.index_artifact.id,
+            index_producing_commit_hash=producing_commit_hash,
+            root=tmp_path,
+        )
 
 
 def test_python_canonical_json_matches_kernel_golden_corpus() -> None:
@@ -69,7 +438,7 @@ def test_rust_kernel_cli_matches_python_canonical_json_corpus() -> None:
 
     for case in cases:
         request = {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": case["name"],
             "operation": "hash.canonical_json",
             "mode": "DevelopmentCompatibility",
@@ -96,7 +465,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "request_id": "",
                 "operation": "hash.canonical_json",
                 "mode": "DevelopmentCompatibility",
@@ -107,7 +476,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "request_id": "request-invalid-payload",
                 "operation": "hash.canonical_json",
                 "mode": "DevelopmentCompatibility",
@@ -118,7 +487,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelRequestEnvelope",
             KernelRequestEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "request_id": "request-invalid-commit-hash",
                 "operation": "ledger.verify",
                 "mode": "DevelopmentCompatibility",
@@ -140,10 +509,27 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             },
         ),
         (
+            "KernelRequestEnvelope",
+            KernelRequestEnvelope,
+            {
+                "protocol_version": "0.85.0",
+                "request_id": "request-invalid-checkpoint-locator",
+                "operation": "checkpoint.verify",
+                "mode": "StrictProduction",
+                "payload": {
+                    "run_id": "run-1",
+                    "index": {
+                        "artifact_id": "autonomous-paper-checkpoint-index-0001",
+                        "producing_commit_hash": "not-a-hash",
+                    },
+                },
+            },
+        ),
+        (
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-invalid-diagnostic",
                 "operation": "hash.canonical_json",
@@ -158,7 +544,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-count",
                 "operation": "ledger.verify",
@@ -173,7 +559,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-mutation",
                 "operation": "ledger.verify",
@@ -188,7 +574,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-coerced-valid",
                 "operation": "ledger.verify",
@@ -203,7 +589,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-empty-run-id",
                 "operation": "ledger.verify",
@@ -218,7 +604,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
             "KernelResponseEnvelope",
             KernelResponseEnvelope,
             {
-                "protocol_version": "0.84.0",
+                "protocol_version": "0.85.0",
                 "kernel_version": "0.1.0-dev",
                 "request_id": "response-invalid-result",
                 "operation": "hash.canonical_json",
@@ -239,7 +625,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
         else:
             raise AssertionError(f"invalid Python fixture was accepted: {protocol_name}")
         request = {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": f"validate-{protocol_name}",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
@@ -258,7 +644,7 @@ def test_rust_protocol_validation_rejects_every_invalid_python_envelope() -> Non
 def test_rust_protocol_validation_accepts_optional_candidate_kind_omission() -> None:
     _build_kernel_binary()
     instance = {
-        "protocol_version": "0.84.0",
+        "protocol_version": "0.85.0",
         "kernel_version": "0.1.0-dev",
         "request_id": "response-context-without-candidate-kind",
         "operation": "evidence.classify",
@@ -276,7 +662,7 @@ def test_rust_protocol_validation_accepts_optional_candidate_kind_omission() -> 
     }
     KernelResponseEnvelope.model_validate(instance)
     request = {
-        "protocol_version": "0.84.0",
+        "protocol_version": "0.85.0",
         "request_id": "validate-optional-candidate-kind",
         "operation": "protocol.validate",
         "mode": "DevelopmentCompatibility",
@@ -341,7 +727,7 @@ def test_rust_ledger_verification_matches_python_commit_chain(tmp_path: Path) ->
         commit.model_dump(mode="json") for commit in ledger.list_commits("run-kernel-ledger")
     ]
     request = KernelLedgerVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="ledger-verify-test",
         operation="ledger.verify",
         mode="DevelopmentCompatibility",
@@ -373,7 +759,7 @@ def test_rust_ledger_verification_rejects_tampered_commit_payload(tmp_path: Path
     tampered = commit.model_dump(mode="json")
     tampered["payload"] = {"run_id": "tampered"}
     request = {
-        "protocol_version": "0.84.0",
+        "protocol_version": "0.85.0",
         "request_id": "ledger-verify-tampered",
         "operation": "ledger.verify",
         "mode": "DevelopmentCompatibility",
@@ -389,7 +775,7 @@ def test_rust_ledger_verification_rejects_tampered_commit_payload(tmp_path: Path
 def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> None:
     _build_kernel_binary()
     malformed_request = {
-        "protocol_version": "0.84.0",
+        "protocol_version": "0.85.0",
         "request_id": "nested-ledger-invalid",
         "operation": "ledger.verify",
         "mode": "DevelopmentCompatibility",
@@ -397,7 +783,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> N
     }
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": "validate-nested-ledger",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
@@ -415,7 +801,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_ledger_request() -> N
 def test_rust_protocol_validation_rejects_malformed_nested_bundle_request() -> None:
     _build_kernel_binary()
     malformed_request = {
-        "protocol_version": "0.84.0",
+        "protocol_version": "0.85.0",
         "request_id": "nested-bundle-invalid",
         "operation": "evidence.validate_bundle",
         "mode": "StrictProduction",
@@ -424,7 +810,7 @@ def test_rust_protocol_validation_rejects_malformed_nested_bundle_request() -> N
 
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": "validate-nested-bundle",
             "operation": "protocol.validate",
             "mode": "StrictProduction",
@@ -456,14 +842,14 @@ def test_rust_protocol_validation_only_checks_nested_ledger_shape(
     tampered["payload"] = {"run_id": "tampered"}
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": "validate-nested-ledger-semantic",
             "operation": "protocol.validate",
             "mode": "DevelopmentCompatibility",
             "payload": {
                 "protocol_name": "KernelRequestEnvelope",
                 "instance": {
-                    "protocol_version": "0.84.0",
+                    "protocol_version": "0.85.0",
                     "request_id": "nested-ledger-semantic",
                     "operation": "ledger.verify",
                     "mode": "DevelopmentCompatibility",
@@ -505,7 +891,7 @@ def test_rust_ledger_verification_rejects_forked_or_non_tip_append(tmp_path: Pat
     assert fork.parent_hash == root.commit_hash
     response = _run_kernel(
         KernelLedgerVerifyRequest(
-            protocol_version="0.84.0",
+            protocol_version="0.85.0",
             request_id="ledger-forked",
             operation="ledger.verify",
             mode="DevelopmentCompatibility",
@@ -537,7 +923,7 @@ def test_rust_ledger_verification_accepts_python_defaulted_fields(tmp_path: Path
     raw.pop("artifact_refs")
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": "ledger-defaults",
             "operation": "ledger.verify",
             "mode": "DevelopmentCompatibility",
@@ -566,7 +952,7 @@ def test_rust_ledger_verification_rejects_duplicate_artifact_ids(tmp_path: Path)
     )
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": "ledger-duplicate-artifacts",
             "operation": "ledger.verify",
             "mode": "DevelopmentCompatibility",
@@ -610,7 +996,7 @@ def test_rust_ledger_verification_rejects_artifact_with_wrong_producer(tmp_path:
     )
     response = _run_kernel(
         KernelLedgerVerifyRequest(
-            protocol_version="0.84.0",
+            protocol_version="0.85.0",
             request_id="ledger-wrong-producer",
             operation="ledger.verify",
             mode="DevelopmentCompatibility",
@@ -949,7 +1335,7 @@ def test_rust_bundle_operation_preserves_duplicate_member_diagnostic(
     _build_kernel_binary()
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": f"bundle-duplicate-{mode.value}",
             "operation": "evidence.validate_bundle",
             "mode": mode.value,
@@ -1113,7 +1499,7 @@ def test_rust_rejects_cross_identity_bundle_requests_in_both_modes(
     ledger_hash = sha256_file(ledger_path)
     response = _run_kernel(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "request_id": f"bundle-cross-{mutation}-{mode.value}",
             "operation": "evidence.validate_bundle",
             "mode": mode.value,
@@ -1144,7 +1530,7 @@ def _claim_resolve_request(
     evidence: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return KernelClaimResolveRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id=f"claim-resolve-{run_id}-{claim_id}",
         operation="claim.resolve",
         mode=KernelMode.STRICT_PRODUCTION,
@@ -1658,7 +2044,7 @@ def test_bundle_bridge_rejects_accepted_response_with_wrong_bundle_members(
     )
     response = KernelResponseEnvelope.model_validate(
         {
-            "protocol_version": "0.84.0",
+            "protocol_version": "0.85.0",
             "kernel_version": "0.1.0-dev",
             "request_id": "evidence-validate-bundle-run-001-candidate-001",
             "operation": "evidence.validate_bundle",
@@ -1885,7 +2271,7 @@ def test_rust_artifact_verification_rejects_tampered_raw_bytes(tmp_path: Path) -
     _build_kernel_binary()
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-tampered-bytes",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1914,7 +2300,7 @@ def test_rust_artifact_verification_rejects_wrong_directory_and_presentation_ove
         metadata={"is_verification_evidence": True},
     )
     request = {
-        "protocol_version": "0.84.0",
+        "protocol_version": "0.85.0",
         "request_id": "artifact-invalid-location",
         "operation": "artifact.verify",
         "mode": "DevelopmentCompatibility",
@@ -1945,7 +2331,7 @@ def test_rust_artifact_verification_rejects_missing_persisted_producer(tmp_path:
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     artifact = artifact.model_copy(update={"producing_commit_hash": "f" * 64})
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-missing-producer",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -1974,7 +2360,7 @@ def test_rust_artifact_verification_rejects_unlinked_implicit_evidence(tmp_path:
         format_label="json",
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-unlinked-evidence",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -2005,7 +2391,7 @@ def test_rust_artifact_verification_accepts_unlinked_context_artifact(tmp_path: 
         .model_copy(update={"metadata": {"is_verification_evidence": False}})
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-unlinked-context",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -2030,7 +2416,7 @@ def test_rust_artifact_verification_rejects_corrupt_persisted_ledger(tmp_path: P
             ('{"artifact_id":"tampered"}', artifact.producing_commit_hash),
         )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-corrupt-ledger",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -2047,7 +2433,7 @@ def test_rust_artifact_verification_requires_root(tmp_path: Path) -> None:
     _build_kernel_binary()
     run_id, artifact = _persist_kernel_artifact_fixture(tmp_path)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-root-missing",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -2072,7 +2458,7 @@ def test_rust_artifact_verification_rejects_python_invalid_identifier_grammar(
         metadata={"is_verification_evidence": False},
     )
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-invalid-identifier",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -2126,7 +2512,7 @@ def test_rust_artifact_verification_rejects_symlinked_artifacts(tmp_path: Path) 
     artifact_path.unlink()
     artifact_path.symlink_to(outside)
     request = KernelArtifactVerifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id="artifact-rust-symlink",
         operation="artifact.verify",
         mode="DevelopmentCompatibility",
@@ -2178,7 +2564,7 @@ def _classify_kernel_artifact(
     mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
 ) -> dict[str, object]:
     request = KernelEvidenceClassifyRequest(
-        protocol_version="0.84.0",
+        protocol_version="0.85.0",
         request_id=f"classify-{artifact.id}-{mode.value}",
         operation="evidence.classify",
         mode=mode,

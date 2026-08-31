@@ -200,6 +200,11 @@ from factori.schemas import (
     IdeaTreeConstructionReport,
     IdeaTreeExportReport,
     IdeaTreeInspectionReport,
+    KernelAutonomousPaperCheckpoint,
+    KernelAutonomousPaperCheckpointIndex,
+    KernelCheckpointIndexLocator,
+    KernelCheckpointVerifyPayload,
+    KernelCheckpointVerifyResult,
     KernelClaimEvidenceLocator,
     KernelClaimResolvePayload,
     KernelClaimResolveResult,
@@ -441,7 +446,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.84.0"
+PROTOCOL_VERSION = "0.85.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -552,6 +557,31 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "KernelClaimResolveResult",
         KernelClaimResolveResult,
         "Non-authoritative claim admissibility result.",
+    ),
+    ProtocolDefinition(
+        "KernelCheckpointIndexLocator",
+        KernelCheckpointIndexLocator,
+        "Latest autonomous checkpoint index locator.",
+    ),
+    ProtocolDefinition(
+        "KernelCheckpointVerifyPayload",
+        KernelCheckpointVerifyPayload,
+        "Locator-only autonomous checkpoint-chain verification request.",
+    ),
+    ProtocolDefinition(
+        "KernelCheckpointVerifyResult",
+        KernelCheckpointVerifyResult,
+        "Non-authoritative autonomous checkpoint integrity and resume result.",
+    ),
+    ProtocolDefinition(
+        "KernelAutonomousPaperCheckpoint",
+        KernelAutonomousPaperCheckpoint,
+        "Closed persisted autonomous checkpoint record for Rust verification.",
+    ),
+    ProtocolDefinition(
+        "KernelAutonomousPaperCheckpointIndex",
+        KernelAutonomousPaperCheckpointIndex,
+        "Closed persisted autonomous checkpoint index for Rust verification.",
     ),
     ProtocolDefinition(
         "KernelProofPayload",

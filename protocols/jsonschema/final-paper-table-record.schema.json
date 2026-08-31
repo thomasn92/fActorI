@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.84.0/final-paper-table-record.schema.json",
+  "$id": "https://schemas.factori.local/0.85.0/final-paper-table-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One deterministic table reconstructed from metric artifacts.",
@@ -96,7 +96,7 @@
   ],
   "title": "FinalPaperTableRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.84.0",
+  "x-factori-protocol-version": "0.85.0",
   "x-factori-source-model": "factori.schemas.FinalPaperTableRecord",
   "x-factori-verification-evidence": false
 }

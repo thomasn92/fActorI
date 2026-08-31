@@ -19,6 +19,8 @@ The examples intentionally preserve MVP boundaries:
 - the full-paper golden bundle example pins artifact structure only, not manuscript text,
   scientific correctness, or publication readiness;
 - claim examples do not inflate labels;
+- checkpoint-verification examples are locator and interoperability fixtures only; resume
+  permission is not scientific or publication authority;
 - artifact and protocol files are not verification evidence.
 
 Use the matching schema under `../jsonschema/` when implementing decoders in another language.
