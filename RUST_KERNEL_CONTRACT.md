@@ -917,6 +917,18 @@ Kernel diagnostics need stable codes independent of prose. The initial taxonomy 
 - `checkpoint_output_hash_mismatch`
 - `checkpoint_authority_violation`
 - `checkpoint_not_reusable`
+- `replay_not_complete`
+- `replay_not_latest`
+- `replay_snapshot_changed`
+- `replay_required_output_missing`
+- `replay_required_output_invalid`
+- `replay_manifest_missing`
+- `replay_manifest_invalid`
+- `replay_manifest_mismatch`
+- `replay_dependency_missing`
+- `replay_dependency_ambiguous`
+- `replay_dependency_mismatch`
+- `replay_authority_violation`
 - `io_failure`
 - `sqlite_failure`
 - `internal_error`
@@ -1131,3 +1143,293 @@ This correction does not require a protocol bump if request, response, schema, a
 shapes remain unchanged. Luna must not change checkpoint persistence, reinterpret a terminal
 failure as recoverable, begin `replay.verify_core`, or claim operation-level cutover. Any need to
 support a post-failure checkpoint sequence must return to Sol as a new persisted-state design.
+
+## Final Sol Review of `checkpoint.verify`: Approved
+
+Sol reviewed Luna commits `859373b` and `cc73bcd` against the semantic freeze and the correction
+handoff. The correction makes terminal checkpoint state monotonic: a reusable prefix may end in one
+coherent failed/blocked checkpoint, but every later checkpoint is rejected with
+`checkpoint_chain_mismatch` before it can restore resume permission. The representative terminal
+failure is accepted with `resume_allowed=false`, literal `authority_granted=false`, and exactly one
+`checkpoint_not_reusable` diagnostic.
+
+The parity inventory now covers successful, warning, terminal-failure, re-sealed
+failed-then-reusable, and resumed-controller chains, including repeated downstream stages, changed
+controller IDs, exact ordered checkpoint hashes through the Python bridge, malformed inventory
+paths, and matching accepted/rejected decisions in both kernel modes. Protocol `0.85.0` remains
+current because no request, response, schema, or diagnostic shape changed. The completed validation
+matrix includes protocol export/version/example checks, Rust format/Clippy/tests, Ruff, 150 kernel
+parity tests, and the complete 1,505-test Python run performed before the final test-only mode
+parameterization.
+
+Cutover gates 6, 9, and 10 are closed for this operation. `checkpoint.verify` is approved for the
+bounded read-only integrity and operational-resume decision defined above. This approval does not
+make checkpoint artifacts evidence, grant claim or publication authority, change checkpoint
+persistence, authorize post-failure continuation, or approve any mutating Rust operation. Python
+fallbacks remain explicit until the corresponding call site deliberately cuts over; silent
+fallback remains forbidden.
+
+## `replay.verify_core` Scope Decision
+
+The first replay operation is a fail-closed verification of the immutable mechanical core of one
+completed run. It is not a Rust port of the complete Python `ReplayVerificationReport`. The Python
+replay layer continues to own narrative completeness, failed/deferred branch presentation,
+blocked-claim appendix checks, final-audit/release/export policy comparison, human-readable
+findings, summaries, and optional report writing.
+
+Rust owns only these core questions in this phase:
+
+- is the caller naming the current complete ledger snapshot for the requested run;
+- is that complete ledger linear, hash-valid, single-rooted, single-tipped, and run-local;
+- do all ledger artifact references resolve to exact confined immutable bytes and exact producing
+  commits;
+- is the persisted artifact manifest an exact derived inventory of the ledger prefix that existed
+  immediately before the manifest commit;
+- do the required completed-run outputs and the claim/evidence dependency records exist without
+  ambiguity;
+- do persisted labels, dependencies, presentation flags, and derived-report paths preserve the
+  current MVP authority boundary.
+
+The operation must not execute pipeline commands, regenerate outputs, discover unledgered files,
+repair the ledger, write replay reports, create ledger commits, update manifests, call adapters,
+re-run proof or experiment tools, or infer scientific correctness from hash equality.
+
+### Frozen Request and Snapshot
+
+The caller supplies only:
+
+```text
+run_id
+ledger_tip_hash
+```
+
+Both fields are locators, not authority-bearing assertions. `ledger_tip_hash` must be a lowercase
+SHA-256 digest and must equal the sole current tip of the persisted run ledger. Rust loads the
+ledger from `runs/<run_id>/ledger.sqlite` through the configured project root in read-only mode; the
+caller must not supply commits, artifact references, paths, manifest entries, claim fields,
+expected counts, replay status, or prior kernel output.
+
+An older valid tip is rejected with `replay_not_latest`. Rust records the loaded tip and commit
+count and checks them again before returning. A concurrent append or other snapshot change is
+rejected with `replay_snapshot_changed`; it is never interpreted as a successful verification of a
+partial run.
+
+The run is complete for this bounded operation only when the verified ledger contains an
+`ExportReadinessReportWritten` commit whose payload contains `ready_for_polished_prose`, whose JSON
+artifact reference and raw bytes are valid, and which is at or before the requested current tip.
+The later Markdown artifact with the same action type is not the completion locator. Missing
+completion state is rejected with `replay_not_complete`.
+
+### Frozen Ledger and Artifact Core
+
+Rust must reuse the persisted-ledger loader and frozen ledger verifier. In addition, replay core
+must validate every artifact reference occurrence in ledger order and artifact-reference order:
+
+1. require a closed `ArtifactRef`, safe run-local relative path, known artifact type, lowercase raw
+   content hash, and a producing-commit hash;
+2. require the producing-commit hash to name the commit containing that exact full artifact
+   reference, including ID, type, path, content hash, metadata, and self-link;
+3. allow an artifact ID to recur for distinct JSON/Markdown presentation artifacts, but reject a
+   duplicate path or ambiguous duplicate full identity across commits;
+4. reject absolute paths, traversal, non-normal components, symlinks in any component, non-files,
+   cross-run paths, and paths escaping `runs/<run_id>/`;
+5. hash final raw on-disk bytes and require an exact match with the ledger reference;
+6. require every ledger-linked `.json` artifact used by core dependency or authority checks to be
+   valid UTF-8, duplicate-key-free JSON before inspecting exact scalar values;
+7. reject any ledger-linked artifact beneath `replay/`, `diagnostics/`, or `comparisons/`, because
+   these derived views are outside provenance and must never be made authoritative retroactively.
+
+Sidecar files are not independent replay inputs. A sidecar may be inspected only as a compatibility
+cross-check against the authoritative ledger reference; it cannot repair or override a missing or
+different ledger reference. Filesystem enumeration must not add artifacts to the verified
+inventory.
+
+For exact Python-bridge comparison, Rust computes `ledger_artifact_inventory_hash` as SHA-256 over
+Python-compatible canonical JSON of an array in ledger order and artifact-reference order. Each
+array member contains the containing `commit_hash` and the complete persisted `ArtifactRef` object,
+including metadata. This digest is a bounded comparison value only; it is not a capability or
+provenance replacement.
+
+### Frozen Manifest and Dependency Core
+
+Rust resolves the latest `ArtifactManifestWritten` commit at or before the requested tip, requiring
+one JSON `report` artifact with ID `artifact-manifest`, canonical run-local path, exact self-link,
+and raw bytes equal to the commit payload. The artifact parses as a closed `ArtifactManifest`.
+
+The manifest must satisfy all of the following:
+
+- `run_id` equals the request and `source_of_truth` equals `ledger`;
+- every entry has a non-null lowercase content hash and producing-commit hash;
+- entry paths are unique; repeated artifact IDs remain legal only for distinct paths;
+- entries are in the writer's canonical ascending `(path, artifact_id)` order;
+- evidence and presentation counts equal the flags derived from the entries;
+- every entry exactly matches one ledger artifact reference, including metadata;
+- the ordered entry set is exactly the artifact-reference set from commits preceding the manifest
+  commit: no omitted ledger artifact, injected filesystem artifact, later artifact, or manifest
+  self-reference is allowed;
+- every entry's raw bytes have already passed the ledger artifact checks;
+- `is_evidence` and `is_presentation` agree with the deterministic manifest classification derived
+  from the exact matching `ArtifactRef`; neither flag is trusted merely because the manifest says
+  so.
+
+The representative completed fixture establishes that this exact-prefix rule is satisfiable: its
+manifest contains 150 entries matching all 150 artifact references before the manifest commit,
+while the complete ledger later contains 232 commits and 170 artifact references. These counts are
+fixture observations, not protocol constants.
+
+Rust also resolves the latest required output for each existing Python replay prerequisite:
+
+- `FinalNucleusSelected` with an `id` payload;
+- `ClaimTableBuilt` with a `claims` payload;
+- `ManuscriptPlanBuilt` with a `sections` payload;
+- `DraftSkeletonBuilt` with a `section_stubs` payload;
+- `ArtifactManifestWritten` with an `artifacts` payload;
+- `BranchOutcomesWritten` with a `branch_outcomes` payload;
+- `ResearchObjectWritten` with a `final_nucleus` payload;
+- `PaperSkeletonWritten` with a `paper_id` payload;
+- `FinalAuditReportWritten` with a `checks` payload;
+- `ReleaseGateDecided` with a `status` payload;
+- `ExportReadinessReportWritten` with a `ready_for_polished_prose` payload.
+
+Each required output must resolve through its commit to one unambiguous JSON artifact whose path,
+self-link, raw hash, and bytes are valid. Rust does not recompute final-audit, release-gate, or
+export-readiness policy in `replay.verify_core`; those remain full Python replay checks.
+
+The latest claim table must reuse the closed persisted claim-table parsing already frozen for
+`claim.resolve`: exact artifact/commit payload equality, unique safe claim IDs, closed claim and
+evidence-link records, and valid label/section grammar. For dependency integrity:
+
+- every claim evidence artifact ID must resolve to exactly one manifest entry;
+- that entry must be structurally evidence-classified and must not be presentation;
+- every supporting claim/evidence pair must have one matching `supports_label=true` evidence link;
+- every supporting evidence link must name an existing claim and the same manifest dependency;
+- duplicate, dangling, ambiguous, or contradictory supporting links are rejected.
+
+These checks establish dependency integrity only. They do not re-run a proof, validate an
+experiment, establish retrieval adequacy, or make a claim admissible. A fake proof or fake
+synthetic artifact may remain structurally linked in `DevelopmentCompatibility` fixtures and may
+also be hash-verified in `StrictProduction`; neither case constructs a strict evidence capability.
+Strict evidence and claim admissibility remain owned by `evidence.validate_bundle` and
+`claim.resolve` in separate request-local decisions.
+
+### Frozen Authority Boundary
+
+`replay.verify_core` must reject:
+
+- any manifest entry that is both evidence and presentation, or any Markdown, LaTeX, PDF, replay,
+  diagnostics, comparison, runtime-summary, or other presentation/derived artifact used as claim
+  evidence;
+- a claim dependency whose artifact is missing, ambiguous, unlinked, not structurally
+  evidence-classified, or marked presentation;
+- the labels `ExperimentVerified` or `RealDataExperimentVerified` anywhere in ledger-linked JSON
+  run artifacts as exact JSON scalar values, because neither is constructible in the current MVP;
+- a replay, diagnostics, comparison, manifest, runtime summary, manuscript, LaTeX, rendered PDF,
+  release/readiness report, or other derived/presentation artifact represented as proof or
+  experiment evidence;
+- any request, manifest, artifact, or result field that claims replay itself creates evidence,
+  scientific validation, human approval, novelty proof, accepted-paper status, or publication
+  readiness.
+
+`LeanVerified` and `SyntheticExperimentVerified` records may pass the structural dependency core,
+but this operation never endorses those labels. Only separate strict bundle validation plus claim
+resolution can decide their admissibility for one exact claim. Kernel mode therefore does not
+change replay-core byte, dependency, or forbidden-authority decisions; both modes return literal
+`authority_granted=false` and must have differential coverage.
+
+### Frozen Result
+
+An accepted result contains only:
+
+```text
+run_id
+ledger_tip_hash
+ledger_commit_count
+ledger_artifact_count
+ledger_artifact_inventory_hash
+required_outputs_checked
+manifest_artifact_id
+manifest_producing_commit_hash
+manifest_entry_count
+manifest_inventory_hash
+claims_checked
+claim_evidence_links_checked
+core_replay_valid = true
+ledger_snapshot_stable = true
+authority_boundary_valid = true
+authority_granted = false
+```
+
+`manifest_inventory_hash` is SHA-256 over Python-compatible canonical JSON of the complete manifest
+entry array in persisted order. Counts and inventory digests are exact bridge-comparison fields,
+not verification evidence, provenance, reusable capability tokens, or permission to skip future
+checks. `required_outputs_checked` counts all eleven listed prerequisite artifacts, including the
+separately validated artifact manifest; eleven is the frozen inventory size, not a caller-supplied
+value. Any core mismatch rejects the operation with an empty result; Rust does not synthesize a
+partial `ReplayVerificationReport` or return a caller-trusted `ReplayStatus`.
+
+The existing Python `replay_verify_run` remains the public full replay entry point during shadow
+work. Its `ReplayVerified` status still means deterministic internal consistency only and does not
+mean scientific validation or publication readiness. Optional JSON/Markdown replay report writing
+remains Python-only, outside the kernel request, outside the ledger, and outside artifact manifests.
+
+### Stable Replay-Core Diagnostics
+
+New replay-specific diagnostics are:
+
+- `replay_not_complete`
+- `replay_not_latest`
+- `replay_snapshot_changed`
+- `replay_required_output_missing`
+- `replay_required_output_invalid`
+- `replay_manifest_missing`
+- `replay_manifest_invalid`
+- `replay_manifest_mismatch`
+- `replay_dependency_missing`
+- `replay_dependency_ambiguous`
+- `replay_dependency_mismatch`
+- `replay_authority_violation`
+
+Existing protocol, ledger, artifact, hash, path, claim-record, and authority diagnostics remain
+applicable and should be preferred for their precise lower-level causes. Diagnostics may name
+bounded run-relative paths, artifact IDs, action types, claim IDs, expected categories, and observed
+digests. They must not include raw artifact bodies, unbounded commit payloads, credentials, or
+environment secrets.
+
+## Current Luna Handoff: `replay.verify_core`
+
+Luna owns only the bounded implementation below:
+
+1. inventory the exact required commits, artifact references, manifest prefix, claim dependencies,
+   and derived-report exclusions from successful, warning, failed-replay, and fake development
+   fixtures before changing protocols;
+2. add closed `replay.verify_core` request/result models with only the frozen fields, add the
+   discriminator arms, bump the protocol minor version from `0.85.0` to `0.86.0`, and regenerate
+   schemas/examples with `factori export-protocols`;
+3. implement persisted current-tip verification, full-ledger validation, snapshot-stability checks,
+   all-ledger-artifact verification, exact manifest-prefix comparison, required-output resolution,
+   claim dependency checks, forbidden-label scanning, and literal non-authority in small reusable
+   Rust functions;
+4. compute the two canonical inventory digests exactly as frozen and add Python/Rust golden parity
+   fixtures for them;
+5. add a read-only Python shadow bridge that supplies only run ID/current tip and verifies every
+   accepted identity, count, digest, literal `true` integrity flag, and literal
+   `authority_granted=false` field;
+6. add both-mode differential tests for representative completed runs and single-mutation tests for
+   stale/current tip, concurrent append, ledger corruption, missing/tampered/symlinked/path-escaping
+   artifacts, producer-link mismatch, duplicate paths, required-output removal, manifest
+   count/order/path/metadata/prefix mutations, dangling or ambiguous claim dependencies,
+   presentation evidence, forbidden labels, and ledger-linked replay/diagnostics outputs;
+7. prove the Rust operation and Python bridge do not change ledger bytes/count/tip, artifact bytes,
+   manifest bytes, sidecars, or replay-report presence;
+8. run protocol export/version/currentness and example validation, Rust format/Clippy/unit and
+   integration tests, focused Python/Rust parity, Ruff, and the complete Python suite before final
+   Sol review.
+
+Luna must stop and return to Sol if the current writer cannot satisfy the exact manifest-prefix
+rule, if a required output cannot be selected without trusting filesystem discovery, if supporting
+claim dependencies cannot be resolved unambiguously from persisted bytes, if Python/Rust canonical
+inventory digests differ, if a valid fixture requires accepting `ExperimentVerified` or
+`RealDataExperimentVerified`, or if implementation would require changing persistence, report
+writing, evidence-label rules, or ledger ordering. Luna must not port the full replay report,
+recompute release policy, add report writes to Rust, create an authority token, begin mutating
+operations, or claim replay establishes scientific or publication validity.
