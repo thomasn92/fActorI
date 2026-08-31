@@ -55,6 +55,12 @@ multi-branch development, literature context, experiment generation and repair, 
 execution, adversarial criticism, evidence-bounded manuscript synthesis, and hash-linked
 provenance.
 
+Currently, the deterministic trust kernel is being migrated from Python to Rust to make critical
+integrity and evidence checks harder to bypass. LLM cheating prevention is also under development
+to block post-computation metric mutation, partially legitimate output dictionaries, disguised
+constants, trivial indirection, self-declared success, seed-insensitive results, and inconsistent
+semantic auditing across execution paths.
+
 Its current reliable empirical scope is controlled synthetic research. The generated example below
 demonstrates the pipeline; it is not presented as publication-ready science.
 
