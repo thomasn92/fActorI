@@ -1503,3 +1503,192 @@ reached. Concurrent snapshot tests must be deterministic and must prove both led
 artifact-byte replacement are caught by the final stability pass. Every accepted and rejected case
 must remain mode-identical and read-only. After focused checks and the complete suite return green,
 Sol can perform the final operation-level cutover review.
+
+## Final Sol Review of `replay.verify_core`: Approved
+
+Sol reviewed Luna commit `ad6e53e`. The final test-only correction adds suffix resealing for every
+descendant commit and updates the manifest prefix when an earlier artifact changes, so manifest and
+claim mutations reach their intended semantic validators rather than stopping at the outer hash
+check. The matrix now covers incomplete and stale snapshots, exact bridge comparison and
+nonmutation, ledger corruption, missing/tampered/symlinked/path-escaping artifacts, producer and
+duplicate-path failures, ambiguous and missing required outputs, canonical manifest location,
+manifest count/order/path/metadata/prefix/classification changes, all frozen claim-link mismatch
+classes, presentation evidence, forbidden labels and authority assertions, and ledger-linked
+replay/diagnostics/comparison paths in both modes.
+
+Concurrent stability is exercised deterministically. The tests wait until Rust has opened a final
+large sentinel artifact, then either append a valid commit or replace an artifact already checked
+in the first pass. Both modes reject with `replay_snapshot_changed`, proving the final ledger and
+artifact stability passes are reached. No production source changed in the correction.
+
+The completed validation matrix is 73 focused replay-core tests, the complete 1,579-test Python
+suite, Ruff, protocol `0.86.0` currentness and all 51 examples, Rust formatting and Clippy, and all
+16 Rust tests. Cutover gates 6, 9, and 10 are closed for this operation. `replay.verify_core` is
+approved only for the bounded read-only mechanical integrity decision frozen above. It creates no
+evidence, validates no scientific claim, grants no human or publication authority, writes no
+report, and does not replace the full Python replay policy layer. Python fallback remains explicit
+until a call site deliberately cuts over; silent fallback remains forbidden.
+
+This approval completes the initial read-only kernel operation set. No mutating operation is
+approved by implication.
+
+## `artifact.persist` Scope Decision
+
+The first mutating kernel operation is a fail-closed atomic persistence of one canonical JSON
+artifact into an already initialized run directory. This first slice is intentionally JSON-only.
+Markdown, LaTeX, bibliography, arbitrary text, and binary persistence remain Python-owned until a
+later reviewed protocol expansion. The operation writes no ledger row and no producing-commit
+sidecar, constructs no evidence capability, and returns only an unlinked `ArtifactRef`.
+
+### Frozen Request and Content
+
+The caller supplies only:
+
+```text
+run_id
+artifact_id
+artifact_type
+json_value
+metadata
+filename_stem_optional
+overwrite_policy = FailIfExists
+```
+
+`run_id`, `artifact_id`, and an optional filename stem use the existing safe-segment grammar.
+`artifact_type` is one current closed `ArtifactType`; Rust derives its directory from the frozen
+type-to-directory mapping. The caller cannot supply a path, extension, format label, content hash,
+producing commit, temporary-file name, ledger parent, action type, or any separate evidence-label
+or authority-control field. The destination is exactly
+`runs/<run_id>/<artifact-type-directory>/<filename-stem-or-artifact-id>.json`.
+
+`json_value` is one duplicate-key-free protocol JSON value and is serialized with the frozen
+Python-compatible canonical serializer plus exactly one trailing LF byte. The final artifact is
+limited to 12 MiB after canonical serialization; the existing 16 MiB transport limit remains in
+force. Non-finite or unrepresentable numbers, unsafe strings, and canonicalization failures are
+rejected before filesystem mutation.
+
+`json_value` is persisted data, not an authority-control surface. It may contain domain records and
+existing labels required by public schemas; Rust must not reinterpret or upgrade them during this
+operation. Successful persistence alone grants nothing.
+
+Caller metadata is a JSON object with at most 64 entries, UTF-8 keys of at most 128 bytes, and at
+most 64 KiB of Python-compatible canonical JSON before kernel-owned fields are inserted. Rust
+inserts `format="json"` and defaults `is_verification_evidence=false`; the caller cannot override
+either field, supply a producing-commit field, set an equivalent evidence flag, or assert scientific
+validation, human approval, novelty proof, accepted-paper status, or publication readiness.
+Metadata and the returned reference remain context only. An evidence-looking role never creates a
+capability in this operation.
+
+`FailIfExists` is the only accepted overwrite policy in this slice. A regular file, directory,
+symlink, dangling symlink, or other filesystem object at the final path is rejected. Replacement
+with an expected prior hash remains required by the general artifact contract but is deferred to a
+separate Sol review; Luna must not implement blind overwrite or an ad hoc check-then-replace race.
+
+### Frozen Filesystem and Atomicity Rules
+
+The configured project root, `runs/<run_id>`, and the exact artifact-type directory must already
+exist as real directories. No component may be a symlink, and canonical resolution must stay below
+the requested run. `artifact.persist` does not initialize a run or create the standard directory
+tree. A pre-existing producing-commit sidecar for the destination is an inconsistent target and is
+also rejected.
+
+After all validation and byte construction, Rust must:
+
+1. create a unique same-directory temporary regular file with exclusive creation;
+2. write all canonical bytes, flush userspace buffers, and fsync the temporary file;
+3. publish without overwriting an existing destination, using an atomic no-clobber primitive;
+4. remove the temporary name after successful publication;
+5. fsync the containing directory where the platform supports it;
+6. verify the final regular file's raw SHA-256 and length, then return the exact unlinked artifact
+   reference only after those postconditions pass.
+
+Pre-publication failure must leave no final artifact and must clean the temporary file best-effort.
+The implementation must not use a check followed by ordinary replacing rename for no-clobber
+semantics. Linux hard-link publication from the same-directory temporary file is acceptable when
+followed by temporary unlink and directory fsync. A cleanup failure after successful publication
+returns the valid result with one bounded warning diagnostic rather than denying that mutation
+occurred. A supported directory-fsync failure or failed final postcondition after publication
+returns an empty error result with `mutation_performed=true` and a stable post-publication
+diagnostic; the caller must stop and inspect the exact destination rather than retry blindly.
+Cross-filesystem/SQLite transaction atomicity is outside this operation because it writes neither
+outside the destination directory nor to SQLite.
+
+### Frozen Result and Response Semantics
+
+An accepted result contains only:
+
+```text
+artifact
+bytes_written
+created = true
+linked_to_ledger = false
+authority_granted = false
+```
+
+The returned `artifact` has the requested ID and type, derived canonical path, SHA-256 of exact
+on-disk bytes, `producing_commit_hash=null`, and normalized metadata. `bytes_written` is the exact
+raw file length including the trailing LF. Accepted responses set `mutation_performed=true`.
+Rejected and pre-publication error responses set it to false, return an empty result, and leave the
+destination absent. A post-publication durability or postcondition error also returns an empty
+result but sets `mutation_performed=true`. Existing response validators must be changed narrowly:
+all read-only operations still require `mutation_performed=false`; `artifact.persist` requires true
+on acceptance and permits true on error only with a frozen post-publication diagnostic.
+
+The Python bridge computes the expected canonical bytes, path, metadata, hash, and length before
+invoking Rust; it never calls the Python writer as a shadow mutation. After acceptance it compares
+every result field, hashes the final bytes independently, proves the ledger bytes/count/tip and all
+pre-existing run artifacts are unchanged, and proves no sidecar was created. There is no silent
+Python fallback.
+
+### Stable Persist Diagnostics
+
+New operation-specific diagnostics are:
+
+- `artifact_persist_run_missing`
+- `artifact_persist_directory_invalid`
+- `artifact_persist_target_exists`
+- `artifact_persist_payload_invalid`
+- `artifact_persist_size_exceeded`
+- `artifact_persist_temp_write_failed`
+- `artifact_persist_publish_failed`
+- `artifact_persist_temp_cleanup_warning`
+- `artifact_persist_durability_uncertain`
+- `artifact_persist_postcondition_failed`
+
+Existing protocol, canonicalization, path, and authority diagnostics remain applicable when more
+precise. Diagnostics may include the bounded run-relative destination and expected/observed sizes
+or hashes, but never raw content, unbounded metadata, temporary random names, or environment data.
+
+## Current Luna Handoff: `artifact.persist`
+
+Luna owns only this JSON-only slice:
+
+1. add closed request/content/result schemas, discriminator arms, exact response mutation semantics,
+   and a minor protocol bump from `0.86.0` to `0.87.0`; regenerate schemas and examples rather than
+   editing generated JSON Schemas;
+2. implement pre-mutation canonicalization, size, metadata-authority, safe-name, derived-path,
+   existing-target/sidecar, directory, and symlink checks in small Rust functions;
+3. implement exclusive same-directory temporary creation, complete write/flush/file-fsync,
+   atomic no-clobber publication, directory fsync, cleanup, and final byte/hash/length verification;
+4. add the Python expectation bridge without a Python write fallback and compare every frozen
+   result and non-authority field;
+5. add both-mode byte-parity tests for nested JSON, Unicode/control characters, floats and negative
+   zero, empty values, metadata normalization, filename stems, and every artifact type;
+6. add rejection and race tests for unsafe names, wrong content shape, size limits, authority
+   metadata, missing/symlinked directories, existing files/directories/symlinks/sidecars, concurrent
+   same-target creation, and malformed responses;
+7. add deterministic fault injection around create, write, flush, file fsync, publish, directory
+   fsync, cleanup, and postcondition verification, proving final/temp-file state and exact
+   pre- versus post-publication `mutation_performed` semantics at each boundary;
+8. prove accepted persistence changes only the one final file, leaves ledger bytes/count/tip and all
+   pre-existing artifacts unchanged, creates no sidecar, and returns no authority;
+9. run protocol compatibility/version/currentness/examples, Rust format/Clippy/unit/integration and
+   focused Python parity, Ruff, and the complete Python suite before returning to Sol.
+
+Luna must stop and return to Sol if portable atomic no-clobber publication cannot satisfy the
+frozen semantics, if a failure can publish a final artifact while reporting
+`mutation_performed=false`, if canonical bytes differ from Python, if the operation needs to create
+run directories, if response-envelope mutation rules cannot remain operation-specific, or if the
+implementation would touch SQLite, create a sidecar, accept overwrite, support non-JSON content,
+or grant any evidence or publication authority. Luna must not begin `ledger.append`,
+`artifact.link`, or `persistence.commit_bundle` in this handoff.
