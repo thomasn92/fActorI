@@ -252,8 +252,11 @@ def test_rust_checkpoint_verification_accepts_warning_chain(tmp_path: Path) -> N
     assert response.diagnostics == []
 
 
+@pytest.mark.parametrize(
+    "mode", [KernelMode.STRICT_PRODUCTION, KernelMode.DEVELOPMENT_COMPATIBILITY]
+)
 def test_rust_checkpoint_verification_rejects_failed_then_reusable_chain(
-    tmp_path: Path,
+    tmp_path: Path, mode: KernelMode
 ) -> None:
     _build_kernel_binary()
     ledger, latest = _write_checkpoint_chain(
@@ -270,6 +273,7 @@ def test_rust_checkpoint_verification_rejects_failed_then_reusable_chain(
         "run-kernel-failed-then-reusable",
         index_artifact_id=latest.index_artifact.id,
         index_producing_commit_hash=producing_commit_hash,
+        mode=mode,
         root=tmp_path,
         kernel_binary=KERNEL_BINARY,
     )
