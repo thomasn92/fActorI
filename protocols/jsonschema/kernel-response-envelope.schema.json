@@ -557,8 +557,7 @@
           "type": "string"
         },
         "manifest_artifact_id": {
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "const": "artifact-manifest",
           "title": "Manifest Artifact Id",
           "type": "string"
         },
@@ -578,7 +577,7 @@
           "type": "string"
         },
         "required_outputs_checked": {
-          "minimum": 1,
+          "const": 11,
           "title": "Required Outputs Checked",
           "type": "integer"
         },

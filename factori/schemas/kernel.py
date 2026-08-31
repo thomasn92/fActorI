@@ -696,8 +696,8 @@ class KernelReplayVerifyCoreResult(StrictModel):
     ledger_commit_count: int = Field(ge=1)
     ledger_artifact_count: int = Field(ge=0)
     ledger_artifact_inventory_hash: str = Field(pattern=HASH_RE.pattern)
-    required_outputs_checked: int = Field(ge=1)
-    manifest_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    required_outputs_checked: Literal[11]
+    manifest_artifact_id: Literal["artifact-manifest"]
     manifest_producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
     manifest_entry_count: int = Field(ge=1)
     manifest_inventory_hash: str = Field(pattern=HASH_RE.pattern)

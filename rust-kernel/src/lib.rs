@@ -2278,6 +2278,7 @@ fn validate_claim_record(claim: &ClaimWire) -> Result<(), KernelOperationError> 
             .evidence_types
             .iter()
             .any(|kind| kind.trim().is_empty())
+        || claim.evidence_types.iter().collect::<HashSet<_>>().len() != claim.evidence_types.len()
     {
         return Err((
             "claim_record_invalid",
@@ -2769,7 +2770,23 @@ fn scan_forbidden_authority_values(value: &Value) -> bool {
             "ExperimentVerified" | "RealDataExperimentVerified"
         ),
         Value::Array(items) => items.iter().any(scan_forbidden_authority_values),
-        Value::Object(object) => object.values().any(scan_forbidden_authority_values),
+        Value::Object(object) => {
+            let forbidden_true = [
+                "accepted_for_publication",
+                "accepted_paper",
+                "certifies_scientific_validity",
+                "creates_scientific_validation",
+                "human_approval_granted",
+                "human_approved",
+                "implies_publication_readiness",
+                "novelty_proven",
+                "publication_ready",
+            ];
+            object.iter().any(|(key, item)| {
+                (forbidden_true.contains(&key.as_str()) && item == &Value::Bool(true))
+                    || scan_forbidden_authority_values(item)
+            })
+        }
         _ => false,
     }
 }
@@ -2886,6 +2903,7 @@ fn verify_replay_core_payload(
     }
 
     let mut inventory = Vec::new();
+    let mut verified_artifacts = Vec::new();
     let mut paths = HashSet::new();
     let mut identities = HashSet::new();
     for commit in &ledger.commits {
@@ -2907,6 +2925,12 @@ fn verify_replay_core_payload(
                 })?;
             validate_artifact_ref(raw)
                 .map_err(|message| replay_error("replay_required_output_invalid", message))?;
+            if scan_forbidden_authority_values(raw) {
+                return Err(replay_error(
+                    "replay_authority_violation",
+                    "artifact reference claims forbidden authority",
+                ));
+            }
             if artifact.producing_commit_hash.as_deref() != Some(commit.commit_hash.as_str()) {
                 return Err(replay_error(
                     "replay_required_output_invalid",
@@ -2955,6 +2979,7 @@ fn verify_replay_core_payload(
                     format!("artifact {} hash mismatch", artifact.id),
                 ));
             }
+            verified_artifacts.push((artifact_path.clone(), artifact.content_hash.clone()));
             if artifact.path.ends_with(".json") {
                 let value = read_json_without_duplicate_keys(&artifact_path)
                     .map_err(|message| replay_error("replay_required_output_invalid", message))?;
@@ -3005,7 +3030,14 @@ fn verify_replay_core_payload(
         )?);
     }
     let (manifest_commit, manifest_artifact, manifest_value) = resolved[4].clone();
-    if manifest_artifact.id != "artifact-manifest" || manifest_artifact.artifact_type != "report" {
+    let expected_manifest_path = format!(
+        "runs/{}/research_object/artifact-manifest.json",
+        request.run_id
+    );
+    if manifest_artifact.id != "artifact-manifest"
+        || manifest_artifact.artifact_type != "report"
+        || manifest_artifact.path != expected_manifest_path
+    {
         return Err(replay_error(
             "replay_manifest_invalid",
             "manifest artifact identity is invalid",
@@ -3116,6 +3148,12 @@ fn verify_replay_core_payload(
     let claim_value = &resolved[1].2;
     let claim_table: ClaimTableWire = parse_closed(claim_value, "payload.claim_table")
         .map_err(|(_, message, _)| replay_error("replay_dependency_missing", message))?;
+    if claim_table.final_nucleus_id.trim().is_empty() {
+        return Err(replay_error(
+            "replay_dependency_missing",
+            "claim table has an empty final nucleus ID",
+        ));
+    }
     let mut claim_ids = HashSet::new();
     for claim in &claim_table.claims {
         validate_claim_record(claim)
@@ -3134,8 +3172,9 @@ fn verify_replay_core_payload(
             .or_default()
             .push(entry);
     }
-    let mut links_checked = 0usize;
+    let mut expected_supporting_pairs = HashSet::new();
     for claim in &claim_table.claims {
+        let mut resolved_evidence_types = HashSet::new();
         for evidence_id in &claim.evidence_artifact_ids {
             let entries = manifest_by_id
                 .get(evidence_id.as_str())
@@ -3152,38 +3191,118 @@ fn verify_replay_core_payload(
                 ));
             }
             let entry = entries[0];
-            if !entry.is_evidence || entry.is_presentation {
+            let matching_artifact = prefix_refs
+                .iter()
+                .filter_map(|raw| serde_json::from_value::<WireArtifactRef>((*raw).clone()).ok())
+                .find(|artifact| artifact.id == entry.artifact_id && artifact.path == entry.path)
+                .expect("manifest entry already matched a prefix artifact");
+            if !entry.is_evidence
+                || entry.is_presentation
+                || is_forbidden_derived_evidence(&matching_artifact)
+            {
                 return Err(replay_error(
                     "replay_authority_violation",
                     "claim evidence artifact is not structurally admissible",
                 ));
             }
-            let matches = claim_table
-                .evidence_links
-                .iter()
-                .filter(|link| {
-                    link.claim_id == claim.claim_id
-                        && link.artifact_id == *evidence_id
-                        && link.supports_label
-                })
-                .count();
-            if matches != 1 {
-                return Err(replay_error(
-                    "replay_dependency_mismatch",
-                    "claim evidence support link is missing or duplicated",
-                ));
-            }
-            links_checked += 1;
+            resolved_evidence_types.insert(entry.artifact_type.as_str());
+            expected_supporting_pairs.insert((claim.claim_id.as_str(), evidence_id.as_str()));
+        }
+        let declared_evidence_types = claim
+            .evidence_types
+            .iter()
+            .map(String::as_str)
+            .collect::<HashSet<_>>();
+        if resolved_evidence_types != declared_evidence_types {
+            return Err(replay_error(
+                "replay_dependency_mismatch",
+                "claim evidence types do not match resolved manifest dependencies",
+            ));
         }
     }
+    let mut complete_links = HashSet::new();
+    let mut pair_decisions = HashMap::new();
+    let mut supporting_pairs = HashSet::new();
     for link in &claim_table.evidence_links {
-        if link.supports_label
-            && (!claim_ids.contains(link.claim_id.as_str())
-                || !manifest_by_id.contains_key(link.artifact_id.as_str()))
+        if !is_safe_segment(&link.claim_id)
+            || !is_safe_segment(&link.artifact_id)
+            || artifact_directory(&link.artifact_type).is_none()
+            || link.evidence_role.as_deref().is_some_and(str::is_empty)
         {
             return Err(replay_error(
                 "replay_dependency_mismatch",
-                "supporting evidence link is dangling",
+                "claim table contains an invalid evidence link",
+            ));
+        }
+        let complete = (
+            link.claim_id.as_str(),
+            link.artifact_id.as_str(),
+            link.artifact_type.as_str(),
+            link.evidence_role.as_deref(),
+            link.supports_label,
+        );
+        if !complete_links.insert(complete) {
+            return Err(replay_error(
+                "replay_dependency_ambiguous",
+                "claim table contains a duplicate evidence link",
+            ));
+        }
+        let pair = (link.claim_id.as_str(), link.artifact_id.as_str());
+        if pair_decisions
+            .insert(pair, link.supports_label)
+            .is_some_and(|previous| previous != link.supports_label)
+        {
+            return Err(replay_error(
+                "replay_dependency_mismatch",
+                "claim table contains contradictory evidence links",
+            ));
+        }
+        let entries = manifest_by_id
+            .get(link.artifact_id.as_str())
+            .cloned()
+            .unwrap_or_default();
+        if !claim_ids.contains(link.claim_id.as_str()) || entries.len() != 1 {
+            return Err(replay_error(
+                "replay_dependency_mismatch",
+                "evidence link is dangling or ambiguous",
+            ));
+        }
+        if entries[0].artifact_type != link.artifact_type {
+            return Err(replay_error(
+                "replay_dependency_mismatch",
+                "evidence link artifact type does not match its manifest dependency",
+            ));
+        }
+        let manifest_role = entries[0]
+            .metadata
+            .get("evidence_role")
+            .and_then(Value::as_str);
+        if manifest_role != link.evidence_role.as_deref() {
+            return Err(replay_error(
+                "replay_dependency_mismatch",
+                "evidence link role does not match its manifest dependency",
+            ));
+        }
+        if link.supports_label && !supporting_pairs.insert(pair) {
+            return Err(replay_error(
+                "replay_dependency_ambiguous",
+                "claim evidence support link is duplicated",
+            ));
+        }
+    }
+    if supporting_pairs != expected_supporting_pairs {
+        return Err(replay_error(
+            "replay_dependency_mismatch",
+            "supporting evidence links do not match claim dependencies",
+        ));
+    }
+    for (path, expected_hash) in verified_artifacts {
+        let current_hash = sha256_file(&path)
+            .map_err(|message| replay_error("replay_snapshot_changed", message))?;
+        if current_hash != expected_hash {
+            return Err(replay_error(
+                "replay_snapshot_changed",
+                "artifact bytes changed during replay verification",
             ));
         }
     }
@@ -3237,7 +3356,7 @@ fn verify_replay_core_payload(
         ),
         (
             "claim_evidence_links_checked",
-            Value::Number((links_checked as u64).into()),
+            Value::Number((claim_table.evidence_links.len() as u64).into()),
         ),
         ("core_replay_valid", Value::Bool(true)),
         ("ledger_snapshot_stable", Value::Bool(true)),
@@ -4524,6 +4643,39 @@ fn is_manifest_presentation(artifact: &WireArtifactRef, evidence: bool) -> bool 
     is_presentation_artifact(artifact) || (artifact.artifact_type == "report" && !evidence)
 }
 
+fn is_forbidden_derived_evidence(artifact: &WireArtifactRef) -> bool {
+    if !matches!(artifact.artifact_type.as_str(), "report" | "latex") {
+        return false;
+    }
+    let relative = artifact
+        .path
+        .split('/')
+        .skip(2)
+        .collect::<Vec<_>>()
+        .join("/");
+    let identity = format!("{} {relative}", artifact.id).to_ascii_lowercase();
+    [
+        "comparison",
+        "diagnostic",
+        "export-readiness",
+        "final-paper",
+        "full-paper",
+        "hygiene",
+        "manifest",
+        "manuscript",
+        "paper-assembly",
+        "paper-skeleton",
+        "readiness",
+        "release",
+        "replay",
+        "research-object",
+        "runtime-summary",
+        "runtime_summary",
+    ]
+    .iter()
+    .any(|marker| identity.contains(marker))
+}
+
 fn resolve_run_file(project_root: &Path, run_id: &str, relative: &str) -> Result<PathBuf, String> {
     let root = fs::canonicalize(project_root)
         .map_err(|_| "project root does not exist or cannot be resolved".to_owned())?;
@@ -5217,10 +5369,18 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
                     .result
                     .get(field)
                     .and_then(Value::as_str)
-                    .is_none_or(str::is_empty)
+                    .is_none_or(|value| !is_safe_segment(value))
                 {
-                    return Err(format!("replay result {field} must be a non-empty string"));
+                    return Err(format!("replay result {field} must be a safe identifier"));
                 }
+            }
+            if response
+                .result
+                .get("manifest_artifact_id")
+                .and_then(Value::as_str)
+                != Some("artifact-manifest")
+            {
+                return Err("replay manifest_artifact_id is invalid".to_owned());
             }
             for field in [
                 "ledger_tip_hash",
@@ -5229,6 +5389,14 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
                 "manifest_inventory_hash",
             ] {
                 require_sha256_field(&response.result, field)?;
+            }
+            if response
+                .result
+                .get("required_outputs_checked")
+                .and_then(Value::as_u64)
+                != Some(REPLAY_REQUIRED_OUTPUTS.len() as u64)
+            {
+                return Err("replay required_outputs_checked must equal 11".to_owned());
             }
             for field in [
                 "ledger_commit_count",
@@ -5240,6 +5408,15 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             ] {
                 if !response.result.get(field).is_some_and(Value::is_u64) {
                     return Err(format!("replay result {field} must be an integer"));
+                }
+            }
+            for field in [
+                "ledger_commit_count",
+                "required_outputs_checked",
+                "manifest_entry_count",
+            ] {
+                if response.result.get(field).and_then(Value::as_u64) == Some(0) {
+                    return Err(format!("replay result {field} must be positive"));
                 }
             }
             if response.result.get("core_replay_valid") != Some(&Value::Bool(true))
@@ -6150,5 +6327,34 @@ mod tests {
 
         assert!(serde_json::from_str::<ProofTraceWire>(proof_trace).is_err());
         assert!(serde_json::from_str::<SyntheticTraceWire>(synthetic_trace).is_err());
+    }
+
+    #[test]
+    fn replay_authority_helpers_reject_assertions_without_name_false_positives() {
+        assert!(scan_forbidden_authority_values(&serde_json::json!({
+            "publication_ready": true
+        })));
+        assert!(!scan_forbidden_authority_values(&serde_json::json!({
+            "publication_ready": false,
+            "label": "LeanVerified"
+        })));
+        let derived_report = WireArtifactRef {
+            id: "artifact-manifest".to_owned(),
+            artifact_type: "report".to_owned(),
+            path: "runs/run-1/research_object/artifact-manifest.json".to_owned(),
+            content_hash: "0".repeat(64),
+            producing_commit_hash: Some("1".repeat(64)),
+            metadata: Map::new(),
+        };
+        let proof_with_domain_word = WireArtifactRef {
+            id: "fake-proof-controlled-release-theorem".to_owned(),
+            artifact_type: "lean".to_owned(),
+            path: "runs/run-1/lean/fake-proof-controlled-release-theorem.json".to_owned(),
+            content_hash: "0".repeat(64),
+            producing_commit_hash: Some("1".repeat(64)),
+            metadata: Map::new(),
+        };
+        assert!(is_forbidden_derived_evidence(&derived_report));
+        assert!(!is_forbidden_derived_evidence(&proof_with_domain_word));
     }
 }

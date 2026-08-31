@@ -7,13 +7,18 @@ import re
 import sqlite3
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from factori.artifacts import ARTIFACT_DIRECTORY_BY_TYPE
+from factori.hashing import canonical_json, sha256_text
 from factori.ledger import LedgerError, ResearchLedger
 from factori.protocols import PROTOCOL_VERSION
 from factori.rerun_policy import RerunPolicy, validate_ledger_tip
 from factori.schemas import (
+    ArtifactManifest,
     ArtifactRef,
+    ClaimTable,
+    ControllerActionType,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
     KernelAutonomousPaperCheckpoint,
@@ -500,16 +505,108 @@ def verify_persisted_replay_core(
         result = response.result
         if not isinstance(result, KernelReplayVerifyCoreResult):
             raise KernelBridgeError("replay-core response has the wrong result type")
-        if (
-            result.run_id != run_id
-            or result.ledger_tip_hash != ledger_tip_hash
-            or result.core_replay_valid is not True
+        expected = _load_replay_core_shadow_expectations(root_path, run_id, ledger_tip_hash)
+        observed = {
+            "run_id": result.run_id,
+            "ledger_tip_hash": result.ledger_tip_hash,
+            "ledger_commit_count": result.ledger_commit_count,
+            "ledger_artifact_count": result.ledger_artifact_count,
+            "ledger_artifact_inventory_hash": result.ledger_artifact_inventory_hash,
+            "required_outputs_checked": result.required_outputs_checked,
+            "manifest_artifact_id": result.manifest_artifact_id,
+            "manifest_producing_commit_hash": result.manifest_producing_commit_hash,
+            "manifest_entry_count": result.manifest_entry_count,
+            "manifest_inventory_hash": result.manifest_inventory_hash,
+            "claims_checked": result.claims_checked,
+            "claim_evidence_links_checked": result.claim_evidence_links_checked,
+        }
+        if observed != expected or (
+            result.core_replay_valid is not True
             or result.ledger_snapshot_stable is not True
             or result.authority_boundary_valid is not True
             or result.authority_granted is not False
         ):
             raise KernelBridgeError("Rust replay-core response does not match request")
     return response
+
+
+def _load_replay_core_shadow_expectations(
+    root: Path,
+    run_id: str,
+    ledger_tip_hash: str,
+) -> dict[str, Any]:
+    ledger_path = root / "runs" / run_id / "ledger.sqlite"
+    if ledger_path.is_symlink() or not ledger_path.is_file():
+        raise KernelBridgeError("replay ledger is not a regular file")
+    try:
+        ledger = ResearchLedger.open_existing(ledger_path)
+        commits = ledger.list_commits_read_only(run_id)
+    except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
+        raise KernelBridgeError(f"could not read replay ledger: {exc}") from exc
+    if not commits or commits[-1].commit_hash != ledger_tip_hash:
+        raise KernelBridgeError("replay ledger tip changed before bridge comparison")
+
+    inventory = [
+        {
+            "commit_hash": commit.commit_hash,
+            "artifact": artifact.model_dump(mode="json"),
+        }
+        for commit in commits
+        for artifact in commit.artifact_refs
+    ]
+    manifest_commit = next(
+        (
+            commit
+            for commit in reversed(commits)
+            if commit.action_type == ControllerActionType.ARTIFACT_MANIFEST_WRITTEN
+            and "artifacts" in commit.payload
+        ),
+        None,
+    )
+    claim_commit = next(
+        (
+            commit
+            for commit in reversed(commits)
+            if commit.action_type == ControllerActionType.CLAIM_TABLE_BUILT
+            and "claims" in commit.payload
+        ),
+        None,
+    )
+    if manifest_commit is None or claim_commit is None:
+        raise KernelBridgeError("replay comparison prerequisites are missing")
+    manifest_refs = [
+        artifact
+        for artifact in manifest_commit.artifact_refs
+        if artifact.id == "artifact-manifest" and artifact.path.endswith(".json")
+    ]
+    claim_refs = [
+        artifact for artifact in claim_commit.artifact_refs if artifact.path.endswith(".json")
+    ]
+    if len(manifest_refs) != 1 or len(claim_refs) != 1:
+        raise KernelBridgeError("replay comparison artifacts are ambiguous")
+    if manifest_refs[0].producing_commit_hash != manifest_commit.commit_hash:
+        raise KernelBridgeError("replay manifest producer does not match its commit")
+    try:
+        manifest_raw = json.loads((root / manifest_refs[0].path).read_text(encoding="utf-8"))
+        claim_raw = json.loads((root / claim_refs[0].path).read_text(encoding="utf-8"))
+        manifest = ArtifactManifest.model_validate(manifest_raw)
+        claim_table = ClaimTable.model_validate(claim_raw)
+    except (OSError, ValueError) as exc:
+        raise KernelBridgeError(f"replay comparison artifact is invalid: {exc}") from exc
+    return {
+        "run_id": run_id,
+        "ledger_tip_hash": ledger_tip_hash,
+        "ledger_commit_count": len(commits),
+        "ledger_artifact_count": len(inventory),
+        "ledger_artifact_inventory_hash": sha256_text(canonical_json(inventory)),
+        "required_outputs_checked": 11,
+        "manifest_artifact_id": manifest_refs[0].id,
+        "manifest_producing_commit_hash": manifest_refs[0].producing_commit_hash,
+        "manifest_entry_count": len(manifest.artifacts),
+        "manifest_inventory_hash": sha256_text(canonical_json(manifest_raw["artifacts"])),
+        "claims_checked": len(claim_table.claims),
+        "claim_evidence_links_checked": len(claim_table.evidence_links),
+    }
 
 
 def _load_checkpoint_shadow_expectations(
