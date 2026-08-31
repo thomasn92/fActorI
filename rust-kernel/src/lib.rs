@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.85.0";
+pub const PROTOCOL_VERSION: &str = "0.86.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -102,6 +102,37 @@ struct CheckpointIndexLocator {
 struct CheckpointVerifyPayload {
     run_id: String,
     index: CheckpointIndexLocator,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplayVerifyCorePayload {
+    run_id: String,
+    ledger_tip_hash: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactManifestWire {
+    run_id: String,
+    artifacts: Vec<ArtifactManifestEntryWire>,
+    evidence_artifact_count: usize,
+    presentation_artifact_count: usize,
+    source_of_truth: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactManifestEntryWire {
+    artifact_id: String,
+    artifact_type: String,
+    path: String,
+    content_hash: Option<String>,
+    producing_commit_hash: Option<String>,
+    is_evidence: bool,
+    is_presentation: bool,
+    #[serde(default)]
+    metadata: Map<String, Value>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -441,6 +472,8 @@ pub enum KernelOperation {
     ClaimResolve,
     #[serde(rename = "checkpoint.verify")]
     CheckpointVerify,
+    #[serde(rename = "replay.verify_core")]
+    ReplayVerifyCore,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -791,6 +824,21 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::ReplayVerifyCore => {
+            match verify_replay_core_payload(&request.payload, project_root) {
+                Ok(result) => {
+                    accepted_response(request_id, KernelOperation::ReplayVerifyCore, mode, result)
+                }
+                Err((code, message, path)) => rejected_response(
+                    request_id,
+                    KernelOperation::ReplayVerifyCore,
+                    mode,
+                    code,
+                    message,
+                    path,
+                ),
+            }
+        }
     }
 }
 
@@ -936,6 +984,9 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         KernelOperation::CheckpointVerify => {
             validate_checkpoint_payload_structure(&request.payload)?;
         }
+        KernelOperation::ReplayVerifyCore => {
+            validate_replay_core_payload_structure(&request.payload)?;
+        }
     }
     Ok(())
 }
@@ -958,6 +1009,27 @@ fn validate_checkpoint_payload_structure(payload: &Map<String, Value>) -> Result
         return Err(
             "checkpoint index producing_commit_hash must be a lowercase SHA-256 digest".to_owned(),
         );
+    }
+    Ok(())
+}
+
+fn validate_replay_core_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+    if payload.len() != 2
+        || !payload.contains_key("run_id")
+        || !payload.contains_key("ledger_tip_hash")
+    {
+        return Err(
+            "replay.verify_core payload must contain exactly run_id and ledger_tip_hash fields"
+                .to_owned(),
+        );
+    }
+    let request = serde_json::from_value::<ReplayVerifyCorePayload>(Value::Object(payload.clone()))
+        .map_err(|error| error.to_string())?;
+    if !is_safe_segment(&request.run_id) {
+        return Err("replay run_id has invalid identifier syntax".to_owned());
+    }
+    if !is_sha256_hex(&request.ledger_tip_hash) {
+        return Err("ledger_tip_hash must be a lowercase SHA-256 digest".to_owned());
     }
     Ok(())
 }
@@ -2672,6 +2744,508 @@ fn verify_checkpoint_payload(
     ))
 }
 
+const REPLAY_REQUIRED_OUTPUTS: [(&str, &str); 11] = [
+    ("FinalNucleusSelected", "id"),
+    ("ClaimTableBuilt", "claims"),
+    ("ManuscriptPlanBuilt", "sections"),
+    ("DraftSkeletonBuilt", "section_stubs"),
+    ("ArtifactManifestWritten", "artifacts"),
+    ("BranchOutcomesWritten", "branch_outcomes"),
+    ("ResearchObjectWritten", "final_nucleus"),
+    ("PaperSkeletonWritten", "paper_id"),
+    ("FinalAuditReportWritten", "checks"),
+    ("ReleaseGateDecided", "status"),
+    ("ExportReadinessReportWritten", "ready_for_polished_prose"),
+];
+
+fn replay_error(code: &'static str, message: impl Into<String>) -> KernelOperationError {
+    (code, message.into(), Some("payload"))
+}
+
+fn scan_forbidden_authority_values(value: &Value) -> bool {
+    match value {
+        Value::String(text) => matches!(
+            text.as_str(),
+            "ExperimentVerified" | "RealDataExperimentVerified"
+        ),
+        Value::Array(items) => items.iter().any(scan_forbidden_authority_values),
+        Value::Object(object) => object.values().any(scan_forbidden_authority_values),
+        _ => false,
+    }
+}
+
+fn replay_artifact_json(
+    root: &Path,
+    run_id: &str,
+    artifact: &WireArtifactRef,
+    commit: &WireLedgerCommit,
+) -> Result<(PathBuf, Value), KernelOperationError> {
+    let path = resolve_run_file(root, run_id, &artifact.path)
+        .map_err(|message| replay_error("replay_required_output_invalid", message))?;
+    let bytes = fs::read(&path)
+        .map_err(|error| replay_error("replay_required_output_invalid", error.to_string()))?;
+    if sha256_hex(&bytes) != artifact.content_hash {
+        return Err(replay_error(
+            "replay_required_output_invalid",
+            format!(
+                "artifact {} hash does not match persisted bytes",
+                artifact.id
+            ),
+        ));
+    }
+    let text = std::str::from_utf8(&bytes).map_err(|_| {
+        replay_error(
+            "replay_required_output_invalid",
+            "JSON artifact is not UTF-8",
+        )
+    })?;
+    let value = parse_json_without_duplicate_keys(text)
+        .map_err(|error| replay_error("replay_required_output_invalid", error.to_string()))?;
+    if value != Value::Object(commit.payload.clone()) {
+        return Err(replay_error(
+            "replay_required_output_invalid",
+            format!(
+                "artifact {} does not equal its producing commit payload",
+                artifact.id
+            ),
+        ));
+    }
+    Ok((path, value))
+}
+
+fn resolve_replay_output<'a>(
+    root: &Path,
+    run_id: &str,
+    commits: &'a [WireLedgerCommit],
+    action: &str,
+    key: &str,
+) -> Result<(&'a WireLedgerCommit, WireArtifactRef, Value), KernelOperationError> {
+    let commit = commits
+        .iter()
+        .rev()
+        .find(|candidate| candidate.action_type == action && candidate.payload.contains_key(key))
+        .ok_or_else(|| {
+            replay_error(
+                "replay_required_output_missing",
+                format!("missing {action} output"),
+            )
+        })?;
+    let refs = commit
+        .artifact_refs
+        .iter()
+        .filter_map(|raw| serde_json::from_value::<WireArtifactRef>(raw.clone()).ok())
+        .filter(|artifact| artifact.path.ends_with(".json"))
+        .collect::<Vec<_>>();
+    if refs.len() != 1 {
+        return Err(replay_error(
+            "replay_required_output_invalid",
+            format!("{action} must contain exactly one JSON artifact"),
+        ));
+    }
+    let artifact = refs.into_iter().next().expect("checked length");
+    let (_, value) = replay_artifact_json(root, run_id, &artifact, commit)?;
+    Ok((commit, artifact, value))
+}
+
+fn verify_replay_core_payload(
+    payload: &Map<String, Value>,
+    project_root: Option<&Path>,
+) -> Result<Map<String, Value>, KernelOperationError> {
+    validate_replay_core_payload_structure(payload)
+        .map_err(|message| replay_error("protocol_invalid", message))?;
+    let request: ReplayVerifyCorePayload =
+        serde_json::from_value(Value::Object(payload.clone()))
+            .map_err(|error| replay_error("protocol_invalid", error.to_string()))?;
+    let root = project_root.ok_or_else(|| {
+        replay_error(
+            "kernel_root_missing",
+            "replay verification requires --root <project-root>",
+        )
+    })?;
+    let ledger = load_persisted_ledger(root, &request.run_id)
+        .map_err(|(_, message, _)| replay_error("replay_required_output_invalid", message))?;
+    if ledger.commits.is_empty() {
+        return Err(replay_error(
+            "replay_not_complete",
+            "persisted run ledger is empty",
+        ));
+    }
+    verify_ledger(&ledger)
+        .map_err(|(_, message, _)| replay_error("replay_required_output_invalid", message))?;
+    let tip = ledger
+        .commits
+        .last()
+        .expect("non-empty ledger")
+        .commit_hash
+        .as_str();
+    if tip != request.ledger_tip_hash {
+        return Err(replay_error(
+            "replay_not_latest",
+            "requested ledger tip is not the current tip",
+        ));
+    }
+
+    let mut inventory = Vec::new();
+    let mut paths = HashSet::new();
+    let mut identities = HashSet::new();
+    for commit in &ledger.commits {
+        for raw in &commit.artifact_refs {
+            if !raw.as_object().is_some_and(|object| {
+                object.contains_key("producing_commit_hash") && object.contains_key("metadata")
+            }) {
+                return Err(replay_error(
+                    "replay_required_output_invalid",
+                    "artifact reference must include producing_commit_hash and metadata",
+                ));
+            }
+            let artifact: WireArtifactRef =
+                serde_json::from_value(raw.clone()).map_err(|error| {
+                    replay_error(
+                        "replay_required_output_invalid",
+                        format!("invalid artifact reference: {error}"),
+                    )
+                })?;
+            validate_artifact_ref(raw)
+                .map_err(|message| replay_error("replay_required_output_invalid", message))?;
+            if artifact.producing_commit_hash.as_deref() != Some(commit.commit_hash.as_str()) {
+                return Err(replay_error(
+                    "replay_required_output_invalid",
+                    "artifact reference must self-link to its containing commit",
+                ));
+            }
+            validate_artifact_location(&request.run_id, &artifact)
+                .map_err(|message| replay_error("replay_required_output_invalid", message))?;
+            if artifact
+                .path
+                .split('/')
+                .any(|part| matches!(part, "replay" | "diagnostics" | "comparisons"))
+            {
+                return Err(replay_error(
+                    "replay_authority_violation",
+                    "derived replay artifact path cannot be authoritative",
+                ));
+            }
+            if !paths.insert(artifact.path.clone()) {
+                return Err(replay_error(
+                    "replay_required_output_invalid",
+                    "duplicate artifact path in ledger",
+                ));
+            }
+            let identity = (
+                artifact.id.clone(),
+                artifact.path.clone(),
+                artifact.content_hash.clone(),
+                artifact.artifact_type.clone(),
+                artifact.metadata.clone(),
+            );
+            if !identities.insert(identity) {
+                return Err(replay_error(
+                    "replay_required_output_invalid",
+                    "duplicate artifact identity in ledger",
+                ));
+            }
+            let artifact_path = resolve_run_file(root, &request.run_id, &artifact.path)
+                .map_err(|message| replay_error("replay_required_output_invalid", message))?;
+            if sha256_file(&artifact_path)
+                .map_err(|message| replay_error("replay_required_output_invalid", message))?
+                != artifact.content_hash
+            {
+                return Err(replay_error(
+                    "replay_required_output_invalid",
+                    format!("artifact {} hash mismatch", artifact.id),
+                ));
+            }
+            if artifact.path.ends_with(".json") {
+                let value = read_json_without_duplicate_keys(&artifact_path)
+                    .map_err(|message| replay_error("replay_required_output_invalid", message))?;
+                if scan_forbidden_authority_values(&value) {
+                    return Err(replay_error(
+                        "replay_authority_violation",
+                        "forbidden experiment verification label in persisted JSON",
+                    ));
+                }
+            }
+            let mut item = Map::new();
+            item.insert(
+                "commit_hash".to_owned(),
+                Value::String(commit.commit_hash.clone()),
+            );
+            item.insert("artifact".to_owned(), raw.clone());
+            inventory.push(Value::Object(item));
+        }
+    }
+    let inventory_json = canonical_json(&Value::Array(inventory))
+        .map_err(|error| replay_error("replay_required_output_invalid", error.to_string()))?;
+
+    if !ledger.commits.iter().any(|commit| {
+        commit.action_type == "ExportReadinessReportWritten"
+            && commit.payload.contains_key("ready_for_polished_prose")
+    }) {
+        return Err(replay_error(
+            "replay_not_complete",
+            "persisted run has no export-readiness completion record",
+        ));
+    }
+    if !ledger.commits.iter().any(|commit| {
+        commit.action_type == "ArtifactManifestWritten" && commit.payload.contains_key("artifacts")
+    }) {
+        return Err(replay_error(
+            "replay_manifest_missing",
+            "persisted run has no artifact manifest",
+        ));
+    }
+    let mut resolved = Vec::new();
+    for (action, key) in REPLAY_REQUIRED_OUTPUTS {
+        resolved.push(resolve_replay_output(
+            root,
+            &request.run_id,
+            &ledger.commits,
+            action,
+            key,
+        )?);
+    }
+    let (manifest_commit, manifest_artifact, manifest_value) = resolved[4].clone();
+    if manifest_artifact.id != "artifact-manifest" || manifest_artifact.artifact_type != "report" {
+        return Err(replay_error(
+            "replay_manifest_invalid",
+            "manifest artifact identity is invalid",
+        ));
+    }
+    let manifest: ArtifactManifestWire = parse_closed(&manifest_value, "payload.manifest")
+        .map_err(|(_, message, _)| replay_error("replay_manifest_invalid", message))?;
+    if manifest.run_id != request.run_id || manifest.source_of_truth != "ledger" {
+        return Err(replay_error(
+            "replay_manifest_invalid",
+            "manifest run or source_of_truth is invalid",
+        ));
+    }
+    let mut manifest_keys = HashSet::new();
+    let mut previous_key = None::<(String, String)>;
+    let mut evidence_count = 0usize;
+    let mut presentation_count = 0usize;
+    let prefix_refs = ledger
+        .commits
+        .iter()
+        .take_while(|c| c.commit_hash != manifest_commit.commit_hash)
+        .flat_map(|c| c.artifact_refs.iter())
+        .collect::<Vec<_>>();
+    if prefix_refs.len() != manifest.artifacts.len() {
+        return Err(replay_error(
+            "replay_manifest_mismatch",
+            "manifest does not match the pre-manifest ledger prefix",
+        ));
+    }
+    for entry in &manifest.artifacts {
+        let content_hash = entry.content_hash.as_deref().ok_or_else(|| {
+            replay_error(
+                "replay_manifest_invalid",
+                "manifest entry content_hash is null",
+            )
+        })?;
+        let producer = entry.producing_commit_hash.as_deref().ok_or_else(|| {
+            replay_error("replay_manifest_invalid", "manifest entry producer is null")
+        })?;
+        if !is_sha256_hex(content_hash) || !is_sha256_hex(producer) {
+            return Err(replay_error(
+                "replay_manifest_invalid",
+                "manifest entry hashes are invalid",
+            ));
+        }
+        let key = (entry.path.clone(), entry.artifact_id.clone());
+        if !manifest_keys.insert(key.clone())
+            || previous_key
+                .as_ref()
+                .is_some_and(|previous| previous >= &key)
+        {
+            return Err(replay_error(
+                "replay_manifest_invalid",
+                "manifest entries are not unique and sorted",
+            ));
+        }
+        previous_key = Some(key);
+        let matching = prefix_refs
+            .iter()
+            .filter_map(|raw| serde_json::from_value::<WireArtifactRef>((*raw).clone()).ok())
+            .find(|artifact| {
+                artifact.id == entry.artifact_id
+                    && artifact.artifact_type == entry.artifact_type
+                    && artifact.path == entry.path
+                    && artifact.content_hash == content_hash
+                    && artifact.producing_commit_hash.as_deref() == Some(producer)
+                    && artifact.metadata == entry.metadata
+            });
+        let Some(matching) = matching else {
+            return Err(replay_error(
+                "replay_manifest_mismatch",
+                "manifest entry does not match a ledger artifact reference",
+            ));
+        };
+        let derived_evidence = is_manifest_evidence(&matching);
+        let derived_presentation = is_manifest_presentation(&matching, derived_evidence);
+        if entry.is_presentation != derived_presentation
+            || entry.is_evidence != derived_evidence
+            || (entry.is_evidence && entry.is_presentation)
+        {
+            return Err(replay_error(
+                "replay_authority_violation",
+                "manifest evidence/presentation flags violate the authority boundary",
+            ));
+        }
+        evidence_count += usize::from(entry.is_evidence);
+        presentation_count += usize::from(entry.is_presentation);
+    }
+    if manifest.evidence_artifact_count != evidence_count
+        || manifest.presentation_artifact_count != presentation_count
+    {
+        return Err(replay_error(
+            "replay_manifest_mismatch",
+            "manifest evidence/presentation counts are inconsistent",
+        ));
+    }
+    let manifest_inventory_hash = sha256_hex(
+        canonical_json(
+            &manifest_value
+                .get("artifacts")
+                .cloned()
+                .unwrap_or(Value::Null),
+        )
+        .map_err(|error| replay_error("replay_manifest_invalid", error.to_string()))?
+        .as_bytes(),
+    );
+
+    let claim_value = &resolved[1].2;
+    let claim_table: ClaimTableWire = parse_closed(claim_value, "payload.claim_table")
+        .map_err(|(_, message, _)| replay_error("replay_dependency_missing", message))?;
+    let mut claim_ids = HashSet::new();
+    for claim in &claim_table.claims {
+        validate_claim_record(claim)
+            .map_err(|(_, message, _)| replay_error("replay_dependency_missing", message))?;
+        if !claim_ids.insert(claim.claim_id.as_str()) {
+            return Err(replay_error(
+                "replay_dependency_ambiguous",
+                "duplicate claim ID",
+            ));
+        }
+    }
+    let mut manifest_by_id: HashMap<&str, Vec<&ArtifactManifestEntryWire>> = HashMap::new();
+    for entry in &manifest.artifacts {
+        manifest_by_id
+            .entry(entry.artifact_id.as_str())
+            .or_default()
+            .push(entry);
+    }
+    let mut links_checked = 0usize;
+    for claim in &claim_table.claims {
+        for evidence_id in &claim.evidence_artifact_ids {
+            let entries = manifest_by_id
+                .get(evidence_id.as_str())
+                .cloned()
+                .unwrap_or_default();
+            if entries.len() != 1 {
+                return Err(replay_error(
+                    if entries.is_empty() {
+                        "replay_dependency_missing"
+                    } else {
+                        "replay_dependency_ambiguous"
+                    },
+                    "claim evidence artifact does not resolve uniquely",
+                ));
+            }
+            let entry = entries[0];
+            if !entry.is_evidence || entry.is_presentation {
+                return Err(replay_error(
+                    "replay_authority_violation",
+                    "claim evidence artifact is not structurally admissible",
+                ));
+            }
+            let matches = claim_table
+                .evidence_links
+                .iter()
+                .filter(|link| {
+                    link.claim_id == claim.claim_id
+                        && link.artifact_id == *evidence_id
+                        && link.supports_label
+                })
+                .count();
+            if matches != 1 {
+                return Err(replay_error(
+                    "replay_dependency_mismatch",
+                    "claim evidence support link is missing or duplicated",
+                ));
+            }
+            links_checked += 1;
+        }
+    }
+    for link in &claim_table.evidence_links {
+        if link.supports_label
+            && (!claim_ids.contains(link.claim_id.as_str())
+                || !manifest_by_id.contains_key(link.artifact_id.as_str()))
+        {
+            return Err(replay_error(
+                "replay_dependency_mismatch",
+                "supporting evidence link is dangling",
+            ));
+        }
+    }
+    let reloaded = load_persisted_ledger(root, &request.run_id)
+        .map_err(|(_, message, _)| replay_error("replay_snapshot_changed", message))?;
+    verify_ledger(&reloaded)
+        .map_err(|(_, message, _)| replay_error("replay_snapshot_changed", message))?;
+    let stable = reloaded.commits.last().map(|c| c.commit_hash.as_str()) == Some(tip)
+        && reloaded.commits.len() == ledger.commits.len();
+    if !stable {
+        return Err(replay_error(
+            "replay_snapshot_changed",
+            "ledger changed during replay verification",
+        ));
+    }
+    Ok(map_value([
+        ("run_id", Value::String(request.run_id)),
+        ("ledger_tip_hash", Value::String(tip.to_owned())),
+        (
+            "ledger_commit_count",
+            Value::Number((ledger.commits.len() as u64).into()),
+        ),
+        (
+            "ledger_artifact_count",
+            Value::Number((paths.len() as u64).into()),
+        ),
+        (
+            "ledger_artifact_inventory_hash",
+            Value::String(sha256_hex(inventory_json.as_bytes())),
+        ),
+        (
+            "required_outputs_checked",
+            Value::Number((REPLAY_REQUIRED_OUTPUTS.len() as u64).into()),
+        ),
+        ("manifest_artifact_id", Value::String(manifest_artifact.id)),
+        (
+            "manifest_producing_commit_hash",
+            Value::String(manifest_commit.commit_hash.clone()),
+        ),
+        (
+            "manifest_entry_count",
+            Value::Number((manifest.artifacts.len() as u64).into()),
+        ),
+        (
+            "manifest_inventory_hash",
+            Value::String(manifest_inventory_hash),
+        ),
+        (
+            "claims_checked",
+            Value::Number((claim_table.claims.len() as u64).into()),
+        ),
+        (
+            "claim_evidence_links_checked",
+            Value::Number((links_checked as u64).into()),
+        ),
+        ("core_replay_valid", Value::Bool(true)),
+        ("ledger_snapshot_stable", Value::Bool(true)),
+        ("authority_boundary_valid", Value::Bool(true)),
+        ("authority_granted", Value::Bool(false)),
+    ]))
+}
+
 fn validate_checkpoint_index(
     index: &CheckpointIndexWire,
     run_id: &str,
@@ -3906,6 +4480,50 @@ fn is_verification_evidence(artifact: &WireArtifactRef) -> bool {
     )
 }
 
+fn is_manifest_evidence(artifact: &WireArtifactRef) -> bool {
+    if !is_verification_evidence(artifact) {
+        return false;
+    }
+    if artifact.artifact_type == "lean" {
+        return artifact
+            .metadata
+            .get("evidence_role")
+            .and_then(Value::as_str)
+            .is_some_and(|role| matches!(role, "fake_proof" | "proof"));
+    }
+    if artifact.artifact_type == "experiment" {
+        return artifact
+            .metadata
+            .get("evidence_role")
+            .and_then(Value::as_str)
+            .is_some_and(|role| {
+                matches!(role, "fake_synthetic_experiment" | "synthetic_experiment")
+            });
+    }
+    if artifact.artifact_type == "literature" {
+        return true;
+    }
+    artifact
+        .metadata
+        .get("evidence_role")
+        .and_then(Value::as_str)
+        .is_some_and(|role| {
+            matches!(
+                role,
+                "proof"
+                    | "fake_proof"
+                    | "fake_synthetic_experiment"
+                    | "synthetic_experiment"
+                    | "retrieval_evidence"
+                    | "literature_evidence"
+            )
+        })
+}
+
+fn is_manifest_presentation(artifact: &WireArtifactRef, evidence: bool) -> bool {
+    is_presentation_artifact(artifact) || (artifact.artifact_type == "report" && !evidence)
+}
+
 fn resolve_run_file(project_root: &Path, run_id: &str, relative: &str) -> Result<PathBuf, String> {
     let root = fs::canonicalize(project_root)
         .map_err(|_| "project root does not exist or cannot be resolved".to_owned())?;
@@ -4099,7 +4717,9 @@ fn validate_artifact_location(run_id: &str, artifact: &WireArtifactRef) -> Resul
     }
     let expected_directory = artifact_directory(&artifact.artifact_type)
         .ok_or_else(|| "artifact type is not supported".to_owned())?;
-    if parts[2] != expected_directory {
+    let directory_matches = parts[2] == expected_directory
+        || (artifact.artifact_type == "report" && parts[2] == "research_object");
+    if !directory_matches {
         return Err(format!(
             "artifact type {} must be stored under runs/{run_id}/{expected_directory}",
             artifact.artifact_type
@@ -4567,6 +5187,67 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
                 "KernelRequestEnvelope" | "KernelResponseEnvelope"
             ) {
                 return Err("protocol_name is not supported".to_owned());
+            }
+            Ok(())
+        }
+        KernelOperation::ReplayVerifyCore => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "run_id",
+                    "ledger_tip_hash",
+                    "ledger_commit_count",
+                    "ledger_artifact_count",
+                    "ledger_artifact_inventory_hash",
+                    "required_outputs_checked",
+                    "manifest_artifact_id",
+                    "manifest_producing_commit_hash",
+                    "manifest_entry_count",
+                    "manifest_inventory_hash",
+                    "claims_checked",
+                    "claim_evidence_links_checked",
+                    "core_replay_valid",
+                    "ledger_snapshot_stable",
+                    "authority_boundary_valid",
+                    "authority_granted",
+                ],
+            )?;
+            for field in ["run_id", "manifest_artifact_id"] {
+                if response
+                    .result
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+                {
+                    return Err(format!("replay result {field} must be a non-empty string"));
+                }
+            }
+            for field in [
+                "ledger_tip_hash",
+                "ledger_artifact_inventory_hash",
+                "manifest_producing_commit_hash",
+                "manifest_inventory_hash",
+            ] {
+                require_sha256_field(&response.result, field)?;
+            }
+            for field in [
+                "ledger_commit_count",
+                "ledger_artifact_count",
+                "required_outputs_checked",
+                "manifest_entry_count",
+                "claims_checked",
+                "claim_evidence_links_checked",
+            ] {
+                if !response.result.get(field).is_some_and(Value::is_u64) {
+                    return Err(format!("replay result {field} must be an integer"));
+                }
+            }
+            if response.result.get("core_replay_valid") != Some(&Value::Bool(true))
+                || response.result.get("ledger_snapshot_stable") != Some(&Value::Bool(true))
+                || response.result.get("authority_boundary_valid") != Some(&Value::Bool(true))
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("replay result has invalid authority flags".to_owned());
             }
             Ok(())
         }
@@ -5254,7 +5935,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.85.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.86.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -5280,7 +5961,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.85.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.85.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.86.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.86.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -5299,7 +5980,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.85.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.86.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));
@@ -5425,7 +6106,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.85.0",
+            "protocol_version": "0.86.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

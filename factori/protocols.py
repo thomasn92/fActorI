@@ -214,6 +214,8 @@ from factori.schemas import (
     KernelProofPayload,
     KernelProofSafetyReport,
     KernelProofTrace,
+    KernelReplayVerifyCorePayload,
+    KernelReplayVerifyCoreResult,
     KernelRequestEnvelope,
     KernelResponseEnvelope,
     KernelSyntheticExperimentInput,
@@ -446,7 +448,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.85.0"
+PROTOCOL_VERSION = "0.86.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -572,6 +574,16 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
         "KernelCheckpointVerifyResult",
         KernelCheckpointVerifyResult,
         "Non-authoritative autonomous checkpoint integrity and resume result.",
+    ),
+    ProtocolDefinition(
+        "KernelReplayVerifyCorePayload",
+        KernelReplayVerifyCorePayload,
+        "Locator-only persisted replay-core verification request.",
+    ),
+    ProtocolDefinition(
+        "KernelReplayVerifyCoreResult",
+        KernelReplayVerifyCoreResult,
+        "Non-authoritative persisted replay-core integrity result.",
     ),
     ProtocolDefinition(
         "KernelAutonomousPaperCheckpoint",

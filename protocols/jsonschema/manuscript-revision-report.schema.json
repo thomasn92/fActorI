@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.85.0/manuscript-revision-report.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/manuscript-revision-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only critic-guided M105 manuscript revision outcome.",
@@ -92,7 +92,7 @@
   ],
   "title": "ManuscriptRevisionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.ManuscriptRevisionReport",
   "x-factori-verification-evidence": false
 }

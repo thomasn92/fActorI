@@ -76,7 +76,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.85.0/branch-route-decision.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/branch-route-decision.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One context-only route decision for a ScientificSubstrate.",
@@ -195,7 +195,7 @@
   ],
   "title": "BranchRouteDecision",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.BranchRouteDecision",
   "x-factori-verification-evidence": false
 }

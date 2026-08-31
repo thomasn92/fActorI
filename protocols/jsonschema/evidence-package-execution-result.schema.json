@@ -21,7 +21,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.85.0/evidence-package-execution-result.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/evidence-package-execution-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One executed, drafted, or deferred hybrid evidence-package artifact outcome.",
@@ -275,7 +275,7 @@
   ],
   "title": "EvidencePackageExecutionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.EvidencePackageExecutionResult",
   "x-factori-verification-evidence": false
 }

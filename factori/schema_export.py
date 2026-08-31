@@ -62,6 +62,7 @@ from factori.schemas import (
     KernelLedgerVerifyRequest,
     KernelMode,
     KernelOperation,
+    KernelReplayVerifyCorePayload,
     KernelRequestEnvelope,
     KernelResponseEnvelope,
     KernelResponseStatus,
@@ -207,6 +208,7 @@ EXAMPLE_PROTOCOLS: dict[str, str] = {
     "kernel-evidence-validate-bundle-payload.example.json": "KernelEvidenceValidateBundlePayload",
     "kernel-claim-resolve-payload.example.json": "KernelClaimResolvePayload",
     "kernel-checkpoint-verify-payload.example.json": "KernelCheckpointVerifyPayload",
+    "kernel-replay-verify-core-payload.example.json": "KernelReplayVerifyCorePayload",
 }
 
 
@@ -1345,6 +1347,10 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
             producing_commit_hash=_HASH,
         ),
     )
+    kernel_replay_verify_core_payload = KernelReplayVerifyCorePayload(
+        run_id="run-example",
+        ledger_tip_hash=_HASH,
+    )
     return {
         "adapter-config.example.json": adapter_config.model_dump(mode="json"),
         "candidate.example.json": candidate.model_dump(mode="json"),
@@ -1409,6 +1415,9 @@ def protocol_examples() -> dict[str, dict[str, Any]]:
         ),
         "kernel-checkpoint-verify-payload.example.json": (
             kernel_checkpoint_verify_payload.model_dump(mode="json")
+        ),
+        "kernel-replay-verify-core-payload.example.json": (
+            kernel_replay_verify_core_payload.model_dump(mode="json")
         ),
     }
 

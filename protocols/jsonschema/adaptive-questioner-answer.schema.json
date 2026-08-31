@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.85.0/adaptive-questioner-answer.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/adaptive-questioner-answer.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One artifact-grounded answer from the adaptive scientific questioner.",
@@ -94,7 +94,7 @@
   ],
   "title": "AdaptiveQuestionerAnswer",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.AdaptiveQuestionerAnswer",
   "x-factori-verification-evidence": false
 }

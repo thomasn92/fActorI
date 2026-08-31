@@ -872,6 +872,65 @@
       "title": "KernelProtocolValidateRequest",
       "type": "object"
     },
+    "KernelReplayVerifyCorePayload": {
+      "additionalProperties": false,
+      "description": "Locator-only request for persisted mechanical replay-core verification.",
+      "properties": {
+        "ledger_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Ledger Tip Hash",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "ledger_tip_hash"
+      ],
+      "title": "KernelReplayVerifyCorePayload",
+      "type": "object"
+    },
+    "KernelReplayVerifyCoreRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for bounded persisted replay-core verification.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "replay.verify_core",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelReplayVerifyCorePayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelReplayVerifyCoreRequest",
+      "type": "object"
+    },
     "KernelSyntheticEvidenceBundle": {
       "additionalProperties": false,
       "description": "Exact persisted artifact members of one local synthetic Stage C bundle.",
@@ -999,7 +1058,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.85.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the read-only research kernel boundary.",
   "discriminator": {
@@ -1011,7 +1070,8 @@
       "evidence.validate_bundle": "#/$defs/KernelEvidenceValidateBundleRequest",
       "hash.canonical_json": "#/$defs/KernelCanonicalJsonRequest",
       "ledger.verify": "#/$defs/KernelLedgerVerifyRequest",
-      "protocol.validate": "#/$defs/KernelProtocolValidateRequest"
+      "protocol.validate": "#/$defs/KernelProtocolValidateRequest",
+      "replay.verify_core": "#/$defs/KernelReplayVerifyCoreRequest"
     },
     "propertyName": "operation"
   },
@@ -1039,10 +1099,13 @@
     },
     {
       "$ref": "#/$defs/KernelCheckpointVerifyRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelReplayVerifyCoreRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

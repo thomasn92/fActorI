@@ -1,0 +1,113 @@
+{
+  "$id": "https://schemas.factori.local/0.86.0/kernel-replay-verify-core-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Non-authoritative persisted replay-core integrity result.",
+  "properties": {
+    "authority_boundary_valid": {
+      "const": true,
+      "title": "Authority Boundary Valid",
+      "type": "boolean"
+    },
+    "authority_granted": {
+      "const": false,
+      "title": "Authority Granted",
+      "type": "boolean"
+    },
+    "claim_evidence_links_checked": {
+      "minimum": 0,
+      "title": "Claim Evidence Links Checked",
+      "type": "integer"
+    },
+    "claims_checked": {
+      "minimum": 0,
+      "title": "Claims Checked",
+      "type": "integer"
+    },
+    "core_replay_valid": {
+      "const": true,
+      "title": "Core Replay Valid",
+      "type": "boolean"
+    },
+    "ledger_artifact_count": {
+      "minimum": 0,
+      "title": "Ledger Artifact Count",
+      "type": "integer"
+    },
+    "ledger_artifact_inventory_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Ledger Artifact Inventory Hash",
+      "type": "string"
+    },
+    "ledger_commit_count": {
+      "minimum": 1,
+      "title": "Ledger Commit Count",
+      "type": "integer"
+    },
+    "ledger_snapshot_stable": {
+      "const": true,
+      "title": "Ledger Snapshot Stable",
+      "type": "boolean"
+    },
+    "ledger_tip_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Ledger Tip Hash",
+      "type": "string"
+    },
+    "manifest_artifact_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Manifest Artifact Id",
+      "type": "string"
+    },
+    "manifest_entry_count": {
+      "minimum": 1,
+      "title": "Manifest Entry Count",
+      "type": "integer"
+    },
+    "manifest_inventory_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Manifest Inventory Hash",
+      "type": "string"
+    },
+    "manifest_producing_commit_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Manifest Producing Commit Hash",
+      "type": "string"
+    },
+    "required_outputs_checked": {
+      "minimum": 1,
+      "title": "Required Outputs Checked",
+      "type": "integer"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "ledger_tip_hash",
+    "ledger_commit_count",
+    "ledger_artifact_count",
+    "ledger_artifact_inventory_hash",
+    "required_outputs_checked",
+    "manifest_artifact_id",
+    "manifest_producing_commit_hash",
+    "manifest_entry_count",
+    "manifest_inventory_hash",
+    "claims_checked",
+    "claim_evidence_links_checked",
+    "core_replay_valid",
+    "ledger_snapshot_stable",
+    "authority_boundary_valid",
+    "authority_granted"
+  ],
+  "title": "KernelReplayVerifyCoreResult",
+  "type": "object",
+  "x-factori-protocol-version": "0.86.0",
+  "x-factori-source-model": "factori.schemas.KernelReplayVerifyCoreResult",
+  "x-factori-verification-evidence": false
+}

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.85.0/hybrid-evidence-package-raw-artifact.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/hybrid-evidence-package-raw-artifact.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free prompt and response provenance for hybrid package planning.",
@@ -99,7 +99,7 @@
   ],
   "title": "HybridEvidencePackageRawArtifact",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.HybridEvidencePackageRawArtifact",
   "x-factori-verification-evidence": false
 }

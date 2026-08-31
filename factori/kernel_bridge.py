@@ -33,6 +33,9 @@ from factori.schemas import (
     KernelLedgerVerifyRequest,
     KernelLedgerVerifyResult,
     KernelMode,
+    KernelReplayVerifyCorePayload,
+    KernelReplayVerifyCoreRequest,
+    KernelReplayVerifyCoreResult,
     KernelResponseEnvelope,
     KernelResponseStatus,
 )
@@ -370,10 +373,7 @@ def resolve_persisted_claim(
     )
     request = KernelClaimResolveRequest(
         protocol_version=PROTOCOL_VERSION,
-        request_id=(
-            f"claim-resolve-{run_id}-{claim_id}-"
-            f"{claim_table_producing_commit_hash[:12]}"
-        ),
+        request_id=(f"claim-resolve-{run_id}-{claim_id}-{claim_table_producing_commit_hash[:12]}"),
         operation="claim.resolve",
         mode=mode,
         payload=payload,
@@ -429,8 +429,7 @@ def verify_persisted_autonomous_checkpoints(
     request = KernelCheckpointVerifyRequest(
         protocol_version=PROTOCOL_VERSION,
         request_id=(
-            f"checkpoint-verify-{run_id}-{index_artifact_id}-"
-            f"{index_producing_commit_hash[:12]}"
+            f"checkpoint-verify-{run_id}-{index_artifact_id}-{index_producing_commit_hash[:12]}"
         ),
         operation="checkpoint.verify",
         mode=mode,
@@ -462,6 +461,54 @@ def verify_persisted_autonomous_checkpoints(
             or result.authority_granted is not False
         ):
             raise KernelBridgeError("Rust checkpoint verification response does not match request")
+    return response
+
+
+def verify_persisted_replay_core(
+    run_id: str,
+    ledger_tip_hash: str,
+    *,
+    mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Run the bounded, read-only Rust replay-core verifier for one current run tip."""
+    root_path = Path(root)
+    if not _SAFE_RUN_ID.fullmatch(run_id):
+        raise KernelBridgeError("unsafe replay run id")
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    payload = KernelReplayVerifyCorePayload(run_id=run_id, ledger_tip_hash=ledger_tip_hash)
+    request = KernelReplayVerifyCoreRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"replay-verify-core-{run_id}-{ledger_tip_hash[:12]}",
+        operation="replay.verify_core",
+        mode=mode,
+        payload=payload,
+    )
+    response = _invoke_kernel(
+        request,
+        binary=binary,
+        root=root_path.resolve(),
+        timeout_seconds=timeout_seconds,
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelReplayVerifyCoreResult):
+            raise KernelBridgeError("replay-core response has the wrong result type")
+        if (
+            result.run_id != run_id
+            or result.ledger_tip_hash != ledger_tip_hash
+            or result.core_replay_valid is not True
+            or result.ledger_snapshot_stable is not True
+            or result.authority_boundary_valid is not True
+            or result.authority_granted is not False
+        ):
+            raise KernelBridgeError("Rust replay-core response does not match request")
     return response
 
 
@@ -569,6 +616,7 @@ def _invoke_kernel(
         | KernelEvidenceValidateBundleRequest
         | KernelClaimResolveRequest
         | KernelCheckpointVerifyRequest
+        | KernelReplayVerifyCoreRequest
     ),
     *,
     binary: Path,
@@ -609,6 +657,7 @@ __all__ = [
     "KernelBridgeError",
     "classify_persisted_artifact",
     "verify_persisted_autonomous_checkpoints",
+    "verify_persisted_replay_core",
     "validate_persisted_evidence_bundle",
     "verify_persisted_artifact",
     "verify_persisted_ledger",

@@ -31,6 +31,7 @@ class KernelOperation(StrEnum):
     EVIDENCE_VALIDATE_BUNDLE = "evidence.validate_bundle"
     CLAIM_RESOLVE = "claim.resolve"
     CHECKPOINT_VERIFY = "checkpoint.verify"
+    REPLAY_VERIFY_CORE = "replay.verify_core"
 
 
 class KernelResponseStatus(StrEnum):
@@ -280,6 +281,13 @@ class KernelCheckpointVerifyPayload(StrictModel):
     index: KernelCheckpointIndexLocator
 
 
+class KernelReplayVerifyCorePayload(StrictModel):
+    """Locator-only request for persisted mechanical replay-core verification."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    ledger_tip_hash: str = Field(pattern=HASH_RE.pattern)
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -344,6 +352,13 @@ class KernelCheckpointVerifyRequest(KernelRequestFields):
     payload: KernelCheckpointVerifyPayload
 
 
+class KernelReplayVerifyCoreRequest(KernelRequestFields):
+    """Typed request for bounded persisted replay-core verification."""
+
+    operation: Literal[KernelOperation.REPLAY_VERIFY_CORE]
+    payload: KernelReplayVerifyCorePayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
@@ -352,7 +367,8 @@ KernelRequestVariant = Annotated[
     | KernelEvidenceClassifyRequest
     | KernelEvidenceValidateBundleRequest
     | KernelClaimResolveRequest
-    | KernelCheckpointVerifyRequest,
+    | KernelCheckpointVerifyRequest
+    | KernelReplayVerifyCoreRequest,
     Field(discriminator="operation"),
 ]
 
@@ -391,6 +407,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelEvidenceValidateBundlePayload
         | KernelClaimResolvePayload
         | KernelCheckpointVerifyPayload
+        | KernelReplayVerifyCorePayload
     ):
         return self.root.payload
 
@@ -633,9 +650,7 @@ class KernelCheckpointVerifyResult(StrictModel):
     """Non-authoritative autonomous checkpoint integrity and resume result."""
 
     run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
-    checkpoint_index_artifact_id: str = Field(
-        min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN
-    )
+    checkpoint_index_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
     checkpoint_index_producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
     checkpoint_count: int = Field(ge=1)
     validated_checkpoint_hashes: list[str] = Field(min_length=1)
@@ -673,6 +688,43 @@ class KernelCheckpointVerifyResult(StrictModel):
         return self
 
 
+class KernelReplayVerifyCoreResult(StrictModel):
+    """Non-authoritative persisted replay-core integrity result."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    ledger_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    ledger_commit_count: int = Field(ge=1)
+    ledger_artifact_count: int = Field(ge=0)
+    ledger_artifact_inventory_hash: str = Field(pattern=HASH_RE.pattern)
+    required_outputs_checked: int = Field(ge=1)
+    manifest_artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    manifest_producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+    manifest_entry_count: int = Field(ge=1)
+    manifest_inventory_hash: str = Field(pattern=HASH_RE.pattern)
+    claims_checked: int = Field(ge=0)
+    claim_evidence_links_checked: int = Field(ge=0)
+    core_replay_valid: Literal[True]
+    ledger_snapshot_stable: Literal[True]
+    authority_boundary_valid: Literal[True]
+    authority_granted: Literal[False]
+
+    @field_validator(
+        "core_replay_valid", "ledger_snapshot_stable", "authority_boundary_valid", mode="before"
+    )
+    @classmethod
+    def require_strict_true(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("replay core integrity flags must be the boolean true")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_authority_false(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be the boolean false")
+        return value
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -682,7 +734,8 @@ KernelResult = Annotated[
     | KernelEvidenceClassifyResult
     | KernelEvidenceValidateBundleResult
     | KernelClaimResolveResult
-    | KernelCheckpointVerifyResult,
+    | KernelCheckpointVerifyResult
+    | KernelReplayVerifyCoreResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -718,6 +771,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.EVIDENCE_VALIDATE_BUNDLE: KernelEvidenceValidateBundleResult,
             KernelOperation.CLAIM_RESOLVE: KernelClaimResolveResult,
             KernelOperation.CHECKPOINT_VERIFY: KernelCheckpointVerifyResult,
+            KernelOperation.REPLAY_VERIFY_CORE: KernelReplayVerifyCoreResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -760,6 +814,9 @@ __all__ = [
     "KernelCheckpointVerifyPayload",
     "KernelCheckpointVerifyRequest",
     "KernelCheckpointVerifyResult",
+    "KernelReplayVerifyCorePayload",
+    "KernelReplayVerifyCoreRequest",
+    "KernelReplayVerifyCoreResult",
     "KernelAutonomousCheckpointStage",
     "KernelAutonomousCheckpointVerificationStatus",
     "KernelAutonomousPaperCheckpoint",

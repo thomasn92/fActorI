@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.85.0/route-execution-input-contract.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/route-execution-input-contract.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded substrate inputs copied into a deterministic execution spec.",
@@ -95,7 +95,7 @@
   ],
   "title": "RouteExecutionInputContract",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionInputContract",
   "x-factori-verification-evidence": false
 }

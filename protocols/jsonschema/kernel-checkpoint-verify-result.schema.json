@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.85.0/kernel-checkpoint-verify-result.schema.json",
+  "$id": "https://schemas.factori.local/0.86.0/kernel-checkpoint-verify-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-authoritative autonomous checkpoint integrity and resume result.",
@@ -79,7 +79,7 @@
   ],
   "title": "KernelCheckpointVerifyResult",
   "type": "object",
-  "x-factori-protocol-version": "0.85.0",
+  "x-factori-protocol-version": "0.86.0",
   "x-factori-source-model": "factori.schemas.KernelCheckpointVerifyResult",
   "x-factori-verification-evidence": false
 }

@@ -1,0 +1,28 @@
+{
+  "$id": "https://schemas.factori.local/0.86.0/kernel-replay-verify-core-payload.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Locator-only persisted replay-core verification request.",
+  "properties": {
+    "ledger_tip_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Ledger Tip Hash",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "ledger_tip_hash"
+  ],
+  "title": "KernelReplayVerifyCorePayload",
+  "type": "object",
+  "x-factori-protocol-version": "0.86.0",
+  "x-factori-source-model": "factori.schemas.KernelReplayVerifyCorePayload",
+  "x-factori-verification-evidence": false
+}

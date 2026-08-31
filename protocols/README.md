@@ -4,6 +4,10 @@ This directory contains language-neutral developer contracts generated from the 
 existing Pydantic models. They are intended for Python tools, future Rust crates, future servers,
 and coding agents that need a stable boundary without importing the Python runtime.
 
+Protocol `0.86.0` adds the bounded read-only `replay.verify_core` kernel operation. It verifies the
+current completed ledger snapshot, artifact inventory, manifest prefix, required outputs, and
+claim/evidence dependencies without granting authority or writing provenance.
+
 Protocol `0.85.0` adds the read-only `checkpoint.verify` kernel operation. It validates the latest
 hash-linked autonomous-paper checkpoint chain and derives bounded resume permission without
 returning evidence, label, scientific-validation, human-approval, or publication authority.
