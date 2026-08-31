@@ -1036,7 +1036,7 @@ Luna must stop if claim identity cannot be resolved from immutable persisted byt
 claim would require trusting caller-authored text or labels, or if a valid fixture requires
 weakening strict evidence-bundle validation.
 
-## Completed Luna Handoff: Autonomous Checkpoint Verification
+## Luna Implementation Submitted: Autonomous Checkpoint Verification
 
 Sol's checkpoint-verification design task ends with the semantic freeze above. The bounded
 implementation includes:
@@ -1064,3 +1064,70 @@ if the current writer does not preserve exact historical index prefixes, or if m
 behavior would require trusting filesystem discovery instead of the hash-linked ledger locator.
 Luna must not modify checkpoint persistence, broaden the operation to targeted/generic checkpoints,
 add mutation authority, or treat resume permission as scientific authority in this handoff.
+
+## Sol Review of Protocol 0.85.0: Changes Requested
+
+Sol reviewed the committed `checkpoint.verify` implementation after protocol export, Rust/Python
+parity work, and the complete test run. The following parts match the frozen design and are
+approved:
+
+- the locator-only request and non-authoritative result shapes;
+- the `0.85.0` minor version bump and five new standalone schemas;
+- the three compatibility-checker warnings caused by adding one discriminator mapping, one request
+  `oneOf` arm, and one response-result `anyOf` arm; these are reviewed additive changes, not
+  permission to weaken future unknown-change review;
+- latest-commit resolution, complete ledger verification, two-artifact checkpoint commit shape,
+  closed checkpoint/index parsing, canonical self-hashes, predecessor links, parent-tip binding,
+  output confinement and hashes, authority-flag rejection, and exact historical index prefixes;
+- the read-only Python shadow bridge and literal `authority_granted=false` boundary.
+
+Operation-level cutover is not approved. Rust currently assigns `latest_resume_allowed` from each
+checkpoint in turn. A coherent non-reusable checkpoint can therefore be followed by a reusable
+checkpoint whose state overwrites the earlier failure and produces `resume_allowed=true`. That
+contradicts the frozen rule that a failed checkpoint cannot authorize reuse of its stage or any
+later stage.
+
+The production writer never creates a later checkpoint after a terminal failed checkpoint: a
+failed controller path writes the failed/blocked handoff checkpoint last, and resume verification
+rejects that chain. The accepted chain grammar is therefore clarified without changing the public
+schema:
+
+- zero or more reusable checkpoints may precede one coherent terminal failed/blocked checkpoint;
+- a coherent terminal failed/blocked checkpoint must be the final checkpoint in the index;
+- that terminal chain is accepted with `resume_allowed=false`, the declared blocker for the final
+  stage, and `checkpoint_not_reusable`;
+- any checkpoint after a coherent terminal failure is an impossible writer state and must be
+  rejected with `checkpoint_chain_mismatch`, even if all hashes, links, and later status fields are
+  internally consistent;
+- a fully reusable chain remains accepted with `resume_allowed=true`.
+
+The existing failed-chain parity fixture is not representative because it writes two consecutive
+failed checkpoints. Representative warning and resumed-controller chains are also not covered by
+the Rust shadow tests required by the handoff. Consequently cutover gates 6, 9, and 10 remain open.
+Rust remains a read-only shadow implementation, and Sol does not freeze `replay.verify_core` while
+this correction is outstanding.
+
+## Current Luna Correction Handoff: Checkpoint Chain State
+
+Luna owns only the bounded correction below:
+
+1. derive checkpoint-chain resume state monotonically and reject every checkpoint appearing after
+   the first coherent terminal failed/blocked checkpoint with `checkpoint_chain_mismatch`;
+2. replace the two-failure acceptance fixture with a writer-produced reusable prefix followed by
+   one terminal failed/blocked checkpoint, and require accepted `resume_allowed=false` plus exactly
+   one `checkpoint_not_reusable` diagnostic;
+3. add a re-sealed, fully hash-consistent failed-then-reusable chain and prove it is rejected rather
+   than allowing the later checkpoint to restore resume permission;
+4. add accepted `passed_with_warnings` / `completed_with_warnings` coverage;
+5. add a representative crash-resume or resumed-controller chain with a changed controller ID and
+   repeated downstream stage names, and verify the exact ordered hashes through the Python shadow
+   bridge;
+6. exercise the same accepted/rejected resume decisions in both authority modes, because mode must
+   not alter checkpoint integrity or operational resume policy;
+7. rerun protocol currentness and examples, Rust format/Clippy/tests, focused parity, Ruff, and the
+   complete Python suite before returning to Sol.
+
+This correction does not require a protocol bump if request, response, schema, and diagnostic
+shapes remain unchanged. Luna must not change checkpoint persistence, reinterpret a terminal
+failure as recoverable, begin `replay.verify_core`, or claim operation-level cutover. Any need to
+support a post-failure checkpoint sequence must return to Sol as a new persisted-state design.
