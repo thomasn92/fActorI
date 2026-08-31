@@ -1433,3 +1433,44 @@ inventory digests differ, if a valid fixture requires accepting `ExperimentVerif
 writing, evidence-label rules, or ledger ordering. Luna must not port the full replay report,
 recompute release policy, add report writes to Rust, create an authority token, begin mutating
 operations, or claim replay establishes scientific or publication validity.
+
+## Sol Review of Protocol 0.86.0: Test Matrix Required
+
+Sol reviewed Luna commit `f4b63a3` and corrected the bounded implementation in `3648029`. The
+review found that the Python bridge compared only the request identity and authority booleans
+rather than every frozen count and digest; supporting links could be contradictory, extraneous, or
+inconsistent with manifest types and evidence roles; accepted response validation did not enforce
+the two frozen constants or positive required counts; manifest location and artifact-byte snapshot
+stability were underchecked; and forbidden true authority assertions in artifact metadata and JSON
+objects were not rejected. Those implementation defects are corrected without widening the
+operation, changing persistence, or granting authority. Protocol `0.86.0` remains the selected
+version, with the already-frozen result constants represented exactly in its generated schemas.
+
+The representative writer-produced complete run now passes through the bridge in both modes with
+exact identity, count, and digest parity, literal non-authority, and no ledger, artifact, or replay
+report mutation. Stale-tip rejection, bridge mismatch rejection, protocol currentness and examples,
+Rust format/Clippy/tests, focused Python protocol/replay tests, and Ruff also pass.
+
+Cutover gates 6, 9, and 10 remain open because the correction handoff's adversarial differential
+matrix was not implemented. The current Python suite has one complete-run replay-core integration
+test plus protocol-validation coverage; it does not prove all enumerated single mutations or
+concurrent snapshot changes fail closed in both modes. Luna's next bounded handoff is therefore:
+
+1. add a reusable writer-produced replay fixture and deterministic mutation/resealing helpers that
+   never alter production persistence behavior;
+2. cover incomplete and stale snapshots, concurrent append and artifact-byte changes, ledger
+   corruption, missing/tampered/symlinked/path-escaping artifacts, producer-link mismatches,
+   duplicate paths and identities, and required-output removal;
+3. cover manifest count, ordering, path, metadata, prefix, and classification mutations;
+4. cover missing, ambiguous, duplicate, contradictory, type-mismatched, role-mismatched, and
+   extraneous claim/evidence dependencies, presentation or derived evidence, forbidden labels and
+   true authority assertions, and ledger-linked replay/diagnostics/comparison paths;
+5. require the same accepted/rejected result and stable diagnostic code in
+   `DevelopmentCompatibility` and `StrictProduction`, while rechecking exact bridge digests and
+   complete nonmutation;
+6. rerun protocol currentness/version/examples, Rust format/Clippy/unit and integration tests,
+   focused parity, Ruff, and the complete Python suite before returning to Sol.
+
+This handoff is test-only unless a mutation fixture exposes a new semantic mismatch. Luna must not
+weaken a validator to make a mutated fixture pass, change the frozen request/result shape, port the
+full Python replay report, begin mutating operations, or claim cutover before final Sol review.
