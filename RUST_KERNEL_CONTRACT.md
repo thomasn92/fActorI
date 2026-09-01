@@ -4,10 +4,11 @@
 
 This document is the Sol-owned design baseline for the staged Rust translation of fActorI's
 deterministic trust kernel. It freezes the intended trust boundary, authority rules, compatibility
-requirements, and model handoff. The current Rust implementation remains a read-only compatibility
-kernel and has not received evidence or mutation authority.
+requirements, and model handoff. The current Rust implementation is a read-mostly compatibility
+kernel with one approved JSON-only artifact mutation. It has not received evidence authority,
+ledger authority, or general pipeline-mutation authority.
 
-Protocol baseline: `0.85.0`.
+Current protocol baseline: `0.87.0`. The next frozen ledger slice targets `0.88.0`.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of
@@ -1659,7 +1660,7 @@ Existing protocol, canonicalization, path, and authority diagnostics remain appl
 precise. Diagnostics may include the bounded run-relative destination and expected/observed sizes
 or hashes, but never raw content, unbounded metadata, temporary random names, or environment data.
 
-## Current Luna Handoff: `artifact.persist`
+## Luna Handoff for `artifact.persist` (Completed)
 
 Luna owns only this JSON-only slice:
 
@@ -1692,3 +1693,248 @@ run directories, if response-envelope mutation rules cannot remain operation-spe
 implementation would touch SQLite, create a sidecar, accept overwrite, support non-JSON content,
 or grant any evidence or publication authority. Luna must not begin `ledger.append`,
 `artifact.link`, or `persistence.commit_bundle` in this handoff.
+
+## Final Sol Review of `artifact.persist`: Approved
+
+Sol reviewed Luna commit `515c1f6` and hardened the operation in `83a570c`. The correction maps an
+atomic-publication race loser to `artifact_persist_target_exists`, validates canonical request and
+metadata size in Python as well as Rust, closes accepted and post-publication response diagnostics,
+validates returned paths, types, producer state, JSON metadata, and non-authority in both protocol
+validators, and makes the bridge prove rejected calls leave the complete run tree unchanged.
+
+The final matrix covers every current artifact type, Python/Rust canonical bytes for nested JSON,
+Unicode, control characters, floating-point values and negative zero, optional stems, normalized
+metadata, existing files, directories, symlinks, dangling symlinks and sidecars, missing and
+symlinked directories, unsafe names, closed overwrite policy, content and metadata bounds,
+authority assertions, same-target concurrency, and malformed accepted/rejected/error envelopes.
+Rust-only deterministic faults cover exclusive creation, write, flush, file fsync, publication,
+temporary cleanup, directory fsync, and final postconditions with exact mutation flags.
+
+The focused result is 26 artifact-persistence Python tests plus the corrected schema-export test,
+19 Rust unit tests, 51 valid protocol examples, Ruff, and clean diffs. The complete Python run
+reached 1,602 passes with one stale schema-export expectation; that sole failure was corrected and
+rerun successfully at the user's direction without repeating the full 17-minute suite.
+
+`artifact.persist` is approved only as the frozen unlinked JSON file mutation. It does not initialize
+a run, overwrite a target, write SQLite, create a producer sidecar, construct evidence, authorize a
+label, or cut over an existing Python persistence call site. No later mutation is approved by this
+review.
+
+## `ledger.append` Scope Decision
+
+The next mutating kernel operation is a transactionally serialized append of one artifact-free,
+non-root commit to an already existing, valid SQLite ledger. This slice is deliberately unable to
+consume an `ArtifactRef`: artifact-bearing commits, producer self-links, sidecar persistence, and
+the complete artifact/commit/link sequence remain deferred. The restriction lets Rust establish
+SQLite schema, chain, current-tip, hash, concurrency, rollback, durability, and bridge parity
+without creating an intermediate ledger-reference/sidecar inconsistency.
+
+This operation is mechanical provenance persistence only. It does not authorize a stage rerun,
+interpret a commit payload as scientific truth, establish stage completion, grant evidence,
+approve a claim, or make a run ready for human review or publication.
+
+### Frozen Request
+
+The caller supplies only:
+
+```text
+run_id
+expected_tip_hash
+action_type
+payload
+candidate_id_optional
+timestamp
+```
+
+`run_id` and an optional candidate ID use the existing safe-segment grammar.
+`expected_tip_hash` is one lowercase SHA-256 digest and becomes the new commit's parent. The caller
+cannot supply a root/null parent, commit hash, row ID, commit count, artifact reference, producing
+commit, sidecar, database path, SQL, transaction mode, or retry policy.
+
+`action_type` is one current closed `ControllerActionType` except `InitRun`. Root initialization is
+out of scope because this operation must open an existing non-empty ledger without creating the
+database, table, triggers, run directory, or root commit. Rust must reuse the already audited
+closed action-type validator rather than accept arbitrary strings or add a second divergent list.
+
+`payload` is one duplicate-key-free JSON object, serialized with Python-compatible canonical JSON,
+and is limited to 4 MiB after serialization. It is persisted provenance data, not an authority
+control surface. Existing labels and stage records may be recorded, but `ledger.append` does not
+endorse, upgrade, or turn them into capabilities. The operation returns literal
+`authority_granted=false` in both modes.
+
+`timestamp` is caller-supplied so the Python `Clock` seam and deterministic fixtures remain
+authoritative. It must be an ASCII UTC timestamp of the form `YYYY-MM-DDTHH:MM:SSZ` or
+`YYYY-MM-DDTHH:MM:SS.ffffffZ`, with one through six fractional digits when present, at most 32
+bytes, and a real calendar/time value. Rust persists the exact validated string; it does not read
+the wall clock. The optional candidate ID is persisted exactly or as SQL `NULL`.
+
+Both kernel modes have identical byte, chain, transaction, and result behavior for this operation.
+Mode never changes the commit hash and grants no authority.
+
+### Frozen Existing-Ledger Preconditions
+
+The configured root, `runs`, and `runs/<run_id>` must already exist as real non-symlink directories.
+`runs/<run_id>/ledger.sqlite` must already exist as a real regular file below that run. Rust must
+not create or initialize any path. A symlink at any component, a missing or empty ledger, a corrupt
+database, a ledger containing another run ID, or a pre-existing `ledger.sqlite-journal`,
+`ledger.sqlite-wal`, or `ledger.sqlite-shm` object rejects before mutation.
+
+Rust configures foreign keys, a zero busy timeout, the existing journal mode unchanged, and
+synchronous durability at least `FULL`, then begins one immediate write transaction. Inside that
+same transaction it validates the expected Python ledger schema: the exact required `commits`
+columns and primary key, the foreign-key parent relation, and both append-only no-update and
+no-delete triggers. SQLite integrity and foreign-key checks must also pass before insertion.
+
+Inside that same transaction Rust reloads and validates every commit in row insertion order using
+the already approved chain rules. The ledger must be a single non-empty linear history belonging
+only to `run_id`, with one current insertion-order tip, no duplicate/fork/broken parent, valid closed
+action types, exact Python canonical payload and artifact-reference bytes, and valid commit hashes.
+Every pre-existing row may contain its already persisted artifact references; this slice merely
+forbids artifact references on the new request. The current tip must equal `expected_tip_hash`.
+
+A busy database rejects with no wait and no mutation. A caller may retry only after rereading and
+revalidating the ledger; the kernel never silently changes the expected parent. A concurrent caller
+using the same expected tip either loses at `BEGIN IMMEDIATE` with `ledger_append_busy` or, after
+the winner commits and a deliberate new invocation begins, rejects with
+`ledger_append_tip_mismatch`. It must never create a fork.
+
+### Frozen Hash and Row
+
+Rust constructs the new commit with:
+
+```text
+parent_hash = expected_tip_hash
+run_id = requested run_id
+candidate_id = candidate_id_optional
+action_type = requested closed action type
+payload = requested JSON object
+artifact_refs = []
+timestamp = requested timestamp
+```
+
+The commit hash is SHA-256 over the existing Python `commit_hash_payload` canonical JSON contract.
+There are no self-link placeholders because the artifact list is empty. SQLite stores
+`payload_json` as exact Python-compatible canonical JSON and `artifact_refs_json` as the two bytes
+`[]`; it stores the validated action enum value and timestamp exactly.
+
+Rust performs one parameterized `INSERT`; caller values are never interpolated into SQL. An insert,
+constraint, trigger, serialization, or pre-commit verification failure rolls the transaction back
+and returns `mutation_performed=false`. Before commit, Rust reads the inserted row back inside the
+transaction and proves exact field, canonical-byte, and computed-hash equality.
+
+After `COMMIT` returns success, Rust closes the writer, reopens the ledger read-only, reruns the
+complete chain validation, and proves the prior prefix is unchanged, the count increased by exactly
+one, the inserted row is the sole new row, and its hash is the unique current tip. No SQLite
+auxiliary file may remain. This verification happens before an accepted response.
+
+If SQLite reports an error while committing, the kernel treats durability as ambiguous: it returns
+an empty `error` result with `mutation_performed=true` and requires caller inspection rather than a
+blind retry. A failure after a successful commit likewise returns an empty postcondition error with
+`mutation_performed=true`. Rust must never report false after the transaction may have committed.
+
+### Frozen Result and Response Semantics
+
+An accepted result contains only:
+
+```text
+commit
+previous_tip_hash
+new_tip_hash
+commit_count_before
+commit_count_after
+appended = true
+linked_artifact_count = 0
+authority_granted = false
+```
+
+`commit` is the exact new public `LedgerCommit`, with `parent_hash=previous_tip_hash`,
+`commit_hash=new_tip_hash`, requested identity/action/payload/timestamp fields, and an empty
+`artifact_refs` array. `commit_count_before` is positive and `commit_count_after` equals it plus
+one. An accepted response has no diagnostics and sets `mutation_performed=true`.
+
+A rejected or pre-commit error has an empty result, one stable diagnostic,
+`mutation_performed=false`, and byte-identical ledger/run state. A commit-uncertain or
+postcondition error has an empty result, one corresponding stable diagnostic, and
+`mutation_performed=true`. Existing response validators must remain operation-specific: read-only
+operations remain false; accepted `artifact.persist` and `ledger.append` are true; only the frozen
+post-publication codes permit true on an error.
+
+Stable new diagnostics are:
+
+- `ledger_append_run_missing`
+- `ledger_append_directory_invalid`
+- `ledger_append_ledger_invalid`
+- `ledger_append_root_unsupported`
+- `ledger_append_payload_invalid`
+- `ledger_append_size_exceeded`
+- `ledger_append_tip_mismatch`
+- `ledger_append_busy`
+- `ledger_append_insert_failed`
+- `ledger_append_commit_uncertain`
+- `ledger_append_postcondition_failed`
+
+Existing lower-level ledger hash, parent, action, canonicalization, and protocol diagnostics may be
+used when they identify the exact precondition failure more precisely. Diagnostics may contain
+bounded run IDs, row numbers, action types, expected/observed hashes, and SQLite error categories.
+They must not contain SQL text, full payloads, raw rows, host paths, environment data, or secrets.
+
+### Frozen Python Bridge and Cutover Boundary
+
+Before invoking Rust, the Python bridge validates the request, snapshots all run paths and raw
+bytes, opens the ledger read-only, validates its complete current history, proves the expected tip,
+and computes the exact expected commit and hash with `compute_commit_hash`. It invokes Rust once and
+has no Python append fallback.
+
+On acceptance the bridge compares every result field, reloads the ledger read-only, proves the
+complete prior commit prefix is unchanged and exactly one expected row was appended, reruns normal
+ledger validation, and proves every non-ledger run path and byte is unchanged. It also proves no
+sidecar, artifact, report, or persistent SQLite auxiliary file appeared. On a false-mutation
+rejection it proves the raw ledger file and complete run tree are byte-identical. On a true-mutation
+error it raises an inspection-required bridge error and never retries automatically.
+
+This is development shadow mutation only. No existing stage, persistence helper, CLI command, or
+rerun path cuts over in this slice. Python remains the production ledger writer until a later Sol
+review approves artifact-bearing commits, producer linking, crash recovery, and the complete
+`persistence.commit_bundle` orchestration.
+
+## Current Luna Handoff: Artifact-Free `ledger.append`
+
+Luna owns only this transaction and parity slice:
+
+1. add the closed request/result models and discriminator arms, narrow operation-specific response
+   mutation rules, bump the protocol minor version from `0.87.0` to `0.88.0`, and regenerate all
+   schemas/examples;
+2. add strict request validation for safe IDs, non-root closed action type, object payload,
+   canonical 4 MiB bound, exact UTC timestamp, and the absence of every artifact/path/SQL/control
+   field;
+3. validate the existing real-directory path, regular non-symlink ledger, absent SQLite auxiliary
+   objects, exact table/foreign-key/trigger schema, SQLite integrity, and complete current chain
+   before mutation;
+4. implement `BEGIN IMMEDIATE`, zero-wait concurrency, inside-transaction tip revalidation,
+   Python-compatible commit hashing, parameterized insert, row readback, rollback, commit, close,
+   read-only full-chain postconditions, and exact mutation flags;
+5. add a Python no-fallback bridge that computes the expected commit before Rust, compares every
+   result field, proves exact prior-prefix preservation and one-row extension, and snapshots all
+   non-ledger state and SQLite auxiliary paths;
+6. add Python/Rust parity for all allowed action types except `InitRun`, payload nesting/Unicode/
+   floats/empty objects, candidate presence/absence, timestamps with and without fractional digits,
+   canonical stored JSON, commit hashes, counts, tips, and both modes;
+7. add rejection tests for unknown fields, unsafe IDs, null/wrong parents, `InitRun`, non-object or
+   oversized payloads, invalid timestamps, missing/symlinked/corrupt/empty/wrong-run ledgers,
+   schema/trigger/foreign-key damage, broken hashes/parents/forks, stale tips, persistent auxiliary
+   files, locked databases, constraint/insert failures, and malformed responses;
+8. add deterministic transaction fault injection at open, begin, validate, insert, readback,
+   rollback, commit, reopen, and postcondition boundaries; prove exact raw bytes and semantic state
+   for every false-mutation outcome and inspection-required true-mutation outcome;
+9. add deterministic concurrency tests for a held immediate lock, a stale expected tip after a
+   winner commits, and multiple simultaneous callers, proving one linear extension and no fork;
+10. run protocol compatibility/version/currentness/examples, Rust format/Clippy/unit/integration,
+    focused Python/Rust parity, Ruff, and the complete Python suite before returning to Sol.
+
+Luna must stop and return to Sol if Rust cannot match Python commit hashes and canonical stored JSON,
+if SQLite can commit while an error reports `mutation_performed=false`, if a race can create a fork,
+if validation requires creating or repairing schema/run state, if existing ledgers require a
+different transaction/journal contract, or if the slice would need artifact references, sidecars,
+root initialization, stage cutover, rerun authorization, evidence construction, or payload-policy
+interpretation. Luna must not begin `artifact.link`, expand `ledger.append` to artifact-bearing
+commits, implement `persistence.commit_bundle`, or cut over a production call site in this handoff.
