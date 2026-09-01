@@ -110,7 +110,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/kernel-evidence-validate-bundle-payload.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/kernel-evidence-validate-bundle-payload.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Locator payload for strict persisted Stage C evidence-bundle validation.",
@@ -166,7 +166,7 @@
   ],
   "title": "KernelEvidenceValidateBundlePayload",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.KernelEvidenceValidateBundlePayload",
   "x-factori-verification-evidence": false
 }

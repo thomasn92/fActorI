@@ -844,7 +844,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/deep-opportunity-discovery-report.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/deep-opportunity-discovery-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only retrieval-contextualized LLM opportunity discovery report.",
@@ -1060,7 +1060,7 @@
   ],
   "title": "DeepOpportunityDiscoveryReport",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.DeepOpportunityDiscoveryReport",
   "x-factori-verification-evidence": false
 }

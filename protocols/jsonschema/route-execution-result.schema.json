@@ -156,7 +156,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/route-execution-result.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/route-execution-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded deterministic output for one route execution specification.",
@@ -310,7 +310,7 @@
   ],
   "title": "RouteExecutionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionResult",
   "x-factori-verification-evidence": false
 }

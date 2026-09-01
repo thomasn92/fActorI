@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.87.0/kernel-synthetic-experiment-input.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/kernel-synthetic-experiment-input.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Closed persisted synthetic experiment input companion artifact.",
@@ -82,7 +82,7 @@
   ],
   "title": "KernelSyntheticExperimentInput",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.KernelSyntheticExperimentInput",
   "x-factori-verification-evidence": false
 }

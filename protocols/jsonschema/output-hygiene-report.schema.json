@@ -316,7 +316,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/output-hygiene-report.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/output-hygiene-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only run-directory hygiene report.",
@@ -438,7 +438,7 @@
   ],
   "title": "OutputHygieneReport",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.OutputHygieneReport",
   "x-factori-verification-evidence": false
 }

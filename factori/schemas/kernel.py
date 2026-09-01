@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
@@ -12,7 +13,7 @@ from pydantic import ConfigDict, Field, RootModel, field_validator, model_valida
 from factori.hashing import to_jsonable
 from factori.schemas.artifacts import ArtifactRef, LedgerCommit
 from factori.schemas.base import HASH_RE, StrictModel
-from factori.schemas.enums import ArtifactType, VerificationLabel
+from factori.schemas.enums import ArtifactType, ControllerActionType, VerificationLabel
 
 
 class KernelMode(StrEnum):
@@ -35,6 +36,7 @@ class KernelOperation(StrEnum):
     CHECKPOINT_VERIFY = "checkpoint.verify"
     REPLAY_VERIFY_CORE = "replay.verify_core"
     ARTIFACT_PERSIST = "artifact.persist"
+    LEDGER_APPEND = "ledger.append"
 
 
 class KernelResponseStatus(StrEnum):
@@ -379,6 +381,51 @@ class KernelArtifactPersistPayload(StrictModel):
         return self
 
 
+class KernelLedgerAppendPayload(StrictModel):
+    """Artifact-free append request for one existing run ledger."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    expected_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    action_type: ControllerActionType
+    payload: dict[str, Any]
+    candidate_id_optional: str | None = Field(default=None, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    timestamp: str = Field(min_length=1, max_length=32)
+
+    @field_validator("action_type")
+    @classmethod
+    def reject_init_run(cls, value: ControllerActionType) -> ControllerActionType:
+        if value is ControllerActionType.INIT_RUN:
+            raise ValueError("ledger.append does not support InitRun")
+        return value
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: str) -> str:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z", value):
+            raise ValueError("timestamp must be an ASCII UTC timestamp")
+        try:
+            datetime.fromisoformat(value[:-1])
+        except ValueError as exc:
+            raise ValueError("timestamp is not a real UTC date/time") from exc
+        return value
+
+    @model_validator(mode="after")
+    def validate_payload_size(self) -> KernelLedgerAppendPayload:
+        try:
+            encoded = json.dumps(
+                to_jsonable(self.payload),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"payload must be valid JSON: {exc}") from exc
+        if len(encoded) > 4 * 1024 * 1024:
+            raise ValueError("serialized payload exceeds 4 MiB")
+        return self
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -457,6 +504,13 @@ class KernelArtifactPersistRequest(KernelRequestFields):
     payload: KernelArtifactPersistPayload
 
 
+class KernelLedgerAppendRequest(KernelRequestFields):
+    """Typed request for a transactional, artifact-free ledger append."""
+
+    operation: Literal[KernelOperation.LEDGER_APPEND]
+    payload: KernelLedgerAppendPayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
@@ -467,7 +521,8 @@ KernelRequestVariant = Annotated[
     | KernelClaimResolveRequest
     | KernelCheckpointVerifyRequest
     | KernelReplayVerifyCoreRequest
-    | KernelArtifactPersistRequest,
+    | KernelArtifactPersistRequest
+    | KernelLedgerAppendRequest,
     Field(discriminator="operation"),
 ]
 
@@ -507,6 +562,8 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelClaimResolvePayload
         | KernelCheckpointVerifyPayload
         | KernelReplayVerifyCorePayload
+        | KernelArtifactPersistPayload
+        | KernelLedgerAppendPayload
     ):
         return self.root.payload
 
@@ -861,6 +918,33 @@ class KernelArtifactPersistResult(StrictModel):
         return self
 
 
+class KernelLedgerAppendResult(StrictModel):
+    """Accepted result for one artifact-free ledger append."""
+
+    commit: LedgerCommit
+    previous_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    new_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    commit_count_before: int = Field(ge=1)
+    commit_count_after: int = Field(ge=2)
+    appended: Literal[True]
+    linked_artifact_count: Literal[0]
+    authority_granted: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> KernelLedgerAppendResult:
+        if self.commit.parent_hash != self.previous_tip_hash:
+            raise ValueError("commit parent must equal previous tip")
+        if self.commit.commit_hash != self.new_tip_hash:
+            raise ValueError("new tip must equal commit hash")
+        if self.commit_count_after != self.commit_count_before + 1:
+            raise ValueError("append must increase commit count by one")
+        if self.commit.artifact_refs:
+            raise ValueError("ledger.append cannot link artifacts")
+        if self.authority_granted is not False:
+            raise ValueError("ledger.append cannot grant authority")
+        return self
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -872,7 +956,8 @@ KernelResult = Annotated[
     | KernelClaimResolveResult
     | KernelCheckpointVerifyResult
     | KernelReplayVerifyCoreResult
-    | KernelArtifactPersistResult,
+    | KernelArtifactPersistResult
+    | KernelLedgerAppendResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -937,6 +1022,38 @@ class KernelResponseEnvelope(StrictModel):
                 }
                 if len(self.diagnostics) != 1 or self.diagnostics[0].code in disallowed:
                     raise ValueError("artifact.persist pre-publication diagnostics are invalid")
+        elif self.operation == KernelOperation.LEDGER_APPEND:
+            append_codes = {
+                "ledger_append_run_missing",
+                "ledger_append_directory_invalid",
+                "ledger_append_ledger_invalid",
+                "ledger_append_root_unsupported",
+                "ledger_append_payload_invalid",
+                "ledger_append_size_exceeded",
+                "ledger_append_tip_mismatch",
+                "ledger_append_busy",
+                "ledger_append_insert_failed",
+                "ledger_append_commit_uncertain",
+                "ledger_append_postcondition_failed",
+            }
+            if any(item.code not in append_codes for item in self.diagnostics):
+                raise ValueError("ledger.append response has an invalid diagnostic")
+            if self.status == KernelResponseStatus.ACCEPTED:
+                if not self.mutation_performed or self.diagnostics:
+                    raise ValueError("accepted ledger.append responses must be committed")
+            elif self.mutation_performed:
+                if (
+                    self.status != KernelResponseStatus.ERROR
+                    or len(self.diagnostics) != 1
+                    or self.diagnostics[0].code
+                    not in {"ledger_append_commit_uncertain", "ledger_append_postcondition_failed"}
+                ):
+                    raise ValueError("ledger.append mutation flag is invalid")
+            elif len(self.diagnostics) != 1 or self.diagnostics[0].code in {
+                "ledger_append_commit_uncertain",
+                "ledger_append_postcondition_failed",
+            }:
+                raise ValueError("ledger.append rejection diagnostics are invalid")
         elif self.mutation_performed:
             raise ValueError("kernel responses must not report mutations")
         if self.status != KernelResponseStatus.ACCEPTED:
@@ -954,6 +1071,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.CHECKPOINT_VERIFY: KernelCheckpointVerifyResult,
             KernelOperation.REPLAY_VERIFY_CORE: KernelReplayVerifyCoreResult,
             KernelOperation.ARTIFACT_PERSIST: KernelArtifactPersistResult,
+            KernelOperation.LEDGER_APPEND: KernelLedgerAppendResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -1002,6 +1120,9 @@ __all__ = [
     "KernelArtifactPersistPayload",
     "KernelArtifactPersistRequest",
     "KernelArtifactPersistResult",
+    "KernelLedgerAppendPayload",
+    "KernelLedgerAppendRequest",
+    "KernelLedgerAppendResult",
     "KernelAutonomousCheckpointStage",
     "KernelAutonomousCheckpointVerificationStatus",
     "KernelAutonomousPaperCheckpoint",

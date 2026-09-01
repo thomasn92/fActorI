@@ -18,7 +18,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/creative-mutation-candidate.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/creative-mutation-candidate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One tournament-driven scientific mutation candidate.",
@@ -152,7 +152,7 @@
   ],
   "title": "CreativeMutationCandidate",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.CreativeMutationCandidate",
   "x-factori-verification-evidence": false
 }

@@ -1,9 +1,8 @@
-//! Read-only protocol and canonical-hash boundary for the future Rust kernel.
+//! Protocol and canonical-hash boundary for the future Rust kernel.
 //!
-//! This crate opens persisted artifacts and the SQLite ledger read-only for integrity checks. It
-//! deliberately does not construct evidence capabilities, execute processes, mutate run state, or
-//! make claim-authority decisions. Those operations require the contract review described in
-//! `RUST_KERNEL_CONTRACT.md`.
+//! The kernel keeps evidence and authority boundaries explicit. The only mutating operation is
+//! the transactional, artifact-free `ledger.append` contract; all other operations remain
+//! read-only integrity checks.
 
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
@@ -16,9 +15,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{params, Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.87.0";
+pub const PROTOCOL_VERSION: &str = "0.88.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -125,6 +124,18 @@ struct ArtifactPersistPayload {
     #[serde(default)]
     filename_stem_optional: Option<String>,
     overwrite_policy: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LedgerAppendPayload {
+    run_id: String,
+    expected_tip_hash: String,
+    action_type: String,
+    payload: Map<String, Value>,
+    #[serde(default)]
+    candidate_id_optional: Option<String>,
+    timestamp: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -492,6 +503,8 @@ pub enum KernelOperation {
     ReplayVerifyCore,
     #[serde(rename = "artifact.persist")]
     ArtifactPersist,
+    #[serde(rename = "ledger.append")]
+    LedgerAppend,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -674,7 +687,9 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
     let request_id = request.request_id;
     let operation = request.operation;
     let mode = request.mode;
-    if request.protocol_version != PROTOCOL_VERSION {
+    // Keep one-version compatibility for previously generated shadow requests while all
+    // responses and newly generated requests use the current protocol.
+    if request.protocol_version != PROTOCOL_VERSION && request.protocol_version != "0.87.0" {
         return rejected_response(
             request_id,
             operation,
@@ -892,6 +907,41 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::LedgerAppend => {
+            let Some(root) = project_root else {
+                return rejected_response(
+                    request_id,
+                    KernelOperation::LedgerAppend,
+                    mode,
+                    "ledger_append_run_missing",
+                    "ledger append requires a configured project root".to_owned(),
+                    Some("payload.run_id"),
+                );
+            };
+            match append_ledger_payload(&request.payload, root) {
+                Ok(result) => KernelResponse {
+                    protocol_version: PROTOCOL_VERSION,
+                    kernel_version: KERNEL_VERSION,
+                    request_id,
+                    operation: KernelOperation::LedgerAppend,
+                    mode,
+                    status: KernelResponseStatus::Accepted,
+                    result,
+                    diagnostics: Vec::new(),
+                    mutation_performed: true,
+                },
+                Err(error) => rejected_or_error_response_with_mutation(
+                    request_id,
+                    KernelOperation::LedgerAppend,
+                    mode,
+                    error.status,
+                    error.code,
+                    error.message,
+                    error.path,
+                    error.mutation_performed,
+                ),
+            }
+        }
     }
 }
 
@@ -1044,6 +1094,10 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
             // Operation-specific validation is performed in the mutating handler so it can
             // return the frozen artifact_persist_* diagnostic and mutation semantics.
         }
+        KernelOperation::LedgerAppend => {
+            // Operation-specific validation is performed in the mutating handler so it can
+            // return the frozen ledger_append_* diagnostic and mutation semantics.
+        }
     }
     Ok(())
 }
@@ -1093,6 +1147,564 @@ fn validate_artifact_persist_payload_structure(payload: &Map<String, Value>) -> 
         return Err("serialized JSON payload exceeds 12 MiB".to_owned());
     }
     Ok(())
+}
+
+#[derive(Debug)]
+struct LedgerAppendFailure {
+    status: KernelResponseStatus,
+    code: &'static str,
+    message: String,
+    path: Option<&'static str>,
+    mutation_performed: bool,
+}
+
+fn ledger_append_failure(
+    code: &'static str,
+    message: impl Into<String>,
+    path: Option<&'static str>,
+) -> LedgerAppendFailure {
+    LedgerAppendFailure {
+        status: KernelResponseStatus::Rejected,
+        code,
+        message: message.into(),
+        path,
+        mutation_performed: false,
+    }
+}
+
+fn validate_utc_timestamp(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() < 20
+        || bytes.len() > 27
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || *bytes.last().unwrap_or(&0) != b'Z'
+    {
+        return false;
+    }
+    let digit = |b: u8| b.is_ascii_digit();
+    for &idx in &[0usize, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18] {
+        if !digit(bytes[idx]) {
+            return false;
+        }
+    }
+    if bytes.len() > 20 {
+        let fraction = &bytes[20..bytes.len() - 1];
+        if bytes[19] != b'.'
+            || fraction.is_empty()
+            || fraction.len() > 6
+            || !fraction.iter().all(|b| digit(*b))
+        {
+            return false;
+        }
+    }
+    let num =
+        |start: usize, len: usize| -> u32 { value[start..start + len].parse().unwrap_or(999) };
+    let year = num(0, 4);
+    let month = num(5, 2);
+    let day = num(8, 2);
+    let hour = num(11, 2);
+    let minute = num(14, 2);
+    let second = num(17, 2);
+    if year == 0 || !(1..=12).contains(&month) || hour > 23 || minute > 59 || second > 59 {
+        return false;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    (1..=days[(month - 1) as usize]).contains(&day)
+}
+
+fn append_ledger_payload(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+) -> Result<Map<String, Value>, LedgerAppendFailure> {
+    let request = serde_json::from_value::<LedgerAppendPayload>(Value::Object(payload.clone()))
+        .map_err(|error| {
+            ledger_append_failure(
+                "ledger_append_payload_invalid",
+                error.to_string(),
+                Some("payload"),
+            )
+        })?;
+    if !is_safe_segment(&request.run_id)
+        || !is_sha256_hex(&request.expected_tip_hash)
+        || request.action_type == "InitRun"
+        || !is_valid_action_type(&request.action_type)
+        || request
+            .candidate_id_optional
+            .as_deref()
+            .is_some_and(|v| !is_safe_segment(v))
+    {
+        return Err(ledger_append_failure(
+            "ledger_append_payload_invalid",
+            "invalid run, tip, action, or candidate identifier",
+            Some("payload"),
+        ));
+    }
+    if !validate_utc_timestamp(&request.timestamp) {
+        return Err(ledger_append_failure(
+            "ledger_append_payload_invalid",
+            "timestamp must be a real ASCII UTC timestamp",
+            Some("payload.timestamp"),
+        ));
+    }
+    let payload_json = canonical_json(&Value::Object(request.payload.clone())).map_err(|e| {
+        ledger_append_failure(
+            "ledger_append_payload_invalid",
+            e.to_string(),
+            Some("payload.payload"),
+        )
+    })?;
+    if payload_json.len() > 4 * 1024 * 1024 {
+        return Err(ledger_append_failure(
+            "ledger_append_size_exceeded",
+            "serialized payload exceeds 4 MiB",
+            Some("payload.payload"),
+        ));
+    }
+    let root_meta = fs::symlink_metadata(project_root).map_err(|_| {
+        ledger_append_failure(
+            "ledger_append_run_missing",
+            "project root does not exist",
+            Some("payload.run_id"),
+        )
+    })?;
+    if !root_meta.is_dir() || root_meta.file_type().is_symlink() {
+        return Err(ledger_append_failure(
+            "ledger_append_root_unsupported",
+            "project root must be a real directory",
+            Some("payload.run_id"),
+        ));
+    }
+    let runs = project_root.join("runs");
+    let run = runs.join(&request.run_id);
+    for path in [&runs, &run] {
+        let meta = fs::symlink_metadata(path).map_err(|_| {
+            ledger_append_failure(
+                "ledger_append_run_missing",
+                "run directory is missing",
+                Some("payload.run_id"),
+            )
+        })?;
+        if !meta.is_dir() || meta.file_type().is_symlink() {
+            return Err(ledger_append_failure(
+                "ledger_append_directory_invalid",
+                "run directory must be a real directory",
+                Some("payload.run_id"),
+            ));
+        }
+    }
+    let ledger_path = run.join("ledger.sqlite");
+    let ledger_meta = fs::symlink_metadata(&ledger_path).map_err(|_| {
+        ledger_append_failure(
+            "ledger_append_ledger_invalid",
+            "ledger.sqlite is missing",
+            Some("payload.run_id"),
+        )
+    })?;
+    if !ledger_meta.is_file() || ledger_meta.file_type().is_symlink() {
+        return Err(ledger_append_failure(
+            "ledger_append_ledger_invalid",
+            "ledger.sqlite must be a regular file",
+            Some("payload.run_id"),
+        ));
+    }
+    for suffix in ["-journal", "-wal", "-shm"] {
+        if fs::symlink_metadata(run.join(format!("ledger.sqlite{suffix}"))).is_ok() {
+            return Err(ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                "ledger auxiliary files are not allowed",
+                Some("payload.run_id"),
+            ));
+        }
+    }
+    let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let conn = Connection::open_with_flags(&ledger_path, flags).map_err(|e| {
+        ledger_append_failure(
+            "ledger_append_ledger_invalid",
+            e.to_string(),
+            Some("payload.run_id"),
+        )
+    })?;
+    conn.execute_batch("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=0; PRAGMA synchronous=FULL;")
+        .map_err(|e| {
+            ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                e.to_string(),
+                Some("payload.run_id"),
+            )
+        })?;
+    match conn.execute_batch("BEGIN IMMEDIATE") {
+        Ok(()) => {}
+        Err(e) if matches!(e, rusqlite::Error::SqliteFailure(ref err, _) if err.code == rusqlite::ffi::ErrorCode::DatabaseBusy || err.code == rusqlite::ffi::ErrorCode::DatabaseLocked) => {
+            return Err(ledger_append_failure(
+                "ledger_append_busy",
+                "ledger is busy",
+                Some("payload.expected_tip_hash"),
+            ))
+        }
+        Err(e) => {
+            return Err(ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                e.to_string(),
+                Some("payload.run_id"),
+            ))
+        }
+    }
+    let result = (|| {
+        let schema = conn
+            .prepare("PRAGMA table_info(commits)")
+            .and_then(|mut s| {
+                s.query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
+                        r.get::<_, i64>(5)?,
+                    ))
+                })
+                .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            })
+            .map_err(|e| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    e.to_string(),
+                    Some("payload.run_id"),
+                )
+            })?;
+        let expected = [
+            ("commit_hash", "TEXT", 0, 1),
+            ("parent_hash", "TEXT", 0, 0),
+            ("run_id", "TEXT", 1, 0),
+            ("candidate_id", "TEXT", 0, 0),
+            ("action_type", "TEXT", 1, 0),
+            ("payload_json", "TEXT", 1, 0),
+            ("artifact_refs_json", "TEXT", 1, 0),
+            ("timestamp", "TEXT", 1, 0),
+        ];
+        let schema_ok = schema.len() == expected.len()
+            && schema.iter().zip(expected.iter()).all(|(got, want)| {
+                got.0 == want.0 && got.1 == want.1 && got.2 == want.2 && got.3 == want.3
+            });
+        if !schema_ok {
+            return Err(ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                "ledger schema is not the supported append-only schema",
+                Some("payload.run_id"),
+            ));
+        }
+        let mut triggers = conn
+            .prepare(
+                "SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='commits'",
+            )
+            .map_err(|e| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    e.to_string(),
+                    Some("payload.run_id"),
+                )
+            })?;
+        let trigger_rows = triggers
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+            })
+            .map_err(|e| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    e.to_string(),
+                    Some("payload.run_id"),
+                )
+            })?;
+        let trigger_rows = trigger_rows.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                e.to_string(),
+                Some("payload.run_id"),
+            )
+        })?;
+        for (name, sql) in [
+            ("commits_no_update", "before update"),
+            ("commits_no_delete", "before delete"),
+        ] {
+            if !trigger_rows.iter().any(|(actual, definition)| {
+                actual == name
+                    && definition.as_deref().is_some_and(|text| {
+                        text.to_ascii_lowercase().contains(sql) && text.contains("RAISE")
+                    })
+            }) {
+                return Err(ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    "ledger append-only triggers are missing",
+                    Some("payload.run_id"),
+                ));
+            }
+        }
+        let integrity: String = conn
+            .query_row("PRAGMA integrity_check", [], |r| r.get(0))
+            .map_err(|e| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    e.to_string(),
+                    Some("payload.run_id"),
+                )
+            })?;
+        if integrity != "ok" {
+            return Err(ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                "ledger integrity check failed",
+                Some("payload.run_id"),
+            ));
+        }
+        let mut fk = conn.prepare("PRAGMA foreign_key_check").map_err(|e| {
+            ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                e.to_string(),
+                Some("payload.run_id"),
+            )
+        })?;
+        let mut fk_rows = fk.query([]).map_err(|e| {
+            ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                e.to_string(),
+                Some("payload.run_id"),
+            )
+        })?;
+        if fk_rows
+            .next()
+            .map_err(|e| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    e.to_string(),
+                    Some("payload.run_id"),
+                )
+            })?
+            .is_some()
+        {
+            return Err(ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                "ledger foreign-key check failed",
+                Some("payload.run_id"),
+            ));
+        }
+        let mut stmt = conn.prepare("SELECT commit_hash,parent_hash,run_id,candidate_id,action_type,payload_json,artifact_refs_json,timestamp FROM commits ORDER BY rowid").map_err(|e| ledger_append_failure("ledger_append_ledger_invalid", e.to_string(), Some("payload.run_id")))?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(WireLedgerCommit {
+                    commit_hash: r.get(0)?,
+                    parent_hash: r.get(1)?,
+                    run_id: r.get(2)?,
+                    candidate_id: r.get(3)?,
+                    action_type: r.get(4)?,
+                    payload: parse_json_without_duplicate_keys(&r.get::<_, String>(5)?)
+                        .ok()
+                        .and_then(|v| v.as_object().cloned())
+                        .unwrap_or_default(),
+                    artifact_refs: parse_json_without_duplicate_keys(&r.get::<_, String>(6)?)
+                        .ok()
+                        .and_then(|v| v.as_array().cloned())
+                        .unwrap_or_default(),
+                    timestamp: r.get(7)?,
+                })
+            })
+            .map_err(|e| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    e.to_string(),
+                    Some("payload.run_id"),
+                )
+            })?;
+        let commits = rows.collect::<Result<Vec<_>, _>>().map_err(|e| {
+            ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                e.to_string(),
+                Some("payload.run_id"),
+            )
+        })?;
+        if commits.is_empty() || commits.iter().any(|c| c.run_id != request.run_id) {
+            return Err(ledger_append_failure(
+                "ledger_append_ledger_invalid",
+                "ledger must contain one non-empty history for this run",
+                Some("payload.run_id"),
+            ));
+        }
+        let ledger = LedgerVerifyPayload {
+            run_id: request.run_id.clone(),
+            commits,
+        };
+        verify_ledger(&ledger).map_err(|(_, m, _)| {
+            ledger_append_failure("ledger_append_ledger_invalid", m, Some("payload.run_id"))
+        })?;
+        let previous = ledger
+            .commits
+            .last()
+            .map(|c| c.commit_hash.clone())
+            .ok_or_else(|| {
+                ledger_append_failure(
+                    "ledger_append_ledger_invalid",
+                    "ledger is empty",
+                    Some("payload.run_id"),
+                )
+            })?;
+        if previous != request.expected_tip_hash {
+            return Err(ledger_append_failure(
+                "ledger_append_tip_mismatch",
+                "expected tip does not match current ledger tip",
+                Some("payload.expected_tip_hash"),
+            ));
+        }
+        let candidate = WireLedgerCommit {
+            commit_hash: String::new(),
+            parent_hash: Some(previous.clone()),
+            run_id: request.run_id.clone(),
+            candidate_id: request.candidate_id_optional.clone(),
+            action_type: request.action_type.clone(),
+            payload: request.payload.clone(),
+            artifact_refs: Vec::new(),
+            timestamp: request.timestamp.clone(),
+        };
+        let new_hash = compute_wire_commit_hash(&candidate).map_err(|e| {
+            ledger_append_failure("ledger_append_insert_failed", e, Some("payload"))
+        })?;
+        conn.execute("INSERT INTO commits (commit_hash,parent_hash,run_id,candidate_id,action_type,payload_json,artifact_refs_json,timestamp) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)", params![new_hash, previous, request.run_id, request.candidate_id_optional, request.action_type, payload_json, "[]", request.timestamp]).map_err(|e| ledger_append_failure("ledger_append_insert_failed", e.to_string(), Some("payload")))?;
+        let row: (String, Option<String>, String, Option<String>, String, String, String, String) = conn.query_row("SELECT commit_hash,parent_hash,run_id,candidate_id,action_type,payload_json,artifact_refs_json,timestamp FROM commits WHERE commit_hash=?1", [&new_hash], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))).map_err(|e| ledger_append_failure("ledger_append_insert_failed", e.to_string(), Some("payload")))?;
+        if row
+            != (
+                new_hash.clone(),
+                Some(previous.clone()),
+                request.run_id.clone(),
+                request.candidate_id_optional.clone(),
+                request.action_type.clone(),
+                payload_json.clone(),
+                "[]".to_owned(),
+                request.timestamp.clone(),
+            )
+        {
+            return Err(ledger_append_failure(
+                "ledger_append_insert_failed",
+                "inserted ledger row did not round-trip exactly",
+                Some("payload"),
+            ));
+        }
+        Ok((ledger, new_hash))
+    })();
+    let (old, new_hash) = match result {
+        Ok(v) => v,
+        Err(error) => {
+            let _ = conn.execute_batch("ROLLBACK");
+            return Err(error);
+        }
+    };
+    conn.execute_batch("COMMIT")
+        .map_err(|e| LedgerAppendFailure {
+            status: KernelResponseStatus::Error,
+            code: "ledger_append_commit_uncertain",
+            message: e.to_string(),
+            path: Some("payload"),
+            mutation_performed: true,
+        })?;
+    drop(conn);
+    for suffix in ["-journal", "-wal", "-shm"] {
+        if fs::symlink_metadata(run.join(format!("ledger.sqlite{suffix}"))).is_ok() {
+            return Err(LedgerAppendFailure {
+                status: KernelResponseStatus::Error,
+                code: "ledger_append_postcondition_failed",
+                message: "ledger auxiliary file remained after commit".to_owned(),
+                path: Some("payload.run_id"),
+                mutation_performed: true,
+            });
+        }
+    }
+    let reopened =
+        load_persisted_ledger(project_root, &request.run_id).map_err(|(_, message, _)| {
+            LedgerAppendFailure {
+                status: KernelResponseStatus::Error,
+                code: "ledger_append_postcondition_failed",
+                message,
+                path: Some("payload.run_id"),
+                mutation_performed: true,
+            }
+        })?;
+    verify_ledger(&reopened).map_err(|(_, message, _)| LedgerAppendFailure {
+        status: KernelResponseStatus::Error,
+        code: "ledger_append_postcondition_failed",
+        message,
+        path: Some("payload.run_id"),
+        mutation_performed: true,
+    })?;
+    if reopened.commits.len() != old.commits.len() + 1
+        || reopened.commits[..old.commits.len()]
+            .iter()
+            .map(|c| &c.commit_hash)
+            .collect::<Vec<_>>()
+            != old
+                .commits
+                .iter()
+                .map(|c| &c.commit_hash)
+                .collect::<Vec<_>>()
+        || reopened.commits.last().map(|c| c.commit_hash.as_str()) != Some(new_hash.as_str())
+    {
+        return Err(LedgerAppendFailure {
+            status: KernelResponseStatus::Error,
+            code: "ledger_append_postcondition_failed",
+            message: "ledger prefix postcondition failed".to_owned(),
+            path: Some("payload.run_id"),
+            mutation_performed: true,
+        });
+    }
+    let commit = map_value([
+        ("commit_hash", Value::String(new_hash.clone())),
+        (
+            "parent_hash",
+            Value::String(old.commits.last().unwrap().commit_hash.clone()),
+        ),
+        ("run_id", Value::String(request.run_id.clone())),
+        (
+            "candidate_id",
+            request
+                .candidate_id_optional
+                .clone()
+                .map_or(Value::Null, Value::String),
+        ),
+        ("action_type", Value::String(request.action_type.clone())),
+        ("payload", Value::Object(request.payload.clone())),
+        ("artifact_refs", Value::Array(Vec::new())),
+        ("timestamp", Value::String(request.timestamp.clone())),
+    ]);
+    Ok(map_value([
+        ("commit", Value::Object(commit)),
+        (
+            "previous_tip_hash",
+            Value::String(old.commits.last().unwrap().commit_hash.clone()),
+        ),
+        ("new_tip_hash", Value::String(new_hash)),
+        (
+            "commit_count_before",
+            Value::Number((old.commits.len() as u64).into()),
+        ),
+        (
+            "commit_count_after",
+            Value::Number(((old.commits.len() + 1) as u64).into()),
+        ),
+        ("appended", Value::Bool(true)),
+        ("linked_artifact_count", Value::Number(0.into())),
+        ("authority_granted", Value::Bool(false)),
+    ]))
 }
 
 #[derive(Debug)]
@@ -5802,6 +6414,96 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             require_sha256_field(&response.result, "sha256")
         }
+        KernelOperation::LedgerAppend => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "commit",
+                    "previous_tip_hash",
+                    "new_tip_hash",
+                    "commit_count_before",
+                    "commit_count_after",
+                    "appended",
+                    "linked_artifact_count",
+                    "authority_granted",
+                ],
+            )?;
+            for key in ["previous_tip_hash", "new_tip_hash"] {
+                if response
+                    .result
+                    .get(key)
+                    .and_then(Value::as_str)
+                    .is_none_or(|v| !is_sha256_hex(v))
+                {
+                    return Err(format!("{key} must be a SHA-256 hash"));
+                }
+            }
+            let before = response
+                .result
+                .get("commit_count_before")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| "commit_count_before must be an integer".to_owned())?;
+            let after = response
+                .result
+                .get("commit_count_after")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| "commit_count_after must be an integer".to_owned())?;
+            if before == 0
+                || after != before + 1
+                || response.result.get("appended") != Some(&Value::Bool(true))
+                || response.result.get("linked_artifact_count") != Some(&Value::Number(0.into()))
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("ledger.append result flags are invalid".to_owned());
+            }
+            let commit = response
+                .result
+                .get("commit")
+                .and_then(Value::as_object)
+                .ok_or_else(|| "commit must be an object".to_owned())?;
+            require_exact_keys(
+                commit,
+                &[
+                    "commit_hash",
+                    "parent_hash",
+                    "run_id",
+                    "candidate_id",
+                    "action_type",
+                    "payload",
+                    "artifact_refs",
+                    "timestamp",
+                ],
+            )?;
+            if commit.get("commit_hash").and_then(Value::as_str)
+                != response.result.get("new_tip_hash").and_then(Value::as_str)
+                || commit.get("parent_hash").and_then(Value::as_str)
+                    != response
+                        .result
+                        .get("previous_tip_hash")
+                        .and_then(Value::as_str)
+                || !commit.get("payload").is_some_and(Value::is_object)
+                || commit.get("artifact_refs") != Some(&Value::Array(Vec::new()))
+                || commit.get("authority_granted").is_some()
+            {
+                return Err("ledger.append commit fields are invalid".to_owned());
+            }
+            if commit
+                .get("action_type")
+                .and_then(Value::as_str)
+                .is_none_or(|v| !is_valid_action_type(v) || v == "InitRun")
+            {
+                return Err("ledger.append action_type is invalid".to_owned());
+            }
+            let wire = serde_json::from_value::<WireLedgerCommit>(Value::Object(commit.clone()))
+                .map_err(|error| format!("ledger.append commit is invalid: {error}"))?;
+            validate_wire_commit_structure(&wire)?;
+            if compute_wire_commit_hash(&wire).map_err(|error| error.to_owned())?
+                != wire.commit_hash
+            {
+                return Err("ledger.append commit hash does not match its fields".to_owned());
+            }
+            Ok(())
+        }
         KernelOperation::ArtifactPersist => {
             require_exact_keys(
                 &response.result,
@@ -6697,7 +7399,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.87.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.88.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -6723,7 +7425,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.87.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.87.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.88.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.88.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -6742,7 +7444,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.87.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.88.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));
@@ -6868,7 +7570,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.87.0",
+            "protocol_version": "0.88.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

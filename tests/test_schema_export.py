@@ -211,8 +211,9 @@ def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> Non
         "claim.resolve",
         "checkpoint.verify",
         "replay.verify_core",
+        "ledger.append",
     }
-    assert len(schema["oneOf"]) == 10
+    assert len(schema["oneOf"]) == 11
 
 
 def test_check_passes_after_export_and_detects_stale_schema(tmp_path: Path) -> None:

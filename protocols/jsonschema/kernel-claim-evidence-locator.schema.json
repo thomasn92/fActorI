@@ -110,7 +110,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/kernel-claim-evidence-locator.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/kernel-claim-evidence-locator.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Persisted evidence locator revalidated during claim resolution.",
@@ -145,7 +145,7 @@
   ],
   "title": "KernelClaimEvidenceLocator",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.KernelClaimEvidenceLocator",
   "x-factori-verification-evidence": false
 }

@@ -63,6 +63,167 @@
       "title": "ArtifactType",
       "type": "string"
     },
+    "ControllerActionType": {
+      "description": "Current deterministic action types.\n\nTODO: Extend this enum as the real controller modules are introduced.",
+      "enum": [
+        "InitRun",
+        "AddCandidate",
+        "WriteArtifact",
+        "ValidateRun",
+        "ControllerAction",
+        "StageAStarted",
+        "StageALLMCandidatesProposed",
+        "Stage0OpportunityDiscovery",
+        "Stage0Skipped",
+        "StageADataGateDeferred",
+        "StageACandidateGenerated",
+        "StageAScoreComputed",
+        "StageADuplicatePruned",
+        "StageAGatePruned",
+        "StageASurvivorsSelected",
+        "StageAReportWritten",
+        "QuestionerCheck",
+        "RetrievalAdequacyDemo",
+        "RetrievalRunRecorded",
+        "StagnationDemo",
+        "StageBStarted",
+        "StageBChildGenerated",
+        "StageBLLMReviewRecorded",
+        "StageBReviewersRun",
+        "StageBDisagreementResolved",
+        "StageBBridgeChecked",
+        "StageBBridgeRepaired",
+        "StageBBaselineChecked",
+        "StageBRedteamChecked",
+        "StageBQuestionerRouted",
+        "StageBScoreComputed",
+        "StageBGatePruned",
+        "StageBSurvivorsSelected",
+        "StageBReportWritten",
+        "StageCSelectionStarted",
+        "StageCRedteamAggregated",
+        "StageCUncertaintyComputed",
+        "StageCScoreComputed",
+        "StageCSelectionDecided",
+        "StageCBudgetSelected",
+        "StageCSelectionReportWritten",
+        "StageCVerificationStarted",
+        "StageCProofValidated",
+        "StageCSyntheticExperimentRun",
+        "StageCNoDataValidated",
+        "StageCVerificationDecided",
+        "StageCVerificationReportWritten",
+        "AbstractSynthesisStarted",
+        "AbstractModelProposed",
+        "AbstractionAttackRun",
+        "AbstractionReportWritten",
+        "FinalNucleusSelected",
+        "AbstractSynthesisReportWritten",
+        "ManuscriptPlanningStarted",
+        "ClaimTableBuilt",
+        "BlockedClaimsIdentified",
+        "ManuscriptPlanBuilt",
+        "ManuscriptPlanReportWritten",
+        "NarrativeContractWritten",
+        "PaperShapeCritiqueWritten",
+        "DraftSkeletonStarted",
+        "DraftSkeletonBuilt",
+        "ManuscriptChecklistBuilt",
+        "DraftSkeletonReportWritten",
+        "ManuscriptChecklistReportWritten",
+        "ResearchObjectPackagingStarted",
+        "ArtifactManifestWritten",
+        "LedgerSummaryWritten",
+        "BranchOutcomesWritten",
+        "ReproducibilityManifestWritten",
+        "ResearchObjectWritten",
+        "PaperAssemblyStarted",
+        "PaperSkeletonWritten",
+        "PaperAssemblyReportWritten",
+        "FinalAuditStarted",
+        "FinalAuditReportWritten",
+        "ReleaseGateDecided",
+        "ExportPreparationStarted",
+        "ProseGenerationContractWritten",
+        "LatexExportPlanWritten",
+        "ExportSectionMapWritten",
+        "ExportClaimMapWritten",
+        "ExportReadinessReportWritten",
+        "ExportBundleManifestWritten",
+        "ProseSectionDraftWritten",
+        "ManuscriptDraftWritten",
+        "CitationRegistryWritten",
+        "LatexExportWritten",
+        "PaperCriticReportWritten",
+        "PaperRevisionWritten",
+        "FullPaperGenerationWritten",
+        "FullPaperReleaseEvaluated",
+        "HumanReviewIngested",
+        "ProofArtifactIngested",
+        "ExperimentArtifactIngested",
+        "ClaimEvidenceMapWritten",
+        "EvidenceAwareRefreshWritten",
+        "HumanReviewReconciliationWritten",
+        "ReviewerChangeRequestsIngested",
+        "HumanReviewReconciliationIndexWritten",
+        "AutonomousEvidencePlanWritten",
+        "AutonomousPlanExecutionWritten",
+        "PlannedSpecExecutionWritten",
+        "PythonExperimentSandboxWritten",
+        "ExperimentGapRoutingWritten",
+        "AutonomousLoopWritten",
+        "GapAttemptHistoryWritten",
+        "GapStrategyDiversificationWritten",
+        "CapabilityEscalationWritten",
+        "FinalManuscriptRegenerated",
+        "FinalReleaseBundleAssembled",
+        "AutonomousPaperRunWritten",
+        "AutonomousPaperCheckpointWritten",
+        "AutonomousPaperResumeWritten",
+        "ScientificSubstrateBuilt",
+        "SubstrateExperimentRouted",
+        "SubstrateTournamentRun",
+        "CreativeMutationPlanWritten",
+        "CreativeMutationsApplied",
+        "MutationTournamentRun",
+        "CreativeSearchCycleWritten",
+        "CreativeSearchControllerWritten",
+        "GenerationMutationPlanWritten",
+        "GenerationMutationsApplied",
+        "OpportunityDiscoveryWritten",
+        "VarianceAugmentationWritten",
+        "VarianceAugmentationApplied",
+        "VarianceSubstratesPromoted",
+        "BranchRoutesWritten",
+        "RouteExecutionSpecsWritten",
+        "RouteExecutionRun",
+        "ProductionModeChecked",
+        "DomainMethodAtlasBuilt",
+        "AtlasScanWritten",
+        "DeepOpportunityDiscoveryWritten",
+        "LLMVarianceGenerationWritten",
+        "LLMIdeaTreeConstructionWritten",
+        "LLMSubstrateConstructionWritten",
+        "LLMRoutePlanningWritten",
+        "LLMExperimentCodeWritten",
+        "GeneratedExperimentExecutionWritten",
+        "HybridEvidencePackagesPlanned",
+        "HybridEvidencePackagesExecuted",
+        "ScientificCriticReviewsWritten",
+        "CrossPackageAdjudicationWritten",
+        "NucleusManuscriptPlanned",
+        "NucleusManuscriptSynthesized",
+        "NucleusManuscriptRevised",
+        "FinalPaperAssembled",
+        "FinalPaperVerified",
+        "FinalPaperRendered",
+        "FinalPaperBundleBuilt",
+        "LLMOrchestrationWritten",
+        "PipelineRunReportWritten"
+      ],
+      "title": "ControllerActionType",
+      "type": "string"
+    },
     "KernelArtifactPersistResult": {
       "additionalProperties": false,
       "description": "Accepted result for JSON artifact persistence; it grants no authority.",
@@ -499,6 +660,62 @@
       "title": "KernelEvidenceValidateBundleResult",
       "type": "object"
     },
+    "KernelLedgerAppendResult": {
+      "additionalProperties": false,
+      "description": "Accepted result for one artifact-free ledger append.",
+      "properties": {
+        "appended": {
+          "const": true,
+          "title": "Appended",
+          "type": "boolean"
+        },
+        "authority_granted": {
+          "const": false,
+          "title": "Authority Granted",
+          "type": "boolean"
+        },
+        "commit": {
+          "$ref": "#/$defs/LedgerCommit"
+        },
+        "commit_count_after": {
+          "minimum": 2,
+          "title": "Commit Count After",
+          "type": "integer"
+        },
+        "commit_count_before": {
+          "minimum": 1,
+          "title": "Commit Count Before",
+          "type": "integer"
+        },
+        "linked_artifact_count": {
+          "const": 0,
+          "title": "Linked Artifact Count",
+          "type": "integer"
+        },
+        "new_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "New Tip Hash",
+          "type": "string"
+        },
+        "previous_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Previous Tip Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit",
+        "previous_tip_hash",
+        "new_tip_hash",
+        "commit_count_before",
+        "commit_count_after",
+        "appended",
+        "linked_artifact_count",
+        "authority_granted"
+      ],
+      "title": "KernelLedgerAppendResult",
+      "type": "object"
+    },
     "KernelLedgerVerifyResult": {
       "additionalProperties": false,
       "description": "Result returned by ledger verification.",
@@ -574,7 +791,8 @@
         "claim.resolve",
         "checkpoint.verify",
         "replay.verify_core",
-        "artifact.persist"
+        "artifact.persist",
+        "ledger.append"
       ],
       "title": "KernelOperation",
       "type": "string"
@@ -721,6 +939,74 @@
       "title": "KernelResponseStatus",
       "type": "string"
     },
+    "LedgerCommit": {
+      "additionalProperties": false,
+      "description": "Immutable ledger commit.",
+      "properties": {
+        "action_type": {
+          "$ref": "#/$defs/ControllerActionType"
+        },
+        "artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Artifact Refs",
+          "type": "array"
+        },
+        "candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Id"
+        },
+        "commit_hash": {
+          "title": "Commit Hash",
+          "type": "string"
+        },
+        "parent_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Hash"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "minLength": 1,
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit_hash",
+        "run_id",
+        "action_type",
+        "timestamp"
+      ],
+      "title": "LedgerCommit",
+      "type": "object"
+    },
     "VerificationLabel": {
       "description": "Verification and epistemic labels required by the specification.",
       "enum": [
@@ -737,10 +1023,10 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/kernel-response-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/kernel-response-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Versioned response envelope for the read-only research kernel boundary.",
+  "description": "Versioned response envelope for the research kernel boundary.",
   "properties": {
     "diagnostics": {
       "items": {
@@ -808,6 +1094,9 @@
         },
         {
           "$ref": "#/$defs/KernelArtifactPersistResult"
+        },
+        {
+          "$ref": "#/$defs/KernelLedgerAppendResult"
         }
       ],
       "title": "Result"
@@ -829,7 +1118,7 @@
   ],
   "title": "KernelResponseEnvelope",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.KernelResponseEnvelope",
   "x-factori-verification-evidence": false
 }

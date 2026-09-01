@@ -24,7 +24,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/kernel-checkpoint-verify-payload.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/kernel-checkpoint-verify-payload.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Locator-only autonomous checkpoint-chain verification request.",
@@ -45,7 +45,7 @@
   ],
   "title": "KernelCheckpointVerifyPayload",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.KernelCheckpointVerifyPayload",
   "x-factori-verification-evidence": false
 }

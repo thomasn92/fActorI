@@ -448,7 +448,7 @@ from factori.schemas import (
 )
 from factori.stage_c_selection import StageCSelectionResult
 
-PROTOCOL_VERSION = "0.87.0"
+PROTOCOL_VERSION = "0.88.0"
 SCHEMA_FORMAT = "json-schema"
 PROTOCOL_SOURCE = "factori-pydantic-models"
 PROTOCOL_GENERATOR = "factori export-protocols"
@@ -523,12 +523,12 @@ PROTOCOL_DEFINITIONS: tuple[ProtocolDefinition, ...] = (
     ProtocolDefinition(
         "KernelRequestEnvelope",
         KernelRequestEnvelope,
-        "Versioned request envelope for the read-only research kernel boundary.",
+        "Versioned request envelope for the research kernel boundary.",
     ),
     ProtocolDefinition(
         "KernelResponseEnvelope",
         KernelResponseEnvelope,
-        "Versioned response envelope for the read-only research kernel boundary.",
+        "Versioned response envelope for the research kernel boundary.",
     ),
     ProtocolDefinition(
         "KernelEvidenceValidateBundlePayload",

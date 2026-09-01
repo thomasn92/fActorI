@@ -11,7 +11,7 @@ from typing import Any
 
 from factori.artifacts import ARTIFACT_DIRECTORY_BY_TYPE
 from factori.hashing import canonical_json, sha256_bytes, sha256_file, sha256_text
-from factori.ledger import LedgerError, ResearchLedger
+from factori.ledger import LedgerError, ResearchLedger, compute_commit_hash
 from factori.protocols import PROTOCOL_VERSION
 from factori.rerun_policy import RerunPolicy, validate_ledger_tip
 from factori.schemas import (
@@ -39,6 +39,9 @@ from factori.schemas import (
     KernelEvidenceClassifyResult,
     KernelEvidenceValidateBundleRequest,
     KernelEvidenceValidateBundleResult,
+    KernelLedgerAppendPayload,
+    KernelLedgerAppendRequest,
+    KernelLedgerAppendResult,
     KernelLedgerVerifyRequest,
     KernelLedgerVerifyResult,
     KernelMode,
@@ -316,6 +319,124 @@ def persist_json_artifact(
 
 
 persist_artifact = persist_json_artifact
+
+
+def append_ledger_commit(
+    run_id: str,
+    expected_tip_hash: str,
+    action_type: ControllerActionType,
+    payload: dict[str, Any],
+    *,
+    candidate_id_optional: str | None = None,
+    timestamp: str,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Append one artifact-free commit through the Rust kernel transaction boundary."""
+    root_path = Path(root).absolute()
+    request_payload = KernelLedgerAppendPayload(
+        run_id=run_id,
+        expected_tip_hash=expected_tip_hash,
+        action_type=action_type,
+        payload=payload,
+        candidate_id_optional=candidate_id_optional,
+        timestamp=timestamp,
+    )
+    # Hash and transmit the exact JSON representation that SQLite will persist.
+    normalized_payload = json.loads(canonical_json(request_payload.payload))
+    request_payload = request_payload.model_copy(update={"payload": normalized_payload})
+    run_path = root_path / "runs" / run_id
+    ledger_path = run_path / "ledger.sqlite"
+    before = _snapshot_run_state(root_path, run_id)
+    try:
+        ledger = ResearchLedger.open_existing(ledger_path)
+        old_commits = ledger.list_commits_read_only(run_id)
+        ledger.validate_snapshot(old_commits)
+    except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
+        raise KernelBridgeError(f"could not read persisted ledger: {exc}") from exc
+    if not old_commits:
+        raise KernelBridgeError("persisted ledger is empty")
+    expected_hash = compute_commit_hash(
+        parent_hash=expected_tip_hash,
+        run_id=run_id,
+        candidate_id=candidate_id_optional,
+        action_type=action_type,
+        payload=normalized_payload,
+        artifact_refs=[],
+        timestamp=timestamp,
+    )
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelLedgerAppendRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"ledger-append-{run_id}-{expected_hash[:12]}",
+        operation="ledger.append",
+        mode="DevelopmentCompatibility",
+        payload=request_payload,
+    )
+    response = _invoke_kernel(
+        request, binary=binary, root=root_path, timeout_seconds=timeout_seconds
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelLedgerAppendResult):
+            raise KernelBridgeError("ledger append response has the wrong result type")
+        expected_commit = {
+            "commit_hash": expected_hash,
+            "parent_hash": expected_tip_hash,
+            "run_id": run_id,
+            "candidate_id": candidate_id_optional,
+            "action_type": action_type.value,
+            "payload": normalized_payload,
+            "artifact_refs": [],
+            "timestamp": timestamp,
+        }
+        if (
+            result.previous_tip_hash != expected_tip_hash
+            or result.new_tip_hash != expected_hash
+            or result.commit_count_before != len(old_commits)
+            or result.commit_count_after != len(old_commits) + 1
+            or result.appended is not True
+            or result.linked_artifact_count != 0
+            or result.authority_granted is not False
+            or result.commit.model_dump(mode="json") != expected_commit
+            or not response.mutation_performed
+        ):
+            raise KernelBridgeError("Rust ledger append response does not match request")
+        try:
+            observed = ResearchLedger.open_existing(ledger_path).list_commits_read_only(run_id)
+            ResearchLedger.validate_snapshot(observed)
+        except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
+            raise KernelBridgeError(f"ledger append postcondition failed: {exc}") from exc
+        if (
+            len(observed) != len(old_commits) + 1
+            or [c.model_dump(mode="json") for c in observed[:-1]]
+            != [c.model_dump(mode="json") for c in old_commits]
+            or observed[-1].model_dump(mode="json") != expected_commit
+        ):
+            raise KernelBridgeError("ledger append changed the existing ledger prefix")
+        after = _snapshot_run_state(root_path, run_id)
+        ledger_key = ledger_path.relative_to(root_path)
+        if (
+            any(after.get(path) != digest for path, digest in before.items() if path != ledger_key)
+            or set(after) - set(before)
+            or any(path.name.startswith("ledger.sqlite-") for path in after)
+        ):
+            raise KernelBridgeError("ledger append changed unexpected run state")
+    elif response.mutation_performed:
+        raise KernelBridgeError("ledger append failed after mutation; inspect run state")
+    else:
+        after = _snapshot_run_state(root_path, run_id)
+        if after != before:
+            raise KernelBridgeError("rejected ledger append changed run state")
+    return response
+
+
+append_ledger = append_ledger_commit
 
 
 def _snapshot_run_state(root: Path, run_id: str) -> dict[Path, str]:
@@ -851,6 +972,7 @@ def _invoke_kernel(
         | KernelCheckpointVerifyRequest
         | KernelReplayVerifyCoreRequest
         | KernelArtifactPersistRequest
+        | KernelLedgerAppendRequest
     ),
     *,
     binary: Path,
@@ -891,6 +1013,8 @@ __all__ = [
     "KernelBridgeError",
     "persist_json_artifact",
     "persist_artifact",
+    "append_ledger_commit",
+    "append_ledger",
     "classify_persisted_artifact",
     "verify_persisted_autonomous_checkpoints",
     "verify_persisted_replay_core",

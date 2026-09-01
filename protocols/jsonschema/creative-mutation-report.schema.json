@@ -152,7 +152,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/creative-mutation-report.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/creative-mutation-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only report for applied creative mutations.",
@@ -286,7 +286,7 @@
   ],
   "title": "CreativeMutationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.CreativeMutationReport",
   "x-factori-verification-evidence": false
 }

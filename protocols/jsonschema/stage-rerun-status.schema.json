@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.87.0/stage-rerun-status.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/stage-rerun-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Stage rerun decision status enum.",
   "enum": [
@@ -12,7 +12,7 @@
   ],
   "title": "StageRerunStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.StageRerunStatus",
   "x-factori-verification-evidence": false
 }

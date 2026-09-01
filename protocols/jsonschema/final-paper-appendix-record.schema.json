@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.87.0/final-paper-appendix-record.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/final-paper-appendix-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One flexible appendix role and its supporting context artifacts.",
@@ -79,7 +79,7 @@
   ],
   "title": "FinalPaperAppendixRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.FinalPaperAppendixRecord",
   "x-factori-verification-evidence": false
 }

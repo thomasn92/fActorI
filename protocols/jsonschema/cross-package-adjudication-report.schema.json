@@ -729,7 +729,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.87.0/cross-package-adjudication-report.schema.json",
+  "$id": "https://schemas.factori.local/0.88.0/cross-package-adjudication-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only scientific critic ensemble and cross-package adjudication report.",
@@ -880,7 +880,7 @@
   ],
   "title": "CrossPackageAdjudicationReport",
   "type": "object",
-  "x-factori-protocol-version": "0.87.0",
+  "x-factori-protocol-version": "0.88.0",
   "x-factori-source-model": "factori.schemas.CrossPackageAdjudicationReport",
   "x-factori-verification-evidence": false
 }
