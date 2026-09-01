@@ -202,6 +202,7 @@ def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> Non
     assert schema["discriminator"]["propertyName"] == "operation"
     assert set(schema["discriminator"]["mapping"]) == {
         "hash.canonical_json",
+        "artifact.persist",
         "artifact.verify",
         "ledger.verify",
         "protocol.validate",
@@ -211,7 +212,7 @@ def test_kernel_request_schema_exposes_discriminated_operation_payloads() -> Non
         "checkpoint.verify",
         "replay.verify_core",
     }
-    assert len(schema["oneOf"]) == 9
+    assert len(schema["oneOf"]) == 10
 
 
 def test_check_passes_after_export_and_detects_stale_schema(tmp_path: Path) -> None:

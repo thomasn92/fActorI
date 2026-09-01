@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, RootModel, field_validator, model_validator
 
+from factori.hashing import to_jsonable
 from factori.schemas.artifacts import ArtifactRef, LedgerCommit
 from factori.schemas.base import HASH_RE, StrictModel
 from factori.schemas.enums import ArtifactType, VerificationLabel
@@ -78,6 +80,40 @@ class KernelEvidenceClassifyPayload(StrictModel):
 
 
 _KERNEL_IDENTIFIER_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+_KERNEL_ARTIFACT_DIRECTORY_BY_TYPE = {
+    ArtifactType.CANDIDATE: "candidates",
+    ArtifactType.SCORE: "scores",
+    ArtifactType.REPORT: "reports",
+    ArtifactType.LITERATURE: "literature",
+    ArtifactType.LEAN: "lean",
+    ArtifactType.EXPERIMENT: "experiments",
+    ArtifactType.LOG: "logs",
+    ArtifactType.LATEX: "latex",
+}
+_KERNEL_FORBIDDEN_AUTHORITY_TRUE = {
+    "accepted_for_publication",
+    "accepted_paper",
+    "certifies_scientific_validity",
+    "creates_scientific_validation",
+    "human_approval_granted",
+    "human_approved",
+    "implies_publication_readiness",
+    "novelty_proven",
+    "publication_ready",
+}
+
+
+def _contains_forbidden_kernel_authority(item: Any) -> bool:
+    if isinstance(item, dict):
+        return any(
+            (key in _KERNEL_FORBIDDEN_AUTHORITY_TRUE and child is True)
+            or _contains_forbidden_kernel_authority(child)
+            for key, child in item.items()
+        )
+    if isinstance(item, list):
+        return any(_contains_forbidden_kernel_authority(child) for child in item)
+    return item in {"ExperimentVerified", "RealDataExperimentVerified"}
+
 
 KernelAutonomousCheckpointStage = Literal[
     "base_generation",
@@ -310,32 +346,37 @@ class KernelArtifactPersistPayload(StrictModel):
                 raise ValueError("metadata keys must be at most 128 UTF-8 bytes")
             if key in {"format", "producer", "is_verification_evidence"}:
                 raise ValueError(f"metadata key is kernel-controlled: {key}")
-        forbidden_true = {
-            "accepted_for_publication",
-            "accepted_paper",
-            "certifies_scientific_validity",
-            "creates_scientific_validation",
-            "human_approval_granted",
-            "human_approved",
-            "implies_publication_readiness",
-            "novelty_proven",
-            "publication_ready",
-        }
-
-        def contains_forbidden(item: Any) -> bool:
-            if isinstance(item, dict):
-                return any(
-                    (key in forbidden_true and child is True)
-                    or contains_forbidden(child)
-                    for key, child in item.items()
-                )
-            if isinstance(item, list):
-                return any(contains_forbidden(child) for child in item)
-            return item in {"ExperimentVerified", "RealDataExperimentVerified"}
-
-        if contains_forbidden(value):
+        if _contains_forbidden_kernel_authority(value):
             raise ValueError("metadata contains forbidden authority values")
         return value
+
+    @model_validator(mode="after")
+    def validate_serialized_bounds(self) -> KernelArtifactPersistPayload:
+        try:
+            metadata_json = json.dumps(
+                to_jsonable(self.metadata),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            payload_json = (
+                json.dumps(
+                    to_jsonable(self.json_value),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+                + "\n"
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"artifact persistence values must be valid JSON: {exc}") from exc
+        if len(metadata_json) > 64 * 1024:
+            raise ValueError("metadata exceeds 64 KiB serialized size")
+        if len(payload_json) > 12 * 1024 * 1024:
+            raise ValueError("serialized JSON payload exceeds 12 MiB")
+        return self
 
 
 class KernelRequestFields(StrictModel):
@@ -792,6 +833,33 @@ class KernelArtifactPersistResult(StrictModel):
     linked_to_ledger: Literal[False]
     authority_granted: Literal[False]
 
+    @model_validator(mode="after")
+    def validate_artifact_contract(self) -> KernelArtifactPersistResult:
+        artifact = self.artifact
+        expected_directory = _KERNEL_ARTIFACT_DIRECTORY_BY_TYPE[artifact.type]
+        parts = artifact.path.split("/")
+        if (
+            not re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, artifact.id)
+            or len(parts) != 4
+            or parts[0] != "runs"
+            or not re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, parts[1])
+            or parts[2] != expected_directory
+            or not parts[3].endswith(".json")
+            or not re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, parts[3])
+        ):
+            raise ValueError("persisted artifact path does not match its type directory")
+        if artifact.producing_commit_hash is not None:
+            raise ValueError("persisted artifact must not have a producing commit")
+        if artifact.metadata.get("format") != "json":
+            raise ValueError("persisted artifact metadata must report JSON format")
+        if artifact.metadata.get("is_verification_evidence") is not False:
+            raise ValueError("persisted artifact must not claim verification evidence")
+        if "producer" in artifact.metadata:
+            raise ValueError("persisted artifact metadata must not contain producer authority")
+        if _contains_forbidden_kernel_authority(artifact.metadata):
+            raise ValueError("persisted artifact metadata contains forbidden authority")
+        return self
+
 
 KernelResult = Annotated[
     KernelEmptyResult
@@ -826,15 +894,49 @@ class KernelResponseEnvelope(StrictModel):
     def validate_operation_result_contract(self) -> KernelResponseEnvelope:
         """Keep response status and result types coupled to the operation."""
         if self.operation == KernelOperation.ARTIFACT_PERSIST:
+            persist_codes = {
+                "artifact_persist_run_missing",
+                "artifact_persist_directory_invalid",
+                "artifact_persist_target_exists",
+                "artifact_persist_payload_invalid",
+                "artifact_persist_size_exceeded",
+                "artifact_persist_temp_write_failed",
+                "artifact_persist_publish_failed",
+                "artifact_persist_temp_cleanup_warning",
+                "artifact_persist_durability_uncertain",
+                "artifact_persist_postcondition_failed",
+            }
+            if any(item.code not in persist_codes for item in self.diagnostics):
+                raise ValueError("artifact.persist response has an invalid diagnostic")
             if self.status == KernelResponseStatus.ACCEPTED and not self.mutation_performed:
                 raise ValueError("accepted artifact.persist responses must report mutation")
+            if self.status == KernelResponseStatus.ACCEPTED and (
+                len(self.diagnostics) > 1
+                or any(
+                    item.code != "artifact_persist_temp_cleanup_warning"
+                    for item in self.diagnostics
+                )
+            ):
+                raise ValueError("accepted artifact.persist diagnostics are invalid")
             if self.status != KernelResponseStatus.ACCEPTED and self.mutation_performed:
                 allowed = {
                     "artifact_persist_durability_uncertain",
                     "artifact_persist_postcondition_failed",
                 }
-                if not any(item.code in allowed for item in self.diagnostics):
+                if (
+                    self.status != KernelResponseStatus.ERROR
+                    or len(self.diagnostics) != 1
+                    or self.diagnostics[0].code not in allowed
+                ):
                     raise ValueError("artifact.persist mutation flag is invalid for this response")
+            if self.status != KernelResponseStatus.ACCEPTED and not self.mutation_performed:
+                disallowed = {
+                    "artifact_persist_temp_cleanup_warning",
+                    "artifact_persist_durability_uncertain",
+                    "artifact_persist_postcondition_failed",
+                }
+                if len(self.diagnostics) != 1 or self.diagnostics[0].code in disallowed:
+                    raise ValueError("artifact.persist pre-publication diagnostics are invalid")
         elif self.mutation_performed:
             raise ValueError("kernel responses must not report mutations")
         if self.status != KernelResponseStatus.ACCEPTED:

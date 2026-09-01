@@ -306,6 +306,9 @@ def persist_json_artifact(
     else:
         if response.mutation_performed:
             raise KernelBridgeError("artifact persistence failed after mutation; inspect run state")
+        after = _snapshot_run_state(root_path, run_id)
+        if after != before:
+            raise KernelBridgeError("rejected artifact persistence changed run state")
         destination_key = destination.relative_to(root_path)
         if destination_key not in before and (destination.exists() or destination.is_symlink()):
             raise KernelBridgeError("rejected artifact persistence left a destination")
@@ -320,19 +323,18 @@ def _snapshot_run_state(root: Path, run_id: str) -> dict[Path, str]:
     if not run_path.is_dir() or run_path.is_symlink():
         raise KernelBridgeError("run directory is not initialized")
     ledger = run_path / "ledger.sqlite"
-    paths = [
-        path
-        for path in run_path.rglob("*")
-        if (path.is_file() and not path.is_symlink()) or path.is_symlink()
-    ]
+    paths = list(run_path.rglob("*"))
     if ledger.is_file() and ledger not in paths:
         paths.append(ledger)
     snapshot: dict[Path, str] = {}
     for path in paths:
         relative = path.relative_to(root)
-        snapshot[relative] = (
-            f"symlink:{path.readlink()}" if path.is_symlink() else sha256_file(path)
-        )
+        if path.is_symlink():
+            snapshot[relative] = f"symlink:{path.readlink()}"
+        elif path.is_dir():
+            snapshot[relative] = "directory"
+        else:
+            snapshot[relative] = sha256_file(path)
     return snapshot
 
 

@@ -1122,6 +1122,28 @@ fn persist_artifact_payload(
     payload: &Map<String, Value>,
     project_root: &Path,
 ) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), ArtifactPersistFailure> {
+    persist_artifact_payload_with_fault(payload, project_root, ArtifactPersistFault::None)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+enum ArtifactPersistFault {
+    None,
+    TempCreate,
+    TempWrite,
+    TempFlush,
+    TempFsync,
+    Publish,
+    TempCleanup,
+    DirectoryFsync,
+    Postcondition,
+}
+
+fn persist_artifact_payload_with_fault(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+    fault: ArtifactPersistFault,
+) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), ArtifactPersistFailure> {
     let request = serde_json::from_value::<ArtifactPersistPayload>(Value::Object(payload.clone()))
         .map_err(|error| {
             artifact_persist_failure(
@@ -1221,6 +1243,13 @@ fn persist_artifact_payload(
         std::process::id(),
         now + nonce as u128
     ));
+    if fault == ArtifactPersistFault::TempCreate {
+        return Err(artifact_persist_failure(
+            "artifact_persist_temp_write_failed",
+            "injected temporary file create failure",
+            Some("payload"),
+        ));
+    }
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -1232,10 +1261,25 @@ fn persist_artifact_payload(
                 Some("payload"),
             )
         })?;
-    let write_result = file
-        .write_all(&bytes)
-        .and_then(|_| file.flush())
-        .and_then(|_| file.sync_all());
+    let write_result = if fault == ArtifactPersistFault::TempWrite {
+        Err(std::io::Error::other("injected temporary write failure"))
+    } else {
+        file.write_all(&bytes)
+    }
+    .and_then(|_| {
+        if fault == ArtifactPersistFault::TempFlush {
+            Err(std::io::Error::other("injected temporary flush failure"))
+        } else {
+            file.flush()
+        }
+    })
+    .and_then(|_| {
+        if fault == ArtifactPersistFault::TempFsync {
+            Err(std::io::Error::other("injected temporary fsync failure"))
+        } else {
+            file.sync_all()
+        }
+    });
     if let Err(error) = write_result {
         let _ = fs::remove_file(&temp);
         return Err(artifact_persist_failure(
@@ -1245,8 +1289,23 @@ fn persist_artifact_payload(
         ));
     }
     drop(file);
+    if fault == ArtifactPersistFault::Publish {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_persist_failure(
+            "artifact_persist_publish_failed",
+            "injected atomic publish failure",
+            Some("payload"),
+        ));
+    }
     if let Err(error) = fs::hard_link(&temp, &destination) {
         let _ = fs::remove_file(&temp);
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            return Err(artifact_persist_failure(
+                "artifact_persist_target_exists",
+                "artifact destination was created concurrently",
+                Some("payload"),
+            ));
+        }
         return Err(artifact_persist_failure(
             "artifact_persist_publish_failed",
             format!("atomic no-clobber publish failed: {error}"),
@@ -1254,14 +1313,21 @@ fn persist_artifact_payload(
         ));
     }
     let mut diagnostics = Vec::new();
-    if fs::remove_file(&temp).is_err() {
+    if fault == ArtifactPersistFault::TempCleanup || fs::remove_file(&temp).is_err() {
         diagnostics.push(KernelDiagnostic {
             code: "artifact_persist_temp_cleanup_warning".to_owned(),
             message: "temporary file cleanup failed after publication".to_owned(),
             path: Some("payload".to_owned()),
         });
     }
-    match File::open(&type_dir).and_then(|directory| directory.sync_all()) {
+    let directory_sync = if fault == ArtifactPersistFault::DirectoryFsync {
+        Err(std::io::Error::other(
+            "injected containing directory fsync failure",
+        ))
+    } else {
+        File::open(&type_dir).and_then(|directory| directory.sync_all())
+    };
+    match directory_sync {
         Ok(()) => {}
         Err(error)
             if matches!(
@@ -1277,6 +1343,15 @@ fn persist_artifact_payload(
                 mutation_performed: true,
             })
         }
+    }
+    if fault == ArtifactPersistFault::Postcondition {
+        return Err(ArtifactPersistFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_persist_postcondition_failed",
+            message: "injected postcondition failure".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
     }
     let final_meta =
         fs::symlink_metadata(&destination).map_err(|error| ArtifactPersistFailure {
@@ -5630,22 +5705,61 @@ fn validate_kernel_response(response: &WireKernelResponse) -> Result<(), String>
     }
     let _ = response.mode;
     if response.operation == KernelOperation::ArtifactPersist {
+        let persist_codes = [
+            "artifact_persist_run_missing",
+            "artifact_persist_directory_invalid",
+            "artifact_persist_target_exists",
+            "artifact_persist_payload_invalid",
+            "artifact_persist_size_exceeded",
+            "artifact_persist_temp_write_failed",
+            "artifact_persist_publish_failed",
+            "artifact_persist_temp_cleanup_warning",
+            "artifact_persist_durability_uncertain",
+            "artifact_persist_postcondition_failed",
+        ];
+        if response
+            .diagnostics
+            .iter()
+            .any(|item| !persist_codes.contains(&item.code.as_str()))
+        {
+            return Err("artifact.persist response has an invalid diagnostic".to_owned());
+        }
         if response.status == KernelResponseStatus::Accepted && !response.mutation_performed {
             return Err("accepted artifact.persist responses must report mutation".to_owned());
+        }
+        if response.status == KernelResponseStatus::Accepted
+            && (response.diagnostics.len() > 1
+                || response
+                    .diagnostics
+                    .iter()
+                    .any(|item| item.code != "artifact_persist_temp_cleanup_warning"))
+        {
+            return Err("accepted artifact.persist diagnostics are invalid".to_owned());
         }
         if response.status != KernelResponseStatus::Accepted && response.mutation_performed {
             let allowed = [
                 "artifact_persist_durability_uncertain",
                 "artifact_persist_postcondition_failed",
             ];
-            if !response
-                .diagnostics
-                .iter()
-                .any(|item| allowed.contains(&item.code.as_str()))
+            if response.status != KernelResponseStatus::Error
+                || response.diagnostics.len() != 1
+                || !allowed.contains(&response.diagnostics[0].code.as_str())
             {
                 return Err(
                     "artifact.persist mutation flag is invalid for this response".to_owned(),
                 );
+            }
+        }
+        if response.status != KernelResponseStatus::Accepted && !response.mutation_performed {
+            let disallowed = [
+                "artifact_persist_temp_cleanup_warning",
+                "artifact_persist_durability_uncertain",
+                "artifact_persist_postcondition_failed",
+            ];
+            if response.diagnostics.len() != 1
+                || disallowed.contains(&response.diagnostics[0].code.as_str())
+            {
+                return Err("artifact.persist pre-publication diagnostics are invalid".to_owned());
             }
         }
     } else if response.mutation_performed {
@@ -5728,8 +5842,29 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             if artifact.get("producing_commit_hash") != Some(&Value::Null) {
                 return Err("artifact producing_commit_hash must be null".to_owned());
             }
-            if !artifact.get("metadata").is_some_and(Value::is_object) {
-                return Err("artifact metadata must be an object".to_owned());
+            let wire_artifact =
+                serde_json::from_value::<WireArtifactRef>(Value::Object(artifact.clone()))
+                    .map_err(|error| format!("artifact is invalid: {error}"))?;
+            let path_parts: Vec<&str> = wire_artifact.path.split('/').collect();
+            if path_parts.len() != 4
+                || !wire_artifact.path.ends_with(".json")
+                || artifact_directory(&wire_artifact.artifact_type) != path_parts.get(2).copied()
+                || validate_artifact_location(
+                    path_parts.get(1).copied().unwrap_or(""),
+                    &wire_artifact,
+                )
+                .is_err()
+            {
+                return Err("persisted artifact path does not match its type directory".to_owned());
+            }
+            if wire_artifact.metadata.len() > 66
+                || wire_artifact.metadata.get("format") != Some(&Value::String("json".to_owned()))
+                || wire_artifact.metadata.get("is_verification_evidence")
+                    != Some(&Value::Bool(false))
+                || wire_artifact.metadata.contains_key("producer")
+                || scan_forbidden_authority_values(&Value::Object(wire_artifact.metadata.clone()))
+            {
+                return Err("persisted artifact metadata is invalid".to_owned());
             }
             if response
                 .result
@@ -6806,5 +6941,115 @@ mod tests {
         };
         assert!(is_forbidden_derived_evidence(&derived_report));
         assert!(!is_forbidden_derived_evidence(&proof_with_domain_word));
+    }
+
+    fn artifact_persist_test_root(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "factori-kernel-{label}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(root.join("runs/run-1/candidates")).expect("test run directories");
+        root
+    }
+
+    fn artifact_persist_test_payload() -> Map<String, Value> {
+        serde_json::json!({
+            "run_id": "run-1",
+            "artifact_id": "artifact-1",
+            "artifact_type": "candidate",
+            "json_value": {"nested": [1, -0.0, "é"]},
+            "metadata": {},
+            "filename_stem_optional": null,
+            "overwrite_policy": "FailIfExists"
+        })
+        .as_object()
+        .expect("object payload")
+        .clone()
+    }
+
+    #[test]
+    fn artifact_persist_prepublication_faults_do_not_mutate() {
+        let root = artifact_persist_test_root("prepublication-faults");
+        let payload = artifact_persist_test_payload();
+        for (fault, expected_code) in [
+            (
+                ArtifactPersistFault::TempCreate,
+                "artifact_persist_temp_write_failed",
+            ),
+            (
+                ArtifactPersistFault::TempWrite,
+                "artifact_persist_temp_write_failed",
+            ),
+            (
+                ArtifactPersistFault::TempFlush,
+                "artifact_persist_temp_write_failed",
+            ),
+            (
+                ArtifactPersistFault::TempFsync,
+                "artifact_persist_temp_write_failed",
+            ),
+            (
+                ArtifactPersistFault::Publish,
+                "artifact_persist_publish_failed",
+            ),
+        ] {
+            let error = persist_artifact_payload_with_fault(&payload, &root, fault)
+                .expect_err("injected pre-publication fault");
+            assert_eq!(error.status, KernelResponseStatus::Rejected);
+            assert_eq!(error.code, expected_code);
+            assert!(!error.mutation_performed);
+            assert!(!root.join("runs/run-1/candidates/artifact-1.json").exists());
+            assert_eq!(
+                fs::read_dir(root.join("runs/run-1/candidates"))
+                    .expect("artifact directory")
+                    .count(),
+                0
+            );
+        }
+        fs::remove_dir_all(&root).expect("remove test root");
+    }
+
+    #[test]
+    fn artifact_persist_cleanup_fault_returns_valid_warning() {
+        let root = artifact_persist_test_root("cleanup-fault");
+        let (result, diagnostics) = persist_artifact_payload_with_fault(
+            &artifact_persist_test_payload(),
+            &root,
+            ArtifactPersistFault::TempCleanup,
+        )
+        .expect("cleanup failure is post-publication warning");
+        assert_eq!(result.get("created"), Some(&Value::Bool(true)));
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "artifact_persist_temp_cleanup_warning");
+        assert!(root.join("runs/run-1/candidates/artifact-1.json").is_file());
+        fs::remove_dir_all(&root).expect("remove test root");
+    }
+
+    #[test]
+    fn artifact_persist_postpublication_faults_report_mutation() {
+        for (fault, expected_code) in [
+            (
+                ArtifactPersistFault::DirectoryFsync,
+                "artifact_persist_durability_uncertain",
+            ),
+            (
+                ArtifactPersistFault::Postcondition,
+                "artifact_persist_postcondition_failed",
+            ),
+        ] {
+            let root = artifact_persist_test_root(expected_code);
+            let error =
+                persist_artifact_payload_with_fault(&artifact_persist_test_payload(), &root, fault)
+                    .expect_err("injected post-publication fault");
+            assert_eq!(error.status, KernelResponseStatus::Error);
+            assert_eq!(error.code, expected_code);
+            assert!(error.mutation_performed);
+            assert!(root.join("runs/run-1/candidates/artifact-1.json").is_file());
+            fs::remove_dir_all(&root).expect("remove test root");
+        }
     }
 }
