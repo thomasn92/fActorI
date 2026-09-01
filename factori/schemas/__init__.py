@@ -186,6 +186,9 @@ from factori.schemas.enums import (
     VerificationLabel,
 )
 from factori.schemas.kernel import (
+    KernelArtifactPersistPayload,
+    KernelArtifactPersistRequest,
+    KernelArtifactPersistResult,
     KernelArtifactVerifyPayload,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
@@ -730,6 +733,9 @@ __all__ = [
     "KernelDiagnostic",
     "KernelEmptyResult",
     "KernelArtifactVerifyPayload",
+    "KernelArtifactPersistPayload",
+    "KernelArtifactPersistRequest",
+    "KernelArtifactPersistResult",
     "KernelArtifactVerifyRequest",
     "KernelArtifactVerifyResult",
     "KernelEvidenceAuthorityClass",

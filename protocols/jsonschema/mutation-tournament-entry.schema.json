@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/mutation-tournament-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/mutation-tournament-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One original or mutation substrate branch in a mutation tournament.",
@@ -211,7 +211,7 @@
   ],
   "title": "MutationTournamentEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.MutationTournamentEntry",
   "x-factori-verification-evidence": false
 }

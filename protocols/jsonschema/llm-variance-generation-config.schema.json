@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/llm-variance-generation-config.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/llm-variance-generation-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded configuration for non-fake LLM scientific variance generation.",
@@ -86,7 +86,7 @@
   ],
   "title": "LLMVarianceGenerationConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.LLMVarianceGenerationConfig",
   "x-factori-verification-evidence": false
 }

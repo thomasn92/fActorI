@@ -224,6 +224,98 @@
       "title": "ControllerActionType",
       "type": "string"
     },
+    "KernelArtifactPersistPayload": {
+      "additionalProperties": false,
+      "description": "JSON-only atomic artifact persistence request.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "filename_stem_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename Stem Optional"
+        },
+        "json_value": {
+          "title": "Json Value"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "overwrite_policy": {
+          "const": "FailIfExists",
+          "default": "FailIfExists",
+          "title": "Overwrite Policy",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "artifact_id",
+        "artifact_type",
+        "json_value"
+      ],
+      "title": "KernelArtifactPersistPayload",
+      "type": "object"
+    },
+    "KernelArtifactPersistRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for atomic JSON artifact persistence.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "artifact.persist",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelArtifactPersistPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelArtifactPersistRequest",
+      "type": "object"
+    },
     "KernelArtifactVerifyPayload": {
       "additionalProperties": false,
       "description": "Payload for read-only verification of one persisted artifact.",
@@ -1058,11 +1150,12 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.86.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the read-only research kernel boundary.",
   "discriminator": {
     "mapping": {
+      "artifact.persist": "#/$defs/KernelArtifactPersistRequest",
       "artifact.verify": "#/$defs/KernelArtifactVerifyRequest",
       "checkpoint.verify": "#/$defs/KernelCheckpointVerifyRequest",
       "claim.resolve": "#/$defs/KernelClaimResolveRequest",
@@ -1102,10 +1195,13 @@
     },
     {
       "$ref": "#/$defs/KernelReplayVerifyCoreRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelArtifactPersistRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

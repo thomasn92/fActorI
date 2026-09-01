@@ -10,15 +10,19 @@ from pathlib import Path
 from typing import Any
 
 from factori.artifacts import ARTIFACT_DIRECTORY_BY_TYPE
-from factori.hashing import canonical_json, sha256_text
+from factori.hashing import canonical_json, sha256_bytes, sha256_file, sha256_text
 from factori.ledger import LedgerError, ResearchLedger
 from factori.protocols import PROTOCOL_VERSION
 from factori.rerun_policy import RerunPolicy, validate_ledger_tip
 from factori.schemas import (
     ArtifactManifest,
     ArtifactRef,
+    ArtifactType,
     ClaimTable,
     ControllerActionType,
+    KernelArtifactPersistPayload,
+    KernelArtifactPersistRequest,
+    KernelArtifactPersistResult,
     KernelArtifactVerifyRequest,
     KernelArtifactVerifyResult,
     KernelAutonomousPaperCheckpoint,
@@ -200,6 +204,136 @@ def verify_persisted_artifact(
         ):
             raise KernelBridgeError("Rust artifact verification response does not match request")
     return response
+
+
+def persist_json_artifact(
+    run_id: str,
+    artifact_id: str,
+    artifact_type: ArtifactType,
+    json_value: Any,
+    *,
+    metadata: dict[str, Any] | None = None,
+    filename_stem_optional: str | None = None,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Persist one canonical JSON artifact through the Rust kernel only.
+
+    The bridge computes expected bytes and identity up front, then verifies every returned field
+    and proves that pre-existing run files and the ledger were not changed.
+    """
+    root_path = Path(root).resolve()
+    payload = KernelArtifactPersistPayload(
+        run_id=run_id,
+        artifact_id=artifact_id,
+        artifact_type=artifact_type,
+        json_value=json_value,
+        metadata=metadata or {},
+        filename_stem_optional=filename_stem_optional,
+        overwrite_policy="FailIfExists",
+    )
+    canonical = canonical_json(json_value)
+    expected_bytes = (canonical + "\n").encode("utf-8")
+    if len(expected_bytes) > 12 * 1024 * 1024:
+        raise KernelBridgeError("serialized JSON payload exceeds 12 MiB")
+    type_directory = ARTIFACT_DIRECTORY_BY_TYPE[artifact_type]
+    stem = filename_stem_optional or artifact_id
+    destination = root_path / "runs" / run_id / type_directory / f"{stem}.json"
+    sidecar = destination.with_name(destination.name + ".meta.json")
+    before = _snapshot_run_state(root_path, run_id)
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelArtifactPersistRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"artifact-persist-{run_id}-{artifact_id}",
+        operation="artifact.persist",
+        mode="DevelopmentCompatibility",
+        payload=payload,
+    )
+    response = _invoke_kernel(
+        request, binary=binary, root=root_path, timeout_seconds=timeout_seconds
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelArtifactPersistResult):
+            raise KernelBridgeError("artifact persistence response has the wrong result type")
+        normalized_metadata = {
+            **payload.metadata,
+            "format": "json",
+            "is_verification_evidence": False,
+        }
+        expected_hash = sha256_bytes(expected_bytes)
+        artifact = result.artifact
+        if (
+            artifact.id != artifact_id
+            or artifact.type != artifact_type
+            or artifact.path != f"runs/{run_id}/{type_directory}/{stem}.json"
+            or artifact.content_hash != expected_hash
+            or artifact.producing_commit_hash is not None
+            or artifact.metadata != normalized_metadata
+            or result.bytes_written != len(expected_bytes)
+            or result.created is not True
+            or result.linked_to_ledger is not False
+            or result.authority_granted is not False
+            or not response.mutation_performed
+        ):
+            raise KernelBridgeError("Rust artifact persistence response does not match request")
+        if (
+            not destination.is_file()
+            or destination.is_symlink()
+            or destination.read_bytes() != expected_bytes
+        ):
+            raise KernelBridgeError("Rust artifact persistence bytes do not match request")
+        if sidecar.exists() or sidecar.is_symlink():
+            raise KernelBridgeError("artifact persistence unexpectedly created a sidecar")
+        after = _snapshot_run_state(root_path, run_id)
+        if any(after.get(path) != digest for path, digest in before.items()):
+            raise KernelBridgeError("artifact persistence changed pre-existing run state")
+        destination_key = destination.relative_to(root_path)
+        extras = set(after) - set(before) - {destination_key}
+        cleanup_warning = any(
+            diagnostic.code == "artifact_persist_temp_cleanup_warning"
+            for diagnostic in response.diagnostics
+        )
+        if extras and not cleanup_warning:
+            raise KernelBridgeError("artifact persistence created unexpected files")
+        if extras and any(not path.name.startswith(f".{stem}.tmp-") for path in extras):
+            raise KernelBridgeError("artifact persistence left an unexpected temporary file")
+    else:
+        if response.mutation_performed:
+            raise KernelBridgeError("artifact persistence failed after mutation; inspect run state")
+        destination_key = destination.relative_to(root_path)
+        if destination_key not in before and (destination.exists() or destination.is_symlink()):
+            raise KernelBridgeError("rejected artifact persistence left a destination")
+    return response
+
+
+persist_artifact = persist_json_artifact
+
+
+def _snapshot_run_state(root: Path, run_id: str) -> dict[Path, str]:
+    run_path = root / "runs" / run_id
+    if not run_path.is_dir() or run_path.is_symlink():
+        raise KernelBridgeError("run directory is not initialized")
+    ledger = run_path / "ledger.sqlite"
+    paths = [
+        path
+        for path in run_path.rglob("*")
+        if (path.is_file() and not path.is_symlink()) or path.is_symlink()
+    ]
+    if ledger.is_file() and ledger not in paths:
+        paths.append(ledger)
+    snapshot: dict[Path, str] = {}
+    for path in paths:
+        relative = path.relative_to(root)
+        snapshot[relative] = (
+            f"symlink:{path.readlink()}" if path.is_symlink() else sha256_file(path)
+        )
+    return snapshot
 
 
 def classify_persisted_artifact(
@@ -714,6 +848,7 @@ def _invoke_kernel(
         | KernelClaimResolveRequest
         | KernelCheckpointVerifyRequest
         | KernelReplayVerifyCoreRequest
+        | KernelArtifactPersistRequest
     ),
     *,
     binary: Path,
@@ -752,6 +887,8 @@ def _invoke_kernel(
 
 __all__ = [
     "KernelBridgeError",
+    "persist_json_artifact",
+    "persist_artifact",
     "classify_persisted_artifact",
     "verify_persisted_autonomous_checkpoints",
     "verify_persisted_replay_core",

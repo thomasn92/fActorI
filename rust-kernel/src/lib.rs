@@ -10,13 +10,15 @@ use serde::Deserializer;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::{self, File};
-use std::io::Read;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.86.0";
+pub const PROTOCOL_VERSION: &str = "0.87.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -109,6 +111,20 @@ struct CheckpointVerifyPayload {
 struct ReplayVerifyCorePayload {
     run_id: String,
     ledger_tip_hash: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactPersistPayload {
+    run_id: String,
+    artifact_id: String,
+    artifact_type: String,
+    json_value: Value,
+    #[serde(default)]
+    metadata: Map<String, Value>,
+    #[serde(default)]
+    filename_stem_optional: Option<String>,
+    overwrite_policy: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -474,6 +490,8 @@ pub enum KernelOperation {
     CheckpointVerify,
     #[serde(rename = "replay.verify_core")]
     ReplayVerifyCore,
+    #[serde(rename = "artifact.persist")]
+    ArtifactPersist,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -839,6 +857,41 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::ArtifactPersist => {
+            let Some(root) = project_root else {
+                return rejected_response(
+                    request_id,
+                    KernelOperation::ArtifactPersist,
+                    mode,
+                    "artifact_persist_run_missing",
+                    "artifact persistence requires a configured project root".to_owned(),
+                    Some("payload.run_id"),
+                );
+            };
+            match persist_artifact_payload(&request.payload, root) {
+                Ok((result, diagnostics)) => KernelResponse {
+                    protocol_version: PROTOCOL_VERSION,
+                    kernel_version: KERNEL_VERSION,
+                    request_id,
+                    operation: KernelOperation::ArtifactPersist,
+                    mode,
+                    status: KernelResponseStatus::Accepted,
+                    result,
+                    diagnostics,
+                    mutation_performed: true,
+                },
+                Err(error) => rejected_or_error_response_with_mutation(
+                    request_id,
+                    KernelOperation::ArtifactPersist,
+                    mode,
+                    error.status,
+                    error.code,
+                    error.message,
+                    error.path,
+                    error.mutation_performed,
+                ),
+            }
+        }
     }
 }
 
@@ -987,8 +1040,300 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         KernelOperation::ReplayVerifyCore => {
             validate_replay_core_payload_structure(&request.payload)?;
         }
+        KernelOperation::ArtifactPersist => {
+            // Operation-specific validation is performed in the mutating handler so it can
+            // return the frozen artifact_persist_* diagnostic and mutation semantics.
+        }
     }
     Ok(())
+}
+
+fn validate_artifact_persist_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+    let request = serde_json::from_value::<ArtifactPersistPayload>(Value::Object(payload.clone()))
+        .map_err(|error| error.to_string())?;
+    if !is_safe_segment(&request.run_id) || !is_safe_segment(&request.artifact_id) {
+        return Err("artifact persist identifiers must use safe segment syntax".to_owned());
+    }
+    if request
+        .filename_stem_optional
+        .as_deref()
+        .is_some_and(|value| !is_safe_segment(value))
+    {
+        return Err("filename_stem_optional must use safe segment syntax".to_owned());
+    }
+    if artifact_directory(&request.artifact_type).is_none() {
+        return Err("artifact_type is not supported".to_owned());
+    }
+    if request.overwrite_policy != "FailIfExists" {
+        return Err("overwrite_policy must be FailIfExists".to_owned());
+    }
+    if request.metadata.len() > 64 {
+        return Err("metadata must contain at most 64 entries".to_owned());
+    }
+    for key in request.metadata.keys() {
+        if key.len() > 128
+            || matches!(
+                key.as_str(),
+                "format" | "producer" | "is_verification_evidence"
+            )
+        {
+            return Err("metadata contains a kernel-controlled key".to_owned());
+        }
+    }
+    if scan_forbidden_authority_values(&Value::Object(request.metadata.clone())) {
+        return Err("metadata contains forbidden authority values".to_owned());
+    }
+    let metadata_json = canonical_json(&Value::Object(request.metadata.clone()))
+        .map_err(|error| error.to_string())?;
+    if metadata_json.len() > 64 * 1024 {
+        return Err("metadata exceeds 64 KiB serialized size".to_owned());
+    }
+    let canonical = canonical_json(&request.json_value).map_err(|error| error.to_string())?;
+    if canonical.len() + 1 > 12 * 1024 * 1024 {
+        return Err("serialized JSON payload exceeds 12 MiB".to_owned());
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+struct ArtifactPersistFailure {
+    status: KernelResponseStatus,
+    code: &'static str,
+    message: String,
+    path: Option<&'static str>,
+    mutation_performed: bool,
+}
+
+fn artifact_persist_failure(
+    code: &'static str,
+    message: impl Into<String>,
+    path: Option<&'static str>,
+) -> ArtifactPersistFailure {
+    ArtifactPersistFailure {
+        status: KernelResponseStatus::Rejected,
+        code,
+        message: message.into(),
+        path,
+        mutation_performed: false,
+    }
+}
+
+fn persist_artifact_payload(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), ArtifactPersistFailure> {
+    let request = serde_json::from_value::<ArtifactPersistPayload>(Value::Object(payload.clone()))
+        .map_err(|error| {
+            artifact_persist_failure(
+                "artifact_persist_payload_invalid",
+                error.to_string(),
+                Some("payload"),
+            )
+        })?;
+    validate_artifact_persist_payload_structure(payload).map_err(|message| {
+        let code = if message.contains("12 MiB") || message.contains("64 KiB") {
+            "artifact_persist_size_exceeded"
+        } else {
+            "artifact_persist_payload_invalid"
+        };
+        artifact_persist_failure(code, message, Some("payload"))
+    })?;
+    let root_meta = fs::symlink_metadata(project_root).map_err(|_| {
+        artifact_persist_failure(
+            "artifact_persist_run_missing",
+            "project root is unavailable",
+            Some("payload.run_id"),
+        )
+    })?;
+    if !root_meta.is_dir() || root_meta.file_type().is_symlink() {
+        return Err(artifact_persist_failure(
+            "artifact_persist_directory_invalid",
+            "project root is not a real directory",
+            Some("payload.run_id"),
+        ));
+    }
+    let root = fs::canonicalize(project_root).map_err(|_| {
+        artifact_persist_failure(
+            "artifact_persist_run_missing",
+            "project root is unavailable",
+            Some("payload.run_id"),
+        )
+    })?;
+    let runs_root = root.join("runs");
+    let run_dir = runs_root.join(&request.run_id);
+    let type_dir_name = artifact_directory(&request.artifact_type).expect("validated type");
+    let type_dir = run_dir.join(type_dir_name);
+    for (index, directory) in [&runs_root, &run_dir, &type_dir].into_iter().enumerate() {
+        let metadata = fs::symlink_metadata(directory).map_err(|_| {
+            artifact_persist_failure(
+                if index < 2 {
+                    "artifact_persist_run_missing"
+                } else {
+                    "artifact_persist_directory_invalid"
+                },
+                "required persistence directory is missing",
+                Some("payload.run_id"),
+            )
+        })?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(artifact_persist_failure(
+                "artifact_persist_directory_invalid",
+                "required run directory is not a real directory",
+                Some("payload.run_id"),
+            ));
+        }
+    }
+    let stem = request
+        .filename_stem_optional
+        .as_deref()
+        .unwrap_or(&request.artifact_id);
+    let relative = format!("runs/{}/{}/{}.json", request.run_id, type_dir_name, stem);
+    let destination = type_dir.join(format!("{stem}.json"));
+    let sidecar = destination.with_extension("json.meta.json");
+    for path in [&destination, &sidecar] {
+        if fs::symlink_metadata(path).is_ok() {
+            return Err(artifact_persist_failure(
+                "artifact_persist_target_exists",
+                "artifact destination or sidecar already exists",
+                Some("payload"),
+            ));
+        }
+    }
+    let canonical = canonical_json(&request.json_value).map_err(|error| {
+        artifact_persist_failure(
+            "artifact_persist_payload_invalid",
+            error.to_string(),
+            Some("payload.json_value"),
+        )
+    })?;
+    let bytes = format!("{canonical}\n").into_bytes();
+    let mut metadata = request.metadata;
+    metadata.insert("format".to_owned(), Value::String("json".to_owned()));
+    metadata.insert("is_verification_evidence".to_owned(), Value::Bool(false));
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nonce = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let temp = type_dir.join(format!(
+        ".{}.tmp-{}-{}",
+        stem,
+        std::process::id(),
+        now + nonce as u128
+    ));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .map_err(|error| {
+            artifact_persist_failure(
+                "artifact_persist_temp_write_failed",
+                format!("temporary file create failed: {error}"),
+                Some("payload"),
+            )
+        })?;
+    let write_result = file
+        .write_all(&bytes)
+        .and_then(|_| file.flush())
+        .and_then(|_| file.sync_all());
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_persist_failure(
+            "artifact_persist_temp_write_failed",
+            format!("temporary file write failed: {error}"),
+            Some("payload"),
+        ));
+    }
+    drop(file);
+    if let Err(error) = fs::hard_link(&temp, &destination) {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_persist_failure(
+            "artifact_persist_publish_failed",
+            format!("atomic no-clobber publish failed: {error}"),
+            Some("payload"),
+        ));
+    }
+    let mut diagnostics = Vec::new();
+    if fs::remove_file(&temp).is_err() {
+        diagnostics.push(KernelDiagnostic {
+            code: "artifact_persist_temp_cleanup_warning".to_owned(),
+            message: "temporary file cleanup failed after publication".to_owned(),
+            path: Some("payload".to_owned()),
+        });
+    }
+    match File::open(&type_dir).and_then(|directory| directory.sync_all()) {
+        Ok(()) => {}
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::Unsupported | std::io::ErrorKind::InvalidInput
+            ) => {}
+        Err(error) => {
+            return Err(ArtifactPersistFailure {
+                status: KernelResponseStatus::Error,
+                code: "artifact_persist_durability_uncertain",
+                message: format!("containing directory durability is uncertain: {error}"),
+                path: Some("payload"),
+                mutation_performed: true,
+            })
+        }
+    }
+    let final_meta =
+        fs::symlink_metadata(&destination).map_err(|error| ArtifactPersistFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_persist_postcondition_failed",
+            message: format!("published artifact cannot be stat'ed: {error}"),
+            path: Some("payload"),
+            mutation_performed: true,
+        })?;
+    if !final_meta.is_file() || final_meta.file_type().is_symlink() {
+        return Err(ArtifactPersistFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_persist_postcondition_failed",
+            message: "published artifact is not a regular file".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
+    let observed_len = final_meta.len() as usize;
+    let observed_hash = sha256_file(&destination).map_err(|message| ArtifactPersistFailure {
+        status: KernelResponseStatus::Error,
+        code: "artifact_persist_postcondition_failed",
+        message,
+        path: Some("payload"),
+        mutation_performed: true,
+    })?;
+    let expected_hash = sha256_hex(&bytes);
+    if observed_len != bytes.len() || observed_hash != expected_hash {
+        return Err(ArtifactPersistFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_persist_postcondition_failed",
+            message: "published artifact bytes do not match request".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
+    let artifact = map_value([
+        ("id", Value::String(request.artifact_id)),
+        ("type", Value::String(request.artifact_type)),
+        ("path", Value::String(relative)),
+        ("content_hash", Value::String(expected_hash)),
+        ("producing_commit_hash", Value::Null),
+        ("metadata", Value::Object(metadata)),
+    ]);
+    Ok((
+        map_value([
+            ("artifact", Value::Object(artifact)),
+            (
+                "bytes_written",
+                Value::Number(serde_json::Number::from(bytes.len())),
+            ),
+            ("created", Value::Bool(true)),
+            ("linked_to_ledger", Value::Bool(false)),
+            ("authority_granted", Value::Bool(false)),
+        ]),
+        diagnostics,
+    ))
 }
 
 fn validate_checkpoint_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
@@ -5284,7 +5629,26 @@ fn validate_kernel_response(response: &WireKernelResponse) -> Result<(), String>
         return Err("request_id must not be empty".to_owned());
     }
     let _ = response.mode;
-    if response.mutation_performed {
+    if response.operation == KernelOperation::ArtifactPersist {
+        if response.status == KernelResponseStatus::Accepted && !response.mutation_performed {
+            return Err("accepted artifact.persist responses must report mutation".to_owned());
+        }
+        if response.status != KernelResponseStatus::Accepted && response.mutation_performed {
+            let allowed = [
+                "artifact_persist_durability_uncertain",
+                "artifact_persist_postcondition_failed",
+            ];
+            if !response
+                .diagnostics
+                .iter()
+                .any(|item| allowed.contains(&item.code.as_str()))
+            {
+                return Err(
+                    "artifact.persist mutation flag is invalid for this response".to_owned(),
+                );
+            }
+        }
+    } else if response.mutation_performed {
         return Err("kernel responses must not report mutations".to_owned());
     }
     for diagnostic in &response.diagnostics {
@@ -5323,6 +5687,65 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
                 return Err("canonical_json must be a string".to_owned());
             }
             require_sha256_field(&response.result, "sha256")
+        }
+        KernelOperation::ArtifactPersist => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "artifact",
+                    "bytes_written",
+                    "created",
+                    "linked_to_ledger",
+                    "authority_granted",
+                ],
+            )?;
+            let artifact = response
+                .result
+                .get("artifact")
+                .and_then(Value::as_object)
+                .ok_or_else(|| "artifact must be an object".to_owned())?;
+            require_exact_keys(
+                artifact,
+                &[
+                    "id",
+                    "type",
+                    "path",
+                    "content_hash",
+                    "producing_commit_hash",
+                    "metadata",
+                ],
+            )?;
+            for field in ["id", "type", "path"] {
+                if artifact
+                    .get(field)
+                    .and_then(Value::as_str)
+                    .is_none_or(str::is_empty)
+                {
+                    return Err(format!("artifact {field} must be a non-empty string"));
+                }
+            }
+            require_sha256_field(artifact, "content_hash")?;
+            if artifact.get("producing_commit_hash") != Some(&Value::Null) {
+                return Err("artifact producing_commit_hash must be null".to_owned());
+            }
+            if !artifact.get("metadata").is_some_and(Value::is_object) {
+                return Err("artifact metadata must be an object".to_owned());
+            }
+            if response
+                .result
+                .get("bytes_written")
+                .and_then(Value::as_u64)
+                .is_none_or(|n| n == 0)
+            {
+                return Err("bytes_written must be a positive integer".to_owned());
+            }
+            if response.result.get("created") != Some(&Value::Bool(true))
+                || response.result.get("linked_to_ledger") != Some(&Value::Bool(false))
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("artifact.persist result has invalid flags".to_owned());
+            }
+            Ok(())
         }
         KernelOperation::ProtocolValidate => {
             require_exact_keys(&response.result, &["valid", "protocol_name"])?;
@@ -6032,6 +6455,33 @@ fn rejected_or_error_response(
     }
 }
 
+fn rejected_or_error_response_with_mutation(
+    request_id: String,
+    operation: KernelOperation,
+    mode: KernelMode,
+    status: KernelResponseStatus,
+    code: &str,
+    message: String,
+    path: Option<&str>,
+    mutation_performed: bool,
+) -> KernelResponse {
+    KernelResponse {
+        protocol_version: PROTOCOL_VERSION,
+        kernel_version: KERNEL_VERSION,
+        request_id,
+        operation,
+        mode,
+        status,
+        result: Map::new(),
+        diagnostics: vec![KernelDiagnostic {
+            code: code.to_owned(),
+            message,
+            path: path.map(str::to_owned),
+        }],
+        mutation_performed,
+    }
+}
+
 fn rejected_response(
     request_id: String,
     operation: KernelOperation,
@@ -6112,7 +6562,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.86.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.87.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -6138,7 +6588,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.86.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.86.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.87.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.87.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -6157,7 +6607,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.86.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.87.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));
@@ -6283,7 +6733,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.86.0",
+            "protocol_version": "0.87.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

@@ -50,7 +50,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.86.0/scientific-critic-finding.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/scientific-critic-finding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One bounded LLM critic observation about an evidence package.",
@@ -126,7 +126,7 @@
   ],
   "title": "ScientificCriticFinding",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.ScientificCriticFinding",
   "x-factori-verification-evidence": false
 }

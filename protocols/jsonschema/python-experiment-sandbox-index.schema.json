@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/python-experiment-sandbox-index.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/python-experiment-sandbox-index.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived latest pointer over immutable Python sandbox reports.",
@@ -89,7 +89,7 @@
   ],
   "title": "PythonExperimentSandboxIndex",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.PythonExperimentSandboxIndex",
   "x-factori-verification-evidence": false
 }

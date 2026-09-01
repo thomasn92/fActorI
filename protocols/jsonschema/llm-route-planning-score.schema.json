@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/llm-route-planning-score.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/llm-route-planning-score.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-fake LLM scientific score for one route/spec pair.",
@@ -111,7 +111,7 @@
   ],
   "title": "LLMRoutePlanningScore",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.LLMRoutePlanningScore",
   "x-factori-verification-evidence": false
 }

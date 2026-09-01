@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/claim-support-item.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/claim-support-item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One sentence-level claim-to-source support classification.",
@@ -251,7 +251,7 @@
   ],
   "title": "ClaimSupportItem",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.ClaimSupportItem",
   "x-factori-verification-evidence": false
 }

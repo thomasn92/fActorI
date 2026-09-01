@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/data-requirement.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/data-requirement.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Candidate data regime enum.",
   "enum": [
@@ -10,7 +10,7 @@
   ],
   "title": "DataRequirement",
   "type": "string",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.DataRequirement",
   "x-factori-verification-evidence": false
 }

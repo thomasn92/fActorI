@@ -10,7 +10,7 @@ from pydantic import ConfigDict, Field, RootModel, field_validator, model_valida
 
 from factori.schemas.artifacts import ArtifactRef, LedgerCommit
 from factori.schemas.base import HASH_RE, StrictModel
-from factori.schemas.enums import VerificationLabel
+from factori.schemas.enums import ArtifactType, VerificationLabel
 
 
 class KernelMode(StrEnum):
@@ -21,7 +21,7 @@ class KernelMode(StrEnum):
 
 
 class KernelOperation(StrEnum):
-    """Read-only operations exposed by the initial kernel boundary."""
+    """Operations exposed by the kernel boundary."""
 
     PROTOCOL_VALIDATE = "protocol.validate"
     HASH_CANONICAL_JSON = "hash.canonical_json"
@@ -32,6 +32,7 @@ class KernelOperation(StrEnum):
     CLAIM_RESOLVE = "claim.resolve"
     CHECKPOINT_VERIFY = "checkpoint.verify"
     REPLAY_VERIFY_CORE = "replay.verify_core"
+    ARTIFACT_PERSIST = "artifact.persist"
 
 
 class KernelResponseStatus(StrEnum):
@@ -288,6 +289,55 @@ class KernelReplayVerifyCorePayload(StrictModel):
     ledger_tip_hash: str = Field(pattern=HASH_RE.pattern)
 
 
+class KernelArtifactPersistPayload(StrictModel):
+    """JSON-only atomic artifact persistence request."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    artifact_type: ArtifactType
+    json_value: Any
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    filename_stem_optional: str | None = Field(default=None, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    overwrite_policy: Literal["FailIfExists"] = "FailIfExists"
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(value) > 64:
+            raise ValueError("metadata must contain at most 64 entries")
+        for key in value:
+            if len(key.encode("utf-8")) > 128:
+                raise ValueError("metadata keys must be at most 128 UTF-8 bytes")
+            if key in {"format", "producer", "is_verification_evidence"}:
+                raise ValueError(f"metadata key is kernel-controlled: {key}")
+        forbidden_true = {
+            "accepted_for_publication",
+            "accepted_paper",
+            "certifies_scientific_validity",
+            "creates_scientific_validation",
+            "human_approval_granted",
+            "human_approved",
+            "implies_publication_readiness",
+            "novelty_proven",
+            "publication_ready",
+        }
+
+        def contains_forbidden(item: Any) -> bool:
+            if isinstance(item, dict):
+                return any(
+                    (key in forbidden_true and child is True)
+                    or contains_forbidden(child)
+                    for key, child in item.items()
+                )
+            if isinstance(item, list):
+                return any(contains_forbidden(child) for child in item)
+            return item in {"ExperimentVerified", "RealDataExperimentVerified"}
+
+        if contains_forbidden(value):
+            raise ValueError("metadata contains forbidden authority values")
+        return value
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -359,6 +409,13 @@ class KernelReplayVerifyCoreRequest(KernelRequestFields):
     payload: KernelReplayVerifyCorePayload
 
 
+class KernelArtifactPersistRequest(KernelRequestFields):
+    """Typed request for atomic JSON artifact persistence."""
+
+    operation: Literal[KernelOperation.ARTIFACT_PERSIST]
+    payload: KernelArtifactPersistPayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
@@ -368,7 +425,8 @@ KernelRequestVariant = Annotated[
     | KernelEvidenceValidateBundleRequest
     | KernelClaimResolveRequest
     | KernelCheckpointVerifyRequest
-    | KernelReplayVerifyCoreRequest,
+    | KernelReplayVerifyCoreRequest
+    | KernelArtifactPersistRequest,
     Field(discriminator="operation"),
 ]
 
@@ -725,6 +783,16 @@ class KernelReplayVerifyCoreResult(StrictModel):
         return value
 
 
+class KernelArtifactPersistResult(StrictModel):
+    """Accepted result for JSON artifact persistence; it grants no authority."""
+
+    artifact: ArtifactRef
+    bytes_written: int = Field(ge=1)
+    created: Literal[True]
+    linked_to_ledger: Literal[False]
+    authority_granted: Literal[False]
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -735,7 +803,8 @@ KernelResult = Annotated[
     | KernelEvidenceValidateBundleResult
     | KernelClaimResolveResult
     | KernelCheckpointVerifyResult
-    | KernelReplayVerifyCoreResult,
+    | KernelReplayVerifyCoreResult
+    | KernelArtifactPersistResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -756,7 +825,17 @@ class KernelResponseEnvelope(StrictModel):
     @model_validator(mode="after")
     def validate_operation_result_contract(self) -> KernelResponseEnvelope:
         """Keep response status and result types coupled to the operation."""
-        if self.mutation_performed:
+        if self.operation == KernelOperation.ARTIFACT_PERSIST:
+            if self.status == KernelResponseStatus.ACCEPTED and not self.mutation_performed:
+                raise ValueError("accepted artifact.persist responses must report mutation")
+            if self.status != KernelResponseStatus.ACCEPTED and self.mutation_performed:
+                allowed = {
+                    "artifact_persist_durability_uncertain",
+                    "artifact_persist_postcondition_failed",
+                }
+                if not any(item.code in allowed for item in self.diagnostics):
+                    raise ValueError("artifact.persist mutation flag is invalid for this response")
+        elif self.mutation_performed:
             raise ValueError("kernel responses must not report mutations")
         if self.status != KernelResponseStatus.ACCEPTED:
             if not isinstance(self.result, KernelEmptyResult):
@@ -772,6 +851,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.CLAIM_RESOLVE: KernelClaimResolveResult,
             KernelOperation.CHECKPOINT_VERIFY: KernelCheckpointVerifyResult,
             KernelOperation.REPLAY_VERIFY_CORE: KernelReplayVerifyCoreResult,
+            KernelOperation.ARTIFACT_PERSIST: KernelArtifactPersistResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -817,6 +897,9 @@ __all__ = [
     "KernelReplayVerifyCorePayload",
     "KernelReplayVerifyCoreRequest",
     "KernelReplayVerifyCoreResult",
+    "KernelArtifactPersistPayload",
+    "KernelArtifactPersistRequest",
+    "KernelArtifactPersistResult",
     "KernelAutonomousCheckpointStage",
     "KernelAutonomousCheckpointVerificationStatus",
     "KernelAutonomousPaperCheckpoint",

@@ -4,7 +4,7 @@
   "mode": "DevelopmentCompatibility",
   "mutation_performed": false,
   "operation": "hash.canonical_json",
-  "protocol_version": "0.86.0",
+  "protocol_version": "0.87.0",
   "request_id": "kernel-request-example",
   "result": {
     "canonical_json": "{\"a\":1,\"b\":2}",

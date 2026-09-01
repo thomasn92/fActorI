@@ -603,7 +603,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.86.0/creative-search-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/creative-search-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest recursive creative search.",
@@ -797,7 +797,7 @@
   ],
   "title": "CreativeSearchInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.CreativeSearchInspectionReport",
   "x-factori-verification-evidence": false
 }

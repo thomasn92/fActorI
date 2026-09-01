@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/protocol-compatibility-status.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/protocol-compatibility-status.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Protocol schema compatibility status enum.",
   "enum": [
@@ -10,7 +10,7 @@
   ],
   "title": "ProtocolCompatibilityStatus",
   "type": "string",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.protocol_compat.ProtocolCompatibilityStatus",
   "x-factori-verification-evidence": false
 }

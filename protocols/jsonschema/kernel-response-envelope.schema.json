@@ -1,5 +1,106 @@
 {
   "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "description": "Reference to an artifact stored on the local filesystem.",
+      "properties": {
+        "content_hash": {
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Producing Commit Hash"
+        },
+        "type": {
+          "$ref": "#/$defs/ArtifactType"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "path",
+        "content_hash"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactType": {
+      "description": "Artifact categories mapped to the local run directory structure.",
+      "enum": [
+        "candidate",
+        "score",
+        "report",
+        "literature",
+        "lean",
+        "experiment",
+        "log",
+        "latex"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "KernelArtifactPersistResult": {
+      "additionalProperties": false,
+      "description": "Accepted result for JSON artifact persistence; it grants no authority.",
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "authority_granted": {
+          "const": false,
+          "title": "Authority Granted",
+          "type": "boolean"
+        },
+        "bytes_written": {
+          "minimum": 1,
+          "title": "Bytes Written",
+          "type": "integer"
+        },
+        "created": {
+          "const": true,
+          "title": "Created",
+          "type": "boolean"
+        },
+        "linked_to_ledger": {
+          "const": false,
+          "title": "Linked To Ledger",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "artifact",
+        "bytes_written",
+        "created",
+        "linked_to_ledger",
+        "authority_granted"
+      ],
+      "title": "KernelArtifactPersistResult",
+      "type": "object"
+    },
     "KernelArtifactVerifyResult": {
       "additionalProperties": false,
       "description": "Result returned by artifact integrity verification.",
@@ -462,7 +563,7 @@
       "type": "string"
     },
     "KernelOperation": {
-      "description": "Read-only operations exposed by the initial kernel boundary.",
+      "description": "Operations exposed by the kernel boundary.",
       "enum": [
         "protocol.validate",
         "hash.canonical_json",
@@ -472,7 +573,8 @@
         "evidence.validate_bundle",
         "claim.resolve",
         "checkpoint.verify",
-        "replay.verify_core"
+        "replay.verify_core",
+        "artifact.persist"
       ],
       "title": "KernelOperation",
       "type": "string"
@@ -635,7 +737,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.86.0/kernel-response-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/kernel-response-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Versioned response envelope for the read-only research kernel boundary.",
@@ -703,6 +805,9 @@
         },
         {
           "$ref": "#/$defs/KernelReplayVerifyCoreResult"
+        },
+        {
+          "$ref": "#/$defs/KernelArtifactPersistResult"
         }
       ],
       "title": "Result"
@@ -724,7 +829,7 @@
   ],
   "title": "KernelResponseEnvelope",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.KernelResponseEnvelope",
   "x-factori-verification-evidence": false
 }

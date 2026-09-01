@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.86.0/sandbox-execution-result.schema.json",
+  "$id": "https://schemas.factori.local/0.87.0/sandbox-execution-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Observed bounded process result for one generated experiment script.",
@@ -140,7 +140,7 @@
   ],
   "title": "SandboxExecutionResult",
   "type": "object",
-  "x-factori-protocol-version": "0.86.0",
+  "x-factori-protocol-version": "0.87.0",
   "x-factori-source-model": "factori.schemas.SandboxExecutionResult",
   "x-factori-verification-evidence": false
 }
