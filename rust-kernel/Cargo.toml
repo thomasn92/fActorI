@@ -2,7 +2,7 @@
 name = "factori-kernel"
 version = "0.1.0"
 edition = "2021"
-description = "Read-only deterministic integrity kernel for fActorI protocol experiments"
+description = "Deterministic integrity and bounded persistence kernel for fActorI"
 license = "MIT"
 
 [dependencies]

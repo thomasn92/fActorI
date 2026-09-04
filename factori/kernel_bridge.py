@@ -50,6 +50,7 @@ from factori.schemas import (
     KernelReplayVerifyCoreResult,
     KernelResponseEnvelope,
     KernelResponseStatus,
+    LedgerCommit,
 )
 
 
@@ -348,15 +349,14 @@ def append_ledger_commit(
     request_payload = request_payload.model_copy(update={"payload": normalized_payload})
     run_path = root_path / "runs" / run_id
     ledger_path = run_path / "ledger.sqlite"
-    before = _snapshot_run_state(root_path, run_id)
+    before = _snapshot_run_state_raw(root_path, run_id)
     try:
         ledger = ResearchLedger.open_existing(ledger_path)
-        old_commits = ledger.list_commits_read_only(run_id)
-        ledger.validate_snapshot(old_commits)
+        old_commits = _validated_linear_ledger_snapshot(ledger, run_id)
     except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
         raise KernelBridgeError(f"could not read persisted ledger: {exc}") from exc
-    if not old_commits:
-        raise KernelBridgeError("persisted ledger is empty")
+    if old_commits[-1].commit_hash != expected_tip_hash:
+        raise KernelBridgeError("expected tip does not match the persisted ledger")
     expected_hash = compute_commit_hash(
         parent_hash=expected_tip_hash,
         run_id=run_id,
@@ -408,8 +408,9 @@ def append_ledger_commit(
         ):
             raise KernelBridgeError("Rust ledger append response does not match request")
         try:
-            observed = ResearchLedger.open_existing(ledger_path).list_commits_read_only(run_id)
-            ResearchLedger.validate_snapshot(observed)
+            observed = _validated_linear_ledger_snapshot(
+                ResearchLedger.open_existing(ledger_path), run_id
+            )
         except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
             raise KernelBridgeError(f"ledger append postcondition failed: {exc}") from exc
         if (
@@ -419,7 +420,7 @@ def append_ledger_commit(
             or observed[-1].model_dump(mode="json") != expected_commit
         ):
             raise KernelBridgeError("ledger append changed the existing ledger prefix")
-        after = _snapshot_run_state(root_path, run_id)
+        after = _snapshot_run_state_raw(root_path, run_id)
         ledger_key = ledger_path.relative_to(root_path)
         if (
             any(after.get(path) != digest for path, digest in before.items() if path != ledger_key)
@@ -430,13 +431,48 @@ def append_ledger_commit(
     elif response.mutation_performed:
         raise KernelBridgeError("ledger append failed after mutation; inspect run state")
     else:
-        after = _snapshot_run_state(root_path, run_id)
+        after = _snapshot_run_state_raw(root_path, run_id)
         if after != before:
             raise KernelBridgeError("rejected ledger append changed run state")
     return response
 
 
 append_ledger = append_ledger_commit
+
+
+def _validated_linear_ledger_snapshot(ledger: ResearchLedger, run_id: str) -> list[LedgerCommit]:
+    commits = ledger.list_commits_read_only()
+    if not commits:
+        raise KernelBridgeError("persisted ledger is empty")
+    if any(commit.run_id != run_id for commit in commits):
+        raise KernelBridgeError("persisted ledger contains another run id")
+    if commits[0].parent_hash is not None:
+        raise KernelBridgeError("persisted ledger root has a parent")
+    seen: set[str] = set()
+    for index, commit in enumerate(commits):
+        if commit.commit_hash in seen:
+            raise KernelBridgeError("persisted ledger contains a duplicate commit")
+        if index > 0 and commit.parent_hash != commits[index - 1].commit_hash:
+            raise KernelBridgeError("persisted ledger is not a single linear history")
+        seen.add(commit.commit_hash)
+    ledger.validate_snapshot(commits)
+    return commits
+
+
+def _snapshot_run_state_raw(root: Path, run_id: str) -> dict[Path, tuple[str, bytes | str]]:
+    run_path = root / "runs" / run_id
+    if not run_path.is_dir() or run_path.is_symlink():
+        raise KernelBridgeError("run directory is not initialized")
+    snapshot: dict[Path, tuple[str, bytes | str]] = {}
+    for path in run_path.rglob("*"):
+        relative = path.relative_to(root)
+        if path.is_symlink():
+            snapshot[relative] = ("symlink", str(path.readlink()))
+        elif path.is_dir():
+            snapshot[relative] = ("directory", "")
+        else:
+            snapshot[relative] = ("file", path.read_bytes())
+    return snapshot
 
 
 def _snapshot_run_state(root: Path, run_id: str) -> dict[Path, str]:

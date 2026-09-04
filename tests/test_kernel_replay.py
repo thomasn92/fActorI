@@ -277,7 +277,7 @@ def test_replay_core_detects_deterministic_concurrent_snapshot_changes(
         timestamp="2099-01-01T00:00:00.000000Z",
     )
     request = {
-        "protocol_version": "0.87.0",
+        "protocol_version": "0.88.0",
         "request_id": f"concurrent-{mutation}-{mode.value}",
         "operation": "replay.verify_core",
         "mode": mode.value,

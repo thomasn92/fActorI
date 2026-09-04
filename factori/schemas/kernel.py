@@ -924,11 +924,32 @@ class KernelLedgerAppendResult(StrictModel):
     commit: LedgerCommit
     previous_tip_hash: str = Field(pattern=HASH_RE.pattern)
     new_tip_hash: str = Field(pattern=HASH_RE.pattern)
-    commit_count_before: int = Field(ge=1)
-    commit_count_after: int = Field(ge=2)
+    commit_count_before: int = Field(ge=1, strict=True)
+    commit_count_after: int = Field(ge=2, strict=True)
     appended: Literal[True]
     linked_artifact_count: Literal[0]
     authority_granted: Literal[False]
+
+    @field_validator("appended", mode="before")
+    @classmethod
+    def require_strict_appended(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("appended must be the boolean true")
+        return value
+
+    @field_validator("linked_artifact_count", mode="before")
+    @classmethod
+    def require_strict_zero_links(cls, value: Any) -> Any:
+        if isinstance(value, bool) or value != 0:
+            raise ValueError("linked_artifact_count must be the integer zero")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_no_authority(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be the boolean false")
+        return value
 
     @model_validator(mode="after")
     def validate_contract(self) -> KernelLedgerAppendResult:
@@ -940,8 +961,15 @@ class KernelLedgerAppendResult(StrictModel):
             raise ValueError("append must increase commit count by one")
         if self.commit.artifact_refs:
             raise ValueError("ledger.append cannot link artifacts")
-        if self.authority_granted is not False:
-            raise ValueError("ledger.append cannot grant authority")
+        if self.commit.action_type is ControllerActionType.INIT_RUN:
+            raise ValueError("ledger.append cannot return an InitRun commit")
+        if not re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, self.commit.run_id):
+            raise ValueError("ledger.append commit run_id is unsafe")
+        if self.commit.candidate_id is not None and not re.fullmatch(
+            _KERNEL_IDENTIFIER_PATTERN, self.commit.candidate_id
+        ):
+            raise ValueError("ledger.append commit candidate_id is unsafe")
+        KernelLedgerAppendPayload.validate_timestamp(self.commit.timestamp)
         return self
 
 
