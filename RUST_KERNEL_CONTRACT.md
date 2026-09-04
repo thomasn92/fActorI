@@ -5,11 +5,11 @@
 This document is the Sol-owned design baseline for the staged Rust translation of fActorI's
 deterministic trust kernel. It freezes the intended trust boundary, authority rules, compatibility
 requirements, and model handoff. The current Rust implementation has the complete approved
-read-only operation set plus the three separately reviewed `artifact.persist`, `ledger.append`, and
-`artifact.link` mutation primitives. It has not received evidence authority or general
-pipeline-mutation authority.
+read-only operation set plus the separately reviewed `artifact.persist`, `ledger.append`,
+`artifact.link`, and `persistence.commit_bundle` mutation operations. It has not received evidence
+authority or general pipeline-mutation authority.
 
-Current protocol baseline: `0.89.0`. The final frozen composition slice targets `0.90.0`.
+Current protocol baseline: `0.90.0`. The frozen kernel-operation plan is complete.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of
@@ -2579,3 +2579,45 @@ granting new authority:
 Luna must stop if any failure path cannot prove the truth of its mutation flag, if an existing
 intent cannot be validated without trusting intent-supplied paths, or if exact recovery would
 require deleting or overwriting a pre-existing final object or rewriting ledger history.
+
+## Final Sol Review of `persistence.commit_bundle`: Approved
+
+Sol reviewed Luna correction commit `faa84f3` against the frozen composition and recovery
+contract. The corrected operation derives one protocol/operation-qualified, mode-independent
+fingerprint and one closed canonical intent from the request rather than trusting intent-supplied
+paths. It rejects nonregular, symlinked, duplicate-key, noncanonical, incomplete, extra-field, or
+mismatching intents and validates every existing recovery output against independently derived
+bytes, lengths, and hashes.
+
+The 12 MiB limit now covers artifact and linked-sidecar bytes together in Python and Rust. Rust
+captures the complete run-tree snapshot inside the immediate transaction, publishes all artifacts
+before all sidecars with exclusive no-clobber temporary files, rechecks the snapshot around each
+publication, reads back the exact inserted ledger row before commit, and performs the complete
+post-commit ledger/output/auxiliary/intent postcondition pass. Pre-commit cleanup reports
+`mutation_performed=false` only after exact restoration; uncertain rollback, recovery after a
+published missing output, uncertain commit, and post-commit cleanup failures retain the recovery
+intent and require inspection. The Python bridge independently derives the request fingerprint,
+intent, outputs, commit, and permitted fresh or recovery delta, including committed-pre-cleanup
+recovery.
+
+The final focused matrix covers both kernel modes, one and multiple artifacts, every artifact type,
+stable order, candidate presence, custom stems, Unicode, control characters, negative zero,
+combined output bounds, strict malformed/noncanonical/symlink intents, intent-only, partial-output,
+and committed-pre-cleanup recovery, concurrent callers, and exact non-authority flags. Rust-only
+deterministic tests cover 26 pre-commit intent/publication/insert boundaries, four post-commit
+boundaries, explicit rollback uncertainty, and recovery publication failure with exact snapshot and
+mutation semantics.
+
+Protocol `0.90.0` currentness produced 444 schemas and all 51 examples validated. Comparison with
+`0.89.0` found no breaking changes; the three human-review items are the intended request
+discriminator and request/result union additions for this operation, so the minor version is
+accepted by this review. Rust formatting, strict Clippy, all 28 Rust unit tests, 15 focused bundle
+tests, the targeted nine-case parity rerun, Ruff, clean diffs, and the complete Python suite passed.
+The complete suite result was 1,663 passed in 542.62 seconds.
+
+`persistence.commit_bundle` is approved only for the frozen crash-recoverable composition of one to
+sixteen new canonical JSON artifacts, one self-linked non-root ledger commit, and their exact
+producer sidecars in an existing run. It does not initialize or repair runs, overwrite outputs,
+accept existing artifact references, grant evidence or publication authority, authorize reruns,
+or cut over a production persistence call site. The planned Rust research-kernel operation set is
+therefore 13 of 13 approved, or 100.00% complete.
