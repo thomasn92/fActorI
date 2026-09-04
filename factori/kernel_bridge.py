@@ -449,6 +449,7 @@ def link_artifact(
     producing_commit_hash: str,
     expected_ledger_tip_hash: str,
     *,
+    mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
     root: str | Path = ".",
     kernel_binary: str | Path | None = None,
     timeout_seconds: float = 30.0,
@@ -508,7 +509,7 @@ def link_artifact(
         protocol_version=PROTOCOL_VERSION,
         request_id=f"artifact-link-{run_id}-{artifact.id}-{producing_commit_hash[:12]}",
         operation="artifact.link",
-        mode="DevelopmentCompatibility",
+        mode=mode,
         payload=payload,
     )
     response = _invoke_kernel(

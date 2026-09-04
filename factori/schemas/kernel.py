@@ -1240,7 +1240,6 @@ class KernelResponseEnvelope(StrictModel):
             elif len(self.diagnostics) != 1 or self.diagnostics[0].code in {
                 "artifact_link_temp_cleanup_warning",
                 "artifact_link_durability_uncertain",
-                "artifact_link_snapshot_changed",
                 "artifact_link_postcondition_failed",
             }:
                 raise ValueError("artifact.link rejection diagnostics are invalid")

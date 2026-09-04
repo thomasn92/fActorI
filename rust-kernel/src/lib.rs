@@ -1334,6 +1334,155 @@ fn normalize_sql(sql: &str) -> String {
         .to_ascii_lowercase()
 }
 
+fn validate_exact_read_only_ledger(
+    connection: &Connection,
+    run_id: &str,
+) -> Result<(Vec<RawLedgerRow>, LedgerVerifyPayload), String> {
+    let schema = connection
+        .prepare("PRAGMA table_info(commits)")
+        .and_then(|mut statement| {
+            statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                        row.get::<_, i64>(5)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|_| "ledger table schema cannot be inspected".to_owned())?;
+    let expected = [
+        (0, "commit_hash", "TEXT", 0, None, 1),
+        (1, "parent_hash", "TEXT", 0, None, 0),
+        (2, "run_id", "TEXT", 1, None, 0),
+        (3, "candidate_id", "TEXT", 0, None, 0),
+        (4, "action_type", "TEXT", 1, None, 0),
+        (5, "payload_json", "TEXT", 1, None, 0),
+        (6, "artifact_refs_json", "TEXT", 1, None, 0),
+        (7, "timestamp", "TEXT", 1, None, 0),
+    ];
+    if schema.len() != expected.len()
+        || !schema.iter().zip(expected.iter()).all(|(got, want)| {
+            got.0 == want.0
+                && got.1 == want.1
+                && got.2 == want.2
+                && got.3 == want.3
+                && got.4.as_deref() == want.4
+                && got.5 == want.5
+        })
+    {
+        return Err("ledger schema is not the supported append-only schema".to_owned());
+    }
+    let table_sql: Option<String> = connection
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='commits'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|_| "ledger table definition cannot be inspected".to_owned())?;
+    let expected_table_sql = "create table commits ( commit_hash text primary key, parent_hash text references commits(commit_hash), run_id text not null, candidate_id text, action_type text not null, payload_json text not null, artifact_refs_json text not null, timestamp text not null )";
+    if table_sql
+        .as_deref()
+        .is_none_or(|sql| normalize_sql(sql) != expected_table_sql)
+    {
+        return Err("ledger table definition is invalid".to_owned());
+    }
+    let foreign_keys = connection
+        .prepare("PRAGMA foreign_key_list(commits)")
+        .and_then(|mut statement| {
+            statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
+                        row.get::<_, String>(7)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|_| "ledger foreign-key schema cannot be inspected".to_owned())?;
+    let expected_foreign_key = vec![(
+        0,
+        0,
+        "commits".to_owned(),
+        "parent_hash".to_owned(),
+        "commit_hash".to_owned(),
+        "NO ACTION".to_owned(),
+        "NO ACTION".to_owned(),
+        "NONE".to_owned(),
+    )];
+    if foreign_keys != expected_foreign_key {
+        return Err("ledger parent foreign-key schema is invalid".to_owned());
+    }
+    let trigger_rows = connection
+        .prepare("SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='commits'")
+        .and_then(|mut statement| {
+            statement
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|_| "ledger trigger schema cannot be inspected".to_owned())?;
+    let expected_triggers = [
+        (
+            "commits_no_delete",
+            "create trigger commits_no_delete before delete on commits begin select raise(abort, 'commits are append-only'); end",
+        ),
+        (
+            "commits_no_update",
+            "create trigger commits_no_update before update on commits begin select raise(abort, 'commits are append-only'); end",
+        ),
+    ];
+    if trigger_rows.len() != expected_triggers.len()
+        || expected_triggers
+            .iter()
+            .any(|(expected_name, expected_sql)| {
+                !trigger_rows.iter().any(|(name, sql)| {
+                    name == expected_name
+                        && sql
+                            .as_deref()
+                            .is_some_and(|value| normalize_sql(value) == *expected_sql)
+                })
+            })
+    {
+        return Err("ledger append-only trigger schema is invalid".to_owned());
+    }
+    let integrity: String = connection
+        .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+        .map_err(|_| "ledger integrity check could not run".to_owned())?;
+    if integrity != "ok" {
+        return Err("ledger integrity check failed".to_owned());
+    }
+    let foreign_key_findings = connection
+        .prepare("PRAGMA foreign_key_check")
+        .and_then(|mut statement| {
+            statement
+                .query_map([], |_| Ok(()))?
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .map_err(|_| "ledger foreign-key check could not run".to_owned())?;
+    if !foreign_key_findings.is_empty() {
+        return Err("ledger foreign-key check failed".to_owned());
+    }
+    let rows = load_raw_ledger_rows(connection)?;
+    if rows.is_empty() {
+        return Err("ledger is empty".to_owned());
+    }
+    let ledger = raw_rows_to_ledger(run_id, &rows)?;
+    verify_ledger(&ledger).map_err(|(_, message, _)| message)?;
+    Ok((rows, ledger))
+}
+
 fn ledger_append_failure(
     code: &'static str,
     message: impl Into<String>,
@@ -2115,6 +2264,7 @@ struct ArtifactPersistFailure {
     mutation_performed: bool,
 }
 
+#[derive(Debug)]
 struct ArtifactLinkFailure {
     status: KernelResponseStatus,
     code: &'static str,
@@ -2141,6 +2291,30 @@ fn link_artifact_payload(
     payload: &Map<String, Value>,
     project_root: &Path,
 ) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), ArtifactLinkFailure> {
+    link_artifact_payload_with_fault(payload, project_root, ArtifactLinkFault::None)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+enum ArtifactLinkFault {
+    None,
+    TempCreate,
+    TempWrite,
+    TempFlush,
+    TempFsync,
+    SnapshotBeforePublish,
+    Publish,
+    TempCleanup,
+    DirectoryFsync,
+    FinalRead,
+    SnapshotAfterPublish,
+}
+
+fn link_artifact_payload_with_fault(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+    fault: ArtifactLinkFault,
+) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), ArtifactLinkFailure> {
     let request = serde_json::from_value::<ArtifactLinkPayload>(Value::Object(payload.clone()))
         .map_err(|error| {
             artifact_link_failure(
@@ -2150,7 +2324,12 @@ fn link_artifact_payload(
             )
         })?;
     validate_artifact_link_payload_structure(payload).map_err(|message| {
-        artifact_link_failure("artifact_link_payload_invalid", message, Some("payload"))
+        let code = if message.contains("64 KiB") || message.contains("1 MiB") {
+            "artifact_link_size_exceeded"
+        } else {
+            "artifact_link_payload_invalid"
+        };
+        artifact_link_failure(code, message, Some("payload"))
     })?;
     let root = fs::canonicalize(project_root).map_err(|_| {
         artifact_link_failure(
@@ -2182,14 +2361,14 @@ fn link_artifact_payload(
                 Some("payload.artifact.path"),
             )
         })?;
-    let observed_hash = sha256_file(&artifact_path).map_err(|message| {
+    let artifact_bytes_before = fs::read(&artifact_path).map_err(|_| {
         artifact_link_failure(
             "artifact_link_artifact_invalid",
-            message,
+            "artifact bytes cannot be read",
             Some("payload.artifact.content_hash"),
         )
     })?;
-    if observed_hash != request.artifact.content_hash {
+    if sha256_hex(&artifact_bytes_before) != request.artifact.content_hash {
         return Err(artifact_link_failure(
             "artifact_link_artifact_invalid",
             "artifact content hash does not match",
@@ -2222,12 +2401,64 @@ fn link_artifact_payload(
             ));
         }
     }
-    let ledger = load_persisted_ledger(&root, &request.run_id).map_err(|(_, message, _)| {
-        artifact_link_failure("artifact_link_ledger_invalid", message, Some("payload"))
+    let ledger_bytes_before = fs::read(&ledger_path).map_err(|_| {
+        artifact_link_failure(
+            "artifact_link_ledger_invalid",
+            "ledger bytes cannot be read",
+            Some("payload"),
+        )
     })?;
-    verify_ledger(&ledger).map_err(|(_, message, _)| {
-        artifact_link_failure("artifact_link_ledger_invalid", message, Some("payload"))
+    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let connection = Connection::open_with_flags(&ledger_path, flags).map_err(|_| {
+        artifact_link_failure(
+            "artifact_link_ledger_invalid",
+            "ledger cannot be opened read-only",
+            Some("payload"),
+        )
     })?;
+    connection
+        .busy_timeout(std::time::Duration::ZERO)
+        .map_err(|_| {
+            artifact_link_failure(
+                "artifact_link_ledger_invalid",
+                "ledger busy policy cannot be configured",
+                Some("payload"),
+            )
+        })?;
+    match connection.query_row("SELECT 1 FROM commits LIMIT 1", [], |_| Ok(())) {
+        Ok(()) | Err(rusqlite::Error::QueryReturnedNoRows) => {}
+        Err(rusqlite::Error::SqliteFailure(ref error, _))
+            if matches!(
+                error.code,
+                rusqlite::ffi::ErrorCode::DatabaseBusy | rusqlite::ffi::ErrorCode::DatabaseLocked
+            ) =>
+        {
+            return Err(artifact_link_failure(
+                "artifact_link_busy",
+                "ledger is busy",
+                Some("payload.expected_ledger_tip_hash"),
+            ))
+        }
+        Err(_) => {
+            return Err(artifact_link_failure(
+                "artifact_link_ledger_invalid",
+                "ledger cannot be read",
+                Some("payload"),
+            ))
+        }
+    }
+    let (ledger_rows_before, ledger) =
+        validate_exact_read_only_ledger(&connection, &request.run_id).map_err(|message| {
+            artifact_link_failure("artifact_link_ledger_invalid", message, Some("payload"))
+        })?;
+    drop(connection);
+    if fs::read(&ledger_path).ok().as_deref() != Some(ledger_bytes_before.as_slice()) {
+        return Err(artifact_link_failure(
+            "artifact_link_snapshot_changed",
+            "ledger changed during validation",
+            Some("payload"),
+        ));
+    }
     let tip = ledger
         .commits
         .last()
@@ -2246,30 +2477,35 @@ fn link_artifact_payload(
             Some("payload.expected_ledger_tip_hash"),
         ));
     }
-    let mut matching = 0_u8;
-    for commit in &ledger.commits {
-        if commit.commit_hash != request.producing_commit_hash {
-            continue;
-        }
-        for value in &commit.artifact_refs {
-            let Some(object) = value.as_object() else {
-                continue;
-            };
-            let same = object.get("id") == Some(&Value::String(request.artifact.id.clone()))
-                && object.get("type")
-                    == Some(&Value::String(request.artifact.artifact_type.clone()))
-                && object.get("path") == Some(&Value::String(request.artifact.path.clone()))
-                && object.get("content_hash")
-                    == Some(&Value::String(request.artifact.content_hash.clone()))
-                && object.get("metadata")
-                    == Some(&Value::Object(request.artifact.metadata.clone()))
-                && object.get("producing_commit_hash")
-                    == Some(&Value::String(commit.commit_hash.clone()));
-            if same {
-                matching += 1;
-            }
-        }
-    }
+    let producer = ledger
+        .commits
+        .iter()
+        .find(|commit| commit.commit_hash == request.producing_commit_hash)
+        .ok_or_else(|| {
+            artifact_link_failure(
+                "artifact_link_commit_missing",
+                "producer commit is not in the ledger",
+                Some("payload.producing_commit_hash"),
+            )
+        })?;
+    let matching = producer
+        .artifact_refs
+        .iter()
+        .filter(|value| {
+            value.as_object().is_some_and(|object| {
+                object.get("id") == Some(&Value::String(request.artifact.id.clone()))
+                    && object.get("type")
+                        == Some(&Value::String(request.artifact.artifact_type.clone()))
+                    && object.get("path") == Some(&Value::String(request.artifact.path.clone()))
+                    && object.get("content_hash")
+                        == Some(&Value::String(request.artifact.content_hash.clone()))
+                    && object.get("metadata")
+                        == Some(&Value::Object(request.artifact.metadata.clone()))
+                    && object.get("producing_commit_hash")
+                        == Some(&Value::String(producer.commit_hash.clone()))
+            })
+        })
+        .count();
     if matching == 0 {
         return Err(artifact_link_failure(
             "artifact_link_commit_mismatch",
@@ -2330,6 +2566,9 @@ fn link_artifact_payload(
     })?;
     static LINK_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nonce = LINK_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
     let temp = parent.join(format!(
         ".{}.tmp-link-{}-{}",
         target
@@ -2337,8 +2576,15 @@ fn link_artifact_payload(
             .and_then(|v| v.to_str())
             .unwrap_or("artifact"),
         std::process::id(),
-        nonce
+        now + nonce as u128
     ));
+    if fault == ArtifactLinkFault::TempCreate {
+        return Err(artifact_link_failure(
+            "artifact_link_temp_write_failed",
+            "injected temporary create failure",
+            Some("payload.artifact"),
+        ));
+    }
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -2350,11 +2596,26 @@ fn link_artifact_payload(
                 Some("payload.artifact"),
             )
         })?;
-    if let Err(error) = file
-        .write_all(&bytes)
-        .and_then(|_| file.flush())
-        .and_then(|_| file.sync_all())
-    {
+    let write_result = if fault == ArtifactLinkFault::TempWrite {
+        Err(std::io::Error::other("injected temporary write failure"))
+    } else {
+        file.write_all(&bytes)
+    }
+    .and_then(|_| {
+        if fault == ArtifactLinkFault::TempFlush {
+            Err(std::io::Error::other("injected temporary flush failure"))
+        } else {
+            file.flush()
+        }
+    })
+    .and_then(|_| {
+        if fault == ArtifactLinkFault::TempFsync {
+            Err(std::io::Error::other("injected temporary fsync failure"))
+        } else {
+            file.sync_all()
+        }
+    });
+    if let Err(error) = write_result {
         let _ = fs::remove_file(&temp);
         return Err(artifact_link_failure(
             "artifact_link_temp_write_failed",
@@ -2363,6 +2624,76 @@ fn link_artifact_payload(
         ));
     }
     drop(file);
+    let temp_bytes = fs::read(&temp).map_err(|error| {
+        let _ = fs::remove_file(&temp);
+        artifact_link_failure(
+            "artifact_link_temp_write_failed",
+            error.to_string(),
+            Some("payload.artifact"),
+        )
+    })?;
+    if temp_bytes != bytes {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_link_failure(
+            "artifact_link_temp_write_failed",
+            "temporary sidecar bytes do not match",
+            Some("payload.artifact"),
+        ));
+    }
+    let snapshot_changed = fault == ArtifactLinkFault::SnapshotBeforePublish
+        || fs::read(&artifact_path).ok().as_deref() != Some(artifact_bytes_before.as_slice())
+        || fs::read(&ledger_path).ok().as_deref() != Some(ledger_bytes_before.as_slice());
+    if snapshot_changed {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_link_failure(
+            "artifact_link_snapshot_changed",
+            "artifact or ledger changed before publication",
+            Some("payload"),
+        ));
+    }
+    let recheck_connection = Connection::open_with_flags(&ledger_path, flags).map_err(|_| {
+        let _ = fs::remove_file(&temp);
+        artifact_link_failure(
+            "artifact_link_ledger_invalid",
+            "ledger cannot be reopened for snapshot validation",
+            Some("payload"),
+        )
+    })?;
+    let (rechecked_rows, _) = validate_exact_read_only_ledger(&recheck_connection, &request.run_id)
+        .map_err(|message| {
+            let _ = fs::remove_file(&temp);
+            artifact_link_failure("artifact_link_ledger_invalid", message, Some("payload"))
+        })?;
+    drop(recheck_connection);
+    if fs::symlink_metadata(&target).is_ok() {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_link_failure(
+            "artifact_link_target_exists",
+            "artifact sidecar was created concurrently",
+            Some("payload.artifact.path"),
+        ));
+    }
+    if rechecked_rows != ledger_rows_before
+        || ["-journal", "-wal", "-shm"].iter().any(|suffix| {
+            fs::symlink_metadata(ledger_path.with_file_name(format!("ledger.sqlite{suffix}")))
+                .is_ok()
+        })
+    {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_link_failure(
+            "artifact_link_snapshot_changed",
+            "validated state changed before publication",
+            Some("payload"),
+        ));
+    }
+    if fault == ArtifactLinkFault::Publish {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_link_failure(
+            "artifact_link_publish_failed",
+            "injected atomic publication failure",
+            Some("payload.artifact.path"),
+        ));
+    }
     if let Err(error) = fs::hard_link(&temp, &target) {
         let _ = fs::remove_file(&temp);
         let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
@@ -2376,15 +2707,21 @@ fn link_artifact_payload(
             Some("payload.artifact.path"),
         ));
     }
-    let mut diagnostics = Vec::new();
-    if fs::remove_file(&temp).is_err() {
-        diagnostics.push(KernelDiagnostic {
-            code: "artifact_link_temp_cleanup_warning".to_owned(),
+    if fault == ArtifactLinkFault::TempCleanup || fs::remove_file(&temp).is_err() {
+        return Err(ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_temp_cleanup_warning",
             message: "temporary file cleanup failed after publication".to_owned(),
-            path: Some("payload.artifact.path".to_owned()),
+            path: Some("payload.artifact.path"),
+            mutation_performed: true,
         });
     }
-    match File::open(parent).and_then(|directory| directory.sync_all()) {
+    let directory_sync = if fault == ArtifactLinkFault::DirectoryFsync {
+        Err(std::io::Error::other("injected directory fsync failure"))
+    } else {
+        File::open(parent).and_then(|directory| directory.sync_all())
+    };
+    match directory_sync {
         Ok(()) => {}
         Err(error)
             if matches!(
@@ -2400,6 +2737,31 @@ fn link_artifact_payload(
                 mutation_performed: true,
             })
         }
+    }
+    if fault == ArtifactLinkFault::FinalRead {
+        return Err(ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_postcondition_failed",
+            message: "injected final read failure".to_owned(),
+            path: Some("payload.artifact.path"),
+            mutation_performed: true,
+        });
+    }
+    let final_meta = fs::symlink_metadata(&target).map_err(|error| ArtifactLinkFailure {
+        status: KernelResponseStatus::Error,
+        code: "artifact_link_postcondition_failed",
+        message: error.to_string(),
+        path: Some("payload.artifact.path"),
+        mutation_performed: true,
+    })?;
+    if !final_meta.is_file() || final_meta.file_type().is_symlink() {
+        return Err(ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_postcondition_failed",
+            message: "published sidecar is not a regular file".to_owned(),
+            path: Some("payload.artifact.path"),
+            mutation_performed: true,
+        });
     }
     let observed = fs::read(&target).map_err(|error| ArtifactLinkFailure {
         status: KernelResponseStatus::Error,
@@ -2417,6 +2779,43 @@ fn link_artifact_payload(
             mutation_performed: true,
         });
     }
+    let post_snapshot_changed = fault == ArtifactLinkFault::SnapshotAfterPublish
+        || fs::read(&artifact_path).ok().as_deref() != Some(artifact_bytes_before.as_slice())
+        || fs::read(&ledger_path).ok().as_deref() != Some(ledger_bytes_before.as_slice());
+    if post_snapshot_changed {
+        return Err(ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_snapshot_changed",
+            message: "artifact or ledger changed after publication".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
+    let post_connection =
+        Connection::open_with_flags(&ledger_path, flags).map_err(|_| ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_postcondition_failed",
+            message: "ledger cannot be reopened after publication".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        })?;
+    let (post_rows, _) = validate_exact_read_only_ledger(&post_connection, &request.run_id)
+        .map_err(|message| ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_postcondition_failed",
+            message,
+            path: Some("payload"),
+            mutation_performed: true,
+        })?;
+    if post_rows != ledger_rows_before {
+        return Err(ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_snapshot_changed",
+            message: "ledger semantic snapshot changed after publication".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
     Ok((
         map_value([
             ("artifact", linked),
@@ -2430,7 +2829,7 @@ fn link_artifact_payload(
             ("linked_to_ledger", Value::Bool(true)),
             ("authority_granted", Value::Bool(false)),
         ]),
-        diagnostics,
+        Vec::new(),
     ))
 }
 
@@ -8656,5 +9055,132 @@ mod tests {
             drop(connection);
             fs::remove_dir_all(&root).expect("remove test root");
         }
+    }
+
+    fn artifact_link_test_root(label: &str) -> (PathBuf, Map<String, Value>) {
+        let (root, root_hash) = ledger_append_test_root(label);
+        let artifact_path = root.join("runs/run-1/candidates/artifact-1.json");
+        fs::create_dir_all(artifact_path.parent().expect("artifact parent"))
+            .expect("artifact directory");
+        let artifact_bytes = b"{\"value\":1}\n";
+        fs::write(&artifact_path, artifact_bytes).expect("artifact bytes");
+        let content_hash = sha256_hex(artifact_bytes);
+        let mut hash_artifact = serde_json::json!({
+            "id": "artifact-1",
+            "type": "candidate",
+            "path": "runs/run-1/candidates/artifact-1.json",
+            "content_hash": content_hash,
+            "producing_commit_hash": "<self>",
+            "metadata": {"format": "json"}
+        });
+        let mut commit = WireLedgerCommit {
+            commit_hash: String::new(),
+            parent_hash: Some(root_hash.clone()),
+            run_id: "run-1".to_owned(),
+            candidate_id: None,
+            action_type: "WriteArtifact".to_owned(),
+            payload: Map::new(),
+            artifact_refs: vec![hash_artifact.clone()],
+            timestamp: "2026-01-01T00:00:00Z".to_owned(),
+        };
+        let commit_hash = compute_wire_commit_hash(&commit).expect("artifact commit hash");
+        commit.commit_hash = commit_hash.clone();
+        hash_artifact
+            .as_object_mut()
+            .expect("artifact object")
+            .insert(
+                "producing_commit_hash".to_owned(),
+                Value::String(commit_hash.clone()),
+            );
+        let artifact_json =
+            canonical_json(&Value::Array(vec![hash_artifact])).expect("canonical artifact refs");
+        let ledger_path = root.join("runs/run-1/ledger.sqlite");
+        let connection = Connection::open(&ledger_path).expect("test ledger");
+        connection
+            .execute(
+                "INSERT INTO commits VALUES (?1, ?2, 'run-1', NULL, 'WriteArtifact', '{}', ?3, '2026-01-01T00:00:00Z')",
+                params![commit_hash, root_hash, artifact_json],
+            )
+            .expect("artifact commit");
+        drop(connection);
+        let payload = serde_json::json!({
+            "run_id": "run-1",
+            "expected_ledger_tip_hash": commit_hash,
+            "artifact": {
+                "id": "artifact-1",
+                "type": "candidate",
+                "path": "runs/run-1/candidates/artifact-1.json",
+                "content_hash": content_hash,
+                "producing_commit_hash": null,
+                "metadata": {"format": "json"}
+            },
+            "producing_commit_hash": commit_hash,
+            "overwrite_policy": "FailIfExists"
+        })
+        .as_object()
+        .expect("link payload")
+        .clone();
+        (root, payload)
+    }
+
+    #[test]
+    fn artifact_link_prepublication_faults_leave_no_sidecar_or_temp() {
+        for fault in [
+            ArtifactLinkFault::TempCreate,
+            ArtifactLinkFault::TempWrite,
+            ArtifactLinkFault::TempFlush,
+            ArtifactLinkFault::TempFsync,
+            ArtifactLinkFault::SnapshotBeforePublish,
+            ArtifactLinkFault::Publish,
+        ] {
+            let (root, payload) = artifact_link_test_root("link-prepublish");
+            let error = link_artifact_payload_with_fault(&payload, &root, fault)
+                .expect_err("injected prepublication failure");
+            assert_eq!(error.status, KernelResponseStatus::Rejected);
+            assert!(!error.mutation_performed);
+            let directory = root.join("runs/run-1/candidates");
+            assert!(!directory.join("artifact-1.json.meta.json").exists());
+            assert_eq!(
+                fs::read_dir(&directory)
+                    .expect("artifact directory")
+                    .count(),
+                1
+            );
+            fs::remove_dir_all(root).expect("remove test root");
+        }
+    }
+
+    #[test]
+    fn artifact_link_postpublication_faults_require_inspection() {
+        for fault in [
+            ArtifactLinkFault::DirectoryFsync,
+            ArtifactLinkFault::FinalRead,
+            ArtifactLinkFault::SnapshotAfterPublish,
+        ] {
+            let (root, payload) = artifact_link_test_root("link-postpublish");
+            let error = link_artifact_payload_with_fault(&payload, &root, fault)
+                .expect_err("injected postpublication failure");
+            assert_eq!(error.status, KernelResponseStatus::Error);
+            assert!(error.mutation_performed);
+            assert!(root
+                .join("runs/run-1/candidates/artifact-1.json.meta.json")
+                .is_file());
+            fs::remove_dir_all(root).expect("remove test root");
+        }
+    }
+
+    #[test]
+    fn artifact_link_cleanup_fault_requires_inspection() {
+        let (root, payload) = artifact_link_test_root("link-cleanup");
+        let error =
+            link_artifact_payload_with_fault(&payload, &root, ArtifactLinkFault::TempCleanup)
+                .expect_err("cleanup fault requires inspection");
+        assert_eq!(error.status, KernelResponseStatus::Error);
+        assert!(error.mutation_performed);
+        assert_eq!(error.code, "artifact_link_temp_cleanup_warning");
+        assert!(root
+            .join("runs/run-1/candidates/artifact-1.json.meta.json")
+            .is_file());
+        fs::remove_dir_all(root).expect("remove test root");
     }
 }
