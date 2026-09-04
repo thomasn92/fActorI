@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import datetime
@@ -593,11 +594,63 @@ class KernelPersistenceCommitBundlePayload(StrictModel):
                 ensure_ascii=False,
                 allow_nan=False,
             ).encode("utf-8")
-            artifact_bytes = sum(
+            canonical_artifacts = [
+                (
+                    json.dumps(
+                        to_jsonable(item.json_value),
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                        allow_nan=False,
+                    )
+                    + "\n"
+                ).encode("utf-8")
+                for item in self.artifacts
+            ]
+            artifact_bytes = sum(len(value) for value in canonical_artifacts)
+            unlinked_refs = []
+            for item, value, path in zip(self.artifacts, canonical_artifacts, paths, strict=True):
+                metadata = {
+                    **to_jsonable(item.metadata),
+                    "format": "json",
+                    "is_verification_evidence": False,
+                }
+                unlinked_refs.append(
+                    {
+                        "id": item.artifact_id,
+                        "type": item.artifact_type.value,
+                        "path": "/".join(path),
+                        "content_hash": hashlib.sha256(value).hexdigest(),
+                        "producing_commit_hash": None,
+                        "metadata": metadata,
+                    }
+                )
+            hash_refs = [
+                {**item, "producing_commit_hash": "<self>"} for item in unlinked_refs
+            ]
+            hash_payload = {
+                "parent_hash": self.expected_tip_hash,
+                "run_id": self.run_id,
+                "candidate_id": self.candidate_id_optional,
+                "action_type": self.action_type.value,
+                "payload": to_jsonable(self.commit_payload),
+                "artifact_refs": hash_refs,
+                "timestamp": self.timestamp,
+            }
+            commit_hash = hashlib.sha256(
+                json.dumps(
+                    hash_payload,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    allow_nan=False,
+                ).encode("utf-8")
+            ).hexdigest()
+            sidecar_bytes = sum(
                 len(
                     (
                         json.dumps(
-                            to_jsonable(item.json_value),
+                            {**item, "producing_commit_hash": commit_hash},
                             sort_keys=True,
                             separators=(",", ":"),
                             ensure_ascii=False,
@@ -606,14 +659,14 @@ class KernelPersistenceCommitBundlePayload(StrictModel):
                         + "\n"
                     ).encode("utf-8")
                 )
-                for item in self.artifacts
+                for item in unlinked_refs
             )
         except (TypeError, ValueError) as exc:
             raise ValueError(f"bundle values must be valid JSON: {exc}") from exc
         if len(payload_json) > 4 * 1024 * 1024:
             raise ValueError("serialized commit payload exceeds 4 MiB")
-        if artifact_bytes > 12 * 1024 * 1024:
-            raise ValueError("aggregate artifact payload exceeds 12 MiB")
+        if artifact_bytes + sidecar_bytes > 12 * 1024 * 1024:
+            raise ValueError("aggregate artifact and sidecar payload exceeds 12 MiB")
         return self
 
 

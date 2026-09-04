@@ -596,15 +596,6 @@ def commit_artifact_bundle(
     payload = payload.model_copy(update={"commit_payload": normalized_payload})
     run_path = root_path / "runs" / run_id
     ledger_path = run_path / "ledger.sqlite"
-    before = _snapshot_run_state_raw(root_path, run_id)
-    try:
-        old_commits = _validated_linear_ledger_snapshot(
-            ResearchLedger.open_existing(ledger_path), run_id
-        )
-    except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
-        raise KernelBridgeError(f"could not read persisted ledger: {exc}") from exc
-    if not old_commits or old_commits[-1].commit_hash != expected_tip_hash:
-        raise KernelBridgeError("expected tip does not match the persisted ledger")
 
     refs: list[ArtifactRef] = []
     expected_files: dict[Path, bytes] = {}
@@ -643,6 +634,90 @@ def commit_artifact_bundle(
         expected_files[Path(f"{ref.path}.meta.json")] = (
             canonical_json(ref.model_dump(mode="json")).encode("utf-8") + b"\n"
         )
+    fingerprint = sha256_text(
+        canonical_json(
+            {
+                "protocol_version": PROTOCOL_VERSION,
+                "operation": "persistence.commit_bundle",
+                "payload": payload.model_dump(mode="json"),
+            }
+        )
+    )
+    outputs = []
+    for ref in linked_refs:
+        artifact_path = Path(ref.path)
+        sidecar_path = Path(f"{ref.path}.meta.json")
+        artifact_bytes = expected_files[artifact_path]
+        sidecar_bytes = expected_files[sidecar_path]
+        outputs.append(
+            {
+                "artifact_path": artifact_path.as_posix(),
+                "artifact_length": len(artifact_bytes),
+                "artifact_hash": sha256_bytes(artifact_bytes),
+                "sidecar_path": sidecar_path.as_posix(),
+                "sidecar_length": len(sidecar_bytes),
+                "sidecar_hash": sha256_bytes(sidecar_bytes),
+            }
+        )
+    intent_value = {
+        "protocol_version": PROTOCOL_VERSION,
+        "operation": "persistence.commit_bundle",
+        "fingerprint": fingerprint,
+        "expected_tip_hash": expected_tip_hash,
+        "new_commit_hash": expected_hash,
+        "outputs": outputs,
+    }
+    expected_intent_bytes = (canonical_json(intent_value) + "\n").encode("utf-8")
+    intent_path = run_path / ".factori-commit-bundle.intent.json"
+    before = _snapshot_run_state_raw(root_path, run_id)
+    try:
+        current_commits = _validated_linear_ledger_snapshot(
+            ResearchLedger.open_existing(ledger_path), run_id
+        )
+    except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
+        raise KernelBridgeError(f"could not read persisted ledger: {exc}") from exc
+    intent_exists = intent_path.exists() or intent_path.is_symlink()
+    if intent_exists:
+        if intent_path.is_symlink() or not intent_path.is_file():
+            raise KernelBridgeError("bundle recovery intent is not a regular file")
+        if intent_path.read_bytes() != expected_intent_bytes:
+            raise KernelBridgeError("bundle recovery intent does not match the exact request")
+        for relative, expected in expected_files.items():
+            path = root_path / relative
+            if (path.exists() or path.is_symlink()) and (
+                path.is_symlink() or not path.is_file() or path.read_bytes() != expected
+            ):
+                raise KernelBridgeError(
+                    "bundle recovery output does not match the exact request"
+                )
+    else:
+        for relative in expected_files:
+            path = root_path / relative
+            if path.exists() or path.is_symlink():
+                raise KernelBridgeError("fresh bundle destination already exists")
+
+    if not current_commits:
+        raise KernelBridgeError("persisted ledger is empty")
+    if current_commits[-1].commit_hash == expected_tip_hash:
+        old_commits = current_commits
+    elif intent_exists and current_commits[-1].commit_hash == expected_hash:
+        if len(current_commits) < 2:
+            raise KernelBridgeError("recovered bundle ledger prefix is missing")
+        old_commits = current_commits[:-1]
+    else:
+        raise KernelBridgeError("persisted tip is not valid for this bundle request")
+    expected_commit = LedgerCommit(
+        commit_hash=expected_hash,
+        parent_hash=expected_tip_hash,
+        run_id=run_id,
+        candidate_id=candidate_id_optional,
+        action_type=action_type,
+        payload=normalized_payload,
+        artifact_refs=linked_refs,
+        timestamp=timestamp,
+    )
+    if current_commits[-1].commit_hash == expected_hash and current_commits[-1] != expected_commit:
+        raise KernelBridgeError("recovered bundle ledger row does not match the exact request")
     request = KernelPersistenceCommitBundleRequest(
         protocol_version=PROTOCOL_VERSION,
         request_id=f"persistence-commit-bundle-{run_id}-{expected_hash[:12]}",
@@ -662,16 +737,6 @@ def commit_artifact_bundle(
         result = response.result
         if not isinstance(result, KernelPersistenceCommitBundleResult):
             raise KernelBridgeError("Rust bundle response has the wrong result type")
-        expected_commit = LedgerCommit(
-            commit_hash=expected_hash,
-            parent_hash=expected_tip_hash,
-            run_id=run_id,
-            candidate_id=candidate_id_optional,
-            action_type=action_type,
-            payload=normalized_payload,
-            artifact_refs=linked_refs,
-            timestamp=timestamp,
-        )
         if (
             result.artifacts != linked_refs
             or result.commit != expected_commit
@@ -682,6 +747,7 @@ def commit_artifact_bundle(
             or result.artifact_count != len(refs)
             or result.sidecar_count != len(refs)
             or result.bundle_committed is not True
+            or result.recovered_from_intent != intent_exists
             or result.authority_granted is not False
             or not response.mutation_performed
         ):
@@ -701,16 +767,15 @@ def commit_artifact_bundle(
             if path not in after or after[path] != ("file", expected):
                 raise KernelBridgeError(f"bundle output bytes do not match: {path}")
         ledger_key = ledger_path.relative_to(root_path)
+        intent_key = intent_path.relative_to(root_path)
         if any(
             after.get(path) != digest
             for path, digest in before.items()
-            if path not in expected_files and path != ledger_key
+            if path not in expected_files and path not in {ledger_key, intent_key}
         ):
             raise KernelBridgeError("bundle changed pre-existing run state")
         extras = set(after) - set(before) - {ledger_key} - set(expected_files)
-        intent_key = (run_path / ".factori-commit-bundle.intent.json").relative_to(root_path)
-        extras.discard(intent_key)
-        if extras:
+        if intent_key in after or extras:
             raise KernelBridgeError("bundle created unexpected files")
     elif response.mutation_performed:
         raise KernelBridgeError("bundle failed after mutation; inspect run state")

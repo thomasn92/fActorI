@@ -9,7 +9,7 @@ use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::Deserializer;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -2938,6 +2938,114 @@ struct BundlePlan {
     fingerprint: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BundleSnapshotEntry {
+    Directory,
+    File(Vec<u8>),
+    Symlink(PathBuf),
+    Other,
+}
+
+type BundleSnapshot = BTreeMap<PathBuf, BundleSnapshotEntry>;
+
+fn snapshot_bundle_tree(run_dir: &Path) -> Result<BundleSnapshot, PersistenceBundleFailure> {
+    fn visit(
+        base: &Path,
+        directory: &Path,
+        snapshot: &mut BundleSnapshot,
+    ) -> Result<(), PersistenceBundleFailure> {
+        let mut entries = fs::read_dir(directory)
+            .map_err(|_| {
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree cannot be enumerated",
+                    Some("payload.run_id"),
+                )
+            })?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| {
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree entry cannot be inspected",
+                    Some("payload.run_id"),
+                )
+            })?;
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
+            let path = entry.path();
+            let relative = path
+                .strip_prefix(base)
+                .expect("snapshot path beneath run")
+                .to_path_buf();
+            let metadata = fs::symlink_metadata(&path).map_err(|_| {
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree metadata changed during snapshot",
+                    Some("payload.run_id"),
+                )
+            })?;
+            let value = if metadata.file_type().is_symlink() {
+                BundleSnapshotEntry::Symlink(fs::read_link(&path).map_err(|_| {
+                    persistence_bundle_failure(
+                        "persistence_bundle_snapshot_changed",
+                        "run tree symlink changed during snapshot",
+                        Some("payload.run_id"),
+                    )
+                })?)
+            } else if metadata.is_dir() {
+                BundleSnapshotEntry::Directory
+            } else if metadata.is_file() {
+                BundleSnapshotEntry::File(fs::read(&path).map_err(|_| {
+                    persistence_bundle_failure(
+                        "persistence_bundle_snapshot_changed",
+                        "run tree file changed during snapshot",
+                        Some("payload.run_id"),
+                    )
+                })?)
+            } else {
+                BundleSnapshotEntry::Other
+            };
+            snapshot.insert(relative, value);
+            if metadata.is_dir() && !metadata.file_type().is_symlink() {
+                visit(base, &path, snapshot)?;
+            }
+        }
+        Ok(())
+    }
+
+    let mut snapshot = BundleSnapshot::new();
+    visit(run_dir, run_dir, &mut snapshot)?;
+    Ok(snapshot)
+}
+
+fn bundle_snapshot_matches(run_dir: &Path, expected: &BundleSnapshot) -> bool {
+    snapshot_bundle_tree(run_dir).is_ok_and(|observed| observed == *expected)
+}
+
+fn bundle_snapshot_has_temp(snapshot: &BundleSnapshot) -> bool {
+    snapshot.keys().any(|path| {
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|name| {
+                name.starts_with(".commit-bundle-intent-") || name.contains(".tmp-bundle-")
+            })
+    })
+}
+
+fn insert_bundle_snapshot_file(
+    snapshot: &mut BundleSnapshot,
+    run_dir: &Path,
+    path: &Path,
+    bytes: &[u8],
+) {
+    snapshot.insert(
+        path.strip_prefix(run_dir)
+            .expect("bundle output beneath run")
+            .to_path_buf(),
+        BundleSnapshotEntry::File(bytes.to_vec()),
+    );
+}
+
 fn validate_commit_bundle_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
     if payload.len() != 9
         || !payload.contains_key("run_id")
@@ -3177,8 +3285,19 @@ fn build_bundle_plan(
                 })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    let fingerprint_value = Value::Object(map_value([
+        (
+            "protocol_version",
+            Value::String(PROTOCOL_VERSION.to_owned()),
+        ),
+        (
+            "operation",
+            Value::String("persistence.commit_bundle".to_owned()),
+        ),
+        ("payload", Value::Object(payload.clone())),
+    ]));
     let fingerprint = sha256_hex(
-        canonical_json(&Value::Object(payload.clone()))
+        canonical_json(&fingerprint_value)
             .map_err(|error| {
                 persistence_bundle_failure(
                     "persistence_bundle_payload_invalid",
@@ -3188,6 +3307,24 @@ fn build_bundle_plan(
             })?
             .as_bytes(),
     );
+    let combined_output_bytes = artifact_bytes
+        .iter()
+        .chain(&sidecar_bytes)
+        .try_fold(0usize, |total, bytes| total.checked_add(bytes.len()))
+        .ok_or_else(|| {
+            persistence_bundle_failure(
+                "persistence_bundle_size_exceeded",
+                "aggregate artifact and sidecar payload exceeds 12 MiB",
+                Some("payload.artifacts"),
+            )
+        })?;
+    if combined_output_bytes > 12 * 1024 * 1024 {
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_size_exceeded",
+            "aggregate artifact and sidecar payload exceeds 12 MiB",
+            Some("payload.artifacts"),
+        ));
+    }
     let commit_payload_json = canonical_json(&Value::Object(request.commit_payload.clone()))
         .expect("validated commit payload");
     Ok(BundlePlan {
@@ -3249,7 +3386,10 @@ fn bundle_intent_value(plan: &BundlePlan, root: &Path) -> Value {
         )
         .collect::<Vec<_>>();
     Value::Object(map_value([
-        ("version", Value::Number(1.into())),
+        (
+            "protocol_version",
+            Value::String(PROTOCOL_VERSION.to_owned()),
+        ),
         (
             "operation",
             Value::String("persistence.commit_bundle".to_owned()),
@@ -3267,7 +3407,31 @@ fn bundle_intent_value(plan: &BundlePlan, root: &Path) -> Value {
     ]))
 }
 
-fn write_bundle_intent(path: &Path, value: &Value) -> Result<(), PersistenceBundleFailure> {
+fn bundle_intent_bytes(plan: &BundlePlan, root: &Path) -> Vec<u8> {
+    format!(
+        "{}\n",
+        canonical_json(&bundle_intent_value(plan, root)).expect("validated bundle intent")
+    )
+    .into_bytes()
+}
+
+fn bundle_temp_nonce(path: &Path, counter: u64) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("");
+    let seed = format!("{}:{counter}:{now}:{file_name}", std::process::id());
+    sha256_hex(seed.as_bytes())[..24].to_owned()
+}
+
+fn write_bundle_intent(
+    path: &Path,
+    value: &Value,
+    fault: PersistenceBundleFault,
+) -> Result<(), PersistenceBundleFailure> {
     let parent = path.parent().ok_or_else(|| {
         persistence_bundle_failure(
             "persistence_bundle_directory_invalid",
@@ -3283,35 +3447,73 @@ fn write_bundle_intent(path: &Path, value: &Value) -> Result<(), PersistenceBund
         )
     })?;
     static INTENT_COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nonce = INTENT_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let temp = parent.join(format!(
-        ".commit-bundle-intent-{}-{}",
-        std::process::id(),
-        nonce
-    ));
+    let counter = INTENT_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nonce = bundle_temp_nonce(path, counter);
+    let temp = parent.join(format!(".commit-bundle-intent-{nonce}"));
     let bytes = format!("{canonical}\n").into_bytes();
+    let mut published = false;
     let result = (|| {
+        if fault == PersistenceBundleFault::IntentTempCreate {
+            return Err("injected intent temporary-create fault".to_owned());
+        }
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&temp)
             .map_err(|error| error.to_string())?;
+        if fault == PersistenceBundleFault::IntentTempWrite {
+            return Err("injected intent temporary-write fault".to_owned());
+        }
         file.write_all(&bytes).map_err(|error| error.to_string())?;
+        if fault == PersistenceBundleFault::IntentTempFlush {
+            return Err("injected intent temporary-flush fault".to_owned());
+        }
         file.flush().map_err(|error| error.to_string())?;
+        if fault == PersistenceBundleFault::IntentTempFsync {
+            return Err("injected intent temporary-fsync fault".to_owned());
+        }
         file.sync_all().map_err(|error| error.to_string())?;
         drop(file);
+        if fault == PersistenceBundleFault::IntentPublish {
+            return Err("injected intent publish fault".to_owned());
+        }
         fs::hard_link(&temp, path).map_err(|error| error.to_string())?;
+        published = true;
         fs::remove_file(&temp).map_err(|error| error.to_string())?;
         File::open(parent)
             .and_then(|directory| directory.sync_all())
             .map_err(|error| error.to_string())?;
+        if fault == PersistenceBundleFault::IntentReadback {
+            return Err("injected intent readback fault".to_owned());
+        }
         if fs::read(path).ok().as_deref() != Some(bytes.as_slice()) {
             return Err("intent bytes do not match".to_owned());
         }
         Ok::<(), String>(())
     })();
     if let Err(message) = result {
-        let _ = fs::remove_file(&temp);
+        let mut cleanup_ok = true;
+        if fs::symlink_metadata(&temp).is_ok() && fs::remove_file(&temp).is_err() {
+            cleanup_ok = false;
+        }
+        if published && fs::remove_file(path).is_err() {
+            cleanup_ok = false;
+        }
+        if File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .is_err()
+        {
+            cleanup_ok = false;
+        }
+        if !cleanup_ok {
+            return Err(PersistenceBundleFailure {
+                status: KernelResponseStatus::Error,
+                code: "persistence_bundle_rollback_uncertain",
+                message: "bundle intent publication could not be rolled back exactly".to_owned(),
+                path: Some("payload.run_id"),
+                mutation_performed: true,
+            });
+        }
         return Err(persistence_bundle_failure(
             "persistence_bundle_intent_write_failed",
             message,
@@ -3325,12 +3527,21 @@ fn publish_bundle_file(
     path: &Path,
     bytes: &[u8],
     kind: &'static str,
+    allow_existing_exact: bool,
+    fault: PersistenceBundleFault,
 ) -> Result<bool, PersistenceBundleFailure> {
     if let Ok(metadata) = fs::symlink_metadata(path) {
         if metadata.file_type().is_symlink() || !metadata.is_file() {
             return Err(persistence_bundle_failure(
                 "persistence_bundle_target_exists",
                 "bundle destination is already occupied",
+                Some("payload.artifacts"),
+            ));
+        }
+        if !allow_existing_exact {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_target_exists",
+                "fresh bundle destination already exists",
                 Some("payload.artifacts"),
             ));
         }
@@ -3358,49 +3569,227 @@ fn publish_bundle_file(
         )
     })?;
     static BUNDLE_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nonce = BUNDLE_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let counter = BUNDLE_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nonce = bundle_temp_nonce(path, counter);
     let temp = parent.join(format!(
-        ".{}.tmp-bundle-{}-{}",
+        ".{}.tmp-bundle-{}",
         path.file_name()
             .and_then(|v| v.to_str())
             .unwrap_or("artifact"),
-        std::process::id(),
         nonce
     ));
+    let is_artifact = kind == "artifact";
+    let selected = |artifact_fault, sidecar_fault| {
+        fault
+            == if is_artifact {
+                artifact_fault
+            } else {
+                sidecar_fault
+            }
+    };
+    let mut published = false;
     let result = (|| {
+        if selected(
+            PersistenceBundleFault::ArtifactTempCreate,
+            PersistenceBundleFault::SidecarTempCreate,
+        ) {
+            return Err("injected bundle temporary-create fault".to_owned());
+        }
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&temp)
             .map_err(|error| error.to_string())?;
+        if selected(
+            PersistenceBundleFault::ArtifactTempWrite,
+            PersistenceBundleFault::SidecarTempWrite,
+        ) {
+            return Err("injected bundle temporary-write fault".to_owned());
+        }
         file.write_all(bytes).map_err(|error| error.to_string())?;
+        if selected(
+            PersistenceBundleFault::ArtifactTempFlush,
+            PersistenceBundleFault::SidecarTempFlush,
+        ) {
+            return Err("injected bundle temporary-flush fault".to_owned());
+        }
         file.flush().map_err(|error| error.to_string())?;
+        if selected(
+            PersistenceBundleFault::ArtifactTempFsync,
+            PersistenceBundleFault::SidecarTempFsync,
+        ) {
+            return Err("injected bundle temporary-fsync fault".to_owned());
+        }
         file.sync_all().map_err(|error| error.to_string())?;
         drop(file);
         if fs::read(&temp).ok().as_deref() != Some(bytes) {
             return Err("temporary bytes do not match".to_owned());
         }
+        if selected(
+            PersistenceBundleFault::ArtifactPublish,
+            PersistenceBundleFault::SidecarPublish,
+        ) {
+            return Err("injected bundle publish fault".to_owned());
+        }
         fs::hard_link(&temp, path).map_err(|error| error.to_string())?;
+        published = true;
         fs::remove_file(&temp).map_err(|error| error.to_string())?;
+        if selected(
+            PersistenceBundleFault::ArtifactDirectoryFsync,
+            PersistenceBundleFault::SidecarDirectoryFsync,
+        ) {
+            return Err("injected bundle directory-fsync fault".to_owned());
+        }
         File::open(parent)
             .and_then(|directory| directory.sync_all())
             .map_err(|error| error.to_string())?;
+        if selected(
+            PersistenceBundleFault::ArtifactReadback,
+            PersistenceBundleFault::SidecarReadback,
+        ) {
+            return Err("injected bundle final-readback fault".to_owned());
+        }
+        if !bundle_file_matches(path, bytes) {
+            return Err("published bundle bytes do not match".to_owned());
+        }
         Ok::<(), String>(())
     })();
     if let Err(message) = result {
-        let _ = fs::remove_file(&temp);
-        let code = if fs::symlink_metadata(path).is_ok() {
-            "persistence_bundle_target_exists"
-        } else {
-            "persistence_bundle_publish_failed"
-        };
-        return Err(persistence_bundle_failure(
-            code,
+        let mut cleanup_ok = true;
+        if fs::symlink_metadata(&temp).is_ok() && fs::remove_file(&temp).is_err() {
+            cleanup_ok = false;
+        }
+        if published && fs::remove_file(path).is_err() {
+            cleanup_ok = false;
+        }
+        if File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .is_err()
+        {
+            cleanup_ok = false;
+        }
+        if !cleanup_ok {
+            return Err(PersistenceBundleFailure {
+                status: KernelResponseStatus::Error,
+                code: "persistence_bundle_rollback_uncertain",
+                message: format!("{kind} publication cleanup could not be proven"),
+                path: Some("payload.artifacts"),
+                mutation_performed: true,
+            });
+        }
+        let mut error = persistence_bundle_failure(
+            "persistence_bundle_publish_failed",
             format!("{kind}: {message}"),
             Some("payload.artifacts"),
-        ));
+        );
+        if allow_existing_exact && published {
+            error.status = KernelResponseStatus::Error;
+            error.code = "persistence_bundle_recovery_conflict";
+            error.mutation_performed = true;
+        }
+        return Err(error);
     }
     Ok(true)
+}
+
+fn bundle_file_matches(path: &Path, expected: &[u8]) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|metadata| {
+        metadata.is_file()
+            && !metadata.file_type().is_symlink()
+            && metadata.len() == expected.len() as u64
+            && fs::read(path).is_ok_and(|observed| {
+                observed == expected && sha256_hex(&observed) == sha256_hex(expected)
+            })
+    })
+}
+
+#[derive(Clone, Copy)]
+enum BundleRollbackIntentState {
+    Absent,
+    Fresh,
+    Recovery,
+}
+
+fn rollback_bundle_failure(
+    connection: &Connection,
+    run_dir: &Path,
+    intent_path: &Path,
+    initial_snapshot: &BundleSnapshot,
+    created_paths: &[PathBuf],
+    intent_state: BundleRollbackIntentState,
+    mut original: PersistenceBundleFailure,
+) -> PersistenceBundleFailure {
+    let mut cleanup_ok = connection.execute_batch("ROLLBACK").is_ok();
+    for path in created_paths.iter().rev() {
+        if fs::remove_file(path).is_err() {
+            cleanup_ok = false;
+        }
+    }
+    let mut directories = BTreeSet::new();
+    directories.insert(run_dir.to_path_buf());
+    for path in created_paths {
+        if let Some(parent) = path.parent() {
+            directories.insert(parent.to_path_buf());
+        }
+    }
+    for directory in directories {
+        if File::open(directory)
+            .and_then(|handle| handle.sync_all())
+            .is_err()
+        {
+            cleanup_ok = false;
+        }
+    }
+    if matches!(intent_state, BundleRollbackIntentState::Fresh) && cleanup_ok {
+        let mut expected_with_intent = initial_snapshot.clone();
+        let intent_relative = intent_path
+            .strip_prefix(run_dir)
+            .expect("intent path beneath run")
+            .to_path_buf();
+        match fs::symlink_metadata(intent_path) {
+            Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
+                match fs::read(intent_path) {
+                    Ok(bytes) => {
+                        expected_with_intent
+                            .insert(intent_relative, BundleSnapshotEntry::File(bytes));
+                    }
+                    Err(_) => cleanup_ok = false,
+                }
+            }
+            Ok(_) => cleanup_ok = false,
+            Err(_) => {}
+        }
+        cleanup_ok &= bundle_snapshot_matches(run_dir, &expected_with_intent);
+        if cleanup_ok
+            && fs::symlink_metadata(intent_path).is_ok()
+            && fs::remove_file(intent_path).is_err()
+        {
+            cleanup_ok = false;
+        }
+        if cleanup_ok
+            && File::open(run_dir)
+                .and_then(|handle| handle.sync_all())
+                .is_err()
+        {
+            cleanup_ok = false;
+        }
+    }
+    cleanup_ok &= bundle_snapshot_matches(run_dir, initial_snapshot);
+    if !cleanup_ok {
+        return PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_rollback_uncertain",
+            message: "bundle rollback could not be proven exact".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        };
+    }
+    if matches!(intent_state, BundleRollbackIntentState::Recovery) && !created_paths.is_empty() {
+        original.status = KernelResponseStatus::Error;
+        original.code = "persistence_bundle_recovery_conflict";
+        original.mutation_performed = true;
+    }
+    original
 }
 
 fn commit_bundle_result(
@@ -3460,9 +3849,68 @@ fn commit_bundle_result(
     ])
 }
 
+fn bundle_expected_row(plan: &BundlePlan) -> RawLedgerRow {
+    RawLedgerRow {
+        commit_hash: plan.new_commit_hash.clone(),
+        parent_hash: Some(plan.previous_tip_hash.clone()),
+        run_id: plan.request.run_id.clone(),
+        candidate_id: plan.request.candidate_id_optional.clone(),
+        action_type: plan.request.action_type.clone(),
+        payload_json: plan.commit_payload_json.clone(),
+        artifact_refs_json: canonical_json(&Value::Array(plan.linked_refs.clone()))
+            .expect("validated bundle references"),
+        timestamp: plan.request.timestamp.clone(),
+    }
+}
+
 fn commit_bundle_payload(
     payload: &Map<String, Value>,
     project_root: &Path,
+) -> Result<Map<String, Value>, PersistenceBundleFailure> {
+    commit_bundle_payload_with_fault(payload, project_root, PersistenceBundleFault::None)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+enum PersistenceBundleFault {
+    None,
+    IntentTempCreate,
+    IntentTempWrite,
+    IntentTempFlush,
+    IntentTempFsync,
+    IntentPublish,
+    IntentReadback,
+    SnapshotBeforeArtifact,
+    ArtifactTempCreate,
+    ArtifactTempWrite,
+    ArtifactTempFlush,
+    ArtifactTempFsync,
+    ArtifactPublish,
+    ArtifactDirectoryFsync,
+    ArtifactReadback,
+    ArtifactAfterPublish,
+    SnapshotBeforeSidecar,
+    SidecarTempCreate,
+    SidecarTempWrite,
+    SidecarTempFlush,
+    SidecarTempFsync,
+    SidecarPublish,
+    SidecarDirectoryFsync,
+    SidecarReadback,
+    SidecarAfterPublish,
+    Insert,
+    Readback,
+    Rollback,
+    Commit,
+    Reopen,
+    IntentCleanup,
+    FinalPostcondition,
+}
+
+fn commit_bundle_payload_with_fault(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+    fault: PersistenceBundleFault,
 ) -> Result<Map<String, Value>, PersistenceBundleFailure> {
     let request =
         serde_json::from_value::<PersistenceCommitBundlePayload>(Value::Object(payload.clone()))
@@ -3582,6 +4030,15 @@ fn commit_bundle_payload(
         };
         persistence_bundle_failure(code, "ledger cannot be opened", Some("payload.run_id"))
     })?;
+    let journal_mode_before: String = connection
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_ledger_invalid",
+                "ledger journal mode cannot be read",
+                Some("payload.run_id"),
+            )
+        })?;
     connection
         .execute_batch("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=0; PRAGMA synchronous=FULL;")
         .map_err(|_| {
@@ -3591,6 +4048,18 @@ fn commit_bundle_payload(
                 Some("payload.run_id"),
             )
         })?;
+    let connection_settings = (
+        connection.query_row("PRAGMA foreign_keys", [], |row| row.get::<_, i64>(0)),
+        connection.query_row("PRAGMA busy_timeout", [], |row| row.get::<_, i64>(0)),
+        connection.query_row("PRAGMA synchronous", [], |row| row.get::<_, i64>(0)),
+    );
+    if !matches!(connection_settings, (Ok(1), Ok(0), Ok(2 | 3))) {
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_ledger_invalid",
+            "ledger connection safety settings are not active",
+            Some("payload.run_id"),
+        ));
+    }
     match connection.execute_batch("BEGIN IMMEDIATE") {
         Ok(()) => {}
         Err(rusqlite::Error::SqliteFailure(ref failure, _))
@@ -3629,10 +4098,42 @@ fn commit_bundle_payload(
             return Err(error);
         }
     };
+    let initial_snapshot = match snapshot_bundle_tree(&run_dir) {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            let _ = connection.execute_batch("ROLLBACK");
+            return Err(error);
+        }
+    };
+    if bundle_snapshot_has_temp(&initial_snapshot) {
+        let _ = connection.execute_batch("ROLLBACK");
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_recovery_required",
+            "bundle temporary object requires inspection",
+            Some("payload.run_id"),
+        ));
+    }
+    let mut expected_snapshot = initial_snapshot.clone();
     let intent_path = run_dir.join(".factori-commit-bundle.intent.json");
+    let expected_intent_bytes = bundle_intent_bytes(&plan, &root);
     let intent_exists = fs::symlink_metadata(&intent_path).is_ok();
     let mut recovered = false;
     if intent_exists {
+        let intent_metadata = fs::symlink_metadata(&intent_path).map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_recovery_invalid",
+                "bundle intent cannot be inspected",
+                Some("payload.run_id"),
+            )
+        })?;
+        if !intent_metadata.is_file() || intent_metadata.file_type().is_symlink() {
+            let _ = connection.execute_batch("ROLLBACK");
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_recovery_invalid",
+                "bundle intent must be a regular non-symlink file",
+                Some("payload.run_id"),
+            ));
+        }
         let intent_bytes = fs::read(&intent_path).map_err(|_| {
             persistence_bundle_failure(
                 "persistence_bundle_recovery_invalid",
@@ -3640,20 +4141,21 @@ fn commit_bundle_payload(
                 Some("payload.run_id"),
             )
         })?;
-        let intent_value: Value = serde_json::from_slice(&intent_bytes).map_err(|_| {
+        let intent_text = std::str::from_utf8(&intent_bytes).map_err(|_| {
             persistence_bundle_failure(
                 "persistence_bundle_recovery_invalid",
-                "bundle intent is not valid JSON",
+                "bundle intent is not valid UTF-8",
                 Some("payload.run_id"),
             )
         })?;
-        let valid_intent = intent_value.get("operation").and_then(Value::as_str)
-            == Some("persistence.commit_bundle")
-            && intent_value.get("fingerprint").and_then(Value::as_str)
-                == Some(plan.fingerprint.as_str())
-            && intent_value.get("new_commit_hash").and_then(Value::as_str)
-                == Some(plan.new_commit_hash.as_str());
-        if !valid_intent {
+        parse_json_without_duplicate_keys(intent_text).map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_recovery_invalid",
+                "bundle intent is not valid duplicate-free JSON",
+                Some("payload.run_id"),
+            )
+        })?;
+        if intent_bytes != expected_intent_bytes {
             let _ = connection.execute_batch("ROLLBACK");
             return Err(persistence_bundle_failure(
                 "persistence_bundle_recovery_conflict",
@@ -3662,6 +4164,28 @@ fn commit_bundle_payload(
             ));
         }
         recovered = true;
+        for ((path, bytes), (sidecar, sidecar_bytes)) in plan
+            .artifact_paths
+            .iter()
+            .zip(&plan.artifact_bytes)
+            .zip(plan.sidecar_paths.iter().zip(&plan.sidecar_bytes))
+        {
+            for (output_path, expected_bytes) in [
+                (path.as_path(), bytes.as_slice()),
+                (sidecar.as_path(), sidecar_bytes.as_slice()),
+            ] {
+                if fs::symlink_metadata(output_path).is_ok()
+                    && !bundle_file_matches(output_path, expected_bytes)
+                {
+                    let _ = connection.execute_batch("ROLLBACK");
+                    return Err(persistence_bundle_failure(
+                        "persistence_bundle_recovery_conflict",
+                        "existing recovery output does not match the exact plan",
+                        Some("payload.artifacts"),
+                    ));
+                }
+            }
+        }
         if old_ledger
             .commits
             .last()
@@ -3669,22 +4193,21 @@ fn commit_bundle_payload(
             == Some(plan.new_commit_hash.as_str())
         {
             let count_before = old_rows.len().saturating_sub(1);
-            for ((path, bytes), sidecar) in plan
+            if old_rows.last() != Some(&bundle_expected_row(&plan)) {
+                let _ = connection.execute_batch("ROLLBACK");
+                return Err(persistence_bundle_failure(
+                    "persistence_bundle_recovery_conflict",
+                    "committed bundle row does not match the exact plan",
+                    Some("payload"),
+                ));
+            }
+            for ((path, bytes), (sidecar, sidecar_bytes)) in plan
                 .artifact_paths
                 .iter()
                 .zip(&plan.artifact_bytes)
-                .zip(&plan.sidecar_paths)
+                .zip(plan.sidecar_paths.iter().zip(&plan.sidecar_bytes))
             {
-                if fs::read(path).ok().as_deref() != Some(bytes.as_slice())
-                    || fs::read(sidecar).ok().as_deref()
-                        != Some(
-                            plan.sidecar_bytes[plan
-                                .artifact_paths
-                                .iter()
-                                .position(|item| item == path)
-                                .unwrap()]
-                            .as_slice(),
-                        )
+                if !bundle_file_matches(path, bytes) || !bundle_file_matches(sidecar, sidecar_bytes)
                 {
                     let _ = connection.execute_batch("ROLLBACK");
                     return Err(persistence_bundle_failure(
@@ -3694,7 +4217,26 @@ fn commit_bundle_payload(
                     ));
                 }
             }
+            let _ = connection.execute_batch("ROLLBACK");
             drop(connection);
+            if !bundle_snapshot_matches(&run_dir, &initial_snapshot) {
+                return Err(PersistenceBundleFailure {
+                    status: KernelResponseStatus::Error,
+                    code: "persistence_bundle_postcondition_failed",
+                    message: "recovery run tree changed before intent cleanup".to_owned(),
+                    path: Some("payload"),
+                    mutation_performed: true,
+                });
+            }
+            if fault == PersistenceBundleFault::IntentCleanup {
+                return Err(PersistenceBundleFailure {
+                    status: KernelResponseStatus::Error,
+                    code: "persistence_bundle_intent_cleanup_failed",
+                    message: "injected recovered intent cleanup fault".to_owned(),
+                    path: Some("payload.run_id"),
+                    mutation_performed: true,
+                });
+            }
             fs::remove_file(&intent_path).map_err(|_| PersistenceBundleFailure {
                 status: KernelResponseStatus::Error,
                 code: "persistence_bundle_intent_cleanup_failed",
@@ -3702,6 +4244,63 @@ fn commit_bundle_payload(
                 path: Some("payload.run_id"),
                 mutation_performed: true,
             })?;
+            if File::open(&run_dir)
+                .and_then(|directory| directory.sync_all())
+                .is_err()
+            {
+                let intent = bundle_intent_value(&plan, &root);
+                let _ = write_bundle_intent(&intent_path, &intent, PersistenceBundleFault::None);
+                return Err(PersistenceBundleFailure {
+                    status: KernelResponseStatus::Error,
+                    code: "persistence_bundle_durability_uncertain",
+                    message: "bundle intent cleanup durability is uncertain".to_owned(),
+                    path: Some("payload.run_id"),
+                    mutation_performed: true,
+                });
+            }
+            let mut recovered_snapshot = initial_snapshot.clone();
+            recovered_snapshot.remove(
+                intent_path
+                    .strip_prefix(&run_dir)
+                    .expect("intent path beneath run"),
+            );
+            if fault == PersistenceBundleFault::FinalPostcondition
+                || fs::symlink_metadata(&intent_path).is_ok()
+                || plan
+                    .artifact_paths
+                    .iter()
+                    .zip(&plan.artifact_bytes)
+                    .any(|(path, bytes)| !bundle_file_matches(path, bytes))
+                || plan
+                    .sidecar_paths
+                    .iter()
+                    .zip(&plan.sidecar_bytes)
+                    .any(|(path, bytes)| !bundle_file_matches(path, bytes))
+                || !bundle_snapshot_matches(&run_dir, &recovered_snapshot)
+            {
+                if fs::symlink_metadata(&intent_path).is_err() {
+                    let intent = bundle_intent_value(&plan, &root);
+                    if write_bundle_intent(&intent_path, &intent, PersistenceBundleFault::None)
+                        .is_err()
+                    {
+                        return Err(PersistenceBundleFailure {
+                            status: KernelResponseStatus::Error,
+                            code: "persistence_bundle_durability_uncertain",
+                            message: "recovery final check failed and intent could not be restored"
+                                .to_owned(),
+                            path: Some("payload"),
+                            mutation_performed: true,
+                        });
+                    }
+                }
+                return Err(PersistenceBundleFailure {
+                    status: KernelResponseStatus::Error,
+                    code: "persistence_bundle_postcondition_failed",
+                    message: "recovered bundle final postcondition failed".to_owned(),
+                    path: Some("payload"),
+                    mutation_performed: true,
+                });
+            }
             return Ok(commit_bundle_result(&plan, count_before, true));
         }
     } else if old_ledger
@@ -3728,10 +4327,46 @@ fn commit_bundle_payload(
                 ));
             }
         }
-        let intent = bundle_intent_value(&plan, &root);
-        if let Err(error) = write_bundle_intent(&intent_path, &intent) {
+        if !bundle_snapshot_matches(&run_dir, &expected_snapshot) {
             let _ = connection.execute_batch("ROLLBACK");
-            return Err(error);
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_snapshot_changed",
+                "run tree changed before intent publication",
+                Some("payload.run_id"),
+            ));
+        }
+        let intent = bundle_intent_value(&plan, &root);
+        if let Err(error) = write_bundle_intent(&intent_path, &intent, fault) {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &[],
+                BundleRollbackIntentState::Absent,
+                error,
+            ));
+        }
+        insert_bundle_snapshot_file(
+            &mut expected_snapshot,
+            &run_dir,
+            &intent_path,
+            &expected_intent_bytes,
+        );
+        if !bundle_snapshot_matches(&run_dir, &expected_snapshot) {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &[],
+                BundleRollbackIntentState::Fresh,
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree changed after intent publication",
+                    Some("payload.run_id"),
+                ),
+            ));
         }
     } else if old_ledger
         .commits
@@ -3752,64 +4387,235 @@ fn commit_bundle_payload(
         ));
     }
     let mut created = Vec::new();
-    for ((path, bytes), sidecar) in plan
-        .artifact_paths
-        .iter()
-        .zip(&plan.artifact_bytes)
-        .zip(&plan.sidecar_paths)
-    {
-        match publish_bundle_file(path, bytes, "artifact") {
-            Ok(true) => created.push(path.clone()),
+    let rollback_intent_state = if intent_exists {
+        BundleRollbackIntentState::Recovery
+    } else {
+        BundleRollbackIntentState::Fresh
+    };
+    for (path, bytes) in plan.artifact_paths.iter().zip(&plan.artifact_bytes) {
+        if fault == PersistenceBundleFault::SnapshotBeforeArtifact
+            || !bundle_snapshot_matches(&run_dir, &expected_snapshot)
+        {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &created,
+                rollback_intent_state,
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree changed before artifact publication",
+                    Some("payload.artifacts"),
+                ),
+            ));
+        }
+        match publish_bundle_file(path, bytes, "artifact", intent_exists, fault) {
+            Ok(true) => {
+                created.push(path.clone());
+                insert_bundle_snapshot_file(&mut expected_snapshot, &run_dir, path, bytes);
+            }
             Ok(false) => {}
             Err(error) => {
-                let _ = connection.execute_batch("ROLLBACK");
-                for item in &created {
-                    let _ = fs::remove_file(item);
-                }
-                if !intent_exists {
-                    let _ = fs::remove_file(&intent_path);
-                }
-                return Err(error);
+                return Err(rollback_bundle_failure(
+                    &connection,
+                    &run_dir,
+                    &intent_path,
+                    &initial_snapshot,
+                    &created,
+                    rollback_intent_state,
+                    error,
+                ));
             }
         }
-        let index = plan
-            .artifact_paths
-            .iter()
-            .position(|item| item == path)
-            .expect("bundle index");
-        match publish_bundle_file(sidecar, &plan.sidecar_bytes[index], "sidecar") {
-            Ok(true) => created.push(sidecar.clone()),
-            Ok(false) => {}
-            Err(error) => {
-                let _ = connection.execute_batch("ROLLBACK");
-                for item in &created {
-                    let _ = fs::remove_file(item);
-                }
-                if !intent_exists {
-                    let _ = fs::remove_file(&intent_path);
-                }
-                return Err(error);
-            }
+        if fault == PersistenceBundleFault::ArtifactAfterPublish && created.len() == 1 {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &created,
+                rollback_intent_state,
+                persistence_bundle_failure(
+                    "persistence_bundle_publish_failed",
+                    "injected artifact post-publication fault",
+                    Some("payload.artifacts"),
+                ),
+            ));
+        }
+        if !bundle_snapshot_matches(&run_dir, &expected_snapshot) {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &created,
+                rollback_intent_state,
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree changed after artifact publication",
+                    Some("payload.artifacts"),
+                ),
+            ));
         }
     }
-    let artifact_refs_json =
-        canonical_json(&Value::Array(plan.linked_refs.clone())).expect("validated refs");
+    for (path, bytes) in plan.sidecar_paths.iter().zip(&plan.sidecar_bytes) {
+        if fault == PersistenceBundleFault::SnapshotBeforeSidecar
+            || !bundle_snapshot_matches(&run_dir, &expected_snapshot)
+        {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &created,
+                rollback_intent_state,
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree changed before sidecar publication",
+                    Some("payload.artifacts"),
+                ),
+            ));
+        }
+        match publish_bundle_file(path, bytes, "sidecar", intent_exists, fault) {
+            Ok(true) => {
+                created.push(path.clone());
+                insert_bundle_snapshot_file(&mut expected_snapshot, &run_dir, path, bytes);
+            }
+            Ok(false) => {}
+            Err(error) => {
+                return Err(rollback_bundle_failure(
+                    &connection,
+                    &run_dir,
+                    &intent_path,
+                    &initial_snapshot,
+                    &created,
+                    rollback_intent_state,
+                    error,
+                ));
+            }
+        }
+        if fault == PersistenceBundleFault::SidecarAfterPublish
+            && created.len() == plan.artifact_paths.len() + 1
+        {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &created,
+                rollback_intent_state,
+                persistence_bundle_failure(
+                    "persistence_bundle_publish_failed",
+                    "injected sidecar post-publication fault",
+                    Some("payload.artifacts"),
+                ),
+            ));
+        }
+        if !bundle_snapshot_matches(&run_dir, &expected_snapshot) {
+            return Err(rollback_bundle_failure(
+                &connection,
+                &run_dir,
+                &intent_path,
+                &initial_snapshot,
+                &created,
+                rollback_intent_state,
+                persistence_bundle_failure(
+                    "persistence_bundle_snapshot_changed",
+                    "run tree changed after sidecar publication",
+                    Some("payload.artifacts"),
+                ),
+            ));
+        }
+    }
+    if fault == PersistenceBundleFault::Rollback {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_rollback_uncertain",
+            message: "injected bundle rollback uncertainty".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
+    let expected_row = bundle_expected_row(&plan);
+    if fault == PersistenceBundleFault::Insert {
+        return Err(rollback_bundle_failure(
+            &connection,
+            &run_dir,
+            &intent_path,
+            &initial_snapshot,
+            &created,
+            rollback_intent_state,
+            persistence_bundle_failure(
+                "persistence_bundle_insert_failed",
+                "injected bundle insert fault",
+                Some("payload"),
+            ),
+        ));
+    }
     let insert = connection.execute(
         "INSERT INTO commits (commit_hash,parent_hash,run_id,candidate_id,action_type,payload_json,artifact_refs_json,timestamp) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-        params![plan.new_commit_hash, plan.previous_tip_hash, request.run_id, request.candidate_id_optional, request.action_type, plan.commit_payload_json, artifact_refs_json, request.timestamp],
+        params![expected_row.commit_hash, expected_row.parent_hash, expected_row.run_id, expected_row.candidate_id, expected_row.action_type, expected_row.payload_json, expected_row.artifact_refs_json, expected_row.timestamp],
     );
     if insert.is_err() {
-        let _ = connection.execute_batch("ROLLBACK");
-        for item in &created {
-            let _ = fs::remove_file(item);
-        }
-        if !intent_exists {
-            let _ = fs::remove_file(&intent_path);
-        }
-        return Err(persistence_bundle_failure(
-            "persistence_bundle_insert_failed",
-            "bundle ledger insert failed",
-            Some("payload"),
+        return Err(rollback_bundle_failure(
+            &connection,
+            &run_dir,
+            &intent_path,
+            &initial_snapshot,
+            &created,
+            rollback_intent_state,
+            persistence_bundle_failure(
+                "persistence_bundle_insert_failed",
+                "bundle ledger insert failed",
+                Some("payload"),
+            ),
+        ));
+    }
+    let inserted_row = connection.query_row(
+        "SELECT commit_hash,parent_hash,run_id,candidate_id,action_type,payload_json,artifact_refs_json,timestamp FROM commits WHERE commit_hash=?1",
+        [&plan.new_commit_hash],
+        |row| {
+            Ok(RawLedgerRow {
+                commit_hash: row.get(0)?,
+                parent_hash: row.get(1)?,
+                run_id: row.get(2)?,
+                candidate_id: row.get(3)?,
+                action_type: row.get(4)?,
+                payload_json: row.get(5)?,
+                artifact_refs_json: row.get(6)?,
+                timestamp: row.get(7)?,
+            })
+        },
+    );
+    if inserted_row.as_ref().ok() != Some(&expected_row) {
+        return Err(rollback_bundle_failure(
+            &connection,
+            &run_dir,
+            &intent_path,
+            &initial_snapshot,
+            &created,
+            rollback_intent_state,
+            persistence_bundle_failure(
+                "persistence_bundle_insert_failed",
+                "bundle ledger row did not round-trip exactly",
+                Some("payload"),
+            ),
+        ));
+    }
+    if fault == PersistenceBundleFault::Readback {
+        return Err(rollback_bundle_failure(
+            &connection,
+            &run_dir,
+            &intent_path,
+            &initial_snapshot,
+            &created,
+            rollback_intent_state,
+            persistence_bundle_failure(
+                "persistence_bundle_insert_failed",
+                "injected bundle row readback fault",
+                Some("payload"),
+            ),
         ));
     }
     if connection.execute_batch("COMMIT").is_err() {
@@ -3821,7 +4627,48 @@ fn commit_bundle_payload(
             mutation_performed: true,
         });
     }
+    if fault == PersistenceBundleFault::Commit {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_commit_uncertain",
+            message: "injected bundle commit uncertainty".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
     drop(connection);
+    let mut committed_snapshot = expected_snapshot.clone();
+    let committed_ledger_bytes = fs::read(&ledger_path).map_err(|_| PersistenceBundleFailure {
+        status: KernelResponseStatus::Error,
+        code: "persistence_bundle_postcondition_failed",
+        message: "committed ledger bytes cannot be read".to_owned(),
+        path: Some("payload.run_id"),
+        mutation_performed: true,
+    })?;
+    insert_bundle_snapshot_file(
+        &mut committed_snapshot,
+        &run_dir,
+        &ledger_path,
+        &committed_ledger_bytes,
+    );
+    if !bundle_snapshot_matches(&run_dir, &committed_snapshot) {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message: "committed run tree contains a changed or unexpected path".to_owned(),
+            path: Some("payload.run_id"),
+            mutation_performed: true,
+        });
+    }
+    if fault == PersistenceBundleFault::Reopen {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message: "injected bundle reopen fault".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
     let reopened = Connection::open_with_flags(
         &ledger_path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -3833,6 +4680,24 @@ fn commit_bundle_payload(
         path: Some("payload"),
         mutation_performed: true,
     })?;
+    let journal_mode_after: String = reopened
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .map_err(|_| PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message: "ledger journal mode cannot be rechecked".to_owned(),
+            path: Some("payload.run_id"),
+            mutation_performed: true,
+        })?;
+    if journal_mode_after != journal_mode_before {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message: "ledger journal mode changed".to_owned(),
+            path: Some("payload.run_id"),
+            mutation_performed: true,
+        });
+    }
     let (new_rows, new_ledger) = validate_exact_read_only_ledger(&reopened, &request.run_id)
         .map_err(|message| PersistenceBundleFailure {
             status: KernelResponseStatus::Error,
@@ -3843,8 +4708,7 @@ fn commit_bundle_payload(
         })?;
     if new_rows.len() != old_rows.len() + 1
         || new_rows[..old_rows.len()] != old_rows
-        || new_rows.last().map(|row| row.commit_hash.as_str())
-            != Some(plan.new_commit_hash.as_str())
+        || new_rows.last() != Some(&expected_row)
         || new_ledger
             .commits
             .last()
@@ -3859,20 +4723,13 @@ fn commit_bundle_payload(
             mutation_performed: true,
         });
     }
-    for ((path, bytes), sidecar) in plan
+    for ((path, bytes), (sidecar, sidecar_bytes)) in plan
         .artifact_paths
         .iter()
         .zip(&plan.artifact_bytes)
-        .zip(&plan.sidecar_paths)
+        .zip(plan.sidecar_paths.iter().zip(&plan.sidecar_bytes))
     {
-        let index = plan
-            .artifact_paths
-            .iter()
-            .position(|item| item == path)
-            .expect("bundle index");
-        if fs::read(path).ok().as_deref() != Some(bytes.as_slice())
-            || fs::read(sidecar).ok().as_deref() != Some(plan.sidecar_bytes[index].as_slice())
-        {
+        if !bundle_file_matches(path, bytes) || !bundle_file_matches(sidecar, sidecar_bytes) {
             return Err(PersistenceBundleFailure {
                 status: KernelResponseStatus::Error,
                 code: "persistence_bundle_postcondition_failed",
@@ -3882,6 +4739,15 @@ fn commit_bundle_payload(
             });
         }
     }
+    if fault == PersistenceBundleFault::IntentCleanup {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_intent_cleanup_failed",
+            message: "injected bundle intent cleanup fault".to_owned(),
+            path: Some("payload.run_id"),
+            mutation_performed: true,
+        });
+    }
     fs::remove_file(&intent_path).map_err(|_| PersistenceBundleFailure {
         status: KernelResponseStatus::Error,
         code: "persistence_bundle_intent_cleanup_failed",
@@ -3889,6 +4755,49 @@ fn commit_bundle_payload(
         path: Some("payload.run_id"),
         mutation_performed: true,
     })?;
+    if File::open(&run_dir)
+        .and_then(|directory| directory.sync_all())
+        .is_err()
+    {
+        let intent = bundle_intent_value(&plan, &root);
+        let _ = write_bundle_intent(&intent_path, &intent, PersistenceBundleFault::None);
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_durability_uncertain",
+            message: "bundle intent cleanup durability is uncertain".to_owned(),
+            path: Some("payload.run_id"),
+            mutation_performed: true,
+        });
+    }
+    committed_snapshot.remove(
+        intent_path
+            .strip_prefix(&run_dir)
+            .expect("intent path beneath run"),
+    );
+    if fault == PersistenceBundleFault::FinalPostcondition
+        || !bundle_snapshot_matches(&run_dir, &committed_snapshot)
+    {
+        if fs::symlink_metadata(&intent_path).is_err() {
+            let intent = bundle_intent_value(&plan, &root);
+            if write_bundle_intent(&intent_path, &intent, PersistenceBundleFault::None).is_err() {
+                return Err(PersistenceBundleFailure {
+                    status: KernelResponseStatus::Error,
+                    code: "persistence_bundle_durability_uncertain",
+                    message: "bundle final check failed and intent could not be restored"
+                        .to_owned(),
+                    path: Some("payload"),
+                    mutation_performed: true,
+                });
+            }
+        }
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message: "bundle final run-tree postcondition failed".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
     Ok(commit_bundle_result(&plan, old_rows.len(), recovered))
 }
 
@@ -10216,6 +11125,167 @@ mod tests {
             drop(connection);
             fs::remove_dir_all(&root).expect("remove test root");
         }
+    }
+
+    fn persistence_bundle_test_root(label: &str) -> (PathBuf, Map<String, Value>) {
+        let (root, root_hash) = ledger_append_test_root(label);
+        fs::create_dir_all(root.join("runs/run-1/candidates")).expect("bundle artifact directory");
+        let payload = serde_json::json!({
+            "run_id": "run-1",
+            "expected_tip_hash": root_hash,
+            "artifacts": [{
+                "artifact_id": "artifact-1",
+                "artifact_type": "candidate",
+                "json_value": {"nested": [1, "é"], "negative_zero": -0.0},
+                "metadata": {"context": "test"},
+                "filename_stem_optional": null
+            }],
+            "action_type": "WriteArtifact",
+            "commit_payload": {"artifact_id": "artifact-1"},
+            "candidate_id_optional": "candidate-1",
+            "timestamp": "2026-01-01T00:00:01Z",
+            "overwrite_policy": "FailIfExists",
+            "recovery_policy": "ResumeExact"
+        })
+        .as_object()
+        .expect("bundle payload")
+        .clone();
+        (root, payload)
+    }
+
+    #[test]
+    fn persistence_bundle_precommit_faults_restore_exact_state() {
+        for fault in [
+            PersistenceBundleFault::IntentTempCreate,
+            PersistenceBundleFault::IntentTempWrite,
+            PersistenceBundleFault::IntentTempFlush,
+            PersistenceBundleFault::IntentTempFsync,
+            PersistenceBundleFault::IntentPublish,
+            PersistenceBundleFault::IntentReadback,
+            PersistenceBundleFault::SnapshotBeforeArtifact,
+            PersistenceBundleFault::ArtifactTempCreate,
+            PersistenceBundleFault::ArtifactTempWrite,
+            PersistenceBundleFault::ArtifactTempFlush,
+            PersistenceBundleFault::ArtifactTempFsync,
+            PersistenceBundleFault::ArtifactPublish,
+            PersistenceBundleFault::ArtifactDirectoryFsync,
+            PersistenceBundleFault::ArtifactReadback,
+            PersistenceBundleFault::ArtifactAfterPublish,
+            PersistenceBundleFault::SnapshotBeforeSidecar,
+            PersistenceBundleFault::SidecarTempCreate,
+            PersistenceBundleFault::SidecarTempWrite,
+            PersistenceBundleFault::SidecarTempFlush,
+            PersistenceBundleFault::SidecarTempFsync,
+            PersistenceBundleFault::SidecarPublish,
+            PersistenceBundleFault::SidecarDirectoryFsync,
+            PersistenceBundleFault::SidecarReadback,
+            PersistenceBundleFault::SidecarAfterPublish,
+            PersistenceBundleFault::Insert,
+            PersistenceBundleFault::Readback,
+        ] {
+            let (root, payload) = persistence_bundle_test_root("precommit-fault");
+            let run = root.join("runs/run-1");
+            let before = snapshot_bundle_tree(&run).expect("pre-call snapshot");
+            let error = commit_bundle_payload_with_fault(&payload, &root, fault)
+                .expect_err("injected precommit fault");
+            assert!(!error.mutation_performed, "fault: {fault:?}");
+            assert_eq!(
+                snapshot_bundle_tree(&run).expect("post-call snapshot"),
+                before,
+                "fault: {fault:?}"
+            );
+            fs::remove_dir_all(&root).expect("remove test root");
+        }
+    }
+
+    #[test]
+    fn persistence_bundle_postcommit_faults_preserve_recovery_intent() {
+        for fault in [
+            PersistenceBundleFault::Commit,
+            PersistenceBundleFault::Reopen,
+            PersistenceBundleFault::IntentCleanup,
+            PersistenceBundleFault::FinalPostcondition,
+        ] {
+            let (root, payload) = persistence_bundle_test_root("postcommit-fault");
+            let error = commit_bundle_payload_with_fault(&payload, &root, fault)
+                .expect_err("injected postcommit fault");
+            assert!(error.mutation_performed, "fault: {fault:?}");
+            assert_eq!(error.status, KernelResponseStatus::Error);
+            let connection = Connection::open_with_flags(
+                root.join("runs/run-1/ledger.sqlite"),
+                OpenFlags::SQLITE_OPEN_READ_ONLY,
+            )
+            .expect("reopen ledger");
+            let count: i64 = connection
+                .query_row("SELECT COUNT(*) FROM commits", [], |row| row.get(0))
+                .expect("commit count");
+            assert_eq!(count, 2);
+            drop(connection);
+            let intent = root.join("runs/run-1/.factori-commit-bundle.intent.json");
+            assert!(intent.is_file());
+            fs::remove_dir_all(&root).expect("remove test root");
+        }
+    }
+
+    #[test]
+    fn persistence_bundle_uncertain_rollback_keeps_intent_for_recovery() {
+        let (root, payload) = persistence_bundle_test_root("rollback-fault");
+        let error =
+            commit_bundle_payload_with_fault(&payload, &root, PersistenceBundleFault::Rollback)
+                .expect_err("injected rollback uncertainty");
+        assert_eq!(error.status, KernelResponseStatus::Error);
+        assert_eq!(error.code, "persistence_bundle_rollback_uncertain");
+        assert!(error.mutation_performed);
+        assert!(root
+            .join("runs/run-1/.factori-commit-bundle.intent.json")
+            .is_file());
+        let connection = Connection::open_with_flags(
+            root.join("runs/run-1/ledger.sqlite"),
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .expect("reopen ledger");
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM commits", [], |row| row.get(0))
+            .expect("commit count");
+        assert_eq!(count, 1);
+        drop(connection);
+        fs::remove_dir_all(&root).expect("remove test root");
+    }
+
+    #[test]
+    fn persistence_bundle_recovery_publish_failure_reports_mutation() {
+        let (root, payload) = persistence_bundle_test_root("recovery-publish-fault");
+        let run = root.join("runs/run-1");
+        let connection = Connection::open_with_flags(
+            run.join("ledger.sqlite"),
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .expect("open ledger");
+        let rows = load_raw_ledger_rows(&connection).expect("ledger rows");
+        let plan = build_bundle_plan(&payload, &root, &rows).expect("bundle plan");
+        drop(connection);
+        fs::write(
+            run.join(".factori-commit-bundle.intent.json"),
+            bundle_intent_bytes(&plan, &root),
+        )
+        .expect("write exact intent");
+        let before = snapshot_bundle_tree(&run).expect("recovery snapshot");
+
+        let error = commit_bundle_payload_with_fault(
+            &payload,
+            &root,
+            PersistenceBundleFault::ArtifactAfterPublish,
+        )
+        .expect_err("injected recovery publication fault");
+
+        assert_eq!(error.status, KernelResponseStatus::Error);
+        assert_eq!(error.code, "persistence_bundle_recovery_conflict");
+        assert!(error.mutation_performed);
+        assert_eq!(
+            snapshot_bundle_tree(&run).expect("restored snapshot"),
+            before
+        );
+        fs::remove_dir_all(&root).expect("remove test root");
     }
 
     fn artifact_link_test_root(label: &str) -> (PathBuf, Map<String, Value>) {
