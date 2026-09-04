@@ -4,11 +4,12 @@
 
 This document is the Sol-owned design baseline for the staged Rust translation of fActorI's
 deterministic trust kernel. It freezes the intended trust boundary, authority rules, compatibility
-requirements, and model handoff. The current Rust implementation is a read-mostly compatibility
-kernel with one approved JSON-only artifact mutation. It has not received evidence authority,
-ledger authority, or general pipeline-mutation authority.
+requirements, and model handoff. The current Rust implementation has the complete approved
+read-only operation set plus the three separately reviewed `artifact.persist`, `ledger.append`, and
+`artifact.link` mutation primitives. It has not received evidence authority or general
+pipeline-mutation authority.
 
-Current protocol baseline: `0.88.0`. The next frozen sidecar slice targets `0.89.0`.
+Current protocol baseline: `0.89.0`. The final frozen composition slice targets `0.90.0`.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of
@@ -2160,3 +2161,336 @@ state, or if the slice would need to mutate artifact or ledger bytes, infer a pr
 sidecar, authorize evidence or reruns, cut over production, or compose multiple mutations. Luna must
 not implement artifact-bearing `ledger.append`, `persistence.commit_bundle`, crash recovery, or a
 production call-site cutover in this handoff.
+
+## Final Sol Review of `artifact.link`: Approved
+
+Sol reviewed Luna commit `a0d3aa1` and hardened the operation in `4a3081b`. The final operation
+validates the exact append-only SQLite schema and complete unfiltered single-run history,
+distinguishes a missing producer commit from a mismatched producer reference, detects a held
+exclusive ledger lock, and checks raw and semantic artifact/ledger snapshots immediately before and
+after no-clobber sidecar publication. Post-publication cleanup, durability, snapshot, and readback
+failures now require inspection with `mutation_performed=true`; accepted responses contain no
+diagnostics.
+
+The final matrix covers every current artifact type, both kernel modes, exact canonical sidecar
+bytes, all literal result flags, missing triggers, foreign-run rows, missing producers, held locks,
+same-target concurrency, and deterministic create/write/flush/file-fsync/snapshot/publication/
+cleanup/directory-fsync/readback faults. The Luna baseline completed the 1,647-test Python suite;
+after Sol's two localized cleanup/lock corrections, 71 focused Python tests and all 24 Rust tests
+passed. Protocol `0.89.0` currentness, 444 generated schemas, all 51 examples, Ruff, Rust formatting
+and Clippy, and 223 broader kernel parity/replay tests were also green.
+
+`artifact.link` is approved only for one existing artifact already self-linked by one existing
+ledger commit. It writes no artifact bytes or ledger row, repairs no history, grants no authority,
+and does not cut over a production persistence call site.
+
+## `persistence.commit_bundle` Scope Decision
+
+The final planned kernel operation composes the three approved mutation primitives into one
+crash-recoverable persistence unit: it creates one to sixteen new canonical JSON artifacts, records
+them as self-linked references in one new non-root ledger commit, and publishes the exact producer
+sidecar for every artifact. It is deliberately limited to the already approved JSON persistence
+profile. Markdown, LaTeX, bibliography, arbitrary text, binary content, existing artifact
+references, root initialization, overwrite, and production call-site cutover remain outside this
+slice.
+
+This is mechanical persistence and provenance linking only. The operation does not decide whether
+an artifact is evidence, validate scientific content, authorize a stage or rerun, upgrade a claim
+label, approve human review, or establish publication readiness. Every artifact is persisted with
+`is_verification_evidence=false`, and both modes return `authority_granted=false`.
+
+True atomic visibility across independent filesystem paths and SQLite is unavailable. The frozen
+contract therefore requires fail-closed no-clobber publication plus a durable, bounded per-run
+intent record written before any final path. The SQLite immediate transaction serializes bundle
+writers, and an exact retry can finish an interrupted request from that intent without deleting,
+replacing, or rewriting existing provenance. No crash may leave an undetectable partial bundle.
+
+### Frozen Request
+
+The caller supplies only:
+
+```text
+run_id
+expected_tip_hash
+artifacts[1..16]
+  artifact_id
+  artifact_type
+  json_value
+  metadata
+  filename_stem_optional
+action_type
+commit_payload
+candidate_id_optional
+timestamp
+overwrite_policy = FailIfExists
+recovery_policy = ResumeExact
+```
+
+`run_id`, each artifact ID, each optional filename stem, and an optional candidate ID use the
+existing safe-segment grammar. Artifact IDs and derived destination paths must each be unique within
+the request. Artifact order is significant and becomes ledger artifact-reference order; Rust must
+not sort, deduplicate, or merge entries. `artifact_type` uses the current closed `ArtifactType`
+mapping, and every destination is derived exactly as
+`runs/<run_id>/<artifact-type-directory>/<filename-stem-or-artifact-id>.json`.
+
+Each `json_value` is duplicate-key-free protocol JSON serialized as Python-compatible canonical
+UTF-8 plus one LF. Each final artifact is limited to 12 MiB, metadata retains the approved 64-entry,
+128-byte-key, and 64 KiB bounds, and all artifact bytes plus sidecar bytes are limited to 12 MiB in
+aggregate. The existing 16 MiB transport ceiling remains unchanged. Rust inserts `format="json"`
+and defaults `is_verification_evidence=false`; callers cannot override either value, assert evidence
+or publication authority, supply a path/hash/producer/sidecar/temp name, or select another format.
+
+`action_type`, `commit_payload`, `candidate_id_optional`, and `timestamp` use the frozen
+`ledger.append` validation unchanged: `InitRun` is forbidden, the payload must be a canonical JSON
+object of at most 4 MiB, and the timestamp is an exact real ASCII UTC timestamp in the approved form.
+`expected_tip_hash` is the required current tip and new parent. The caller cannot provide a commit
+hash, root/null parent, database path, SQL, transaction mode, retry count, intent path, authority
+flag, or existing artifact reference.
+
+`FailIfExists` forbids replacement of every artifact and sidecar filesystem object.
+`ResumeExact` authorizes recovery only when the durable intent's canonical request fingerprint
+equals the complete current request excluding transport request ID and mode. It is not a general
+rerun, repair, force, skip-if-complete, or accept-if-identical policy. Both kernel modes have
+identical bytes, hashes, ordering, recovery, mutation, and result behavior.
+
+### Frozen Existing-State Preconditions
+
+The configured root, `runs`, `runs/<run_id>`, and every required artifact-type directory must already
+exist as real non-symlink directories. The ledger must be an existing real non-symlink regular file
+with no persistent auxiliary object. Rust applies the exact schema, trigger, foreign-key, integrity,
+canonical-row, one-run, linear-history, and current-tip validation approved for `ledger.append`.
+
+For a fresh request, all derived artifact and sidecar paths and the fixed internal intent path
+`runs/<run_id>/.factori-commit-bundle.intent.json` must be absent as filesystem objects of every
+type. All pre-existing run paths and bytes are snapshotted. A duplicate ID/path, existing target,
+symlink, unsafe component, unexpected intent, stale tip, busy ledger, foreign run, fork, corrupt row,
+schema damage, or persistent SQLite auxiliary object rejects before mutation.
+
+Rust configures foreign keys, zero busy timeout, unchanged journal mode, and synchronous durability
+at least `FULL`, then obtains `BEGIN IMMEDIATE` before creating the intent or any temporary/final
+file. All ledger validation and final expected-commit computation occur inside that transaction. If
+the intent is absent, the current tip must equal `expected_tip_hash`. If an exact intent exists,
+recovery alone may also accept the fully computed new commit as the current tip; no other tip is
+valid. Concurrent bundle or ledger writers therefore lose as busy or stale-tip operations and
+cannot create a fork.
+
+### Frozen Artifact, Commit, and Sidecar Construction
+
+Rust constructs each unlinked `ArtifactRef` from the derived path, exact artifact-byte SHA-256,
+closed type, caller metadata plus the two kernel-owned metadata fields, and
+`producing_commit_hash=null`. It computes the new commit using the existing Python self-link hash
+contract with every new artifact ID marked `<self>` in request order:
+
+```text
+parent_hash = expected_tip_hash
+run_id = requested run_id
+candidate_id = candidate_id_optional
+action_type = requested non-root action type
+payload = commit_payload
+artifact_refs = new unlinked references in request order for hashing
+timestamp = requested timestamp
+```
+
+The stored commit contains those same references with `producing_commit_hash` set to the computed
+commit hash. Each sidecar is exactly the corresponding linked public `ArtifactRef` serialized as
+Python-compatible canonical JSON plus one LF. Artifact, commit, and sidecar hashes are computed
+before mutation and must match Python exactly.
+
+### Frozen Intent and Recovery Contract
+
+Before any final artifact or sidecar appears, Rust exclusively creates the fixed intent through a
+same-directory temporary file. The canonical intent contains only the protocol/operation
+identifiers, a SHA-256 fingerprint of the complete mode-independent request, the expected prior tip,
+the computed new commit hash, ordered derived artifact/sidecar paths, lengths, and hashes. It contains
+no raw artifact value, commit payload, metadata value, host path, temporary name, secret, or
+authority assertion. Rust flushes and file-fsyncs the intent, publishes it without clobber, fsyncs
+the run directory, reads it back, and validates its exact canonical bytes before publishing a final
+path.
+
+Only one intent may exist per run. Every invocation first obtains the SQLite immediate transaction
+and then handles an existing intent as follows:
+
+- a malformed intent or a request-fingerprint mismatch rejects with recovery required/conflict and
+  changes nothing;
+- for the exact request with the computed commit absent and the ledger still at the expected prior
+  tip, every already published artifact/sidecar must have the exact planned type, bytes, length, and
+  hash; Rust may publish only missing planned paths and then continue the original transaction;
+- for the exact request with the computed commit already the current tip, every planned final path
+  and stored row must validate exactly before Rust removes the intent and returns the recovered
+  accepted result;
+- any foreign row, later tip, changed planned-path object, or ambiguous commit outcome returns an
+  inspection-required recovery conflict and never deletes or overwrites anything.
+
+Recovery derives every path and expected byte sequence again from the current request; it never
+trusts an intent-supplied path for filesystem access. It may finish only that exact operation. It
+cannot prune ledger history, remove a commit, replace a final object, adopt unrelated files, or
+recover a different request. Existing read-only operations remain strictly non-repairing.
+
+### Frozen Publication and Transaction Order
+
+For every missing planned output, Rust exclusively creates an unpredictable same-directory regular
+temporary file without following symlinks, writes all bytes, flushes, file-fsyncs, and verifies exact
+type, bytes, length, and digest. It then revalidates the complete raw and semantic ledger snapshot,
+expected tip, all pre-existing run bytes, target absence, and intent before publication.
+
+Rust publishes all artifact files and then all sidecars with atomic no-clobber hard links, removes
+the temporary names, and fsyncs every affected directory. After every publication it proves that all
+previously published outputs remain exact and that no unplanned path appeared. Only after all
+artifact and sidecar finals are durable does Rust parameterize and insert the one artifact-bearing
+commit inside the already-held transaction. It reads the row back and proves exact canonical stored
+JSON, self-links, hash, parent, and ordering before committing SQLite.
+
+An ordinary caught failure before SQLite commit must remove only paths created by the current
+invocation plus a fresh intent created by that invocation and its temporary files, fsync affected
+directories, roll back SQLite, and prove the complete pre-call snapshot is restored before returning
+`mutation_performed=false`. A recovery invocation never removes its pre-existing intent on failure.
+If exact rollback or cleanup cannot be proved, the intent remains and the operation returns an empty
+inspection-required error with `mutation_performed=true`. A process termination may leave the durable
+intent and a prefix of exact planned finals; the exact request resumes as frozen above.
+
+If SQLite commit reports an error, or any durability/readback/snapshot/intent-cleanup check fails
+after commit may have occurred, Rust returns an empty inspection-required error with
+`mutation_performed=true` and leaves the intent for exact recovery. After a successful commit Rust
+closes the writer, reopens read-only, validates the complete prior prefix plus sole expected new row,
+revalidates every artifact and sidecar, proves no persistent SQLite auxiliary or temporary object
+remains, removes the intent, fsyncs the run directory, and performs one final full postcondition pass
+before acceptance.
+
+There is an unavoidable live interval in which durable final files exist while the SQLite
+transaction is not yet committed. The intent identifies that bounded interval, and the immediate
+transaction serializes kernel ledger writers. Acceptance and recovery guarantee a fully consistent
+final state; the operation does not claim lock-free atomic visibility to independent Python
+filesystem readers.
+
+### Frozen Result and Response Semantics
+
+An accepted result contains only:
+
+```text
+artifacts
+commit
+previous_tip_hash
+new_tip_hash
+commit_count_before
+commit_count_after
+artifact_count
+sidecar_count
+bundle_committed = true
+recovered_from_intent
+authority_granted = false
+```
+
+`artifacts` is the ordered list of exact linked public references and equals
+`commit.artifact_refs`. `previous_tip_hash` is the requested tip, `new_tip_hash` is the commit hash,
+`commit_count_after=commit_count_before+1`, and both output counts equal the artifact-list length.
+`recovered_from_intent` is a literal boolean that is true only when this invocation consumed a valid
+pre-existing exact intent. Fresh and recovered accepted responses have no diagnostics and set
+`mutation_performed=true`; recovery remains part of the same logical mutation. No result field
+grants evidence, label, rerun, stage, human-review, or publication authority.
+
+A rejection or fully rolled-back pre-commit failure has an empty result, exactly one stable
+diagnostic, and `mutation_performed=false`. A malformed/foreign intent or recovery conflict detected
+before the current invocation mutates anything also remains false and must leave the incomplete state
+byte-identical for inspection. An incomplete rollback, conflict detected after the current recovery
+invocation has published a missing path, commit-uncertain result, or post-commit failure has an empty
+result, exactly one corresponding diagnostic, and `mutation_performed=true`. Response validation
+remains operation-specific and must not broaden mutation rules for any existing operation.
+
+Stable new diagnostics are:
+
+- `persistence_bundle_run_missing`
+- `persistence_bundle_directory_invalid`
+- `persistence_bundle_payload_invalid`
+- `persistence_bundle_size_exceeded`
+- `persistence_bundle_duplicate`
+- `persistence_bundle_target_exists`
+- `persistence_bundle_ledger_invalid`
+- `persistence_bundle_tip_mismatch`
+- `persistence_bundle_busy`
+- `persistence_bundle_intent_write_failed`
+- `persistence_bundle_recovery_required`
+- `persistence_bundle_recovery_invalid`
+- `persistence_bundle_recovery_conflict`
+- `persistence_bundle_temp_write_failed`
+- `persistence_bundle_snapshot_changed`
+- `persistence_bundle_publish_failed`
+- `persistence_bundle_rollback_uncertain`
+- `persistence_bundle_insert_failed`
+- `persistence_bundle_commit_uncertain`
+- `persistence_bundle_durability_uncertain`
+- `persistence_bundle_intent_cleanup_failed`
+- `persistence_bundle_postcondition_failed`
+
+Existing precise protocol, canonicalization, path, hash, ledger-chain, and authority diagnostics may
+be reused when they identify the lower-level cause. Diagnostics may contain bounded IDs,
+run-relative final paths, counts, expected/observed hashes, phases, and SQLite error categories. They
+must not expose raw content, commit payloads, metadata values, intent bytes, temporary names, SQL,
+host paths, environment data, or secrets.
+
+### Frozen Python Bridge and Cutover Boundary
+
+The Python bridge validates the closed request and independently derives every canonical artifact,
+unlinked/linked reference, commit hash/row, sidecar byte sequence, request fingerprint, length, and
+digest before invoking Rust once. For a fresh request it snapshots every run path and raw byte,
+validates the full unfiltered ledger and expected tip, and proves all destinations and the intent
+absent. For an explicit exact recovery it first validates the bounded existing intent and planned
+partial state; it never performs Python recovery or falls back to the Python writer.
+
+On acceptance the bridge compares every result field and literal boolean, reloads the ledger
+read-only, proves the entire prior prefix plus exactly one expected new tip, validates all final
+artifact/sidecar bytes and public models, and proves all unrelated paths unchanged with no temp,
+intent, or persistent SQLite auxiliary file. On a false-mutation rejection it proves complete
+byte-identical state. On a true-mutation error it raises an inspection-required bridge error and
+never retries automatically.
+
+This slice adds only a development shadow bridge. It does not replace
+`persist_artifacts_with_commit`, alter a stage, initialize a run, or enable external adapters/tools.
+A later explicit cutover may select eligible JSON-only callers only after final Sol review;
+unsupported formats and authority-bearing metadata remain Python-owned.
+
+## Current Luna Handoff: `persistence.commit_bundle`
+
+Luna owns only this final JSON composition and recovery slice:
+
+1. add closed artifact-item/request/result models and discriminator arms, exact operation-specific
+   mutation rules, a minor protocol bump from `0.89.0` to `0.90.0`, and regenerated
+   schemas/examples;
+2. reuse the approved identifier, metadata-authority, canonical JSON, artifact-path, action,
+   timestamp, exact-ledger-schema, full-history, and commit-hash validators rather than creating
+   divergent validation lists;
+3. implement ordered one-to-sixteen artifact derivation, duplicate ID/path rejection, aggregate
+   bounds, self-link commit hashing, exact linked sidecars, and Python parity before mutation;
+4. implement the fixed canonical intent, request fingerprint, immediate transaction, exclusive
+   no-follow temps, verified no-clobber publication, directory durability, artifact-bearing insert,
+   commit/readback, intent cleanup, and complete final postconditions in the frozen order;
+5. implement exact-request recovery for intent-only, partial-file, all-file/precommit, and
+   committed/pre-cleanup states while rejecting malformed, foreign-request, changed-file, stale-tip,
+   later-tip, and ambiguous states without overwrite, deletion, or ledger repair;
+6. add a Python no-fallback shadow bridge that computes all expected values independently and proves
+   complete run-tree deltas for fresh acceptance, recovered acceptance, exact rollback, rejection,
+   and inspection-required outcomes;
+7. add both-mode parity for one and multiple artifacts, every artifact type, stable request order,
+   nested/Unicode/control/floating-point JSON, empty metadata, optional stems, candidate presence,
+   every allowed non-root action, valid timestamps, exact stored JSON/LF bytes, self-links, counts,
+   request fingerprints, and literal non-authority fields;
+8. add rejection tests for unknown fields, unsafe IDs/stems, duplicate IDs/paths, unsupported
+   formats/metadata authority, all per-item and aggregate bounds, missing/symlinked directories,
+   every existing target type, damaged/foreign/forked/locked ledgers, stale tips, invalid actions/
+   timestamps, unexpected/malformed intents, and malformed responses;
+9. add deterministic fault injection at intent create/write/flush/fsync/publish/readback, every
+   artifact and sidecar temp/write/fsync/publish boundary, snapshot rechecks, row insert/readback,
+   rollback, SQLite commit, reopen, directory fsync, intent cleanup, and final postconditions;
+10. add deterministic crash-state fixtures and concurrent callers proving exact recovery, no
+    undetectable final path, one linear commit, no overwrite, no fork, bounded diagnostics, and exact
+    false-versus-true mutation semantics;
+11. run protocol compatibility/version/currentness/examples, Rust format/Clippy/unit/integration,
+    focused Python/Rust parity and recovery tests, Ruff, and the complete Python suite before
+    returning to Sol.
+
+Luna must stop and return to Sol if any final artifact or sidecar can appear before the durable
+intent, if a crash state cannot be detected and matched to one exact request, if recovery would need
+to delete or overwrite an existing final object or rewrite ledger history, if an error can report
+false after exact rollback is no longer proved, if Rust cannot match Python bytes/self-link commit
+hashes, if a race can create a fork, or if implementation requires a production cutover, non-JSON
+format, root initialization, authority-bearing metadata, evidence construction, label
+interpretation, rerun authorization, adapters, external calls, or external tools.
