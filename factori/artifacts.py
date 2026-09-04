@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from factori.config import RUN_SUBDIRECTORIES, RUNS_DIR
+from factori.config import FACTORI_KERNEL_BINARY_ENV, RUN_SUBDIRECTORIES, RUNS_DIR
 from factori.hashing import canonical_json, sha256_file
 from factori.schemas import ArtifactRef, ArtifactType
 
@@ -30,8 +30,21 @@ class ArtifactError(RuntimeError):
 class ArtifactStore:
     """Filesystem store rooted at a local project directory."""
 
-    def __init__(self, root: str | Path = ".") -> None:
+    def __init__(
+        self,
+        root: str | Path = ".",
+        *,
+        kernel_binary: str | Path | None = None,
+    ) -> None:
         self.root = Path(root)
+        configured_kernel = (
+            kernel_binary
+            if kernel_binary is not None
+            else os.environ.get(FACTORI_KERNEL_BINARY_ENV)
+        )
+        self.kernel_binary = (
+            None if configured_kernel is None else Path(configured_kernel).expanduser().resolve()
+        )
 
     def run_path(self, run_id: str) -> Path:
         """Return the run directory."""

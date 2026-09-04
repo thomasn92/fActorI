@@ -74,6 +74,34 @@ commands and output remain the compatibility surface.
 
 ## Deterministic Pipeline
 
+### Rust persistence kernel activation
+
+Normal execution remains Python-owned unless an explicit executable path is configured. To route
+eligible shared JSON persistence bundles through the approved Rust kernel, set:
+
+```bash
+export FACTORI_KERNEL_BINARY=/absolute/path/to/factori-kernel
+uv run factori run-all --run-id demo --domain "human geography"
+```
+
+Library callers can instead pass `kernel_binary=Path(...)` to `ArtifactStore`; that explicit
+constructor value takes precedence over the environment. There is no binary discovery or implicit
+build.
+
+Activation applies only to one-to-sixteen new canonical JSON artifacts persisted through
+`persist_artifacts_with_commit` (including its JSON convenience wrapper), with an existing
+non-root ledger tip and byte-compatible non-authority metadata. Rust then owns the atomic artifact,
+commit, and producer-sidecar mutation in `StrictProduction` mode. Markdown, LaTeX, bibliography,
+text, binary, authority-bearing or byte-incompatible metadata, custom storage implementations,
+initial/root commits, and direct legacy persistence sequences remain Python-owned.
+
+Once an eligible Rust route is selected, any transport, validation, rejection, or uncertain
+post-mutation failure is raised as `PersistenceKernelError`; it never falls back to the Python
+writer. The exception records the exact request timestamp, the stable diagnostic code when
+available, and the kernel's mutation status for inspection or exact recovery. Rust persistence is
+mechanical provenance handling only and grants no evidence, scientific, human-review, or
+publication authority.
+
 Canonical one-command run:
 
 ```bash

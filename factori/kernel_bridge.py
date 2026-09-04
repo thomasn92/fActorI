@@ -1,4 +1,4 @@
-"""Read-only shadow bridge from persisted Python ledgers to the Rust kernel."""
+"""Validated bridge between persisted Python state and the Rust kernel."""
 
 from __future__ import annotations
 
@@ -64,6 +64,17 @@ from factori.schemas import (
 
 class KernelBridgeError(RuntimeError):
     """Raised when the shadow bridge cannot obtain a valid kernel response."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        diagnostic_code: str | None = None,
+        mutation_performed: bool | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.diagnostic_code = diagnostic_code
+        self.mutation_performed = mutation_performed
 
 
 _SAFE_RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -571,8 +582,8 @@ def commit_artifact_bundle(
 ) -> KernelResponseEnvelope:
     """Publish a crash-recoverable artifact/ledger/sidecar bundle through Rust.
 
-    This remains a shadow bridge: it verifies the deterministic Rust result and persisted
-    postconditions, while Rust owns the mutation and recovery boundary.
+    The bridge verifies the deterministic Rust result and persisted postconditions, while Rust
+    owns the mutation and recovery boundary.
     """
     root_path = Path(root).resolve()
     normalized_artifacts = [
@@ -736,7 +747,10 @@ def commit_artifact_bundle(
     if response.status == KernelResponseStatus.ACCEPTED:
         result = response.result
         if not isinstance(result, KernelPersistenceCommitBundleResult):
-            raise KernelBridgeError("Rust bundle response has the wrong result type")
+            raise KernelBridgeError(
+                "Rust bundle response has the wrong result type",
+                mutation_performed=response.mutation_performed,
+            )
         if (
             result.artifacts != linked_refs
             or result.commit != expected_commit
@@ -751,7 +765,10 @@ def commit_artifact_bundle(
             or result.authority_granted is not False
             or not response.mutation_performed
         ):
-            raise KernelBridgeError("Rust bundle response does not match request")
+            raise KernelBridgeError(
+                "Rust bundle response does not match request",
+                mutation_performed=response.mutation_performed,
+            )
         observed = _validated_linear_ledger_snapshot(
             ResearchLedger.open_existing(ledger_path), run_id
         )
@@ -761,11 +778,17 @@ def commit_artifact_bundle(
             != [c.model_dump(mode="json") for c in old_commits]
             or observed[-1] != expected_commit
         ):
-            raise KernelBridgeError("bundle changed the existing ledger prefix")
+            raise KernelBridgeError(
+                "bundle changed the existing ledger prefix",
+                mutation_performed=True,
+            )
         after = _snapshot_run_state_raw(root_path, run_id)
         for path, expected in expected_files.items():
             if path not in after or after[path] != ("file", expected):
-                raise KernelBridgeError(f"bundle output bytes do not match: {path}")
+                raise KernelBridgeError(
+                    f"bundle output bytes do not match: {path}",
+                    mutation_performed=True,
+                )
         ledger_key = ledger_path.relative_to(root_path)
         intent_key = intent_path.relative_to(root_path)
         if any(
@@ -773,14 +796,30 @@ def commit_artifact_bundle(
             for path, digest in before.items()
             if path not in expected_files and path not in {ledger_key, intent_key}
         ):
-            raise KernelBridgeError("bundle changed pre-existing run state")
+            raise KernelBridgeError(
+                "bundle changed pre-existing run state",
+                mutation_performed=True,
+            )
         extras = set(after) - set(before) - {ledger_key} - set(expected_files)
         if intent_key in after or extras:
-            raise KernelBridgeError("bundle created unexpected files")
+            raise KernelBridgeError(
+                "bundle created unexpected files",
+                mutation_performed=True,
+            )
     elif response.mutation_performed:
-        raise KernelBridgeError("bundle failed after mutation; inspect run state")
+        diagnostic = response.diagnostics[0] if response.diagnostics else None
+        raise KernelBridgeError(
+            "bundle failed after mutation; inspect run state",
+            diagnostic_code=None if diagnostic is None else diagnostic.code,
+            mutation_performed=True,
+        )
     elif _snapshot_run_state_raw(root_path, run_id) != before:
-        raise KernelBridgeError("rejected bundle changed run state")
+        diagnostic = response.diagnostics[0] if response.diagnostics else None
+        raise KernelBridgeError(
+            "rejected bundle changed run state",
+            diagnostic_code=None if diagnostic is None else diagnostic.code,
+            mutation_performed=False,
+        )
     return response
 
 

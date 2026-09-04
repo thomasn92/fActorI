@@ -145,6 +145,14 @@ centralize the normal write artifact -> append ledger commit -> link producing c
 leaving stage-specific payloads, metadata, action types, and evidence policy explicit at the call
 site.
 
+`ArtifactStore` can be configured with an explicit Rust-kernel executable path, directly or through
+`FACTORI_KERNEL_BINARY`. At the shared persistence seam, byte-compatible bundles of one to sixteen
+new JSON artifacts with an existing non-root tip route to the approved
+`persistence.commit_bundle` operation in `StrictProduction` mode. All other formats, initial/root
+commits, authority-bearing or byte-incompatible metadata, custom storage implementations, and
+direct legacy write/append/link paths stay on Python. Backend selection happens before mutation;
+after Rust is invoked, failures are surfaced without Python fallback.
+
 `Clock`, `LedgerProtocol`, and `ArtifactStoreProtocol` define the small persistence surface used by
 the current pipeline. `SystemClock` preserves normal UTC behavior. `FixedClock` can drive ledger and
 pipeline-report timestamps in tests without changing stage logic or CLI semantics. These protocols

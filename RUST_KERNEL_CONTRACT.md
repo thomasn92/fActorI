@@ -2621,3 +2621,32 @@ producer sidecars in an existing run. It does not initialize or repair runs, ove
 accept existing artifact references, grant evidence or publication authority, authorize reruns,
 or cut over a production persistence call site. The planned Rust research-kernel operation set is
 therefore 13 of 13 approved, or 100.00% complete.
+
+## Shared Persistence Call-Site Cutover
+
+The first production call-site cutover is deliberately narrower than the complete Python
+persistence surface. An explicit `ArtifactStore(kernel_binary=...)` value, or otherwise
+`FACTORI_KERNEL_BINARY`, activates routing at `factori.persistence`. Constructor configuration
+takes precedence; absent configuration preserves the Python backend. No path discovery, implicit
+Rust build, or default repository binary is allowed.
+
+The Rust backend is authoritative only for byte-compatible invocations of
+`persist_artifacts_with_commit`: one to sixteen new JSON artifacts, an existing local
+`ArtifactStore`/`ResearchLedger` pair for the same run, a current non-root parent, valid kernel
+identifiers and bounds, and metadata whose Python bytes already include
+`is_verification_evidence=false` and no producer authority. The adapter removes the harmless
+kernel-controlled `format` and `is_verification_evidence` keys from transport metadata; Rust
+reconstructs the same final reference bytes. It resolves the parent and timestamp once and invokes
+`persistence.commit_bundle` in `StrictProduction` mode.
+
+Non-JSON bundles, root/initial commits, authority-bearing or byte-incompatible metadata, custom or
+mismatched storage implementations, contract-ineligible requests, and direct legacy
+write/append/link sequences remain Python-owned. Route results expose the selected backend and a
+stable routing reason. Once the Rust route is selected, failures are fail-closed and never retry
+through Python. `PersistenceKernelError` preserves the exact timestamp, diagnostic code when
+available, and mutation status so an uncertain post-call result requires inspection or exact
+recovery rather than an unsafe fresh attempt.
+
+This cutover changes mechanical ownership only. It does not grant verification evidence,
+scientific approval, human approval, or publication authority, and the Python implementations stay
+available for their explicitly retained paths during the migration.

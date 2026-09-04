@@ -30,9 +30,11 @@ All implementation modules are under `factori/`.
     models.
   - `schemas/protocol_models.py`: protocol-facing schema re-export convenience module.
 - `ledger.py`: append-only SQLite commit ledger and hash-chain validation.
-- `artifacts.py`: local artifact store and artifact-to-commit metadata links.
+- `artifacts.py`: local artifact store, explicit Rust-kernel path configuration, and
+  artifact-to-commit metadata links.
 - `persistence.py`: shared helpers for the normal artifact write, ledger commit, and producing
-  commit-link sequence used by Stage A and Stage B outputs.
+  commit-link sequence, including fail-closed routing of eligible JSON bundles to the approved Rust
+  persistence kernel.
 - `storage_protocols.py`: runtime-checkable ledger/artifact-store/clock interfaces plus system and
   fixed clocks.
 - `hashing.py`: canonical JSON and SHA-256 helpers.
