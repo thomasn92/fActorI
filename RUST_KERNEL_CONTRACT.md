@@ -8,7 +8,7 @@ requirements, and model handoff. The current Rust implementation is a read-mostl
 kernel with one approved JSON-only artifact mutation. It has not received evidence authority,
 ledger authority, or general pipeline-mutation authority.
 
-Current protocol baseline: `0.87.0`. The next frozen ledger slice targets `0.88.0`.
+Current protocol baseline: `0.88.0`. The next frozen sidecar slice targets `0.89.0`.
 
 The initial migration must preserve Python orchestration and use the checked-in JSON Schemas and
 protocol examples as its cross-language contract. Rust must not become a second source of
@@ -1938,3 +1938,225 @@ different transaction/journal contract, or if the slice would need artifact refe
 root initialization, stage cutover, rerun authorization, evidence construction, or payload-policy
 interpretation. Luna must not begin `artifact.link`, expand `ledger.append` to artifact-bearing
 commits, implement `persistence.commit_bundle`, or cut over a production call site in this handoff.
+
+## Final Sol Review of Artifact-Free `ledger.append`: Approved
+
+Sol reviewed Luna commit `9a198de` and hardened the operation in `bd694b3`. The final operation
+validates the exact SQLite table, foreign-key, and append-only trigger definitions; checks canonical
+stored row bytes and the raw prior ledger prefix; preserves journal mode; validates the complete
+unfiltered linear history and expected tip in the Python bridge; and requires literal result
+booleans. Deterministic Rust fault injection now covers open, begin, validation, insert, readback,
+rollback, commit, reopen, and postcondition boundaries.
+
+The final matrix covers all non-root action types, both kernel modes, canonical payload bytes,
+candidate presence and absence, stale tips, locks, concurrent callers, schema damage, malformed
+responses, and pre- versus post-commit mutation semantics. Protocol compatibility and currentness,
+51 examples, Rust formatting and Clippy, 21 Rust tests, 269 combined kernel parity/replay tests, 47
+focused Python persistence/schema tests, Ruff, and the complete Python suite passed. The complete
+suite result was 1,625 passed in 563.75 seconds.
+
+`ledger.append` is approved only for one artifact-free, non-root append to an existing valid ledger.
+It does not create or initialize runs, accept artifact references, write producer sidecars, authorize
+reruns, grant evidence or publication authority, or cut over an existing Python persistence path.
+
+## `artifact.link` Scope Decision
+
+The next mutating kernel operation creates exactly one producer sidecar for one already-persisted
+artifact whose exact linked reference already exists in one valid ledger commit. It bridges the
+approved `artifact.persist` and artifact-free `ledger.append` primitives without yet composing them:
+the caller must provide the unlinked artifact reference and the existing producing commit hash, and
+Rust may only set `producing_commit_hash` and publish the canonical sidecar.
+
+This operation is mechanical provenance linking only. It does not create an artifact or ledger row,
+repair history, infer a producer, authorize a stage rerun, create evidence, upgrade a label, validate
+scientific content, or establish human-review or publication readiness.
+
+### Frozen Request
+
+The caller supplies only:
+
+```text
+run_id
+expected_ledger_tip_hash
+artifact
+producing_commit_hash
+overwrite_policy = FailIfExists
+```
+
+`run_id` uses the existing safe-segment grammar. Both hashes are lowercase SHA-256 digests.
+`artifact` is one complete public `ArtifactRef` with `producing_commit_hash=null`; its ID, type,
+relative path, content hash, and metadata are preserved exactly. The caller cannot supply linked
+artifact bytes, a sidecar path, a sidecar hash, a metadata patch, a database path, SQL, a temporary
+path, an authority flag, or any alternate overwrite behavior.
+
+The artifact path must already satisfy the approved relative artifact-path rules and cannot name a
+sidecar, ledger, directory, symlink, or path outside the run. Metadata must satisfy the existing
+closed JSON and canonical-size limits. The complete linked `ArtifactRef`, serialized as exact
+Python-compatible canonical JSON followed by one LF byte, is limited to 1 MiB.
+
+Both kernel modes have identical validation, bytes, publication, and result behavior. Mode cannot
+change the sidecar and grants no authority.
+
+### Frozen Existing-State Preconditions
+
+The configured root, `runs`, and `runs/<run_id>` must already exist as real non-symlink directories.
+The artifact path must resolve beneath that run to an existing regular non-symlink file. Its current
+SHA-256 digest must equal `artifact.content_hash`; Rust must not trust the request or a prior sidecar
+instead of hashing the final file bytes.
+
+`runs/<run_id>/ledger.sqlite` must already be a real regular non-symlink file. No SQLite auxiliary
+object may exist. Rust opens it read-only, validates the exact approved schema plus integrity and
+foreign keys, and validates every row as one non-empty linear canonical history for only `run_id`.
+The unique insertion-order tip must equal `expected_ledger_tip_hash`.
+
+The commit identified by `producing_commit_hash` must exist in that validated history and contain
+exactly one artifact reference matching the request's ID, type, path, content hash, and metadata.
+That stored reference must have `producing_commit_hash` equal to the containing commit hash. A
+missing producer, a reference in a different commit, a null or foreign producer, duplicate matches,
+or any field difference rejects. Rust does not search by artifact ID alone or infer a producer.
+
+The final target is exactly `<artifact.path>.meta.json`. Any existing filesystem object at that
+path—including a regular file with identical bytes, directory, symlink, or dangling symlink—rejects
+under `FailIfExists`. Rust must not overwrite, merge, repair, or silently accept it.
+
+### Frozen Atomic Publication
+
+Rust builds the linked reference by changing only `producing_commit_hash` from null to the validated
+producer hash. It creates a same-directory temporary regular file with exclusive no-follow
+semantics, writes the complete canonical bytes, flushes userspace buffers, calls file `fsync`, and
+verifies the temporary bytes, length, and SHA-256 digest.
+
+Immediately before publication, Rust rechecks the raw artifact bytes and digest, the raw ledger
+snapshot and validated tip/producer reference, and the absence of the final sidecar. Any change
+rejects with no final sidecar. Publication is one atomic no-clobber operation; a portable hard-link
+publication followed by temporary-file unlink is allowed. Rename-with-overwrite is forbidden.
+
+After publication, Rust calls directory `fsync`, reads the final sidecar without following symlinks,
+and proves it is a regular file containing exactly the expected bytes and digest. It then rechecks
+that the artifact and ledger snapshots are unchanged. The temporary file is removed on every path
+where it still exists; temporary names are internal, unpredictable, and never returned.
+
+A failure before final publication returns `mutation_performed=false` and leaves no final sidecar.
+Failure to remove an unpublished temporary file is reported as a bounded cleanup warning while the
+operation remains false. Once final publication may have succeeded, a durability, cleanup, snapshot,
+or postcondition failure returns an empty inspection-required error with
+`mutation_performed=true`; callers must inspect and must not retry blindly.
+
+Concurrent calls for the same sidecar have at most one winner. Every loser reports target-exists or
+an inspection-required publication outcome according to whether final publication was impossible or
+ambiguous. The operation never overwrites the winner and never creates a second final path.
+
+### Frozen Result and Response Semantics
+
+An accepted result contains only:
+
+```text
+artifact
+sidecar_path
+sidecar_content_hash
+bytes_written
+created = true
+linked_to_ledger = true
+authority_granted = false
+```
+
+`artifact` is the exact linked public `ArtifactRef`. `sidecar_path` is its run-relative
+`<artifact.path>.meta.json` path. `sidecar_content_hash` is SHA-256 over the exact canonical sidecar
+bytes, including the LF; `bytes_written` is their exact positive length. An accepted response has no
+diagnostics and sets `mutation_performed=true`. All three result booleans are literal values, not
+truthy coercions.
+
+A rejected or pre-publication error has an empty result, one stable diagnostic, and
+`mutation_performed=false`. A post-publication or publication-uncertain error has an empty result,
+one corresponding stable diagnostic, and `mutation_performed=true`. Existing validators remain
+operation-specific: no new error code may permit mutation for a read-only operation,
+`artifact.persist`, or `ledger.append`.
+
+Stable new diagnostics are:
+
+- `artifact_link_run_missing`
+- `artifact_link_directory_invalid`
+- `artifact_link_payload_invalid`
+- `artifact_link_size_exceeded`
+- `artifact_link_artifact_invalid`
+- `artifact_link_ledger_invalid`
+- `artifact_link_commit_missing`
+- `artifact_link_commit_mismatch`
+- `artifact_link_tip_mismatch`
+- `artifact_link_busy`
+- `artifact_link_target_exists`
+- `artifact_link_temp_write_failed`
+- `artifact_link_publish_failed`
+- `artifact_link_temp_cleanup_warning`
+- `artifact_link_durability_uncertain`
+- `artifact_link_snapshot_changed`
+- `artifact_link_postcondition_failed`
+
+Existing precise path, hash, ledger-chain, canonicalization, and protocol diagnostics may be reused
+for their established precondition failures. Diagnostics may contain bounded run/artifact IDs,
+relative paths, expected/observed hashes, and failure categories. They must not expose host paths,
+temporary names, sidecar contents, ledger rows, SQL, environment data, or secrets.
+
+### Frozen Python Bridge and Cutover Boundary
+
+Before invoking Rust, the Python bridge validates the closed request, snapshots every run path and
+raw byte, hashes the artifact, loads and validates the complete ledger, proves the expected tip and
+exact producer reference, constructs the expected linked `ArtifactRef`, and computes the exact
+canonical sidecar bytes and digest. It invokes Rust once and has no Python link fallback.
+
+On acceptance the bridge compares every result field and literal boolean, reloads the final sidecar,
+and proves its type, path, bytes, hash, and parsed public model equal the expected values. It proves
+the artifact, ledger, all other run files, and SQLite auxiliary-object set are unchanged, with the
+one final sidecar as the sole addition. On a false-mutation rejection it proves the complete raw run
+snapshot is byte-identical and no temporary or final sidecar appeared. On a true-mutation error it
+raises an inspection-required bridge error and never retries automatically.
+
+This is development shadow mutation only. No persistence helper, stage, CLI command, rerun path, or
+normal artifact-link call site cuts over in this slice. Python remains the production sidecar writer
+until Sol approves the complete artifact-bearing commit and crash-consistent
+`persistence.commit_bundle` orchestration.
+
+## Current Luna Handoff: `artifact.link`
+
+Luna owns only this one-sidecar publication and parity slice:
+
+1. add closed request/result models and discriminator arms, narrow operation-specific mutation
+   rules, bump the protocol minor version from `0.88.0` to `0.89.0`, and regenerate all schemas and
+   examples;
+2. validate safe IDs and paths, lowercase hashes, the exact unlinked `ArtifactRef`, closed
+   `FailIfExists` policy, duplicate-key-free JSON metadata, and the canonical 1 MiB linked-sidecar
+   bound while rejecting unknown control fields;
+3. validate existing real directories, the regular non-symlink artifact and exact content hash,
+   absent sidecar of every filesystem type, absent SQLite auxiliaries, exact ledger schema and
+   integrity, complete canonical linear history, expected tip, and exactly one matching self-linked
+   producer reference;
+4. implement Python-compatible linked-reference canonicalization and digesting, exclusive no-follow
+   same-directory temporary creation, complete write, flush, file fsync, verified prepublication
+   snapshots, atomic no-clobber publication, cleanup, directory fsync, final readback, and verified
+   postpublication snapshots;
+5. add a Python no-fallback bridge that computes the exact expected reference/bytes/hash before Rust,
+   compares every accepted result field, and proves complete raw run-tree deltas for accepted,
+   rejected, and inspection-required outcomes;
+6. add Python/Rust parity for every artifact type, both modes, nested/Unicode/control-character/
+   floating-point metadata, empty metadata, deep safe paths, exact LF bytes, sidecar hash and length,
+   producer linkage, and literal non-authority booleans;
+7. add rejection tests for unknown fields, unsafe IDs/paths, linked input refs, malformed hashes,
+   unsupported overwrite values, metadata/sidecar bounds, missing/changed/symlinked artifacts,
+   pre-existing regular/directory/symlink/dangling sidecars, missing or damaged ledgers, stale tips,
+   missing/foreign/null/duplicate/mismatched producer references, auxiliary files, and malformed
+   responses;
+8. add deterministic fault injection around temporary create/write/flush/file-fsync, snapshot
+   revalidation, publication, cleanup, directory-fsync, final readback, and postconditions, proving
+   exact final/temp state and pre- versus post-publication `mutation_performed` semantics;
+9. add deterministic same-target concurrency tests proving exactly one accepted caller, no
+   overwrite, no divergent final bytes, and bounded loser diagnostics;
+10. run protocol compatibility/version/currentness/examples, Rust format/Clippy/unit/integration,
+    focused Python/Rust parity, Ruff, and the complete Python suite before returning to Sol.
+
+Luna must stop and return to Sol if portable atomic no-clobber publication cannot satisfy these
+semantics, if a final sidecar can appear while an error reports `mutation_performed=false`, if Rust
+cannot match Python canonical `ArtifactRef` bytes, if validation would create or repair run/ledger
+state, or if the slice would need to mutate artifact or ledger bytes, infer a producer, overwrite a
+sidecar, authorize evidence or reruns, cut over production, or compose multiple mutations. Luna must
+not implement artifact-bearing `ledger.append`, `persistence.commit_bundle`, crash recovery, or a
+production call-site cutover in this handoff.
