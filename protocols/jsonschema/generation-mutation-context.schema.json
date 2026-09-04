@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/generation-mutation-context.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/generation-mutation-context.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Stable tournament and idea-space context for generation mutations.",
@@ -152,7 +152,7 @@
   ],
   "title": "GenerationMutationContext",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.GenerationMutationContext",
   "x-factori-verification-evidence": false
 }

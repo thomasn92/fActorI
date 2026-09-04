@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/nucleus-manuscript-draft.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/nucleus-manuscript-draft.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Artifact-bound Markdown and LaTeX manuscript presentation draft.",
@@ -137,7 +137,7 @@
   ],
   "title": "NucleusManuscriptDraft",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.NucleusManuscriptDraft",
   "x-factori-verification-evidence": false
 }

@@ -224,6 +224,81 @@
       "title": "ControllerActionType",
       "type": "string"
     },
+    "KernelArtifactLinkPayload": {
+      "additionalProperties": false,
+      "description": "Link one persisted artifact to its existing producing ledger commit.",
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "expected_ledger_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Ledger Tip Hash",
+          "type": "string"
+        },
+        "overwrite_policy": {
+          "const": "FailIfExists",
+          "default": "FailIfExists",
+          "title": "Overwrite Policy",
+          "type": "string"
+        },
+        "producing_commit_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Producing Commit Hash",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "expected_ledger_tip_hash",
+        "artifact",
+        "producing_commit_hash"
+      ],
+      "title": "KernelArtifactLinkPayload",
+      "type": "object"
+    },
+    "KernelArtifactLinkRequest": {
+      "additionalProperties": false,
+      "description": "Typed request for one atomic producer sidecar publication.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "artifact.link",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelArtifactLinkPayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelArtifactLinkRequest",
+      "type": "object"
+    },
     "KernelArtifactPersistPayload": {
       "additionalProperties": false,
       "description": "JSON-only atomic artifact persistence request.",
@@ -1240,11 +1315,12 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the research kernel boundary.",
   "discriminator": {
     "mapping": {
+      "artifact.link": "#/$defs/KernelArtifactLinkRequest",
       "artifact.persist": "#/$defs/KernelArtifactPersistRequest",
       "artifact.verify": "#/$defs/KernelArtifactVerifyRequest",
       "checkpoint.verify": "#/$defs/KernelCheckpointVerifyRequest",
@@ -1292,10 +1368,13 @@
     },
     {
       "$ref": "#/$defs/KernelLedgerAppendRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelArtifactLinkRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

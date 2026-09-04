@@ -549,7 +549,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/opportunity-discovery-report.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/opportunity-discovery-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only non-evidence Stage 0 opportunity discovery report.",
@@ -676,7 +676,7 @@
   ],
   "title": "OpportunityDiscoveryReport",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.OpportunityDiscoveryReport",
   "x-factori-verification-evidence": false
 }

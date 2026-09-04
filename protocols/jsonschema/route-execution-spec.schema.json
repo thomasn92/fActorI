@@ -281,7 +281,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/route-execution-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/route-execution-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Immutable deterministic execution specification for one branch route.",
@@ -399,7 +399,7 @@
   ],
   "title": "RouteExecutionSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.RouteExecutionSpec",
   "x-factori-verification-evidence": false
 }

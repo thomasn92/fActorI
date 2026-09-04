@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/kernel-proof-trace.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/kernel-proof-trace.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Closed persisted Lean proof execution trace companion artifact.",
@@ -70,7 +70,7 @@
   ],
   "title": "KernelProofTrace",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.KernelProofTrace",
   "x-factori-verification-evidence": false
 }

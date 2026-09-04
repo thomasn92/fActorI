@@ -224,7 +224,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/paper-skeleton.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/paper-skeleton.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Assembled paper-shaped scaffold.",
@@ -300,7 +300,7 @@
   ],
   "title": "PaperSkeleton",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.PaperSkeleton",
   "x-factori-verification-evidence": false
 }

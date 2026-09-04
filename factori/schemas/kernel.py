@@ -37,6 +37,7 @@ class KernelOperation(StrEnum):
     REPLAY_VERIFY_CORE = "replay.verify_core"
     ARTIFACT_PERSIST = "artifact.persist"
     LEDGER_APPEND = "ledger.append"
+    ARTIFACT_LINK = "artifact.link"
 
 
 class KernelResponseStatus(StrEnum):
@@ -426,6 +427,70 @@ class KernelLedgerAppendPayload(StrictModel):
         return self
 
 
+class KernelArtifactLinkPayload(StrictModel):
+    """Link one persisted artifact to its existing producing ledger commit."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    expected_ledger_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    artifact: ArtifactRef
+    producing_commit_hash: str = Field(pattern=HASH_RE.pattern)
+    overwrite_policy: Literal["FailIfExists"] = "FailIfExists"
+
+    @model_validator(mode="after")
+    def validate_link_contract(self) -> KernelArtifactLinkPayload:
+        if self.artifact.producing_commit_hash is not None:
+            raise ValueError("artifact.link requires an unlinked artifact reference")
+        if len(self.artifact.metadata) > 64:
+            raise ValueError("artifact metadata must contain at most 64 entries")
+        if any(len(key.encode("utf-8")) > 128 for key in self.artifact.metadata):
+            raise ValueError("artifact metadata keys must be at most 128 UTF-8 bytes")
+        if _contains_forbidden_kernel_authority(self.artifact.metadata):
+            raise ValueError("artifact metadata contains forbidden authority values")
+        if not re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, self.artifact.id):
+            raise ValueError("artifact id must use safe segment syntax")
+        parts = self.artifact.path.split("/")
+        expected_directory = _KERNEL_ARTIFACT_DIRECTORY_BY_TYPE[self.artifact.type]
+        if (
+            len(parts) != 4
+            or parts[0] != "runs"
+            or parts[1] != self.run_id
+            or parts[2] != expected_directory
+            or not re.fullmatch(_KERNEL_IDENTIFIER_PATTERN, parts[3])
+            or "." not in parts[3]
+            or any(part in {"", ".", ".."} for part in parts)
+        ):
+            raise ValueError("artifact path does not match its type directory")
+        try:
+            metadata_json = json.dumps(
+                to_jsonable(self.artifact.metadata),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            encoded = (
+                json.dumps(
+                    to_jsonable(
+                        self.artifact.model_copy(
+                            update={"producing_commit_hash": self.producing_commit_hash}
+                        ).model_dump(mode="json")
+                    ),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+                + "\n"
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"artifact link reference must be valid JSON: {exc}") from exc
+        if len(metadata_json) > 64 * 1024:
+            raise ValueError("artifact metadata exceeds 64 KiB serialized size")
+        if len(encoded) > 1024 * 1024:
+            raise ValueError("serialized linked artifact exceeds 1 MiB")
+        return self
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -511,6 +576,13 @@ class KernelLedgerAppendRequest(KernelRequestFields):
     payload: KernelLedgerAppendPayload
 
 
+class KernelArtifactLinkRequest(KernelRequestFields):
+    """Typed request for one atomic producer sidecar publication."""
+
+    operation: Literal[KernelOperation.ARTIFACT_LINK]
+    payload: KernelArtifactLinkPayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
@@ -522,7 +594,8 @@ KernelRequestVariant = Annotated[
     | KernelCheckpointVerifyRequest
     | KernelReplayVerifyCoreRequest
     | KernelArtifactPersistRequest
-    | KernelLedgerAppendRequest,
+    | KernelLedgerAppendRequest
+    | KernelArtifactLinkRequest,
     Field(discriminator="operation"),
 ]
 
@@ -564,6 +637,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelReplayVerifyCorePayload
         | KernelArtifactPersistPayload
         | KernelLedgerAppendPayload
+        | KernelArtifactLinkPayload
     ):
         return self.root.payload
 
@@ -973,6 +1047,45 @@ class KernelLedgerAppendResult(StrictModel):
         return self
 
 
+class KernelArtifactLinkResult(StrictModel):
+    """Accepted result for one atomic producer sidecar link."""
+
+    artifact: ArtifactRef
+    sidecar_path: str = Field(min_length=1)
+    sidecar_content_hash: str = Field(pattern=HASH_RE.pattern)
+    bytes_written: int = Field(ge=1, strict=True)
+    created: Literal[True]
+    linked_to_ledger: Literal[True]
+    authority_granted: Literal[False]
+
+    @field_validator("created", "linked_to_ledger", mode="before")
+    @classmethod
+    def require_strict_true(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("artifact link success flags must be boolean true")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_false(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be boolean false")
+        return value
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> KernelArtifactLinkResult:
+        if self.artifact.producing_commit_hash is None:
+            raise ValueError("linked artifact must have a producing commit")
+        parts = self.artifact.path.split("/")
+        expected_directory = _KERNEL_ARTIFACT_DIRECTORY_BY_TYPE[self.artifact.type]
+        if len(parts) != 4 or parts[0] != "runs" or parts[2] != expected_directory:
+            raise ValueError("linked artifact path does not match its type directory")
+        expected_sidecar = f"{self.artifact.path}.meta.json"
+        if self.sidecar_path != expected_sidecar:
+            raise ValueError("sidecar path does not match artifact path")
+        return self
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -985,7 +1098,8 @@ KernelResult = Annotated[
     | KernelCheckpointVerifyResult
     | KernelReplayVerifyCoreResult
     | KernelArtifactPersistResult
-    | KernelLedgerAppendResult,
+    | KernelLedgerAppendResult
+    | KernelArtifactLinkResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -1082,6 +1196,54 @@ class KernelResponseEnvelope(StrictModel):
                 "ledger_append_postcondition_failed",
             }:
                 raise ValueError("ledger.append rejection diagnostics are invalid")
+        elif self.operation == KernelOperation.ARTIFACT_LINK:
+            link_codes = {
+                "artifact_link_run_missing",
+                "artifact_link_directory_invalid",
+                "artifact_link_payload_invalid",
+                "artifact_link_size_exceeded",
+                "artifact_link_artifact_invalid",
+                "artifact_link_ledger_invalid",
+                "artifact_link_commit_missing",
+                "artifact_link_commit_mismatch",
+                "artifact_link_tip_mismatch",
+                "artifact_link_busy",
+                "artifact_link_target_exists",
+                "artifact_link_temp_write_failed",
+                "artifact_link_publish_failed",
+                "artifact_link_temp_cleanup_warning",
+                "artifact_link_durability_uncertain",
+                "artifact_link_snapshot_changed",
+                "artifact_link_postcondition_failed",
+            }
+            if any(item.code not in link_codes for item in self.diagnostics):
+                raise ValueError("artifact.link response has an invalid diagnostic")
+            if self.status == KernelResponseStatus.ACCEPTED:
+                if not self.mutation_performed or len(self.diagnostics) > 1:
+                    raise ValueError("accepted artifact.link responses must report mutation")
+                if any(
+                    item.code != "artifact_link_temp_cleanup_warning" for item in self.diagnostics
+                ):
+                    raise ValueError("artifact.link accepted diagnostics are invalid")
+            elif self.mutation_performed:
+                if (
+                    self.status != KernelResponseStatus.ERROR
+                    or len(self.diagnostics) != 1
+                    or self.diagnostics[0].code
+                    not in {
+                        "artifact_link_durability_uncertain",
+                        "artifact_link_snapshot_changed",
+                        "artifact_link_postcondition_failed",
+                    }
+                ):
+                    raise ValueError("artifact.link mutation flag is invalid")
+            elif len(self.diagnostics) != 1 or self.diagnostics[0].code in {
+                "artifact_link_temp_cleanup_warning",
+                "artifact_link_durability_uncertain",
+                "artifact_link_snapshot_changed",
+                "artifact_link_postcondition_failed",
+            }:
+                raise ValueError("artifact.link rejection diagnostics are invalid")
         elif self.mutation_performed:
             raise ValueError("kernel responses must not report mutations")
         if self.status != KernelResponseStatus.ACCEPTED:
@@ -1100,6 +1262,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.REPLAY_VERIFY_CORE: KernelReplayVerifyCoreResult,
             KernelOperation.ARTIFACT_PERSIST: KernelArtifactPersistResult,
             KernelOperation.LEDGER_APPEND: KernelLedgerAppendResult,
+            KernelOperation.ARTIFACT_LINK: KernelArtifactLinkResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -1151,6 +1314,9 @@ __all__ = [
     "KernelLedgerAppendPayload",
     "KernelLedgerAppendRequest",
     "KernelLedgerAppendResult",
+    "KernelArtifactLinkPayload",
+    "KernelArtifactLinkRequest",
+    "KernelArtifactLinkResult",
     "KernelAutonomousCheckpointStage",
     "KernelAutonomousCheckpointVerificationStatus",
     "KernelAutonomousPaperCheckpoint",

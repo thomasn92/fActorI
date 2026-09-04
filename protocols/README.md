@@ -4,7 +4,7 @@ This directory contains language-neutral developer contracts generated from the 
 existing Pydantic models. They are intended for Python tools, future Rust crates, future servers,
 and coding agents that need a stable boundary without importing the Python runtime.
 
-Protocol `0.88.0` adds transactional artifact-free `ledger.append` kernel persistence with strict tip
+Protocol `0.89.0` adds transactional artifact-free `ledger.append` kernel persistence with strict tip
 validation, no artifact links, and no authority grant. Protocol `0.87.0` adds atomic JSON-only
 `artifact.persist` kernel persistence with no ledger link or authority grant. Protocol `0.86.0` adds the bounded read-only `replay.verify_core` kernel operation. It verifies the
 current completed ledger snapshot, artifact inventory, manifest prefix, required outputs, and

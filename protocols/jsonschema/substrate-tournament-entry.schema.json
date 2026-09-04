@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/substrate-tournament-entry.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/substrate-tournament-entry.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One substrate branch and its bounded tournament outcome.",
@@ -220,7 +220,7 @@
   ],
   "title": "SubstrateTournamentEntry",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.SubstrateTournamentEntry",
   "x-factori-verification-evidence": false
 }

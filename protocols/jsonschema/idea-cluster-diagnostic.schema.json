@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/idea-cluster-diagnostic.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/idea-cluster-diagnostic.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Near-duplicate and collapsed-axis diagnostic for idea nodes.",
@@ -65,7 +65,7 @@
   ],
   "title": "IdeaClusterDiagnostic",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.IdeaClusterDiagnostic",
   "x-factori-verification-evidence": false
 }

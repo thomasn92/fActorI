@@ -404,7 +404,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/idea-tree.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/idea-tree.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Derived research idea search tree without evidence authority.",
@@ -488,7 +488,7 @@
   ],
   "title": "IdeaTree",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.IdeaTree",
   "x-factori-verification-evidence": false
 }

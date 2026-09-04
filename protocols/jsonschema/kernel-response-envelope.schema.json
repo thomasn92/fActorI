@@ -224,6 +224,56 @@
       "title": "ControllerActionType",
       "type": "string"
     },
+    "KernelArtifactLinkResult": {
+      "additionalProperties": false,
+      "description": "Accepted result for one atomic producer sidecar link.",
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "authority_granted": {
+          "const": false,
+          "title": "Authority Granted",
+          "type": "boolean"
+        },
+        "bytes_written": {
+          "minimum": 1,
+          "title": "Bytes Written",
+          "type": "integer"
+        },
+        "created": {
+          "const": true,
+          "title": "Created",
+          "type": "boolean"
+        },
+        "linked_to_ledger": {
+          "const": true,
+          "title": "Linked To Ledger",
+          "type": "boolean"
+        },
+        "sidecar_content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sidecar Content Hash",
+          "type": "string"
+        },
+        "sidecar_path": {
+          "minLength": 1,
+          "title": "Sidecar Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "sidecar_path",
+        "sidecar_content_hash",
+        "bytes_written",
+        "created",
+        "linked_to_ledger",
+        "authority_granted"
+      ],
+      "title": "KernelArtifactLinkResult",
+      "type": "object"
+    },
     "KernelArtifactPersistResult": {
       "additionalProperties": false,
       "description": "Accepted result for JSON artifact persistence; it grants no authority.",
@@ -792,7 +842,8 @@
         "checkpoint.verify",
         "replay.verify_core",
         "artifact.persist",
-        "ledger.append"
+        "ledger.append",
+        "artifact.link"
       ],
       "title": "KernelOperation",
       "type": "string"
@@ -1023,7 +1074,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/kernel-response-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/kernel-response-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Versioned response envelope for the research kernel boundary.",
@@ -1097,6 +1148,9 @@
         },
         {
           "$ref": "#/$defs/KernelLedgerAppendResult"
+        },
+        {
+          "$ref": "#/$defs/KernelArtifactLinkResult"
         }
       ],
       "title": "Result"
@@ -1118,7 +1172,7 @@
   ],
   "title": "KernelResponseEnvelope",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.KernelResponseEnvelope",
   "x-factori-verification-evidence": false
 }

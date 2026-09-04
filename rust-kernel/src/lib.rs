@@ -1,7 +1,8 @@
 //! Protocol and canonical-hash boundary for the future Rust kernel.
 //!
 //! The kernel keeps evidence and authority boundaries explicit. Mutating operations are limited
-//! to the frozen `artifact.persist` and transactional, artifact-free `ledger.append` contracts;
+//! to the frozen `artifact.persist`, `artifact.link`, and transactional, artifact-free
+//! `ledger.append` contracts;
 //! all other operations remain read-only integrity checks.
 
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
@@ -17,7 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.88.0";
+pub const PROTOCOL_VERSION: &str = "0.89.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -136,6 +137,16 @@ struct LedgerAppendPayload {
     #[serde(default)]
     candidate_id_optional: Option<String>,
     timestamp: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtifactLinkPayload {
+    run_id: String,
+    expected_ledger_tip_hash: String,
+    artifact: WireArtifactRef,
+    producing_commit_hash: String,
+    overwrite_policy: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -505,6 +516,8 @@ pub enum KernelOperation {
     ArtifactPersist,
     #[serde(rename = "ledger.append")]
     LedgerAppend,
+    #[serde(rename = "artifact.link")]
+    ArtifactLink,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -940,6 +953,41 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::ArtifactLink => {
+            let Some(root) = project_root else {
+                return rejected_response(
+                    request_id,
+                    KernelOperation::ArtifactLink,
+                    mode,
+                    "artifact_link_run_missing",
+                    "artifact linking requires a configured project root".to_owned(),
+                    Some("payload.run_id"),
+                );
+            };
+            match link_artifact_payload(&request.payload, root) {
+                Ok((result, diagnostics)) => KernelResponse {
+                    protocol_version: PROTOCOL_VERSION,
+                    kernel_version: KERNEL_VERSION,
+                    request_id,
+                    operation: KernelOperation::ArtifactLink,
+                    mode,
+                    status: KernelResponseStatus::Accepted,
+                    result,
+                    diagnostics,
+                    mutation_performed: true,
+                },
+                Err(error) => rejected_or_error_response_with_mutation(
+                    request_id,
+                    KernelOperation::ArtifactLink,
+                    mode,
+                    error.status,
+                    error.code,
+                    error.message,
+                    error.path,
+                    error.mutation_performed,
+                ),
+            }
+        }
     }
 }
 
@@ -1096,6 +1144,10 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
             // Operation-specific validation is performed in the mutating handler so it can
             // return the frozen ledger_append_* diagnostic and mutation semantics.
         }
+        KernelOperation::ArtifactLink => {
+            // Operation-specific validation is performed in the mutating handler so it can
+            // return the frozen artifact_link_* diagnostic and mutation semantics.
+        }
     }
     Ok(())
 }
@@ -1145,6 +1197,44 @@ fn validate_artifact_persist_payload_structure(payload: &Map<String, Value>) -> 
         return Err("serialized JSON payload exceeds 12 MiB".to_owned());
     }
     Ok(())
+}
+
+fn validate_artifact_link_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+    if payload.len() != 5
+        || !payload.contains_key("run_id")
+        || !payload.contains_key("expected_ledger_tip_hash")
+        || !payload.contains_key("artifact")
+        || !payload.contains_key("producing_commit_hash")
+        || !payload.contains_key("overwrite_policy")
+    {
+        return Err("artifact.link payload must contain exactly five fields".to_owned());
+    }
+    let request = serde_json::from_value::<ArtifactLinkPayload>(Value::Object(payload.clone()))
+        .map_err(|error| error.to_string())?;
+    if !is_safe_segment(&request.run_id)
+        || !is_sha256_hex(&request.expected_ledger_tip_hash)
+        || !is_sha256_hex(&request.producing_commit_hash)
+        || request.overwrite_policy != "FailIfExists"
+    {
+        return Err(
+            "artifact.link payload contains an invalid identifier, hash, or policy".to_owned(),
+        );
+    }
+    if request.artifact.producing_commit_hash.is_some() {
+        return Err("artifact.link requires an unlinked artifact".to_owned());
+    }
+    if request.artifact.metadata.len() > 64
+        || request.artifact.metadata.keys().any(|key| key.len() > 128)
+        || scan_forbidden_authority_values(&Value::Object(request.artifact.metadata.clone()))
+    {
+        return Err("artifact metadata exceeds bounds or contains forbidden authority".to_owned());
+    }
+    let metadata_json = canonical_json(&Value::Object(request.artifact.metadata.clone()))
+        .map_err(|error| error.to_string())?;
+    if metadata_json.len() > 64 * 1024 {
+        return Err("artifact metadata exceeds 64 KiB serialized size".to_owned());
+    }
+    validate_artifact_location(&request.run_id, &request.artifact)
 }
 
 #[derive(Debug)]
@@ -2023,6 +2113,325 @@ struct ArtifactPersistFailure {
     message: String,
     path: Option<&'static str>,
     mutation_performed: bool,
+}
+
+struct ArtifactLinkFailure {
+    status: KernelResponseStatus,
+    code: &'static str,
+    message: String,
+    path: Option<&'static str>,
+    mutation_performed: bool,
+}
+
+fn artifact_link_failure(
+    code: &'static str,
+    message: impl Into<String>,
+    path: Option<&'static str>,
+) -> ArtifactLinkFailure {
+    ArtifactLinkFailure {
+        status: KernelResponseStatus::Rejected,
+        code,
+        message: message.into(),
+        path,
+        mutation_performed: false,
+    }
+}
+
+fn link_artifact_payload(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+) -> Result<(Map<String, Value>, Vec<KernelDiagnostic>), ArtifactLinkFailure> {
+    let request = serde_json::from_value::<ArtifactLinkPayload>(Value::Object(payload.clone()))
+        .map_err(|error| {
+            artifact_link_failure(
+                "artifact_link_payload_invalid",
+                error.to_string(),
+                Some("payload"),
+            )
+        })?;
+    validate_artifact_link_payload_structure(payload).map_err(|message| {
+        artifact_link_failure("artifact_link_payload_invalid", message, Some("payload"))
+    })?;
+    let root = fs::canonicalize(project_root).map_err(|_| {
+        artifact_link_failure(
+            "artifact_link_run_missing",
+            "project root is unavailable",
+            Some("payload.run_id"),
+        )
+    })?;
+    let run_dir = root.join("runs").join(&request.run_id);
+    let run_meta = fs::symlink_metadata(&run_dir).map_err(|_| {
+        artifact_link_failure(
+            "artifact_link_run_missing",
+            "run directory is missing",
+            Some("payload.run_id"),
+        )
+    })?;
+    if !run_meta.is_dir() || run_meta.file_type().is_symlink() {
+        return Err(artifact_link_failure(
+            "artifact_link_directory_invalid",
+            "run directory is not a real directory",
+            Some("payload.run_id"),
+        ));
+    }
+    let artifact_path =
+        resolve_run_file(&root, &request.run_id, &request.artifact.path).map_err(|message| {
+            artifact_link_failure(
+                "artifact_link_artifact_invalid",
+                message,
+                Some("payload.artifact.path"),
+            )
+        })?;
+    let observed_hash = sha256_file(&artifact_path).map_err(|message| {
+        artifact_link_failure(
+            "artifact_link_artifact_invalid",
+            message,
+            Some("payload.artifact.content_hash"),
+        )
+    })?;
+    if observed_hash != request.artifact.content_hash {
+        return Err(artifact_link_failure(
+            "artifact_link_artifact_invalid",
+            "artifact content hash does not match",
+            Some("payload.artifact.content_hash"),
+        ));
+    }
+    let ledger_path = run_dir.join("ledger.sqlite");
+    let ledger_meta = fs::symlink_metadata(&ledger_path).map_err(|_| {
+        artifact_link_failure(
+            "artifact_link_ledger_invalid",
+            "ledger is missing",
+            Some("payload"),
+        )
+    })?;
+    if !ledger_meta.is_file() || ledger_meta.file_type().is_symlink() {
+        return Err(artifact_link_failure(
+            "artifact_link_ledger_invalid",
+            "ledger is not a regular file",
+            Some("payload"),
+        ));
+    }
+    for suffix in ["-journal", "-wal", "-shm"] {
+        if fs::symlink_metadata(ledger_path.with_file_name(format!("ledger.sqlite{suffix}")))
+            .is_ok()
+        {
+            return Err(artifact_link_failure(
+                "artifact_link_ledger_invalid",
+                "ledger auxiliary file exists",
+                Some("payload"),
+            ));
+        }
+    }
+    let ledger = load_persisted_ledger(&root, &request.run_id).map_err(|(_, message, _)| {
+        artifact_link_failure("artifact_link_ledger_invalid", message, Some("payload"))
+    })?;
+    verify_ledger(&ledger).map_err(|(_, message, _)| {
+        artifact_link_failure("artifact_link_ledger_invalid", message, Some("payload"))
+    })?;
+    let tip = ledger
+        .commits
+        .last()
+        .map(|commit| commit.commit_hash.as_str())
+        .ok_or_else(|| {
+            artifact_link_failure(
+                "artifact_link_ledger_invalid",
+                "ledger is empty",
+                Some("payload"),
+            )
+        })?;
+    if tip != request.expected_ledger_tip_hash {
+        return Err(artifact_link_failure(
+            "artifact_link_tip_mismatch",
+            "expected ledger tip does not match",
+            Some("payload.expected_ledger_tip_hash"),
+        ));
+    }
+    let mut matching = 0_u8;
+    for commit in &ledger.commits {
+        if commit.commit_hash != request.producing_commit_hash {
+            continue;
+        }
+        for value in &commit.artifact_refs {
+            let Some(object) = value.as_object() else {
+                continue;
+            };
+            let same = object.get("id") == Some(&Value::String(request.artifact.id.clone()))
+                && object.get("type")
+                    == Some(&Value::String(request.artifact.artifact_type.clone()))
+                && object.get("path") == Some(&Value::String(request.artifact.path.clone()))
+                && object.get("content_hash")
+                    == Some(&Value::String(request.artifact.content_hash.clone()))
+                && object.get("metadata")
+                    == Some(&Value::Object(request.artifact.metadata.clone()))
+                && object.get("producing_commit_hash")
+                    == Some(&Value::String(commit.commit_hash.clone()));
+            if same {
+                matching += 1;
+            }
+        }
+    }
+    if matching == 0 {
+        return Err(artifact_link_failure(
+            "artifact_link_commit_mismatch",
+            "producer commit does not contain the exact artifact reference",
+            Some("payload.artifact"),
+        ));
+    }
+    if matching != 1 {
+        return Err(artifact_link_failure(
+            "artifact_link_commit_mismatch",
+            "producer commit contains duplicate artifact references",
+            Some("payload.artifact"),
+        ));
+    }
+    let target = root.join(format!("{}.meta.json", request.artifact.path));
+    if fs::symlink_metadata(&target).is_ok() {
+        return Err(artifact_link_failure(
+            "artifact_link_target_exists",
+            "artifact sidecar already exists",
+            Some("payload.artifact.path"),
+        ));
+    }
+    let mut linked = serde_json::to_value(&request.artifact).map_err(|error| {
+        artifact_link_failure(
+            "artifact_link_payload_invalid",
+            error.to_string(),
+            Some("payload.artifact"),
+        )
+    })?;
+    linked
+        .as_object_mut()
+        .expect("artifact ref is an object")
+        .insert(
+            "producing_commit_hash".to_owned(),
+            Value::String(request.producing_commit_hash.clone()),
+        );
+    let canonical = canonical_json(&linked).map_err(|error| {
+        artifact_link_failure(
+            "artifact_link_payload_invalid",
+            error.to_string(),
+            Some("payload.artifact"),
+        )
+    })?;
+    let bytes = format!("{canonical}\n").into_bytes();
+    if bytes.len() > 1024 * 1024 {
+        return Err(artifact_link_failure(
+            "artifact_link_size_exceeded",
+            "serialized sidecar exceeds 1 MiB",
+            Some("payload.artifact"),
+        ));
+    }
+    let parent = target.parent().ok_or_else(|| {
+        artifact_link_failure(
+            "artifact_link_directory_invalid",
+            "sidecar parent is missing",
+            Some("payload.artifact.path"),
+        )
+    })?;
+    static LINK_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nonce = LINK_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temp = parent.join(format!(
+        ".{}.tmp-link-{}-{}",
+        target
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or("artifact"),
+        std::process::id(),
+        nonce
+    ));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .map_err(|error| {
+            artifact_link_failure(
+                "artifact_link_temp_write_failed",
+                error.to_string(),
+                Some("payload.artifact"),
+            )
+        })?;
+    if let Err(error) = file
+        .write_all(&bytes)
+        .and_then(|_| file.flush())
+        .and_then(|_| file.sync_all())
+    {
+        let _ = fs::remove_file(&temp);
+        return Err(artifact_link_failure(
+            "artifact_link_temp_write_failed",
+            error.to_string(),
+            Some("payload.artifact"),
+        ));
+    }
+    drop(file);
+    if let Err(error) = fs::hard_link(&temp, &target) {
+        let _ = fs::remove_file(&temp);
+        let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+            "artifact_link_target_exists"
+        } else {
+            "artifact_link_publish_failed"
+        };
+        return Err(artifact_link_failure(
+            code,
+            error.to_string(),
+            Some("payload.artifact.path"),
+        ));
+    }
+    let mut diagnostics = Vec::new();
+    if fs::remove_file(&temp).is_err() {
+        diagnostics.push(KernelDiagnostic {
+            code: "artifact_link_temp_cleanup_warning".to_owned(),
+            message: "temporary file cleanup failed after publication".to_owned(),
+            path: Some("payload.artifact.path".to_owned()),
+        });
+    }
+    match File::open(parent).and_then(|directory| directory.sync_all()) {
+        Ok(()) => {}
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::Unsupported | std::io::ErrorKind::InvalidInput
+            ) => {}
+        Err(error) => {
+            return Err(ArtifactLinkFailure {
+                status: KernelResponseStatus::Error,
+                code: "artifact_link_durability_uncertain",
+                message: error.to_string(),
+                path: Some("payload.artifact.path"),
+                mutation_performed: true,
+            })
+        }
+    }
+    let observed = fs::read(&target).map_err(|error| ArtifactLinkFailure {
+        status: KernelResponseStatus::Error,
+        code: "artifact_link_postcondition_failed",
+        message: error.to_string(),
+        path: Some("payload.artifact.path"),
+        mutation_performed: true,
+    })?;
+    if observed != bytes {
+        return Err(ArtifactLinkFailure {
+            status: KernelResponseStatus::Error,
+            code: "artifact_link_postcondition_failed",
+            message: "sidecar bytes do not match request".to_owned(),
+            path: Some("payload.artifact.path"),
+            mutation_performed: true,
+        });
+    }
+    Ok((
+        map_value([
+            ("artifact", linked),
+            (
+                "sidecar_path",
+                Value::String(format!("{}.meta.json", request.artifact.path)),
+            ),
+            ("sidecar_content_hash", Value::String(sha256_hex(&bytes))),
+            ("bytes_written", Value::Number((bytes.len() as u64).into())),
+            ("created", Value::Bool(true)),
+            ("linked_to_ledger", Value::Bool(true)),
+            ("authority_granted", Value::Bool(false)),
+        ]),
+        diagnostics,
+    ))
 }
 
 fn artifact_persist_failure(
@@ -6893,6 +7302,67 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             Ok(())
         }
+        KernelOperation::ArtifactLink => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "artifact",
+                    "sidecar_path",
+                    "sidecar_content_hash",
+                    "bytes_written",
+                    "created",
+                    "linked_to_ledger",
+                    "authority_granted",
+                ],
+            )?;
+            let artifact = response
+                .result
+                .get("artifact")
+                .and_then(Value::as_object)
+                .ok_or_else(|| "artifact must be an object".to_owned())?;
+            require_exact_keys(
+                artifact,
+                &[
+                    "id",
+                    "type",
+                    "path",
+                    "content_hash",
+                    "producing_commit_hash",
+                    "metadata",
+                ],
+            )?;
+            let wire_artifact =
+                serde_json::from_value::<WireArtifactRef>(Value::Object(artifact.clone()))
+                    .map_err(|error| format!("artifact is invalid: {error}"))?;
+            if wire_artifact.producing_commit_hash.is_none() {
+                return Err("linked artifact must have a producing commit".to_owned());
+            }
+            validate_artifact_location(
+                wire_artifact.path.split('/').nth(1).unwrap_or_default(),
+                &wire_artifact,
+            )?;
+            let sidecar_path = response
+                .result
+                .get("sidecar_path")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "sidecar_path must be a string".to_owned())?;
+            if sidecar_path != format!("{}.meta.json", wire_artifact.path) {
+                return Err("sidecar_path does not match artifact path".to_owned());
+            }
+            require_sha256_field(&response.result, "sidecar_content_hash")?;
+            if response
+                .result
+                .get("bytes_written")
+                .and_then(Value::as_u64)
+                .is_none_or(|n| n == 0)
+                || response.result.get("created") != Some(&Value::Bool(true))
+                || response.result.get("linked_to_ledger") != Some(&Value::Bool(true))
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("artifact.link result flags are invalid".to_owned());
+            }
+            Ok(())
+        }
         KernelOperation::ProtocolValidate => {
             require_exact_keys(&response.result, &["valid", "protocol_name"])?;
             if response.result.get("valid") != Some(&Value::Bool(true)) {
@@ -7709,7 +8179,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.88.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.89.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -7735,7 +8205,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.88.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.88.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.89.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.89.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -7754,7 +8224,7 @@ mod tests {
     #[test]
     fn duplicate_object_keys_are_rejected_recursively() {
         let error = parse_and_handle(
-            r#"{"protocol_version":"0.88.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
+            r#"{"protocol_version":"0.89.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"value":{"a":1,"a":2}}}"#,
         )
         .expect_err("duplicate keys must be rejected");
         assert!(error.to_string().contains("duplicate object key"));
@@ -7880,7 +8350,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.88.0",
+            "protocol_version": "0.89.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

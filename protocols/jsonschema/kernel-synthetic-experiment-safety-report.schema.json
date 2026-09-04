@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/kernel-synthetic-experiment-safety-report.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/kernel-synthetic-experiment-safety-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Closed persisted synthetic experiment safety companion artifact.",
@@ -57,7 +57,7 @@
   ],
   "title": "KernelSyntheticExperimentSafetyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.KernelSyntheticExperimentSafetyReport",
   "x-factori-verification-evidence": false
 }

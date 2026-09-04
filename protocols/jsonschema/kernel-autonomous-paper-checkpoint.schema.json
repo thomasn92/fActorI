@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/kernel-autonomous-paper-checkpoint.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/kernel-autonomous-paper-checkpoint.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Closed persisted autonomous checkpoint record for Rust verification.",
@@ -169,7 +169,7 @@
   ],
   "title": "KernelAutonomousPaperCheckpoint",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.KernelAutonomousPaperCheckpoint",
   "x-factori-verification-evidence": false
 }

@@ -37,7 +37,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/targeted-study-config.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/targeted-study-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Fail-closed preflight, smoke, or full targeted-study configuration.",
@@ -250,7 +250,7 @@
   ],
   "title": "TargetedStudyConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.TargetedStudyConfig",
   "x-factori-verification-evidence": false
 }

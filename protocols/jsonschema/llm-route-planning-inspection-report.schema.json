@@ -802,7 +802,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.88.0/llm-route-planning-inspection-report.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/llm-route-planning-inspection-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Read-only inspection of the latest LLM route-planning report.",
@@ -960,7 +960,7 @@
   ],
   "title": "LLMRoutePlanningInspectionReport",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.LLMRoutePlanningInspectionReport",
   "x-factori-verification-evidence": false
 }

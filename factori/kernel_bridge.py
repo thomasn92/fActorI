@@ -20,6 +20,9 @@ from factori.schemas import (
     ArtifactType,
     ClaimTable,
     ControllerActionType,
+    KernelArtifactLinkPayload,
+    KernelArtifactLinkRequest,
+    KernelArtifactLinkResult,
     KernelArtifactPersistPayload,
     KernelArtifactPersistRequest,
     KernelArtifactPersistResult,
@@ -438,6 +441,112 @@ def append_ledger_commit(
 
 
 append_ledger = append_ledger_commit
+
+
+def link_artifact(
+    run_id: str,
+    artifact: ArtifactRef,
+    producing_commit_hash: str,
+    expected_ledger_tip_hash: str,
+    *,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Create one producer sidecar through the Rust kernel only."""
+    root_path = Path(root).resolve()
+    payload = KernelArtifactLinkPayload(
+        run_id=run_id,
+        expected_ledger_tip_hash=expected_ledger_tip_hash,
+        artifact=artifact,
+        producing_commit_hash=producing_commit_hash,
+        overwrite_policy="FailIfExists",
+    )
+    _validate_artifact_request_path(run_id, artifact, runs_root=(root_path / "runs").resolve())
+    if artifact.producing_commit_hash is not None:
+        raise KernelBridgeError("artifact.link requires an unlinked artifact")
+    run_path = root_path / "runs" / run_id
+    sidecar = root_path / f"{artifact.path}.meta.json"
+    if sidecar.exists() or sidecar.is_symlink():
+        raise KernelBridgeError("artifact sidecar already exists")
+    artifact_path = root_path / artifact.path
+    if artifact_path.is_symlink() or not artifact_path.is_file():
+        raise KernelBridgeError("artifact path is not a regular file")
+    try:
+        ledger = ResearchLedger.open_existing(run_path / "ledger.sqlite")
+        commits = _validated_linear_ledger_snapshot(ledger, run_id)
+    except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
+        raise KernelBridgeError(f"could not read persisted ledger: {exc}") from exc
+    if not commits or commits[-1].commit_hash != expected_ledger_tip_hash:
+        raise KernelBridgeError("expected tip does not match the persisted ledger")
+    producer = next(
+        (commit for commit in commits if commit.commit_hash == producing_commit_hash),
+        None,
+    )
+    if producer is None:
+        raise KernelBridgeError("producing commit is not in the persisted ledger")
+    matches = [
+        ref
+        for ref in producer.artifact_refs
+        if ref.model_copy(update={"producing_commit_hash": None}) == artifact
+        and ref.producing_commit_hash == producing_commit_hash
+    ]
+    if len(matches) != 1:
+        raise KernelBridgeError("producing commit does not contain the exact artifact reference")
+    linked = artifact.model_copy(update={"producing_commit_hash": producing_commit_hash})
+    expected_bytes = (canonical_json(linked.model_dump(mode="json")) + "\n").encode("utf-8")
+    expected_hash = sha256_bytes(expected_bytes)
+    if len(expected_bytes) > 1024 * 1024:
+        raise KernelBridgeError("serialized linked artifact exceeds 1 MiB")
+    before = _snapshot_run_state_raw(root_path, run_id)
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    request = KernelArtifactLinkRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"artifact-link-{run_id}-{artifact.id}-{producing_commit_hash[:12]}",
+        operation="artifact.link",
+        mode="DevelopmentCompatibility",
+        payload=payload,
+    )
+    response = _invoke_kernel(
+        request, binary=binary, root=root_path, timeout_seconds=timeout_seconds
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelArtifactLinkResult):
+            raise KernelBridgeError("artifact link response has the wrong result type")
+        if (
+            result.artifact != linked
+            or result.sidecar_path != f"{artifact.path}.meta.json"
+            or result.sidecar_content_hash != expected_hash
+            or result.bytes_written != len(expected_bytes)
+            or result.created is not True
+            or result.linked_to_ledger is not True
+            or result.authority_granted is not False
+            or not response.mutation_performed
+        ):
+            raise KernelBridgeError("Rust artifact link response does not match request")
+        if not sidecar.is_file() or sidecar.is_symlink() or sidecar.read_bytes() != expected_bytes:
+            raise KernelBridgeError("Rust artifact link sidecar bytes do not match request")
+        after = _snapshot_run_state_raw(root_path, run_id)
+        if any(after.get(path) != digest for path, digest in before.items()):
+            raise KernelBridgeError("artifact link changed pre-existing run state")
+        extras = set(after) - set(before)
+        sidecar_key = sidecar.relative_to(root_path)
+        if extras != {sidecar_key}:
+            raise KernelBridgeError("artifact link created unexpected files")
+    elif response.mutation_performed:
+        raise KernelBridgeError("artifact link failed after publication; inspect run state")
+    else:
+        if _snapshot_run_state_raw(root_path, run_id) != before:
+            raise KernelBridgeError("rejected artifact link changed run state")
+    return response
+
+
+link_artifact_to_commit = link_artifact
 
 
 def _validated_linear_ledger_snapshot(ledger: ResearchLedger, run_id: str) -> list[LedgerCommit]:
@@ -1009,6 +1118,7 @@ def _invoke_kernel(
         | KernelReplayVerifyCoreRequest
         | KernelArtifactPersistRequest
         | KernelLedgerAppendRequest
+        | KernelArtifactLinkRequest
     ),
     *,
     binary: Path,

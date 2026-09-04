@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/mutation-tournament-spec.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/mutation-tournament-spec.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Execution plan for a second-generation mutation substrate tournament.",
@@ -115,7 +115,7 @@
   ],
   "title": "MutationTournamentSpec",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.MutationTournamentSpec",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.88.0/claim-artifact-binding.schema.json",
+  "$id": "https://schemas.factori.local/0.89.0/claim-artifact-binding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded substantive manuscript claim and its persisted supporting artifacts.",
@@ -76,7 +76,7 @@
   ],
   "title": "ClaimArtifactBinding",
   "type": "object",
-  "x-factori-protocol-version": "0.88.0",
+  "x-factori-protocol-version": "0.89.0",
   "x-factori-source-model": "factori.schemas.ClaimArtifactBinding",
   "x-factori-verification-evidence": false
 }
