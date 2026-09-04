@@ -2494,3 +2494,88 @@ false after exact rollback is no longer proved, if Rust cannot match Python byte
 hashes, if a race can create a fork, or if implementation requires a production cutover, non-JSON
 format, root initialization, authority-bearing metadata, evidence construction, label
 interpretation, rerun authorization, adapters, external calls, or external tools.
+
+## Sol Review of Protocol 0.90.0: Changes Requested
+
+Sol reviewed Luna commit `6eb2efa` against the frozen composition contract. The closed request and
+result arms, protocol `0.90.0` export, ordered self-link hashing, canonical JSON/LF artifact bytes,
+linked sidecar shape, immediate SQLite transaction, no-authority result fields, and basic fresh
+one-/two-artifact behavior are directionally correct. The submitted full suite reported 1,650
+passing Python tests, and the focused Rust, Ruff, and Clippy checks were green.
+
+Operation-level approval is withheld because the crash-recovery and rollback boundary is not yet
+the frozen one:
+
+- Existing intents are parsed as open ordinary JSON and accepted after checking only `operation`,
+  `fingerprint`, and `new_commit_hash`. A reproduced intent that omitted the version, prior tip,
+  and output inventory and added an undeclared raw secret was accepted, consumed, and deleted.
+  Intent paths are not required to be regular non-symlink files, duplicate keys and noncanonical
+  bytes are not rejected, and the complete derived paths/lengths/hashes are not compared.
+- The fingerprint covers only the payload rather than the frozen protocol/operation-qualified,
+  mode-independent request. The intent records an internal integer `version` rather than the
+  protocol identifier required by the contract.
+- The 12 MiB aggregate validator counts artifact bytes only. A valid schema instance with an
+  exactly 12 MiB artifact plus its 299-byte sidecar was accepted even though the combined
+  12,583,211 bytes exceed the 12,582,912-byte bound.
+- Publication interleaves each artifact with its sidecar instead of publishing all artifacts first
+  and all sidecars second. There is no complete pre-call run-tree snapshot, no raw/semantic ledger
+  and intent recheck before publication, no previous-output/unplanned-path check after each link,
+  and no protection against a fresh request adopting an identical file raced into a final path
+  after the initial absence check.
+- Pre-commit failure paths ignore rollback, removal, and directory-fsync failures and can report
+  `mutation_performed=false` without proving restoration of the pre-call snapshot. Intent creation
+  can partially publish an intent or leave a temporary object while returning a false-mutation
+  diagnostic. Recovery failures after publishing missing paths are not distinguished from clean
+  pre-mutation conflicts.
+- The inserted row is not read back and compared before SQLite commit. Post-commit handling does
+  not prove auxiliary/temp absence, does not fsync the run directory after intent removal, and
+  does not perform the required final full postcondition pass. The already-committed recovery path
+  likewise removes the intent after only bounded byte checks.
+- The Python bridge does not derive or validate the request fingerprint or intent, requires the
+  persisted tip to equal the old tip before every invocation, and therefore cannot invoke the
+  required already-committed recovery path. It does not compare `recovered_from_intent`, discards
+  a leftover intent from its unexpected-path set instead of requiring absence, and does not prove
+  the complete frozen fresh/recovery deltas independently.
+- The two added tests cover only basic fresh success and one existing-file rejection. They do not
+  cover the required both-mode/type/action/ordering matrix, intent and crash states, deterministic
+  fault boundaries, rollback truthfulness, concurrent callers, aggregate sidecar size, malformed
+  responses, or bridge recovery.
+
+These are trust-boundary defects rather than optional hardening. `persistence.commit_bundle`
+remains unapproved, there is no production cutover, and the approved-operation count remains
+12 of 13.
+
+## Current Luna Correction Handoff: Persistence Bundle Recovery
+
+Luna owns the bounded correction below without changing the public request/result schema or
+granting new authority:
+
+1. define one closed canonical intent model containing the protocol version, operation,
+   protocol/operation-qualified request fingerprint, expected prior tip, computed new hash, and
+   exact ordered path/length/hash inventory; reject nonregular, symlinked, duplicate-key,
+   noncanonical, incomplete, extra-field, or mismatching intents byte-identically;
+2. enforce the 12 MiB combined artifact-plus-sidecar bound in both Pydantic and Rust after linked
+   sidecar construction, preserving the 16 MiB transport ceiling;
+3. snapshot the complete run tree and exact ledger state inside the immediate transaction,
+   revalidate them and the intent at every frozen publication boundary, publish all artifacts then
+   all sidecars, and make fresh publication reject every raced existing object even when bytes
+   happen to match;
+4. centralize pre-commit cleanup so only current-invocation paths are removed, every removal and
+   affected directory is synced, SQLite is rolled back, and `mutation_performed=false` is returned
+   only after exact snapshot restoration; otherwise preserve the intent and return
+   `persistence_bundle_rollback_uncertain` with true mutation;
+5. read back and compare the exact inserted row before commit, then implement the complete
+   post-commit reopen, prior-prefix/new-row, output, auxiliary/temp, intent cleanup/fsync, and final
+   postcondition sequence for both fresh and already-committed recovery;
+6. make the Python bridge independently construct and validate the exact intent/fingerprint and
+   support intent-only, partial-output, all-output/precommit, and committed/pre-cleanup recovery;
+   compare `recovered_from_intent` and require no final intent, temp, or SQLite auxiliary object;
+7. add deterministic fault injection and tests for every frozen intent, publication, rollback,
+   insert/readback/commit, recovery, cleanup, and final-check boundary, plus concurrent callers and
+   the complete both-mode/type/action/order/size/malformed-response parity matrix;
+8. rerun protocol currentness/version/example validation, Rust format/Clippy/tests, focused
+   Python/Rust recovery parity, Ruff, and the complete Python suite before returning to Sol.
+
+Luna must stop if any failure path cannot prove the truth of its mutation flag, if an existing
+intent cannot be validated without trusting intent-supplied paths, or if exact recovery would
+require deleting or overwriting a pre-existing final object or rewriting ledger history.
