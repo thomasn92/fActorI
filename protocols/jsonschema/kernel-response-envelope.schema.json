@@ -843,10 +843,90 @@
         "replay.verify_core",
         "artifact.persist",
         "ledger.append",
-        "artifact.link"
+        "artifact.link",
+        "persistence.commit_bundle"
       ],
       "title": "KernelOperation",
       "type": "string"
+    },
+    "KernelPersistenceCommitBundleResult": {
+      "additionalProperties": false,
+      "description": "Accepted result for one artifact-bearing persistence bundle.",
+      "properties": {
+        "artifact_count": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Artifact Count",
+          "type": "integer"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "authority_granted": {
+          "const": false,
+          "title": "Authority Granted",
+          "type": "boolean"
+        },
+        "bundle_committed": {
+          "const": true,
+          "title": "Bundle Committed",
+          "type": "boolean"
+        },
+        "commit": {
+          "$ref": "#/$defs/LedgerCommit"
+        },
+        "commit_count_after": {
+          "minimum": 2,
+          "title": "Commit Count After",
+          "type": "integer"
+        },
+        "commit_count_before": {
+          "minimum": 1,
+          "title": "Commit Count Before",
+          "type": "integer"
+        },
+        "new_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "New Tip Hash",
+          "type": "string"
+        },
+        "previous_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Previous Tip Hash",
+          "type": "string"
+        },
+        "recovered_from_intent": {
+          "title": "Recovered From Intent",
+          "type": "boolean"
+        },
+        "sidecar_count": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Sidecar Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifacts",
+        "commit",
+        "previous_tip_hash",
+        "new_tip_hash",
+        "commit_count_before",
+        "commit_count_after",
+        "artifact_count",
+        "sidecar_count",
+        "bundle_committed",
+        "recovered_from_intent",
+        "authority_granted"
+      ],
+      "title": "KernelPersistenceCommitBundleResult",
+      "type": "object"
     },
     "KernelProtocolValidateResult": {
       "additionalProperties": false,
@@ -1074,7 +1154,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/kernel-response-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/kernel-response-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Versioned response envelope for the research kernel boundary.",
@@ -1151,6 +1231,9 @@
         },
         {
           "$ref": "#/$defs/KernelArtifactLinkResult"
+        },
+        {
+          "$ref": "#/$defs/KernelPersistenceCommitBundleResult"
         }
       ],
       "title": "Result"
@@ -1172,7 +1255,7 @@
   ],
   "title": "KernelResponseEnvelope",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.KernelResponseEnvelope",
   "x-factori-verification-evidence": false
 }

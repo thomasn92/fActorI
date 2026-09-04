@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/quality-repair-report.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/quality-repair-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded manuscript-quality repair report.",
@@ -229,7 +229,7 @@
   ],
   "title": "QualityRepairReport",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.QualityRepairReport",
   "x-factori-verification-evidence": false
 }

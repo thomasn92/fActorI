@@ -282,7 +282,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/research-object.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/research-object.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Packaged reproducible research object.",
@@ -381,7 +381,7 @@
   ],
   "title": "ResearchObject",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.ResearchObject",
   "x-factori-verification-evidence": false
 }

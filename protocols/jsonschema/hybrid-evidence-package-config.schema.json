@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/hybrid-evidence-package-config.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/hybrid-evidence-package-config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded configuration for non-fake hybrid evidence-package planning.",
@@ -67,7 +67,7 @@
   ],
   "title": "HybridEvidencePackageConfig",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.HybridEvidencePackageConfig",
   "x-factori-verification-evidence": false
 }

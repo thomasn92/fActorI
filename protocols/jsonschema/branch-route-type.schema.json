@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/branch-route-type.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/branch-route-type.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Deterministic next-action class assigned to a scientific branch.",
   "enum": [
@@ -15,7 +15,7 @@
   ],
   "title": "BranchRouteType",
   "type": "string",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.BranchRouteType",
   "x-factori-verification-evidence": false
 }

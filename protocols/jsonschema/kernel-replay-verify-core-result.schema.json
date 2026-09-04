@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/kernel-replay-verify-core-result.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/kernel-replay-verify-core-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Non-authoritative persisted replay-core integrity result.",
@@ -106,7 +106,7 @@
   ],
   "title": "KernelReplayVerifyCoreResult",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.KernelReplayVerifyCoreResult",
   "x-factori-verification-evidence": false
 }

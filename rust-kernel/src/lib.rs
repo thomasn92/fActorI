@@ -1,8 +1,8 @@
 //! Protocol and canonical-hash boundary for the future Rust kernel.
 //!
 //! The kernel keeps evidence and authority boundaries explicit. Mutating operations are limited
-//! to the frozen `artifact.persist`, `artifact.link`, and transactional, artifact-free
-//! `ledger.append` contracts;
+//! to the frozen `artifact.persist`, `artifact.link`, transactional artifact-free
+//! `ledger.append`, and crash-recoverable `persistence.commit_bundle` contracts;
 //! all other operations remain read-only integrity checks.
 
 use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
@@ -18,7 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection, OpenFlags};
 
-pub const PROTOCOL_VERSION: &str = "0.89.0";
+pub const PROTOCOL_VERSION: &str = "0.90.0";
 pub const KERNEL_VERSION: &str = "0.1.0-dev";
 const DEFAULT_FORBIDDEN_PROOF_TOKENS: [&str; 4] = ["sorry", "admit", "axiom", "unsafe"];
 const SUPPORTED_SYNTHETIC_EXPERIMENT_KINDS: [&str; 4] = [
@@ -147,6 +147,33 @@ struct ArtifactLinkPayload {
     artifact: WireArtifactRef,
     producing_commit_hash: String,
     overwrite_policy: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CommitBundleArtifact {
+    artifact_id: String,
+    artifact_type: String,
+    json_value: Value,
+    #[serde(default)]
+    metadata: Map<String, Value>,
+    #[serde(default)]
+    filename_stem_optional: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PersistenceCommitBundlePayload {
+    run_id: String,
+    expected_tip_hash: String,
+    artifacts: Vec<CommitBundleArtifact>,
+    action_type: String,
+    commit_payload: Map<String, Value>,
+    #[serde(default)]
+    candidate_id_optional: Option<String>,
+    timestamp: String,
+    overwrite_policy: String,
+    recovery_policy: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -518,6 +545,8 @@ pub enum KernelOperation {
     LedgerAppend,
     #[serde(rename = "artifact.link")]
     ArtifactLink,
+    #[serde(rename = "persistence.commit_bundle")]
+    PersistenceCommitBundle,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, Eq)]
@@ -988,6 +1017,41 @@ fn handle_request(request: KernelRequest, project_root: Option<&Path>) -> Kernel
                 ),
             }
         }
+        KernelOperation::PersistenceCommitBundle => {
+            let Some(root) = project_root else {
+                return rejected_response(
+                    request_id,
+                    KernelOperation::PersistenceCommitBundle,
+                    mode,
+                    "persistence_bundle_run_missing",
+                    "persistence bundle requires a configured project root".to_owned(),
+                    Some("payload.run_id"),
+                );
+            };
+            match commit_bundle_payload(&request.payload, root) {
+                Ok(result) => KernelResponse {
+                    protocol_version: PROTOCOL_VERSION,
+                    kernel_version: KERNEL_VERSION,
+                    request_id,
+                    operation: KernelOperation::PersistenceCommitBundle,
+                    mode,
+                    status: KernelResponseStatus::Accepted,
+                    result,
+                    diagnostics: Vec::new(),
+                    mutation_performed: true,
+                },
+                Err(error) => rejected_or_error_response_with_mutation(
+                    request_id,
+                    KernelOperation::PersistenceCommitBundle,
+                    mode,
+                    error.status,
+                    error.code,
+                    error.message,
+                    error.path,
+                    error.mutation_performed,
+                ),
+            }
+        }
     }
 }
 
@@ -1147,6 +1211,10 @@ fn validate_kernel_request(request: &KernelRequest) -> Result<(), String> {
         KernelOperation::ArtifactLink => {
             // Operation-specific validation is performed in the mutating handler so it can
             // return the frozen artifact_link_* diagnostic and mutation semantics.
+        }
+        KernelOperation::PersistenceCommitBundle => {
+            // Operation-specific validation is performed in the mutating handler so it can
+            // return the frozen persistence_bundle_* diagnostic and mutation semantics.
         }
     }
     Ok(())
@@ -2273,6 +2341,29 @@ struct ArtifactLinkFailure {
     mutation_performed: bool,
 }
 
+#[derive(Debug)]
+struct PersistenceBundleFailure {
+    status: KernelResponseStatus,
+    code: &'static str,
+    message: String,
+    path: Option<&'static str>,
+    mutation_performed: bool,
+}
+
+fn persistence_bundle_failure(
+    code: &'static str,
+    message: impl Into<String>,
+    path: Option<&'static str>,
+) -> PersistenceBundleFailure {
+    PersistenceBundleFailure {
+        status: KernelResponseStatus::Rejected,
+        code,
+        message: message.into(),
+        path,
+        mutation_performed: false,
+    }
+}
+
 fn artifact_link_failure(
     code: &'static str,
     message: impl Into<String>,
@@ -2831,6 +2922,974 @@ fn link_artifact_payload_with_fault(
         ]),
         Vec::new(),
     ))
+}
+
+#[derive(Debug)]
+struct BundlePlan {
+    request: PersistenceCommitBundlePayload,
+    linked_refs: Vec<Value>,
+    artifact_bytes: Vec<Vec<u8>>,
+    sidecar_bytes: Vec<Vec<u8>>,
+    artifact_paths: Vec<PathBuf>,
+    sidecar_paths: Vec<PathBuf>,
+    new_commit_hash: String,
+    previous_tip_hash: String,
+    commit_payload_json: String,
+    fingerprint: String,
+}
+
+fn validate_commit_bundle_payload_structure(payload: &Map<String, Value>) -> Result<(), String> {
+    if payload.len() != 9
+        || !payload.contains_key("run_id")
+        || !payload.contains_key("expected_tip_hash")
+        || !payload.contains_key("artifacts")
+        || !payload.contains_key("action_type")
+        || !payload.contains_key("commit_payload")
+        || !payload.contains_key("candidate_id_optional")
+        || !payload.contains_key("timestamp")
+        || !payload.contains_key("overwrite_policy")
+        || !payload.contains_key("recovery_policy")
+    {
+        return Err(
+            "persistence.commit_bundle payload must contain exactly nine fields".to_owned(),
+        );
+    }
+    let request =
+        serde_json::from_value::<PersistenceCommitBundlePayload>(Value::Object(payload.clone()))
+            .map_err(|error| error.to_string())?;
+    if !is_safe_segment(&request.run_id)
+        || !is_sha256_hex(&request.expected_tip_hash)
+        || !is_valid_action_type(&request.action_type)
+        || request.action_type == "InitRun"
+        || request.overwrite_policy != "FailIfExists"
+        || request.recovery_policy != "ResumeExact"
+    {
+        return Err("bundle identifiers, action, hash, or policy is invalid".to_owned());
+    }
+    if request.artifacts.is_empty() || request.artifacts.len() > 16 {
+        return Err("bundle must contain one to sixteen artifacts".to_owned());
+    }
+    if request
+        .candidate_id_optional
+        .as_deref()
+        .is_some_and(|value| !is_safe_segment(value))
+    {
+        return Err("candidate_id_optional must use safe segment syntax".to_owned());
+    }
+    if !validate_utc_timestamp(&request.timestamp) {
+        return Err("timestamp must be a real ASCII UTC timestamp".to_owned());
+    }
+    let mut ids = HashSet::new();
+    let mut paths = HashSet::new();
+    let mut aggregate = 0usize;
+    for item in &request.artifacts {
+        if !is_safe_segment(&item.artifact_id)
+            || item
+                .filename_stem_optional
+                .as_deref()
+                .is_some_and(|value| !is_safe_segment(value))
+        {
+            return Err("bundle artifact identifiers must use safe segment syntax".to_owned());
+        }
+        let directory = artifact_directory(&item.artifact_type)
+            .ok_or_else(|| "artifact_type is not supported".to_owned())?;
+        if !ids.insert(item.artifact_id.clone()) {
+            return Err("bundle artifact IDs must be unique".to_owned());
+        }
+        let stem = item
+            .filename_stem_optional
+            .as_deref()
+            .unwrap_or(&item.artifact_id);
+        let relative = format!("runs/{}/{directory}/{stem}.json", request.run_id);
+        if !paths.insert(relative) {
+            return Err("bundle artifact paths must be unique".to_owned());
+        }
+        if item.metadata.len() > 64
+            || item.metadata.keys().any(|key| key.len() > 128)
+            || item.metadata.keys().any(|key| {
+                matches!(
+                    key.as_str(),
+                    "format" | "producer" | "is_verification_evidence"
+                )
+            })
+            || scan_forbidden_authority_values(&Value::Object(item.metadata.clone()))
+        {
+            return Err(
+                "bundle metadata exceeds bounds or contains forbidden authority".to_owned(),
+            );
+        }
+        let metadata_json = canonical_json(&Value::Object(item.metadata.clone()))
+            .map_err(|error| error.to_string())?;
+        if metadata_json.len() > 64 * 1024 {
+            return Err("bundle metadata exceeds 64 KiB serialized size".to_owned());
+        }
+        let artifact_json = canonical_json(&item.json_value).map_err(|error| error.to_string())?;
+        let size = artifact_json.len() + 1;
+        if size > 12 * 1024 * 1024 {
+            return Err("serialized JSON payload exceeds 12 MiB".to_owned());
+        }
+        aggregate = aggregate
+            .checked_add(size)
+            .ok_or_else(|| "aggregate bundle size exceeds limit".to_owned())?;
+    }
+    let commit_payload_json = canonical_json(&Value::Object(request.commit_payload.clone()))
+        .map_err(|error| error.to_string())?;
+    if commit_payload_json.len() > 4 * 1024 * 1024 {
+        return Err("serialized commit payload exceeds 4 MiB".to_owned());
+    }
+    if aggregate > 12 * 1024 * 1024 {
+        return Err("aggregate artifact payload exceeds 12 MiB".to_owned());
+    }
+    Ok(())
+}
+
+fn build_bundle_plan(
+    payload: &Map<String, Value>,
+    root: &Path,
+    old_rows: &[RawLedgerRow],
+) -> Result<BundlePlan, PersistenceBundleFailure> {
+    let request =
+        serde_json::from_value::<PersistenceCommitBundlePayload>(Value::Object(payload.clone()))
+            .map_err(|error| {
+                persistence_bundle_failure(
+                    "persistence_bundle_payload_invalid",
+                    error.to_string(),
+                    Some("payload"),
+                )
+            })?;
+    validate_commit_bundle_payload_structure(payload).map_err(|message| {
+        let code = if message.contains("MiB") || message.contains("KiB") {
+            "persistence_bundle_size_exceeded"
+        } else if message.contains("unique") {
+            "persistence_bundle_duplicate"
+        } else {
+            "persistence_bundle_payload_invalid"
+        };
+        persistence_bundle_failure(code, message, Some("payload"))
+    })?;
+    let previous_tip_hash = request.expected_tip_hash.clone();
+    if old_rows.is_empty() {
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_ledger_invalid",
+            "ledger is empty",
+            Some("payload"),
+        ));
+    }
+    let runs_root = root.join("runs");
+    let run_dir = runs_root.join(&request.run_id);
+    let mut artifact_refs = Vec::with_capacity(request.artifacts.len());
+    let mut artifact_bytes = Vec::with_capacity(request.artifacts.len());
+    let mut artifact_paths = Vec::with_capacity(request.artifacts.len());
+    let mut sidecar_paths = Vec::with_capacity(request.artifacts.len());
+    for item in &request.artifacts {
+        let directory = artifact_directory(&item.artifact_type).expect("validated type");
+        let stem = item
+            .filename_stem_optional
+            .as_deref()
+            .unwrap_or(&item.artifact_id);
+        let path = run_dir.join(directory).join(format!("{stem}.json"));
+        let sidecar = PathBuf::from(format!("{}.meta.json", path.to_string_lossy()));
+        let canonical = canonical_json(&item.json_value).map_err(|error| {
+            persistence_bundle_failure(
+                "persistence_bundle_payload_invalid",
+                error.to_string(),
+                Some("payload.artifacts.json_value"),
+            )
+        })?;
+        let bytes = format!("{canonical}\n").into_bytes();
+        let mut metadata = item.metadata.clone();
+        metadata.insert("format".to_owned(), Value::String("json".to_owned()));
+        metadata.insert("is_verification_evidence".to_owned(), Value::Bool(false));
+        artifact_refs.push(Value::Object(map_value([
+            ("id", Value::String(item.artifact_id.clone())),
+            ("type", Value::String(item.artifact_type.clone())),
+            (
+                "path",
+                Value::String(format!("runs/{}/{directory}/{stem}.json", request.run_id)),
+            ),
+            ("content_hash", Value::String(sha256_hex(&bytes))),
+            ("producing_commit_hash", Value::Null),
+            ("metadata", Value::Object(metadata)),
+        ])));
+        artifact_bytes.push(bytes);
+        artifact_paths.push(path);
+        sidecar_paths.push(sidecar);
+    }
+    let hash_refs: Vec<Value> = artifact_refs
+        .iter()
+        .map(|value| {
+            let mut object = value.as_object().expect("artifact object").clone();
+            object.insert(
+                "producing_commit_hash".to_owned(),
+                Value::String("<self>".to_owned()),
+            );
+            Value::Object(object)
+        })
+        .collect();
+    let hash_value = map_value([
+        ("parent_hash", Value::String(previous_tip_hash.clone())),
+        ("run_id", Value::String(request.run_id.clone())),
+        (
+            "candidate_id",
+            request
+                .candidate_id_optional
+                .clone()
+                .map_or(Value::Null, Value::String),
+        ),
+        ("action_type", Value::String(request.action_type.clone())),
+        ("payload", Value::Object(request.commit_payload.clone())),
+        ("artifact_refs", Value::Array(hash_refs)),
+        ("timestamp", Value::String(request.timestamp.clone())),
+    ]);
+    let new_commit_hash = sha256_hex(
+        canonical_json(&Value::Object(hash_value))
+            .map_err(|error| {
+                persistence_bundle_failure(
+                    "persistence_bundle_payload_invalid",
+                    error.to_string(),
+                    Some("payload"),
+                )
+            })?
+            .as_bytes(),
+    );
+    let linked_refs: Vec<Value> = artifact_refs
+        .iter()
+        .map(|value| {
+            let mut object = value.as_object().expect("artifact object").clone();
+            object.insert(
+                "producing_commit_hash".to_owned(),
+                Value::String(new_commit_hash.clone()),
+            );
+            Value::Object(object)
+        })
+        .collect();
+    let sidecar_bytes = linked_refs
+        .iter()
+        .map(|value| {
+            canonical_json(value)
+                .map(|canonical| format!("{canonical}\n").into_bytes())
+                .map_err(|error| {
+                    persistence_bundle_failure(
+                        "persistence_bundle_payload_invalid",
+                        error.to_string(),
+                        Some("payload"),
+                    )
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let fingerprint = sha256_hex(
+        canonical_json(&Value::Object(payload.clone()))
+            .map_err(|error| {
+                persistence_bundle_failure(
+                    "persistence_bundle_payload_invalid",
+                    error.to_string(),
+                    Some("payload"),
+                )
+            })?
+            .as_bytes(),
+    );
+    let commit_payload_json = canonical_json(&Value::Object(request.commit_payload.clone()))
+        .expect("validated commit payload");
+    Ok(BundlePlan {
+        request,
+        linked_refs,
+        artifact_bytes,
+        sidecar_bytes,
+        artifact_paths,
+        sidecar_paths,
+        new_commit_hash,
+        previous_tip_hash,
+        commit_payload_json,
+        fingerprint,
+    })
+}
+
+fn bundle_intent_value(plan: &BundlePlan, root: &Path) -> Value {
+    let outputs = plan
+        .artifact_paths
+        .iter()
+        .zip(&plan.artifact_bytes)
+        .zip(&plan.sidecar_paths)
+        .zip(&plan.sidecar_bytes)
+        .map(
+            |(((artifact_path, artifact_bytes), sidecar_path), sidecar_bytes)| {
+                Value::Object(map_value([
+                    (
+                        "artifact_path",
+                        Value::String(
+                            artifact_path
+                                .strip_prefix(root)
+                                .expect("bundle path beneath root")
+                                .to_string_lossy()
+                                .replace('\\', "/"),
+                        ),
+                    ),
+                    (
+                        "artifact_length",
+                        Value::Number((artifact_bytes.len() as u64).into()),
+                    ),
+                    ("artifact_hash", Value::String(sha256_hex(artifact_bytes))),
+                    (
+                        "sidecar_path",
+                        Value::String(
+                            sidecar_path
+                                .strip_prefix(root)
+                                .expect("bundle path beneath root")
+                                .to_string_lossy()
+                                .replace('\\', "/"),
+                        ),
+                    ),
+                    (
+                        "sidecar_length",
+                        Value::Number((sidecar_bytes.len() as u64).into()),
+                    ),
+                    ("sidecar_hash", Value::String(sha256_hex(sidecar_bytes))),
+                ]))
+            },
+        )
+        .collect::<Vec<_>>();
+    Value::Object(map_value([
+        ("version", Value::Number(1.into())),
+        (
+            "operation",
+            Value::String("persistence.commit_bundle".to_owned()),
+        ),
+        ("fingerprint", Value::String(plan.fingerprint.clone())),
+        (
+            "expected_tip_hash",
+            Value::String(plan.previous_tip_hash.clone()),
+        ),
+        (
+            "new_commit_hash",
+            Value::String(plan.new_commit_hash.clone()),
+        ),
+        ("outputs", Value::Array(outputs)),
+    ]))
+}
+
+fn write_bundle_intent(path: &Path, value: &Value) -> Result<(), PersistenceBundleFailure> {
+    let parent = path.parent().ok_or_else(|| {
+        persistence_bundle_failure(
+            "persistence_bundle_directory_invalid",
+            "bundle intent parent is missing",
+            Some("payload.run_id"),
+        )
+    })?;
+    let canonical = canonical_json(value).map_err(|error| {
+        persistence_bundle_failure(
+            "persistence_bundle_intent_write_failed",
+            error.to_string(),
+            Some("payload.run_id"),
+        )
+    })?;
+    static INTENT_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nonce = INTENT_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temp = parent.join(format!(
+        ".commit-bundle-intent-{}-{}",
+        std::process::id(),
+        nonce
+    ));
+    let bytes = format!("{canonical}\n").into_bytes();
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+            .map_err(|error| error.to_string())?;
+        file.write_all(&bytes).map_err(|error| error.to_string())?;
+        file.flush().map_err(|error| error.to_string())?;
+        file.sync_all().map_err(|error| error.to_string())?;
+        drop(file);
+        fs::hard_link(&temp, path).map_err(|error| error.to_string())?;
+        fs::remove_file(&temp).map_err(|error| error.to_string())?;
+        File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|error| error.to_string())?;
+        if fs::read(path).ok().as_deref() != Some(bytes.as_slice()) {
+            return Err("intent bytes do not match".to_owned());
+        }
+        Ok::<(), String>(())
+    })();
+    if let Err(message) = result {
+        let _ = fs::remove_file(&temp);
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_intent_write_failed",
+            message,
+            Some("payload.run_id"),
+        ));
+    }
+    Ok(())
+}
+
+fn publish_bundle_file(
+    path: &Path,
+    bytes: &[u8],
+    kind: &'static str,
+) -> Result<bool, PersistenceBundleFailure> {
+    if let Ok(metadata) = fs::symlink_metadata(path) {
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_target_exists",
+                "bundle destination is already occupied",
+                Some("payload.artifacts"),
+            ));
+        }
+        let observed = fs::read(path).map_err(|error| {
+            persistence_bundle_failure(
+                "persistence_bundle_target_exists",
+                error.to_string(),
+                Some("payload.artifacts"),
+            )
+        })?;
+        if observed != bytes {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_target_exists",
+                "bundle destination bytes differ",
+                Some("payload.artifacts"),
+            ));
+        }
+        return Ok(false);
+    }
+    let parent = path.parent().ok_or_else(|| {
+        persistence_bundle_failure(
+            "persistence_bundle_directory_invalid",
+            "bundle destination parent is missing",
+            Some("payload.artifacts"),
+        )
+    })?;
+    static BUNDLE_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nonce = BUNDLE_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temp = parent.join(format!(
+        ".{}.tmp-bundle-{}-{}",
+        path.file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or("artifact"),
+        std::process::id(),
+        nonce
+    ));
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+            .map_err(|error| error.to_string())?;
+        file.write_all(bytes).map_err(|error| error.to_string())?;
+        file.flush().map_err(|error| error.to_string())?;
+        file.sync_all().map_err(|error| error.to_string())?;
+        drop(file);
+        if fs::read(&temp).ok().as_deref() != Some(bytes) {
+            return Err("temporary bytes do not match".to_owned());
+        }
+        fs::hard_link(&temp, path).map_err(|error| error.to_string())?;
+        fs::remove_file(&temp).map_err(|error| error.to_string())?;
+        File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|error| error.to_string())?;
+        Ok::<(), String>(())
+    })();
+    if let Err(message) = result {
+        let _ = fs::remove_file(&temp);
+        let code = if fs::symlink_metadata(path).is_ok() {
+            "persistence_bundle_target_exists"
+        } else {
+            "persistence_bundle_publish_failed"
+        };
+        return Err(persistence_bundle_failure(
+            code,
+            format!("{kind}: {message}"),
+            Some("payload.artifacts"),
+        ));
+    }
+    Ok(true)
+}
+
+fn commit_bundle_result(
+    plan: &BundlePlan,
+    count_before: usize,
+    recovered: bool,
+) -> Map<String, Value> {
+    let commit = map_value([
+        ("commit_hash", Value::String(plan.new_commit_hash.clone())),
+        ("parent_hash", Value::String(plan.previous_tip_hash.clone())),
+        ("run_id", Value::String(plan.request.run_id.clone())),
+        (
+            "candidate_id",
+            plan.request
+                .candidate_id_optional
+                .clone()
+                .map_or(Value::Null, Value::String),
+        ),
+        (
+            "action_type",
+            Value::String(plan.request.action_type.clone()),
+        ),
+        (
+            "payload",
+            Value::Object(plan.request.commit_payload.clone()),
+        ),
+        ("artifact_refs", Value::Array(plan.linked_refs.clone())),
+        ("timestamp", Value::String(plan.request.timestamp.clone())),
+    ]);
+    map_value([
+        ("artifacts", Value::Array(plan.linked_refs.clone())),
+        ("commit", Value::Object(commit)),
+        (
+            "previous_tip_hash",
+            Value::String(plan.previous_tip_hash.clone()),
+        ),
+        ("new_tip_hash", Value::String(plan.new_commit_hash.clone())),
+        (
+            "commit_count_before",
+            Value::Number((count_before as u64).into()),
+        ),
+        (
+            "commit_count_after",
+            Value::Number(((count_before + 1) as u64).into()),
+        ),
+        (
+            "artifact_count",
+            Value::Number((plan.linked_refs.len() as u64).into()),
+        ),
+        (
+            "sidecar_count",
+            Value::Number((plan.linked_refs.len() as u64).into()),
+        ),
+        ("bundle_committed", Value::Bool(true)),
+        ("recovered_from_intent", Value::Bool(recovered)),
+        ("authority_granted", Value::Bool(false)),
+    ])
+}
+
+fn commit_bundle_payload(
+    payload: &Map<String, Value>,
+    project_root: &Path,
+) -> Result<Map<String, Value>, PersistenceBundleFailure> {
+    let request =
+        serde_json::from_value::<PersistenceCommitBundlePayload>(Value::Object(payload.clone()))
+            .map_err(|error| {
+                persistence_bundle_failure(
+                    "persistence_bundle_payload_invalid",
+                    error.to_string(),
+                    Some("payload"),
+                )
+            })?;
+    validate_commit_bundle_payload_structure(payload).map_err(|message| {
+        let code = if message.contains("MiB") || message.contains("KiB") {
+            "persistence_bundle_size_exceeded"
+        } else if message.contains("unique") {
+            "persistence_bundle_duplicate"
+        } else {
+            "persistence_bundle_payload_invalid"
+        };
+        persistence_bundle_failure(code, message, Some("payload"))
+    })?;
+    let root_meta = fs::symlink_metadata(project_root).map_err(|_| {
+        persistence_bundle_failure(
+            "persistence_bundle_run_missing",
+            "project root is unavailable",
+            Some("payload.run_id"),
+        )
+    })?;
+    if !root_meta.is_dir() || root_meta.file_type().is_symlink() {
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_directory_invalid",
+            "project root is not a real directory",
+            Some("payload.run_id"),
+        ));
+    }
+    let root = fs::canonicalize(project_root).map_err(|_| {
+        persistence_bundle_failure(
+            "persistence_bundle_run_missing",
+            "project root is unavailable",
+            Some("payload.run_id"),
+        )
+    })?;
+    let runs_root = root.join("runs");
+    let run_dir = runs_root.join(&request.run_id);
+    for directory in [&runs_root, &run_dir] {
+        let metadata = fs::symlink_metadata(directory).map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_run_missing",
+                "required run directory is missing",
+                Some("payload.run_id"),
+            )
+        })?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_directory_invalid",
+                "required run directory is not a real directory",
+                Some("payload.run_id"),
+            ));
+        }
+    }
+    for item in &request.artifacts {
+        let directory = run_dir.join(artifact_directory(&item.artifact_type).expect("validated"));
+        let metadata = fs::symlink_metadata(&directory).map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_directory_invalid",
+                "required artifact directory is missing",
+                Some("payload.artifacts"),
+            )
+        })?;
+        if !metadata.is_dir() || metadata.file_type().is_symlink() {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_directory_invalid",
+                "required artifact directory is not a real directory",
+                Some("payload.artifacts"),
+            ));
+        }
+    }
+    let ledger_path = run_dir.join("ledger.sqlite");
+    let ledger_meta = fs::symlink_metadata(&ledger_path).map_err(|_| {
+        persistence_bundle_failure(
+            "persistence_bundle_ledger_invalid",
+            "ledger is missing",
+            Some("payload.run_id"),
+        )
+    })?;
+    if !ledger_meta.is_file() || ledger_meta.file_type().is_symlink() {
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_ledger_invalid",
+            "ledger is not a regular file",
+            Some("payload.run_id"),
+        ));
+    }
+    for suffix in ["-journal", "-wal", "-shm"] {
+        if fs::symlink_metadata(ledger_path.with_file_name(format!("ledger.sqlite{suffix}")))
+            .is_ok()
+        {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_ledger_invalid",
+                "ledger auxiliary file exists",
+                Some("payload.run_id"),
+            ));
+        }
+    }
+    let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let connection = Connection::open_with_flags(&ledger_path, flags).map_err(|error| {
+        let code = if matches!(
+            error,
+            rusqlite::Error::SqliteFailure(ref failure, _)
+                if matches!(
+                    failure.code,
+                    rusqlite::ffi::ErrorCode::DatabaseBusy
+                        | rusqlite::ffi::ErrorCode::DatabaseLocked
+                )
+        ) {
+            "persistence_bundle_busy"
+        } else {
+            "persistence_bundle_ledger_invalid"
+        };
+        persistence_bundle_failure(code, "ledger cannot be opened", Some("payload.run_id"))
+    })?;
+    connection
+        .execute_batch("PRAGMA foreign_keys=ON; PRAGMA busy_timeout=0; PRAGMA synchronous=FULL;")
+        .map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_ledger_invalid",
+                "ledger safety settings failed",
+                Some("payload.run_id"),
+            )
+        })?;
+    match connection.execute_batch("BEGIN IMMEDIATE") {
+        Ok(()) => {}
+        Err(rusqlite::Error::SqliteFailure(ref failure, _))
+            if matches!(
+                failure.code,
+                rusqlite::ffi::ErrorCode::DatabaseBusy | rusqlite::ffi::ErrorCode::DatabaseLocked
+            ) =>
+        {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_busy",
+                "ledger is busy",
+                Some("payload.expected_tip_hash"),
+            ));
+        }
+        Err(_) => {
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_ledger_invalid",
+                "ledger transaction could not begin",
+                Some("payload.run_id"),
+            ));
+        }
+    }
+    let (old_rows, old_ledger) = validate_exact_read_only_ledger(&connection, &request.run_id)
+        .map_err(|message| {
+            let _ = connection.execute_batch("ROLLBACK");
+            persistence_bundle_failure(
+                "persistence_bundle_ledger_invalid",
+                message,
+                Some("payload.run_id"),
+            )
+        })?;
+    let plan = match build_bundle_plan(payload, &root, &old_rows) {
+        Ok(plan) => plan,
+        Err(error) => {
+            let _ = connection.execute_batch("ROLLBACK");
+            return Err(error);
+        }
+    };
+    let intent_path = run_dir.join(".factori-commit-bundle.intent.json");
+    let intent_exists = fs::symlink_metadata(&intent_path).is_ok();
+    let mut recovered = false;
+    if intent_exists {
+        let intent_bytes = fs::read(&intent_path).map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_recovery_invalid",
+                "bundle intent cannot be read",
+                Some("payload.run_id"),
+            )
+        })?;
+        let intent_value: Value = serde_json::from_slice(&intent_bytes).map_err(|_| {
+            persistence_bundle_failure(
+                "persistence_bundle_recovery_invalid",
+                "bundle intent is not valid JSON",
+                Some("payload.run_id"),
+            )
+        })?;
+        let valid_intent = intent_value.get("operation").and_then(Value::as_str)
+            == Some("persistence.commit_bundle")
+            && intent_value.get("fingerprint").and_then(Value::as_str)
+                == Some(plan.fingerprint.as_str())
+            && intent_value.get("new_commit_hash").and_then(Value::as_str)
+                == Some(plan.new_commit_hash.as_str());
+        if !valid_intent {
+            let _ = connection.execute_batch("ROLLBACK");
+            return Err(persistence_bundle_failure(
+                "persistence_bundle_recovery_conflict",
+                "existing bundle intent does not match request",
+                Some("payload.run_id"),
+            ));
+        }
+        recovered = true;
+        if old_ledger
+            .commits
+            .last()
+            .map(|commit| commit.commit_hash.as_str())
+            == Some(plan.new_commit_hash.as_str())
+        {
+            let count_before = old_rows.len().saturating_sub(1);
+            for ((path, bytes), sidecar) in plan
+                .artifact_paths
+                .iter()
+                .zip(&plan.artifact_bytes)
+                .zip(&plan.sidecar_paths)
+            {
+                if fs::read(path).ok().as_deref() != Some(bytes.as_slice())
+                    || fs::read(sidecar).ok().as_deref()
+                        != Some(
+                            plan.sidecar_bytes[plan
+                                .artifact_paths
+                                .iter()
+                                .position(|item| item == path)
+                                .unwrap()]
+                            .as_slice(),
+                        )
+                {
+                    let _ = connection.execute_batch("ROLLBACK");
+                    return Err(persistence_bundle_failure(
+                        "persistence_bundle_recovery_conflict",
+                        "committed bundle output is invalid",
+                        Some("payload.artifacts"),
+                    ));
+                }
+            }
+            drop(connection);
+            fs::remove_file(&intent_path).map_err(|_| PersistenceBundleFailure {
+                status: KernelResponseStatus::Error,
+                code: "persistence_bundle_intent_cleanup_failed",
+                message: "bundle intent cleanup failed".to_owned(),
+                path: Some("payload.run_id"),
+                mutation_performed: true,
+            })?;
+            return Ok(commit_bundle_result(&plan, count_before, true));
+        }
+    } else if old_ledger
+        .commits
+        .last()
+        .map(|commit| commit.commit_hash.as_str())
+        != Some(plan.previous_tip_hash.as_str())
+    {
+        let _ = connection.execute_batch("ROLLBACK");
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_tip_mismatch",
+            "expected tip does not match persisted ledger",
+            Some("payload.expected_tip_hash"),
+        ));
+    }
+    if !intent_exists {
+        for (path, sidecar) in plan.artifact_paths.iter().zip(&plan.sidecar_paths) {
+            if fs::symlink_metadata(path).is_ok() || fs::symlink_metadata(sidecar).is_ok() {
+                let _ = connection.execute_batch("ROLLBACK");
+                return Err(persistence_bundle_failure(
+                    "persistence_bundle_target_exists",
+                    "bundle destination already exists",
+                    Some("payload.artifacts"),
+                ));
+            }
+        }
+        let intent = bundle_intent_value(&plan, &root);
+        if let Err(error) = write_bundle_intent(&intent_path, &intent) {
+            let _ = connection.execute_batch("ROLLBACK");
+            return Err(error);
+        }
+    } else if old_ledger
+        .commits
+        .last()
+        .map(|commit| commit.commit_hash.as_str())
+        != Some(plan.previous_tip_hash.as_str())
+        && old_ledger
+            .commits
+            .last()
+            .map(|commit| commit.commit_hash.as_str())
+            != Some(plan.new_commit_hash.as_str())
+    {
+        let _ = connection.execute_batch("ROLLBACK");
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_recovery_conflict",
+            "persisted ledger tip is neither the intent parent nor the committed bundle",
+            Some("payload.expected_tip_hash"),
+        ));
+    }
+    let mut created = Vec::new();
+    for ((path, bytes), sidecar) in plan
+        .artifact_paths
+        .iter()
+        .zip(&plan.artifact_bytes)
+        .zip(&plan.sidecar_paths)
+    {
+        match publish_bundle_file(path, bytes, "artifact") {
+            Ok(true) => created.push(path.clone()),
+            Ok(false) => {}
+            Err(error) => {
+                let _ = connection.execute_batch("ROLLBACK");
+                for item in &created {
+                    let _ = fs::remove_file(item);
+                }
+                if !intent_exists {
+                    let _ = fs::remove_file(&intent_path);
+                }
+                return Err(error);
+            }
+        }
+        let index = plan
+            .artifact_paths
+            .iter()
+            .position(|item| item == path)
+            .expect("bundle index");
+        match publish_bundle_file(sidecar, &plan.sidecar_bytes[index], "sidecar") {
+            Ok(true) => created.push(sidecar.clone()),
+            Ok(false) => {}
+            Err(error) => {
+                let _ = connection.execute_batch("ROLLBACK");
+                for item in &created {
+                    let _ = fs::remove_file(item);
+                }
+                if !intent_exists {
+                    let _ = fs::remove_file(&intent_path);
+                }
+                return Err(error);
+            }
+        }
+    }
+    let artifact_refs_json =
+        canonical_json(&Value::Array(plan.linked_refs.clone())).expect("validated refs");
+    let insert = connection.execute(
+        "INSERT INTO commits (commit_hash,parent_hash,run_id,candidate_id,action_type,payload_json,artifact_refs_json,timestamp) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        params![plan.new_commit_hash, plan.previous_tip_hash, request.run_id, request.candidate_id_optional, request.action_type, plan.commit_payload_json, artifact_refs_json, request.timestamp],
+    );
+    if insert.is_err() {
+        let _ = connection.execute_batch("ROLLBACK");
+        for item in &created {
+            let _ = fs::remove_file(item);
+        }
+        if !intent_exists {
+            let _ = fs::remove_file(&intent_path);
+        }
+        return Err(persistence_bundle_failure(
+            "persistence_bundle_insert_failed",
+            "bundle ledger insert failed",
+            Some("payload"),
+        ));
+    }
+    if connection.execute_batch("COMMIT").is_err() {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_commit_uncertain",
+            message: "bundle commit outcome is uncertain".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
+    drop(connection);
+    let reopened = Connection::open_with_flags(
+        &ledger_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|_| PersistenceBundleFailure {
+        status: KernelResponseStatus::Error,
+        code: "persistence_bundle_postcondition_failed",
+        message: "bundle ledger cannot be reopened".to_owned(),
+        path: Some("payload"),
+        mutation_performed: true,
+    })?;
+    let (new_rows, new_ledger) = validate_exact_read_only_ledger(&reopened, &request.run_id)
+        .map_err(|message| PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message,
+            path: Some("payload"),
+            mutation_performed: true,
+        })?;
+    if new_rows.len() != old_rows.len() + 1
+        || new_rows[..old_rows.len()] != old_rows
+        || new_rows.last().map(|row| row.commit_hash.as_str())
+            != Some(plan.new_commit_hash.as_str())
+        || new_ledger
+            .commits
+            .last()
+            .map(|commit| commit.commit_hash.as_str())
+            != Some(plan.new_commit_hash.as_str())
+    {
+        return Err(PersistenceBundleFailure {
+            status: KernelResponseStatus::Error,
+            code: "persistence_bundle_postcondition_failed",
+            message: "bundle ledger postcondition failed".to_owned(),
+            path: Some("payload"),
+            mutation_performed: true,
+        });
+    }
+    for ((path, bytes), sidecar) in plan
+        .artifact_paths
+        .iter()
+        .zip(&plan.artifact_bytes)
+        .zip(&plan.sidecar_paths)
+    {
+        let index = plan
+            .artifact_paths
+            .iter()
+            .position(|item| item == path)
+            .expect("bundle index");
+        if fs::read(path).ok().as_deref() != Some(bytes.as_slice())
+            || fs::read(sidecar).ok().as_deref() != Some(plan.sidecar_bytes[index].as_slice())
+        {
+            return Err(PersistenceBundleFailure {
+                status: KernelResponseStatus::Error,
+                code: "persistence_bundle_postcondition_failed",
+                message: "bundle output postcondition failed".to_owned(),
+                path: Some("payload.artifacts"),
+                mutation_performed: true,
+            });
+        }
+    }
+    fs::remove_file(&intent_path).map_err(|_| PersistenceBundleFailure {
+        status: KernelResponseStatus::Error,
+        code: "persistence_bundle_intent_cleanup_failed",
+        message: "bundle intent cleanup failed".to_owned(),
+        path: Some("payload.run_id"),
+        mutation_performed: true,
+    })?;
+    Ok(commit_bundle_result(&plan, old_rows.len(), recovered))
 }
 
 fn artifact_persist_failure(
@@ -7762,6 +8821,108 @@ fn validate_accepted_result(response: &WireKernelResponse) -> Result<(), String>
             }
             Ok(())
         }
+        KernelOperation::PersistenceCommitBundle => {
+            require_exact_keys(
+                &response.result,
+                &[
+                    "artifacts",
+                    "commit",
+                    "previous_tip_hash",
+                    "new_tip_hash",
+                    "commit_count_before",
+                    "commit_count_after",
+                    "artifact_count",
+                    "sidecar_count",
+                    "bundle_committed",
+                    "recovered_from_intent",
+                    "authority_granted",
+                ],
+            )?;
+            for field in ["previous_tip_hash", "new_tip_hash"] {
+                require_sha256_field(&response.result, field)?;
+            }
+            let before = response
+                .result
+                .get("commit_count_before")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| "bundle commit_count_before must be an integer".to_owned())?;
+            let after = response
+                .result
+                .get("commit_count_after")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| "bundle commit_count_after must be an integer".to_owned())?;
+            let artifact_count = response
+                .result
+                .get("artifact_count")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| "bundle artifact_count must be an integer".to_owned())?;
+            if before == 0
+                || after != before + 1
+                || !(1..=16).contains(&artifact_count)
+                || response.result.get("sidecar_count")
+                    != Some(&Value::Number(artifact_count.into()))
+                || response.result.get("bundle_committed") != Some(&Value::Bool(true))
+                || !response
+                    .result
+                    .get("recovered_from_intent")
+                    .is_some_and(Value::is_boolean)
+                || response.result.get("authority_granted") != Some(&Value::Bool(false))
+            {
+                return Err("bundle result flags or counts are invalid".to_owned());
+            }
+            let artifacts = response
+                .result
+                .get("artifacts")
+                .and_then(Value::as_array)
+                .ok_or_else(|| "bundle artifacts must be an array".to_owned())?;
+            if artifacts.len() != artifact_count as usize {
+                return Err("bundle artifact count does not match artifacts".to_owned());
+            }
+            for artifact in artifacts {
+                let object = artifact
+                    .as_object()
+                    .ok_or_else(|| "bundle artifact must be an object".to_owned())?;
+                let wire = serde_json::from_value::<WireArtifactRef>(artifact.clone())
+                    .map_err(|error| format!("bundle artifact is invalid: {error}"))?;
+                if object.get("producing_commit_hash") != response.result.get("new_tip_hash")
+                    || validate_artifact_location(
+                        wire.path.split('/').nth(1).unwrap_or_default(),
+                        &wire,
+                    )
+                    .is_err()
+                    || wire.metadata.get("format") != Some(&Value::String("json".to_owned()))
+                    || wire.metadata.get("is_verification_evidence") != Some(&Value::Bool(false))
+                {
+                    return Err("bundle artifact link or metadata is invalid".to_owned());
+                }
+            }
+            let commit = response
+                .result
+                .get("commit")
+                .and_then(Value::as_object)
+                .ok_or_else(|| "bundle commit must be an object".to_owned())?;
+            let wire = serde_json::from_value::<WireLedgerCommit>(Value::Object(commit.clone()))
+                .map_err(|error| format!("bundle commit is invalid: {error}"))?;
+            validate_wire_commit_structure(&wire)?;
+            if wire.commit_hash
+                != response
+                    .result
+                    .get("new_tip_hash")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                || wire.parent_hash.as_deref()
+                    != response
+                        .result
+                        .get("previous_tip_hash")
+                        .and_then(Value::as_str)
+                || wire.artifact_refs.len() != artifacts.len()
+                || compute_wire_commit_hash(&wire)? != wire.commit_hash
+                || commit.get("artifact_refs") != Some(&Value::Array(artifacts.clone()))
+            {
+                return Err("bundle commit fields are invalid".to_owned());
+            }
+            Ok(())
+        }
         KernelOperation::ProtocolValidate => {
             require_exact_keys(&response.result, &["valid", "protocol_name"])?;
             if response.result.get("valid") != Some(&Value::Bool(true)) {
@@ -8578,7 +9739,7 @@ mod tests {
     #[test]
     fn hash_operation_is_read_only_and_returns_digest() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.89.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
+            r#"{"protocol_version":"0.90.0","request_id":"r1","operation":"hash.canonical_json","mode":"DevelopmentCompatibility","payload":{"value":{"b":2,"a":1}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -8604,7 +9765,7 @@ mod tests {
     #[test]
     fn protocol_validation_rejects_unknown_or_malformed_instances() {
         let request: KernelRequest = serde_json::from_str(
-            r#"{"protocol_version":"0.89.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.89.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
+            r#"{"protocol_version":"0.90.0","request_id":"r1","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{"protocol_name":"KernelRequestEnvelope","instance":{"protocol_version":"0.90.0","request_id":"r2","operation":"protocol.validate","mode":"DevelopmentCompatibility","payload":{},"unexpected":true}}}"#,
         )
         .expect("valid request");
         let response = handle_request(request, None);
@@ -8749,7 +9910,7 @@ mod tests {
     #[test]
     fn strict_bundle_structure_preserves_duplicate_member_diagnostic() {
         let request_value = serde_json::json!({
-            "protocol_version": "0.89.0",
+            "protocol_version": "0.90.0",
             "request_id": "duplicate-bundle-member",
             "operation": "evidence.validate_bundle",
             "mode": "StrictProduction",

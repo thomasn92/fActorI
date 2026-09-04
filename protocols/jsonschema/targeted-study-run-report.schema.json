@@ -678,7 +678,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/targeted-study-run-report.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/targeted-study-run-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Top-level targeted-study preflight or execution report.",
@@ -867,7 +867,7 @@
   ],
   "title": "TargetedStudyRunReport",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.TargetedStudyRunReport",
   "x-factori-verification-evidence": false
 }

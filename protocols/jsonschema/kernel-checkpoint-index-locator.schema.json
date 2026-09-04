@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/kernel-checkpoint-index-locator.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/kernel-checkpoint-index-locator.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Latest autonomous checkpoint index locator.",
@@ -22,7 +22,7 @@
   ],
   "title": "KernelCheckpointIndexLocator",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.KernelCheckpointIndexLocator",
   "x-factori-verification-evidence": false
 }

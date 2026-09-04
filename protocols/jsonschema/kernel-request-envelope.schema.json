@@ -710,6 +710,49 @@
       "title": "KernelClaimTableLocator",
       "type": "object"
     },
+    "KernelCommitBundleArtifact": {
+      "additionalProperties": false,
+      "description": "One new JSON artifact in a transactional persistence bundle.",
+      "properties": {
+        "artifact_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "filename_stem_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename Stem Optional"
+        },
+        "json_value": {
+          "title": "Json Value"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "artifact_type",
+        "json_value"
+      ],
+      "title": "KernelCommitBundleArtifact",
+      "type": "object"
+    },
     "KernelEvidenceClassifyPayload": {
       "additionalProperties": false,
       "description": "Payload for read-only classification of one persisted artifact.",
@@ -1068,6 +1111,118 @@
       "title": "KernelMode",
       "type": "string"
     },
+    "KernelPersistenceCommitBundlePayload": {
+      "additionalProperties": false,
+      "description": "Crash-recoverable JSON artifact/commit/sidecar composition request.",
+      "properties": {
+        "action_type": {
+          "$ref": "#/$defs/ControllerActionType"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/KernelCommitBundleArtifact"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "candidate_id_optional": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Id Optional"
+        },
+        "commit_payload": {
+          "additionalProperties": true,
+          "title": "Commit Payload",
+          "type": "object"
+        },
+        "expected_tip_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Tip Hash",
+          "type": "string"
+        },
+        "overwrite_policy": {
+          "const": "FailIfExists",
+          "default": "FailIfExists",
+          "title": "Overwrite Policy",
+          "type": "string"
+        },
+        "recovery_policy": {
+          "const": "ResumeExact",
+          "default": "ResumeExact",
+          "title": "Recovery Policy",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "format": "date-time",
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Timestamp",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "expected_tip_hash",
+        "artifacts",
+        "action_type",
+        "commit_payload",
+        "timestamp"
+      ],
+      "title": "KernelPersistenceCommitBundlePayload",
+      "type": "object"
+    },
+    "KernelPersistenceCommitBundleRequest": {
+      "additionalProperties": false,
+      "description": "Request for one crash-recoverable artifact/commit/sidecar bundle.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/KernelMode"
+        },
+        "operation": {
+          "const": "persistence.commit_bundle",
+          "title": "Operation",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/KernelPersistenceCommitBundlePayload"
+        },
+        "protocol_version": {
+          "minLength": 1,
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "request_id",
+        "mode",
+        "operation",
+        "payload"
+      ],
+      "title": "KernelPersistenceCommitBundleRequest",
+      "type": "object"
+    },
     "KernelProtocolValidatePayload": {
       "additionalProperties": false,
       "description": "Payload for validating one supported kernel protocol instance.",
@@ -1315,7 +1470,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/kernel-request-envelope.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/kernel-request-envelope.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Versioned request envelope for the research kernel boundary.",
   "discriminator": {
@@ -1330,6 +1485,7 @@
       "hash.canonical_json": "#/$defs/KernelCanonicalJsonRequest",
       "ledger.append": "#/$defs/KernelLedgerAppendRequest",
       "ledger.verify": "#/$defs/KernelLedgerVerifyRequest",
+      "persistence.commit_bundle": "#/$defs/KernelPersistenceCommitBundleRequest",
       "protocol.validate": "#/$defs/KernelProtocolValidateRequest",
       "replay.verify_core": "#/$defs/KernelReplayVerifyCoreRequest"
     },
@@ -1371,10 +1527,13 @@
     },
     {
       "$ref": "#/$defs/KernelArtifactLinkRequest"
+    },
+    {
+      "$ref": "#/$defs/KernelPersistenceCommitBundleRequest"
     }
   ],
   "title": "KernelRequestEnvelope",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.KernelRequestEnvelope",
   "x-factori-verification-evidence": false
 }

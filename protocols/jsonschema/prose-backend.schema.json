@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/prose-backend.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/prose-backend.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Prose backend enum.",
   "enum": [
@@ -8,7 +8,7 @@
   ],
   "title": "ProseBackend",
   "type": "string",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.protocols.ProseBackend",
   "x-factori-verification-evidence": false
 }

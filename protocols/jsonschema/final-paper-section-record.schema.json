@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/final-paper-section-record.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/final-paper-section-record.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One retained final-paper section and its source-artifact links.",
@@ -70,7 +70,7 @@
   ],
   "title": "FinalPaperSectionRecord",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.FinalPaperSectionRecord",
   "x-factori-verification-evidence": false
 }

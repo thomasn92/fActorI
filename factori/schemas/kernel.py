@@ -38,6 +38,7 @@ class KernelOperation(StrEnum):
     ARTIFACT_PERSIST = "artifact.persist"
     LEDGER_APPEND = "ledger.append"
     ARTIFACT_LINK = "artifact.link"
+    PERSISTENCE_COMMIT_BUNDLE = "persistence.commit_bundle"
 
 
 class KernelResponseStatus(StrEnum):
@@ -491,6 +492,131 @@ class KernelArtifactLinkPayload(StrictModel):
         return self
 
 
+class KernelCommitBundleArtifact(StrictModel):
+    """One new JSON artifact in a transactional persistence bundle."""
+
+    artifact_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    artifact_type: ArtifactType
+    json_value: Any
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    filename_stem_optional: str | None = Field(default=None, pattern=_KERNEL_IDENTIFIER_PATTERN)
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(value) > 64:
+            raise ValueError("metadata must contain at most 64 entries")
+        for key in value:
+            if len(key.encode("utf-8")) > 128:
+                raise ValueError("metadata keys must be at most 128 UTF-8 bytes")
+            if key in {"format", "producer", "is_verification_evidence"}:
+                raise ValueError(f"metadata key is kernel-controlled: {key}")
+        if _contains_forbidden_kernel_authority(value):
+            raise ValueError("metadata contains forbidden authority values")
+        return value
+
+    @model_validator(mode="after")
+    def validate_serialized_bounds(self) -> KernelCommitBundleArtifact:
+        try:
+            metadata_json = json.dumps(
+                to_jsonable(self.metadata),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            payload_json = (
+                json.dumps(
+                    to_jsonable(self.json_value),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+                + "\n"
+            ).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"bundle artifact values must be valid JSON: {exc}") from exc
+        if len(metadata_json) > 64 * 1024:
+            raise ValueError("metadata exceeds 64 KiB serialized size")
+        if len(payload_json) > 12 * 1024 * 1024:
+            raise ValueError("serialized JSON payload exceeds 12 MiB")
+        return self
+
+
+class KernelPersistenceCommitBundlePayload(StrictModel):
+    """Crash-recoverable JSON artifact/commit/sidecar composition request."""
+
+    run_id: str = Field(min_length=1, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    expected_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    artifacts: list[KernelCommitBundleArtifact] = Field(min_length=1, max_length=16)
+    action_type: ControllerActionType
+    commit_payload: dict[str, Any]
+    candidate_id_optional: str | None = Field(default=None, pattern=_KERNEL_IDENTIFIER_PATTERN)
+    timestamp: str = Field(min_length=1, max_length=32)
+    overwrite_policy: Literal["FailIfExists"] = "FailIfExists"
+    recovery_policy: Literal["ResumeExact"] = "ResumeExact"
+
+    @field_validator("action_type")
+    @classmethod
+    def reject_init_run(cls, value: ControllerActionType) -> ControllerActionType:
+        if value is ControllerActionType.INIT_RUN:
+            raise ValueError("persistence.commit_bundle does not support InitRun")
+        return value
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: str) -> str:
+        return KernelLedgerAppendPayload.validate_timestamp(value)
+
+    @model_validator(mode="after")
+    def validate_bundle(self) -> KernelPersistenceCommitBundlePayload:
+        ids = [item.artifact_id for item in self.artifacts]
+        if len(ids) != len(set(ids)):
+            raise ValueError("bundle artifact IDs must be unique")
+        paths = [
+            (
+                "runs",
+                self.run_id,
+                _KERNEL_ARTIFACT_DIRECTORY_BY_TYPE[item.artifact_type],
+                f"{item.filename_stem_optional or item.artifact_id}.json",
+            )
+            for item in self.artifacts
+        ]
+        if len(paths) != len(set(paths)):
+            raise ValueError("bundle artifact paths must be unique")
+        try:
+            payload_json = json.dumps(
+                to_jsonable(self.commit_payload),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            artifact_bytes = sum(
+                len(
+                    (
+                        json.dumps(
+                            to_jsonable(item.json_value),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                            ensure_ascii=False,
+                            allow_nan=False,
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+                )
+                for item in self.artifacts
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"bundle values must be valid JSON: {exc}") from exc
+        if len(payload_json) > 4 * 1024 * 1024:
+            raise ValueError("serialized commit payload exceeds 4 MiB")
+        if artifact_bytes > 12 * 1024 * 1024:
+            raise ValueError("aggregate artifact payload exceeds 12 MiB")
+        return self
+
+
 class KernelRequestFields(StrictModel):
     """Fields common to every kernel request variant."""
 
@@ -583,6 +709,13 @@ class KernelArtifactLinkRequest(KernelRequestFields):
     payload: KernelArtifactLinkPayload
 
 
+class KernelPersistenceCommitBundleRequest(KernelRequestFields):
+    """Request for one crash-recoverable artifact/commit/sidecar bundle."""
+
+    operation: Literal[KernelOperation.PERSISTENCE_COMMIT_BUNDLE]
+    payload: KernelPersistenceCommitBundlePayload
+
+
 KernelRequestVariant = Annotated[
     KernelCanonicalJsonRequest
     | KernelProtocolValidateRequest
@@ -595,7 +728,8 @@ KernelRequestVariant = Annotated[
     | KernelReplayVerifyCoreRequest
     | KernelArtifactPersistRequest
     | KernelLedgerAppendRequest
-    | KernelArtifactLinkRequest,
+    | KernelArtifactLinkRequest
+    | KernelPersistenceCommitBundleRequest,
     Field(discriminator="operation"),
 ]
 
@@ -638,6 +772,7 @@ class KernelRequestEnvelope(RootModel[KernelRequestVariant]):
         | KernelArtifactPersistPayload
         | KernelLedgerAppendPayload
         | KernelArtifactLinkPayload
+        | KernelPersistenceCommitBundlePayload
     ):
         return self.root.payload
 
@@ -1086,6 +1221,58 @@ class KernelArtifactLinkResult(StrictModel):
         return self
 
 
+class KernelPersistenceCommitBundleResult(StrictModel):
+    """Accepted result for one artifact-bearing persistence bundle."""
+
+    artifacts: list[ArtifactRef] = Field(min_length=1, max_length=16)
+    commit: LedgerCommit
+    previous_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    new_tip_hash: str = Field(pattern=HASH_RE.pattern)
+    commit_count_before: int = Field(ge=1, strict=True)
+    commit_count_after: int = Field(ge=2, strict=True)
+    artifact_count: int = Field(ge=1, le=16, strict=True)
+    sidecar_count: int = Field(ge=1, le=16, strict=True)
+    bundle_committed: Literal[True]
+    recovered_from_intent: bool = Field(strict=True)
+    authority_granted: Literal[False]
+
+    @field_validator("bundle_committed", mode="before")
+    @classmethod
+    def require_strict_bundle_commit(cls, value: Any) -> Any:
+        if value is not True:
+            raise ValueError("bundle_committed must be boolean true")
+        return value
+
+    @field_validator("authority_granted", mode="before")
+    @classmethod
+    def require_strict_bundle_authority(cls, value: Any) -> Any:
+        if value is not False:
+            raise ValueError("authority_granted must be boolean false")
+        return value
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> KernelPersistenceCommitBundleResult:
+        if self.previous_tip_hash != self.commit.parent_hash:
+            raise ValueError("bundle commit parent must equal previous tip")
+        if self.new_tip_hash != self.commit.commit_hash:
+            raise ValueError("bundle new tip must equal commit hash")
+        if self.commit_count_after != self.commit_count_before + 1:
+            raise ValueError("bundle commit count must increase by one")
+        if self.artifact_count != len(self.artifacts) or self.sidecar_count != len(self.artifacts):
+            raise ValueError("bundle output counts must equal artifact count")
+        if len(self.commit.artifact_refs) != len(self.artifacts):
+            raise ValueError("bundle commit references must equal result artifacts")
+        if [item.model_dump(mode="json") for item in self.commit.artifact_refs] != [
+            item.model_dump(mode="json") for item in self.artifacts
+        ]:
+            raise ValueError("bundle result artifacts must equal commit references")
+        if any(item.producing_commit_hash != self.commit.commit_hash for item in self.artifacts):
+            raise ValueError("bundle artifacts must be linked to the new commit")
+        if self.commit.action_type is ControllerActionType.INIT_RUN:
+            raise ValueError("bundle cannot return an InitRun commit")
+        return self
+
+
 KernelResult = Annotated[
     KernelEmptyResult
     | KernelCanonicalJsonResult
@@ -1099,7 +1286,8 @@ KernelResult = Annotated[
     | KernelReplayVerifyCoreResult
     | KernelArtifactPersistResult
     | KernelLedgerAppendResult
-    | KernelArtifactLinkResult,
+    | KernelArtifactLinkResult
+    | KernelPersistenceCommitBundleResult,
     Field(union_mode="left_to_right"),
 ]
 
@@ -1243,6 +1431,62 @@ class KernelResponseEnvelope(StrictModel):
                 "artifact_link_postcondition_failed",
             }:
                 raise ValueError("artifact.link rejection diagnostics are invalid")
+        elif self.operation == KernelOperation.PERSISTENCE_COMMIT_BUNDLE:
+            bundle_codes = {
+                "persistence_bundle_run_missing",
+                "persistence_bundle_directory_invalid",
+                "persistence_bundle_payload_invalid",
+                "persistence_bundle_size_exceeded",
+                "persistence_bundle_duplicate",
+                "persistence_bundle_target_exists",
+                "persistence_bundle_ledger_invalid",
+                "persistence_bundle_tip_mismatch",
+                "persistence_bundle_busy",
+                "persistence_bundle_intent_write_failed",
+                "persistence_bundle_recovery_required",
+                "persistence_bundle_recovery_invalid",
+                "persistence_bundle_recovery_conflict",
+                "persistence_bundle_temp_write_failed",
+                "persistence_bundle_snapshot_changed",
+                "persistence_bundle_publish_failed",
+                "persistence_bundle_rollback_uncertain",
+                "persistence_bundle_insert_failed",
+                "persistence_bundle_commit_uncertain",
+                "persistence_bundle_durability_uncertain",
+                "persistence_bundle_intent_cleanup_failed",
+                "persistence_bundle_postcondition_failed",
+            }
+            if any(item.code not in bundle_codes for item in self.diagnostics):
+                raise ValueError("persistence.commit_bundle response has an invalid diagnostic")
+            if self.status == KernelResponseStatus.ACCEPTED:
+                if not self.mutation_performed or self.diagnostics:
+                    raise ValueError("accepted persistence bundles must be committed")
+            elif len(self.diagnostics) != 1:
+                raise ValueError("persistence.commit_bundle responses require one diagnostic")
+            if self.status != KernelResponseStatus.ACCEPTED and self.mutation_performed:
+                allowed = {
+                    "persistence_bundle_rollback_uncertain",
+                    "persistence_bundle_recovery_conflict",
+                    "persistence_bundle_commit_uncertain",
+                    "persistence_bundle_durability_uncertain",
+                    "persistence_bundle_intent_cleanup_failed",
+                    "persistence_bundle_postcondition_failed",
+                }
+                if (
+                    self.status != KernelResponseStatus.ERROR
+                    or self.diagnostics[0].code not in allowed
+                ):
+                    raise ValueError("persistence.commit_bundle mutation flag is invalid")
+            elif self.status != KernelResponseStatus.ACCEPTED and not self.mutation_performed:
+                disallowed = {
+                    "persistence_bundle_rollback_uncertain",
+                    "persistence_bundle_commit_uncertain",
+                    "persistence_bundle_durability_uncertain",
+                    "persistence_bundle_intent_cleanup_failed",
+                    "persistence_bundle_postcondition_failed",
+                }
+                if self.diagnostics[0].code in disallowed:
+                    raise ValueError("persistence.commit_bundle rejection diagnostic is invalid")
         elif self.mutation_performed:
             raise ValueError("kernel responses must not report mutations")
         if self.status != KernelResponseStatus.ACCEPTED:
@@ -1262,6 +1506,7 @@ class KernelResponseEnvelope(StrictModel):
             KernelOperation.ARTIFACT_PERSIST: KernelArtifactPersistResult,
             KernelOperation.LEDGER_APPEND: KernelLedgerAppendResult,
             KernelOperation.ARTIFACT_LINK: KernelArtifactLinkResult,
+            KernelOperation.PERSISTENCE_COMMIT_BUNDLE: KernelPersistenceCommitBundleResult,
         }[self.operation]
         if not isinstance(self.result, expected_result):
             raise ValueError(
@@ -1271,6 +1516,7 @@ class KernelResponseEnvelope(StrictModel):
 
 
 __all__ = [
+    "KernelCommitBundleArtifact",
     "KernelCanonicalJsonPayload",
     "KernelCanonicalJsonResult",
     "KernelCanonicalJsonRequest",
@@ -1316,6 +1562,9 @@ __all__ = [
     "KernelArtifactLinkPayload",
     "KernelArtifactLinkRequest",
     "KernelArtifactLinkResult",
+    "KernelPersistenceCommitBundlePayload",
+    "KernelPersistenceCommitBundleRequest",
+    "KernelPersistenceCommitBundleResult",
     "KernelAutonomousCheckpointStage",
     "KernelAutonomousCheckpointVerificationStatus",
     "KernelAutonomousPaperCheckpoint",

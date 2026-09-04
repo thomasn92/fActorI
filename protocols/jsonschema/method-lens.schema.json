@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/method-lens.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/method-lens.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One mathematical or computational method lens for Stage 0 discovery.",
@@ -75,7 +75,7 @@
   ],
   "title": "MethodLens",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.MethodLens",
   "x-factori-verification-evidence": false
 }

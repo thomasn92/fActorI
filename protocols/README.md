@@ -4,7 +4,9 @@ This directory contains language-neutral developer contracts generated from the 
 existing Pydantic models. They are intended for Python tools, future Rust crates, future servers,
 and coding agents that need a stable boundary without importing the Python runtime.
 
-Protocol `0.89.0` adds atomic `artifact.link` producer-sidecar persistence for an artifact already
+Protocol `0.90.0` adds crash-recoverable transactional `persistence.commit_bundle` persistence for
+one to sixteen JSON artifacts, their producer sidecars, and one non-root ledger commit, without
+granting authority. Protocol `0.89.0` adds atomic `artifact.link` producer-sidecar persistence for an artifact already
 bound to an existing valid ledger commit, without granting authority. Protocol `0.88.0` adds
 transactional artifact-free `ledger.append` persistence with strict tip validation and no authority
 grant. Protocol `0.87.0` adds atomic JSON-only `artifact.persist` persistence with no ledger link or

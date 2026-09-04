@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/manuscript-critic-role.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/manuscript-critic-role.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "description": "Independent bounded critic perspective for a nucleus-centered manuscript.",
   "enum": [
@@ -14,7 +14,7 @@
   ],
   "title": "ManuscriptCriticRole",
   "type": "string",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.ManuscriptCriticRole",
   "x-factori-verification-evidence": false
 }

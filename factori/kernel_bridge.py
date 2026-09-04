@@ -6,6 +6,7 @@ import json
 import re
 import sqlite3
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,7 @@ from factori.schemas import (
     KernelClaimResolvePayload,
     KernelClaimResolveRequest,
     KernelClaimResolveResult,
+    KernelCommitBundleArtifact,
     KernelEvidenceBundle,
     KernelEvidenceClassifyRequest,
     KernelEvidenceClassifyResult,
@@ -48,6 +50,9 @@ from factori.schemas import (
     KernelLedgerVerifyRequest,
     KernelLedgerVerifyResult,
     KernelMode,
+    KernelPersistenceCommitBundlePayload,
+    KernelPersistenceCommitBundleRequest,
+    KernelPersistenceCommitBundleResult,
     KernelReplayVerifyCorePayload,
     KernelReplayVerifyCoreRequest,
     KernelReplayVerifyCoreResult,
@@ -548,6 +553,173 @@ def link_artifact(
 
 
 link_artifact_to_commit = link_artifact
+
+
+def commit_artifact_bundle(
+    run_id: str,
+    expected_tip_hash: str,
+    artifacts: Sequence[KernelCommitBundleArtifact | dict[str, Any]],
+    action_type: ControllerActionType,
+    commit_payload: dict[str, Any],
+    *,
+    candidate_id_optional: str | None = None,
+    timestamp: str,
+    mode: KernelMode = KernelMode.DEVELOPMENT_COMPATIBILITY,
+    root: str | Path = ".",
+    kernel_binary: str | Path | None = None,
+    timeout_seconds: float = 30.0,
+) -> KernelResponseEnvelope:
+    """Publish a crash-recoverable artifact/ledger/sidecar bundle through Rust.
+
+    This remains a shadow bridge: it verifies the deterministic Rust result and persisted
+    postconditions, while Rust owns the mutation and recovery boundary.
+    """
+    root_path = Path(root).resolve()
+    normalized_artifacts = [
+        item
+        if isinstance(item, KernelCommitBundleArtifact)
+        else KernelCommitBundleArtifact.model_validate(item)
+        for item in artifacts
+    ]
+    payload = KernelPersistenceCommitBundlePayload(
+        run_id=run_id,
+        expected_tip_hash=expected_tip_hash,
+        artifacts=normalized_artifacts,
+        action_type=action_type,
+        commit_payload=commit_payload,
+        candidate_id_optional=candidate_id_optional,
+        timestamp=timestamp,
+        overwrite_policy="FailIfExists",
+        recovery_policy="ResumeExact",
+    )
+    normalized_payload = json.loads(canonical_json(payload.commit_payload))
+    payload = payload.model_copy(update={"commit_payload": normalized_payload})
+    run_path = root_path / "runs" / run_id
+    ledger_path = run_path / "ledger.sqlite"
+    before = _snapshot_run_state_raw(root_path, run_id)
+    try:
+        old_commits = _validated_linear_ledger_snapshot(
+            ResearchLedger.open_existing(ledger_path), run_id
+        )
+    except (LedgerError, OSError, sqlite3.Error, ValueError) as exc:
+        raise KernelBridgeError(f"could not read persisted ledger: {exc}") from exc
+    if not old_commits or old_commits[-1].commit_hash != expected_tip_hash:
+        raise KernelBridgeError("expected tip does not match the persisted ledger")
+
+    refs: list[ArtifactRef] = []
+    expected_files: dict[Path, bytes] = {}
+    for item in normalized_artifacts:
+        directory = ARTIFACT_DIRECTORY_BY_TYPE[item.artifact_type]
+        stem = item.filename_stem_optional or item.artifact_id
+        relative = Path("runs") / run_id / directory / f"{stem}.json"
+        value_bytes = (canonical_json(item.json_value) + "\n").encode("utf-8")
+        metadata = {
+            **item.metadata,
+            "format": "json",
+            "is_verification_evidence": False,
+        }
+        ref = ArtifactRef(
+            id=item.artifact_id,
+            type=item.artifact_type,
+            path=relative.as_posix(),
+            content_hash=sha256_bytes(value_bytes),
+            producing_commit_hash=None,
+            metadata=metadata,
+        )
+        refs.append(ref)
+        expected_files[relative] = value_bytes
+    expected_hash = compute_commit_hash(
+        parent_hash=expected_tip_hash,
+        run_id=run_id,
+        candidate_id=candidate_id_optional,
+        action_type=action_type,
+        payload=normalized_payload,
+        artifact_refs=refs,
+        timestamp=timestamp,
+        self_link_artifact_ids={ref.id for ref in refs},
+    )
+    linked_refs = [ref.model_copy(update={"producing_commit_hash": expected_hash}) for ref in refs]
+    for ref in linked_refs:
+        expected_files[Path(f"{ref.path}.meta.json")] = (
+            canonical_json(ref.model_dump(mode="json")).encode("utf-8") + b"\n"
+        )
+    request = KernelPersistenceCommitBundleRequest(
+        protocol_version=PROTOCOL_VERSION,
+        request_id=f"persistence-commit-bundle-{run_id}-{expected_hash[:12]}",
+        operation="persistence.commit_bundle",
+        mode=mode,
+        payload=payload,
+    )
+    binary = (
+        Path(kernel_binary)
+        if kernel_binary is not None
+        else root_path / "rust-kernel" / "target" / "debug" / "factori-kernel"
+    )
+    response = _invoke_kernel(
+        request, binary=binary, root=root_path, timeout_seconds=timeout_seconds
+    )
+    if response.status == KernelResponseStatus.ACCEPTED:
+        result = response.result
+        if not isinstance(result, KernelPersistenceCommitBundleResult):
+            raise KernelBridgeError("Rust bundle response has the wrong result type")
+        expected_commit = LedgerCommit(
+            commit_hash=expected_hash,
+            parent_hash=expected_tip_hash,
+            run_id=run_id,
+            candidate_id=candidate_id_optional,
+            action_type=action_type,
+            payload=normalized_payload,
+            artifact_refs=linked_refs,
+            timestamp=timestamp,
+        )
+        if (
+            result.artifacts != linked_refs
+            or result.commit != expected_commit
+            or result.previous_tip_hash != expected_tip_hash
+            or result.new_tip_hash != expected_hash
+            or result.commit_count_before != len(old_commits)
+            or result.commit_count_after != len(old_commits) + 1
+            or result.artifact_count != len(refs)
+            or result.sidecar_count != len(refs)
+            or result.bundle_committed is not True
+            or result.authority_granted is not False
+            or not response.mutation_performed
+        ):
+            raise KernelBridgeError("Rust bundle response does not match request")
+        observed = _validated_linear_ledger_snapshot(
+            ResearchLedger.open_existing(ledger_path), run_id
+        )
+        if (
+            len(observed) != len(old_commits) + 1
+            or [c.model_dump(mode="json") for c in observed[:-1]]
+            != [c.model_dump(mode="json") for c in old_commits]
+            or observed[-1] != expected_commit
+        ):
+            raise KernelBridgeError("bundle changed the existing ledger prefix")
+        after = _snapshot_run_state_raw(root_path, run_id)
+        for path, expected in expected_files.items():
+            if path not in after or after[path] != ("file", expected):
+                raise KernelBridgeError(f"bundle output bytes do not match: {path}")
+        ledger_key = ledger_path.relative_to(root_path)
+        if any(
+            after.get(path) != digest
+            for path, digest in before.items()
+            if path not in expected_files and path != ledger_key
+        ):
+            raise KernelBridgeError("bundle changed pre-existing run state")
+        extras = set(after) - set(before) - {ledger_key} - set(expected_files)
+        intent_key = (run_path / ".factori-commit-bundle.intent.json").relative_to(root_path)
+        extras.discard(intent_key)
+        if extras:
+            raise KernelBridgeError("bundle created unexpected files")
+    elif response.mutation_performed:
+        raise KernelBridgeError("bundle failed after mutation; inspect run state")
+    elif _snapshot_run_state_raw(root_path, run_id) != before:
+        raise KernelBridgeError("rejected bundle changed run state")
+    return response
+
+
+commit_bundle = commit_artifact_bundle
 
 
 def _validated_linear_ledger_snapshot(ledger: ResearchLedger, run_id: str) -> list[LedgerCommit]:
@@ -1120,6 +1292,7 @@ def _invoke_kernel(
         | KernelArtifactPersistRequest
         | KernelLedgerAppendRequest
         | KernelArtifactLinkRequest
+        | KernelPersistenceCommitBundleRequest
     ),
     *,
     binary: Path,
@@ -1162,6 +1335,8 @@ __all__ = [
     "persist_artifact",
     "append_ledger_commit",
     "append_ledger",
+    "commit_artifact_bundle",
+    "commit_bundle",
     "classify_persisted_artifact",
     "verify_persisted_autonomous_checkpoints",
     "verify_persisted_replay_core",

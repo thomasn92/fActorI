@@ -23,7 +23,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/retrieval-adequacy-certificate.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/retrieval-adequacy-certificate.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded retrieval adequacy signal, not novelty proof.",
@@ -144,7 +144,7 @@
   ],
   "title": "RetrievalAdequacyCertificate",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.RetrievalAdequacyCertificate",
   "x-factori-verification-evidence": false
 }

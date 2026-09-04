@@ -47,7 +47,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/substrate-experiment-result.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/substrate-experiment-result.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Bounded substrate experiment outcome without broad validation authority.",
@@ -145,7 +145,7 @@
   ],
   "title": "SubstrateExperimentResult",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.SubstrateExperimentResult",
   "x-factori-verification-evidence": false
 }

@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/llm-pair-ranking-prompt.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/llm-pair-ranking-prompt.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Secret-free structured prompt contract for one LLM ranking batch.",
@@ -69,7 +69,7 @@
   ],
   "title": "LLMPairRankingPrompt",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.LLMPairRankingPrompt",
   "x-factori-verification-evidence": false
 }

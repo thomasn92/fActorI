@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/final-paper-verification-finding.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/final-paper-verification-finding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "One local final-paper structural, claim, citation, or integrity finding.",
@@ -76,7 +76,7 @@
   ],
   "title": "FinalPaperVerificationFinding",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.FinalPaperVerificationFinding",
   "x-factori-verification-evidence": false
 }

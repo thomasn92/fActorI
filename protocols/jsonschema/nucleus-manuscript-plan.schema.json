@@ -295,7 +295,7 @@
       "type": "string"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/nucleus-manuscript-plan.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/nucleus-manuscript-plan.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "LLM-authored scientific paper shape constrained by an adjudicated nucleus.",
@@ -492,7 +492,7 @@
   ],
   "title": "NucleusManuscriptPlan",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.NucleusManuscriptPlan",
   "x-factori-verification-evidence": false
 }

@@ -210,7 +210,7 @@
       "type": "object"
     }
   },
-  "$id": "https://schemas.factori.local/0.89.0/final-paper-assembly-report.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/final-paper-assembly-report.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Append-only assembly or bundle report for a bounded final paper.",
@@ -505,7 +505,7 @@
   ],
   "title": "FinalPaperAssemblyReport",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.FinalPaperAssemblyReport",
   "x-factori-verification-evidence": false
 }

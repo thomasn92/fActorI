@@ -1,5 +1,5 @@
 {
-  "$id": "https://schemas.factori.local/0.89.0/final-paper-artifact-binding.schema.json",
+  "$id": "https://schemas.factori.local/0.90.0/final-paper-artifact-binding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "Resolved final-paper link to one immutable source artifact.",
@@ -93,7 +93,7 @@
   ],
   "title": "FinalPaperArtifactBinding",
   "type": "object",
-  "x-factori-protocol-version": "0.89.0",
+  "x-factori-protocol-version": "0.90.0",
   "x-factori-source-model": "factori.schemas.FinalPaperArtifactBinding",
   "x-factori-verification-evidence": false
 }
